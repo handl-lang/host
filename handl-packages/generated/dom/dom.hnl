@@ -1,0 +1,1570 @@
+--- Generated port for dom.dom
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The AbortController interface represents a controller object that allows you to abort one or more Web requests as and when desired.
+export AbortController := {
+  --- The signal read-only property of the AbortController interface returns an AbortSignal object instance, which can be used to communicate with/abort an asynchronous operation as desired.
+  signal: Handle
+}
+
+--- The AbortSignal interface represents a signal object that allows you to communicate with an asynchronous operation (such as a fetch request) and abort it if required via an AbortController object.
+export AbortSignal := {
+  --- The aborted read-only property returns a value that indicates whether the asynchronous operations the signal is communicating with are aborted (true) or not (false).
+  aborted: Bool,
+  --- The reason read-only property returns a JavaScript value that indicates the abort reason.
+  reason: Handle,
+  --- The abort event of the AbortSignal is fired when the associated request is aborted, i.e., using AbortController.abort().
+  onabort: Handle
+}
+
+--- The AbstractRange abstract interface is the base class upon which all DOM range types are defined. A range is an object that indicates the start and end points of a section of content within the document.
+export AbstractRange := {
+  --- The read-only startContainer property of the AbstractRange interface returns the Node in which the start of the range is located.
+  startContainer: Handle,
+  --- The read-only startOffset property of the AbstractRange interface returns the offset into the start node of the range's start position.
+  startOffset: Nat,
+  --- The read-only endContainer property of the AbstractRange interface returns the Node in which the end of the range is located.
+  endContainer: Handle,
+  --- The endOffset property of the AbstractRange interface returns the offset into the end node of the range's end position.
+  endOffset: Nat,
+  --- The read-only collapsed property of the AbstractRange interface returns true if the range's start position and end position are the same.
+  collapsed: Bool
+}
+
+export AddEventListenerOptions := {
+  passive: Bool,
+  once: Bool,
+  signal: Handle
+}
+
+--- The Attr interface represents one of an element's attributes as an object. In most situations, you will directly retrieve the attribute value as a string (e.g., Element.getAttribute()), but some cases may require interacting with Attr instances (e.g., Element.getAttributeNode()).
+export Attr := {
+  --- The read-only namespaceURI property of the Attr interface returns the namespace URI of the attribute,
+  --- or null if the element is not in a namespace.
+  namespaceURI: Handle,
+  --- The read-only prefix property of the Attr returns the namespace prefix of the attribute, or null if no prefix is specified.
+  prefix: Handle,
+  --- The read-only localName property of the Attr interface returns the local part of the qualified name of an attribute, that is the name of the attribute, stripped from any namespace in front of it. For example, if the qualified name is xml:lang, the returned local name is lang, if the element supports that namespace.
+  localName: String,
+  --- The read-only name property of the Attr interface returns the qualified name of an attribute, that is the name of the attribute, with the namespace prefix, if any, in front of it. For example, if the local name is lang and the namespace prefix is xml, the returned qualified name is xml:lang.
+  name: String,
+  --- The value property of the Attr interface contains the value of the attribute.
+  value: String,
+  --- The read-only ownerElement property of the Attr interface returns the Element the attribute belongs to.
+  ownerElement: Handle,
+  --- historical; always returns true
+  specified: Bool
+}
+
+--- The CDATASection interface represents a CDATA section
+--- that can be used within XML to include extended portions of unescaped text.
+--- When inside a CDATA section, the symbols < and & don't need escaping
+--- as they normally do.
+export CDATASection := {
+}
+
+--- The CharacterData abstract interface represents a Node object that contains characters. This is an abstract interface, meaning there aren't any objects of type CharacterData: it is implemented by other interfaces like Text, Comment, CDATASection, or ProcessingInstruction, which aren't abstract.
+export CharacterData := {
+  --- The data property of the CharacterData interface represents the value of the current object's data.
+  data: String,
+  --- The read-only CharacterData.length property
+  --- returns the number of characters in the contained data, as a positive integer.
+  length: Nat
+}
+
+export ChildNode := {
+}
+
+--- The Comment interface represents textual notations within markup; although it is generally not visually shown, such comments are available to be read in the source view.
+export Comment := {
+}
+
+--- The CustomEvent interface can be used to attach custom data to an event generated by an application.
+export CustomEvent := {
+  --- The read-only detail property of the CustomEvent interface returns any data passed when initializing the event.
+  detail: Handle
+}
+
+export CustomEventInit := {
+  detail: Handle
+}
+
+--- The DOMImplementation interface represents an object providing methods which are not dependent on any particular document. Such an object is returned by the Document.implementation property.
+export DOMImplementation := {
+}
+
+--- The DOMTokenList interface represents a set of space-separated tokens. Such a set is returned by Element.classList or HTMLLinkElement.relList, and many others.
+export DOMTokenList := {
+  --- The read-only length property of the DOMTokenList interface is an integer representing the number
+  --- of objects stored in the object.
+  length: Nat,
+  --- The value property of the DOMTokenList
+  --- interface is a stringifier that returns the value of the list serialized as a
+  --- string, or clears and sets the list to the given value.
+  value: String
+}
+
+--- The Document interface represents any web page loaded in the browser and serves as an entry point into the web page's content, which is the DOM tree.
+export Document := {
+  --- The Document.implementation property returns a
+  --- DOMImplementation object associated with the current document.
+  implementation: Handle,
+  --- The URL read-only property of the Document
+  --- interface returns the document location as a string.
+  URL: String,
+  --- The documentURI read-only property of the
+  --- Document interface returns the document location as a string.
+  documentURI: String,
+  --- The Document.compatMode read-only property indicates
+  --- whether the document is rendered in Quirks mode or
+  --- Standards mode.
+  compatMode: String,
+  --- The Document.characterSet
+  --- read-only property returns the character encoding of the
+  --- document that it's currently rendered with.
+  characterSet: String,
+  --- legacy alias of .characterSet
+  charset: String,
+  --- legacy alias of .characterSet
+  inputEncoding: String,
+  --- The Document.contentType read-only property returns the
+  --- MIME type that the document is being rendered as. This may come from HTTP headers or
+  --- other sources of MIME information, and might be affected by automatic type conversions
+  --- performed by either the browser or extensions.
+  contentType: String,
+  --- The doctype read-only property of the Document interface is a DocumentType object representing the Document Type Declaration (DTD) associated with the current document.
+  doctype: Handle,
+  --- The documentElement read-only property of the Document interface returns the
+  --- Element that is the root element of the document (for
+  --- example, the <html> element for HTML documents).
+  documentElement: Handle
+}
+
+--- The DocumentFragment interface represents a minimal document object that has no parent.
+export DocumentFragment := {
+}
+
+export DocumentOrShadowRoot := {
+  customElementRegistry: Handle
+}
+
+--- The DocumentType interface represents a Node containing a doctype.
+export DocumentType := {
+  --- The read-only name property of the DocumentType returns the type of the document.
+  name: String,
+  --- The read-only publicId property of the DocumentType returns a formal identifier of the document.
+  publicId: String,
+  --- The read-only systemId property of the DocumentType returns the URL of the associated DTD.
+  systemId: String
+}
+
+--- Element is the most general base class from which all element objects (i.e., objects that represent elements) in a Document inherit. It only has methods and properties common to all kinds of elements. More specific classes inherit from Element.
+export Element := {
+  --- The Element.namespaceURI read-only property returns the namespace URI of the element, or null if the element is not in a namespace.
+  namespaceURI: Handle,
+  --- The Element.prefix read-only property returns the
+  --- namespace prefix of the specified element, or null if no prefix is
+  --- specified.
+  prefix: Handle,
+  --- The Element.localName read-only property returns the
+  --- local part of the qualified name of an element.
+  localName: String,
+  --- The tagName read-only property
+  --- of the Element interface returns the tag name of the element on which
+  --- it's called.
+  tagName: String,
+  --- The id property of the Element interface reflects the element's id content attribute.
+  id: String,
+  --- The className property of the Element interface reflects the element's class content attribute.
+  className: String,
+  --- The read-only classList property of the Element interface contains a live DOMTokenList collection representing the class attribute of the element. This can then be used to manipulate the class list.
+  classList: Handle,
+  --- The slot property of the Element interface returns the name of the shadow DOM slot the element is inserted in. It reflects the element's slot content attribute.
+  slot: String,
+  --- The Element.attributes property returns a live collection
+  --- of all attribute nodes registered to the specified node. It is a
+  --- NamedNodeMap, not an Array, so it has no Array
+  --- methods and the Attr nodes' indexes may differ among browsers. To be more
+  --- specific, attributes is a key/value pair of strings that represents any
+  --- information regarding that attribute.
+  attributes: Handle,
+  --- The Element.shadowRoot read-only property
+  --- represents the shadow root hosted by the element.
+  shadowRoot: Handle,
+  --- The customElementRegistry read-only property of the Element interface returns the CustomElementRegistry object associated with this element, or null if one has not been set.
+  customElementRegistry: Handle
+}
+
+export ElementCreationOptions := {
+  customElementRegistry: Handle,
+  is: String
+}
+
+--- The Event interface represents an event which takes place on an EventTarget.
+export Event := {
+  --- The type read-only property of the Event
+  --- interface returns a string containing the event's type. It is set when the event is
+  --- constructed and is the name commonly used to refer to the specific event, such as
+  --- click, load, or error.
+  type: String,
+  --- The read-only target property of the
+  --- Event interface is a reference to the object onto which the event was
+  --- dispatched. It is different from Event.currentTarget when the event
+  --- handler is called during the bubbling or capturing phase of the event.
+  target: Handle,
+  --- legacy
+  srcElement: Handle,
+  --- The currentTarget read-only property of the Event interface identifies the element to which the event handler has been attached.
+  currentTarget: Handle,
+  --- The eventPhase read-only property of the
+  --- Event interface indicates which phase of the event flow is currently
+  --- being evaluated.
+  eventPhase: Nat,
+  --- legacy alias of .stopPropagation()
+  cancelBubble: Bool,
+  --- The bubbles read-only property of the Event interface indicates whether the event bubbles up through the DOM tree or not.
+  bubbles: Bool,
+  --- The cancelable read-only property of the Event interface indicates whether the event
+  --- can be canceled, and therefore prevented as if the event never happened.
+  cancelable: Bool,
+  --- legacy
+  returnValue: Bool,
+  --- The defaultPrevented read-only property of the Event interface returns a boolean value indicating whether or not the call to Event.preventDefault() canceled the event.
+  defaultPrevented: Bool,
+  --- The read-only composed property of the
+  --- Event interface returns a boolean value which indicates whether
+  --- or not the event will propagate across the shadow DOM boundary into the standard DOM.
+  composed: Bool,
+  --- The isTrusted read-only property of the Event interface is a boolean value that is true when the event was generated by the user agent (including via user actions and programmatic methods such as HTMLElement.focus()), and false when the event was dispatched via EventTarget.dispatchEvent(). The click event fired through HTMLElement.click() sets the isTrusted property to false.
+  isTrusted: Bool,
+  --- The timeStamp read-only property of the Event interface returns the time (in milliseconds) at which the event was created.
+  timeStamp: Handle
+}
+
+export EventInit := {
+  bubbles: Bool,
+  cancelable: Bool,
+  composed: Bool
+}
+
+--- The addEventListener() method of the EventTarget interface
+--- sets up a function that will be called whenever the specified event is delivered to the target.
+export EventListener := {
+}
+
+export EventListenerOptions := {
+  capture: Bool
+}
+
+--- The EventTarget interface is implemented by objects that can receive events and may have listeners for them.
+--- In other words, any target of events implements the three methods associated with this interface.
+export EventTarget := {
+}
+
+export GetRootNodeOptions := {
+  composed: Bool
+}
+
+--- The HTMLCollection interface represents a generic collection (array-like object similar to arguments) of elements (in document order) and offers methods and properties for selecting from the list.
+export HTMLCollection := {
+  --- The HTMLCollection.length property returns the number of
+  --- items in a HTMLCollection.
+  length: Nat
+}
+
+export ImportNodeOptions := {
+  customElementRegistry: Handle,
+  selfOnly: Bool
+}
+
+--- The MutationObserver interface provides the ability to watch for changes being made to the DOM tree. It is designed as a replacement for the older Mutation Events feature, which was part of the DOM3 Events specification.
+export MutationObserver := {
+}
+
+--- The MutationObserver method observe() configures the MutationObserver
+--- callback to begin receiving notifications of changes to the DOM that match the given options.
+export MutationObserverInit := {
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  childList: Bool,
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  attributes: Bool,
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  characterData: Bool,
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  subtree: Bool,
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  attributeOldValue: Bool,
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  characterDataOldValue: Bool,
+  --- The MutationObserver method observe() configures the MutationObserver
+  --- callback to begin receiving notifications of changes to the DOM that match the given options.
+  attributeFilter: Handle
+}
+
+--- The MutationRecord is a read-only interface that represents an individual DOM mutation observed by a MutationObserver. It is the object inside the array passed to the callback of a MutationObserver.
+export MutationRecord := {
+  --- The MutationRecord read-only property type is the type of the MutationRecord observed by a MutationObserver.
+  type: String,
+  --- The MutationRecord read-only property target is the target (i.e., the mutated/changed node) of a mutation observed with a MutationObserver.
+  target: Handle,
+  --- The MutationRecord read-only property addedNodes is a NodeList of nodes added to a target node by a mutation observed with a MutationObserver.
+  addedNodes: Handle,
+  --- The MutationRecord read-only property removedNodes is a NodeList of nodes removed from a target node by a mutation observed with a MutationObserver.
+  removedNodes: Handle,
+  --- The MutationRecord read-only property previousSibling is the previous sibling of an added or removed child node of the target of a MutationObserver.
+  previousSibling: Handle,
+  --- The MutationRecord read-only property nextSibling is the next sibling of an added or removed child node of the target of a MutationObserver.
+  nextSibling: Handle,
+  --- The MutationRecord read-only property attributeName contains the name of a changed attribute belonging to a node that is observed by a MutationObserver.
+  attributeName: Handle,
+  --- The MutationRecord read-only property attributeNamespace is the namespace of the mutated attribute in the MutationRecord observed by a MutationObserver.
+  attributeNamespace: Handle,
+  --- The MutationRecord read-only property oldValue contains the character data or attribute value of an observed node before it was changed.
+  oldValue: Handle
+}
+
+--- The NamedNodeMap interface represents a collection of Attr objects. Objects inside a NamedNodeMap are not in any particular order, unlike NodeList, although they may be accessed by an index as in an array.
+export NamedNodeMap := {
+  --- The read-only length property of the NamedNodeMap interface
+  --- is the number of objects stored in the map.
+  length: Nat
+}
+
+--- The DOM Node interface is an abstract base
+--- class upon which many other DOM API objects are based, thus letting those object types
+--- be used similarly and often interchangeably. As an abstract class, there is
+--- no such thing as a plain Node object. All objects that implement
+--- Node functionality are based on one of its subclasses. Most notable are
+--- Document, Element, and DocumentFragment.
+export Node := {
+  --- The read-only nodeType property of a Node interface is an integer
+  --- that identifies what the node is. It distinguishes different kinds of nodes from each other,
+  --- such as elements, text, and comments.
+  nodeType: Nat,
+  --- The read-only nodeName property of Node returns the name of the current node as a string.
+  nodeName: String,
+  --- The read-only baseURI property of the Node interface
+  --- returns the absolute base URL of the document containing the node.
+  baseURI: String,
+  --- The read-only isConnected property of the Node interface returns a boolean indicating whether the node is connected (directly or indirectly) to a Document object.
+  isConnected: Bool,
+  --- The read-only ownerDocument property of the Node interface
+  --- returns the top-level document object of the node.
+  ownerDocument: Handle,
+  --- The read-only parentNode property of the Node interface
+  --- returns the parent of the specified node in the DOM tree.
+  parentNode: Handle,
+  --- The read-only parentElement property of Node interface
+  --- returns the DOM node's parent Element, or null if the node either has no
+  --- parent, or its parent isn't a DOM Element. Node.parentNode on the other hand returns any kind of parent, regardless of its type.
+  parentElement: Handle,
+  --- The read-only childNodes property of the Node interface returns a live
+  --- NodeList of child nodes of the given element where
+  --- the first child node is assigned index 0. Child nodes include elements, text and
+  --- comments.
+  childNodes: Handle,
+  --- The read-only firstChild property of the Node interface
+  --- returns the node's first child in the tree,
+  --- or null if the node has no children.
+  firstChild: Handle,
+  --- The read-only lastChild property of the Node interface
+  --- returns the last child of the node, or null if there are no child nodes.
+  lastChild: Handle,
+  --- The read-only previousSibling property of the Node interface
+  --- returns the node immediately preceding the specified one in its parent's
+  --- childNodes list,
+  --- or null if the specified node is the first in that list.
+  previousSibling: Handle,
+  --- The read-only nextSibling property of the Node interface
+  --- returns the node immediately following the specified one in their
+  --- parent's childNodes, or returns null
+  --- if the specified node is the last child in the parent element.
+  nextSibling: Handle,
+  --- The nodeValue property of the Node interface returns or sets the value of the current node.
+  nodeValue: Handle,
+  --- The textContent property of the Node interface represents the text content of the node and its descendants.
+  textContent: Handle
+}
+
+--- The Document.createNodeIterator() method returns a new NodeIterator object.
+export NodeFilter := {
+}
+
+--- The NodeIterator interface represents an iterator to traverse nodes of a DOM subtree in document order.
+export NodeIterator := {
+  --- The NodeIterator.root read-only property represents the
+  --- Node that is the root of what the NodeIterator
+  --- traverses.
+  root: Handle,
+  --- The NodeIterator.referenceNode read-only property returns the
+  --- Node to which the iterator is anchored; as new nodes are inserted, the
+  --- iterator remains anchored to the reference node as specified by this property.
+  referenceNode: Handle,
+  --- The NodeIterator.pointerBeforeReferenceNode read-only
+  --- property returns a boolean flag that indicates whether the
+  --- NodeFilter is anchored before (if this value is true) or
+  --- after (if this value is false) the anchor node indicated by the
+  --- NodeIterator.referenceNode property.
+  pointerBeforeReferenceNode: Bool,
+  --- The NodeIterator.whatToShow read-only property represents
+  --- an unsigned integer representing a bitmask signifying what types of nodes
+  --- should be returned by the NodeIterator.
+  whatToShow: Nat,
+  --- The NodeIterator.filter read-only property returns a
+  --- NodeFilter object, that is an object which implements an
+  --- acceptNode(node) method, used to screen nodes.
+  filter: Handle
+}
+
+--- NodeList objects are collections of nodes, usually returned by properties such as Node.childNodes and methods such as document.querySelectorAll().
+export NodeList := {
+  --- The NodeList.length property returns the number of items
+  --- in a NodeList.
+  length: Nat
+}
+
+--- Element is the most general base class from which all element objects (i.e., objects that represent elements) in a Document inherit. It only has methods and properties common to all kinds of elements. More specific classes inherit from Element.
+export NonDocumentTypeChildNode := {
+  --- The Element.previousElementSibling
+  --- read-only property returns the Element immediately prior to the specified
+  --- one in its parent's children list, or null if the specified element is the first one in the list.
+  previousElementSibling: Handle,
+  --- The Element.nextElementSibling read-only
+  --- property returns the element immediately following the specified one in its parent's
+  --- children list, or null if the specified element is the last one in the list.
+  nextElementSibling: Handle
+}
+
+export NonElementParentNode := {
+}
+
+export ParentNode := {
+  --- The read-only children property returns a live HTMLCollection
+  --- which contains all of the child elements of the element upon which it was called.
+  children: Handle,
+  --- The Element.firstElementChild read-only property
+  --- returns an element's first child Element, or null if there
+  --- are no child elements.
+  firstElementChild: Handle,
+  --- The Element.lastElementChild read-only property
+  --- returns an element's last child Element, or null if there
+  --- are no child elements.
+  lastElementChild: Handle,
+  --- The Element.childElementCount read-only property
+  --- returns the number of child elements of this element.
+  childElementCount: Nat
+}
+
+--- The ProcessingInstruction interface represents a processing instruction — a Node that embeds an instruction targeting a specific application, which can be ignored by any application that doesn't recognize the instruction.
+export ProcessingInstruction := {
+  --- The read-only target property of the ProcessingInstruction interface
+  --- represent the application to which the ProcessingInstruction is targeted.
+  target: String
+}
+
+--- The Range interface represents a fragment of a document that can contain nodes and parts of text nodes.
+export Range := {
+  --- The Range.commonAncestorContainer read-only property
+  --- returns the deepest — or furthest down the document tree — Node that
+  --- contains both boundary points of the Range. This means that if
+  --- startContainer and endContainer both refer to
+  --- the same node, this node is the common ancestor container.
+  commonAncestorContainer: Handle
+}
+
+--- The ShadowRoot interface of the Shadow DOM API is the root node of a DOM subtree that is rendered separately from a document's main DOM tree.
+export ShadowRoot := {
+  --- The mode read-only property of the ShadowRoot specifies its mode — either open or closed.
+  --- This defines whether or not the shadow root's internal features are accessible from JavaScript.
+  mode: Handle,
+  --- The delegatesFocus read-only property of the ShadowRoot interface returns true if the shadow root delegates focus, and false otherwise.
+  delegatesFocus: Bool,
+  --- The serializable read-only property of the ShadowRoot interface returns true if the shadow root is serializable.
+  serializable: Bool,
+  --- The read-only slotAssignment property of the ShadowRoot interface returns the slot assignment mode for the shadow DOM tree. Nodes are either automatically assigned based on name matching (named) or manually assigned (manual).
+  slotAssignment: Handle,
+  --- The clonable read-only property of the ShadowRoot interface returns true if the shadow root is clonable, and false otherwise.
+  clonable: Bool,
+  --- The host read-only property of
+  --- the ShadowRoot returns a reference to the DOM element the
+  --- ShadowRoot is attached to.
+  host: Handle,
+  --- The slotchange event is fired on an HTMLSlotElement instance (<slot> element) when the node(s) contained in that slot change.
+  onslotchange: Handle
+}
+
+export ShadowRootInit := {
+  mode: Handle,
+  delegatesFocus: Bool,
+  serializable: Bool,
+  slotAssignment: Handle,
+  clonable: Bool,
+  customElementRegistry: Handle
+}
+
+--- Element is the most general base class from which all element objects (i.e., objects that represent elements) in a Document inherit. It only has methods and properties common to all kinds of elements. More specific classes inherit from Element.
+export Slottable := {
+  --- The assignedSlot read-only
+  --- property of the Element interface returns an
+  --- HTMLSlotElement representing the <slot> element the
+  --- node is inserted in.
+  assignedSlot: Handle
+}
+
+--- The DOM StaticRange interface extends AbstractRange to provide a method to specify a range of content in the DOM whose contents don't update to reflect changes which occur within the DOM tree.
+export StaticRange := {
+}
+
+export StaticRangeInit := {
+  startContainer: Handle,
+  startOffset: Nat,
+  endContainer: Handle,
+  endOffset: Nat
+}
+
+--- The Text interface represents a text node in a DOM tree.
+export Text := {
+  --- The read-only wholeText property of the Text interface
+  --- returns the full text of all Text nodes logically adjacent to the node.
+  --- The text is concatenated in document order.
+  --- This allows specifying any text node and obtaining all adjacent text as a single string.
+  wholeText: String
+}
+
+--- The TreeWalker object represents the nodes of a document subtree and a position within them.
+export TreeWalker := {
+  --- The TreeWalker.root read-only property returns the root Node that the TreeWalker traverses.
+  root: Handle,
+  --- The TreeWalker.whatToShow read-only property returns a
+  --- bitmask that indicates the types of
+  --- nodes to show. Non-matching nodes are skipped, but their
+  --- children may be included, if relevant.
+  whatToShow: Nat,
+  --- The TreeWalker.filter read-only property returns the NodeFilter
+  --- associated with the TreeWalker.
+  filter: Handle,
+  --- The TreeWalker.currentNode property represents the
+  --- Node which the TreeWalker is currently pointing at.
+  currentNode: Handle
+}
+
+--- The Window interface represents a window containing a DOM document; the document property points to the DOM document loaded in that window.
+export Window := {
+  --- legacy
+  event: Handle
+}
+
+--- The XMLDocument interface represents an XML document. It inherits from the generic Document and does not add any specific methods or properties to it: nevertheless, several algorithms behave differently with the two types of documents.
+export XMLDocument := {
+}
+
+--- The XPathEvaluator interface allows you to compile and evaluate XPath expressions.
+export XPathEvaluator := {
+}
+
+export XPathEvaluatorBase := {
+}
+
+--- This interface is a compiled XPath expression that can be evaluated on a document or specific node to return information from its DOM tree.
+export XPathExpression := {
+}
+
+--- The lookupNamespaceURI() method of the Node interface
+--- takes a prefix as parameter and returns the namespace URI associated with it on the given node if found (and
+--- null if not). This method's existence allows Node objects to be passed as a namespace resolver to XPathEvaluator.createExpression() and XPathEvaluator.evaluate().
+export XPathNSResolver := {
+}
+
+--- The XPathResult interface represents the results generated by evaluating an XPath expression within the context of a given node.
+export XPathResult := {
+  --- The read-only resultType property of the
+  --- XPathResult interface represents the type of the result, as defined by
+  --- the type constants.
+  resultType: Nat,
+  --- The read-only numberValue property of the
+  --- XPathResult interface returns the numeric value of a result with
+  --- XPathResult.resultType being NUMBER_TYPE.
+  numberValue: Float,
+  --- The read-only stringValue property of the
+  --- XPathResult interface returns the string value of a result with
+  --- XPathResult.resultType being STRING_TYPE.
+  stringValue: String,
+  --- The read-only booleanValue property of the
+  --- XPathResult interface returns the boolean value of a result with
+  --- XPathResult.resultType being BOOLEAN_TYPE.
+  booleanValue: Bool,
+  --- The read-only singleNodeValue property of the
+  --- XPathResult interface returns a Node value or
+  --- null in case no node was matched of a result with
+  --- XPathResult.resultType being ANY_UNORDERED_NODE_TYPE or
+  --- FIRST_ORDERED_NODE_TYPE.
+  singleNodeValue: Handle,
+  --- The read-only invalidIteratorState property of the
+  --- XPathResult interface signifies that the iterator has become invalid. It
+  --- is true if XPathResult.resultType is
+  --- UNORDERED_NODE_ITERATOR_TYPE or ORDERED_NODE_ITERATOR_TYPE and
+  --- the document has been modified since this result was returned.
+  invalidIteratorState: Bool,
+  --- The read-only snapshotLength property of the
+  --- XPathResult interface represents the number of nodes in the result
+  --- snapshot.
+  snapshotLength: Nat
+}
+
+--- An XSLTProcessor applies an XSLT stylesheet transformation to an XML document to
+--- produce a new XML document as output. It has methods to load the XSLT stylesheet, to
+--- manipulate <xsl:param> parameter values, and to apply the
+--- transformation to documents.
+export XSLTProcessor := {
+}
+
+export ShadowRootMode_Closed: Int
+export ShadowRootMode_Open: Int
+export SlotAssignmentMode_Manual: Int
+export SlotAssignmentMode_Named: Int
+
+--- The abort() method of the AbortController interface aborts an asynchronous operation before it has completed.
+--- This is able to abort fetch requests, the consumption of any response bodies, or streams.
+--- js: AbortController.abort
+export AbortControllerAbort: (Handle) ~[1]~> Result<(), JsError>
+
+--- The AbortController() constructor creates a new AbortController object instance.
+--- js: AbortController.constructor
+export AbortControllerConstructor: () ~[1]~> Result<(), JsError>
+
+--- The AbortSignal.abort() static method returns an AbortSignal that is already set as aborted (and which does not trigger an abort event).
+--- js: AbortSignal.abort
+export AbortSignalAbort: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- js: AbortSignal._any
+export AbortSignalAny: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The throwIfAborted() method throws the signal's abort reason if the signal has been aborted; otherwise it does nothing.
+--- js: AbortSignal.throwIfAborted
+export AbortSignalThrowIfAborted: () ~[1]~> Result<(), JsError>
+
+--- The AbortSignal.timeout() static method returns an AbortSignal that will automatically abort after a specified time.
+--- js: AbortSignal.timeout
+export AbortSignalTimeout: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The appendData() method of the CharacterData interface
+--- adds the provided data to the end of the node's current data.
+--- js: CharacterData.appendData
+export CharacterDataAppendData: (String) ~[1]~> Result<(), JsError>
+
+--- The deleteData() method of the CharacterData interface
+--- removes all or part of the data from this CharacterData node.
+--- js: CharacterData.deleteData
+export CharacterDataDeleteData: (Nat, Nat) ~[1]~> Result<(), JsError>
+
+--- The insertData() method of the CharacterData interface
+--- inserts the provided data into this CharacterData node's current data,
+--- at the provided offset from the start of the existing data.
+--- The provided data is spliced into the existing data.
+--- js: CharacterData.insertData
+export CharacterDataInsertData: (Nat, String) ~[1]~> Result<(), JsError>
+
+--- The replaceData() method of the CharacterData interface removes a certain number of characters of the existing text in a given CharacterData node and replaces those characters with the text provided.
+--- js: CharacterData.replaceData
+export CharacterDataReplaceData: (Nat, Nat, String) ~[1]~> Result<(), JsError>
+
+--- The substringData() method of the CharacterData interface
+--- returns a portion of the existing data,
+--- starting at the specified index
+--- and extending for a given number of characters afterwards.
+--- js: CharacterData.substringData
+export CharacterDataSubstringData: (Nat, Nat) ~[1]~> Result<String, JsError>
+
+--- The Element.after() method inserts a set of
+--- Node objects or strings in the children list of the
+--- Element's parent, just after the Element.
+--- Strings are inserted as equivalent Text nodes.
+--- js: ChildNode.after
+export ChildNodeAfter: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Element.before() method inserts a set of
+--- Node objects or strings in the children list of this
+--- Element's parent, just before this Element.
+--- Strings are inserted as equivalent Text nodes.
+--- js: ChildNode.before
+export ChildNodeBefore: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Element.remove() method removes the element from its parent node.
+--- If it has no parent node, calling remove() does nothing.
+--- js: ChildNode.remove
+export ChildNodeRemove: () ~[1]~> Result<(), JsError>
+
+--- The Element.replaceWith() method replaces this
+--- Element in the children list of its parent with a set of
+--- Node objects or strings. Strings are inserted as equivalent Text nodes.
+--- js: ChildNode.replaceWith
+export ChildNodeReplaceWith: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Comment() constructor returns a newly created
+--- Comment object with the optional string given in
+--- parameter as its textual content.
+--- js: Comment.constructor
+export CommentConstructor: (String) ~[1]~> Result<(), JsError>
+
+--- The CustomEvent() constructor creates a new CustomEvent object.
+--- js: CustomEvent.constructor
+export CustomEventConstructor: (String, Handle) ~[1]~> Result<(), JsError>
+
+--- legacy
+--- js: CustomEvent.initCustomEvent
+export CustomEventInitCustomEvent: (String, Bool, Bool, Handle) ~[1]~> Result<(), JsError>
+
+--- The createDocument() method of the DOMImplementation interface creates and returns an XMLDocument.
+--- js: DOMImplementation.createDocument
+export DOMImplementationCreateDocument: (Handle, String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The DOMImplementation.createDocumentType() method returns
+--- a DocumentType object which can either be used with
+--- DOMImplementation.createDocument upon document creation or can be put
+--- into the document via methods like Node.insertBefore() or
+--- Node.replaceChild().
+--- js: DOMImplementation.createDocumentType
+export DOMImplementationCreateDocumentType: (String, String, String) ~[1]~> Result<Handle, JsError>
+
+--- The
+--- DOMImplementation.createHTMLDocument() method creates a
+--- new HTML Document.
+--- js: DOMImplementation.createHTMLDocument
+export DOMImplementationCreateHTMLDocument: (String) ~[1]~> Result<Handle, JsError>
+
+--- historical; always returns true
+--- js: DOMImplementation.hasFeature
+export DOMImplementationHasFeature: () ~[1]~> Result<Bool, JsError>
+
+--- The add() method of the DOMTokenList interface adds the given tokens to the list, omitting any that are already present.
+--- js: DOMTokenList.add
+export DOMTokenListAdd: (String) ~[1]~> Result<(), JsError>
+
+--- The contains() method of the DOMTokenList interface
+--- returns a boolean value — true if the underlying list contains the given token,
+--- otherwise false.
+--- js: DOMTokenList.contains
+export DOMTokenListContains: (String) ~[1]~> Result<Bool, JsError>
+
+--- The item() method of the DOMTokenList interface returns an item in the list,
+--- determined by its position in the list, its index.
+--- js: DOMTokenList.item
+export DOMTokenListItem: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The remove() method of the DOMTokenList interface
+--- removes the specified tokens from the list.
+--- js: DOMTokenList.remove
+export DOMTokenListRemove: (String) ~[1]~> Result<(), JsError>
+
+--- The replace() method of the DOMTokenList interface
+--- replaces an existing token with a new token.
+--- If the first token doesn't exist, replace() returns false immediately,
+--- without adding the new token to the token list.
+--- js: DOMTokenList.replace
+export DOMTokenListReplace: (String, String) ~[1]~> Result<Bool, JsError>
+
+--- The supports() method of the DOMTokenList interface
+--- returns true if a given token is in the associated attribute's supported tokens.
+--- This method is intended to support feature detection.
+--- js: DOMTokenList.supports
+export DOMTokenListSupports: (String) ~[1]~> Result<Bool, JsError>
+
+--- The toggle() method of the DOMTokenList interface
+--- removes an existing token from the list and returns false.
+--- If the token doesn't exist it's added and the function returns true.
+--- js: DOMTokenList.toggle
+export DOMTokenListToggle: (String, Bool) ~[1]~> Result<Bool, JsError>
+
+--- Document.adoptNode() transfers a node from another document into the method's document.
+--- The adopted node and its subtree are removed from their original document (if any), and their ownerDocument is changed to the current document.
+--- The node can then be inserted into the current document.
+--- js: Document.adoptNode
+export DocumentAdoptNode: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The Document constructor creates a new
+--- Document object that is a web page loaded in the browser and serving as
+--- an entry point into the page's content.
+--- js: Document.constructor
+export DocumentConstructor: () ~[1]~> Result<(), JsError>
+
+--- The createAttribute() method of the Document interface creates a new attribute node.
+--- js: Document.createAttribute
+export DocumentCreateAttribute: (String) ~[1]~> Result<Handle, JsError>
+
+--- The createAttributeNS() method of the Document interface creates a new attribute node with the specified namespace URI and qualified name.
+--- js: Document.createAttributeNS
+export DocumentCreateAttributeNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- createCDATASection() creates a new CDATA section node,
+--- and returns it.
+--- js: Document.createCDATASection
+export DocumentCreateCDATASection: (String) ~[1]~> Result<Handle, JsError>
+
+--- createComment() creates a new comment node, and returns
+--- it.
+--- js: Document.createComment
+export DocumentCreateComment: (String) ~[1]~> Result<Handle, JsError>
+
+--- Creates a new empty DocumentFragment into which
+--- DOM nodes can be added to build an offscreen DOM tree.
+--- js: Document.createDocumentFragment
+export DocumentCreateDocumentFragment: () ~[1]~> Result<Handle, JsError>
+
+--- The createElement() method of the Document interface creates a new HTMLElement that has the specified localName.
+--- js: Document.createElement
+export DocumentCreateElement: (String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The createElementNS() method of the Document interface creates a new element with the specified namespace URI and qualified name.
+--- js: Document.createElementNS
+export DocumentCreateElementNS: (Handle, String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- legacy
+--- js: Document.createEvent
+export DocumentCreateEvent: (String) ~[1]~> Result<Handle, JsError>
+
+--- NodeFilter.SHOW_ALL = 0xFFFFFFFF
+--- js: Document.createNodeIterator
+export DocumentCreateNodeIterator: (Handle, Nat, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The createProcessingInstruction() method of the Document interface creates a new ProcessingInstruction object and returns it.
+--- js: Document.createProcessingInstruction
+export DocumentCreateProcessingInstruction: (String, String) ~[1]~> Result<Handle, JsError>
+
+--- The Document.createRange() method returns a new
+--- Range object whose start and end are offset 0 of the Document
+--- object on which it was called.
+--- js: Document.createRange
+export DocumentCreateRange: () ~[1]~> Result<Handle, JsError>
+
+--- Creates a new Text node. This method can be used to escape HTML
+--- characters.
+--- js: Document.createTextNode
+export DocumentCreateTextNode: (String) ~[1]~> Result<Handle, JsError>
+
+--- The Document.createTreeWalker() creator method returns a newly created TreeWalker object.
+--- js: Document.createTreeWalker
+export DocumentCreateTreeWalker: (Handle, Nat, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The getElementsByClassName method of
+--- Document interface returns an array-like object
+--- of all child elements which have all of the given class name(s).
+--- js: Document.getElementsByClassName
+export DocumentGetElementsByClassName: (String) ~[1]~> Result<Handle, JsError>
+
+--- The getElementsByTagName method of
+--- Document interface returns an
+--- HTMLCollection of elements with the given tag name.
+--- js: Document.getElementsByTagName
+export DocumentGetElementsByTagName: (String) ~[1]~> Result<Handle, JsError>
+
+--- Returns a list of elements with the given tag name belonging to the given namespace.
+--- The complete document is searched, including the root node.
+--- js: Document.getElementsByTagNameNS
+export DocumentGetElementsByTagNameNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The importNode() method of the Document interface creates a copy of a Node or DocumentFragment from another document, to be inserted into the current document later.
+--- js: Document.importNode
+export DocumentImportNode: (Handle, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The DocumentFragment() constructor returns a new, empty
+--- DocumentFragment object.
+--- js: DocumentFragment.constructor
+export DocumentFragmentConstructor: () ~[1]~> Result<(), JsError>
+
+--- The attachShadow() method of the Element interface attaches a shadow DOM tree to the specified element and returns a reference to its ShadowRoot.
+--- js: Element.attachShadow
+export ElementAttachShadow: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The closest() method of the Element interface traverses the element and its parents (heading toward the document root) until it finds a node that matches the specified CSS selector.
+--- js: Element.closest
+export ElementClosest: (String) ~[1]~> Result<Handle, JsError>
+
+--- The getAttribute() method of the Element interface returns the string value of the specified attribute of the specified element. It returns null if the element doesn't have an attribute with the given name.
+--- js: Element.getAttribute
+export ElementGetAttribute: (String) ~[1]~> Result<Handle, JsError>
+
+--- The getAttributeNS() method of the Element interface returns the string value of the specified namespaced attribute of the specified element. It returns null if the element doesn't have an attribute with the given name in the namespace.
+--- js: Element.getAttributeNS
+export ElementGetAttributeNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The getAttributeNames() method of the
+--- Element interface returns the attribute names of the element as an
+--- Array of strings. If the element has no attributes it returns an empty
+--- array.
+--- js: Element.getAttributeNames
+export ElementGetAttributeNames: () ~[1]~> Result<Handle, JsError>
+
+--- The getAttributeNode() method of the Element interface returns the specified attribute of the specified element, as an Attr node. It returns null if the element doesn't have an attribute with the given name.
+--- js: Element.getAttributeNode
+export ElementGetAttributeNode: (String) ~[1]~> Result<Handle, JsError>
+
+--- The getAttributeNodeNS() method of the Element interface returns the specified namespaced attribute of the specified element, as an Attr node. It returns null if the element doesn't have an attribute with the given name in the namespace.
+--- js: Element.getAttributeNodeNS
+export ElementGetAttributeNodeNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The Element method
+--- getElementsByClassName() returns a live
+--- HTMLCollection which contains every descendant element which has the
+--- specified class name or names.
+--- js: Element.getElementsByClassName
+export ElementGetElementsByClassName: (String) ~[1]~> Result<Handle, JsError>
+
+--- The
+--- Element.getElementsByTagName() method returns a live
+--- HTMLCollection of elements with the given tag name.
+--- js: Element.getElementsByTagName
+export ElementGetElementsByTagName: (String) ~[1]~> Result<Handle, JsError>
+
+--- The Element.getElementsByTagNameNS() method returns a
+--- live HTMLCollection of elements with the given tag name belonging to the
+--- given namespace. It is similar to Document.getElementsByTagNameNS, except
+--- that its search is restricted to descendants of the specified element.
+--- js: Element.getElementsByTagNameNS
+export ElementGetElementsByTagNameNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The Element.hasAttribute() method returns a
+--- Boolean value indicating whether the specified element has the
+--- specified attribute or not.
+--- js: Element.hasAttribute
+export ElementHasAttribute: (String) ~[1]~> Result<Bool, JsError>
+
+--- The hasAttributeNS() method of the Element interface returns a boolean value indicating whether the current element has the specified attribute with the specified namespace.
+--- js: Element.hasAttributeNS
+export ElementHasAttributeNS: (Handle, String) ~[1]~> Result<Bool, JsError>
+
+--- The hasAttributes() method of the Element
+--- interface returns a boolean value indicating whether the current element has any
+--- attributes or not.
+--- js: Element.hasAttributes
+export ElementHasAttributes: () ~[1]~> Result<Bool, JsError>
+
+--- legacy
+--- js: Element.insertAdjacentElement
+export ElementInsertAdjacentElement: (String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- legacy
+--- js: Element.insertAdjacentText
+export ElementInsertAdjacentText: (String, String) ~[1]~> Result<(), JsError>
+
+--- The matches() method of the Element interface tests whether the element would be selected by the specified CSS selector.
+--- js: Element.matches
+export ElementMatches: (String) ~[1]~> Result<Bool, JsError>
+
+--- The Element method
+--- removeAttribute() removes the attribute with the
+--- specified name from the element.
+--- js: Element.removeAttribute
+export ElementRemoveAttribute: (String) ~[1]~> Result<(), JsError>
+
+--- The removeAttributeNS() method of the
+--- Element interface removes the specified attribute with the specified namespace from an element.
+--- js: Element.removeAttributeNS
+export ElementRemoveAttributeNS: (Handle, String) ~[1]~> Result<(), JsError>
+
+--- The removeAttributeNode() method of the Element interface removes the specified Attr node from the element.
+--- js: Element.removeAttributeNode
+export ElementRemoveAttributeNode: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The setAttribute() method of the Element interface sets the value of an attribute on the specified element.
+--- If the attribute already exists, the value is updated; otherwise a new attribute is added with the specified name and value.
+--- js: Element.setAttribute
+export ElementSetAttribute: (String, Handle) ~[1]~> Result<(), JsError>
+
+--- The setAttributeNS() method of the Element interface adds a new attribute or changes the value of an attribute with the given namespace and name.
+--- js: Element.setAttributeNS
+export ElementSetAttributeNS: (Handle, String, Handle) ~[1]~> Result<(), JsError>
+
+--- The setAttributeNode() method of the Element interface adds a new Attr node to the specified element.
+--- js: Element.setAttributeNode
+export ElementSetAttributeNode: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The setAttributeNodeNS() method of the Element interface adds a new namespaced Attr node to an element.
+--- js: Element.setAttributeNodeNS
+export ElementSetAttributeNodeNS: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The toggleAttribute() method of the Element interface toggles a Boolean attribute on the given element, removing it if present and adding it if not present.
+--- js: Element.toggleAttribute
+export ElementToggleAttribute: (String, Bool) ~[1]~> Result<Bool, JsError>
+
+--- legacy alias of .matches
+--- js: Element.webkitMatchesSelector
+export ElementWebkitMatchesSelector: (String) ~[1]~> Result<Bool, JsError>
+
+--- The composedPath() method of the Event
+--- interface returns the event's path which is an array of the objects on which listeners
+--- will be invoked. This does not include nodes in shadow trees if the shadow root was
+--- created with its ShadowRoot.mode closed.
+--- js: Event.composedPath
+export EventComposedPath: () ~[1]~> Result<Handle, JsError>
+
+--- The Event() constructor creates a new Event object. An event created in this way is called a synthetic event, as opposed to an event fired by the browser, and can be dispatched by a script.
+--- js: Event.constructor
+export EventConstructor: (String, Handle) ~[1]~> Result<(), JsError>
+
+--- legacy
+--- js: Event.initEvent
+export EventInitEvent: (String, Bool, Bool) ~[1]~> Result<(), JsError>
+
+--- The preventDefault() method of the Event interface tells the user agent that the event is being explicitly handled, so its default action, such as page scrolling, link navigation, or pasting text, should not be taken.
+--- js: Event.preventDefault
+export EventPreventDefault: () ~[1]~> Result<(), JsError>
+
+--- The stopImmediatePropagation() method of the
+--- Event interface prevents other listeners of the same event from being called.
+--- js: Event.stopImmediatePropagation
+export EventStopImmediatePropagation: () ~[1]~> Result<(), JsError>
+
+--- The stopPropagation() method of the Event
+--- interface prevents further propagation of the current event in the capturing and
+--- bubbling phases. It does not, however, prevent any default behaviors from occurring; for
+--- instance, clicks on links are still processed. If you want to stop those behaviors, see
+--- the preventDefault() method. It also does not
+--- prevent propagation to other event-handlers of the current element. If you want to stop those,
+--- see stopImmediatePropagation().
+--- js: Event.stopPropagation
+export EventStopPropagation: () ~[1]~> Result<(), JsError>
+
+--- The addEventListener() method of the EventTarget interface
+--- sets up a function that will be called whenever the specified event is delivered to the target.
+--- js: EventListener.handleEvent
+export EventListenerHandleEvent: (Handle) ~[1]~> Result<(), JsError>
+
+--- The addEventListener() method of the EventTarget interface
+--- sets up a function that will be called whenever the specified event is delivered to the target.
+--- js: EventTarget.addEventListener
+export EventTargetAddEventListener: (String, Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The EventTarget() constructor creates a new EventTarget object instance.
+--- js: EventTarget.constructor
+export EventTargetConstructor: () ~[1]~> Result<(), JsError>
+
+--- The dispatchEvent() method of the EventTarget sends an Event to the object, (synchronously) invoking the affected
+--- event listeners in the appropriate order. The normal event processing
+--- rules (including the capturing and optional bubbling phase) also apply to events
+--- dispatched manually with dispatchEvent().
+--- js: EventTarget.dispatchEvent
+export EventTargetDispatchEvent: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The removeEventListener() method of the EventTarget interface
+--- removes an event listener previously registered with EventTarget.addEventListener() from the target.
+--- The event listener to be removed is identified using a combination of the event type,
+--- the event listener function itself, and various optional options that may affect the matching process;
+--- see Matching event listeners for removal.
+--- js: EventTarget.removeEventListener
+export EventTargetRemoveEventListener: (String, Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The HTMLCollection method item()
+--- returns the element located at the specified offset into the collection.
+--- js: HTMLCollection.item
+export HTMLCollectionItem: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The namedItem() method of the HTMLCollection interface returns
+--- the first Element in the collection whose id or name attribute match the specified name, or null if no element matches.
+--- js: HTMLCollection.namedItem
+export HTMLCollectionNamedItem: (String) ~[1]~> Result<Handle, JsError>
+
+--- js: callback MutationCallback(mutations, observer)
+export MutationCallback: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The DOM MutationObserver()
+--- constructor — part of the MutationObserver interface — creates and
+--- returns a new observer which invokes a specified callback when DOM events
+--- occur.
+--- js: MutationObserver.constructor
+export MutationObserverConstructor: (Handle) ~[1]~> Result<(), JsError>
+
+--- The MutationObserver method
+--- disconnect() tells the observer to stop watching for
+--- mutations.
+--- js: MutationObserver.disconnect
+export MutationObserverDisconnect: () ~[1]~> Result<(), JsError>
+
+--- The MutationObserver method observe() configures the MutationObserver
+--- callback to begin receiving notifications of changes to the DOM that match the given options.
+--- js: MutationObserver.observe
+export MutationObserverObserve: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The MutationObserver method
+--- takeRecords() returns a list of all matching DOM changes
+--- that have been detected but not yet processed by the observer's callback function,
+--- leaving the mutation queue empty.
+--- js: MutationObserver.takeRecords
+export MutationObserverTakeRecords: () ~[1]~> Result<Handle, JsError>
+
+--- The getNamedItem() method of the NamedNodeMap interface returns the Attr corresponding to the given name, or null if there is no corresponding attribute.
+--- js: NamedNodeMap.getNamedItem
+export NamedNodeMapGetNamedItem: (String) ~[1]~> Result<Handle, JsError>
+
+--- The getNamedItemNS() method of the NamedNodeMap interface returns the Attr corresponding to the given local name in the given namespace, or null if there is no corresponding attribute.
+--- js: NamedNodeMap.getNamedItemNS
+export NamedNodeMapGetNamedItemNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The item() method of the NamedNodeMap interface
+--- returns the item in the map matching the index.
+--- js: NamedNodeMap.item
+export NamedNodeMapItem: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The removeNamedItem() method of the NamedNodeMap interface
+--- removes the Attr corresponding to the given name from the map.
+--- js: NamedNodeMap.removeNamedItem
+export NamedNodeMapRemoveNamedItem: (String) ~[1]~> Result<Handle, JsError>
+
+--- The removeNamedItemNS() method of the NamedNodeMap interface
+--- removes the Attr corresponding to the given namespace and local name from the map.
+--- js: NamedNodeMap.removeNamedItemNS
+export NamedNodeMapRemoveNamedItemNS: (Handle, String) ~[1]~> Result<Handle, JsError>
+
+--- The setNamedItem() method of the NamedNodeMap interface
+--- puts the Attr identified by its name in the map.
+--- If there is already an Attr with the same name in the map,
+--- it is replaced.
+--- js: NamedNodeMap.setNamedItem
+export NamedNodeMapSetNamedItem: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The setNamedItemNS() method of the NamedNodeMap interface
+--- puts the Attr identified by its name in the map.
+--- If there was already an Attr with the same name in the map,
+--- it is replaced.
+--- js: NamedNodeMap.setNamedItemNS
+export NamedNodeMapSetNamedItemNS: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The appendChild() method of the Node interface adds a node to the end of the list of children of a specified parent node.
+--- js: Node.appendChild
+export NodeAppendChild: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The cloneNode() method of the Node interface returns a duplicate of the node on which this method was called. Its parameter controls if the subtree contained in the node is also cloned or not.
+--- js: Node.cloneNode
+export NodeCloneNode: (Bool) ~[1]~> Result<Handle, JsError>
+
+--- The compareDocumentPosition() method of the Node interface reports the position of its argument node relative to the node on which it is called.
+--- js: Node.compareDocumentPosition
+export NodeCompareDocumentPosition: (Handle) ~[1]~> Result<Nat, JsError>
+
+--- The contains() method of the Node interface
+--- returns a boolean value indicating
+--- whether a node is a descendant of a given node, that is the node itself,
+--- one of its direct children (childNodes),
+--- one of the children's direct children, and so on.
+--- js: Node.contains
+export NodeContains: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The getRootNode() method of the Node interface
+--- returns the context object's root,
+--- which optionally includes the shadow root if it is available.
+--- js: Node.getRootNode
+export NodeGetRootNode: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The hasChildNodes() method of the Node interface
+--- returns a boolean value indicating
+--- whether the given Node has child nodes or not.
+--- js: Node.hasChildNodes
+export NodeHasChildNodes: () ~[1]~> Result<Bool, JsError>
+
+--- The insertBefore() method of the Node interface
+--- inserts a node before a reference node as a child of a specified parent node.
+--- js: Node.insertBefore
+export NodeInsertBefore: (Handle, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The isDefaultNamespace() method of the Node interface accepts a namespace URI as an argument.
+--- It returns a boolean value that is true if the namespace is the default namespace on the given node and false if not. The default namespace can be retrieved with Node.lookupNamespaceURI() by passing null as the argument.
+--- js: Node.isDefaultNamespace
+export NodeIsDefaultNamespace: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The isEqualNode() method of the Node interface tests whether two nodes are equal.
+--- Two nodes are equal when they have the same type, defining characteristics (for
+--- elements, this would be their ID, number of children, and so forth), its attributes
+--- match, and so on. The specific set of data points that must match varies depending on
+--- the types of the nodes.
+--- js: Node.isEqualNode
+export NodeIsEqualNode: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- legacy alias of ===
+--- js: Node.isSameNode
+export NodeIsSameNode: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The lookupNamespaceURI() method of the Node interface
+--- takes a prefix as parameter and returns the namespace URI associated with it on the given node if found (and
+--- null if not). This method's existence allows Node objects to be passed as a namespace resolver to XPathEvaluator.createExpression() and XPathEvaluator.evaluate().
+--- js: Node.lookupNamespaceURI
+export NodeLookupNamespaceURI: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The lookupPrefix() method of the Node interface
+--- returns a string containing the prefix for a given namespace URI, if present,
+--- and null if not.
+--- When multiple prefixes are possible, the first prefix is returned.
+--- js: Node.lookupPrefix
+export NodeLookupPrefix: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The normalize() method of the Node interface puts the specified node
+--- and all of its sub-tree into a normalized form.
+--- In a normalized sub-tree, no text nodes in the sub-tree are empty and there are no adjacent text nodes.
+--- js: Node.normalize
+export NodeNormalize: () ~[1]~> Result<(), JsError>
+
+--- The removeChild() method of the Node interface
+--- removes a child node from the DOM and returns the removed node.
+--- js: Node.removeChild
+export NodeRemoveChild: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The replaceChild() method of the Node interface replaces a child node within the given (parent) node.
+--- js: Node.replaceChild
+export NodeReplaceChild: (Handle, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The Document.createNodeIterator() method returns a new NodeIterator object.
+--- js: NodeFilter.acceptNode
+export NodeFilterAcceptNode: (Handle) ~[1]~> Result<Nat, JsError>
+
+--- The NodeIterator.detach() method is a no-op, kept for
+--- backward compatibility only.
+--- js: NodeIterator.detach
+export NodeIteratorDetach: () ~[1]~> Result<(), JsError>
+
+--- The NodeIterator.nextNode() method returns the next node
+--- in the set represented by the NodeIterator and advances the position of
+--- the iterator within the set. The first call to nextNode() returns the
+--- first node in the set.
+--- js: NodeIterator.nextNode
+export NodeIteratorNextNode: () ~[1]~> Result<Handle, JsError>
+
+--- The NodeIterator.previousNode() method returns the
+--- previous node in the set represented by the NodeIterator and moves the
+--- position of the iterator backwards within the set.
+--- js: NodeIterator.previousNode
+export NodeIteratorPreviousNode: () ~[1]~> Result<Handle, JsError>
+
+--- Returns a node from a NodeList by index. This method
+--- doesn't throw exceptions as long as you provide arguments. A value of null
+--- is returned if the index is out of range, and a TypeError is thrown if no
+--- argument is provided.
+--- js: NodeList.item
+export NodeListItem: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- js: NonElementParentNode.getElementById
+export NonElementParentNodeGetElementById: (String) ~[1]~> Result<Handle, JsError>
+
+--- The Element.append() method
+--- inserts a set of Node objects or strings after
+--- the last child of the Element. Strings
+--- are inserted as equivalent Text nodes.
+--- js: ParentNode.append
+export ParentNodeAppend: (Handle) ~[1]~> Result<(), JsError>
+
+--- js: ParentNode.moveBefore
+export ParentNodeMoveBefore: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The Element.prepend() method inserts a set of
+--- Node objects or strings before the first child
+--- of the Element. Strings are inserted as
+--- equivalent Text nodes.
+--- js: ParentNode.prepend
+export ParentNodePrepend: (Handle) ~[1]~> Result<(), JsError>
+
+--- js: ParentNode.querySelector
+export ParentNodeQuerySelector: (String) ~[1]~> Result<Handle, JsError>
+
+--- js: ParentNode.querySelectorAll
+export ParentNodeQuerySelectorAll: (String) ~[1]~> Result<Handle, JsError>
+
+--- The Element.replaceChildren() method replaces the
+--- existing children of a Node with a specified new set of children. These
+--- can be string or Node objects.
+--- js: ParentNode.replaceChildren
+export ParentNodeReplaceChildren: (Handle) ~[1]~> Result<(), JsError>
+
+--- The ProcessingInstruction() constructor creates a new ProcessingInstruction object instance.
+--- js: ProcessingInstruction.constructor
+export ProcessingInstructionConstructor: (String, String) ~[1]~> Result<(), JsError>
+
+--- The getAttribute() method of the
+--- ProcessingInstruction interface returns the value of a specified attribute on the
+--- processing instruction.
+--- js: ProcessingInstruction.getAttribute
+export ProcessingInstructionGetAttribute: (String) ~[1]~> Result<Handle, JsError>
+
+--- The getAttributeNames() method of the
+--- ProcessingInstruction interface returns the attribute names of the processing instruction as an
+--- Array of strings. If the processing instruction has no attributes it returns an empty
+--- array.
+--- js: ProcessingInstruction.getAttributeNames
+export ProcessingInstructionGetAttributeNames: () ~[1]~> Result<Handle, JsError>
+
+--- The hasAttribute() method of the ProcessingInstruction interface returns a
+--- boolean value indicating whether the specified element has the
+--- specified attribute or not.
+--- js: ProcessingInstruction.hasAttribute
+export ProcessingInstructionHasAttribute: (String) ~[1]~> Result<Bool, JsError>
+
+--- js: ProcessingInstruction.hasAttributes
+export ProcessingInstructionHasAttributes: () ~[1]~> Result<Bool, JsError>
+
+--- The removeAttribute() method of the ProcessingInstruction removes the attribute with the specified name from the processing instruction.
+--- js: ProcessingInstruction.removeAttribute
+export ProcessingInstructionRemoveAttribute: (String) ~[1]~> Result<(), JsError>
+
+--- The setAttribute() method of the ProcessingInstruction interface sets the value of an attribute on the processing instruction.
+--- If the attribute already exists, the value is updated; otherwise, a new attribute is added with the specified name and value.
+--- js: ProcessingInstruction.setAttribute
+export ProcessingInstructionSetAttribute: (String, String) ~[1]~> Result<(), JsError>
+
+--- The toggleAttribute() method of the ProcessingInstruction interface toggles a boolean attribute on the given processing instruction, removing it if present and adding it if not present.
+--- js: ProcessingInstruction.toggleAttribute
+export ProcessingInstructionToggleAttribute: (String, Bool) ~[1]~> Result<Bool, JsError>
+
+--- The cloneContents() method of the Range interface copies the selected Node children of the range's commonAncestorContainer and puts them in a new DocumentFragment object.
+--- js: Range.cloneContents
+export RangeCloneContents: () ~[1]~> Result<Handle, JsError>
+
+--- The Range.cloneRange() method returns a
+--- Range object with boundary points identical to the cloned
+--- Range.
+--- js: Range.cloneRange
+export RangeCloneRange: () ~[1]~> Result<Handle, JsError>
+
+--- The collapse() method of the Range interface collapses the
+--- Range to one of its boundary points.
+--- js: Range.collapse
+export RangeCollapse: (Bool) ~[1]~> Result<(), JsError>
+
+--- The compareBoundaryPoints() method of the Range interface compares the boundary points of the Range with those of another range.
+--- js: Range.compareBoundaryPoints
+export RangeCompareBoundaryPoints: (Nat, Handle) ~[1]~> Result<Int, JsError>
+
+--- The comparePoint() method of the Range interface determines whether a specified point is before, within, or after the Range. The point is specified by a reference node and an offset within that node.
+--- js: Range.comparePoint
+export RangeComparePoint: (Handle, Nat) ~[1]~> Result<Int, JsError>
+
+--- The Range() constructor returns a newly created
+--- Range object whose start and end are offset 0 of the global document
+--- object.
+--- js: Range.constructor
+export RangeConstructor: () ~[1]~> Result<(), JsError>
+
+--- The Range.deleteContents() method removes all completely-selected nodes within this range from the document. For the partially selected nodes at the start or end of the range, only the selected portion of the text is deleted, while the node itself remains intact. Afterwards, the range is collapsed to the end of the last selected node.
+--- js: Range.deleteContents
+export RangeDeleteContents: () ~[1]~> Result<(), JsError>
+
+--- The Range.detach() method does nothing. It used to
+--- disable the Range object and enable the browser to release associated
+--- resources. The method has been kept for compatibility.
+--- js: Range.detach
+export RangeDetach: () ~[1]~> Result<(), JsError>
+
+--- The extractContents() method of the Range interface is similar to a combination of Range.cloneContents() and Range.deleteContents(). It removes the child Nodes of the range from the document, clones them, and returns them as a new DocumentFragment object. For partially selected nodes, only the selected text is deleted, but all containing parent nodes up to the common ancestor are cloned as well, resulting in two copies of these nodes, one in the original document and one in the extracted fragment.
+--- js: Range.extractContents
+export RangeExtractContents: () ~[1]~> Result<Handle, JsError>
+
+--- The Range.insertNode() method inserts a node at the start
+--- of the Range.
+--- js: Range.insertNode
+export RangeInsertNode: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.intersectsNode() method returns a boolean
+--- indicating whether the given Node intersects the Range.
+--- js: Range.intersectsNode
+export RangeIntersectsNode: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The isPointInRange() method of the Range interface determines whether a specified point is within the Range. The point is specified by a reference node and an offset within that node. It is equivalent to calling Range.comparePoint() and checking if the result is 0.
+--- js: Range.isPointInRange
+export RangeIsPointInRange: (Handle, Nat) ~[1]~> Result<Bool, JsError>
+
+--- The Range.selectNode() method sets the
+--- Range to contain the Node and its contents. The parent
+--- Node of the start and end of the Range will be the same as
+--- the parent of the referenceNode.
+--- js: Range.selectNode
+export RangeSelectNode: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.selectNodeContents() method sets the Range to contain the contents of a Node.
+--- js: Range.selectNodeContents
+export RangeSelectNodeContents: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setEnd() method sets the end position of a Range to be located at the given offset into the specified node. Setting
+--- the end point above (higher in the document) than the start point will result in a
+--- collapsed range with the start and end points both set to the specified end position.
+--- js: Range.setEnd
+export RangeSetEnd: (Handle, Nat) ~[1]~> Result<(), JsError>
+
+--- The Range.setEndAfter() method sets the end position of a
+--- Range relative to another Node. The parent
+--- Node of end of the Range will be the same as that for the
+--- referenceNode.
+--- js: Range.setEndAfter
+export RangeSetEndAfter: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setEndBefore() method sets the end position of
+--- a Range relative to another Node. The parent
+--- Node of end of the Range will be the same as that for the
+--- referenceNode.
+--- js: Range.setEndBefore
+export RangeSetEndBefore: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setStart() method sets the start position of a
+--- Range.
+--- js: Range.setStart
+export RangeSetStart: (Handle, Nat) ~[1]~> Result<(), JsError>
+
+--- The Range.setStartAfter() method sets the start position
+--- of a Range relative to a Node. The parent
+--- Node of the start of the Range will be the same as that
+--- for the referenceNode.
+--- js: Range.setStartAfter
+export RangeSetStartAfter: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setStartBefore() method sets the start position
+--- of a Range relative to another Node. The parent
+--- Node of the start of the Range will be the same as that
+--- for the referenceNode.
+--- js: Range.setStartBefore
+export RangeSetStartBefore: (Handle) ~[1]~> Result<(), JsError>
+
+--- The surroundContents() method of the Range interface surrounds the selected content by a provided node. It extracts the contents of the range, replaces the children of newParent with the extracted contents, inserts newParent at the location of the extracted contents, and makes the range select newParent.
+--- js: Range.surroundContents
+export RangeSurroundContents: (Handle) ~[1]~> Result<(), JsError>
+
+--- The StaticRange() constructor
+--- creates a new StaticRange object representing a span of content within
+--- the DOM.
+--- js: StaticRange.constructor
+export StaticRangeConstructor: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Text() constructor returns a new Text object
+--- with the optional string given in parameter as its textual content.
+--- js: Text.constructor
+export TextConstructor: (String) ~[1]~> Result<(), JsError>
+
+--- The splitText() method of the Text interface
+--- breaks the Text node into two nodes at the specified offset,
+--- keeping both nodes in the tree as siblings.
+--- js: Text.splitText
+export TextSplitText: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.firstChild() method moves the current
+--- Node to the first visible child of the current node, and returns
+--- the found child. If no such child exists, it returns null and the current node is not changed.
+--- js: TreeWalker.firstChild
+export TreeWalkerFirstChild: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.lastChild() method moves the current
+--- Node to the last visible child of the current node, and returns
+--- the found child. If no such child exists, it returns null and the current node is not changed.
+--- js: TreeWalker.lastChild
+export TreeWalkerLastChild: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.nextNode() method moves the current
+--- Node to the next visible node in the document order, and returns
+--- the found node. If no such node exists, it returns null and the current node is not changed.
+--- js: TreeWalker.nextNode
+export TreeWalkerNextNode: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.nextSibling() method moves the current
+--- Node to its next sibling, if any, and returns the found sibling. If there
+--- is no such node, it returns null and the current node is not changed.
+--- js: TreeWalker.nextSibling
+export TreeWalkerNextSibling: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.parentNode() method moves the current
+--- Node to the first visible ancestor node in the document order,
+--- and returns the found node. If no such node exists, or if it is above the
+--- TreeWalker's root node, it returns null and the current
+--- node is not changed.
+--- js: TreeWalker.parentNode
+export TreeWalkerParentNode: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.previousNode() method moves the current
+--- Node to the previous visible node in the document order, and
+--- returns the found node. If no such node
+--- exists, or if it is before that the root node defined at the object
+--- construction, it returns null and the current node is not changed.
+--- js: TreeWalker.previousNode
+export TreeWalkerPreviousNode: () ~[1]~> Result<Handle, JsError>
+
+--- The TreeWalker.previousSibling() method moves the current
+--- Node to its previous sibling, if any, and returns the found sibling. If
+--- there is no such node, it returns null and the current node is not changed.
+--- js: TreeWalker.previousSibling
+export TreeWalkerPreviousSibling: () ~[1]~> Result<Handle, JsError>
+
+--- The XPathEvaluator() constructor creates a new XPathEvaluator.
+--- js: XPathEvaluator.constructor
+export XPathEvaluatorConstructor: () ~[1]~> Result<(), JsError>
+
+--- js: XPathEvaluatorBase.createExpression
+export XPathEvaluatorBaseCreateExpression: (String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- legacy
+--- js: XPathEvaluatorBase.createNSResolver
+export XPathEvaluatorBaseCreateNSResolver: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- XPathResult.ANY_TYPE = 0
+--- js: XPathEvaluatorBase.evaluate
+export XPathEvaluatorBaseEvaluate: (String, Handle, Handle, Nat, Handle) ~[1]~> Result<Handle, JsError>
+
+--- XPathResult.ANY_TYPE = 0
+--- js: XPathExpression.evaluate
+export XPathExpressionEvaluate: (Handle, Nat, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The lookupNamespaceURI() method of the Node interface
+--- takes a prefix as parameter and returns the namespace URI associated with it on the given node if found (and
+--- null if not). This method's existence allows Node objects to be passed as a namespace resolver to XPathEvaluator.createExpression() and XPathEvaluator.evaluate().
+--- js: XPathNSResolver.lookupNamespaceURI
+export XPathNSResolverLookupNamespaceURI: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The iterateNext() method of the
+--- XPathResult interface iterates over a node set result and returns the
+--- next node from it or null if there are no more nodes.
+--- js: XPathResult.iterateNext
+export XPathResultIterateNext: () ~[1]~> Result<Handle, JsError>
+
+--- The snapshotItem() method of the
+--- XPathResult interface returns an item of the snapshot collection or
+--- null in case the index is not within the range of nodes. Unlike the
+--- iterator result, the snapshot does not become invalid, but may not correspond to the
+--- current document if it is mutated.
+--- js: XPathResult.snapshotItem
+export XPathResultSnapshotItem: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The clearParameters() method of the XSLTProcessor interface removes all parameters (<xsl:param>) and their values from the stylesheet imported in the processor. The XSLTProcessor will then use the default values specified in the XSLT stylesheet.
+--- js: XSLTProcessor.clearParameters
+export XSLTProcessorClearParameters: () ~[1]~> Result<(), JsError>
+
+--- The XSLTProcessor() constructor creates a new XSLTProcessor object instance.
+--- js: XSLTProcessor.constructor
+export XSLTProcessorConstructor: () ~[1]~> Result<(), JsError>
+
+--- The getParameter() method of the XSLTProcessor interface returns the value of a parameter (<xsl:param>) from the stylesheet imported in the processor.
+--- js: XSLTProcessor.getParameter
+export XSLTProcessorGetParameter: (String, String) ~[1]~> Result<Handle, JsError>
+
+--- The importStylesheet() method of the XSLTProcessor interface imports an XSLT stylesheet for the processor.
+--- js: XSLTProcessor.importStylesheet
+export XSLTProcessorImportStylesheet: (Handle) ~[1]~> Result<(), JsError>
+
+--- The removeParameter() method of the XSLTProcessor interface removes the parameter (<xsl:param>) and its value from the stylesheet imported in the processor.
+--- js: XSLTProcessor.removeParameter
+export XSLTProcessorRemoveParameter: (String, String) ~[1]~> Result<(), JsError>
+
+--- The reset() method of the XSLTProcessor interface removes all parameters (<xsl:param>) and the XSLT stylesheet from the processor. The XSLTProcessor will then be in its original state when it was created.
+--- js: XSLTProcessor.reset
+export XSLTProcessorReset: () ~[1]~> Result<(), JsError>
+
+--- The setParameter() method of the XSLTProcessor interface sets the value of a parameter (<xsl:param>) in the stylesheet imported in the processor.
+--- js: XSLTProcessor.setParameter
+export XSLTProcessorSetParameter: (String, String, Handle) ~[1]~> Result<(), JsError>
+
+--- The transformToDocument() method of the XSLTProcessor interface transforms the provided Node source to a Document using the XSLT stylesheet associated with XSLTProcessor.
+--- js: XSLTProcessor.transformToDocument
+export XSLTProcessorTransformToDocument: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The transformToFragment() method of the XSLTProcessor interface transforms a provided Node source to a DocumentFragment using the XSLT stylesheet associated with the XSLTProcessor.
+--- js: XSLTProcessor.transformToFragment
+export XSLTProcessorTransformToFragment: (Handle, Handle) ~[1]~> Result<Handle, JsError>
