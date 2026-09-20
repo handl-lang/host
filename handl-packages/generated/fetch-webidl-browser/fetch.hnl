@@ -1,4 +1,4 @@
---- Generated adapter for fetch-webidl-unknown-browser/fetch
+--- Generated adapter for fetch-webidl-browser/fetch
 
 from "js" import { call, error }
 from "result" import { ok, err }

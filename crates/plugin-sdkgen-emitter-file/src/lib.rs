@@ -61,6 +61,11 @@ fn canonicalize(src: String) -> String {
 
 fn target_slug(target: &str) -> String {
     let parts: Vec<&str> = target.split('-').collect();
+    // Non-triple targets (e.g. `browser`, `node`, `deno`) have no arch/os
+    // to extract — use the name verbatim instead of `unknown-<name>`.
+    if parts.len() == 1 {
+        return target.to_string();
+    }
     let arch = parts.first().copied().unwrap_or("unknown");
     let os = parts
         .get(2)

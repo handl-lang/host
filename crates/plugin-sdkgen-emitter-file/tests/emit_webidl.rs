@@ -45,7 +45,7 @@ fn emits_js_port_and_adapter() {
 
     let port = fs::read_to_string(port_dir.join("console.hnl")).unwrap();
     let adapter =
-        fs::read_to_string(tmp.join("console-webidl-unknown-browser/console.hnl")).unwrap();
+        fs::read_to_string(tmp.join("console-webidl-browser/console.hnl")).unwrap();
 
     assert!(
         port.contains("from \"js\" import { JsError }"),
