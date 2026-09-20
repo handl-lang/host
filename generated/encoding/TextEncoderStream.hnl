@@ -10,7 +10,11 @@ from "result" import { Result }
 export TextEncoderStream := {
   --- The encoding read-only property of the TextEncoderStream interface returns a
   --- string containing the name of the encoding algorithm used by the current TextEncoderStream object.
-  encoding: String
+  encoding: String,
+  --- The readable read-only property of the TextEncoderStream interface returns a ReadableStream that emits encoded binary data as Uint8Array chunks.
+  readable: Handle,
+  --- The writable read-only property of the TextEncoderStream interface returns a WritableStream that accepts strings to be encoded into binary data.
+  writable: Handle
 }
 
 --- The TextEncoderStream() constructor creates a new TextEncoderStream object which is used to convert a stream of strings into bytes using UTF-8 encoding.
