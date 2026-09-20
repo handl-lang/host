@@ -1,0 +1,14 @@
+--- Generated adapter for libc-c-linux-x86_64/types
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+from "../libc/types" import { __fsid_t, __sigset_t, timeval, timespec, fd_set, __pthread_internal_list, __pthread_internal_slist, __pthread_mutex_s, __pthread_rwlock_arch_t, __pthread_cond_s, __once_flag }
+
+export unix: Int := 1
+export linux: Int := 1
+export LITTLE_ENDIAN: Int := 1234
+export BIG_ENDIAN: Int := 4321
+export PDP_ENDIAN: Int := 3412
+export BYTE_ORDER: Int := 1234
+export FD_SETSIZE: Int := 1024
+export NFDBITS: Int := 64

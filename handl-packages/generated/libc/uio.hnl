@@ -1,0 +1,105 @@
+--- Generated port for libc.uio
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+from "types/c/sys" import { SSize }
+
+export unix: Int
+export linux: Int
+export LITTLE_ENDIAN: Int
+export BIG_ENDIAN: Int
+export PDP_ENDIAN: Int
+export BYTE_ORDER: Int
+export FD_SETSIZE: Int
+export NFDBITS: Int
+export UIO_MAXIOV: Int
+export RWF_HIPRI: Int
+export RWF_DSYNC: Int
+export RWF_SYNC: Int
+export RWF_NOWAIT: Int
+export RWF_APPEND: Int
+export RWF_NOAPPEND: Int
+export RWF_ATOMIC: Int
+export RWF_DONTCACHE: Int
+export RWF_NOSIGNAL: Int
+
+--- Read data from file descriptor FD, and put the result in the
+--- buffers described by IOVEC, which is a vector of COUNT 'struct iovec's.
+--- The buffers are filled in the order specified.
+--- Operates just like 'read' (see <unistd.h>) except that data are
+--- put in IOVEC instead of a contiguous buffer.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: ssize_t (int, const struct iovec *, int)
+export Readv: (Int, Bytes) ~[1]~> Result<SSize, Errno>
+
+--- Write data pointed by the buffers described by IOVEC, which
+--- is a vector of COUNT 'struct iovec's, to file descriptor FD.
+--- The data is written in the order specified.
+--- Operates just like 'write' (see <unistd.h>) except that the data
+--- are taken from IOVEC instead of a contiguous buffer.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: ssize_t (int, const struct iovec *, int)
+export Writev: (Int, Bytes) ~[1]~> Result<SSize, Errno>
+
+--- Read data from file descriptor FD at the given position OFFSET
+--- without change the file pointer, and put the result in the buffers
+--- described by IOVEC, which is a vector of COUNT 'struct iovec's.
+--- The buffers are filled in the order specified.  Operates just like
+--- 'pread' (see <unistd.h>) except that data are put in IOVEC instead
+--- of a contiguous buffer.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: ssize_t (int, const struct iovec *, int, __off_t)
+export Preadv: (Int, Bytes, Int) ~[1]~> Result<SSize, Errno>
+
+--- Write data pointed by the buffers described by IOVEC, which is a
+--- vector of COUNT 'struct iovec's, to file descriptor FD at the given
+--- position OFFSET without change the file pointer.  The data is
+--- written in the order specified.  Operates just like 'pwrite' (see
+--- <unistd.h>) except that the data are taken from IOVEC instead of a
+--- contiguous buffer.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: ssize_t (int, const struct iovec *, int, __off_t)
+export Pwritev: (Int, Bytes, Int) ~[1]~> Result<SSize, Errno>
+
+--- Read data from file descriptor FD at the given position OFFSET
+--- without change the file pointer, and put the result in the buffers
+--- described by IOVEC, which is a vector of COUNT 'struct iovec's.
+--- The buffers are filled in the order specified.  Operates just like
+--- 'pread' (see <unistd.h>) except that data are put in IOVEC instead
+--- of a contiguous buffer.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: ssize_t (int, const struct iovec *, int, __off64_t)
+export Preadv64: (Int, Bytes, Int) ~[1]~> Result<SSize, Errno>
+
+--- Write data pointed by the buffers described by IOVEC, which is a
+--- vector of COUNT 'struct iovec's, to file descriptor FD at the given
+--- position OFFSET without change the file pointer.  The data is
+--- written in the order specified.  Operates just like 'pwrite' (see
+--- <unistd.h>) except that the data are taken from IOVEC instead of a
+--- contiguous buffer.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi: ssize_t (int, const struct iovec *, int, __off64_t)
+export Pwritev64: (Int, Bytes, Int) ~[1]~> Result<SSize, Errno>
+
+--- Same as preadv but with an additional flag argumenti defined at uio.h.
+--- ffi: ssize_t (int, const struct iovec *, int, __off_t, int)
+export Preadv2: (Int, Bytes, Int, Int) ~[1]~> Result<SSize, Errno>
+
+--- Same as preadv but with an additional flag argument defined at uio.h.
+--- ffi: ssize_t (int, const struct iovec *, int, __off_t, int)
+export Pwritev2: (Int, Bytes, Int, Int) ~[1]~> Result<SSize, Errno>
+
+--- Same as preadv but with an additional flag argumenti defined at uio.h.
+--- ffi: ssize_t (int, const struct iovec *, int, __off64_t, int)
+export Preadv64v2: (Int, Bytes, Int, Int) ~[1]~> Result<SSize, Errno>
+
+--- Same as preadv but with an additional flag argument defined at uio.h.
+--- ffi: ssize_t (int, const struct iovec *, int, __off64_t, int)
+export Pwritev64v2: (Int, Bytes, Int, Int) ~[1]~> Result<SSize, Errno>

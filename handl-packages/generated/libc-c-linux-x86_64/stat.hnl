@@ -1,0 +1,251 @@
+--- Generated adapter for libc-c-linux-x86_64/stat
+
+from "ffi" import { call, errno }
+from "result" import { ok, err }
+from "../libc/stat" import { stat, stat64, Stat, Fstat, Stat64, Fstat64, Fstatat, Fstatat64, Lstat, Lstat64, Chmod, Lchmod, Fchmod, Fchmodat, Umask, Getumask, Mkdir, Mkdirat, Mknod, Mknodat, Mkfifo, Mkfifoat }
+
+export unix: Int := 1
+export linux: Int := 1
+export UTIME_NOW: Int := 1073741823
+export UTIME_OMIT: Int := 1073741822
+export S_IFMT: Int := 61440
+export S_IFDIR: Int := 16384
+export S_IFCHR: Int := 8192
+export S_IFBLK: Int := 24576
+export S_IFREG: Int := 32768
+export S_IFIFO: Int := 4096
+export S_IFLNK: Int := 40960
+export S_IFSOCK: Int := 49152
+export S_ISUID: Int := 2048
+export S_ISGID: Int := 1024
+export S_ISVTX: Int := 512
+export S_IRUSR: Int := 256
+export S_IWUSR: Int := 128
+export S_IXUSR: Int := 64
+export S_IRWXU: Int := 448
+export S_IREAD: Int := 256
+export S_IWRITE: Int := 128
+export S_IEXEC: Int := 64
+export S_IRGRP: Int := 32
+export S_IWGRP: Int := 16
+export S_IXGRP: Int := 8
+export S_IRWXG: Int := 56
+export S_IROTH: Int := 4
+export S_IWOTH: Int := 2
+export S_IXOTH: Int := 1
+export S_IRWXO: Int := 7
+export ACCESSPERMS: Int := 511
+export ALLPERMS: Int := 4095
+export DEFFILEMODE: Int := 438
+export S_BLKSIZE: Int := 512
+export STATX_TYPE: Int := 1
+export STATX_MODE: Int := 2
+export STATX_NLINK: Int := 4
+export STATX_UID: Int := 8
+export STATX_GID: Int := 16
+export STATX_ATIME: Int := 32
+export STATX_MTIME: Int := 64
+export STATX_CTIME: Int := 128
+export STATX_INO: Int := 256
+export STATX_SIZE: Int := 512
+export STATX_BLOCKS: Int := 1024
+export STATX_BASIC_STATS: Int := 2047
+export STATX_BTIME: Int := 2048
+export STATX_MNT_ID: Int := 4096
+export STATX_DIOALIGN: Int := 8192
+export STATX_MNT_ID_UNIQUE: Int := 16384
+export STATX_SUBVOL: Int := 32768
+export STATX_WRITE_ATOMIC: Int := 65536
+export STATX_DIO_READ_ALIGN: Int := 131072
+export STATX__RESERVED: Int := 2147483648
+export STATX_ALL: Int := 4095
+export STATX_ATTR_COMPRESSED: Int := 4
+export STATX_ATTR_IMMUTABLE: Int := 16
+export STATX_ATTR_APPEND: Int := 32
+export STATX_ATTR_NODUMP: Int := 64
+export STATX_ATTR_ENCRYPTED: Int := 2048
+export STATX_ATTR_AUTOMOUNT: Int := 4096
+export STATX_ATTR_MOUNT_ROOT: Int := 8192
+export STATX_ATTR_VERITY: Int := 1048576
+export STATX_ATTR_DAX: Int := 2097152
+export STATX_ATTR_WRITE_ATOMIC: Int := 4194304
+
+export stat: Stat := (__file) ~> do {
+  r = call("libc.so.6", "stat", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fstat: Fstat := (__fd) ~> do {
+  r = call("libc.so.6", "fstat", [__fd], ["i32", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export stat64: Stat64 := (__file) ~> do {
+  r = call("libc.so.6", "stat64", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fstat64: Fstat64 := (__fd) ~> do {
+  r = call("libc.so.6", "fstat64", [__fd], ["i32", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fstatat: Fstatat := (__fd, __file, __flag) ~> do {
+  r = call("libc.so.6", "fstatat", [__fd, __file, __flag], ["i32", "cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}", "i32"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fstatat64: Fstatat64 := (__fd, __file, __flag) ~> do {
+  r = call("libc.so.6", "fstatat64", [__fd, __file, __flag], ["i32", "cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}", "i32"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lstat: Lstat := (__file) ~> do {
+  r = call("libc.so.6", "lstat", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lstat64: Lstat64 := (__file) ~> do {
+  r = call("libc.so.6", "lstat64", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  if r.ret < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export chmod: Chmod := (__file, __mode) ~> do {
+  r = call("libc.so.6", "chmod", [__file, __mode], ["cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export lchmod: Lchmod := (__file, __mode) ~> do {
+  r = call("libc.so.6", "lchmod", [__file, __mode], ["cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fchmod: Fchmod := (__fd, __mode) ~> do {
+  r = call("libc.so.6", "fchmod", [__fd, __mode], ["i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export fchmodat: Fchmodat := (__fd, __file, __mode, __flag) ~> do {
+  r = call("libc.so.6", "fchmodat", [__fd, __file, __mode, __flag], ["i32", "cstr", "i32", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export umask: Umask := (__mask) ~> do {
+  r = call("libc.so.6", "umask", [__mask], ["i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export getumask: Getumask := () ~> do {
+  r = call("libc.so.6", "getumask", [], [], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export mkdir: Mkdir := (__path, __mode) ~> do {
+  r = call("libc.so.6", "mkdir", [__path, __mode], ["cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export mkdirat: Mkdirat := (__fd, __path, __mode) ~> do {
+  r = call("libc.so.6", "mkdirat", [__fd, __path, __mode], ["i32", "cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export mknod: Mknod := (__path, __mode, __dev) ~> do {
+  r = call("libc.so.6", "mknod", [__path, __mode, __dev], ["cstr", "i32", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export mknodat: Mknodat := (__fd, __path, __mode, __dev) ~> do {
+  r = call("libc.so.6", "mknodat", [__fd, __path, __mode, __dev], ["i32", "cstr", "i32", "i64"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export mkfifo: Mkfifo := (__path, __mode) ~> do {
+  r = call("libc.so.6", "mkfifo", [__path, __mode], ["cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
+
+export mkfifoat: Mkfifoat := (__fd, __path, __mode) ~> do {
+  r = call("libc.so.6", "mkfifoat", [__fd, __path, __mode], ["i32", "cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(errno())
+  } else {
+    ok(r)
+  }
+}
