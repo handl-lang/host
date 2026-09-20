@@ -103,8 +103,10 @@ wrap in `result.err` at the adapter edge (see `generated/libc`).
    `nfc`/`nfd` rather than shipping identity).
 4. **Semantic names, not implementation names** — `nfc`, never
    `nfc_icu4x`; `graphemes`, never `graphemes_utf16`.
-5. **Effects are visible** — FFI arrows carry `~[1]~>`/`FFI` grade; pure
-   ones don't.
+5. **Effects are inferred, not annotated** — effectfulness comes from the
+   `cap`/`op` declaration, not the signature. `~[N]~>` is an arrow
+   _dimension_ annotation (ADR-0119), not an effect row — don't write it
+   for effect marking.
 6. **`for` for iteration, `while` for stateful loops** — `for x in xs` when
    you're walking a list; `while {state} {step}` when the loop is a state
    machine or terminates on a condition. Avoid self-application recursion.
