@@ -105,6 +105,9 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
         "--- {} target: {}\n",
         client.client_pkg, module.target
     ));
+    if let Some(source) = &module.source {
+        out.push_str(&format!("--- source: {source}\n"));
+    }
     out.push_str("\n");
     out.push_str(&format!(
         "from \"{}\" import {{ {} }}\n",
@@ -349,6 +352,9 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
     let client = client_info(&module.client_package);
     let mut out = String::new();
     out.push_str(&format!("--- Generated adapter for {adapter_pkg}/{name}\n"));
+    if let Some(source) = &module.source {
+        out.push_str(&format!("--- source: {source}\n"));
+    }
     out.push_str("\n");
     out.push_str(&format!(
         "from \"{}\" import {{ call, {} }}\n",

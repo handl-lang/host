@@ -89,7 +89,9 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
     // Resolve the input spec: either a local path or a downloaded URL. The
     // fetched file lands next to the output dir (the `generated/` spec
     // convention) so the port's `module.library` still derives from the
-    // upstream basename.
+    // upstream basename. `source_url` is kept to stamp the module's
+    // provenance (emitted as `--- source:` header lines).
+    let source_url = from_url.clone();
     let header: PathBuf = match (header, from_url) {
         (Some(h), None) => PathBuf::from(h),
         (None, Some(url)) => {
@@ -134,13 +136,14 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                     return 1;
                 }
             };
-            let module = match backend.parse_header(&header) {
+            let mut module = match backend.parse_header(&header) {
                 Ok(m) => m,
                 Err(e) => {
                     eprintln!("sdkgen: {e}");
                     return 1;
                 }
             };
+            module.source = source_url.clone();
             for d in &module.diagnostics {
                 eprintln!("sdkgen: diagnostic: {d}");
             }
@@ -156,13 +159,14 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 return 2;
             }
             let backend = WebIdlBackend::new(target);
-            let module = match backend.parse_header(&header) {
+            let mut module = match backend.parse_header(&header) {
                 Ok(m) => m,
                 Err(e) => {
                     eprintln!("sdkgen: {e}");
                     return 1;
                 }
             };
+            module.source = source_url.clone();
             let emitter = FileEmitter::new();
             if let Err(e) = emitter.emit(&module, output_path) {
                 eprintln!("sdkgen: {e}");

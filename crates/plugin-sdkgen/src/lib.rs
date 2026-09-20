@@ -20,6 +20,11 @@ pub struct SdkgenModule {
     /// (e.g. the C backend's `types/c` aliases).
     #[serde(default)]
     pub imports: Vec<ModuleImport>,
+    /// Provenance of the input spec — e.g. the URL passed to
+    /// `hnl sdkgen --from-url`. Rendered as a `--- source:` header line so
+    /// committed generated files record the pin they were produced from.
+    #[serde(default)]
+    pub source: Option<String>,
     pub diagnostics: Vec<String>,
 }
 

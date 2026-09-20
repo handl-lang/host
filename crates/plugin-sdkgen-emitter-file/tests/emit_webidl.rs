@@ -11,6 +11,7 @@ fn build_console_module() -> SdkgenModule {
     module.target = "browser".to_string();
     module.client_package = "js".to_string();
     module.library = "console".to_string();
+    module.source = Some("https://example.test/console.idl".to_string());
 
     module.functions.push(Function {
         name: "console_log".to_string(),
@@ -47,6 +48,14 @@ fn emits_js_port_and_adapter() {
     let adapter =
         fs::read_to_string(tmp.join("console-webidl-browser/console.hnl")).unwrap();
 
+    assert!(
+        port.contains("--- source: https://example.test/console.idl"),
+        "port source pin missing: {port}"
+    );
+    assert!(
+        adapter.contains("--- source: https://example.test/console.idl"),
+        "adapter source pin missing: {adapter}"
+    );
     assert!(
         port.contains("from \"js\" import { JsError }"),
         "port import missing: {port}"
