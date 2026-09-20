@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/in
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/in" import { sockaddr_storage, sockaddr_in, sockaddr_in6, Ntohl, Ntohs, Htonl, Htons, Bindresvport, Bindresvport6, Inet6OptionSpace, Inet6OptionAppend, Inet6OptionAlloc, Inet6OptInit, Inet6OptFinish, Inet6OptSetVal, Inet6OptGetVal, Inet6RthSpace, Inet6RthInit, Inet6RthAdd, Setsourcefilter }
 
@@ -508,145 +507,145 @@ export INET_ADDRSTRLEN: Int := 16
 export INET6_ADDRSTRLEN: Int := 46
 
 export ntohl: Ntohl := (__netlong) ~> do {
-  r = call("libc.so.6", "ntohl", [__netlong], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "ntohl", [__netlong], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export ntohs: Ntohs := (__netshort) ~> do {
-  r = call("libc.so.6", "ntohs", [__netshort], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "ntohs", [__netshort], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export htonl: Htonl := (__hostlong) ~> do {
-  r = call("libc.so.6", "htonl", [__hostlong], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "htonl", [__hostlong], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export htons: Htons := (__hostshort) ~> do {
-  r = call("libc.so.6", "htons", [__hostshort], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "htons", [__hostshort], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export bindresvport: Bindresvport := (__sockfd) ~> do {
-  r = call("libc.so.6", "bindresvport", [__sockfd], ["i32", "out_struct:{sin_family:u16@0,sin_port:u16@2,sin_addr:rec:{s_addr:u32@0}@4:4,sin_zero:arr:8:u8@8:8}"], "i32", false)
+  r = ffi.call("libc.so.6", "bindresvport", [__sockfd], ["i32", "out_struct:{sin_family:u16@0,sin_port:u16@2,sin_addr:rec:{s_addr:u32@0}@4:4,sin_zero:arr:8:u8@8:8}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export bindresvport6: Bindresvport6 := (__sockfd) ~> do {
-  r = call("libc.so.6", "bindresvport6", [__sockfd], ["i32", "out_struct:{sin6_family:u16@0,sin6_port:u16@2,sin6_flowinfo:u32@4,sin6_addr:arr:16:u8@8:16,sin6_scope_id:u32@24}"], "i32", false)
+  r = ffi.call("libc.so.6", "bindresvport6", [__sockfd], ["i32", "out_struct:{sin6_family:u16@0,sin6_port:u16@2,sin6_flowinfo:u32@4,sin6_addr:arr:16:u8@8:16,sin6_scope_id:u32@24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_option_space: Inet6OptionSpace := (__nbytes) ~> do {
-  r = call("libc.so.6", "inet6_option_space", [__nbytes], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_option_space", [__nbytes], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_option_append: Inet6OptionAppend := (__cmsg, __typep, __multx, __plusy) ~> do {
-  r = call("libc.so.6", "inet6_option_append", [__cmsg, __typep, __multx, __plusy], ["ptr", "cstr", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_option_append", [__cmsg, __typep, __multx, __plusy], ["ptr", "cstr", "i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_option_alloc: Inet6OptionAlloc := (__cmsg, __datalen, __multx, __plusy) ~> do {
-  r = call("libc.so.6", "inet6_option_alloc", [__cmsg, __datalen, __multx, __plusy], ["ptr", "i32", "i32", "i32"], "cstr", false)
+  r = ffi.call("libc.so.6", "inet6_option_alloc", [__cmsg, __datalen, __multx, __plusy], ["ptr", "i32", "i32", "i32"], "cstr", false)
   ok(r)
 }
 
 export inet6_opt_init: Inet6OptInit := (__extbuf, __extlen) ~> do {
-  r = call("libc.so.6", "inet6_opt_init", [__extbuf, __extlen], ["ptr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_opt_init", [__extbuf, __extlen], ["ptr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_opt_finish: Inet6OptFinish := (__extbuf, __extlen, __offset) ~> do {
-  r = call("libc.so.6", "inet6_opt_finish", [__extbuf, __extlen, __offset], ["ptr", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_opt_finish", [__extbuf, __extlen, __offset], ["ptr", "i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_opt_set_val: Inet6OptSetVal := (__databuf, __offset, __val, __vallen) ~> do {
-  r = call("libc.so.6", "inet6_opt_set_val", [__databuf, __offset, __val, __vallen], ["ptr", "i32", "ptr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_opt_set_val", [__databuf, __offset, __val, __vallen], ["ptr", "i32", "ptr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_opt_get_val: Inet6OptGetVal := (__databuf, __offset, __val, __vallen) ~> do {
-  r = call("libc.so.6", "inet6_opt_get_val", [__databuf, __offset, __val, __vallen], ["ptr", "i32", "ptr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_opt_get_val", [__databuf, __offset, __val, __vallen], ["ptr", "i32", "ptr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_rth_space: Inet6RthSpace := (__type, __segments) ~> do {
-  r = call("libc.so.6", "inet6_rth_space", [__type, __segments], ["i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_rth_space", [__type, __segments], ["i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export inet6_rth_init: Inet6RthInit := (__bp, __bp_len, __type, __segments) ~> do {
-  r = call("libc.so.6", "inet6_rth_init", [__bp, __bp_len, __type, __segments], ["ptr", "i32", "i32", "i32"], "handle", false)
+  r = ffi.call("libc.so.6", "inet6_rth_init", [__bp, __bp_len, __type, __segments], ["ptr", "i32", "i32", "i32"], "handle", false)
   ok(r)
 }
 
 export inet6_rth_add: Inet6RthAdd := (__bp, __addr) ~> do {
-  r = call("libc.so.6", "inet6_rth_add", [__bp, __addr], ["ptr", "ptr"], "i32", false)
+  r = ffi.call("libc.so.6", "inet6_rth_add", [__bp, __addr], ["ptr", "ptr"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export setsourcefilter: Setsourcefilter := (__s, __interface_addr, __group, __fmode, __numsrc, __slist) ~> do {
-  r = call("libc.so.6", "setsourcefilter", [__s, __interface_addr, __group, __fmode, __numsrc, __slist], ["i32", "i32", "in_buf", "i32", "i32", "in_struct:{ss_family:u16@0,__ss_padding:arr:118:i8@2:118,__ss_align:u64@120}"], "i32", false)
+  r = ffi.call("libc.so.6", "setsourcefilter", [__s, __interface_addr, __group, __fmode, __numsrc, __slist], ["i32", "i32", "in_buf", "i32", "i32", "in_struct:{ss_family:u16@0,__ss_padding:arr:118:i8@2:118,__ss_align:u64@120}"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

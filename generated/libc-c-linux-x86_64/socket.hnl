@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/socket
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/socket" import { Socket, Socketpair, Bind, Getsockname, Connect, Getpeername, Send, Recv, Recvfrom, Sendmsg, Recvmsg, Getsockopt, Setsockopt, Listen, Accept, Accept4, Shutdown, Sockatmark, Isfdtype }
 
@@ -289,171 +288,171 @@ export SCM_TIMESTAMPNS: Int := 35
 export SCM_TIMESTAMPING: Int := 37
 
 export socket: Socket := (__domain, __type, __protocol) ~> do {
-  r = call("libc.so.6", "socket", [__domain, __type, __protocol], ["i32", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "socket", [__domain, __type, __protocol], ["i32", "i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export socketpair: Socketpair := (domain, type, protocol) ~> do {
-  r = call("libc.so.6", "socketpair", [domain, type, protocol], ["i32", "i32", "i32", "out_ptr:8"], "i32", false)
+  r = ffi.call("libc.so.6", "socketpair", [domain, type, protocol], ["i32", "i32", "i32", "out_ptr:8"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export bind: Bind := (fd, __arg_1) ~> do {
-  r = call("libc.so.6", "bind", [fd, __arg_1], ["i32", "in_buf"], "i32", false)
+  r = ffi.call("libc.so.6", "bind", [fd, __arg_1], ["i32", "in_buf"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export getsockname: Getsockname := (fd) ~> do {
-  r = call("libc.so.6", "getsockname", [fd], ["i32", "io_buf:128"], "i32", false)
+  r = ffi.call("libc.so.6", "getsockname", [fd], ["i32", "io_buf:128"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export connect: Connect := (fd, __arg_1) ~> do {
-  r = call("libc.so.6", "connect", [fd, __arg_1], ["i32", "in_buf"], "i32", false)
+  r = ffi.call("libc.so.6", "connect", [fd, __arg_1], ["i32", "in_buf"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export getpeername: Getpeername := (fd) ~> do {
-  r = call("libc.so.6", "getpeername", [fd], ["i32", "io_buf:128"], "i32", false)
+  r = ffi.call("libc.so.6", "getpeername", [fd], ["i32", "io_buf:128"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export send: Send := (__fd, __buf, __flags) ~> do {
-  r = call("libc.so.6", "send", [__fd, __buf, __flags], ["i32", "in_buf", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "send", [__fd, __buf, __flags], ["i32", "in_buf", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export recv: Recv := (__fd, __flags) ~> do {
-  r = call("libc.so.6", "recv", [__fd, __flags], ["i32", "out_buf:65536", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "recv", [__fd, __flags], ["i32", "out_buf:65536", "i32"], "i64", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r.buf)
   }
 }
 
 export recvfrom: Recvfrom := (fd, flags) ~> do {
-  r = call("libc.so.6", "recvfrom", [fd, flags], ["i32", "out_buf:65536", "i32", "io_buf:128"], "i32", false)
+  r = ffi.call("libc.so.6", "recvfrom", [fd, flags], ["i32", "out_buf:65536", "i32", "io_buf:128"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export sendmsg: Sendmsg := (fd, msg, flags) ~> do {
-  r = call("libc.so.6", "sendmsg", [fd, msg, flags], ["i32", "in_struct:{msg_name:bytes,msg_namelen:u32,msg_iov:iov,msg_iovlen:u64,msg_control:bytes,msg_controllen:u64,msg_flags:i32}", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "sendmsg", [fd, msg, flags], ["i32", "in_struct:{msg_name:bytes,msg_namelen:u32,msg_iov:iov,msg_iovlen:u64,msg_control:bytes,msg_controllen:u64,msg_flags:i32}", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export recvmsg: Recvmsg := (fd, flags) ~> do {
-  r = call("libc.so.6", "recvmsg", [fd, flags], ["i32", "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:8:65536,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "recvmsg", [fd, flags], ["i32", "io_struct:{msg_name:buf:128,msg_namelen:u32,msg_iov:iovbuf:8:65536,msg_iovlen:u64,msg_control:buf:256,msg_controllen:u64,msg_flags:i32}", "i32"], "i64", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export getsockopt: Getsockopt := (fd, level, optname) ~> do {
-  r = call("libc.so.6", "getsockopt", [fd, level, optname], ["i32", "i32", "i32", "io_buf:16"], "i32", false)
+  r = ffi.call("libc.so.6", "getsockopt", [fd, level, optname], ["i32", "i32", "i32", "io_buf:16"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export setsockopt: Setsockopt := (__fd, __level, __optname, __optval) ~> do {
-  r = call("libc.so.6", "setsockopt", [__fd, __level, __optname, __optval], ["i32", "i32", "i32", "in_buf"], "i32", false)
+  r = ffi.call("libc.so.6", "setsockopt", [__fd, __level, __optname, __optval], ["i32", "i32", "i32", "in_buf"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export listen: Listen := (__fd, __n) ~> do {
-  r = call("libc.so.6", "listen", [__fd, __n], ["i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "listen", [__fd, __n], ["i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export accept: Accept := (fd) ~> do {
-  r = call("libc.so.6", "accept", [fd], ["i32", "io_buf:128"], "i32", false)
+  r = ffi.call("libc.so.6", "accept", [fd], ["i32", "io_buf:128"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export accept4: Accept4 := (fd, flags) ~> do {
-  r = call("libc.so.6", "accept4", [fd, flags], ["i32", "io_buf:128", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "accept4", [fd, flags], ["i32", "io_buf:128", "i32"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export shutdown: Shutdown := (__fd, __how) ~> do {
-  r = call("libc.so.6", "shutdown", [__fd, __how], ["i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "shutdown", [__fd, __how], ["i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export sockatmark: Sockatmark := (__fd) ~> do {
-  r = call("libc.so.6", "sockatmark", [__fd], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "sockatmark", [__fd], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export isfdtype: Isfdtype := (__fd, __fdtype) ~> do {
-  r = call("libc.so.6", "isfdtype", [__fd, __fdtype], ["i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "isfdtype", [__fd, __fdtype], ["i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

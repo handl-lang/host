@@ -391,7 +391,7 @@ export Socket: (Int, Int, Int) ~[1]~> Result<Int, Errno>
 export SocketpairResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -405,7 +405,7 @@ export Bind: (Int, Bytes) ~[1]~> Result<Int, Errno>
 export GetsocknameResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -425,7 +425,7 @@ export Connect: (Int, Bytes) ~[1]~> Result<Int, Errno>
 export GetpeernameResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -453,7 +453,7 @@ export Recv: (Int, Int) ~[1]~> Result<Bytes, Errno>
 export RecvfromResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -463,7 +463,7 @@ export Recvfrom: (Int, Int) ~[1]~> Result<RecvfromResult, Errno>
 export SendmsgMsg := {
   msg_name: Bytes,
   msg_namelen: Nat,
-  msg_iov: List<Bytes>,
+  msg_iov: [Bytes],
   msg_iovlen: Nat,
   msg_control: Bytes,
   msg_controllen: Nat,
@@ -482,7 +482,7 @@ export RecvmsgResult := {
 export RecvmsgMsg := {
   msg_name: Bytes,
   msg_namelen: Nat,
-  msg_iov: List<Bytes>,
+  msg_iov: [Bytes],
   msg_iovlen: Nat,
   msg_control: Bytes,
   msg_controllen: Nat,
@@ -496,7 +496,7 @@ export Recvmsg: (Int, Int) ~[1]~> Result<RecvmsgResult, Errno>
 export GetsockoptResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -522,7 +522,7 @@ export Listen: (Int, Int) ~[1]~> Result<Int, Errno>
 export AcceptResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -534,7 +534,7 @@ export Accept: (Int) ~[1]~> Result<AcceptResult, Errno>
 export Accept4Result := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:

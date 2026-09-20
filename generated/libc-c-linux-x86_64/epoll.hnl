@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/epoll
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/epoll" import { EpollCreate1, EpollCtl, EpollWait }
 
@@ -18,27 +17,27 @@ export EPOLL_CTL_DEL: Int := 2
 export EPOLL_CTL_MOD: Int := 3
 
 export epoll_create1: EpollCreate1 := (__flags) ~> do {
-  r = call("libc.so.6", "epoll_create1", [__flags], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "epoll_create1", [__flags], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export epoll_ctl: EpollCtl := (epfd, operation, fd, event) ~> do {
-  r = call("libc.so.6", "epoll_ctl", [epfd, operation, fd, event], ["i32", "i32", "i32", "in_struct:{events:u32@0,data:u64@4}"], "i32", false)
+  r = ffi.call("libc.so.6", "epoll_ctl", [epfd, operation, fd, event], ["i32", "i32", "i32", "in_struct:{events:u32@0,data:u64@4}"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export epoll_wait: EpollWait := (epfd, maxevents, timeout) ~> do {
-  r = call("libc.so.6", "epoll_wait", [epfd, maxevents, timeout], ["i32", "out_ptr:384", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "epoll_wait", [epfd, maxevents, timeout], ["i32", "out_ptr:384", "i32", "i32"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

@@ -1,85 +1,84 @@
 --- Generated adapter for libc-c-linux-x86_64/unistd
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/unistd" import { Lseek, Close, Read, Write, Pipe, Pipe2, Dup, Dup2, Syscall }
 
 export lseek: Lseek := (__fd, __offset, __whence) ~> do {
-  r = call("libc.so.6", "lseek", [__fd, __offset, __whence], ["i32", "i64", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "lseek", [__fd, __offset, __whence], ["i32", "i64", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export close: Close := (__fd) ~> do {
-  r = call("libc.so.6", "close", [__fd], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "close", [__fd], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export read: Read := (__fd) ~> do {
-  r = call("libc.so.6", "read", [__fd], ["i32", "out_buf:65536"], "i64", false)
+  r = ffi.call("libc.so.6", "read", [__fd], ["i32", "out_buf:65536"], "i64", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r.buf)
   }
 }
 
 export write: Write := (__fd, __buf) ~> do {
-  r = call("libc.so.6", "write", [__fd, __buf], ["i32", "in_buf"], "i64", false)
+  r = ffi.call("libc.so.6", "write", [__fd, __buf], ["i32", "in_buf"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export pipe: Pipe := () ~> do {
-  r = call("libc.so.6", "pipe", [], ["out_ptr:8"], "i32", false)
+  r = ffi.call("libc.so.6", "pipe", [], ["out_ptr:8"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export pipe2: Pipe2 := (flags) ~> do {
-  r = call("libc.so.6", "pipe2", [flags], ["out_ptr:8", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "pipe2", [flags], ["out_ptr:8", "i32"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export dup: Dup := (__fd) ~> do {
-  r = call("libc.so.6", "dup", [__fd], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "dup", [__fd], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export dup2: Dup2 := (__fd, __fd2) ~> do {
-  r = call("libc.so.6", "dup2", [__fd, __fd2], ["i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "dup2", [__fd, __fd2], ["i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export syscall: Syscall := (sysno, name, flags) ~> do {
-  r = call("libc.so.6", "syscall", [sysno, name, flags], ["i64", "cstr", "u32"], "i64", false)
+  r = ffi.call("libc.so.6", "syscall", [sysno, name, flags], ["i64", "cstr", "u32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

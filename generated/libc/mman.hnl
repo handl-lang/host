@@ -8,33 +8,62 @@ from "types/c/sys" import { Mode }
 
 export unix: Int
 export linux: Int
+--- Only give out 32-bit addresses.
 export MAP_32BIT: Int
+--- Only map above 4GB.
 export MAP_ABOVE4G: Int
+--- Set up a restore token in the newly allocated shadow stack
 export SHADOW_STACK_SET_TOKEN: Int
+--- Stack-like segment.
 export MAP_GROWSDOWN: Int
+--- ETXTBSY.
 export MAP_DENYWRITE: Int
+--- Mark it as an executable.
 export MAP_EXECUTABLE: Int
+--- Lock the mapping.
 export MAP_LOCKED: Int
+--- Don't check for reservations.
 export MAP_NORESERVE: Int
+--- Populate (prefault) pagetables.
 export MAP_POPULATE: Int
+--- Do not block on IO.
 export MAP_NONBLOCK: Int
+--- Allocation is for a stack.
 export MAP_STACK: Int
+--- Create huge page mapping.
 export MAP_HUGETLB: Int
+--- Perform synchronous page
 export MAP_SYNC: Int
+--- MAP_FIXED but do not unmap
 export MAP_FIXED_NOREPLACE: Int
+--- Page can be read.
 export PROT_READ: Int
+--- Page can be written.
 export PROT_WRITE: Int
+--- Page can be executed.
 export PROT_EXEC: Int
+--- Page can not be accessed.
 export PROT_NONE: Int
+--- Extend change to start of
 export PROT_GROWSDOWN: Int
+--- Extend change to start of
 export PROT_GROWSUP: Int
+--- Share changes.
 export MAP_SHARED: Int
+--- Changes are private.
 export MAP_PRIVATE: Int
+--- Share changes and validate
 export MAP_SHARED_VALIDATE: Int
+--- Zero memory under memory pressure.
 export MAP_DROPPABLE: Int
+--- Mask for type of mapping.
 export MAP_TYPE: Int
+--- Interpret addr exactly.
 export MAP_FIXED: Int
+--- Other flags.
+--- #define MAP_FIXED	0x10		/* Interpret addr exactly.
 export MAP_FILE: Int
+--- Don't use a file.
 export MAP_ANONYMOUS: Int
 export MAP_ANON: Int
 export MAP_HUGE_SHIFT: Int
@@ -52,43 +81,81 @@ export MAP_HUGE_512MB: Int
 export MAP_HUGE_1GB: Int
 export MAP_HUGE_2GB: Int
 export MAP_HUGE_16GB: Int
+--- Sync memory asynchronously.
 export MS_ASYNC: Int
+--- Synchronous memory sync.
 export MS_SYNC: Int
+--- Invalidate the caches.
 export MS_INVALIDATE: Int
+--- No further special treatment.
 export MADV_NORMAL: Int
+--- Expect random page references.
 export MADV_RANDOM: Int
+--- Expect sequential page references.
 export MADV_SEQUENTIAL: Int
+--- Will need these pages.
 export MADV_WILLNEED: Int
+--- Don't need these pages.
 export MADV_DONTNEED: Int
+--- Free pages only if memory pressure.
 export MADV_FREE: Int
+--- Remove these pages and resources.
 export MADV_REMOVE: Int
+--- Do not inherit across fork.
 export MADV_DONTFORK: Int
+--- Do inherit across fork.
 export MADV_DOFORK: Int
+--- KSM may merge identical pages.
 export MADV_MERGEABLE: Int
+--- KSM may not merge identical pages.
 export MADV_UNMERGEABLE: Int
+--- Worth backing with hugepages.
 export MADV_HUGEPAGE: Int
+--- Not worth backing with hugepages.
 export MADV_NOHUGEPAGE: Int
+--- Explicitly exclude from the core dump,
 export MADV_DONTDUMP: Int
+--- Clear the MADV_DONTDUMP flag.
 export MADV_DODUMP: Int
+--- Zero memory on fork, child only.
 export MADV_WIPEONFORK: Int
+--- Undo MADV_WIPEONFORK.
 export MADV_KEEPONFORK: Int
+--- Deactivate these pages.
 export MADV_COLD: Int
+--- Reclaim these pages.
 export MADV_PAGEOUT: Int
+--- Populate (prefault) page tables
 export MADV_POPULATE_READ: Int
+--- Populate (prefault) page tables
 export MADV_POPULATE_WRITE: Int
+--- Like MADV_DONTNEED, but drop
 export MADV_DONTNEED_LOCKED: Int
+--- Synchronous hugepage collapse.
 export MADV_COLLAPSE: Int
+--- Poison a page for testing.
 export MADV_HWPOISON: Int
+--- Fatal signal on access to range
 export MADV_GUARD_INSTALL: Int
+--- Unguard range
 export MADV_GUARD_REMOVE: Int
+--- No further special treatment.
 export POSIX_MADV_NORMAL: Int
+--- Expect random page references.
 export POSIX_MADV_RANDOM: Int
+--- Expect sequential page references.
 export POSIX_MADV_SEQUENTIAL: Int
+--- Will need these pages.
 export POSIX_MADV_WILLNEED: Int
+--- Don't need these pages.
 export POSIX_MADV_DONTNEED: Int
+--- Lock all currently mapped pages.
 export MCL_CURRENT: Int
+--- Lock all additions to address
 export MCL_FUTURE: Int
+--- Lock all pages that are
 export MCL_ONFAULT: Int
+--- Flags for mremap.
 export MREMAP_MAYMOVE: Int
 export MREMAP_FIXED: Int
 export MREMAP_DONTUNMAP: Int
@@ -98,10 +165,12 @@ export MFD_HUGETLB: Int
 export MFD_NOEXEC_SEAL: Int
 export MFD_EXEC: Int
 export MLOCK_ONFAULT: Int
+--- Access restrictions for pkey_alloc.
 export PKEY_UNRESTRICTED: Int
 export PKEY_DISABLE_ACCESS: Int
 export PKEY_DISABLE_WRITE: Int
 
+--- map or unmap files or devices into memory
 --- ffi: void *(void *, size_t, int, int, int, __off_t)
 export Mmap: (Handle, Size, Int, Int, Int, Int) ~[1]~> Result<Handle, Errno>
 

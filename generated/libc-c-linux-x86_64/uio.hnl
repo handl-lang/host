@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/uio
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/uio" import { Readv, Writev, Preadv, Pwritev, Preadv64, Pwritev64, Preadv2, Pwritev2, Preadv64v2, Pwritev64v2 }
 
@@ -24,90 +23,90 @@ export RWF_DONTCACHE: Int := 128
 export RWF_NOSIGNAL: Int := 256
 
 export readv: Readv := (__fd, __iovec) ~> do {
-  r = call("libc.so.6", "readv", [__fd, __iovec], ["i32", "in_buf"], "i64", false)
+  r = ffi.call("libc.so.6", "readv", [__fd, __iovec], ["i32", "in_buf"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export writev: Writev := (__fd, __iovec) ~> do {
-  r = call("libc.so.6", "writev", [__fd, __iovec], ["i32", "in_buf"], "i64", false)
+  r = ffi.call("libc.so.6", "writev", [__fd, __iovec], ["i32", "in_buf"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export preadv: Preadv := (__fd, __iovec, __offset) ~> do {
-  r = call("libc.so.6", "preadv", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
+  r = ffi.call("libc.so.6", "preadv", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export pwritev: Pwritev := (__fd, __iovec, __offset) ~> do {
-  r = call("libc.so.6", "pwritev", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
+  r = ffi.call("libc.so.6", "pwritev", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export preadv64: Preadv64 := (__fd, __iovec, __offset) ~> do {
-  r = call("libc.so.6", "preadv64", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
+  r = ffi.call("libc.so.6", "preadv64", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export pwritev64: Pwritev64 := (__fd, __iovec, __offset) ~> do {
-  r = call("libc.so.6", "pwritev64", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
+  r = ffi.call("libc.so.6", "pwritev64", [__fd, __iovec, __offset], ["i32", "in_buf", "i64"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export preadv2: Preadv2 := (__fp, __iovec, __offset, ___flags) ~> do {
-  r = call("libc.so.6", "preadv2", [__fp, __iovec, __offset, ___flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "preadv2", [__fp, __iovec, __offset, ___flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export pwritev2: Pwritev2 := (__fd, __iodev, __offset, __flags) ~> do {
-  r = call("libc.so.6", "pwritev2", [__fd, __iodev, __offset, __flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "pwritev2", [__fd, __iodev, __offset, __flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export preadv64v2: Preadv64v2 := (__fp, __iovec, __offset, ___flags) ~> do {
-  r = call("libc.so.6", "preadv64v2", [__fp, __iovec, __offset, ___flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "preadv64v2", [__fp, __iovec, __offset, ___flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export pwritev64v2: Pwritev64v2 := (__fd, __iodev, __offset, __flags) ~> do {
-  r = call("libc.so.6", "pwritev64v2", [__fd, __iodev, __offset, __flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
+  r = ffi.call("libc.so.6", "pwritev64v2", [__fd, __iodev, __offset, __flags], ["i32", "in_buf", "i64", "i32"], "i64", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

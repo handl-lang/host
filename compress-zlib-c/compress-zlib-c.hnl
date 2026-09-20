@@ -24,12 +24,12 @@ unwrap := (r, what) ~> do {
   }
 }
 
-export compress: Compress := (input) ~[1]~> do {
+export compress: Compress := (input) ~> do {
   res = unwrap(zlib.compress2(input, 6), "compress2")
   res.buf
 }
 
-export decompress: Decompress := (input) ~[1]~> do {
+export decompress: Decompress := (input) ~> do {
   res = unwrap(zlib.uncompress(input), "uncompress")
   res.buf
 }

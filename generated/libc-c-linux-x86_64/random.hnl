@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/random
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/random" import { Getrandom, Getentropy }
 
@@ -9,18 +8,18 @@ export GRND_RANDOM: Int := 2
 export GRND_INSECURE: Int := 4
 
 export getrandom: Getrandom := (flags) ~> do {
-  r = call("libc.so.6", "getrandom", [flags], ["out_buf:256", "u32"], "i64", false)
+  r = ffi.call("libc.so.6", "getrandom", [flags], ["out_buf:256", "u32"], "i64", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r.buf)
   }
 }
 
 export getentropy: Getentropy := () ~> do {
-  r = call("libc.so.6", "getentropy", [], ["out_buf:256"], "i32", false)
+  r = ffi.call("libc.so.6", "getentropy", [], ["out_buf:256"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r.buf)
   }

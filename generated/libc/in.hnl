@@ -19,7 +19,7 @@ export sockaddr_in := {
   --- Port number.
   sin_port: InPort,
   --- Internet address.
-  sin_addr: in_addr,
+  sin_addr: Handle,
   --- Pad to size of `struct sockaddr'.
   sin_zero: Bytes
 }
@@ -32,7 +32,7 @@ export sockaddr_in6 := {
   --- IPv6 flow information
   sin6_flowinfo: Uint32,
   --- IPv6 address
-  sin6_addr: in6_addr,
+  sin6_addr: Handle,
   --- IPv6 scope-id
   sin6_scope_id: Uint32
 }

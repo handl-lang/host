@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/stat
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/stat" import { stat, stat64, Stat, Fstat, Stat64, Fstat64, Fstatat, Fstatat64, Lstat, Lstat64, Chmod, Lchmod, Fchmod, Fchmodat, Umask, Getumask, Mkdir, Mkdirat, Mknod, Mknodat, Mkfifo, Mkfifoat }
 
@@ -71,180 +70,180 @@ export STATX_ATTR_DAX: Int := 2097152
 export STATX_ATTR_WRITE_ATOMIC: Int := 4194304
 
 export stat: Stat := (__file) ~> do {
-  r = call("libc.so.6", "stat", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  r = ffi.call("libc.so.6", "stat", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export fstat: Fstat := (__fd) ~> do {
-  r = call("libc.so.6", "fstat", [__fd], ["i32", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  r = ffi.call("libc.so.6", "fstat", [__fd], ["i32", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export stat64: Stat64 := (__file) ~> do {
-  r = call("libc.so.6", "stat64", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  r = ffi.call("libc.so.6", "stat64", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export fstat64: Fstat64 := (__fd) ~> do {
-  r = call("libc.so.6", "fstat64", [__fd], ["i32", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  r = ffi.call("libc.so.6", "fstat64", [__fd], ["i32", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export fstatat: Fstatat := (__fd, __file, __flag) ~> do {
-  r = call("libc.so.6", "fstatat", [__fd, __file, __flag], ["i32", "cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "fstatat", [__fd, __file, __flag], ["i32", "cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}", "i32"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export fstatat64: Fstatat64 := (__fd, __file, __flag) ~> do {
-  r = call("libc.so.6", "fstatat64", [__fd, __file, __flag], ["i32", "cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "fstatat64", [__fd, __file, __flag], ["i32", "cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}", "i32"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export lstat: Lstat := (__file) ~> do {
-  r = call("libc.so.6", "lstat", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  r = ffi.call("libc.so.6", "lstat", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export lstat64: Lstat64 := (__file) ~> do {
-  r = call("libc.so.6", "lstat64", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
+  r = ffi.call("libc.so.6", "lstat64", [__file], ["cstr", "out_struct:{st_dev:u64@0,st_ino:u64@8,st_nlink:u64@16,st_mode:u32@24,st_uid:u32@28,st_gid:u32@32,__pad0:i32@36,st_rdev:u64@40,st_size:i64@48,st_blksize:i64@56,st_blocks:i64@64,st_atim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@72:16,st_mtim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@88:16,st_ctim:rec:{tv_sec:i64@0,tv_nsec:i64@8}@104:16,__glibc_reserved:arr:3:i64@120:24}"], "i32", false)
   if r.ret < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export chmod: Chmod := (__file, __mode) ~> do {
-  r = call("libc.so.6", "chmod", [__file, __mode], ["cstr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "chmod", [__file, __mode], ["cstr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export lchmod: Lchmod := (__file, __mode) ~> do {
-  r = call("libc.so.6", "lchmod", [__file, __mode], ["cstr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "lchmod", [__file, __mode], ["cstr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export fchmod: Fchmod := (__fd, __mode) ~> do {
-  r = call("libc.so.6", "fchmod", [__fd, __mode], ["i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "fchmod", [__fd, __mode], ["i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export fchmodat: Fchmodat := (__fd, __file, __mode, __flag) ~> do {
-  r = call("libc.so.6", "fchmodat", [__fd, __file, __mode, __flag], ["i32", "cstr", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "fchmodat", [__fd, __file, __mode, __flag], ["i32", "cstr", "i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export umask: Umask := (__mask) ~> do {
-  r = call("libc.so.6", "umask", [__mask], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "umask", [__mask], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export getumask: Getumask := () ~> do {
-  r = call("libc.so.6", "getumask", [], [], "i32", false)
+  r = ffi.call("libc.so.6", "getumask", [], [], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mkdir: Mkdir := (__path, __mode) ~> do {
-  r = call("libc.so.6", "mkdir", [__path, __mode], ["cstr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "mkdir", [__path, __mode], ["cstr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mkdirat: Mkdirat := (__fd, __path, __mode) ~> do {
-  r = call("libc.so.6", "mkdirat", [__fd, __path, __mode], ["i32", "cstr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "mkdirat", [__fd, __path, __mode], ["i32", "cstr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mknod: Mknod := (__path, __mode, __dev) ~> do {
-  r = call("libc.so.6", "mknod", [__path, __mode, __dev], ["cstr", "i32", "i64"], "i32", false)
+  r = ffi.call("libc.so.6", "mknod", [__path, __mode, __dev], ["cstr", "i32", "i64"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mknodat: Mknodat := (__fd, __path, __mode, __dev) ~> do {
-  r = call("libc.so.6", "mknodat", [__fd, __path, __mode, __dev], ["i32", "cstr", "i32", "i64"], "i32", false)
+  r = ffi.call("libc.so.6", "mknodat", [__fd, __path, __mode, __dev], ["i32", "cstr", "i32", "i64"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mkfifo: Mkfifo := (__path, __mode) ~> do {
-  r = call("libc.so.6", "mkfifo", [__path, __mode], ["cstr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "mkfifo", [__path, __mode], ["cstr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mkfifoat: Mkfifoat := (__fd, __path, __mode) ~> do {
-  r = call("libc.so.6", "mkfifoat", [__fd, __path, __mode], ["i32", "cstr", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "mkfifoat", [__fd, __path, __mode], ["i32", "cstr", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

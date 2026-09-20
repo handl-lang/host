@@ -5,11 +5,11 @@ from "ffi" import { Errno }
 from "result" import { Result }
 
 export __fsid_t := {
-  __val: List<Int>
+  __val: [Int]
 }
 
 export __sigset_t := {
-  __val: List<Int>
+  __val: [Int]
 }
 
 export timeval := {
@@ -23,7 +23,7 @@ export timespec := {
 }
 
 export fd_set := {
-  fds_bits: List<Int>
+  fds_bits: [Int]
 }
 
 export __pthread_internal_list := {
@@ -61,12 +61,12 @@ export __pthread_rwlock_arch_t := {
 }
 
 export __pthread_cond_s := {
-  __wseq: __atomic_wide_counter,
-  __g1_start: __atomic_wide_counter,
-  __g_size: List<Int>,
+  __wseq: Handle,
+  __g1_start: Handle,
+  __g_size: [Int],
   __g1_orig_size: Nat,
   __wrefs: Nat,
-  __g_signals: List<Int>,
+  __g_signals: [Int],
   __unused_initialized_1: Nat,
   __unused_initialized_2: Nat
 }
@@ -311,5 +311,7 @@ export LITTLE_ENDIAN: Int
 export BIG_ENDIAN: Int
 export PDP_ENDIAN: Int
 export BYTE_ORDER: Int
+--- Maximum number of file descriptors in `fd_set'.
 export FD_SETSIZE: Int
+--- Number of bits per word of `fd_set' (some code assumes this is 32).
 export NFDBITS: Int

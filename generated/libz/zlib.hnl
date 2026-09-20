@@ -16,7 +16,7 @@ from "result" import { Result }
 export Compress2Result := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -40,7 +40,7 @@ export CompressBound: (Int) ~[1]~> Result<Int, Errno>
 export UncompressResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -96,7 +96,7 @@ export Gzdopen: (Int, String) ~[1]~> Result<Int, Errno>
 --- opened for writing, Z_ERRNO if there is an error writing the flushed data,
 --- or Z_MEM_ERROR if there is a memory allocation error.
 --- ffi: int (gzFile, voidp, unsigned int)
-export Gzread: (Handle) ~[1]~> Result<Bytes, Errno>
+export Gzread: (Int) ~[1]~> Result<Bytes, Errno>
 
 --- Read and decompress up to nitems items of size size from file into buf,
 --- otherwise operating as gzread() does.  This duplicates the interface of
@@ -119,7 +119,7 @@ export Gzread: (Handle) ~[1]~> Result<Bytes, Errno>
 --- written file or a non-blocking file. In that case, use size == 1 or gzread()
 --- instead.
 --- ffi: int (gzFile, voidpc, unsigned int)
-export Gzwrite: (Handle, Bytes) ~[1]~> Result<Int, Errno>
+export Gzwrite: (Int, Bytes) ~[1]~> Result<Int, Errno>
 
 --- Push c back onto the stream for file to be read as the first character on
 --- the next read.  At least one character of push-back is always allowed.
@@ -134,7 +134,7 @@ export Gzwrite: (Handle, Bytes) ~[1]~> Result<Int, Errno>
 --- This can be used to determine the number of uncompressed bytes in a gzip
 --- file without having to read it into a buffer.
 --- ffi: int (gzFile, int)
-export Gzflush: (Handle, Int) ~[1]~> Result<Int, Errno>
+export Gzflush: (Int, Int) ~[1]~> Result<Int, Errno>
 
 --- Return true (1) if file is being copied directly while reading, or false
 --- (0) if file is a gzip stream being decompressed.
@@ -154,7 +154,7 @@ export Gzflush: (Handle, Int) ~[1]~> Result<Int, Errno>
 --- linking statically, using gzdirect() will include all of the zlib code for
 --- gzip file reading and decompression, which may not be desired.)
 --- ffi: int (gzFile)
-export Gzclose: (Handle) ~[1]~> Result<Int, Errno>
+export Gzclose: (Int) ~[1]~> Result<Int, Errno>
 
 --- Same as gzclose(), but gzclose_r() is only for use when reading, and
 --- gzclose_w() is only for use when writing or appending.  The advantage to
@@ -166,11 +166,11 @@ export Gzclose: (Handle) ~[1]~> Result<Int, Errno>
 export GzerrorResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
-export Gzerror: (Handle) ~[1]~> Result<GzerrorResult, Errno>
+export Gzerror: (Int) ~[1]~> Result<GzerrorResult, Errno>
 
 --- These functions are not related to compression but are exported
 --- anyway because they might be useful in applications using the compression
