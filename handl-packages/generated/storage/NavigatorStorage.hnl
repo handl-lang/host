@@ -1,0 +1,17 @@
+--- Generated port for storage.NavigatorStorage
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/storage.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The Navigator interface represents the state and the identity of the user agent. It allows scripts to query it and to register themselves to carry on some activities.
+export NavigatorStorage := {
+  --- The Navigator.storage
+  --- read-only property returns the singleton StorageManager object used to
+  --- access the overall storage capabilities of the browser for the current site or app.
+  --- The returned object lets you examine and configure persistence of data stores and
+  --- learn approximately how much more space your browser has available for local storage
+  --- use.
+  storage: Handle
+}

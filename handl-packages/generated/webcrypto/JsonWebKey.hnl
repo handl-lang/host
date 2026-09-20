@@ -1,0 +1,30 @@
+--- Generated port for webcrypto.JsonWebKey
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/webcrypto.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export JsonWebKey := {
+  --- The following fields are defined in Section 3.1 of JSON Web Key
+  kty: String,
+  use: String,
+  key_ops: Handle,
+  alg: String,
+  --- The following fields are defined in JSON Web Key Parameters Registration
+  ext: Bool,
+  --- The following fields are defined in Section 6 of JSON Web Algorithms
+  crv: String,
+  x: String,
+  y: String,
+  d: String,
+  n: String,
+  e: String,
+  p: String,
+  q: String,
+  dp: String,
+  dq: String,
+  qi: String,
+  oth: Handle,
+  k: String
+}

@@ -1,0 +1,26 @@
+--- Generated port for user-timing.Performance
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/user-timing.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The Performance interface provides access to performance-related information for the current page.
+export Performance := {
+}
+
+--- The clearMarks() method removes all or specific PerformanceMark objects from the browser's performance timeline.
+--- js: Performance.clearMarks
+export PerformanceClearMarks: (String) ~[1]~> Result<(), JsError>
+
+--- The clearMeasures() method removes all or specific PerformanceMeasure objects from the browser's performance timeline.
+--- js: Performance.clearMeasures
+export PerformanceClearMeasures: (String) ~[1]~> Result<(), JsError>
+
+--- The mark() method creates a named PerformanceMark object representing a high resolution timestamp marker in the browser's performance timeline.
+--- js: Performance.mark
+export PerformanceMark: (String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The measure() method creates a named PerformanceMeasure object representing a time measurement between two marks in the browser's performance timeline.
+--- js: Performance.measure
+export PerformanceMeasure: (String, Handle, String) ~[1]~> Result<Handle, JsError>
