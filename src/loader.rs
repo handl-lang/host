@@ -296,16 +296,14 @@ fn transform_export_to_object(src: &str) -> String {
     }
     finalize!();
 
-    let imports = collect_import_lines(src);
+    let imports = collect_executable_import_lines(src);
 
-    // If there are no exports at all, preserve the original `drop_import_lines`
-    // behavior so that scripts/test files (which define private bindings but
-    // no exports) are unchanged.
+    // If there are no exports at all, preserve the original script/test
+    // behavior: private bindings stay verbatim — but import lines with a
+    // quoted specifier are kept because `load_hnl_file` pre-registers each
+    // as a module dependency and private bindings may reference them.
     if entries.is_empty() {
-        if imports.is_empty() {
-            return src.to_string();
-        }
-        return drop_import_lines(src);
+        return drop_non_executable_import_lines(src);
     }
 
     // Build the body: private bindings as do-block assignments, then the
@@ -404,7 +402,9 @@ fn from_export_to_import(line: &str) -> Option<(String, Vec<(String, String)>)> 
 
 fn extract_quoted_path(line: &str) -> Option<(String, &str)> {
     let trimmed = line.trim_start();
-    let after_from = trimmed.strip_prefix("from")?;
+    let after_from = trimmed
+        .strip_prefix("from")
+        .or_else(|| trimmed.strip_prefix("import"))?;
     let after_from = after_from.trim_start();
     let quote = after_from.chars().next()?;
     if quote != '"' && quote != '\'' {
@@ -417,9 +417,15 @@ fn extract_quoted_path(line: &str) -> Option<(String, &str)> {
     Some((path.to_string(), rest))
 }
 
-fn collect_import_lines(src: &str) -> Vec<String> {
+/// Top-level import lines that name a quoted specifier — every quoted
+/// spec is executable here because `load_hnl_file` pre-registers each as
+/// a module dependency (file paths relative to the module dir, bare
+/// names via the stdlib package table). Bare `import <name>` declarations
+/// are decorative and excluded.
+fn collect_executable_import_lines(src: &str) -> Vec<String> {
     src.lines()
         .filter(|line| is_top_import_line(line))
+        .filter(|line| import_line_spec(line).is_some())
         .map(|line| {
             from_export_to_import(line)
                 .map(|(import_line, _)| import_line)
@@ -428,11 +434,31 @@ fn collect_import_lines(src: &str) -> Vec<String> {
         .collect()
 }
 
-fn drop_import_lines(src: &str) -> String {
+/// Drop top-level import declarations that name no quoted specifier.
+/// Quoted-spec imports are kept so they still run at eval time.
+fn drop_non_executable_import_lines(src: &str) -> String {
     src.lines()
-        .filter(|line| !is_top_import_line(line))
+        .filter(|line| !is_top_import_line(line) || import_line_spec(line).is_some())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Extract the quoted specifier from `import "<spec>"` or
+/// `from "<spec>" …`. Non-quoted forms (`import <name>`, bare `import`)
+/// return `None`.
+fn import_line_spec(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    let rest = trimmed
+        .strip_prefix("import")
+        .or_else(|| trimmed.strip_prefix("from"))?;
+    let rest = rest.trim_start();
+    let quote = rest.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let after = &rest[quote.len_utf8()..];
+    let end = after.find(quote)?;
+    Some(after[..end].to_string())
 }
 
 fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
