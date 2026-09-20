@@ -1,87 +1,72 @@
 --- Internationalization contract for the handl runtime.
 ---
---- This package is the *abstraction*: it declares the `intl.*` capability
---- and operation surface. Implementations are separate packages — `intl-c`
---- (system ICU4C via `ffi`) is the reference backend; the Rust `lib.intl`
---- plugin remains available as a differential-test oracle during migration.
+--- This package is the *abstraction*: it declares the arrow types of the
+--- `intl` surface. Backends (`intl-c` over system ICU4C, the Rust
+--- `lib.intl` plugin, a future pure-handl backend, ...) export arrows of
+--- these types; a backend conforms by exporting the same names at these
+--- signatures.
 ---
---- Provides locale-aware functions for formatting numbers, selecting
---- plural categories, formatting lists, relative time, dates, durations,
---- comparing strings, display names, and text segmentation.
+--- Locale arguments are `Value` (a `String` BCP-47 tag, or `null` for the
+--- host default locale) until the contract grows a `Locale` record type.
+--- All backends return `Result` values — expected backend failures
+--- (missing data, bad locale, library error) are `err`, never raises.
 ---
---- ## number formatting
---- intl.format_number -- format a number for a locale with optional options.
---- intl.format_number_to_parts -- format a number into parts array for a locale.
----
---- ## plural selection
---- intl.select_plural -- select the plural category for a number in a locale.
----
---- ## list formatting
---- intl.format_list -- format an array of items as a list for a locale.
----
---- ## relative time formatting
---- intl.format_relative_time -- format a value and unit as relative time for a locale.
----
---- ## date formatting
---- intl.format_date -- format a date string for a locale with optional options.
---- intl.format_date_to_parts -- format a date into parts array for a locale.
----
---- ## duration formatting
---- intl.format_duration -- format a duration in seconds for a locale.
----
---- ## string comparison
---- intl.compare_strings -- compare two strings using locale-aware collation.
----
---- ## display names
---- intl.display_name -- get a display name for a code (language, region, script) in a locale.
----
---- ## text segmentation
---- intl.segment -- segment text by granularity (grapheme, word, sentence, line) for a locale.
----
---- ## locale utilities
---- intl.locale -- parse a BCP 47 locale tag and return its components.
---- intl.get_canonical_locales -- canonicalize a locale or list of locales.
---- intl.supported_locales_of -- filter requested locales to those supported by the data provider.
+--- `~[1]~>` marks the surface as effectful: every current backend reaches
+--- a native library or host process.
 
-cap "intl.format_number"
-cap "intl.format_number_to_parts"
-cap "intl.select_plural"
-cap "intl.format_list"
-cap "intl.format_relative_time"
-cap "intl.format_date"
-cap "intl.format_date_to_parts"
-cap "intl.format_duration"
-cap "intl.compare_strings"
-cap "intl.display_name"
-cap "intl.segment"
-cap "intl.locale"
-cap "intl.get_canonical_locales"
-cap "intl.supported_locales_of"
+from "result" import { Result }
 
-op "intl.format_number": Value - > Value
+-- collation ------------------------------------------------------------------
 
-op "intl.format_number_to_parts": Value - > Value
+--- Compare two strings under locale-aware collation.
+--- `ok -1 | 0 | 1`, or `err msg`.
+export CompareStrings := (String, String, Value) ~[1]~> Result<Int, String>
 
-op "intl.select_plural": Value - > Value
+-- number formatting ----------------------------------------------------------
 
-op "intl.format_list": Value - > Value
+--- Format a number for a locale.
+--- `ok "1,234.5"`, or `err msg`.
+export FormatNumber := (Value, Value) ~[1]~> Result<String, String>
 
-op "intl.format_relative_time": Value - > Value
+--- Format a number into named parts (integer, fraction, group, ...).
+export FormatNumberToParts := (Value, Value) ~[1]~> Result<Value, String>
 
-op "intl.format_date": Value - > Value
+-- plural selection -----------------------------------------------------------
 
-op "intl.format_date_to_parts": Value - > Value
+--- Select the plural category of a number in a locale.
+--- `ok "one" | "few" | "other" | ...`, or `err msg`.
+export SelectPlural := (Value, Value) ~[1]~> Result<String, String>
 
-op "intl.format_duration": Value - > Value
+-- list / relative-time / date / duration formatting ----------------------------
 
-op "intl.compare_strings": Value - > Value
+--- Format a list of strings for a locale (`"a, b, and c"`).
+export FormatList := (Value, Value) ~[1]~> Result<String, String>
 
-op "intl.display_name": Value - > Value
+--- Format a value + unit as relative time (`"3 days ago"`).
+export FormatRelativeTime := (Value, Value, Value) ~[1]~> Result<String, String>
 
-op "intl.segment": Value - > Value
+--- Format a date for a locale with options.
+export FormatDate := (Value, Value) ~[1]~> Result<String, String>
 
-op "intl.locale": Value - > Value
+--- Format a date into named parts.
+export FormatDateToParts := (Value, Value) ~[1]~> Result<Value, String>
 
-op "intl.get_canonical_locales": Value - > Value
+--- Format a duration in seconds for a locale.
+export FormatDuration := (Value, Value) ~[1]~> Result<String, String>
 
-op "intl.supported_locales_of": Value - > Value
+-- display names / segmentation / locale utilities ------------------------------
+
+--- Display name for a code (language, region, script) in a locale.
+export DisplayName := (Value, Value, Value) ~[1]~> Result<String, String>
+
+--- Segment text by granularity (grapheme, word, sentence, line).
+export Segment := (String, Value, Value) ~[1]~> Result<Value, String>
+
+--- Parse a BCP-47 locale tag into its components.
+export Locale := (String) ~[1]~> Result<Value, String>
+
+--- Canonicalize a locale or list of locales.
+export GetCanonicalLocales := (Value) ~[1]~> Result<Value, String>
+
+--- Filter requested locales to those the backend's data supports.
+export SupportedLocalesOf := (Value, Value) ~[1]~> Result<Value, String>
