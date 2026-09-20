@@ -8,15 +8,29 @@ from "types/c/sys" import { SSize }
 --- ffi: __off_t (int, __off_t, int)
 export Lseek: (Int, Int, Int) ~[1]~> Result<Int, Errno>
 
+--- Close the file descriptor FD.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
 --- ffi: int (int)
 export Close: (Int) ~[1]~> Result<Int, Errno>
 
+--- Read NBYTES into BUF from FD.  Return the
+--- number read, -1 for errors or 0 for EOF.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
 --- ffi: ssize_t (int, void *, size_t)
 export Read: (Int) ~[1]~> Result<Bytes, Errno>
 
+--- Write N bytes of BUF to FD.  Return the number written, or -1.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
 --- ffi: ssize_t (int, const void *, size_t)
 export Write: (Int, Bytes) ~[1]~> Result<SSize, Errno>
 
+--- Create a one-way communication channel (pipe).
+--- If successful, two file descriptors are stored in PIPEDES;
+--- bytes written on PIPEDES[1] can be read from PIPEDES[0].
+--- Returns 0 if successful, -1 if not.
 export PipeResult := {
   ret: Int,
   buf: Bytes,
@@ -26,6 +40,8 @@ export PipeResult := {
 --- ffi:
 export Pipe: () ~[1]~> Result<PipeResult, Errno>
 
+--- Same as pipe but apply flags passed in FLAGS to the new file
+--- descriptors.
 export Pipe2Result := {
   ret: Int,
   buf: Bytes,
@@ -35,11 +51,21 @@ export Pipe2Result := {
 --- ffi:
 export Pipe2: (Int) ~[1]~> Result<Pipe2Result, Errno>
 
+--- Duplicate FD, returning a new file descriptor on the same file.
 --- ffi: int (int)
 export Dup: (Int) ~[1]~> Result<Int, Errno>
 
+--- Duplicate FD to FD2, closing FD2 and making it open on the same file.
 --- ffi: int (int, int)
 export Dup2: (Int, Int) ~[1]~> Result<Int, Errno>
 
+--- Invoke `system call' number SYSNO, passing it the remaining arguments.
+--- This is completely system-dependent, and not often useful.
+--- In Unix, `syscall' sets `errno' for all errors and most calls return -1
+--- for errors; in many systems you cannot pass arguments or get return
+--- values for all system calls (`pipe', `fork', and `getppid' typically
+--- among them).
+--- In Mach, all system calls take normal arguments and always return an
+--- error code (zero for success).
 --- ffi: long (long, ...)
 export Syscall: (Int, String, Int) ~[1]~> Result<Int, Errno>
