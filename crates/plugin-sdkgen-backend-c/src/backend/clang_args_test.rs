@@ -14,7 +14,11 @@ fn arg_strings(header: &Path, target: &str) -> Vec<String> {
 fn builds_language_include_and_target_args() {
     let args = arg_strings(Path::new("/usr/include/sys/socket.h"), "x86_64-linux-gnu");
     assert_eq!(&args[0..2], &["-x", "c"]);
-    assert!(args.contains(&"-I/usr/include/sys".to_string()));
+    // The header's directory goes on the `-iquote` path (quoted includes
+    // only), not `-I` — a system header dir would shadow `<...>` headers
+    // sharing a basename (ICU's uchar.h vs the C11 one).
+    let q = args.iter().position(|a| a == "-iquote").unwrap();
+    assert_eq!(args[q + 1], "/usr/include/sys");
     assert!(args.contains(&"-I/usr/include".to_string()));
     let t = args.iter().position(|a| a == "-target").unwrap();
     assert_eq!(args[t + 1], "x86_64-linux-gnu");
@@ -23,7 +27,8 @@ fn builds_language_include_and_target_args() {
 #[test]
 fn relative_header_gets_dot_include() {
     let args = arg_strings(Path::new("simple.h"), "aarch64-linux-gnu");
-    assert!(args.contains(&"-I.".to_string()));
+    let q = args.iter().position(|a| a == "-iquote").unwrap();
+    assert_eq!(args[q + 1], ".");
 }
 
 #[test]

@@ -35,8 +35,13 @@ pub(crate) fn clang_args(
     // `//` comments, which `clang_Cursor_getRawCommentText` otherwise
     // never sees.
     raw.push(CString::new("-fparse-all-comments").unwrap());
-    let include = format!("-I{}", header_dir.display());
-    raw.push(CString::new(include).unwrap());
+    // `-iquote`, not `-I`: the header's directory must serve `"..."`
+    // includes but must NOT join the `<...>` search path — a system
+    // header directory (e.g. `/usr/include/unicode`) would otherwise
+    // shadow C library headers that share a basename (`<uchar.h>` finds
+    // ICU's uchar.h instead of the C11 one).
+    raw.push(CString::new("-iquote").unwrap());
+    raw.push(CString::new(header_dir.display().to_string()).unwrap());
     raw.push(CString::new("-I/usr/include").unwrap());
     if let Some(res) = resource_dir() {
         raw.push(CString::new("-resource-dir").unwrap());
