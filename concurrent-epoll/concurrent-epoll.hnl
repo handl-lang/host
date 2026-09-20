@@ -1,0 +1,834 @@
+--- concurrent-epoll -- epoll backend for the `concurrent` contract.
+---
+--- A cooperative scheduler for step-arrow tasks (see `concurrent.hnl`
+--- for the Step protocol). The scheduler itself is a `while` loop over
+--- a record of queues — deterministic dataflow threaded through
+--- `epoll_wait` (ADR-0072: the non-determinism lives in the event
+--- stream, not the graph). No preemption: a task holds the machine for
+--- exactly one arrow invocation.
+---
+--- Scheduler state:
+---   runq    runnable entries  { id, arrow, input, stack, token }
+---   fdw     fd waiters        { id, arrow, fd, events, req, state, stack, token }
+---   cw      channel waiters   { chan, select, kind, id, arrow, state, stack, token, value }
+---   tw      task waiters      { task, id, arrow, state, stack, token }
+---   timers  sleeps+timeouts   { deadline, id, arrow, state, stack, token, await_task }
+---   chans   { id, cap, queue }  mutexes/rwlocks/sems/atomics/tokens
+---   live    ids of unfinished tasks   results  { id, value } pairs
+---
+--- `stack` is the `enter` frame stack: running `{ call: { name: "enter",
+--- arrow, init } }` pushes `{ arrow, state }` and continues the task
+--- under the task arrow; a nested `{ out: v }` pops the frame and
+--- resumes the caller's state with `result = v`.
+
+from "../concurrent" import { Task, Run }
+from "bytes" import { at, concat, slice, from_list }
+from "../generated/libc-c-linux-x86_64/socket" import { socket, bind, connect, listen, accept4, recv, send, setsockopt, getsockopt, shutdown, AF_INET, SOCK_STREAM, SOCK_NONBLOCK, SOCK_CLOEXEC, SOL_SOCKET, SO_REUSEADDR, SOMAXCONN, MSG_NOSIGNAL, SO_ERROR }
+from "../generated/libc-c-linux-x86_64/epoll" import { epoll_create1, epoll_ctl, epoll_wait, EPOLL_CLOEXEC, EPOLLIN, EPOLLOUT, EPOLL_CTL_ADD, EPOLL_CTL_DEL }
+from "../generated/libc-c-linux-x86_64/fcntl" import { fcntl, F_GETFL, F_SETFL, O_NONBLOCK }
+from "../generated/libc-c-linux-x86_64/unistd" import { close }
+from "../generated/libc-c-linux-x86_64/errno" import { EAGAIN, EWOULDBLOCK, EINPROGRESS, EBADF }
+from "../generated/libc-c-linux-x86_64/time" import { clock_gettime, CLOCK_MONOTONIC }
+from "../generated/libc-c-linux-x86_64/inet" import { inet_pton }
+
+-- ---------------------------------------------------------------
+-- small utilities
+-- ---------------------------------------------------------------
+
+is_err := (r) ~> tag.tag_of(r) == "err"
+
+err_of := (r) ~> tag.untag(r).value
+
+val_of := (r) ~> tag.untag(r).value
+
+unwrap := (r, what) ~> do {
+  if is_err(r) {
+    error.raise("concurrent-epoll: " + what + " failed")
+  } else {
+    val_of(r)
+  }
+}
+
+--- monotonic clock in ms (timer deadlines)
+now_ms := (_u) ~[1]~> do {
+  t := unwrap(clock_gettime(CLOCK_MONOTONIC), "clock_gettime")
+  t.tv_sec * 1000 + t.tv_nsec / 1000000
+}
+
+--- decode a little-endian u32 at byte offset `o` of `buf`
+u32le := (buf, o) ~> do {
+  at(buf, o) + at(buf, o + 1) * 256 +
+  at(buf, o + 2) * 65536 + at(buf, o + 3) * 16777216
+}
+
+--- list helpers (kept local: the collections modules aggregate through
+--- the host chain, these are tiny anyway)
+alen := (xs) ~> while { xs: xs, n: 0 } {
+  (xs, n) ~> match xs {
+    []: { out: n },
+    [h, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
+
+afirst := (xs) ~> match xs {
+  []: null,
+  [h, ...t]: h
+}
+
+adrop := (xs, n) ~> while { xs: xs, n: n } {
+  (xs, n) ~> if n <= 0 {
+    { out: xs }
+  } else {
+    match xs {
+      []: { out: [] },
+      [h, ...t]: { state: { xs: t, n: n - 1 } }
+    }
+  }
+}
+
+acontains := (xs, v) ~> find_where(xs, (x) ~> x == v) != null
+
+ais_empty := (xs) ~> xs == []
+
+has_field := (m, k) ~> acontains(obj.keys(m), k)
+
+find_where := (xs, p) ~> while xs {
+  (xs) ~> match xs {
+    []: { out: null },
+    [h, ...t]: if p(h) { { out: h } } else { { state: t } }
+  }
+}
+
+drop_where := (xs, p) ~> while { xs: xs, acc: [] } {
+  (xs, acc) ~> match xs {
+    []: { out: acc },
+    [h, ...t]: if p(h) {
+      { state: { xs: t, acc: acc } }
+    } else {
+      { state: { xs: t, acc: [...acc, h] } }
+    }
+  }
+}
+
+-- ---------------------------------------------------------------
+-- task entries
+-- ---------------------------------------------------------------
+
+--- push a parked frame back onto the runq, `result` merged into state
+resume := (s, e, st, v) ~> hash_map.set(s, "runq", [...s.runq, {
+    id: e.id, arrow: e.arrow,
+    input: hash_map.set(st, "result", v),
+    stack: e.stack, token: e.token
+  }])
+
+--- task finished with value v: record the result, drop it from live,
+--- and wake anyone parked in `tw` on its id (clearing their paired
+--- await_timeout timers).
+finish_task := (s, e, v) ~> do {
+  s1 := hash_map.set(s, "results", [...s.results, { id: e.id, value: v }])
+  s2 := hash_map.set(s1, "live", drop_where(s1.live, (i) ~> i == e.id))
+  ws := drop_where(s2.tw, (w) ~> w.task != e.id)
+  mine := drop_where(s2.tw, (w) ~> w.task == e.id)
+  s3 := hash_map.set(s2, "tw", ws)
+  s4 := hash_map.set(s3, "timers",
+    drop_where(s3.timers, (t) ~> t.await_task == e.id &&
+      find_where(mine, (w) ~> w.id == t.id) != null))
+  while { xs: mine, s: s4 } {
+    (xs, s) ~> match xs {
+      []: { out: s },
+      [w, ...t]: {
+        state: { xs: t, s: resume(s, w, w.state, { done: v }) }
+      }
+    }
+  }
+}
+
+token_set := (s, tok) ~> do {
+  t := if tok == null { null } else {
+    find_where(s.tokens, (x) ~> x.id == tok)
+  }
+  t != null && t.cancelled
+}
+
+-- ---------------------------------------------------------------
+-- socket helpers (usable before `run`, or inside tasks via
+-- synchronous setup calls -- they never block the scheduler)
+-- ---------------------------------------------------------------
+
+--- pack a sockaddr_in for AF_INET: family u16 native (LE on x86_64),
+--- port u16 and addr u32 big-endian, 8 zero pad bytes.
+sockaddr_in := (port, addr4) ~> do {
+  hi := port / 256
+  lo := port - hi * 256
+  head := from_list([AF_INET, 0, hi, lo])
+  concat(concat(head, addr4), from_list([0, 0, 0, 0, 0, 0, 0, 0]))
+}
+
+--- resolve a dotted-quad to 4 network-order bytes
+resolve4 := (host) ~[1]~> do {
+  if host == "0.0.0.0" {
+    from_list([0, 0, 0, 0])
+  } else {
+    slice(unwrap(inet_pton(AF_INET, host), "inet_pton"), 0, 4)
+  }
+}
+
+--- a nonblocking, close-on-exec TCP socket
+tcp_socket := (_u) ~[1]~> unwrap(
+  socket(AF_INET, SOCK_STREAM + SOCK_NONBLOCK + SOCK_CLOEXEC, 0),
+  "socket")
+
+--- mark an existing fd nonblocking (for fds not created here)
+set_nonblock := (fd) ~[1]~> do {
+  fl := unwrap(fcntl(fd, F_GETFL, 0), "fcntl(F_GETFL)")
+  unwrap(fcntl(fd, F_SETFL, fl + O_NONBLOCK), "fcntl(F_SETFL)")
+}
+
+--- bind+listen. `addr` = { host: "0.0.0.0"|dotted-quad, port: Int }.
+export tcp_listen := (addr) ~[1]~> do {
+  fd := tcp_socket(null)
+  _ := unwrap(setsockopt(fd, SOL_SOCKET, SO_REUSEADDR,
+    from_list([1, 0, 0, 0])), "setsockopt")
+  _ := unwrap(bind(fd, sockaddr_in(addr.port, resolve4(addr.host))), "bind")
+  _ := unwrap(listen(fd, SOMAXCONN), "listen")
+  fd
+}
+
+--- initiate a nonblocking connect. Returns { fd, pending } -- when
+--- `pending` is true the handshake is in flight; a task completes it
+--- with { call: { name: "connect_wait", fd } }.
+export tcp_connect := (addr) ~[1]~> do {
+  fd := tcp_socket(null)
+  r := connect(fd, sockaddr_in(addr.port, resolve4(addr.host)))
+  if is_err(r) {
+    e := err_of(r)
+    if e == EINPROGRESS {
+      { fd: fd, pending: true }
+    } else {
+      _ := close(fd)
+      error.raise("concurrent-epoll: connect failed")
+    }
+  } else {
+    { fd: fd, pending: false }
+  }
+}
+
+export tcp_close := (fd) ~[1]~> close(fd)
+
+-- ---------------------------------------------------------------
+-- fd waiters
+-- ---------------------------------------------------------------
+
+--- one syscall attempt for an fd request. Returns { ready, value } |
+--- { again: true } | { err: errno }.
+fd_attempt := (req) ~[1]~> do {
+  r := match req.name {
+    "recv": recv(req.fd, 0),
+    "send": send(req.fd, req.buf, MSG_NOSIGNAL),
+    "accept": accept4(req.fd, SOCK_NONBLOCK + SOCK_CLOEXEC),
+    _: error.raise("concurrent-epoll: unknown fd req " + req.name)
+  }
+  if is_err(r) {
+    e := err_of(r)
+    if e == EAGAIN || e == EWOULDBLOCK {
+      { again: true }
+    } else {
+      { err: e }
+    }
+  } else {
+    v := val_of(r)
+    if req.name == "send" {
+      { ready: true, value: { sent: v } }
+    } else if req.name == "accept" {
+      { ready: true, value: v.ret }
+    } else {
+      { ready: true, value: v }
+    }
+  }
+}
+
+--- create the epoll instance on first fd interest; CPU-only workloads
+--- (channels, spawn, locks, timers-only) never touch it.
+ensure_epfd := (s) ~[1]~> do {
+  if s.epfd == null {
+    hash_map.set(s, "epfd", unwrap(epoll_create1(EPOLL_CLOEXEC), "epoll_create1"))
+  } else {
+    s
+  }
+}
+
+--- drop an fd's epoll interest when the instance exists
+drop_interest := (s, fd) ~[1]~> do {
+  if s.epfd == null {
+    0
+  } else {
+    epoll_ctl(s.epfd, EPOLL_CTL_DEL, fd, { events: 0, data: 0 })
+  }
+}
+
+--- park the task on `fd` readiness (`events` = EPOLLIN/EPOLLOUT)
+park_fd := (s, e, req, st, events) ~[1]~> do {
+  s1 := ensure_epfd(s)
+  _ := unwrap(epoll_ctl(s1.epfd, EPOLL_CTL_ADD, req.fd,
+    { events: events, data: e.id }), "epoll_ctl")
+  hash_map.set(s1, "fdw", [...s1.fdw, {
+    id: e.id, arrow: e.arrow, fd: req.fd, events: events,
+    req: req, state: st, stack: e.stack, token: e.token
+  }])
+}
+
+--- try the op once; park on `events` readiness when the fd isn't ready
+try_fd := (s, e, req, st, events) ~[1]~> do {
+  r := fd_attempt(req)
+  if hash_map.get_or(r, "ready", false) {
+    resume(s, e, st, r.value)
+  } else if hash_map.get_or(r, "again", false) {
+    park_fd(s, e, req, st, events)
+  } else {
+    resume(s, e, st, { err: r.err })
+  }
+}
+
+--- an fd fired. Re-attempt its op; on success (or hard error) drop the
+--- epoll interest and the waiter, else leave both in place (level-
+--- triggered: interest stays until the op resolves).
+wake_fd := (s, w) ~[1]~> do {
+  if w.req.name == "connect_wait" {
+    _ := drop_interest(s, w.fd)
+    r := getsockopt(w.fd, SOL_SOCKET, SO_ERROR)
+    s1 := hash_map.set(s, "fdw", drop_where(s.fdw, (x) ~> x.id == w.id))
+    if is_err(r) {
+      resume(s1, w, w.state, { err: err_of(r) })
+    } else {
+      resume(s1, w, w.state, { err: u32le(val_of(r), 0) })
+    }
+  } else {
+    r := fd_attempt(w.req)
+    if hash_map.get_or(r, "ready", false) {
+      _ := drop_interest(s, w.fd)
+      s1 := hash_map.set(s, "fdw", drop_where(s.fdw, (x) ~> x.id == w.id))
+      resume(s1, w, w.state, r.value)
+    } else if hash_map.get_or(r, "again", false) {
+      s
+    } else {
+      _ := drop_interest(s, w.fd)
+      s1 := hash_map.set(s, "fdw", drop_where(s.fdw, (x) ~> x.id == w.id))
+      resume(s1, w, w.state, { err: r.err })
+    }
+  }
+}
+
+-- ---------------------------------------------------------------
+-- channels / synchronization
+-- ---------------------------------------------------------------
+
+--- does this parked channel waiter match (chan, kind)?
+cw_match := (w, chan, kind) ~> w.kind == kind && (w.chan == chan ||
+  (w.select != null && acontains(w.select, chan)))
+
+--- wake one parked entry (channel/mutex/sem queues share the shape)
+wake_entry := (s, w, v) ~> resume(s, w, w.state, v)
+
+--- wake the first queued taker of a sync object, keeping its permit
+--- handed over (the queue lives inside the object record field `k`).
+pop_waiter := (s, w, v) ~> resume(s, w, w.state, v)
+
+chan_of := (s, id) ~> find_where(s.chans, (c) ~> c.id == id)
+
+set_chan := (s, ch) ~> hash_map.set(s, "chans",
+  [...drop_where(s.chans, (c) ~> c.id == ch.id), ch])
+
+--- hand `req.value` to a parked receiver if any; else queue it; else
+--- park the sender.
+chan_send := (s, e, req, st) ~> do {
+  ch := chan_of(s, req.chan)
+  w := find_where(s.cw, (x) ~> cw_match(x, req.chan, "recv"))
+  if w != null {
+    s1 := hash_map.set(s, "cw", drop_where(s.cw, (x) ~> x.id == w.id))
+    s2 := resume(s1, w, w.state, v_of_select(w, req.chan, req.value))
+    resume(s2, e, st, { sent: true })
+  } else if alen(ch.queue) < ch.cap {
+    s1 := set_chan(s, hash_map.set(ch, "queue", [...ch.queue, req.value]))
+    resume(s1, e, st, { sent: true })
+  } else {
+    hash_map.set(s, "cw", [...s.cw, {
+      chan: req.chan, select: null, kind: "send",
+      id: e.id, arrow: e.arrow, state: st,
+      stack: e.stack, token: e.token, value: req.value
+    }])
+  }
+}
+
+v_of_select := (w, chan, v) ~> do {
+  if w.select == null {
+    v
+  } else {
+    { chan: chan, value: v }
+  }
+}
+
+--- take from the first ready channel in `chans` (nonempty queue or a
+--- parked sender); `select` shapes the resumed value as {chan, value}.
+chan_recv := (s, e, req, st, chans, select) ~> do {
+  ready := find_where(chans, (id) ~> do {
+    ch := chan_of(s, id)
+    alen(ch.queue) > 0 ||
+      find_where(s.cw, (x) ~> cw_match(x, id, "send")) != null
+  })
+  if ready == null {
+    sel := if select { chans } else { null }
+    hash_map.set(s, "cw", [...s.cw, {
+      chan: afirst(chans), select: sel, kind: "recv",
+      id: e.id, arrow: e.arrow, state: st,
+      stack: e.stack, token: e.token, value: null
+    }])
+  } else {
+    ch := chan_of(s, ready)
+    w := find_where(s.cw, (x) ~> cw_match(x, ready, "send"))
+    if alen(ch.queue) > 0 {
+      v := afirst(ch.queue)
+      ch1 := hash_map.set(ch, "queue", adrop(ch.queue, 1))
+      if w == null {
+        s1 := set_chan(s, ch1)
+        resume(s1, e, st, recv_val(select, ready, v))
+      } else {
+        -- parked sender refills the slot and completes
+        ch2 := hash_map.set(ch1, "queue", [...ch1.queue, w.value])
+        s1 := set_chan(s, ch2)
+        s2 := hash_map.set(s1, "cw", drop_where(s1.cw, (x) ~> x.id == w.id))
+        s3 := resume(s2, w, w.state, { sent: true })
+        resume(s3, e, st, recv_val(select, ready, v))
+      }
+    } else {
+      -- empty queue, parked sender: rendezvous directly
+      s1 := hash_map.set(s, "cw", drop_where(s.cw, (x) ~> x.id == w.id))
+      s2 := resume(s1, w, w.state, { sent: true })
+      resume(s2, e, st, recv_val(select, ready, w.value))
+    }
+  }
+}
+
+recv_val := (select, chan, v) ~> do {
+  if select {
+    { chan: chan, value: v }
+  } else {
+    v
+  }
+}
+
+sync_of := (xs, id) ~> find_where(xs, (x) ~> x.id == id)
+
+set_in := (s, key, xs, x) ~> hash_map.set(s, key,
+  [...drop_where(xs, (y) ~> y.id == x.id), x])
+
+mutex_lock := (s, e, req, st) ~> do {
+  m := sync_of(s.mutexes, req.mutex)
+  if m.held {
+    s1 := set_in(s, "mutexes", s.mutexes,
+      hash_map.set(m, "queue", [...m.queue, {
+        id: e.id, arrow: e.arrow, state: st,
+        stack: e.stack, token: e.token, value: null
+      }]))
+    s1
+  } else {
+    s1 := set_in(s, "mutexes", s.mutexes, hash_map.set(m, "held", true))
+    resume(s1, e, st, { acquired: true })
+  }
+}
+
+mutex_unlock := (s, e, req, st) ~> do {
+  m := sync_of(s.mutexes, req.mutex)
+  if alen(m.queue) > 0 {
+    w := afirst(m.queue)
+    m1 := hash_map.set(m, "queue", adrop(m.queue, 1))
+    s1 := set_in(s, "mutexes", s.mutexes, m1)
+    s2 := resume(s1, w, w.state, { acquired: true })
+    resume(s2, e, st, { released: true })
+  } else {
+    s1 := set_in(s, "mutexes", s.mutexes, hash_map.set(m, "held", false))
+    resume(s1, e, st, { released: true })
+  }
+}
+
+rw_lock := (s, e, req, st, write) ~> do {
+  l := sync_of(s.rwlocks, req.rwlock)
+  waiters := if write { l.wq } else { l.rq }
+  can := if write {
+    l.writer == 0 && l.readers == 0
+  } else {
+    l.writer == 0 && alen(l.wq) == 0
+  }
+  if can {
+    l1 := if write {
+      hash_map.set(l, "writer", e.id)
+    } else {
+      hash_map.set(l, "readers", l.readers + 1)
+    }
+    s1 := set_in(s, "rwlocks", s.rwlocks, l1)
+    resume(s1, e, st, { acquired: true })
+  } else {
+    key := if write { "wq" } else { "rq" }
+    s1 := set_in(s, "rwlocks", s.rwlocks, hash_map.set(l, key, [...waiters, {
+      id: e.id, arrow: e.arrow, state: st,
+      stack: e.stack, token: e.token, value: null
+    }]))
+    s1
+  }
+}
+
+rw_unlock := (s, e, req, st) ~> do {
+  l := sync_of(s.rwlocks, req.rwlock)
+  l1 := if l.writer == e.id {
+    hash_map.set(l, "writer", 0)
+  } else {
+    hash_map.set(l, "readers", l.readers - 1)
+  }
+  -- hand off: waiting writers first when readers drain, else all readers
+  if l1.writer == 0 && l1.readers == 0 && alen(l1.wq) > 0 {
+    w := afirst(l1.wq)
+    l2 := hash_map.set(l1, "wq", adrop(l1.wq, 1))
+    l3 := hash_map.set(l2, "writer", w.id)
+    s1 := set_in(s, "rwlocks", s.rwlocks, l3)
+    s2 := resume(s1, w, w.state, { acquired: true })
+    resume(s2, e, st, { released: true })
+  } else if l1.writer == 0 && alen(l1.rq) > 0 {
+    s1 := set_in(s, "rwlocks", s.rwlocks, hash_map.set(l1, "rq", []))
+    s2 := while { xs: l1.rq, s: s1 } {
+      (xs, s) ~> match xs {
+        []: { out: s },
+        [w, ...t]: do {
+          l2 := sync_of(s.rwlocks, req.rwlock)
+          s3 := set_in(s, "rwlocks", s.rwlocks,
+            hash_map.set(l2, "readers", l2.readers + 1))
+          { state: { xs: t, s: resume(s3, w, w.state, { acquired: true }) } }
+        }
+      }
+    }
+    resume(s2, e, st, { released: true })
+  } else {
+    s1 := set_in(s, "rwlocks", s.rwlocks, l1)
+    resume(s1, e, st, { released: true })
+  }
+}
+
+sem_op := (s, e, req, st, acquire) ~> do {
+  m := sync_of(s.sems, req.sem)
+  if acquire {
+    if m.count > 0 {
+      s1 := set_in(s, "sems", s.sems, hash_map.set(m, "count", m.count - 1))
+      resume(s1, e, st, { acquired: true })
+    } else {
+      set_in(s, "sems", s.sems, hash_map.set(m, "queue", [...m.queue, {
+        id: e.id, arrow: e.arrow, state: st,
+        stack: e.stack, token: e.token, value: null
+      }]))
+    }
+  } else {
+    if alen(m.queue) > 0 {
+      w := afirst(m.queue)
+      s1 := set_in(s, "sems", s.sems,
+        hash_map.set(m, "queue", adrop(m.queue, 1)))
+      s2 := resume(s1, w, w.state, { acquired: true })
+      resume(s2, e, st, { released: true })
+    } else {
+      s1 := set_in(s, "sems", s.sems, hash_map.set(m, "count", m.count + 1))
+      resume(s1, e, st, { released: true })
+    }
+  }
+}
+
+-- ---------------------------------------------------------------
+-- op dispatch
+-- ---------------------------------------------------------------
+
+perform := (s, e, req, st) ~[1]~> match req.name {
+  "yield": resume(s, e, st, null),
+  "spawn": do {
+    id := s.next_id
+    s1 := hash_map.set(s, "next_id", id + 1)
+    s2 := hash_map.set(s1, "live", [...s1.live, id])
+    s3 := hash_map.set(s2, "runq", [...s2.runq, {
+      id: id, arrow: req.task, input: req.init,
+      stack: [], token: hash_map.get_or(req, "token", null)
+    }])
+    resume(s3, e, st, id)
+  },
+  "await": do {
+    r := find_where(s.results, (x) ~> x.id == req.task)
+    if r != null {
+      resume(s, e, st, r.value)
+    } else {
+      hash_map.set(s, "tw", [...s.tw, {
+        task: req.task, id: e.id, arrow: e.arrow, state: st,
+        stack: e.stack, token: e.token
+      }])
+    }
+  },
+  "await_timeout": do {
+    r := find_where(s.results, (x) ~> x.id == req.task)
+    if r != null {
+      resume(s, e, st, { done: r.value })
+    } else {
+      s1 := hash_map.set(s, "tw", [...s.tw, {
+        task: req.task, id: e.id, arrow: e.arrow, state: st,
+        stack: e.stack, token: e.token
+      }])
+      hash_map.set(s1, "timers", [...s1.timers, {
+        deadline: now_ms(null) + req.ms, id: e.id, arrow: e.arrow,
+        state: st, stack: e.stack, token: e.token, await_task: req.task
+      }])
+    }
+  },
+  "sleep": hash_map.set(s, "timers", [...s.timers, {
+    deadline: now_ms(null) + req.ms, id: e.id, arrow: e.arrow,
+    state: st, stack: e.stack, token: e.token, await_task: 0
+  }]),
+  "enter": hash_map.set(s, "runq", [...s.runq, {
+    id: e.id, arrow: req.arrow, input: req.init,
+    stack: [...e.stack, { arrow: e.arrow, state: st }], token: e.token
+  }]),
+  "recv": try_fd(s, e, req, st, EPOLLIN),
+  "send": try_fd(s, e, req, st, EPOLLOUT),
+  "accept": try_fd(s, e, req, st, EPOLLIN),
+  "connect_wait": park_fd(s, e, req, st, EPOLLOUT),
+  "close": do {
+    _ := drop_interest(s, req.fd)
+    _ := close(req.fd)
+    stranded := drop_where(s.fdw, (w) ~> w.fd == req.fd)
+    s1 := hash_map.set(s, "fdw", drop_where(s.fdw, (w) ~> w.fd != req.fd))
+    s2 := while { xs: stranded, s: s1 } {
+      (xs, s) ~> match xs {
+        []: { out: s },
+        [w, ...t]: {
+          state: { xs: t, s: resume(s, w, w.state, { err: EBADF }) }
+        }
+      }
+    }
+    resume(s2, e, st, null)
+  },
+  "chan_new": do {
+    id := s.next_chan
+    s1 := hash_map.set(s, "next_chan", id + 1)
+    s2 := hash_map.set(s1, "chans", [...s1.chans, { id: id, cap: req.cap, queue: [] }])
+    resume(s2, e, st, id)
+  },
+  "chan_send": chan_send(s, e, req, st),
+  "chan_recv": chan_recv(s, e, req, st, [req.chan], false),
+  "chan_select": chan_recv(s, e, req, st, req.chans, true),
+  "mutex_new": do {
+    id := s.next_mutex
+    s1 := hash_map.set(s, "next_mutex", id + 1)
+    s2 := hash_map.set(s1, "mutexes", [...s1.mutexes,
+      { id: id, held: false, queue: [] }])
+    resume(s2, e, st, id)
+  },
+  "mutex_lock": mutex_lock(s, e, req, st),
+  "mutex_unlock": mutex_unlock(s, e, req, st),
+  "rwlock_new": do {
+    id := s.next_rw
+    s1 := hash_map.set(s, "next_rw", id + 1)
+    s2 := hash_map.set(s1, "rwlocks", [...s1.rwlocks,
+      { id: id, readers: 0, writer: 0, rq: [], wq: [] }])
+    resume(s2, e, st, id)
+  },
+  "read_lock": rw_lock(s, e, req, st, false),
+  "write_lock": rw_lock(s, e, req, st, true),
+  "rw_unlock": rw_unlock(s, e, req, st),
+  "sem_new": do {
+    id := s.next_sem
+    s1 := hash_map.set(s, "next_sem", id + 1)
+    s2 := hash_map.set(s1, "sems", [...s1.sems,
+      { id: id, count: req.n, queue: [] }])
+    resume(s2, e, st, id)
+  },
+  "sem_acquire": sem_op(s, e, req, st, true),
+  "sem_release": sem_op(s, e, req, st, false),
+  "atomic_new": do {
+    id := s.next_atomic
+    s1 := hash_map.set(s, "next_atomic", id + 1)
+    s2 := hash_map.set(s1, "atomics", [...s1.atomics, { id: id, value: req.value }])
+    resume(s2, e, st, id)
+  },
+  "atomic_read": resume(s, e, st,
+    hash_map.get_or(sync_of(s.atomics, req.atomic), "value", null)),
+  "atomic_write": do {
+    a := sync_of(s.atomics, req.atomic)
+    s1 := set_in(s, "atomics", s.atomics, hash_map.set(a, "value", req.value))
+    resume(s1, e, st, a.value)
+  },
+  "atomic_cas": do {
+    a := sync_of(s.atomics, req.atomic)
+    if a.value == req.expect {
+      s1 := set_in(s, "atomics", s.atomics, hash_map.set(a, "value", req.value))
+      resume(s1, e, st, true)
+    } else {
+      resume(s, e, st, false)
+    }
+  },
+  "token_new": do {
+    id := s.next_token
+    s1 := hash_map.set(s, "next_token", id + 1)
+    s2 := hash_map.set(s1, "tokens", [...s1.tokens, { id: id, cancelled: false }])
+    resume(s2, e, st, id)
+  },
+  "cancel": do {
+    t := sync_of(s.tokens, req.token)
+    s1 := set_in(s, "tokens", s.tokens, hash_map.set(t, "cancelled", true))
+    resume(s1, e, st, { cancelled: true })
+  },
+  "cancelled": resume(s, e, st, token_set(s, req.token)),
+  _: error.raise("concurrent-epoll: unknown req " + req.name)
+}
+
+-- ---------------------------------------------------------------
+-- the loop
+-- ---------------------------------------------------------------
+
+--- one runnable task takes one step
+tick := (s) ~[1]~> do {
+  e := afirst(s.runq)
+  s1 := hash_map.set(s, "runq", adrop(s.runq, 1))
+  if token_set(s1, e.token) {
+    finish_task(s1, e, { cancelled: true })
+  } else {
+    f := e.arrow
+    step := f(e.input)
+    if has_field(step, "out") {
+      if ais_empty(e.stack) {
+        finish_task(s1, e, stout)
+      } else {
+        fr := afirst(e.stack)
+        hash_map.set(s1, "runq", [...s1.runq, {
+          id: e.id, arrow: fr.arrow,
+          input: hash_map.set(fr.state, "result", stout),
+          stack: adrop(e.stack, 1), token: e.token
+        }])
+      }
+    } else if has_field(step, "call") {
+      perform(s1, e, stcall, ststate)
+    } else {
+      hash_map.set(s1, "runq", [...s1.runq, {
+        id: e.id, arrow: e.arrow, input: ststate,
+        stack: e.stack, token: e.token
+      }])
+    }
+  }
+}
+
+--- fire every expired timer; resumes with { timeout: task } for
+--- await_timeout pairs (their `tw` entry is dropped) and null for sleep
+fire_timers := (s) ~[1]~> do {
+  if ais_empty(s.timers) {
+    s
+  } else {
+    now := now_ms(null)
+    due := drop_where(s.timers, (t) ~> t.deadline > now)
+    fired := drop_where(s.timers, (t) ~> t.deadline <= now)
+    s1 := hash_map.set(s, "timers", due)
+    while { xs: fired, s: s1 } {
+      (xs, s) ~> match xs {
+        []: { out: s },
+        [t, ...rest]: do {
+          s2 := if t.await_task > 0 {
+            hash_map.set(s, "tw",
+              drop_where(s.tw, (w) ~> w.id == t.id && w.task == t.await_task))
+          } else {
+            s
+          }
+          v := if t.await_task > 0 { { timeout: t.await_task } } else { null }
+          { state: { xs: rest, s: resume(s2, t, t.state, v) } }
+        }
+      }
+    }
+  }
+}
+
+--- ms until the next deadline; -1 when no timers are armed
+next_timeout := (s) ~[1]~> do {
+  if ais_empty(s.timers) {
+    -1
+  } else {
+    d := while { xs: s.timers, d: afirst(s.timers).deadline } {
+      (xs, d) ~> match xs {
+        []: { out: d },
+        [t, ...rest]: if t.deadline < d {
+          { state: { xs: rest, d: t.deadline } }
+        } else {
+          { state: { xs: rest, d: d } }
+        }
+      }
+    }
+    dt := d - now_ms(null)
+    if dt < 0 { 0 } else { dt }
+  }
+}
+
+--- runq is empty: block in epoll_wait until an fd fires or a timer
+--- expires, then wake what arrived.
+poll_block := (s) ~[1]~> do {
+  s1 := ensure_epfd(s)
+  w := unwrap(epoll_wait(s1.epfd, 32, next_timeout(s)), "epoll_wait")
+  ids := while { i: 0, acc: [] } {
+    (i, acc) ~> if i < w.ret {
+      { state: { i: i + 1, acc: [...acc, u32le(w.buf, i * 12 + 4)] } }
+    } else {
+      { out: acc }
+    }
+  }
+  while { xs: ids, s: s1 } {
+    (xs, s) ~[1]~> match xs {
+      []: { out: s },
+      [id, ...rest]: do {
+        f := find_where(s.fdw, (x) ~> x.id == id)
+        s2 := if f == null { s } else { wake_fd(s, f) }
+        { state: { xs: rest, s: s2 } }
+      }
+    }
+  }
+}
+
+new_sched := (task, init) ~> {
+  epfd: null,
+  runq: [{ id: 1, arrow: task, input: init, stack: [], token: null }],
+  fdw: [], cw: [], tw: [], timers: [],
+  chans: [], mutexes: [], rwlocks: [], sems: [], atomics: [], tokens: [],
+  live: [1], results: [],
+  next_id: 2, next_chan: 1, next_mutex: 1, next_rw: 1,
+  next_sem: 1, next_atomic: 1, next_token: 1
+}
+
+final := (s) ~> {
+  main: hash_map.get_or(
+    find_where(s.results, (r) ~> r.id == 1), "value", null),
+  results: s.results
+}
+
+--- run tasks to completion: drain the runq; when it empties fire due
+--- timers; when nothing can wake the parked tasks that's a deadlock;
+--- otherwise block in epoll_wait.
+export run := (task, init) ~[1]~> do {
+  fin := while new_sched(task, init) {
+    (s) ~[1]~> do {
+      if alen(s.runq) > 0 {
+        { state: tick(s) }
+      } else {
+        s1 := fire_timers(s)
+        if alen(s1.runq) > 0 {
+          { state: s1 }
+        } else if ais_empty(s1.live) {
+          { out: s1 }
+        } else if ais_empty(s1.fdw) && ais_empty(s1.timers) {
+          { out: s1 }
+        } else {
+          { state: poll_block(s1) }
+        }
+      }
+    }
+  }
+  _ := if fin.epfd == null { null } else { close(fin.epfd) }
+  if ais_empty(fin.live) {
+    final(fin)
+  } else {
+    { deadlock: fin.live }
+  }
+}
