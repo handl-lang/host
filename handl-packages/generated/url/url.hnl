@@ -1,0 +1,61 @@
+--- Generated port for url.url
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/url.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export URL := {
+  href: String,
+  origin: String,
+  protocol: String,
+  username: String,
+  password: String,
+  host: String,
+  hostname: String,
+  port: String,
+  pathname: String,
+  search: String,
+  searchParams: Handle,
+  hash: String
+}
+
+export URLSearchParams := {
+  size: Nat
+}
+
+--- js: URL.canParse
+export URLCanParse: (String, String) ~[1]~> Result<Bool, JsError>
+
+--- js: URL.constructor
+export URLConstructor: (String, String) ~[1]~> Result<(), JsError>
+
+--- js: URL.parse
+export URLParse: (String, String) ~[1]~> Result<Handle, JsError>
+
+--- js: URL.toJSON
+export URLToJSON: () ~[1]~> Result<String, JsError>
+
+--- js: URLSearchParams.append
+export URLSearchParamsAppend: (String, String) ~[1]~> Result<(), JsError>
+
+--- js: URLSearchParams.constructor
+export URLSearchParamsConstructor: (Handle) ~[1]~> Result<(), JsError>
+
+--- js: URLSearchParams.delete
+export URLSearchParamsDelete: (String, String) ~[1]~> Result<(), JsError>
+
+--- js: URLSearchParams.get
+export URLSearchParamsGet: (String) ~[1]~> Result<Handle, JsError>
+
+--- js: URLSearchParams.getAll
+export URLSearchParamsGetAll: (String) ~[1]~> Result<Handle, JsError>
+
+--- js: URLSearchParams.has
+export URLSearchParamsHas: (String, String) ~[1]~> Result<Bool, JsError>
+
+--- js: URLSearchParams.set
+export URLSearchParamsSet: (String, String) ~[1]~> Result<(), JsError>
+
+--- js: URLSearchParams.sort
+export URLSearchParamsSort: () ~[1]~> Result<(), JsError>
