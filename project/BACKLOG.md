@@ -111,10 +111,6 @@ See notes/module-async-operations.md for details.
 - **Crate-level: DONE** — `handl` facade is tree-shakeable via Cargo features (22 feature flags, `optional = true` deps, `default` = everything for backwards compat).
 - **Language-level: NOT DONE** — no DCE pass exists. All declared fields are computed; no reachability analysis. A `DeadFieldElimPass` could slot into the compiler pipeline via the `Pass` trait. See notes/tree-shaking.md for design and challenges.
 
-## ecma402 libs
-
-- Add remaining harness to our ecma402 libs. Only `number_format` currently has a conformance harness; add harnesses for the remaining ECMA-402 APIs (collator, date/time format, display names, list format, locale, locale matching, plural rules, relative time, segmenter).
-
 ## Platform plugin security
 
 Security is **out of scope for the initial platform refactor** (see `docs/adr/0002-handl-platform-composable-host.md`). Future work, in rough priority order:

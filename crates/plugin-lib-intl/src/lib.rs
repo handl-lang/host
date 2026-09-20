@@ -93,10 +93,6 @@ mod provider_tests;
 mod supported_locales_tests;
 
 pub mod api;
-pub mod extra;
-pub mod icu4x;
-pub mod rust;
-pub mod traits;
 
 /// The handl source declaring the intl interface — the single source
 /// of truth for the intl API surface. Loaded at compile time from the
