@@ -879,6 +879,16 @@ fn post_process_individual_rules() {
         canon_ops.apply("export zip < A, B >: T ~ [Total] ~> T"),
         "export zip<A, B>: T ~[Total]~> T"
     );
+    // Unit type inside generic args stays tight: `Result<(), E>` is canonical.
+    assert_eq!(
+        canon_ops.apply("export F: () ~[1]~> Result < (), JsError >"),
+        "export F: () ~[1]~> Result<(), JsError>"
+    );
+    // Unbalanced parens can't close the bracket early.
+    assert_eq!(
+        canon_ops.apply("f < (a > b), c >"),
+        "f < (a > b), c >"
+    );
     // Multi-byte UTF-8 characters must be preserved byte-for-byte.
     assert_eq!(
         canon_ops.apply("--- caf\u{00e9} \u{2014} \u{2192} x"),

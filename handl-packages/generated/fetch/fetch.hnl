@@ -159,13 +159,13 @@ export BodyText: () ~[1]~> Result<Handle, JsError>
 export BodyTextStream: () ~[1]~> Result<Handle, JsError>
 
 --- js: Headers.append
-export HeadersAppend: (String, String) ~[1]~> Result < (), JsError >
+export HeadersAppend: (String, String) ~[1]~> Result<(), JsError>
 
 --- js: Headers.constructor
-export HeadersConstructor: (Handle) ~[1]~> Result < (), JsError >
+export HeadersConstructor: (Handle) ~[1]~> Result<(), JsError>
 
 --- js: Headers.delete
-export HeadersDelete: (String) ~[1]~> Result < (), JsError >
+export HeadersDelete: (String) ~[1]~> Result<(), JsError>
 
 --- js: Headers.get
 export HeadersGet: (String) ~[1]~> Result<Handle, JsError>
@@ -177,19 +177,19 @@ export HeadersGetSetCookie: () ~[1]~> Result<Handle, JsError>
 export HeadersHas: (String) ~[1]~> Result<Bool, JsError>
 
 --- js: Headers.set
-export HeadersSet: (String, String) ~[1]~> Result < (), JsError >
+export HeadersSet: (String, String) ~[1]~> Result<(), JsError>
 
 --- js: Request.clone
 export RequestClone: () ~[1]~> Result<Handle, JsError>
 
 --- js: Request.constructor
-export RequestConstructor: (Handle, Handle) ~[1]~> Result < (), JsError >
+export RequestConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 
 --- js: Response.clone
 export ResponseClone: () ~[1]~> Result<Handle, JsError>
 
 --- js: Response.constructor
-export ResponseConstructor: (Handle, Handle) ~[1]~> Result < (), JsError >
+export ResponseConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 
 --- js: Window.fetchLater
 export WindowFetchLater: (Handle, Handle) ~[1]~> Result<Handle, JsError>

@@ -283,8 +283,9 @@ fn fix_graded_arrow(line: &str) -> String {
 /// identifier and contain only type-parameter characters.
 ///
 /// Examples:
-///   `at < T >`     → `at<T>`
-///   `zip < A, B >` → `zip<A, B>`
+///   `at < T >`              → `at<T>`
+///   `zip < A, B >`          → `zip<A, B>`
+///   `Result < (), JsError >` → `Result<(), JsError>`
 fn fix_type_params(line: &str) -> String {
     // Find ` < ` where the preceding char is a word char, then find the
     // matching ` > ` and collapse the inner spaces.
@@ -331,9 +332,12 @@ fn find_type_param_close(chars: &[char], from: usize) -> Option<usize> {
             // Ensure the `>` is not part of a `>>=` / `>>` / `>=` operator.
             let after: Option<char> = chars.get(i + 2).copied();
             if after.map_or(true, |c| !is_word_char(c)) {
-                // Validate the content before this ` >`.
+                // Validate the content before this ` >`. Parens must balance
+                // so `(A > B)` inside the list can't close the bracket early.
                 let content: String = chars[from..i].iter().collect();
-                if content.trim().chars().all(is_type_param_char) {
+                if balanced_parens(&content)
+                    && content.trim().chars().all(is_type_param_char)
+                {
                     return Some(i);
                 }
             }
@@ -348,7 +352,23 @@ fn is_word_char(c: char) -> bool {
 }
 
 fn is_type_param_char(c: char) -> bool {
-    c.is_alphanumeric() || c == '_' || c == ',' || c == ' '
+    // `(`/`)` cover the unit type `()` and parenthesized/tuple type args.
+    c.is_alphanumeric() || c == '_' || c == ',' || c == ' ' || c == '(' || c == ')'
+}
+
+fn balanced_parens(s: &str) -> bool {
+    let mut depth = 0i32;
+    for c in s.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            _ => {}
+        }
+        if depth < 0 {
+            return false;
+        }
+    }
+    depth == 0
 }
 
 /// Re-indent a binding whose `:=` operator is on a new line at the same

@@ -69,7 +69,7 @@ fn emits_js_port_and_adapter() {
         "1-morphism missing in port: {port}"
     );
     assert!(
-        port.contains("Result < (), JsError >"),
+        port.contains("Result<(), JsError>"),
         "JS result type missing in port: {port}"
     );
 
