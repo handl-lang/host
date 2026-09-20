@@ -143,7 +143,7 @@ fn import_resolves_handl_toml_dependencies() {
         "[dependencies]\narrows = \"vendor/arrows\"\n",
     )
     .expect("write manifest");
-    let dep_dir = root.join("vendor/arrows/fn");
+    let dep_dir = root.join("vendor/arrows/transform");
     fs::create_dir_all(&dep_dir).expect("create dep dir");
     write_module(&dep_dir, "map.hnl", "double :: x ~> x * 2");
     let main = write_module(
@@ -198,7 +198,7 @@ fn import_nested_relative_resolves_against_module_dir() {
         "[dependencies]\narrows = \"vendor/arrows\"\n",
     )
     .expect("write manifest");
-    let dep_dir = root.join("vendor/arrows/fn");
+    let dep_dir = root.join("vendor/arrows/transform");
     fs::create_dir_all(&dep_dir).expect("create dep dir");
     // `map.hnl` must keep its export as the single root statement (the
     // Pratt parser yields one top-level node per module), so the nested
