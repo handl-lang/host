@@ -258,3 +258,13 @@ test_law_prefix := assert ws_frame.all_need_more(
     payload: bytes.utf8_encode("Hi"),
     mask_key: bytes.from_list([55, 250, 33, 61])
   }))) = true
+
+-- The `~[2]~>` law terms themselves evaluate to `Arrow` cells when
+-- instantiated with this impl's arrows (the properties they state are
+-- asserted concretely above).
+test_laws_instantiate := assert(do {
+  r :: tag.tag_of(ws_frame.roundtrip(frame.encode, frame.decode))
+  c :: tag.tag_of(ws_frame.complete(frame.encode, frame.decode))
+  p :: tag.tag_of(ws_frame.prefix(frame.encode, frame.decode))
+  r + "/" + c + "/" + p
+}) = "Arrow/Arrow/Arrow"

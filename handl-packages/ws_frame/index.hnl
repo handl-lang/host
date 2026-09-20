@@ -39,10 +39,16 @@ export EncodeIn := { fin: Nat, op: Nat, payload: Bytes, mask_key: Bytes }
 --- encode -- serialize a frame.
 export Encode := (input: EncodeIn) ~> Bytes
 
+--- The `decode` success record: the decoded `frame` plus `rest`, the
+--- unconsumed bytes trailing it. Named separately so the `Option`
+--- application in `Decode` takes a var (a record literal does not
+--- round-trip through the formatter in generic-argument position).
+export DecodeOut := { frame: Frame, rest: Bytes }
+
 --- decode -- read one frame off the front of a buffer. `None` means the
 --- buffer holds only a strict prefix (need more bytes); `Some` returns
 --- the frame and the unconsumed `rest`.
-export Decode := (Bytes) ~> Option < { frame: Frame, rest: Bytes } >
+export Decode := (Bytes) ~> Option<DecodeOut>
 
 --- RFC 6455 §5.2 opcode constants.
 export OpContinuation := 0
