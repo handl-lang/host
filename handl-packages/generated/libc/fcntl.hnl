@@ -18,5 +18,6 @@ export F_SETFL: Int
 --- Actually anything with low bit set goes
 export FD_CLOEXEC: Int
 
+--- manipulate file descriptor
 --- ffi: int (int, int, ...)
 export Fcntl: (Int, Int, Int) ~[1]~> Result<Int, Errno>

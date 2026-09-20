@@ -51,7 +51,7 @@ export EpollCtl: (Int, Int, Int, EpollCtlMsg) ~[1]~> Result<Int, Errno>
 export EpollWaitResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi: int (int, struct epoll_event *, int, int)

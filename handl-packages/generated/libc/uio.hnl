@@ -11,17 +11,28 @@ export LITTLE_ENDIAN: Int
 export BIG_ENDIAN: Int
 export PDP_ENDIAN: Int
 export BYTE_ORDER: Int
+--- Maximum number of file descriptors in `fd_set'.
 export FD_SETSIZE: Int
+--- Number of bits per word of `fd_set' (some code assumes this is 32).
 export NFDBITS: Int
 export UIO_MAXIOV: Int
+--- High priority request.
 export RWF_HIPRI: Int
+--- per-IO O_DSYNC.
 export RWF_DSYNC: Int
+--- per-IO O_SYNC.
 export RWF_SYNC: Int
+--- per-IO nonblocking mode.
 export RWF_NOWAIT: Int
+--- per-IO O_APPEND.
 export RWF_APPEND: Int
+--- per-IO negation of O_APPEND
 export RWF_NOAPPEND: Int
+--- Write is to be issued with torn-write
 export RWF_ATOMIC: Int
+--- Uncached buffered IO.
 export RWF_DONTCACHE: Int
+--- Do not generate SIGPIPE on error.
 export RWF_NOSIGNAL: Int
 
 --- Read data from file descriptor FD, and put the result in the

@@ -6,9 +6,9 @@
 --- whitespace prefix common to all non-blank lines, and removes it while
 --- keeping relative indentation intact.
 
-from "../str-handl" import * as str
-from "../transform" import { map, filter, reduce }
-from "../char" import * as char
+from "str" import * as str
+from "transform" import { map, filter, reduce }
+from "char" import * as char
 
 --- Remove the largest common leading whitespace prefix from `text`.
 ---

@@ -1,6 +1,0 @@
-category:
-  slug: kv
-  title: KV
-  description: Key/value store interface.
-sub_pages:
-  - lib-kv-hashmap

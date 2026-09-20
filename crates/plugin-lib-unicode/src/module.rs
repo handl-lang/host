@@ -50,7 +50,13 @@ static UNICODE_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// Get the shared [`HandlModule`] for unicode, initializing it on first call.
 fn unicode_module() -> &'static HandlModule {
-    UNICODE_MODULE.get_or_init(build_unicode_module)
+    // `with_loader_disabled`: `HandlModule::new`'s `analyze_source` would
+    // otherwise run `loader.analyze` — a nested eval whose `call_host`
+    // misses probe `modules.lookup`, which can re-enter this `OnceLock`
+    // and deadlock. The bootstrap path is pure text transformation.
+    UNICODE_MODULE.get_or_init(|| {
+        handl_plugin_lib_handl::with_loader_disabled(build_unicode_module)
+    })
 }
 
 /// The `unicode` module — Unicode primitives for handl expressions.

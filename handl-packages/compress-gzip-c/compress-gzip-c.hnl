@@ -46,7 +46,7 @@ cat := (chunks) ~> while { xs: chunks, acc: bytes.from_list([]) } {
 
 --- Read an fd to EOF in 64 KiB chunks (`unistd.read` returns one chunk
 --- per call, trimmed by the byte count it read).
-drain_fd := (fd) ~[1]~> do {
+drain_fd := (fd) ~> do {
   while { fd: fd, chunks: [] } {
     (fd, chunks) ~> do {
       chunk = unwrap(unistd.read(fd), "read")
@@ -61,7 +61,7 @@ drain_fd := (fd) ~[1]~> do {
 
 --- Read a gzFile to end-of-stream in 64 KiB chunks (`zlib.gzread`
 --- returns one chunk per call; an empty Bytes means end-of-stream).
-drain_gz := (gz) ~[1]~> do {
+drain_gz := (gz) ~> do {
   while { gz: gz, chunks: [] } {
     (gz, chunks) ~> do {
       chunk = unwrap(zlib.gzread(gz), "gzread")
@@ -77,9 +77,9 @@ drain_gz := (gz) ~[1]~> do {
 --- A fresh anonymous in-memory fd. `memfd_create` is reached through the
 --- generic `syscall` binding; flags = 0 (no CLOEXEC/SEALING needed — the
 --- fd lives only for the call).
-memfd := () ~[1]~> unwrap(unistd.syscall(SYS_MEMFD_CREATE, "handl-gzip", 0), "memfd_create")
+memfd := () ~> unwrap(unistd.syscall(SYS_MEMFD_CREATE, "handl-gzip", 0), "memfd_create")
 
-export compress: Compress := (input) ~[1]~> do {
+export compress: Compress := (input) ~> do {
   fd = memfd()
   gz = unwrap(zlib.gzdopen(fd, "wb"), "gzdopen")
   _ = unwrap(zlib.gzwrite(gz, input), "gzwrite")
@@ -90,7 +90,7 @@ export compress: Compress := (input) ~[1]~> do {
   out
 }
 
-export decompress: Decompress := (input) ~[1]~> do {
+export decompress: Decompress := (input) ~> do {
   fd = memfd()
   _ = unwrap(unistd.write(fd, input), "write")
   _ = unwrap(unistd.lseek(fd, 0, SEEK_SET), "lseek")

@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/fcntl
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/fcntl" import { Fcntl }
 
@@ -13,9 +12,9 @@ export F_SETFL: Int := 4
 export FD_CLOEXEC: Int := 1
 
 export fcntl: Fcntl := (fd, cmd, arg) ~> do {
-  r = call("libc.so.6", "fcntl", [fd, cmd, arg], ["i32", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "fcntl", [fd, cmd, arg], ["i32", "i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

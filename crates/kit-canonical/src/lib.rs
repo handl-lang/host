@@ -207,16 +207,24 @@ static HANDL_MODULE_CACHE: std::sync::OnceLock<
 > = std::sync::OnceLock::new();
 
 /// Get a `.hnl` [`HandlModule`] from the cache or build it once.
+///
+/// The builder runs *outside* the lock: `HandlModule::new`'s
+/// `analyze_source` can run a nested eval whose module resolution
+/// re-enters this cache — holding the lock across `builder()` would
+/// deadlock on the same thread.
 fn get_handl_module(name: &str, builder: impl FnOnce() -> HandlModule) -> Arc<HandlModule> {
     let cache =
         HANDL_MODULE_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
-    let mut map = cache.lock().unwrap();
-    if let Some(m) = map.get(name) {
+    if let Some(m) = cache.lock().unwrap().get(name) {
         return Arc::clone(m);
     }
-    let m = Arc::new(builder());
-    map.insert(name.to_string(), Arc::clone(&m));
-    m
+    // `with_loader_disabled`: `HandlModule::new`'s `analyze_source` would
+    // otherwise run `loader.analyze` — a nested eval that resolves modules
+    // through this very cache (miss → build → analyze → …) — unbounded
+    // recursion instead of progress. The bootstrap path is pure text work.
+    let built = Arc::new(handl_plugin_lib_handl::with_loader_disabled(builder));
+    let mut map = cache.lock().unwrap();
+    Arc::clone(map.entry(name.to_string()).or_insert(built))
 }
 
 /// Coerce an `Arc<HandlModule>` to `Arc<dyn Module + Send + Sync>`.

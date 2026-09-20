@@ -1,3 +1,0 @@
-category: ws_whatwg_wasm
-description: |
-  Browser WHATWG WebSocket client backed by `web-sys` for `wasm32` targets.

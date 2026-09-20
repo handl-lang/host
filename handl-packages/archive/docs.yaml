@@ -1,6 +1,0 @@
-category:
-  slug: archive
-  title: Archive
-  description: Archive abstractions and entry types, including tar support.
-sub_pages:
-  - lib-archive-tar

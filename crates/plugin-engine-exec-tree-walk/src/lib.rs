@@ -1286,11 +1286,6 @@ impl TreeWalkEngine {
                 // name — look it up in the module registry and call it
                 // (same path as `call` nodes). Otherwise, it's an
                 // arrow-value — apply it as a closure.
-                match &callee_val {
-                    TaggedValue::Str(s) => eprintln!("[dbg] call str: {s}"),
-                    TaggedValue::Arrow { params, body, .. } => eprintln!("[dbg] apply arrow params={params:?} body={body}"),
-                    other => eprintln!("[dbg] apply other: {}", std::mem::discriminant(other) == std::mem::discriminant(&TaggedValue::Null)),
-                }
                 let val = if let Some(name) = callee_val.as_str() {
                     self.call_host_fn(name, &actual_args, current_node)?
                 } else {

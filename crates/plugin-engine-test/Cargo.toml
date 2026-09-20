@@ -17,6 +17,7 @@ handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" 
 handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
 handl-plugin-lib-scheduler = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-exec-cache = { path = "../plugin-exec-cache" }
 handl-plugin-ext-refinement = { workspace = true }
 rand = { workspace = true }

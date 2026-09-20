@@ -838,8 +838,10 @@ impl Runtime {
     pub fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
         if !ast.is_empty() {
             let root = AstRef::new(ast.len() - 1);
+            eprintln!("[dbg] eval: lowering {} ast nodes", ast.len());
             match lower_ast(ast, &self.lang, root) {
                 Ok(term) => {
+                    eprintln!("[dbg] eval: lowered, interpreting");
                     // The default handler registry is currently empty; a future
                     // runtime-provided `FFI` handler can be injected here.
                     let default_handlers: std::collections::HashMap<String, Value> =
@@ -1499,15 +1501,35 @@ impl ModuleLoader {
                 _ => dep_dir.clone(),
             }
         } else {
-            let base = self
-                .dir_stack
-                .borrow()
-                .last()
-                .cloned()
-                .or_else(|| self.module_root.clone())
-                .or_else(|| std::env::current_dir().ok())
-                .unwrap_or_else(|| PathBuf::from("."));
-            base.join(path)
+            // Try each base in order — the directory of the module being
+            // loaded, then `module_root`, then the working directory — and
+            // keep the first that yields an existing file candidate. A
+            // bare-name spec can legitimately resolve below `module_root`
+            // while a nested import is on `dir_stack` (the strip check in
+            // `resolve_spec_to_file` consults the same ordered bases).
+            let bases: Vec<PathBuf> = vec![
+                self.dir_stack.borrow().last().cloned(),
+                self.module_root.clone(),
+                std::env::current_dir().ok(),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            let mut found: Option<PathBuf> = None;
+            for base in &bases {
+                let joined = base.join(path);
+                if Self::file_candidate(&joined, path).is_some() {
+                    found = Some(joined);
+                    break;
+                }
+            }
+            found.unwrap_or_else(|| {
+                bases
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| PathBuf::from("."))
+                    .join(path)
+            })
         };
         let candidate = if joined.is_dir() {
             let index = joined.join("index.hnl");
@@ -1607,7 +1629,24 @@ impl ModuleLoader {
         let src = module_prep::prepare_module(&src, &|spec: &str| {
             self.spec_resolves_to_file(spec, resolved)
         });
-        let source = Source::new(&src);
+        // The parser yields one top-level statement per parse, so a bare
+        // multi-statement body (`private := …; { exports }`) evaluates
+        // only its first declaration and the import binds a single-field
+        // record. Wrap the body in `do { … }` — the same trick `hnl run`
+        // applies — so every statement evaluates in one scope and the
+        // export record is the block's value. (`prepare_module` already
+        // emits `do { … }` itself when the module has executable imports;
+        // the guard avoids double-wrapping.)
+        let trimmed = src.trim_start();
+        let wrapped = if trimmed.starts_with("do") {
+            src
+        } else {
+            format!("do {{\n{}\n}}", src)
+        };
+        if std::env::var("HNL_DEBUG_PREP").is_ok() {
+            eprintln!("[prep] ==== {} ====\n{}\n====", display_path, wrapped);
+        }
+        let source = Source::new(&wrapped);
         let toks = {
             let req = LexerRequest::new(source);
             self.lex_engine.lex(&self.lang, &req).map_err(|e| {
@@ -1658,6 +1697,7 @@ impl ModuleLoader {
                 display_path, resolved
             ))
         })?;
+        eprintln!("[dbg] module eval: {} ({} ast nodes)", display_path, ast.len());
         let value = {
             let req = EvalRequest::new(ast.clone());
             engine_rc.eval(&self.lang, &req).map_err(|e| {

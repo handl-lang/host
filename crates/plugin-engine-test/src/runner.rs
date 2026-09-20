@@ -1017,8 +1017,14 @@ static PRED_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// The shared `pred` [`HandlModule`], built lazily on first use.
 fn pred_module() -> &'static HandlModule {
+    // `with_loader_disabled`: `analyze_source` would otherwise run a
+    // nested eval whose `modules.lookup` misses can re-enter this
+    // `OnceLock` and deadlock (bootstrap path is pure text work).
     PRED_MODULE.get_or_init(|| {
-        HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_dependency_arc(Arc::new(CharModule))
+        handl_kit_canonical::handl_module::with_loader_disabled(|| {
+            HandlModule::new("pred", PRED_HNL, PRED_FUNCS)
+                .with_dependency_arc(Arc::new(CharModule))
+        })
     })
 }
 

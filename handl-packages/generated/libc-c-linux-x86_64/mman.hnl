@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/mman
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/mman" import { Mmap, Mmap64, Munmap, Mprotect, Msync, Madvise, PosixMadvise, Mlock, Munlock, Mlockall, Munlockall, Mincore, Mremap, RemapFilePages, ShmOpen, ShmUnlink }
 
@@ -101,132 +100,132 @@ export PKEY_DISABLE_ACCESS: Int := 1
 export PKEY_DISABLE_WRITE: Int := 2
 
 export mmap: Mmap := (__addr, __len, __prot, __flags, __fd, __offset) ~> do {
-  r = call("libc.so.6", "mmap", [__addr, __len, __prot, __flags, __fd, __offset], ["ptr", "i64", "i32", "i32", "i32", "i64"], "handle", false)
+  r = ffi.call("libc.so.6", "mmap", [__addr, __len, __prot, __flags, __fd, __offset], ["ptr", "i64", "i32", "i32", "i32", "i64"], "handle", false)
   ok(r)
 }
 
 export mmap64: Mmap64 := (__addr, __len, __prot, __flags, __fd, __offset) ~> do {
-  r = call("libc.so.6", "mmap64", [__addr, __len, __prot, __flags, __fd, __offset], ["ptr", "i64", "i32", "i32", "i32", "i64"], "handle", false)
+  r = ffi.call("libc.so.6", "mmap64", [__addr, __len, __prot, __flags, __fd, __offset], ["ptr", "i64", "i32", "i32", "i32", "i64"], "handle", false)
   ok(r)
 }
 
 export munmap: Munmap := (__addr, __len) ~> do {
-  r = call("libc.so.6", "munmap", [__addr, __len], ["ptr", "i64"], "i32", false)
+  r = ffi.call("libc.so.6", "munmap", [__addr, __len], ["ptr", "i64"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mprotect: Mprotect := (__addr, __len, __prot) ~> do {
-  r = call("libc.so.6", "mprotect", [__addr, __len, __prot], ["ptr", "i64", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "mprotect", [__addr, __len, __prot], ["ptr", "i64", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export msync: Msync := (__addr, __len, __flags) ~> do {
-  r = call("libc.so.6", "msync", [__addr, __len, __flags], ["ptr", "i64", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "msync", [__addr, __len, __flags], ["ptr", "i64", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export madvise: Madvise := (__addr, __len, __advice) ~> do {
-  r = call("libc.so.6", "madvise", [__addr, __len, __advice], ["ptr", "i64", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "madvise", [__addr, __len, __advice], ["ptr", "i64", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export posix_madvise: PosixMadvise := (__addr, __len, __advice) ~> do {
-  r = call("libc.so.6", "posix_madvise", [__addr, __len, __advice], ["ptr", "i64", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "posix_madvise", [__addr, __len, __advice], ["ptr", "i64", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mlock: Mlock := (__addr) ~> do {
-  r = call("libc.so.6", "mlock", [__addr], ["in_buf"], "i32", false)
+  r = ffi.call("libc.so.6", "mlock", [__addr], ["in_buf"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export munlock: Munlock := (__addr) ~> do {
-  r = call("libc.so.6", "munlock", [__addr], ["in_buf"], "i32", false)
+  r = ffi.call("libc.so.6", "munlock", [__addr], ["in_buf"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mlockall: Mlockall := (__flags) ~> do {
-  r = call("libc.so.6", "mlockall", [__flags], ["i32"], "i32", false)
+  r = ffi.call("libc.so.6", "mlockall", [__flags], ["i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export munlockall: Munlockall := () ~> do {
-  r = call("libc.so.6", "munlockall", [], [], "i32", false)
+  r = ffi.call("libc.so.6", "munlockall", [], [], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mincore: Mincore := (__start, __len, __vec) ~> do {
-  r = call("libc.so.6", "mincore", [__start, __len, __vec], ["ptr", "i64", "cstr"], "i32", false)
+  r = ffi.call("libc.so.6", "mincore", [__start, __len, __vec], ["ptr", "i64", "cstr"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export mremap: Mremap := (__addr, __old_len, __new_len, __flags) ~> do {
-  r = call("libc.so.6", "mremap", [__addr, __old_len, __new_len, __flags], ["ptr", "i64", "i64", "i32"], "handle", false)
+  r = ffi.call("libc.so.6", "mremap", [__addr, __old_len, __new_len, __flags], ["ptr", "i64", "i64", "i32"], "handle", false)
   ok(r)
 }
 
 export remap_file_pages: RemapFilePages := (__start, __size, __prot, __pgoff, __flags) ~> do {
-  r = call("libc.so.6", "remap_file_pages", [__start, __size, __prot, __pgoff, __flags], ["ptr", "i64", "i32", "i64", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "remap_file_pages", [__start, __size, __prot, __pgoff, __flags], ["ptr", "i64", "i32", "i64", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export shm_open: ShmOpen := (__name, __oflag, __mode) ~> do {
-  r = call("libc.so.6", "shm_open", [__name, __oflag, __mode], ["cstr", "i32", "i32"], "i32", false)
+  r = ffi.call("libc.so.6", "shm_open", [__name, __oflag, __mode], ["cstr", "i32", "i32"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }
 }
 
 export shm_unlink: ShmUnlink := (__name) ~> do {
-  r = call("libc.so.6", "shm_unlink", [__name], ["cstr"], "i32", false)
+  r = ffi.call("libc.so.6", "shm_unlink", [__name], ["cstr"], "i32", false)
   if r < 0 {
-    err(errno())
+    err(ffi.errno())
   } else {
     ok(r)
   }

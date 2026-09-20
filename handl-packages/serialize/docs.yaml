@@ -1,4 +1,0 @@
-category:
-  slug: serialize
-  title: Serialize
-  description: Converting values to and from JSON, TOML, and YAML.

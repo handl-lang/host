@@ -1,4 +1,0 @@
-category:
-  slug: lib-char
-  title: Char
-  description: Character library abstraction contract (axioms and laws) — the semantic floor beneath str.

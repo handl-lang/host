@@ -35,7 +35,7 @@ export Write: (Int, Bytes) ~[1]~> Result<SSize, Errno>
 export PipeResult := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:
@@ -46,7 +46,7 @@ export Pipe: () ~[1]~> Result<PipeResult, Errno>
 export Pipe2Result := {
   ret: Int,
   buf: Bytes,
-  outs: List<Bytes>
+  outs: [Bytes]
 }
 
 --- ffi:

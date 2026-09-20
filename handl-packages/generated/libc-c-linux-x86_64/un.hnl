@@ -1,6 +1,5 @@
 --- Generated adapter for libc-c-linux-x86_64/un
 
-from "ffi" import { call, errno }
 from "result" import { ok, err }
 from "../libc/un" import { sockaddr_un }
 
