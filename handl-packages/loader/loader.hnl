@@ -314,13 +314,74 @@ do {
     }
   }
 
-  -- Collect top-level import statements, in original order.
+  -- ---------------------------------------------------------------------
+  -- extract_quoted_path -- the first `"`/`'` quoted spec in a `from` line,
+  -- returning { path, rest } or null.
+  -- ---------------------------------------------------------------------
+
+  extract_quoted_path :: line ~> do {
+    t :: trim_start(line)
+    if !str.starts_with(t, "from") { null } else {
+      rest0 :: trim_start(sdrop(t, 4))
+      q :: if slen(rest0) == 0 { "" } else { atc(rest0, 0) }
+      if q != dq && q != sq { null } else {
+        rest1 :: sdrop(rest0, 1)
+        idx :: str.find(rest1, q)
+        if idx < 0 { null } else {
+          { path: stake(rest1, idx), rest: sdrop(rest1, idx + 1) }
+        }
+      }
+    }
+  }
+
+  -- ---------------------------------------------------------------------
+  -- from_export_to_import -- rewrite `from "p" export a, b` to the plain
+  -- import `from "p" import a as __a, b as __b`; returns
+  -- `{ line, names: [{name, alias}] }` or null when the line is not a
+  -- re-export form.  Mirrors `handl_runtime::module_prep`'s handling.
+  -- ---------------------------------------------------------------------
+
+  from_export_to_import :: line ~> do {
+    ep :: extract_quoted_path(line)
+    if ep == null { null } else {
+      tail :: trim_start(ep.rest)
+      if !str.starts_with(tail, "export") { null } else {
+        rest :: sdrop(tail, 6)
+        c0 :: if slen(rest) == 0 { "" } else { atc(rest, 0) }
+        if slen(rest) > 0 && c0 != " " && c0 != "\t" { null } else {
+          scan :: while { xs: str.split(rest, ","), names: [], imps: [] } {
+            [xs, names, imps] ~> match xs {
+              []: { out: { names: rev(names), imps: str.join(rev(imps), ", ") } },
+              [h, ...t]: do {
+                n :: trim(h)
+                if slen(n) == 0 {
+                  { state: { xs: t, names: names, imps: imps } }
+                } else {
+                  { state: { xs: t, names: [{ name: n, alias: "__" + n }, ...names],
+                             imps: [n + " as __" + n, ...imps] } }
+                }
+              }
+            }
+          }
+          if list_len(scan.names) == 0 { null } else {
+            { line: "from \"" + ep.path + "\" import " + scan.imps, names: scan.names }
+          }
+        }
+      }
+    }
+  }
+
+  -- Collect top-level import statements, in original order.  `from "..."
+  -- export x, y` re-export lines are rewritten to plain `import ... as`
+  -- statements so the hoisted `do { ... }` block binds the local aliases
+  -- the record literal references.
   collect_import_lines :: s ~> do {
     while { xs: str.lines(s), acc: [] } {
       [xs, acc] ~> match xs {
         []: { out: rev(acc) },
         [h, ...t]: if is_top_import_line(h) {
-          { state: { xs: t, acc: [h, ...acc] } }
+          fe :: from_export_to_import(h)
+          { state: { xs: t, acc: [if fe == null { h } else { fe.line }, ...acc] } }
         } else {
           { state: { xs: t, acc: acc } }
         }
@@ -359,7 +420,22 @@ do {
           c: { out: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries] }
         },
         [h, ...t]: if is_top_import_line(h) {
-          { state: { xs: t, entries: entries, cur: cur } }
+          fe :: from_export_to_import(h)
+          if fe == null {
+            { state: { xs: t, entries: entries, cur: cur } }
+          } else {
+            entries2 :: match cur {
+              null: entries,
+              c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries]
+            }
+            entries3 :: while { ys: fe.names, acc: entries2 } {
+              [ys, acc] ~> match ys {
+                []: { out: acc },
+                [p, ...pt]: { state: { ys: pt, acc: [{ name: p.name, expr: p.alias }, ...acc] } }
+              }
+            }
+            { state: { xs: t, entries: entries3, cur: null } }
+          }
         } else {
           if is_export_line(h) {
             rest :: sdrop(trim_start(h), 7)

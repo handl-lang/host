@@ -1,0 +1,11 @@
+from "./take" import * as m
+
+test_take_basic := assert m.take([1, 2, 3], 2) = [1, 2]
+
+test_take_zero := assert m.take([1, 2, 3], 0) = []
+
+test_take_over := assert m.take([1, 2, 3], 5) = [1, 2, 3]
+
+test_take_empty := assert m.take([], 2) = []
+
+test_take_exact := assert m.take([1, 2], 2) = [1, 2]

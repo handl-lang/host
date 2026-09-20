@@ -1,0 +1,7 @@
+from "./last" import * as m
+
+test_last_basic := assert m.last([1, 2, 3]) = 3
+
+test_last_single := assert m.last(["a"]) = "a"
+
+test_last_two := assert m.last([1, 2]) = 2

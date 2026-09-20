@@ -64,6 +64,20 @@ fn crypto_module() -> &'static HandlModule {
 #[derive(Clone, Copy)]
 pub struct CryptoModule;
 
+impl CryptoModule {
+    /// Eagerly initialize the shared [`HandlModule`].
+    ///
+    /// `function()`/`functions()` lazily init through `OnceLock`; a
+    /// `modules.lookup` miss that probes `crypto` while its own
+    /// `HandlModule::new` is mid-init (its `analyze_source` runs a nested
+    /// eval that itself does `modules.lookup`) re-enters the same
+    /// `OnceLock` and deadlocks. Hosts must call this at registration
+    /// time, before any eval can reach `function()`.
+    pub fn prewarm() {
+        crypto_module();
+    }
+}
+
 impl Module for CryptoModule {
     fn name(&self) -> &str {
         "crypto"

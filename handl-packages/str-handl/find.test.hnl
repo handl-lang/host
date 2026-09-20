@@ -1,0 +1,17 @@
+from "./find" import * as m
+
+test_find_basic := assert m.find("hello", "llo") = 2
+
+test_find_miss := assert m.find("abc", "z") = -1
+
+test_find_empty_pat := assert m.find("abc", "") = 0
+
+test_find_both_empty := assert m.find("", "") = -1
+
+test_find_first := assert m.find("aXa", "a") = 0
+
+test_find_empty_s := assert m.find("", "a") = -1
+
+test_find_first_of_many := assert m.find("abab", "ab") = 0
+
+test_find_end := assert m.find("hello", "o") = 4

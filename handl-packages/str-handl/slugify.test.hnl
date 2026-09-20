@@ -1,0 +1,17 @@
+from "./slugify" import * as m
+
+test_slugify_punct := assert m.slugify("Hello, World!") = "hello-world"
+
+test_slugify_spaces := assert m.slugify("  Hello World  ") = "hello-world"
+
+test_slugify_seps := assert m.slugify("a--b__c") = "a-b-c"
+
+test_slugify_empty := assert m.slugify("") = ""
+
+test_slugify_dashes := assert m.slugify("---") = ""
+
+test_slugify_plain := assert m.slugify("already") = "already"
+
+test_slugify_one := assert m.slugify("a b") = "a-b"
+
+test_slugify_mixed := assert m.slugify("Foo_Bar-Baz") = "foo-bar-baz"

@@ -1,0 +1,17 @@
+from "./trim_matches" import * as m
+
+test_trim_matches_basic := assert m.trim_matches("xxhixx", "x") = "hi"
+
+test_trim_matches_empty_set := assert m.trim_matches("abc", "") = "abc"
+
+test_trim_matches_all_stripped := assert m.trim_matches("aaa", "a") = ""
+
+test_trim_matches_char_set := assert m.trim_matches("xyxabcxyx", "xy") = "abc"
+
+test_trim_matches_no_match := assert m.trim_matches("abc", "z") = "abc"
+
+test_trim_matches_dashes := assert m.trim_matches("--hi--", "-") = "hi"
+
+test_trim_matches_one_side := assert m.trim_matches("xyhi", "xy") = "hi"
+
+test_trim_matches_empty := assert m.trim_matches("", "x") = ""

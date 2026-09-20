@@ -1,0 +1,13 @@
+from "./split_at" import * as m
+
+test_split_at_mid := assert m.split_at("hello", 2) = ["he", "llo"]
+
+test_split_at_zero := assert m.split_at("abc", 0) = ["", "abc"]
+
+test_split_at_clamp := assert m.split_at("abc", 99) = ["abc", ""]
+
+test_split_at_end := assert m.split_at("abc", 3) = ["abc", ""]
+
+test_split_at_empty := assert m.split_at("", 0) = ["", ""]
+
+test_split_at_one := assert m.split_at("ab", 1) = ["a", "b"]

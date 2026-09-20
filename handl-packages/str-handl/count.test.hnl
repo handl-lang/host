@@ -1,0 +1,15 @@
+from "./count" import * as m
+
+test_count_basic := assert m.count("aXaXa", "a") = 2
+
+test_count_no_overlap := assert m.count("aaa", "aa") = 1
+
+test_count_empty_pat := assert m.count("abc", "") = 4
+
+test_count_empty_s := assert m.count("", "a") = 0
+
+test_count_repeat := assert m.count("hello", "l") = 2
+
+test_count_miss := assert m.count("abc", "z") = 0
+
+test_count_multi := assert m.count("ababab", "ab") = 3

@@ -1,0 +1,13 @@
+from "./ends_with" import * as m
+
+test_ends_with_hit := assert m.ends_with("hello", "lo") = true
+
+test_ends_with_miss := assert m.ends_with("hello", "he") = false
+
+test_ends_with_empty_pat := assert m.ends_with("abc", "") = true
+
+test_ends_with_empty_s := assert m.ends_with("", "a") = false
+
+test_ends_with_both_empty := assert m.ends_with("", "") = true
+
+test_ends_with_z := assert m.ends_with("abc", "z") = false

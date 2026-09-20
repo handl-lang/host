@@ -1,0 +1,13 @@
+from "./trim_end" import * as m
+
+test_trim_end_basic := assert m.trim_end("hi  ") = "hi"
+
+test_trim_end_start_kept := assert m.trim_end("  hi") = "  hi"
+
+test_trim_end_empty := assert m.trim_end("") = ""
+
+test_trim_end_none := assert m.trim_end("hi") = "hi"
+
+test_trim_end_all_ws := assert m.trim_end("   ") = ""
+
+test_trim_end_newline := assert m.trim_end("hi\n") = "hi"

@@ -1,0 +1,13 @@
+from "./replace_first" import * as m
+
+test_replace_first_basic := assert m.replace_first("aaa", "a", "b") = "baa"
+
+test_replace_first_empty_repl := assert m.replace_first("aaa", "a", "") = "aa"
+
+test_replace_first_miss := assert m.replace_first("abc", "z", "x") = "abc"
+
+test_replace_first_first_only := assert m.replace_first("aXaXa", "a", "b") = "bXaXa"
+
+test_replace_first_empty_s := assert m.replace_first("", "a", "b") = ""
+
+test_replace_first_empty_pat := assert m.replace_first("abc", "", "-") = "-abc"

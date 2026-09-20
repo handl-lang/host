@@ -1,0 +1,13 @@
+from "./title_case" import * as m
+
+test_title_case_basic := assert m.title_case("the quick fox") = "The Quick Fox"
+
+test_title_case_underscore_not_sep := assert m.title_case("hello_world") = "Hello_world"
+
+test_title_case_shout := assert m.title_case("HELLO WORLD") = "Hello World"
+
+test_title_case_empty := assert m.title_case("") = ""
+
+test_title_case_double_space := assert m.title_case("a  b") = "A  B"
+
+test_title_case_dash_not_sep := assert m.title_case("hello-world") = "Hello-world"

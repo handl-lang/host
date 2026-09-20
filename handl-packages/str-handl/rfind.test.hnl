@@ -1,0 +1,15 @@
+from "./rfind" import * as m
+
+test_rfind_basic := assert m.rfind("abcabc", "bc") = 4
+
+test_rfind_last := assert m.rfind("aXa", "a") = 2
+
+test_rfind_miss := assert m.rfind("abc", "z") = -1
+
+test_rfind_both_empty := assert m.rfind("", "") = 0
+
+test_rfind_empty_pat := assert m.rfind("abc", "") = 3
+
+test_rfind_l := assert m.rfind("hello", "l") = 3
+
+test_rfind_single := assert m.rfind("abc", "b") = 1

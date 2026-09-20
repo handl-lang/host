@@ -323,12 +323,68 @@ mod bootstrap {
         !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
     }
 
-    /// Top-level import statements of `src`, in original order.
+    /// Top-level import statements of `src`, in original order. `from "..."
+    /// export x, y` re-export lines are rewritten to plain `import ... as`
+    /// statements so the hoisted `do { ... }` block binds the local aliases
+    /// the record literal references.
     fn collect_import_lines(src: &str) -> Vec<String> {
         src.lines()
             .filter(|line| is_top_import_line(line))
-            .map(|line| line.to_string())
+            .map(|line| {
+                from_export_to_import(line)
+                    .map(|(import_line, _)| import_line)
+                    .unwrap_or_else(|| line.to_string())
+            })
             .collect()
+    }
+
+    /// If a `from` line uses the re-export form `from "..." export x, y`,
+    /// rewrite it to a plain import `from "..." import x as __x, y as __y`
+    /// and return the (name, local-alias) pairs that should appear in the
+    /// module record. Mirrors `handl_runtime::module_prep`'s handling.
+    fn from_export_to_import(line: &str) -> Option<(String, Vec<(String, String)>)> {
+        let (path, rest) = extract_quoted_path(line)?;
+        let rest = rest.trim_start();
+        if let Some(tail) = rest.strip_prefix("export") {
+            if !tail.starts_with(' ') && !tail.starts_with('\t') && !tail.is_empty() {
+                return None;
+            }
+            let names: Vec<String> = tail
+                .trim_start()
+                .split(',')
+                .map(|n| n.trim().to_string())
+                .filter(|n| !n.is_empty())
+                .collect();
+            if names.is_empty() {
+                return None;
+            }
+            let aliases: Vec<String> = names.iter().map(|n| format!("__{n}")).collect();
+            let imports: Vec<String> = names
+                .iter()
+                .zip(&aliases)
+                .map(|(n, a)| format!("{} as {}", n, a))
+                .collect();
+            let import_line = format!("from \"{}\" import {}", path, imports.join(", "));
+            return Some((import_line, names.into_iter().zip(aliases).collect()));
+        }
+        None
+    }
+
+    /// Extract the first quoted path in a `from` line and the text that
+    /// follows it.
+    fn extract_quoted_path<'a>(line: &'a str) -> Option<(String, &'a str)> {
+        let trimmed = line.trim_start();
+        let after_from = trimmed.strip_prefix("from")?;
+        let after_from = after_from.trim_start();
+        let quote = after_from.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            return None;
+        }
+        let after_quote = &after_from[quote.len_utf8()..];
+        let end = after_quote.find(quote)?;
+        let path = &after_quote[..end];
+        let rest = &after_quote[end + quote.len_utf8()..];
+        Some((path.to_string(), rest))
     }
 
     /// `src` with top-level import statements removed (all other lines kept).
@@ -368,8 +424,17 @@ mod bootstrap {
         for line in src.lines() {
             let trimmed = line.trim_start();
             // Import lines are hoisted separately; never treat them as part
-            // of an export body.
+            // of an export body. `from "..." export x` re-export lines close
+            // the current entry and contribute one record field per name.
             if is_top_import_line(line) {
+                if let Some((_, names)) = from_export_to_import(line) {
+                    if let Some(entry) = current.take() {
+                        entries.push(entry);
+                    }
+                    for (name, alias) in names {
+                        entries.push((name, vec![alias]));
+                    }
+                }
                 continue;
             }
             // A top-level export line starts at column 0 with `export `.
@@ -1914,19 +1979,202 @@ pub const STR_HANDL_FUNCS: &[&str] = &[
     "word_wrap",
 ];
 
+/// The `str-handl` package sources: `(basename, source, exported names)`
+/// for every per-arrow and `internal/` helper file. The basename is the
+/// module name a `from "./x" import` (or `from "./internal/x" import`)
+/// spec normalizes to, so sibling files resolve each other by basename.
+/// Rows are in dependency order — a file may only import rows above it
+/// (plus `char`). [`STR_HANDL_HNL`] is the aggregator index on top.
+pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
+    // -- internal/ generic list helpers (no `char`) -------------------------
+    ("rev", include_str!("../../../handl-packages/str-handl/internal/rev.hnl"), &["rev"]),
+    ("len", include_str!("../../../handl-packages/str-handl/internal/len.hnl"), &["len"]),
+    ("head", include_str!("../../../handl-packages/str-handl/internal/head.hnl"), &["head"]),
+    ("drop", include_str!("../../../handl-packages/str-handl/internal/drop.hnl"), &["drop"]),
+    ("member", include_str!("../../../handl-packages/str-handl/internal/member.hnl"), &["member"]),
+    ("prefix_match", include_str!("../../../handl-packages/str-handl/internal/prefix_match.hnl"), &["prefix_match"]),
+    ("take", include_str!("../../../handl-packages/str-handl/internal/take.hnl"), &["take"]),
+    ("append", include_str!("../../../handl-packages/str-handl/internal/append.hnl"), &["append"]),
+    ("last", include_str!("../../../handl-packages/str-handl/internal/last.hnl"), &["last"]),
+    ("find_idx", include_str!("../../../handl-packages/str-handl/internal/find_idx.hnl"), &["find_idx"]),
+    // -- internal/ string helpers (over `char`) -----------------------------
+    ("capitalize_first", include_str!("../../../handl-packages/str-handl/internal/capitalize_first.hnl"), &["capitalize_first"]),
+    ("pad_to", include_str!("../../../handl-packages/str-handl/internal/pad_to.hnl"), &["pad_to"]),
+    // -- internal/ callback-invoking helpers --------------------------------
+    // `map`/`all`/`drop_while` evaluate caller-supplied arrows, whose
+    // `char.*`/helper calls resolve in THESE modules' runtimes — they must
+    // come after every other internal row (see `STR_HANDL_CALLBACK_SCOPE`).
+    ("map", include_str!("../../../handl-packages/str-handl/internal/map.hnl"), &["map"]),
+    ("all", include_str!("../../../handl-packages/str-handl/internal/all.hnl"), &["all"]),
+    ("drop_while", include_str!("../../../handl-packages/str-handl/internal/drop_while.hnl"), &["drop_while"]),
+    ("split_words", include_str!("../../../handl-packages/str-handl/internal/split_words.hnl"), &["split_words"]),
+    // -- `str` contract arrows (one file per arrow) -------------------------
+    ("join", include_str!("../../../handl-packages/str-handl/join.hnl"), &["join"]),
+    ("concat", include_str!("../../../handl-packages/str-handl/concat.hnl"), &["concat"]),
+    ("is_empty", include_str!("../../../handl-packages/str-handl/is_empty.hnl"), &["is_empty"]),
+    ("equals", include_str!("../../../handl-packages/str-handl/equals.hnl"), &["equals"]),
+    ("repeat", include_str!("../../../handl-packages/str-handl/repeat.hnl"), &["repeat"]),
+    ("upper", include_str!("../../../handl-packages/str-handl/upper.hnl"), &["upper"]),
+    ("lower", include_str!("../../../handl-packages/str-handl/lower.hnl"), &["lower"]),
+    ("trim", include_str!("../../../handl-packages/str-handl/trim.hnl"), &["trim"]),
+    ("trim_start", include_str!("../../../handl-packages/str-handl/trim_start.hnl"), &["trim_start"]),
+    ("trim_end", include_str!("../../../handl-packages/str-handl/trim_end.hnl"), &["trim_end"]),
+    ("trim_matches", include_str!("../../../handl-packages/str-handl/trim_matches.hnl"), &["trim_matches"]),
+    ("reverse", include_str!("../../../handl-packages/str-handl/reverse.hnl"), &["reverse"]),
+    ("length", include_str!("../../../handl-packages/str-handl/length.hnl"), &["length"]),
+    ("char_at", include_str!("../../../handl-packages/str-handl/char_at.hnl"), &["char_at"]),
+    ("slice", include_str!("../../../handl-packages/str-handl/slice.hnl"), &["slice"]),
+    ("split_at", include_str!("../../../handl-packages/str-handl/split_at.hnl"), &["split_at"]),
+    ("is_alpha", include_str!("../../../handl-packages/str-handl/is_alpha.hnl"), &["is_alpha"]),
+    ("is_numeric", include_str!("../../../handl-packages/str-handl/is_numeric.hnl"), &["is_numeric"]),
+    ("is_alphanumeric", include_str!("../../../handl-packages/str-handl/is_alphanumeric.hnl"), &["is_alphanumeric"]),
+    ("capitalize", include_str!("../../../handl-packages/str-handl/capitalize.hnl"), &["capitalize"]),
+    ("title_case", include_str!("../../../handl-packages/str-handl/title_case.hnl"), &["title_case"]),
+    ("snake_case", include_str!("../../../handl-packages/str-handl/snake_case.hnl"), &["snake_case"]),
+    ("camel_case", include_str!("../../../handl-packages/str-handl/camel_case.hnl"), &["camel_case"]),
+    ("pascal_case", include_str!("../../../handl-packages/str-handl/pascal_case.hnl"), &["pascal_case"]),
+    ("kebab_case", include_str!("../../../handl-packages/str-handl/kebab_case.hnl"), &["kebab_case"]),
+    ("contains", include_str!("../../../handl-packages/str-handl/contains.hnl"), &["contains"]),
+    ("starts_with", include_str!("../../../handl-packages/str-handl/starts_with.hnl"), &["starts_with"]),
+    ("ends_with", include_str!("../../../handl-packages/str-handl/ends_with.hnl"), &["ends_with"]),
+    ("count", include_str!("../../../handl-packages/str-handl/count.hnl"), &["count"]),
+    ("find", include_str!("../../../handl-packages/str-handl/find.hnl"), &["find"]),
+    ("rfind", include_str!("../../../handl-packages/str-handl/rfind.hnl"), &["rfind"]),
+    ("levenshtein", include_str!("../../../handl-packages/str-handl/levenshtein.hnl"), &["levenshtein"]),
+    ("similarity", include_str!("../../../handl-packages/str-handl/similarity.hnl"), &["similarity"]),
+    ("split", include_str!("../../../handl-packages/str-handl/split.hnl"), &["split"]),
+    ("replace", include_str!("../../../handl-packages/str-handl/replace.hnl"), &["replace"]),
+    ("replace_first", include_str!("../../../handl-packages/str-handl/replace_first.hnl"), &["replace_first"]),
+    ("pad_left", include_str!("../../../handl-packages/str-handl/pad_left.hnl"), &["pad_left"]),
+    ("pad_right", include_str!("../../../handl-packages/str-handl/pad_right.hnl"), &["pad_right"]),
+    ("strip_prefix", include_str!("../../../handl-packages/str-handl/strip_prefix.hnl"), &["strip_prefix"]),
+    ("strip_suffix", include_str!("../../../handl-packages/str-handl/strip_suffix.hnl"), &["strip_suffix"]),
+    ("lines", include_str!("../../../handl-packages/str-handl/lines.hnl"), &["lines"]),
+    ("split_whitespace", include_str!("../../../handl-packages/str-handl/split_whitespace.hnl"), &["split_whitespace"]),
+    ("truncate", include_str!("../../../handl-packages/str-handl/truncate.hnl"), &["truncate"]),
+    ("slugify", include_str!("../../../handl-packages/str-handl/slugify.hnl"), &["slugify"]),
+    ("word_wrap", include_str!("../../../handl-packages/str-handl/word_wrap.hnl"), &["word_wrap"]),
+];
+
+/// Internal helpers that invoke caller-supplied arrows (`f`/`p`).
+const STR_HANDL_CALLBACK_INVOKERS: &[&str] = &["map", "all", "drop_while"];
+
+/// The module names a caller-supplied arrow may legitimately reach:
+/// `char` (wired via each invoker's own `from "char" import`) plus every
+/// internal helper. Host/module-function calls resolve **by name in the
+/// invoking runtime's module chain** — not the closure's — so when e.g.
+/// `trim_matches` passes `c ~> member(mcs, c)` to `drop_while`, the
+/// `member.member` call resolves only if `member` is a dep of
+/// `drop_while`'s module. [`STR_HANDL_SOURCES`] orders these before the
+/// invokers so each is already built when wired here.
+const STR_HANDL_CALLBACK_SCOPE: &[&str] = &[
+    "rev",
+    "len",
+    "head",
+    "drop",
+    "take",
+    "append",
+    "last",
+    "member",
+    "prefix_match",
+    "find_idx",
+    "capitalize_first",
+    "pad_to",
+    "map",
+    "all",
+    "drop_while",
+];
+
+/// The first `"..."`-quoted spec of each top-level `from "..."`/`import
+/// "..."` line in `src`, in order. Used to wire [`HandlModule`] deps so
+/// the Rust table above can never drift from the `.hnl` imports.
+fn str_handl_import_specs(src: &str) -> Vec<String> {
+    let mut specs = Vec::new();
+    for line in src.lines() {
+        let t = line.trim_start();
+        if !(t.starts_with("from ") || t.starts_with("import ")) {
+            continue;
+        }
+        let rest = t[t.find(' ').unwrap() + 1..].trim_start();
+        if let Some(inner) = rest.strip_prefix('"').and_then(|r| r.split('"').next()) {
+            specs.push(inner.to_string());
+        }
+    }
+    specs
+}
+
+/// Build every `str-handl` sibling file as a [`HandlModule`], wiring each
+/// file's `from "..."` imports as dep modules. Returns
+/// `(basename -> module, index module)`; the index is [`STR_HANDL_HNL`]
+/// re-exporting the 45 `str` arrows under the name `"str"`.
+fn str_handl_modules(
+    resolver: &dyn ModuleResolver,
+    eval_name: &'static str,
+) -> (HashMap<String, Arc<dyn handl_platform::Module + Send + Sync>>, HandlModule) {
+    let mut siblings: HashMap<String, Arc<dyn handl_platform::Module + Send + Sync>> =
+        HashMap::new();
+    for &(name, src, funcs) in STR_HANDL_SOURCES {
+        let mut module = HandlModule::new(name, src, funcs).with_eval_engine(eval_name);
+        for spec in str_handl_import_specs(src) {
+            let dep_name = normalize_import_name(&spec);
+            let dep = siblings
+                .get(dep_name)
+                .cloned()
+                .or_else(|| resolver.resolve(dep_name))
+                .unwrap_or_else(|| {
+                    panic!("str-handl: unresolved import '{spec}' in {name}.hnl")
+                });
+            module = module.with_dependency_arc(dep);
+        }
+        // Callback-invoking helpers additionally depend on every internal
+        // module a caller-supplied arrow may reach (see
+        // `STR_HANDL_CALLBACK_SCOPE`). Names not yet built (the invokers
+        // themselves, or `name`) are skipped — rows are ordered so all
+        // reachable helpers precede them.
+        if STR_HANDL_CALLBACK_INVOKERS.contains(&name) {
+            for &dep_name in STR_HANDL_CALLBACK_SCOPE {
+                if dep_name == name {
+                    continue;
+                }
+                if let Some(dep) = siblings.get(dep_name) {
+                    module = module.with_dependency_arc(Arc::clone(dep));
+                }
+            }
+        }
+        siblings.insert(name.to_string(), Arc::new(module));
+    }
+    let mut index =
+        HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_eval_engine(eval_name);
+    for spec in str_handl_import_specs(STR_HANDL_HNL) {
+        let dep_name = normalize_import_name(&spec);
+        let dep = siblings.get(dep_name).cloned().unwrap_or_else(|| {
+            panic!("str-handl: index imports '{spec}' but no such arrow file exists")
+        });
+        index = index.with_dependency_arc(dep);
+    }
+    (siblings, index)
+}
+
 /// Build the [`HandlModule`] for `str-handl`.
 ///
-/// The source imports `char`, so the supplied resolver must map `"char"` to
-/// a `char` backend (typically [`CharModule`](handl_plugin_lib_char_native::CharModule)).
+/// `str-handl` is a package: [`STR_HANDL_HNL`] is an aggregator index and
+/// each `str` arrow lives in its own file ([`STR_HANDL_SOURCES`]). The
+/// files import `char`, so the supplied resolver must map `"char"` to a
+/// `char` backend (typically
+/// [`CharModule`](handl_plugin_lib_char_native::CharModule)); sibling
+/// `from "./x"` imports are wired from the sources table itself. Runs on
+/// the bytecode engine — the loader's `str` dep path.
 pub fn build_str_handl_module(resolver: &dyn ModuleResolver) -> HandlModule {
-    let mut module =
-        HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS).with_eval_engine("bytecode");
-    // `str-handl.hnl` is a bootstrap module (not a stdlib table row); its
-    // source calls `char.*`, so eagerly wire the resolved `char` backend.
-    if let Some(char_module) = resolver.resolve("char") {
-        module = module.with_dependency_arc(char_module);
-    }
-    module
+    str_handl_modules(resolver, "bytecode").1
+}
+
+/// Build the [`HandlModule`] for `str-handl` on `eval_name` ("tree-walk"
+/// or "bytecode"), for kits that pick the engine themselves.
+pub fn build_str_handl_module_with(
+    resolver: &dyn ModuleResolver,
+    eval_name: &'static str,
+) -> HandlModule {
+    str_handl_modules(resolver, eval_name).1
 }
 
 // ---------------------------------------------------------------------------

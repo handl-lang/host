@@ -1,0 +1,78 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+from "char" import * as char
+from "./rev.hnl" import rev
+from "./len.hnl" import len
+from "./head.hnl" import head
+from "./drop.hnl" import drop
+
+--- Splits a string into lowercase words for case conversion.
+---
+--- @details
+--- Ported from the former Rust `split_words`: the separators `-`, `_`,
+--- and ` ` are dropped; a lowercase -> uppercase transition starts a new
+--- word (`fooBar` -> `foo`, `bar`), and an acronym -> word boundary is
+--- split before the last uppercase (`ABCDef` -> `abc`, `def`). Every
+--- returned word is lowercased.
+---
+--- @example
+--- `split_words("helloWorld-again X")`
+--- -- => ["hello", "world", "again", "x"]
+---
+export split_words := (s) ~> do {
+  is_sep := (c) ~> if c == "-" { true } else { if c == "_" { true } else { c == " " } }
+  -- `cur` is a REVERSED char list (head = last char pushed).
+  push_word := (cur, words) ~> do {
+    if len(cur) == 0 { words } else {
+      [char.from_chars(rev(cur)), ...words]
+    }
+  }
+  cur := []
+  words := []
+  for h in char.chars(s) { do {
+    if is_sep(h) {
+      words := push_word(cur, words)
+      cur := []
+    } else {
+      if char.is_uppercase(h) {
+        if len(cur) == 0 {
+          cur := [h]
+        } else {
+          if char.is_lowercase(head(cur)) {
+            -- lowercase -> uppercase boundary: start a new word
+            words := push_word(cur, words)
+            cur := [h]
+          } else {
+            cur := [h, ...cur]
+          }
+        }
+      } else {
+        if len(cur) == 0 {
+          cur := [h]
+        } else {
+          if char.is_uppercase(head(cur)) && len(cur) > 1 {
+            -- acronym -> word boundary: "ABCDef" -> "ABC" + "Def"
+            last_ch := head(cur)
+            words := push_word(drop(cur, 1), words)
+            cur := [h, last_ch]
+          } else {
+            cur := [h, ...cur]
+          }
+        }
+      }
+    }
+  } }
+  words := push_word(cur, words)
+  -- `words` is reversed (head = last word); prepending each lowered
+  -- word restores the original order. All calls here run in this
+  -- module's own runtime (`for` bodies are not a callback boundary).
+  lowered := []
+  for w in words { do {
+    lc := []
+    for c in char.chars(w) { do {
+      lc := [char.to_lower(c), ...lc]
+    } }
+    lowered := [char.from_chars(rev(lc)), ...lowered]
+  } }
+  lowered
+}

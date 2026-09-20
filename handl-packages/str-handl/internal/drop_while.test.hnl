@@ -1,0 +1,11 @@
+from "./drop_while" import * as m
+
+test_drop_while_basic := assert m.drop_while([1, 2, 3], x ~> x < 2) = [2, 3]
+
+test_drop_while_empty := assert m.drop_while([], x ~> true) = []
+
+test_drop_while_all_dropped := assert m.drop_while([2, 1], x ~> x < 5) = []
+
+test_drop_while_none_dropped := assert m.drop_while([5, 1], x ~> x < 5) = [5, 1]
+
+test_drop_while_mid_stops := assert m.drop_while([1, 3, 1], x ~> x < 2) = [3, 1]

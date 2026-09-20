@@ -1,0 +1,17 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+--- A copy of `xs` in reverse order.
+---
+--- Pure handl over plain lists.
+---
+--- @example
+--- `rev([1, 2, 3])`
+--- -- => [3, 2, 1]
+---
+export rev := (xs) ~> do {
+  acc := []
+  for x in xs { do {
+    acc := [x, ...acc]
+  } }
+  acc
+}

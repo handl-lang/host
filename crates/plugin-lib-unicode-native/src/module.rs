@@ -85,12 +85,33 @@ fn build_unicode_module() -> HandlModule {
 static UNICODE_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 fn unicode_module() -> &'static HandlModule {
-    UNICODE_MODULE.get_or_init(build_unicode_module)
+    // Build under `with_loader_disabled`: `HandlModule::new`'s
+    // `analyze_source` would otherwise run `loader.analyze` — a nested
+    // eval whose `call_host` misses probe `modules.lookup`, which can
+    // re-enter this very `OnceLock` and deadlock on the futex. The
+    // bootstrap path is pure text transformation — no eval, no lookup.
+    UNICODE_MODULE.get_or_init(|| {
+        handl_plugin_lib_handl::with_loader_disabled(build_unicode_module)
+    })
 }
 
 /// The `unicode` module: native ICU4X-backed ops over a pure-Handl fallback.
 #[derive(Clone, Copy)]
 pub struct UnicodeModule;
+
+impl UnicodeModule {
+    /// Eagerly initialize the shared [`HandlModule`].
+    ///
+    /// `function()`/`functions()` lazily init through `OnceLock`; a
+    /// `modules.lookup` miss that probes `unicode` while its own
+    /// `HandlModule::new` is mid-init (its `analyze_source` runs a nested
+    /// eval that itself does `modules.lookup`) re-enters the same
+    /// `OnceLock` and deadlocks. Hosts must call this at registration
+    /// time, before any eval can reach `function()`.
+    pub fn prewarm() {
+        unicode_module();
+    }
+}
 
 impl Module for UnicodeModule {
     fn name(&self) -> &str {

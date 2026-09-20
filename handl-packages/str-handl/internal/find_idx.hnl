@@ -1,0 +1,30 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+from "./drop.hnl" import drop
+from "./prefix_match.hnl" import prefix_match
+
+--- The first index at which `ps` matches a sublist of `xs`, or `-1`.
+---
+--- An empty `ps` matches at index 0; a `ps` longer
+--- than `xs` yields `-1`. This is the substring scan behind `find`,
+--- `contains`, and `replace_first`.
+---
+--- @example
+--- `find_idx([1, 2, 3, 2], [3, 2])`
+--- -- => 2
+---
+export find_idx := (xs, ps) ~> do {
+  found := 0 - 1
+  i := 0
+  ys := xs
+  for _ in xs { do {
+    if found < 0 {
+      if prefix_match(ys, ps) {
+        found := i
+      }
+      ys := drop(ys, 1)
+      i := i + 1
+    }
+  } }
+  found
+}

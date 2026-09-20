@@ -1,0 +1,17 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+--- `true` when `x` is an element of `xs`.
+---
+--- @example
+--- `member(2, [1, 2, 3])`
+--- -- => true
+---
+export member := (x, xs) ~> do {
+  found := false
+  for y in xs { do {
+    if !found && y == x {
+      found := true
+    }
+  } }
+  found
+}

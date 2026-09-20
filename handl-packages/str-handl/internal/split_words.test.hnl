@@ -1,0 +1,19 @@
+from "./split_words" import * as m
+
+test_split_words_camel := assert m.split_words("helloWorld") = ["hello", "World"]
+
+test_split_words_acronym := assert m.split_words("ABCDef") = ["ABC", "Def"]
+
+test_split_words_caps := assert m.split_words("ABC") = ["ABC"]
+
+test_split_words_empty := assert m.split_words("") = []
+
+test_split_words_seps := assert m.split_words("a-b c_d") = ["a", "b", "c", "d"]
+
+test_split_words_padded := assert m.split_words("  x  ") = ["x"]
+
+test_split_words_tail_caps := assert m.split_words("helloWORLD") = ["hello", "WORLD"]
+
+test_split_words_mixed := assert m.split_words("XMLHttp") = ["XML", "Http"]
+
+test_split_words_dash := assert m.split_words("one-two") = ["one", "two"]

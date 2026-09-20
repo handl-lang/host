@@ -2329,14 +2329,19 @@
     source: Judgment
     lit: type.unknown
 
-# `while` — pre-test loop, desugars to `rec` (ADR-0074 A.1).
+# `while` — the state-passing form `while { state } { closure }` stays a
+# `while` node (the `loop_step` eval protocol handles it) and yields the
+# closure's `{ out: v }` value. Its result type is not knowable from the
+# syntax, so synth the open `type.unknown` — it unifies with whatever the
+# surrounding branches produce. (The `while cond { body }` form desugars
+# to `rec`, ADR-0074 A.1.)
 - id: type.while
   node_kind: while
   synth: !Op
     name: construct
     args: []
     source: Judgment
-    lit: type.unit
+    lit: type.unknown
 
 # `for` — iteration, desugars to `rec` (ADR-0074 A.2).
 - id: type.for

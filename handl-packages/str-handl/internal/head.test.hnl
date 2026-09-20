@@ -1,0 +1,7 @@
+from "./head" import * as m
+
+test_head_basic := assert m.head([1, 2, 3]) = 1
+
+test_head_single := assert m.head(["a"]) = "a"
+
+test_head_bool := assert m.head([true, false]) = true

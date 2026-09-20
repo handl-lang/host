@@ -151,61 +151,12 @@ const ASSERT_FUNCS: &[&str] = &["equal", "not_equal", "true", "false", "contains
 // str-handl module (pure Handl over the `char` floor — the `str` impl)
 // ---------------------------------------------------------------------------
 
-/// The handl source implementing the `str` contract
+/// The `str-handl` package — `handl_plugin_lib_handl::STR_HANDL_HNL` is the
+/// aggregator index implementing the `str` contract
 /// (`handl-packages/str/str.hnl`) as pure handl algorithms over `char.*`
-/// atoms. Loaded via the generic [`HandlModule`], resolving `char` through
-/// [`StdlibResolver`].
-const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
-
-/// The record field names exposed by `str-handl.hnl` — each becomes a
-/// callable [`Function`](handl_platform::Function) on the `"str"` module.
-const STR_HANDL_FUNCS: &[&str] = &[
-    "upper",
-    "lower",
-    "trim",
-    "trim_start",
-    "trim_end",
-    "trim_matches",
-    "reverse",
-    "length",
-    "concat",
-    "is_empty",
-    "equals",
-    "is_alpha",
-    "is_numeric",
-    "is_alphanumeric",
-    "capitalize",
-    "title_case",
-    "snake_case",
-    "camel_case",
-    "pascal_case",
-    "kebab_case",
-    "contains",
-    "starts_with",
-    "ends_with",
-    "count",
-    "find",
-    "rfind",
-    "levenshtein",
-    "similarity",
-    "split",
-    "join",
-    "replace",
-    "replace_first",
-    "repeat",
-    "char_at",
-    "slice",
-    "pad_left",
-    "pad_right",
-    "strip_prefix",
-    "strip_suffix",
-    "lines",
-    "split_at",
-    "split_whitespace",
-    "truncate",
-    "slugify",
-    "word_wrap",
-];
+/// atoms, re-exporting the per-arrow files in
+/// `handl_plugin_lib_handl::STR_HANDL_SOURCES`. Loaded via the generic
+/// [`HandlModule`], resolving `char` through [`StdlibResolver`].
 
 // ---------------------------------------------------------------------------
 // unicode-native module (Rust/ICU4X backend with unicode-handl fallback)
@@ -488,16 +439,16 @@ fn build_assert_module() -> HandlModule {
 /// Build the [`HandlModule`] for `str-handl` — the pure-handl `str`
 /// implementation over the `char` floor.
 ///
-/// `str-handl.hnl` evaluates to a record of 45 arrows; each name in
-/// [`STR_HANDL_FUNCS`] becomes a callable `Function`. `char.*` calls
-/// resolve through [`StdlibResolver`] to the registered `char` backend
-/// (`char-native` by default).
+/// `str-handl/str-handl.hnl` is an aggregator index re-exporting the 45
+/// per-arrow files (see `handl_plugin_lib_handl::STR_HANDL_SOURCES`); each
+/// name in `STR_HANDL_FUNCS` becomes a callable `Function`. `char.*` calls
+/// and sibling `from "./x"` imports resolve through [`StdlibResolver`] to
+/// the registered `char` backend (`char-native` by default).
 fn build_str_handl_module() -> HandlModule {
-    HandlModule::new("str", STR_HANDL_HNL, STR_HANDL_FUNCS)
+    handl_plugin_lib_handl::build_str_handl_module_with(&StdlibResolver, "tree-walk")
         .with_global_lookup(std::sync::Arc::new(stdlib::TableModuleLookup::new(
             std::sync::Arc::new(StdlibResolver),
         )))
-        .with_dependency_arc(std::sync::Arc::new(CharModule))
 }
 
 /// Build the deterministic, pure-Handl `rand` backend from `rand-stub`.
@@ -618,6 +569,11 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             stdlib_registry.register(CharModule);
         }
         if want("unicode") {
+            // Eager init — `UnicodeModule::function()` lazy-builds the
+            // backing `HandlModule` through a `OnceLock`, which re-entrant
+            // `modules.lookup` probes (nested eval during `analyze_source`)
+            // would deadlock. Build it now, under `with_loader_disabled`.
+            UnicodeModule::prewarm();
             stdlib_registry.register(UnicodeModule);
         }
         if want("bool") {
@@ -687,6 +643,9 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `crypto.sha1` is a pure-handl arrow in `crypto.hnl` (needed by the
         // pure-Handl WebSocket client's `Sec-WebSocket-Accept` handshake).
         if want("crypto") {
+            // Same re-entrant `OnceLock` hazard as `unicode` — see
+            // `CryptoModule::prewarm`.
+            handl_plugin_lib_crypto::module::CryptoModule::prewarm();
             stdlib_registry.register(handl_plugin_lib_crypto::module::CryptoModule);
         }
         if want("parse") {

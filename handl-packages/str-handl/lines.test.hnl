@@ -1,0 +1,15 @@
+from "./lines" import * as m
+
+test_lines_crlf := assert m.lines("a\nb\r\nc") = ["a", "b", "c"]
+
+test_lines_trailing := assert m.lines("a\n") = ["a"]
+
+test_lines_empty := assert m.lines("") = [""]
+
+test_lines_just_nl := assert m.lines("\n") = [""]
+
+test_lines_blank_mid := assert m.lines("a\n\nb") = ["a", "", "b"]
+
+test_lines_single := assert m.lines("a") = ["a"]
+
+test_lines_two := assert m.lines("a\nb") = ["a", "b"]

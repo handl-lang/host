@@ -1,0 +1,16 @@
+--- `str.trim_start` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/drop_while.hnl" import drop_while
+
+--- Removes leading whitespace.
+---
+--- @param {s} - the input string
+--- @returns {String - `s` with leading whitespace stripped}
+--- @example
+--- `str.trim_start("  hi  ")`
+--- -- => "hi  "
+---
+export trim_start := (s) ~> do {
+  char.from_chars(drop_while(char.chars(s), c ~> char.is_whitespace(c)))
+}

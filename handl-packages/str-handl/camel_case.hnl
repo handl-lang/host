@@ -1,0 +1,26 @@
+--- `str.camel_case` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "./internal/split_words.hnl" import split_words
+from "./internal/capitalize_first.hnl" import capitalize_first
+from "./internal/map.hnl" import map
+from "./join.hnl" import join
+
+--- Converts `s` to `camelCase`.
+---
+--- @details
+--- Splits via `internal/split_words.hnl`; the first word stays
+--- lowercase and the rest are capitalized and concatenated.
+---
+--- @param {s} - the input string
+--- @returns {String - `s` in camelCase}
+--- @example
+--- `str.camel_case("hello_world-again")`
+--- -- => "helloWorldAgain"
+---
+export camel_case := (s) ~> do {
+  ws := split_words(s)
+  match ws {
+    []: "",
+    [h, ...t]: h + join(map(t, w ~> capitalize_first(w)), "")
+  }
+}

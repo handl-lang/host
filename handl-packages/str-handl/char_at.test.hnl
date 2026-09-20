@@ -1,0 +1,9 @@
+from "./char_at" import * as m
+
+test_char_at_mid := assert m.char_at("abc", 1) = "b"
+
+test_char_at_first := assert m.char_at("abc", 0) = "a"
+
+test_char_at_last := assert m.char_at("abc", 2) = "c"
+
+test_char_at_end := assert m.char_at("hello", 4) = "o"

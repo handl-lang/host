@@ -1,0 +1,59 @@
+--- `str.word_wrap` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/len.hnl" import len
+from "./internal/last.hnl" import last
+from "./internal/take.hnl" import take
+from "./lines.hnl" import lines
+from "./split_whitespace.hnl" import split_whitespace
+
+--- Wraps `s` to lines of at most `w` chars on word boundaries.
+---
+--- @details
+--- Existing line breaks are preserved (via `lines`); each line is
+--- re-wrapped by greedily packing `split_whitespace` words. `w < 1`
+--- yields `""`.
+---
+--- @param {s} - the input string
+--- @param {w} - the wrap width in chars
+--- @returns {String - `s` word-wrapped}
+--- @example
+--- `str.word_wrap("the quick brown fox", 9)`
+--- -- => "the quick\nbrown fox"
+---
+export word_wrap := (s, w) ~> do {
+  if w < 1 { "" } else {
+    ls := lines(s)
+    out := ""
+    for ln in ls { do {
+      if ln == "" {
+        out := char.concat(out, "\n")
+      } else {
+        ws := split_whitespace(ln)
+        cur_len := 0
+        buf := ""
+        for word in ws { do {
+          wl := char.length(word)
+          if cur_len == 0 {
+            cur_len := wl
+            buf := char.concat(buf, word)
+          } else {
+            if cur_len + 1 + wl <= w {
+              cur_len := cur_len + 1 + wl
+              buf := char.concat(char.concat(buf, " "), word)
+            } else {
+              cur_len := wl
+              buf := char.concat(char.concat(buf, "\n"), word)
+            }
+          }
+        } }
+        out := char.concat(char.concat(out, buf), "\n")
+      }
+    } }
+    -- strip the trailing '\n' appended per line
+    ocs := char.chars(out)
+    if len(ocs) == 0 { "" } else {
+      if last(ocs) == "\n" { char.from_chars(take(ocs, len(ocs) - 1)) } else { out }
+    }
+  }
+}

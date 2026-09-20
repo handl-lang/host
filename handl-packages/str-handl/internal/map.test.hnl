@@ -1,0 +1,9 @@
+from "./map" import * as m
+
+test_map_basic := assert m.map([1, 2, 3], x ~> x * 2) = [2, 4, 6]
+
+test_map_empty := assert m.map([], x ~> x * 2) = []
+
+test_map_negate := assert m.map([true, false], x ~> !x) = [false, true]
+
+test_map_single := assert m.map([5], x ~> x + 10) = [15]

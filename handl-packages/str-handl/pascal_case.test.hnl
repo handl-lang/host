@@ -1,0 +1,13 @@
+from "./pascal_case" import * as m
+
+test_pascal_case_basic := assert m.pascal_case("hello_world") = "HelloWorld"
+
+test_pascal_case_empty := assert m.pascal_case("") = ""
+
+test_pascal_case_single := assert m.pascal_case("hello") = "Hello"
+
+test_pascal_case_letters := assert m.pascal_case("a b c") = "ABC"
+
+test_pascal_case_acronym := assert m.pascal_case("ABC") = "ABC"
+
+test_pascal_case_mixed := assert m.pascal_case("hello world-again") = "HelloWorldAgain"

@@ -1,0 +1,13 @@
+from "./repeat" import * as m
+
+test_repeat_basic := assert m.repeat("ab", 3) = "ababab"
+
+test_repeat_zero := assert m.repeat("ab", 0) = ""
+
+test_repeat_negative := assert m.repeat("ab", -1) = ""
+
+test_repeat_empty_s := assert m.repeat("", 3) = ""
+
+test_repeat_one := assert m.repeat("x", 1) = "x"
+
+test_repeat_five := assert m.repeat("ab", 5) = "ababababab"

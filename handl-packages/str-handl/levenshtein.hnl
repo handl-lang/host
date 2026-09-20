@@ -1,0 +1,61 @@
+--- `str.levenshtein` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/rev.hnl" import rev
+from "./internal/len.hnl" import len
+from "./internal/head.hnl" import head
+from "./internal/last.hnl" import last
+from "./internal/drop.hnl" import drop
+
+--- The Levenshtein edit distance between `a` and `b`.
+---
+--- @details
+--- Two-row dynamic program over the char lists of `a` and `b`: O(n*m)
+--- time, O(m) space (`m = len(b)`).
+---
+--- @param {a} - the first string
+--- @param {b} - the second string
+--- @returns {Nat - edit distance}
+--- @example
+--- `str.levenshtein("kitten", "sitting")`
+--- -- => 3
+---
+export levenshtein := (a, b) ~> do {
+  min3 := (x, y, z) ~> do {
+    ab := if x < y { x } else { y }
+    if ab < z { ab } else { z }
+  }
+  -- iota(bcs) = [0, 1, ..., len(bcs)] -- the DP "row 0".
+  iota := (xs) ~> do {
+    rrow := [0]
+    i := 1
+    for _ in xs { do {
+      rrow := [i, ...rrow]
+      i := i + 1
+    } }
+    rev(rrow)
+  }
+  -- One DP row for a fixed `ach`: iterate `bcs` (consuming the prev row
+  -- in lockstep) producing the next row in forward order. `currev` is
+  -- the reversed current row (head = c[j-1]).
+  lev_row := (ach, bcs, prev, i) ~> do {
+    currev := [i + 1]
+    pr := prev
+    for bch in bcs { do {
+      cost := if ach == bch { 0 } else { 1 }
+      cj := min3(head(drop(pr, 1)) + 1, head(currev) + 1, head(pr) + cost)
+      currev := [cj, ...currev]
+      pr := drop(pr, 1)
+    } }
+    rev(currev)
+  }
+  acs := char.chars(a)
+  bcs := char.chars(b)
+  prev := iota(bcs)
+  i := 0
+  for ach in acs { do {
+    prev := lev_row(ach, bcs, prev, i)
+    i := i + 1
+  } }
+  last(prev)
+}

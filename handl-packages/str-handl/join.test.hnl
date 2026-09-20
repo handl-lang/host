@@ -1,0 +1,13 @@
+from "./join" import * as m
+
+test_join_basic := assert m.join(["a", "b"], "-") = "a-b"
+
+test_join_empty := assert m.join([], "-") = ""
+
+test_join_single := assert m.join(["a"], "-") = "a"
+
+test_join_empty_sep := assert m.join(["a", "b", "c"], "") = "abc"
+
+test_join_empty_elem := assert m.join(["", "a"], "-") = "-a"
+
+test_join_three := assert m.join(["a", "b", "c"], ", ") = "a, b, c"

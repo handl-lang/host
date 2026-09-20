@@ -1,0 +1,13 @@
+--- `str.is_empty` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+--- Whether `s` is the empty string.
+---
+--- @param {s} - the input string
+--- @returns {Bool - `true` iff `s == ""`}
+--- @example
+--- `str.is_empty("")`
+--- -- => true
+---
+export is_empty := (s) ~> do {
+  s == ""
+}

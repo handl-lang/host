@@ -2107,6 +2107,7 @@ test tagged_fast = 1 + 1
             module: PathBuf::from("m.hnl"),
             name: "t".to_string(),
             body_source: "1".to_string(),
+            preamble: String::new(),
             span: Span::default(),
             tags: tags.iter().map(|s| s.to_string()).collect(),
         }

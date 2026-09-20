@@ -1,0 +1,17 @@
+--- `str.starts_with` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/prefix_match.hnl" import prefix_match
+
+--- Whether `s` starts with `pat`.
+---
+--- @param {s} - the input string
+--- @param {pat} - the prefix to test
+--- @returns {Bool - `true` iff `pat` is a prefix of `s`}
+--- @example
+--- `str.starts_with("hello", "he")`
+--- -- => true
+---
+export starts_with := (s, pat) ~> do {
+  prefix_match(char.chars(s), char.chars(pat))
+}

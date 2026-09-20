@@ -1,0 +1,22 @@
+--- `str.pascal_case` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "./internal/split_words.hnl" import split_words
+from "./internal/capitalize_first.hnl" import capitalize_first
+from "./internal/map.hnl" import map
+from "./join.hnl" import join
+
+--- Converts `s` to `PascalCase`.
+---
+--- @details
+--- Splits via `internal/split_words.hnl`, capitalizes every word, and
+--- concatenates.
+---
+--- @param {s} - the input string
+--- @returns {String - `s` in PascalCase}
+--- @example
+--- `str.pascal_case("hello_world-again")`
+--- -- => "HelloWorldAgain"
+---
+export pascal_case := (s) ~> do {
+  join(map(split_words(s), w ~> capitalize_first(w)), "")
+}

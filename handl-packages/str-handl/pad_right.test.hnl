@@ -1,0 +1,13 @@
+from "./pad_right" import * as m
+
+test_pad_right_basic := assert m.pad_right("hi", 5, "*") = "hi***"
+
+test_pad_right_cycle := assert m.pad_right("hi", 6, "ab") = "hiabab"
+
+test_pad_right_enough := assert m.pad_right("hi", 2, "*") = "hi"
+
+test_pad_right_empty_pad := assert m.pad_right("hi", 5, "") = "hi"
+
+test_pad_right_empty_s := assert m.pad_right("", 3, "x") = "xxx"
+
+test_pad_right_one := assert m.pad_right("a", 4, "-") = "a---"
