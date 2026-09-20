@@ -179,6 +179,9 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             };
             module.source = source_url.clone();
             backend.apply_docs(&mut module, &config, None);
+            for d in &module.diagnostics {
+                eprintln!("sdkgen: diagnostic: {d}");
+            }
             let emitter = FileEmitter::new();
             if let Err(e) = emitter.emit(&module, output_path) {
                 eprintln!("sdkgen: {e}");

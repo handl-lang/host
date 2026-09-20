@@ -120,17 +120,29 @@ impl<'a> Tokenizer<'a> {
                 return Token::String(&self.src[value_start..self.pos]);
             }
             _ if c.is_ascii_digit() => {
-                while let Some(c2) = self.peek_char() {
-                    if c2.is_ascii_digit()
-                        || c2 == '.'
-                        || c2 == 'e'
-                        || c2 == 'E'
-                        || c2 == '+'
-                        || c2 == '-'
-                    {
-                        self.advance_char();
-                    } else {
-                        break;
+                if c == '0' && matches!(self.src.as_bytes().get(self.pos + 1), Some(b'x' | b'X')) {
+                    self.advance_char();
+                    self.advance_char();
+                    while let Some(c2) = self.peek_char() {
+                        if c2.is_ascii_hexdigit() {
+                            self.advance_char();
+                        } else {
+                            break;
+                        }
+                    }
+                } else {
+                    while let Some(c2) = self.peek_char() {
+                        if c2.is_ascii_digit()
+                            || c2 == '.'
+                            || c2 == 'e'
+                            || c2 == 'E'
+                            || c2 == '+'
+                            || c2 == '-'
+                        {
+                            self.advance_char();
+                        } else {
+                            break;
+                        }
                     }
                 }
                 Token::Number(&self.src[start..self.pos])
@@ -796,7 +808,10 @@ impl<'a> Parser<'a> {
     fn parse_const_value(&mut self) -> i64 {
         match self.peek() {
             Token::Number(s) => {
-                let r = (*s).parse::<i64>().unwrap_or(0);
+                let r = match s.strip_prefix("0x").or_else(|| s.strip_prefix("0X")) {
+                    Some(h) => i64::from_str_radix(h, 16).unwrap_or(0),
+                    None => s.parse::<i64>().unwrap_or(0),
+                };
                 self.advance();
                 r
             }
@@ -943,6 +958,13 @@ impl<'a> Parser<'a> {
 
         // `static` qualifies operations only — parse the rest as usual.
         self.consume_if_ident("static");
+
+        // `getter`/`setter`/`deleter`/`legacycaller` qualify special
+        // operations — parse them like ordinary ones.
+        let _ = self.consume_if_ident("getter")
+            || self.consume_if_ident("setter")
+            || self.consume_if_ident("deleter")
+            || self.consume_if_ident("legacycaller");
 
         if self.consume_if_ident("stringifier") {
             if self.consume_if_ident("attribute") {
@@ -1229,6 +1251,11 @@ impl<'a> Parser<'a> {
             return Some(self.parse_typedef());
         }
         if self.consume_if_ident("callback") {
+            // `callback interface X { ... }` — an interface whose single
+            // operation is the callback; parse it as a plain interface.
+            if self.consume_if_ident("interface") {
+                return Some(self.parse_interface(partial));
+            }
             return Some(self.parse_callback());
         }
         if self.consume_if_ident("namespace") {
@@ -1236,6 +1263,16 @@ impl<'a> Parser<'a> {
         }
         if self.consume_if_ident("mixin") {
             return Some(self.parse_mixin(partial));
+        }
+        // `A includes B;` — mixin inclusion. The mixin's members already
+        // emit as their own ports; record the statement and move on.
+        if matches!(self.peek(), Token::Ident(_))
+            && matches!(self.at(1), Token::Ident(s) if *s == "includes")
+        {
+            let target = self.expect_ident("includes target name");
+            self.advance();
+            let mixin = self.expect_ident("includes mixin name");
+            return Some(AstDef::Skip(format!("{target} includes {mixin}")));
         }
         match self.peek() {
             Token::Ident(s) => self.diag(&format!("unsupported definition: {s}")),

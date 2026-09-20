@@ -11,19 +11,10 @@ defines:
 # Per-header narrowing — the equivalent of `--include`/`--exclude`, kept
 # in config so regeneration is reproducible without remembering CLI flags.
 headers:
+  random.h:
+    include: ["getrandom", "getentropy", "GRND_*"]
   unistd.h:
-    include:
-      [
-        "close",
-        "read",
-        "write",
-        "pipe",
-        "pipe2",
-        "dup",
-        "dup2",
-        "lseek",
-        "syscall",
-      ]
+    include: ["close", "read", "write", "pipe", "pipe2", "dup", "dup2", "lseek", "syscall"]
   time.h:
     include:
       [
@@ -61,16 +52,7 @@ headers:
       ]
   fcntl.h:
     include:
-      [
-        "fcntl",
-        "F_GETFL",
-        "F_SETFL",
-        "F_GETFD",
-        "F_SETFD",
-        "FD_CLOEXEC",
-        "O_NONBLOCK",
-        "O_CLOEXEC",
-      ]
+      ["fcntl", "F_GETFL", "F_SETFL", "F_GETFD", "F_SETFD", "FD_CLOEXEC", "O_NONBLOCK", "O_CLOEXEC"]
   # netinet/tcp.h — constants-only run (TCP_NODELAY/TCP_CORK are consumed
   # through the already-bound setsockopt). With no emitted function the
   # unreferenced-type prune is a no-op, so `exclude` trims the
@@ -135,6 +117,18 @@ symbols:
   # ssize_t read(int fd, void *buf, size_t n) — same trick.
   read:
     args: ["i32", "out_buf:65536"]
+
+  # ssize_t getrandom(void *buf, size_t len, unsigned flags)
+  # getrandom(2) returns at most 256 bytes per call — out_buf:256 is both
+  # the allocation and the request size; `ret` is the actual count.
+  # Port args: (flags). Pass GRND_NONBLOCK for the urandom pool.
+  getrandom:
+    args: ["out_buf:256", "u32"]
+    names: ["flags"]
+
+  # int getentropy(void *buf, size_t len) — same shape, ≤256 bytes.
+  getentropy:
+    args: ["out_buf:256"]
 
   # int accept(int fd, struct sockaddr *addr, socklen_t *addrlen)
   # (addr, addrlen) is the POSIX value-result pair: `io_buf:128` allocates

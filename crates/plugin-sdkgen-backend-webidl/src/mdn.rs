@@ -55,11 +55,12 @@ impl MdnDocSource {
 /// keys (`URL`) map to `URL`; member keys (`URL.href`) map to
 /// `URL/href`, with the `_static` suffix as fallback — MDN puts static
 /// members at `member_static` and there is no way to tell static from
-/// instance in the key. Constructors arrive as `URL.URL`, which resolves
-/// through the plain member path.
+/// instance in the key. Constructors arrive as `URL.constructor` but
+/// MDN hosts them at `URL/URL`.
 fn mdn_paths(key: &str) -> Vec<String> {
     match key.split_once('.') {
         None => vec![key.to_string()],
+        Some((interface, "constructor")) => vec![format!("{interface}/{interface}")],
         Some((interface, member)) => vec![
             format!("{interface}/{member}"),
             format!("{interface}/{member}_static"),
@@ -97,10 +98,7 @@ mod tests {
             mdn_paths("URL.href"),
             vec!["URL/href".to_string(), "URL/href_static".to_string()]
         );
-        // Constructor keys resolve through the plain member path.
-        assert_eq!(
-            mdn_paths("URL.URL"),
-            vec!["URL/URL".to_string(), "URL/URL_static".to_string()]
-        );
+        // Constructor keys resolve to the `Interface/Interface` page.
+        assert_eq!(mdn_paths("URL.constructor"), vec!["URL/URL".to_string()]);
     }
 }
