@@ -1,0 +1,15 @@
+--- Generated port for libc.errno
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export EINTR: Int
+export EBADF: Int
+export EAGAIN: Int
+export EPIPE: Int
+export EWOULDBLOCK: Int
+export ECONNABORTED: Int
+export ECONNRESET: Int
+export ENOTCONN: Int
+export EINPROGRESS: Int

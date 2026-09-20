@@ -30,6 +30,11 @@ pub(crate) fn clang_args(
     let mut raw: Vec<CString> = Vec::new();
     raw.push(CString::new("-x").unwrap());
     raw.push(CString::new("c").unwrap());
+    // Retain *all* comments in the TU, not just doxygen-style ones — real
+    // headers (zlib, glibc) document declarations with plain `/* */` and
+    // `//` comments, which `clang_Cursor_getRawCommentText` otherwise
+    // never sees.
+    raw.push(CString::new("-fparse-all-comments").unwrap());
     let include = format!("-I{}", header_dir.display());
     raw.push(CString::new(include).unwrap());
     raw.push(CString::new("-I/usr/include").unwrap());

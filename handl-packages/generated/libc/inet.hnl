@@ -522,7 +522,7 @@ export InetNetwork: (String) ~[1]~> Result<InAddr, Errno>
 --- ffi: int (int, const char *restrict, void *restrict)
 export InetPton: (Int, String) ~[1]~> Result<Bytes, Errno>
 
---- ffi: 
+--- ffi:
 export InetNtop: (Int, Bytes, Int) ~[1]~> Result<Bytes, Errno>
 
 export InetAtonResult := {
@@ -538,4 +538,3 @@ export InetNetPton: (Int, String, Handle, Size) ~[1]~> Result<Int, Errno>
 
 --- ffi: char *(int, const unsigned char *, char *)
 export InetNsapNtoa: (Int, String, String) ~[1]~> Result<String, Errno>
-

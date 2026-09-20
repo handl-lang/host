@@ -1,0 +1,56 @@
+--- Generated port for libz.zlib
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export Compress2Result := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
+
+--- ffi:
+export Compress2: (Bytes, Int) ~[1]~> Result<Compress2Result, Errno>
+
+--- ffi: uLong (uLong)
+export CompressBound: (Int) ~[1]~> Result<Int, Errno>
+
+export UncompressResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
+
+--- ffi:
+export Uncompress: (Bytes) ~[1]~> Result<UncompressResult, Errno>
+
+--- ffi:
+export Gzdopen: (Int, String) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (gzFile, voidp, unsigned int)
+export Gzread: (Handle) ~[1]~> Result<Bytes, Errno>
+
+--- ffi: int (gzFile, voidpc, unsigned int)
+export Gzwrite: (Handle, Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (gzFile, int)
+export Gzflush: (Handle, Int) ~[1]~> Result<Int, Errno>
+
+--- ffi: int (gzFile)
+export Gzclose: (Handle) ~[1]~> Result<Int, Errno>
+
+export GzerrorResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
+
+--- ffi:
+export Gzerror: (Handle) ~[1]~> Result<GzerrorResult, Errno>
+
+--- ffi: uLong (uLong, const Bytef *, uInt)
+export Adler32: (Int, Bytes) ~[1]~> Result<Int, Errno>
+
+--- ffi: uLong (uLong, const Bytef *, uInt)
+export Crc32: (Int, Bytes) ~[1]~> Result<Int, Errno>

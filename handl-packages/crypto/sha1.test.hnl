@@ -1,0 +1,36 @@
+from "crypto" import * as crypto
+from "bytes" import * as bytes
+
+-- Standard SHA-1 vectors (FIPS 180-1 / RFC 3174).
+
+test_sha1_empty := assert crypto.sha1("") = "da39a3ee5e6b4b0d3255bfef95601890afd80709"
+
+test_sha1_abc := assert crypto.sha1("abc") = "a9993e364706816aba3e25717850c26c9cd0d89d"
+
+test_sha1_fox := assert crypto.sha1("The quick brown fox jumps over the lazy dog") = "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12"
+
+-- Input forms: Bytes buffer and raw byte list must digest identically.
+
+test_sha1_bytes := assert crypto.sha1(bytes.from_list([97, 98, 99])) = "a9993e364706816aba3e25717850c26c9cd0d89d"
+
+test_sha1_list := assert crypto.sha1([97, 98, 99]) = "a9993e364706816aba3e25717850c26c9cd0d89d"
+
+-- Padding boundaries (message lengths around the 56-byte pad threshold).
+
+-- 55 bytes: 0x80 pad byte lands at index 56 -- still a single block.
+test_sha1_pad_55 := assert crypto.sha1("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabc") = "a617d006d1ca12671785098a19a87fe58443bde9"
+
+-- 56 bytes: 0x80 pad byte lands at index 57 -- spills into a second block.
+test_sha1_pad_56 := assert crypto.sha1("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcd") = "4ad5bb7ae3c4024768d364b77c52128ea3cffebe"
+
+-- 64 bytes: multi-block input (two full 512-bit blocks after padding).
+test_sha1_multi_block := assert crypto.sha1("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl") = "93249d4c2f8903ebf41ac358473148ae6ddd7042"
+
+-- RFC 6455 section 1.3 -- the WebSocket handshake:
+--   Sec-WebSocket-Accept = base64(sha1(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+-- For key "dGhlIHNhbXBsZSBub25jZQ==" the base64 result is
+-- "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=". base64.encode is string-only and the raw
+-- digest bytes are not valid UTF-8, so the equivalent hex digest is
+-- asserted here: hex "b37a4f2cc0624f1690f64606cf385945b2bec4ea" decodes to
+-- the same 20 bytes that base64-encode to "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=".
+test_sha1_websocket_accept := assert crypto.sha1("dGhlIHNhbXBsZSBub25jZQ==258EAFA5-E914-47DA-95CA-C5AB0DC85B11") = "b37a4f2cc0624f1690f64606cf385945b2bec4ea"

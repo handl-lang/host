@@ -26,6 +26,7 @@ handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-handl = { workspace = true }
+handl-plugin-lib-crypto = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
 handl-plugin-ffi = { workspace = true }
 handl-plugin-lib-unicode-native = { workspace = true }

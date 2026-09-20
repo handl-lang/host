@@ -352,6 +352,7 @@ impl ModuleResolver for StdlibResolver {
             // built via `module_with` to resolve `"tag"` through this
             // resolver.
             "tag" => Some(Arc::new(TagModule)),
+            "crypto" => Some(Arc::new(handl_plugin_lib_crypto::module::CryptoModule)),
             "result" => Some(coerce_handl(get_handl_module("result", || {
                 stdlib::module_with("result", Arc::new(StdlibResolver)).expect("result")
             }))),
@@ -681,6 +682,12 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
             register_handl(&mut stdlib_registry, &mut handl_modules, "bytes", || {
                 stdlib::module("bytes").expect("bytes")
             });
+        }
+        // `crypto` — hashing: `crypto.sha256`/`crypto.md5` are Rust handls,
+        // `crypto.sha1` is a pure-handl arrow in `crypto.hnl` (needed by the
+        // pure-Handl WebSocket client's `Sec-WebSocket-Accept` handshake).
+        if want("crypto") {
+            stdlib_registry.register(handl_plugin_lib_crypto::module::CryptoModule);
         }
         if want("parse") {
             register_handl(&mut stdlib_registry, &mut handl_modules, "parse", || {

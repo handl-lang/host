@@ -41,5 +41,4 @@ modules:
   - ws-rfc-memory
   - ws-whatwg-native
   - ip
-  - compress-gzip
   - archive-tar

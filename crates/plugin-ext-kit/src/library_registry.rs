@@ -60,9 +60,6 @@ pub fn populate(reg: &mut LibraryRegistry) {
     reg.register("ip", || {
         Box::new(handl_plugin_lib_stdlib::ops::ip::LibraryPlugin::new()) as LibraryPlugin
     });
-    reg.register("compress-gzip", || {
-        Box::new(handl_plugin_lib_compress_gzip::LibraryPlugin::new()) as LibraryPlugin
-    });
     reg.register("archive-tar", || {
         handl_plugin_lib_stdlib::library("archive-tar")
             .unwrap_or_else(|| panic!("unknown stdlib package 'archive-tar'"))

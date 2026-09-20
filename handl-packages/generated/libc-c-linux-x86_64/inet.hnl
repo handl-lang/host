@@ -507,7 +507,7 @@ export INADDR_MAX_LOCAL_GROUP: Int := 3758096639
 export INET_ADDRSTRLEN: Int := 16
 export INET6_ADDRSTRLEN: Int := 46
 
-export inet_addr: InetAddr := (__cp) ~[1]~> do {
+export inet_addr: InetAddr := (__cp) ~> do {
   r = call("libc.so.6", "inet_addr", [__cp], ["cstr"], "i32", false)
   if r < 0 {
     err(errno())
@@ -516,7 +516,7 @@ export inet_addr: InetAddr := (__cp) ~[1]~> do {
   }
 }
 
-export inet_network: InetNetwork := (__cp) ~[1]~> do {
+export inet_network: InetNetwork := (__cp) ~> do {
   r = call("libc.so.6", "inet_network", [__cp], ["cstr"], "i32", false)
   if r < 0 {
     err(errno())
@@ -525,7 +525,7 @@ export inet_network: InetNetwork := (__cp) ~[1]~> do {
   }
 }
 
-export inet_pton: InetPton := (__af, __cp) ~[1]~> do {
+export inet_pton: InetPton := (__af, __cp) ~> do {
   r = call("libc.so.6", "inet_pton", [__af, __cp], ["i32", "cstr", "out_buf:16"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -534,7 +534,7 @@ export inet_pton: InetPton := (__af, __cp) ~[1]~> do {
   }
 }
 
-export inet_ntop: InetNtop := (__arg_0, __arg_1, __arg_5) ~[1]~> do {
+export inet_ntop: InetNtop := (__arg_0, __arg_1, __arg_5) ~> do {
   r = call("libc.so.6", "inet_ntop", [__arg_0, __arg_1, __arg_5], ["i32", "in_buf", "out_buf:64", "i32"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -543,7 +543,7 @@ export inet_ntop: InetNtop := (__arg_0, __arg_1, __arg_5) ~[1]~> do {
   }
 }
 
-export inet_aton: InetAton := (__cp) ~[1]~> do {
+export inet_aton: InetAton := (__cp) ~> do {
   r = call("libc.so.6", "inet_aton", [__cp], ["cstr", "out_struct:{s_addr:u32@0}"], "i32", false)
   if r.ret < 0 {
     err(errno())
@@ -552,7 +552,7 @@ export inet_aton: InetAton := (__cp) ~[1]~> do {
   }
 }
 
-export inet_net_pton: InetNetPton := (__af, __cp, __buf, __len) ~[1]~> do {
+export inet_net_pton: InetNetPton := (__af, __cp, __buf, __len) ~> do {
   r = call("libc.so.6", "inet_net_pton", [__af, __cp, __buf, __len], ["i32", "cstr", "ptr", "i64"], "i32", false)
   if r < 0 {
     err(errno())
@@ -561,8 +561,7 @@ export inet_net_pton: InetNetPton := (__af, __cp, __buf, __len) ~[1]~> do {
   }
 }
 
-export inet_nsap_ntoa: InetNsapNtoa := (__len, __cp, __buf) ~[1]~> do {
+export inet_nsap_ntoa: InetNsapNtoa := (__len, __cp, __buf) ~> do {
   r = call("libc.so.6", "inet_nsap_ntoa", [__len, __cp, __buf], ["i32", "cstr", "cstr"], "cstr", false)
   ok(r)
 }
-

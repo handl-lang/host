@@ -1032,6 +1032,7 @@ dependencies = [
  "handl-plugin-ext-diag",
  "handl-plugin-ffi",
  "handl-plugin-lib-char-native",
+ "handl-plugin-lib-crypto",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-lang-compile",
  "handl-plugin-lib-lang-eval",
@@ -1620,7 +1621,6 @@ dependencies = [
  "handl-kit-data",
  "handl-kit-data-canonical",
  "handl-platform",
- "handl-plugin-lib-compress-gzip",
  "handl-plugin-lib-crypto",
  "handl-plugin-lib-http-client-std",
  "handl-plugin-lib-intl",
@@ -1722,33 +1722,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-compress"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "handl-plugin-lib-compress-gzip"
-version = "0.1.0"
-dependencies = [
- "base64",
- "flate2",
- "handl-platform",
- "handl-plugin-lib-compress",
- "handl-plugin-lib-handl",
- "serde_json",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "handl-plugin-lib-crypto"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
+ "handl-plugin-lib-stdlib",
  "handl-plugin-module",
  "hex",
  "md-5",

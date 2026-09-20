@@ -1,7 +1,0 @@
-category:
-  slug: encoding
-  title: Encoding
-  description: Base64, hex, and text encoding utilities.
-sub_pages:
-  - lib-base64
-  - lib-hex

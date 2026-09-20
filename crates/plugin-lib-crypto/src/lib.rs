@@ -48,6 +48,29 @@ const CRYPTO_HNL: &str = include_str!("../../../handl-packages/crypto/crypto.hnl
 /// The op names declared in `crypto.hnl`.
 const CRYPTO_OPS: &[&str] = &["crypto.sha256", "crypto.md5"];
 
+/// Pure-handl record fields exposed by `crypto.hnl`.
+///
+/// `crypto.sha1` is implemented in Handl (over the `math`/`bytes`/`typeof`
+/// atoms) rather than as a native Rust handl — needed by the pure-Handl
+/// WebSocket client, whose handshake computes
+/// `base64(sha1(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))` (RFC 6455).
+const CRYPTO_FUNCS: &[&str] = &["sha1"];
+
+/// Wire the `math`/`bytes`/`typeof` module dependencies that the pure-handl
+/// `crypto.sha1` body imports.
+fn crypto_deps(plugin: HandlLibraryPlugin) -> HandlLibraryPlugin {
+    plugin
+        .with_dependency(
+            handl_plugin_lib_stdlib::module("math").expect("crypto requires the math module"),
+        )
+        .with_dependency(
+            handl_plugin_lib_stdlib::module("bytes").expect("crypto requires the bytes module"),
+        )
+        .with_dependency(
+            handl_plugin_lib_stdlib::module("typeof").expect("crypto requires the typeof module"),
+        )
+}
+
 // ---------------------------------------------------------------------------
 // Op Registry
 // ---------------------------------------------------------------------------
@@ -85,13 +108,13 @@ impl CryptoLibraryPlugin {
     pub fn new() -> Self {
         let registry = Arc::new(crypto_op_registry());
         Self {
-            inner: HandlLibraryPlugin::new_with_caps(
+            inner: crypto_deps(HandlLibraryPlugin::new_with_caps(
                 "crypto",
                 "lib.crypto",
                 "lib-crypto",
                 CRYPTO_HNL,
-                &[],
-            )
+                CRYPTO_FUNCS,
+            ))
             .with_ops(CRYPTO_OPS, registry),
         }
     }
@@ -145,8 +168,14 @@ impl handl_platform::Plugin for CryptoLibraryPlugin {
 /// directly instead of [`CryptoLibraryPlugin`].
 pub fn crypto_handl_plugin() -> HandlLibraryPlugin {
     let registry = Arc::new(crypto_op_registry());
-    HandlLibraryPlugin::new_with_caps("crypto", "lib.crypto", "lib-crypto", CRYPTO_HNL, &[])
-        .with_ops(CRYPTO_OPS, registry)
+    crypto_deps(HandlLibraryPlugin::new_with_caps(
+        "crypto",
+        "lib.crypto",
+        "lib-crypto",
+        CRYPTO_HNL,
+        CRYPTO_FUNCS,
+    ))
+    .with_ops(CRYPTO_OPS, registry)
 }
 
 // ---------------------------------------------------------------------------

@@ -423,8 +423,13 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
             (module.library.clone(), f.name.clone())
         };
 
+        // The grade lives on the port annotation (`f.port_name` carries
+        // `~[1]~>`); the body must be a plain `~>` arrow. `~[N]~>` in
+        // expression position builds a `dim_arrow` type record and
+        // evaluates its children eagerly — params would be unbound and the
+        // `call` would run at module load.
         out.push_str(&format!(
-            "export {}: {} := ({}) ~[1]~> do {{\n",
+            "export {}: {} := ({}) ~> do {{\n",
             f.name, f.port_name, arg_names
         ));
         out.push_str(&format!(

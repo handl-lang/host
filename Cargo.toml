@@ -26,8 +26,6 @@ members = [
   "crates/plugin-loader-wasm",
   "crates/plugin-loader-web",
   "crates/plugin-lib-char-native",
-  "crates/plugin-lib-compress",
-  "crates/plugin-lib-compress-gzip",
   "crates/plugin-lib-crypto",
   "crates/plugin-lib-encoding",
   "crates/plugin-lib-handl",
@@ -137,7 +135,6 @@ indexmap = "2"
 rayon = "1"
 sha2 = "0.10"
 thiserror = "2"
-flate2 = "1"
 tar = "0.4"
 pass-lang = "1"
 driver-lang = "1"
@@ -173,8 +170,6 @@ handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-plugin-loader-wasm = { path = "crates/plugin-loader-wasm" }
 handl-plugin-loader-web = { path = "crates/plugin-loader-web" }
 handl-plugin-lib-char-native = { path = "crates/plugin-lib-char-native" }
-handl-plugin-lib-compress = { path = "crates/plugin-lib-compress" }
-handl-plugin-lib-compress-gzip = { path = "crates/plugin-lib-compress-gzip" }
 handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
 handl-plugin-lib-encoding = { path = "crates/plugin-lib-encoding" }
 

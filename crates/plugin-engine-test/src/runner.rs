@@ -106,6 +106,13 @@ pub struct TestCase {
     pub name: String,
     /// Source text of the test body (the expression to evaluate).
     pub body_source: String,
+    /// Executable file-import statements (`from "<path>" import ...` /
+    /// `import "<path>"`) collected from the test module, with each
+    /// specifier rewritten to an absolute path. Prepended to the body at
+    /// eval time so the imported bindings are in scope. Module-name
+    /// imports (e.g. `from "str" import ...`) are not kept — the kit's
+    /// module chain already supplies those bindings (ADR-0096).
+    pub preamble: String,
     /// Source span of the test declaration.
     pub span: Span,
     /// Tags extracted from leading `-- tags: ...` doc-comment lines.
@@ -286,6 +293,114 @@ fn is_import_decl(trimmed: &str) -> bool {
         || trimmed.starts_with("import\t")
         || trimmed.starts_with("import\"")
         || trimmed.starts_with("import'")
+}
+
+/// Collect the module's *executable* import statements — `from "<spec>"
+/// import ...` / `import "<spec>"` whose `<spec>` resolves to a file under
+/// the module's directory (or the working directory) — into an eval
+/// preamble. Each kept specifier is rewritten to the resolved absolute
+/// path: the test bodies evaluate without a source-file context, so the
+/// module loader's relative-path base (`dir_stack`) is empty and the spec
+/// must be self-contained.
+///
+/// Module-name imports (`from "str" import ...`, `import <name> from ...`)
+/// return `None` — they are declarations the kit's module chain already
+/// satisfies, and stripping them matches `hnl run`/`ModuleLoader` behavior
+/// (ADR-0096 §"Module-name imports").
+fn import_preamble(src: &str, module: &Path) -> String {
+    let base = module.parent().map(Path::to_path_buf);
+    let cwd = std::env::current_dir().ok();
+    let mut preamble = String::new();
+    for chunk in handl_plugin_ext_diag::split_statements(src) {
+        let trimmed = chunk.text.trim_start();
+        if !is_import_decl(trimmed) {
+            continue;
+        }
+        // `import <name> ...` is a module-name declaration (never
+        // executable); only the quoted `import "<spec>"` form is kept.
+        if let Some(rest) = trimmed.strip_prefix("import") {
+            if rest.starts_with(' ') || rest.starts_with('\t') {
+                let inner = rest.trim_start();
+                if !inner.starts_with('"') && !inner.starts_with('\'') {
+                    continue;
+                }
+            }
+        }
+        let Some(spec) = first_quoted_spec(trimmed) else {
+            continue;
+        };
+        let resolved = [&base, &cwd]
+            .into_iter()
+            .flatten()
+            .find_map(|b| resolve_spec_to_file(spec, b));
+        if let Some(path) = resolved {
+            // Splice the absolute path back into the statement text.
+            let abs = path.to_string_lossy();
+            let rewritten = chunk.text.replacen(
+                &format!("\"{spec}\""),
+                &format!("\"{abs}\""),
+                1,
+            );
+            let rewritten = if rewritten == chunk.text {
+                chunk.text.replacen(
+                    &format!("'{spec}'"),
+                    &format!("\"{abs}\""),
+                    1,
+                )
+            } else {
+                rewritten
+            };
+            preamble.push_str(&rewritten);
+            preamble.push('\n');
+        }
+    }
+    preamble
+}
+
+/// Extract the first `'`- or `"`-quoted string literal's contents from a
+/// source fragment (e.g. the specifier in `from "..." import ...`).
+fn first_quoted_spec(s: &str) -> Option<&str> {
+    let bytes = s.as_bytes();
+    let start = bytes.iter().position(|&b| b == b'"' || b == b'\'')?;
+    let quote = bytes[start];
+    let rest = &s[start + 1..];
+    let end = rest.as_bytes().iter().position(|&b| b == quote)?;
+    Some(&rest[..end])
+}
+
+/// Resolve an import specifier to an existing file under `base`, mirroring
+/// `ModuleLoader`'s candidate order: a directory resolves to `index.hnl`
+/// or `<dir>/<name>.hnl`; a bare name tries `<path>.hnl`; an existing file
+/// resolves to itself.
+fn resolve_spec_to_file(spec: &str, base: &Path) -> Option<PathBuf> {
+    let joined = if Path::new(spec).is_absolute() {
+        PathBuf::from(spec)
+    } else {
+        base.join(spec)
+    };
+    if joined.is_dir() {
+        let index = joined.join("index.hnl");
+        if index.is_file() {
+            return Some(index);
+        }
+        if let Some(name) = joined.file_name().and_then(|s| s.to_str()) {
+            let main = joined.join(format!("{name}.hnl"));
+            if main.is_file() {
+                return Some(main);
+            }
+        }
+    }
+    if !spec.ends_with(".hnl") {
+        let with_ext = joined.with_extension("hnl");
+        if with_ext.is_file() {
+            return Some(with_ext);
+        }
+    }
+    if joined.is_file() {
+        Some(joined)
+    } else {
+        None
+    }
 }
 
 /// Extract tags declared in `-- tags: ...` doc-comment lines immediately
@@ -505,6 +620,7 @@ fn discover_tests_in_module(
     module: &Path,
 ) -> Result<Vec<TestCase>, String> {
     let chunks = split_statements(src);
+    let preamble = import_preamble(src, module);
     let mut tests = Vec::new();
 
     for chunk in &chunks {
@@ -539,6 +655,7 @@ fn discover_tests_in_module(
                             module: module.to_path_buf(),
                             name,
                             body_source,
+                            preamble: preamble.clone(),
                             span,
                             tags,
                         });
@@ -578,6 +695,7 @@ fn discover_tests_in_module(
                                 module: module.to_path_buf(),
                                 name,
                                 body_source,
+                                preamble: preamble.clone(),
                                 span,
                                 tags,
                             });
@@ -1247,7 +1365,11 @@ pub(crate) fn run_selected_impl(
         }
 
         states.push(TestState::Run);
-        let body = case.body_source.clone();
+        let body = if case.preamble.is_empty() {
+            case.body_source.clone()
+        } else {
+            format!("{}\n{}", case.preamble, case.body_source)
+        };
         jobs.push((i, Box::new(move || eval_test_body(&body))));
     }
 
@@ -1548,6 +1670,7 @@ impl TestRunCache {
                 "module": case.module.display().to_string(),
                 "name": &case.name,
                 "body_source": &case.body_source,
+                "preamble": &case.preamble,
             })
             .to_string(),
         }
@@ -1698,6 +1821,7 @@ mod tests {
                         module: PathBuf::from("a.hnl"),
                         name: "test_a".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1710,6 +1834,7 @@ mod tests {
                         module: PathBuf::from("a.hnl"),
                         name: "test_b".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1724,6 +1849,7 @@ mod tests {
                         module: PathBuf::from("a.hnl"),
                         name: "test_c".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1856,6 +1982,7 @@ mod tests {
                         module: PathBuf::from("mod.hnl"),
                         name: "test_a".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1868,6 +1995,7 @@ mod tests {
                         module: PathBuf::from("mod.hnl"),
                         name: "test_b".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1882,6 +2010,7 @@ mod tests {
                         module: PathBuf::from("mod.hnl"),
                         name: "test_c".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1907,6 +2036,7 @@ mod tests {
                         module: PathBuf::from("mod.hnl"),
                         name: "test_a".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
@@ -1919,6 +2049,7 @@ mod tests {
                         module: PathBuf::from("mod.hnl"),
                         name: "test_b".to_string(),
                         body_source: "1".to_string(),
+                        preamble: String::new(),
                         span: Span::default(),
                         tags: Vec::new(),
                     },
