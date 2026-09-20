@@ -4,11 +4,11 @@
 --- `Command` handler.  Commands are effectful; by default they mutate a registry
 --- of named command arrows.  Everything below reduces to `Op`/`Handle`.
 
-from "grade" import { Op, Grade }
 from "type" import { String, Value, Bool, Array }
 from "collections/hash_map" import * as hash_map
+from "sym" import { sym }
 
-export Command := Grade
+export Command := sym()
 
 --- invoke a registered command by name with arguments.
 -- TODO(n-dim): effect row

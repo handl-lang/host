@@ -4,11 +4,11 @@
 --- `Event` handler.  Events are fire-and-forget; listeners are natural arrows.
 --- Everything below reduces to the generic `Op`/`Handle` kernel.
 
-from "grade" import { Op, Grade }
 from "type" import { String, Value, Bool, Array }
 from "collections/hash_map" import * as hash_map
+from "sym" import { sym }
 
-export Event := Grade
+export Event := sym()
 
 --- emit a named event with a payload.
 -- TODO(n-dim): effect row
