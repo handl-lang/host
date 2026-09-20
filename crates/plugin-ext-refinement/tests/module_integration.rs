@@ -38,6 +38,13 @@ fn kit_stdlib_arrows_dir() -> PathBuf {
     workspace_root().join("handl-packages")
 }
 
+/// This crate's arrow-dialect fixture corpus (`tests/fixtures/`). The former
+/// `handl-packages/fn/` arrows live here — they are superseded as a stdlib
+/// package and kept only as refinement-checker fixtures.
+fn fixtures_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+}
+
 /// Create a unique temp directory for a test, prefixed by the test name and
 /// the process id. Returns the path. Uses `std::env::temp_dir()` since the
 /// `tempfile` crate is not a dev-dependency.
@@ -359,21 +366,23 @@ fn test_file_resolver_kit_stdlib() {
         return;
     }
     let loader = loader_for(dir);
+    let fixtures_loader = loader_for(fixtures_dir());
 
-    // A representative selection of kit-stdlib arrow files. These use the
-    // rich `rec { ... } (...)` / `loop { ... } (...)` surface syntax.
+    // A representative selection of kit-stdlib arrow files plus the
+    // arrow-dialect fixtures under `tests/fixtures/`. These use the rich
+    // `rec { ... } (...)` / `loop { ... } (...)` surface syntax.
     let candidates = [
-        "fn/map",
-        "collection/sort",
-        "state/counter",
-        "collection/insert",
-        "fn/filter",
-        "fn/fold",
+        (&fixtures_loader, "fn/map"),
+        (&loader, "collection/sort"),
+        (&loader, "state/counter"),
+        (&loader, "collection/insert"),
+        (&fixtures_loader, "fn/filter"),
+        (&fixtures_loader, "fn/fold"),
     ];
 
     let mut loaded_any = false;
-    for name in &candidates {
-        let loaded = match try_load_example(&loader, name) {
+    for &(loader, name) in &candidates {
+        let loaded = match try_load_example(loader, name) {
             Some(m) => m,
             None => continue,
         };
@@ -385,7 +394,7 @@ fn test_file_resolver_kit_stdlib() {
         );
 
         // Strategy B: flatten_program should produce a clean graph.
-        match flatten_program(name, &loader) {
+        match flatten_program(name, loader) {
             Ok(flat) => {
                 assert!(
                     !contains_module_ref(&flat),

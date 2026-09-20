@@ -14,6 +14,9 @@ fn main() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    // The former `handl-packages/fn/` arrows — superseded as a stdlib package,
+    // kept only as refinement-checker fixtures.
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     println!("=== ADR-0069: .hnl arrow files → Term → inferred contracts ===");
     println!("Atom contracts: {}", registry.len());
@@ -21,24 +24,25 @@ fn main() {
     println!();
 
     // Load all arrow files for cross-file reference resolution
-    let graph_map = load_all_arrows(&arrows_dir).expect("failed to load arrow files");
+    let mut graph_map = load_all_arrows(&arrows_dir).expect("failed to load arrow files");
+    graph_map.extend(load_all_arrows(&fixtures_dir).expect("failed to load fixture arrows"));
     println!("Loaded {} arrow files from stdlib", graph_map.len());
     println!();
 
     let files = [
-        ("insert", "collection/insert.hnl"),
-        ("sort", "collection/sort.hnl"),
-        ("map", "fn/map.hnl"),
-        ("filter", "fn/filter.hnl"),
-        ("fold", "fn/fold.hnl"),
-        ("pratt", "parse-pratt/pratt.hnl"),
-        ("counter", "state/counter.hnl"),
-        ("buffer", "state/buffer.hnl"),
-        ("protocol", "state/protocol.hnl"),
+        ("insert", &arrows_dir, "collection/insert.hnl"),
+        ("sort", &arrows_dir, "collection/sort.hnl"),
+        ("map", &fixtures_dir, "fn/map.hnl"),
+        ("filter", &fixtures_dir, "fn/filter.hnl"),
+        ("fold", &fixtures_dir, "fn/fold.hnl"),
+        ("pratt", &arrows_dir, "parse-pratt/pratt.hnl"),
+        ("counter", &arrows_dir, "state/counter.hnl"),
+        ("buffer", &arrows_dir, "state/buffer.hnl"),
+        ("protocol", &arrows_dir, "state/protocol.hnl"),
     ];
 
-    for (name, rel_path) in files {
-        let path = format!("{}/{}", arrows_dir, rel_path);
+    for (name, base_dir, rel_path) in files {
+        let path = format!("{}/{}", base_dir, rel_path);
 
         // Load the .hnl file → Term IR
         let scheme = match load_arrow_file(&path) {

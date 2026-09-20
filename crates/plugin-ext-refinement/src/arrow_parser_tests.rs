@@ -39,17 +39,17 @@ fn op(name: &str) -> TermData {
 // Embed the actual .hnl stdlib files for testing.
 const INSERT_HNL: &str = include_str!("../../../handl-packages/collection/insert.hnl");
 const SORT_HNL: &str = include_str!("../../../handl-packages/collection/sort.hnl");
-const MAP_HNL: &str = include_str!("../../../handl-packages/fn/map.hnl");
-const FILTER_HNL: &str = include_str!("../../../handl-packages/fn/filter.hnl");
-const FOLD_HNL: &str = include_str!("../../../handl-packages/fn/fold.hnl");
+const MAP_HNL: &str = include_str!("../tests/fixtures/fn/map.hnl");
+const FILTER_HNL: &str = include_str!("../tests/fixtures/fn/filter.hnl");
+const FOLD_HNL: &str = include_str!("../tests/fixtures/fn/fold.hnl");
 
 // New rich-loop pattern files (scan, take, drop).
-const SCAN_RICH_HNL: &str = include_str!("../../../handl-packages/fn/scan_rich.hnl");
+const SCAN_RICH_HNL: &str = include_str!("../tests/fixtures/fn/scan_rich.hnl");
 const TAKE_RICH_HNL: &str = include_str!("../../../handl-packages/collection/take_rich.hnl");
 const DROP_RICH_HNL: &str = include_str!("../../../handl-packages/collection/drop_rich.hnl");
-const NESTED_MAP_RICH_HNL: &str = include_str!("../../../handl-packages/fn/nested_map_rich.hnl");
-const ZIP_RICH_HNL: &str = include_str!("../../../handl-packages/fn/zip_rich.hnl");
-const REDUCE_RICH_HNL: &str = include_str!("../../../handl-packages/fn/reduce_rich.hnl");
+const NESTED_MAP_RICH_HNL: &str = include_str!("../tests/fixtures/fn/nested_map_rich.hnl");
+const ZIP_RICH_HNL: &str = include_str!("../tests/fixtures/fn/zip_rich.hnl");
+const REDUCE_RICH_HNL: &str = include_str!("../tests/fixtures/fn/reduce_rich.hnl");
 
 // ============================================================================
 // Hand-built graphs (matching e2e_tests.rs) for comparison
@@ -822,9 +822,10 @@ fn test_parsed_drop_rich_matches_handbuilt() {
 fn test_load_new_rich_loops_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Load scan_rich.hnl from disk
-    let scan_path = format!("{}/fn/scan_rich.hnl", arrows_dir);
+    let scan_path = format!("{}/fn/scan_rich.hnl", fixtures_dir);
     let scheme = load_arrow_file(&scan_path).expect("load scan_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 
@@ -956,10 +957,10 @@ fn test_parsed_zip_rich_matches_handbuilt() {
 #[test]
 fn test_load_zip_rich_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Load zip_rich.hnl from disk
-    let zip_path = format!("{}/fn/zip_rich.hnl", arrows_dir);
+    let zip_path = format!("{}/fn/zip_rich.hnl", fixtures_dir);
     let scheme = load_arrow_file(&zip_path).expect("load zip_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
@@ -1059,10 +1060,10 @@ fn test_parsed_reduce_rich_distinct_from_fold() {
 #[test]
 fn test_load_reduce_rich_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Load reduce_rich.hnl from disk
-    let reduce_path = format!("{}/fn/reduce_rich.hnl", arrows_dir);
+    let reduce_path = format!("{}/fn/reduce_rich.hnl", fixtures_dir);
     let scheme = load_arrow_file(&reduce_path).expect("load reduce_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
@@ -1353,6 +1354,7 @@ fn test_infer_all_five_from_hnl() {
 fn test_load_arrow_file_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Load insert.hnl from disk
     let insert_path = format!("{}/collection/insert.hnl", arrows_dir);
@@ -1360,7 +1362,7 @@ fn test_load_arrow_file_from_disk() {
     assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load map.hnl from disk
-    let map_path = format!("{}/fn/map.hnl", arrows_dir);
+    let map_path = format!("{}/fn/map.hnl", fixtures_dir);
     let scheme = load_arrow_file(&map_path).expect("load map from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
@@ -1369,8 +1371,10 @@ fn test_load_arrow_file_from_disk() {
 fn test_load_all_arrows_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
-    let map = load_all_arrows(&arrows_dir).expect("load all arrows");
+    let mut map = load_all_arrows(&arrows_dir).expect("load all arrows");
+    map.extend(load_all_arrows(&fixtures_dir).expect("load fixture arrows"));
     assert!(
         map.contains_key("insert"),
         "should have insert arrow: keys = {:?}",

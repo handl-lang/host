@@ -184,7 +184,7 @@ fn clean_module_with_import_and_call() {
 
 #[test]
 fn all_imports_used() {
-    let src = "import sorter from \"collection\"; import map from \"fn/map\"; main = sorter(map([3, 1, 2]))";
+    let src = "import sorter from \"collection\"; import map from \"transform/map\"; main = sorter(map([3, 1, 2]))";
     let report = check_module(lang(), src).unwrap();
     assert!(
         !has_diag(&report, "unused-import", Severity::Warning),
