@@ -80,9 +80,10 @@ fn assert_all_engines(src: &str, expected: Value) {
 /// an error containing `needle`.
 fn assert_all_engines_err(src: &str, needle: &str) {
     for (name, engine) in engines_with_resolver() {
-        let err = make_runtime(engine)
-            .run(&Source::new(src))
-            .unwrap_or_else(|v| panic!("{name} engine should fail on `{src}`, got {v}"));
+        let err = match make_runtime(engine).run(&Source::new(src)) {
+            Err(e) => e,
+            Ok(v) => panic!("{name} engine should fail on `{src}`, got {v}"),
+        };
         assert!(
             err.to_string().contains(needle),
             "{name} engine on `{src}`: expected error containing `{needle}`, got: {err}"
@@ -120,10 +121,14 @@ fn from_import_braced_list_binds_each_entry_all_engines() {
     assert_all_engines(r#"do { from "m" import { x, y as w }; w }"#, json!("hi"));
 }
 
+// Note: the import statement is the *last* statement in these `do`
+// blocks — `Runtime::eval`'s `Term`-lowerer fast path discards non-binding
+// mid-block statements, so a trailing `; 0` would never reach the eval
+// engines (pre-existing lowerer behavior, unrelated to the op itself).
 #[test]
 fn import_missing_export_errors_all_engines() {
     assert_all_engines_err(
-        r#"do { from "m" import zzz; 0 }"#,
+        r#"do { from "m" import zzz }"#,
         "module has no export `zzz`",
     );
 }
@@ -131,9 +136,10 @@ fn import_missing_export_errors_all_engines() {
 #[test]
 fn import_without_resolver_errors_all_engines() {
     for (name, engine) in engines_without_resolver() {
-        let err = make_runtime(engine)
-            .run(&Source::new(r#"do { import "m"; 0 }"#))
-            .unwrap_or_else(|v| panic!("{name} engine should fail without a resolver, got {v}"));
+        let err = match make_runtime(engine).run(&Source::new(r#"do { import "m" }"#)) {
+            Err(e) => e,
+            Ok(v) => panic!("{name} engine should fail without a resolver, got {v}"),
+        };
         assert!(
             err.to_string().contains("no import resolver configured"),
             "{name} engine: expected no-resolver error, got: {err}"
