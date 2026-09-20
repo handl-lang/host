@@ -1,0 +1,4 @@
+--- Rotl32 arrow signature.
+from "type" import { Int }
+
+export Rotl32: (Int * Int) ~[1]~> Int
