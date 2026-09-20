@@ -6,9 +6,8 @@ idiom rules after. For _why_ the seams exist, see ADR-0044/0077/0083/0096.
 ## What stays Rust
 
 Only the calculus vocabulary and irreducible atoms: combinators, `cap`/`op`
-declarations handled by `rust_*` natives, FFI marshalling primitives,
-`error.raise`/`error.try`. Everything else — including interfaces to those
-atoms — is handl.
+declarations handled by `rust_*` natives, FFI marshalling primitives.
+Everything else — including interfaces to those atoms — is handl.
 
 ## Construct map
 
@@ -18,8 +17,8 @@ atoms — is handl.
 | `struct`            | record type                                                                                       | `Timespec := { tv_sec: Int, tv_nsec: Int }` |
 | `enum` (ADTs)       | `tag.tag("Name", payload)` + `tag.tag_of`/`untag`/`match_type`; prefer `option`/`result` packages | `tag.tag("Some", { value: v })`             |
 | `Option<T>`         | `from "option" import { some, none }` — a handl pkg, must be imported                             | `option.test.hnl`                           |
-| `Result<T,E>` / `?` | `from "result" import { ok, err }` — handl pkg, imported; `error.raise(v)` for aborts             | `{__tag__:"ok", value: v}`                  |
-| catch `Err`         | `error.try(f)` → `{__tag__:"ok"\|"err", value}`                                                   | `error.try(() ~> ffi.call(...))`            |
+| `Result<T,E>` / `?` | `from "result" import { ok, err }` — handl pkg; propagate by `match`ing and returning `err`       | `result.test.hnl`                           |
+| exceptions/`catch`  | none — errors are values. Consume via `match tag.tag_of(r) { "ok": …, "err": … }`                 | `tag.untag(r).value`                        |
 | `match`             | `match x { pat: expr, _: default }` — literals, binders, `[]`/`[h,...t]`, `{field: b}`            | `examples/handl/match.hnl`                  |
 | `if/else` stmt      | expression `if c { a } else { b }`                                                                | —                                           |
 | `for`/iterators     | `for x in xs { body }` — imperative iteration; `:=` in body writes back to enclosing scope        | `datetime/helpers.hnl`                      |
@@ -27,7 +26,7 @@ atoms — is handl.
 | `while` loop        | `while {state} {step}` — step returns `{state: v}` (continue) or `return v`/`{out: v}` (done)     | `examples/handl/fibonacci.hnl`              |
 | recursion           | `while`/`for` (preferred) or self-application `(self ~> self(self, x))`                           | `examples/handl/destructure.hnl`            |
 | `mut` / `&mut`      | `:=` writeback in `for` bodies; state record threaded through `while`/`rec`; no aliasing          | `{ xs: xs, acc: acc }`                      |
-| `panic!`/`unwrap`   | `error.raise(v)` — never returns                                                                  | `collections/vec.hnl` `pop`                 |
+| `panic!`/`unwrap`   | `result.err(msg)` — fallible arrows return `Result`; no raise/throw in handl                      | `generated/libc` adapters                   |
 | trait + impls       | contract pkg (`axiom`/`op`/`guarantee:`) + backend pkg per impl                                   | `unicode` → `unicode-handl`                 |
 | module/`impl` block | `do { helpers := ...; { exported: fields } }` — module-as-record                                  | `unicode-handl.hnl`                         |
 | `cargo test`        | `*.test.hnl` + `hnl test`; `test_name := assert expr`                                             | `option/option.test.hnl`                    |
@@ -75,24 +74,34 @@ Bytes are `{"__bytes__": [n, ...]}`; plain arrays also accepted on input.
 `errno` flag on `ffi.call` maps negative returns to `errno` extraction —
 wrap in `result.err` at the adapter edge (see `generated/libc`).
 
+> **Gap:** `ffi.call` _raises_ on `dlopen`/`dlsym` failure — incompatible
+> with the Result-only error model. A non-raising probe op (`ffi.load` /
+> `ffi.sym` returning `Result` or `Option`) is needed before handl-side
+> library/symbol probing (e.g. ICU version sniffing) can be written
+> idiomatically. `error.try` exists as a host atom but is not the idiom.
+
 ## Idiom rules
 
 1. **Contract first.** Declare the interface (`axiom`/`op`/`guarantee:` or
    exported types + `cap`) in a neutral package; backends are
    `name-handl` / `name-c` / `name-native` / `name-stub`. Callers pick the
    backend by import path (`from "time-c" import { now_ms }`).
-2. **Fail loudly, never approximate.** If a backend can't implement an op
+2. **Errors are values — no raise/throw.** Fallible arrows return
+   `Result<T, E>`; `error.raise`/`error.try` are host atoms for runtime
+   internals, not the handl idiom (legacy corpus usage like
+   `collections/*.hnl` `pop` is slated to move).
+3. **Fail loudly, never approximate.** If a backend can't implement an op
    correctly, omit it — callers get a loud failure (`unicode-handl` omits
    `nfc`/`nfd` rather than shipping identity).
-3. **Semantic names, not implementation names** — `nfc`, never
+4. **Semantic names, not implementation names** — `nfc`, never
    `nfc_icu4x`; `graphemes`, never `graphemes_utf16`.
-4. **Effects are visible** — FFI arrows carry `~[1]~>`/`FFI` grade; pure
+5. **Effects are visible** — FFI arrows carry `~[1]~>`/`FFI` grade; pure
    ones don't.
-5. **`for` for iteration, `while` for stateful loops** — `for x in xs` when
+6. **`for` for iteration, `while` for stateful loops** — `for x in xs` when
    you're walking a list; `while {state} {step}` when the loop is a state
    machine or terminates on a condition. Avoid self-application recursion.
-6. **Docs are `---` + `@details`/`@param`/`@returns`/`@example`**
-7. **Marshal at the edge.** Convert `Bytes`/handles/`{ret,buf,outs}` into
+7. **Docs are `---` + `@details`/`@param`/`@returns`/`@example`**
+8. **Marshal at the edge.** Convert `Bytes`/handles/`{ret,buf,outs}` into
    semantic handl types inside the backend — never leak C shapes upward.
 
 ## Port checklist
@@ -100,7 +109,7 @@ wrap in `result.err` at the adapter edge (see `generated/libc`).
 - [ ] contract package exists or is written (types + laws)
 - [ ] backend package `name-c`/`name-handl` exports the contract record
 - [ ] `---` headers + `@details`/`@param`/`@returns`/`@example`
-- [ ] `*.test.hnl` covering each export; gate FFI-dependent tests on
-      probe results (`error.try` around `ffi.call`)
+- [ ] `*.test.hnl` covering each export; FFI-dependent tests gate on
+      library availability (see FFI gap note)
 - [ ] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` green
       (`scripts/dogfood-gate.sh`)
