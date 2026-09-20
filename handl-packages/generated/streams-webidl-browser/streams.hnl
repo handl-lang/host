@@ -1,0 +1,508 @@
+--- Generated adapter for streams-webidl-browser/streams
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../streams/streams" import { ByteLengthQueuingStrategy, CountQueuingStrategy, GenericTransformStream, QueuingStrategy, QueuingStrategyInit, ReadableByteStreamController, ReadableStream, ReadableStreamBYOBReader, ReadableStreamBYOBReaderReadOptions, ReadableStreamBYOBRequest, ReadableStreamDefaultController, ReadableStreamDefaultReader, ReadableStreamGenericReader, ReadableStreamGetReaderOptions, ReadableStreamIteratorOptions, ReadableStreamReadResult, ReadableWritablePair, StreamPipeOptions, TransformStream, TransformStreamDefaultController, Transformer, UnderlyingSink, UnderlyingSource, WritableStream, WritableStreamDefaultController, WritableStreamDefaultWriter, ByteLengthQueuingStrategyConstructor, CountQueuingStrategyConstructor, QueuingStrategySize, ReadableByteStreamControllerClose, ReadableByteStreamControllerEnqueue, ReadableByteStreamControllerError, ReadableStreamCancel, ReadableStreamConstructor, ReadableStreamFrom, ReadableStreamGetReader, ReadableStreamPipeThrough, ReadableStreamPipeTo, ReadableStreamTee, ReadableStreamBYOBReaderConstructor, ReadableStreamBYOBReaderRead, ReadableStreamBYOBReaderReleaseLock, ReadableStreamBYOBRequestRespond, ReadableStreamBYOBRequestRespondWithNewView, ReadableStreamDefaultControllerClose, ReadableStreamDefaultControllerEnqueue, ReadableStreamDefaultControllerError, ReadableStreamDefaultReaderConstructor, ReadableStreamDefaultReaderRead, ReadableStreamDefaultReaderReleaseLock, ReadableStreamGenericReaderCancel, TransformStreamConstructor, TransformStreamDefaultControllerEnqueue, TransformStreamDefaultControllerError, TransformStreamDefaultControllerTerminate, TransformerCancelCallback, TransformerFlushCallback, TransformerStartCallback, TransformerTransformCallback, UnderlyingSinkAbortCallback, UnderlyingSinkCloseCallback, UnderlyingSinkStartCallback, UnderlyingSinkWriteCallback, UnderlyingSourceCancelCallback, UnderlyingSourcePullCallback, UnderlyingSourceStartCallback, WritableStreamAbort, WritableStreamClose, WritableStreamConstructor, WritableStreamGetWriter, WritableStreamDefaultControllerError, WritableStreamDefaultWriterAbort, WritableStreamDefaultWriterClose, WritableStreamDefaultWriterConstructor, WritableStreamDefaultWriterReleaseLock, WritableStreamDefaultWriterWrite }
+
+export ReadableStreamReaderMode_Byob: Int := 0
+export ReadableStreamType_Bytes: Int := 0
+
+export byte_length_queuing_strategy_constructor: ByteLengthQueuingStrategyConstructor := (init) ~> do {
+  r = call("streams", "constructor", [init], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export count_queuing_strategy_constructor: CountQueuingStrategyConstructor := (init) ~> do {
+  r = call("streams", "constructor", [init], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export queuing_strategy_size: QueuingStrategySize := (chunk) ~> do {
+  r = call("streams", "queuing_strategy_size", [chunk], ["js_object"], "js_number", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_byte_stream_controller_close: ReadableByteStreamControllerClose := () ~> do {
+  r = call("streams", "close", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_byte_stream_controller_enqueue: ReadableByteStreamControllerEnqueue := (chunk) ~> do {
+  r = call("streams", "enqueue", [chunk], ["js_bytes"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_byte_stream_controller_error: ReadableByteStreamControllerError := (e) ~> do {
+  r = call("streams", "error", [e], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_cancel: ReadableStreamCancel := (reason) ~> do {
+  r = call("streams", "cancel", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_constructor: ReadableStreamConstructor := (underlyingSource, strategy) ~> do {
+  r = call("streams", "constructor", [underlyingSource, strategy], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_from: ReadableStreamFrom := (asyncIterable) ~> do {
+  r = call("streams", "from", [asyncIterable], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_get_reader: ReadableStreamGetReader := (options) ~> do {
+  r = call("streams", "getReader", [options], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_pipe_through: ReadableStreamPipeThrough := (transform, options) ~> do {
+  r = call("streams", "pipeThrough", [transform, options], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_pipe_to: ReadableStreamPipeTo := (destination, options) ~> do {
+  r = call("streams", "pipeTo", [destination, options], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_tee: ReadableStreamTee := () ~> do {
+  r = call("streams", "tee", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_reader_constructor: ReadableStreamBYOBReaderConstructor := (stream) ~> do {
+  r = call("streams", "constructor", [stream], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_reader_read: ReadableStreamBYOBReaderRead := (view, options) ~> do {
+  r = call("streams", "read", [view, options], ["js_bytes", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_reader_release_lock: ReadableStreamBYOBReaderReleaseLock := () ~> do {
+  r = call("streams", "releaseLock", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_request_respond: ReadableStreamBYOBRequestRespond := (bytesWritten) ~> do {
+  r = call("streams", "respond", [bytesWritten], ["js_number"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_request_respond_with_new_view: ReadableStreamBYOBRequestRespondWithNewView := (view) ~> do {
+  r = call("streams", "respondWithNewView", [view], ["js_bytes"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_default_controller_close: ReadableStreamDefaultControllerClose := () ~> do {
+  r = call("streams", "close", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_default_controller_enqueue: ReadableStreamDefaultControllerEnqueue := (chunk) ~> do {
+  r = call("streams", "enqueue", [chunk], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_default_controller_error: ReadableStreamDefaultControllerError := (e) ~> do {
+  r = call("streams", "error", [e], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_default_reader_constructor: ReadableStreamDefaultReaderConstructor := (stream) ~> do {
+  r = call("streams", "constructor", [stream], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_default_reader_read: ReadableStreamDefaultReaderRead := () ~> do {
+  r = call("streams", "read", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_default_reader_release_lock: ReadableStreamDefaultReaderReleaseLock := () ~> do {
+  r = call("streams", "releaseLock", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_generic_reader_cancel: ReadableStreamGenericReaderCancel := (reason) ~> do {
+  r = call("streams", "cancel", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transform_stream_constructor: TransformStreamConstructor := (transformer, writableStrategy, readableStrategy) ~> do {
+  r = call("streams", "constructor", [transformer, writableStrategy, readableStrategy], ["js_object", "js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transform_stream_default_controller_enqueue: TransformStreamDefaultControllerEnqueue := (chunk) ~> do {
+  r = call("streams", "enqueue", [chunk], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transform_stream_default_controller_error: TransformStreamDefaultControllerError := (reason) ~> do {
+  r = call("streams", "error", [reason], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transform_stream_default_controller_terminate: TransformStreamDefaultControllerTerminate := () ~> do {
+  r = call("streams", "terminate", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_cancel_callback: TransformerCancelCallback := (reason) ~> do {
+  r = call("streams", "transformer_cancel_callback", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_flush_callback: TransformerFlushCallback := (controller) ~> do {
+  r = call("streams", "transformer_flush_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_start_callback: TransformerStartCallback := (controller) ~> do {
+  r = call("streams", "transformer_start_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transformer_transform_callback: TransformerTransformCallback := (chunk, controller) ~> do {
+  r = call("streams", "transformer_transform_callback", [chunk, controller], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_abort_callback: UnderlyingSinkAbortCallback := (reason) ~> do {
+  r = call("streams", "underlying_sink_abort_callback", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_close_callback: UnderlyingSinkCloseCallback := () ~> do {
+  r = call("streams", "underlying_sink_close_callback", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_start_callback: UnderlyingSinkStartCallback := (controller) ~> do {
+  r = call("streams", "underlying_sink_start_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_sink_write_callback: UnderlyingSinkWriteCallback := (chunk, controller) ~> do {
+  r = call("streams", "underlying_sink_write_callback", [chunk, controller], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_source_cancel_callback: UnderlyingSourceCancelCallback := (reason) ~> do {
+  r = call("streams", "underlying_source_cancel_callback", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_source_pull_callback: UnderlyingSourcePullCallback := (controller) ~> do {
+  r = call("streams", "underlying_source_pull_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export underlying_source_start_callback: UnderlyingSourceStartCallback := (controller) ~> do {
+  r = call("streams", "underlying_source_start_callback", [controller], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_abort: WritableStreamAbort := (reason) ~> do {
+  r = call("streams", "abort", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_close: WritableStreamClose := () ~> do {
+  r = call("streams", "close", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_constructor: WritableStreamConstructor := (underlyingSink, strategy) ~> do {
+  r = call("streams", "constructor", [underlyingSink, strategy], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_get_writer: WritableStreamGetWriter := () ~> do {
+  r = call("streams", "getWriter", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_default_controller_error: WritableStreamDefaultControllerError := (e) ~> do {
+  r = call("streams", "error", [e], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_default_writer_abort: WritableStreamDefaultWriterAbort := (reason) ~> do {
+  r = call("streams", "abort", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_default_writer_close: WritableStreamDefaultWriterClose := () ~> do {
+  r = call("streams", "close", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_default_writer_constructor: WritableStreamDefaultWriterConstructor := (stream) ~> do {
+  r = call("streams", "constructor", [stream], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_default_writer_release_lock: WritableStreamDefaultWriterReleaseLock := () ~> do {
+  r = call("streams", "releaseLock", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export writable_stream_default_writer_write: WritableStreamDefaultWriterWrite := (chunk) ~> do {
+  r = call("streams", "write", [chunk], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

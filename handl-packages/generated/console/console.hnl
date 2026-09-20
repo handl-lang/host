@@ -1,0 +1,82 @@
+--- Generated port for console.console
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/console.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- Logging
+--- js: console.assert
+export ConsoleAssert: (Bool, Handle) ~[1]~> Result<(), JsError>
+
+--- The console.clear() static method clears the console if possible.
+--- js: console.clear
+export ConsoleClear: () ~[1]~> Result<(), JsError>
+
+--- Counting
+--- js: console.count
+export ConsoleCount: (String) ~[1]~> Result<(), JsError>
+
+--- The console.countReset() static method resets counter used with console.count().
+--- js: console.countReset
+export ConsoleCountReset: (String) ~[1]~> Result<(), JsError>
+
+--- The console.debug() static method outputs a message to the console at the "debug" log level. The message is only displayed to the user if the console is configured to display debug output. In most cases, the log level is configured within the console UI. This log level might correspond to the Debug or Verbose log level.
+--- js: console.debug
+export ConsoleDebug: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.dir() static method displays a list of the properties of the specified JavaScript object. In browser consoles, the output is presented as a hierarchical listing with disclosure triangles that let you see the contents of child objects.
+--- js: console.dir
+export ConsoleDir: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The console.dirxml() static method displays an interactive tree of the descendant elements of the specified XML/HTML element. If it is not possible to display as an element the JavaScript Object view is shown instead. The output is presented as a hierarchical listing of expandable nodes that let you see the contents of child nodes.
+--- js: console.dirxml
+export ConsoleDirxml: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.error() static method outputs a message to the console at the "error" log level. The message is only displayed to the user if the console is configured to display error output. In most cases, the log level is configured within the console UI. The message may be formatted as an error, with red colors and call stack information.
+--- js: console.error
+export ConsoleError: (Handle) ~[1]~> Result<(), JsError>
+
+--- Grouping
+--- js: console.group
+export ConsoleGroup: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.groupCollapsed() static method creates a new inline group in the console. Unlike console.group(), however, the new group is created collapsed. The user will need to use the disclosure button next to it to expand it, revealing the entries created in the group.
+--- js: console.groupCollapsed
+export ConsoleGroupCollapsed: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.groupEnd() static method exits the current inline group in the console. See Using groups in the console in the console documentation for details and examples.
+--- js: console.groupEnd
+export ConsoleGroupEnd: () ~[1]~> Result<(), JsError>
+
+--- The console.info() static method outputs a message to the console at the "info" log level. The message is only displayed to the user if the console is configured to display info output. In most cases, the log level is configured within the console UI. The message may receive special formatting, such as a small "i" icon next to it.
+--- js: console.info
+export ConsoleInfo: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.log() static method outputs a message to the console.
+--- js: console.log
+export ConsoleLog: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.table() static method displays tabular data as a table.
+--- js: console.table
+export ConsoleTable: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- Timing
+--- js: console.time
+export ConsoleTime: (String) ~[1]~> Result<(), JsError>
+
+--- The console.timeEnd() static method stops a timer that was previously started by calling console.time().
+--- js: console.timeEnd
+export ConsoleTimeEnd: (String) ~[1]~> Result<(), JsError>
+
+--- The console.timeLog() static method logs the current value of a timer that was previously started by calling console.time().
+--- js: console.timeLog
+export ConsoleTimeLog: (String, Handle) ~[1]~> Result<(), JsError>
+
+--- The console.trace() static method outputs a stack trace to the console.
+--- js: console.trace
+export ConsoleTrace: (Handle) ~[1]~> Result<(), JsError>
+
+--- The console.warn() static method outputs a warning message to the console at the "warning" log level. The message is only displayed to the user if the console is configured to display warning output. In most cases, the log level is configured within the console UI. The message may receive special formatting, such as yellow colors and a warning icon.
+--- js: console.warn
+export ConsoleWarn: (Handle) ~[1]~> Result<(), JsError>

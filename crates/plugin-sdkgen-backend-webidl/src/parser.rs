@@ -945,13 +945,17 @@ impl<'a> Parser<'a> {
             return Some(Member::Constructor { args, doc: None });
         }
 
-        // `iterable<K,V>`/`maplike<K,V>`/`setlike<T>` declare container
-        // semantics — nothing maps into the port.
-        if matches!(self.peek(), Token::Ident(s) if matches!(*s, "iterable" | "maplike" | "setlike"))
+        // `iterable<K,V>`/`maplike<K,V>`/`setlike<T>`/`async_iterable<T>`
+        // declare container semantics — nothing maps into the port.
+        if matches!(self.peek(), Token::Ident(s) if matches!(*s, "iterable" | "maplike" | "setlike" | "async_iterable"))
             && matches!(self.at(1), Token::Sym('<'))
         {
             self.advance();
             self.skip_generic_args();
+            // `async_iterable` may carry an operation-style args list.
+            if self.match_sym('(') {
+                let _ = self.parse_args_body();
+            }
             self.consume_trailing_semi();
             return None;
         }
