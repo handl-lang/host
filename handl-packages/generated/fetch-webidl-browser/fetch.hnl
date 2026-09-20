@@ -54,7 +54,7 @@ export ResponseType_Error: Int := 3
 export ResponseType_Opaque: Int := 4
 export ResponseType_Opaqueredirect: Int := 5
 
-export body_array_buffer: BodyArrayBuffer := () ~[1]~> do {
+export body_array_buffer: BodyArrayBuffer := () ~> do {
   r = call("fetch", "arrayBuffer", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -64,7 +64,7 @@ export body_array_buffer: BodyArrayBuffer := () ~[1]~> do {
   }
 }
 
-export body_blob: BodyBlob := () ~[1]~> do {
+export body_blob: BodyBlob := () ~> do {
   r = call("fetch", "blob", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -74,7 +74,7 @@ export body_blob: BodyBlob := () ~[1]~> do {
   }
 }
 
-export body_bytes: BodyBytes := () ~[1]~> do {
+export body_bytes: BodyBytes := () ~> do {
   r = call("fetch", "bytes", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -84,7 +84,7 @@ export body_bytes: BodyBytes := () ~[1]~> do {
   }
 }
 
-export body_form_data: BodyFormData := () ~[1]~> do {
+export body_form_data: BodyFormData := () ~> do {
   r = call("fetch", "formData", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -94,7 +94,7 @@ export body_form_data: BodyFormData := () ~[1]~> do {
   }
 }
 
-export body_json: BodyJson := () ~[1]~> do {
+export body_json: BodyJson := () ~> do {
   r = call("fetch", "json", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -104,7 +104,7 @@ export body_json: BodyJson := () ~[1]~> do {
   }
 }
 
-export body_text: BodyText := () ~[1]~> do {
+export body_text: BodyText := () ~> do {
   r = call("fetch", "text", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -114,7 +114,7 @@ export body_text: BodyText := () ~[1]~> do {
   }
 }
 
-export body_text_stream: BodyTextStream := () ~[1]~> do {
+export body_text_stream: BodyTextStream := () ~> do {
   r = call("fetch", "textStream", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -124,7 +124,7 @@ export body_text_stream: BodyTextStream := () ~[1]~> do {
   }
 }
 
-export headers_append: HeadersAppend := (name, value) ~[1]~> do {
+export headers_append: HeadersAppend := (name, value) ~> do {
   r = call("fetch", "append", [name, value], ["js_string", "js_string"], "js_void", false)
   e = error()
   if e == null {
@@ -134,7 +134,7 @@ export headers_append: HeadersAppend := (name, value) ~[1]~> do {
   }
 }
 
-export headers_constructor: HeadersConstructor := (init) ~[1]~> do {
+export headers_constructor: HeadersConstructor := (init) ~> do {
   r = call("fetch", "constructor", [init], ["js_object"], "js_void", false)
   e = error()
   if e == null {
@@ -144,7 +144,7 @@ export headers_constructor: HeadersConstructor := (init) ~[1]~> do {
   }
 }
 
-export headers_delete: HeadersDelete := (name) ~[1]~> do {
+export headers_delete: HeadersDelete := (name) ~> do {
   r = call("fetch", "delete", [name], ["js_string"], "js_void", false)
   e = error()
   if e == null {
@@ -154,7 +154,7 @@ export headers_delete: HeadersDelete := (name) ~[1]~> do {
   }
 }
 
-export headers_get: HeadersGet := (name) ~[1]~> do {
+export headers_get: HeadersGet := (name) ~> do {
   r = call("fetch", "get", [name], ["js_string"], "js_object", false)
   e = error()
   if e == null {
@@ -164,7 +164,7 @@ export headers_get: HeadersGet := (name) ~[1]~> do {
   }
 }
 
-export headers_get_set_cookie: HeadersGetSetCookie := () ~[1]~> do {
+export headers_get_set_cookie: HeadersGetSetCookie := () ~> do {
   r = call("fetch", "getSetCookie", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -174,7 +174,7 @@ export headers_get_set_cookie: HeadersGetSetCookie := () ~[1]~> do {
   }
 }
 
-export headers_has: HeadersHas := (name) ~[1]~> do {
+export headers_has: HeadersHas := (name) ~> do {
   r = call("fetch", "has", [name], ["js_string"], "js_boolean", false)
   e = error()
   if e == null {
@@ -184,7 +184,7 @@ export headers_has: HeadersHas := (name) ~[1]~> do {
   }
 }
 
-export headers_set: HeadersSet := (name, value) ~[1]~> do {
+export headers_set: HeadersSet := (name, value) ~> do {
   r = call("fetch", "set", [name, value], ["js_string", "js_string"], "js_void", false)
   e = error()
   if e == null {
@@ -194,7 +194,7 @@ export headers_set: HeadersSet := (name, value) ~[1]~> do {
   }
 }
 
-export request_clone: RequestClone := () ~[1]~> do {
+export request_clone: RequestClone := () ~> do {
   r = call("fetch", "clone", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -204,7 +204,7 @@ export request_clone: RequestClone := () ~[1]~> do {
   }
 }
 
-export request_constructor: RequestConstructor := (input, init) ~[1]~> do {
+export request_constructor: RequestConstructor := (input, init) ~> do {
   r = call("fetch", "constructor", [input, init], ["js_object", "js_object"], "js_void", false)
   e = error()
   if e == null {
@@ -214,7 +214,7 @@ export request_constructor: RequestConstructor := (input, init) ~[1]~> do {
   }
 }
 
-export response_clone: ResponseClone := () ~[1]~> do {
+export response_clone: ResponseClone := () ~> do {
   r = call("fetch", "clone", [], [], "js_object", false)
   e = error()
   if e == null {
@@ -224,7 +224,7 @@ export response_clone: ResponseClone := () ~[1]~> do {
   }
 }
 
-export response_constructor: ResponseConstructor := (body, init) ~[1]~> do {
+export response_constructor: ResponseConstructor := (body, init) ~> do {
   r = call("fetch", "constructor", [body, init], ["js_object", "js_object"], "js_void", false)
   e = error()
   if e == null {
@@ -234,7 +234,7 @@ export response_constructor: ResponseConstructor := (body, init) ~[1]~> do {
   }
 }
 
-export window_fetch_later: WindowFetchLater := (input, init) ~[1]~> do {
+export window_fetch_later: WindowFetchLater := (input, init) ~> do {
   r = call("fetch", "fetchLater", [input, init], ["js_object", "js_object"], "js_object", false)
   e = error()
   if e == null {
@@ -244,7 +244,7 @@ export window_fetch_later: WindowFetchLater := (input, init) ~[1]~> do {
   }
 }
 
-export window_or_worker_global_scope_fetch: WindowOrWorkerGlobalScopeFetch := (input, init) ~[1]~> do {
+export window_or_worker_global_scope_fetch: WindowOrWorkerGlobalScopeFetch := (input, init) ~> do {
   r = call("fetch", "fetch", [input, init], ["js_object", "js_object"], "js_object", false)
   e = error()
   if e == null {
@@ -253,4 +253,3 @@ export window_or_worker_global_scope_fetch: WindowOrWorkerGlobalScopeFetch := (i
     err(e)
   }
 }
-
