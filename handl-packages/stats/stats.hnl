@@ -77,7 +77,7 @@ do {
       [h, ...t]: if elem <= h { [elem, ...sorted] } else { [h, ...(self(self, elem, t))] }
     }
   }
-  sort :: [self, xs] ~> {
+  isort :: [self, xs] ~> {
     match xs {
       []: [],
       [h, ...t]: insert(insert, h, self(self, t))
@@ -175,7 +175,7 @@ do {
 
     median: xs ~> {
       nums :: filter_nums(xs)
-      sorted :: sort(sort, nums)
+      sorted :: isort(isort, nums)
       n :: length(sorted)
       if n == 0 { 0 } else {
         if n % 2 == 1 {
