@@ -191,6 +191,37 @@ fn includes_grafts_mixin_members() {
     );
 }
 
+/// A supplementary spec (`add_include_spec`) supplies mixin definitions
+/// the primary spec references but does not declare — the graft resolves
+/// and the diagnostic clears. Supplementary interfaces are not emitted.
+#[test]
+fn includes_resolve_across_specs() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/includes.webidl");
+    let extra = manifest.join("tests/fixtures/includes-extra.webidl");
+    let mut backend = WebIdlBackend::new(None);
+    backend.add_include_spec(&extra);
+    let module = backend.parse_header(&path).expect("parse fixture");
+
+    let req = module
+        .records
+        .iter()
+        .find(|r| r.name == "Request")
+        .expect("Request record");
+    assert!(
+        req.fields.iter().any(|f| f.name == "extra"),
+        "cross-spec grafted attribute missing"
+    );
+    assert!(
+        !module.records.iter().any(|r| r.name == "SupplementaryOnly"),
+        "supplementary spec emitted a record"
+    );
+    assert_eq!(
+        module.diagnostics,
+        vec!["includes: Ghost is not an interface in this spec"]
+    );
+}
+
 /// Enum constants are gathered through a `HashMap` merge; without a sort the
 /// emitted order varies per run (fresh `RandomState`). Parsing twice in one
 /// process must yield identical output.

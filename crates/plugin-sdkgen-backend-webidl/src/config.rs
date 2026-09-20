@@ -15,6 +15,12 @@ pub struct WebIdlConfig {
     /// Set `false` to disable external doc resolution (MDN web fetches).
     /// Absent = enabled.
     pub external_docs: Option<bool>,
+    /// Supplementary spec files (paths relative to this config file) that
+    /// contribute mixin definitions for cross-spec `X includes Y`
+    /// resolution — e.g. encoding.idl's `GenericTransformStream` lives in
+    /// streams.idl. Their interfaces and records are not emitted.
+    #[serde(default)]
+    pub includes: Vec<String>,
 }
 
 impl WebIdlConfig {

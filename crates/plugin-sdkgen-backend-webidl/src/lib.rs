@@ -5,7 +5,7 @@ use handl_plugin_sdkgen::{
     Typedef, pick_doc,
 };
 use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 mod config;
 mod mdn;
@@ -18,12 +18,24 @@ use parser::{AstDef, Member, Type};
 /// WebIDL parser backend.
 pub struct WebIdlBackend {
     target: Option<String>,
+    /// Supplementary spec files whose `interface mixin` definitions are
+    /// visible to `X includes Y` resolution. Their own interfaces,
+    /// records, typedefs, and constants are not emitted.
+    include_specs: Vec<PathBuf>,
 }
 
 impl WebIdlBackend {
     /// Create a new WebIDL backend with an optional target (defaults to `browser`).
     pub fn new(target: Option<String>) -> Self {
-        Self { target }
+        Self {
+            target,
+            include_specs: Vec::new(),
+        }
+    }
+
+    /// Register a supplementary spec for cross-spec mixin resolution.
+    pub fn add_include_spec(&mut self, path: impl Into<PathBuf>) {
+        self.include_specs.push(path.into());
     }
 
     fn default_target() -> String {
@@ -131,13 +143,32 @@ impl SdkgenBackend for WebIdlBackend {
 
         // Graft each mixin's members onto its includers. Members the
         // target already declares are not duplicated.
-        let mixin_members: HashMap<String, Vec<Member>> = by_key
+        let mut mixin_members: HashMap<String, Vec<Member>> = by_key
             .values()
             .filter_map(|d| match d {
                 AstDef::Mixin { name, members, .. } => Some((name.clone(), members.clone())),
                 _ => None,
             })
             .collect();
+        // Supplementary specs contribute mixin definitions only — used to
+        // resolve cross-spec `includes` (encoding -> streams). Primary
+        // spec mixins win on a name collision.
+        for inc in &self.include_specs {
+            match std::fs::read_to_string(inc) {
+                Ok(src) => {
+                    let (inc_defs, inc_diags) = parser::parse_webidl(&src);
+                    for d in inc_diags {
+                        diags.push(format!("{}: {d}", inc.display()));
+                    }
+                    for d in inc_defs {
+                        if let AstDef::Mixin { name, members, .. } = d {
+                            mixin_members.entry(name).or_insert(members);
+                        }
+                    }
+                }
+                Err(e) => diags.push(format!("failed to read include spec {}: {e}", inc.display())),
+            }
+        }
         for (target, mixin) in includes {
             let Some(members) = mixin_members.get(&mixin) else {
                 diags.push(format!("includes: mixin {mixin} not found (on {target})"));

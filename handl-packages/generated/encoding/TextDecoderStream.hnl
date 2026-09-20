@@ -14,7 +14,11 @@ export TextDecoderStream := {
   --- The fatal read-only property of the TextDecoderStream interface is a Boolean indicating if the error mode of the TextDecoderStream object is set to fatal.
   fatal: Bool,
   --- The ignoreBOM read-only property of the TextDecoderStream interface is a Boolean indicating whether the byte order mark will be included in the output or skipped over.
-  ignoreBOM: Bool
+  ignoreBOM: Bool,
+  --- The readable read-only property of the TextDecoderStream interface returns a ReadableStream that emits decoded strings.
+  readable: Handle,
+  --- The writable read-only property of the TextDecoderStream interface returns a WritableStream that accepts binary data, in the form of ArrayBuffer, TypedArray, or DataView chunks (SharedArrayBuffer and its views are also allowed), to be decoded into strings.
+  writable: Handle
 }
 
 --- The TextDecoderStream() constructor creates a new TextDecoderStream object which is used to convert a stream of text in a binary encoding into strings.

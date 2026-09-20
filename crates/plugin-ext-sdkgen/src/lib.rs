@@ -159,8 +159,8 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 eprintln!("sdkgen: --include/--exclude are only supported for `sdkgen c`");
                 return 2;
             }
-            let config = match config_path {
-                Some(p) => match WebIdlConfig::load(Path::new(&p)) {
+            let config = match config_path.as_deref() {
+                Some(p) => match WebIdlConfig::load(Path::new(p)) {
                     Ok(c) => c,
                     Err(e) => {
                         eprintln!("sdkgen: {e}");
@@ -169,7 +169,17 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 },
                 None => WebIdlConfig::default(),
             };
-            let backend = WebIdlBackend::new(target);
+            let mut backend = WebIdlBackend::new(target);
+            // `includes:` paths are relative to the config file's dir.
+            if let Some(cfg_dir) = config_path
+                .as_deref()
+                .map(Path::new)
+                .and_then(Path::parent)
+            {
+                for inc in &config.includes {
+                    backend.add_include_spec(cfg_dir.join(inc));
+                }
+            }
             let mut module = match backend.parse_header(&header) {
                 Ok(m) => m,
                 Err(e) => {
