@@ -47,7 +47,13 @@ static CRYPTO_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// Get the shared [`HandlModule`] for crypto, initializing it on first call.
 fn crypto_module() -> &'static HandlModule {
-    CRYPTO_MODULE.get_or_init(build_crypto_module)
+    // `with_loader_disabled`: `HandlModule::new`'s `analyze_source` would
+    // otherwise run `loader.analyze` — a nested eval whose `call_host`
+    // misses probe `modules.lookup`, which can re-enter this `OnceLock`
+    // and deadlock. The bootstrap path is pure text transformation.
+    CRYPTO_MODULE.get_or_init(|| {
+        handl_plugin_lib_handl::with_loader_disabled(build_crypto_module)
+    })
 }
 
 /// The `crypto` module — hashing functions.
