@@ -296,8 +296,8 @@ export socket: Socket := (__domain, __type, __protocol) ~> do {
   }
 }
 
-export socketpair: Socketpair := (domain, type, protocol) ~> do {
-  r = ffi.call("libc.so.6", "socketpair", [domain, type, protocol], ["i32", "i32", "i32", "out_ptr:8"], "i32", false)
+export socketpair: Socketpair := (domain, type_, protocol) ~> do {
+  r = ffi.call("libc.so.6", "socketpair", [domain, type_, protocol], ["i32", "i32", "i32", "out_ptr:8"], "i32", false)
   if r.ret < 0 {
     err(ffi.errno())
   } else {
