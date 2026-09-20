@@ -19,7 +19,7 @@ use crate::inference::infer_refinement;
 use crate::types::Pred;
 
 // Embed the actual .hnl stdlib files for testing.
-const BACKTRACK_HNL: &str = include_str!("../../../handl-packages/parse-backtrack/backtrack.hnl");
+const BACKTRACK_HNL: &str = include_str!("../tests/fixtures/parse-backtrack/backtrack.hnl");
 
 // ============================================================================
 // Hand-built backtracking parser graph (matching the .hnl file)
@@ -244,7 +244,7 @@ fn test_backtrack_e2e_load_and_infer() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let path = format!(
-        "{}/../../handl-packages/parse-backtrack/backtrack.hnl",
+        "{}/tests/fixtures/parse-backtrack/backtrack.hnl",
         manifest_dir
     );
     let graph = load_arrow_file(&path).unwrap();
@@ -263,7 +263,7 @@ fn test_backtrack_e2e_infer_file() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let path = format!(
-        "{}/../../handl-packages/parse-backtrack/backtrack.hnl",
+        "{}/tests/fixtures/parse-backtrack/backtrack.hnl",
         manifest_dir
     );
     let result = infer_file(&path, &registry).unwrap();

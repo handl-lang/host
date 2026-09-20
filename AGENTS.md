@@ -487,13 +487,15 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   fallback. The canonical `"str"` is `str-handl`.
 - **`hnl typecheck` dialect routing (dogfood-sweep reconciliation).** Not
   every `.hnl` file is canonical surface syntax: `handl-packages/` mixes
-  three dialects — (a) canonical handl, (b) **contract files**
+  two dialects — (a) canonical handl, (b) **contract files**
   (`axiom <name> : T -> T` + indented `requires:`/`guarantee:`/
-  `termination:` clauses; `contracts/*.hnl`, `str`, `char`, `time`,
-  `unicode`), and (c) **arrow-module files** (top-level `cap`/`op`/`handl`/
-  `tag` declarations and arrow-graph expressions — `arr(`/`first(`/
-  `choice(`/`loop(`/`comp(`/`app(`/`|||`/`rec { ... }` simple form — e.g.
-  `state/*`, `fn/*`, `collection/*`, `parse-*`). `typecheck_one` in
+  `termination:` clauses; `str`, `char`, `time`, `unicode`).
+  (c) **arrow-module files** (top-level `cap`/`op`/`handl`/`tag`
+  declarations and arrow-graph expressions — `arr(`/`first(`/`choice(`/
+  `loop(`/`comp(`/`app(`/`|||`/`rec { ... }` simple form) no longer live
+  in `handl-packages/` — the former `state/*`, `fn/*`, `collection/*`,
+  `contracts/*`, `parse-*` corpus is relocated under
+  `crates/plugin-ext-refinement/tests/fixtures/`. `typecheck_one` in
   `host-cli` now routes: contract files (first top-level line starts with
   `axiom `) go to `plugin_ext_refinement::parse_contracts`; canonical
   parse failures or canonical-files-with-arrow-markers-that-error are
@@ -509,9 +511,9 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
     documented alias). The contract-file `axiom name : sig` dialect still
     belongs to `parse_contracts`, which now also accepts the Unicode
     spellings `→` (arrow), `×` (product), `∧`/`∨` (and/or) used by
-    `handl-packages/contracts/*.hnl`. Note `handl-packages/contracts/` and
-    the crate-bundled `plugin-ext-refinement/contracts/` have **diverged
-    semantically** (the bundled copies are older ASCII variants — e.g.
+    `plugin-ext-refinement/tests/fixtures/contracts/*.hnl`. Note the
+    fixtures copy and the crate-bundled `plugin-ext-refinement/contracts/`
+    have **diverged semantically** (the bundled copies are older ASCII variants — e.g.
     `axiom cons` vs `axiom list.cons`); the loader accepts both spellings
     but the contents differ — reconciling them is a contract-content
     decision left open.

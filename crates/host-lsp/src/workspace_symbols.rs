@@ -68,7 +68,7 @@ pub fn workspace_symbols(
     let arrows_root: Option<PathBuf> = find_arrows_root(root).map(PathBuf::from);
 
     // Locate the contracts directory. It is a child of the kit root
-    // (`.../handl-packages/contracts/`).
+    // (`.../<arrows-root>/contracts/`).
     let contracts_dir: Option<PathBuf> = arrows_root
         .as_ref()
         .map(|ar| ar.join("contracts"))

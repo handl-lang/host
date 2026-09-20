@@ -79,7 +79,6 @@ fn transform_export_to_object(src: &str, is_file_spec: &dyn Fn(&str) -> bool) ->
                 } else {
                     entries.push(entry);
                 }
-                current_is_private = false;
             }
         };
     }

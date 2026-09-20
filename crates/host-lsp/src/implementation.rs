@@ -195,13 +195,13 @@ fn uri_to_path(path: &str) -> String {
     }
 }
 
-/// Compute the handl-packages root directory that is the parent of the
+/// Compute the arrows root directory that is the parent of the
 /// `contracts/` directory containing `contract_path`.
 ///
-/// Given `…/handl-packages/contracts/list.hnl`, returns
-/// `…/handl-packages/` if that directory exists. Falls back to
-/// `find_arrows_root` (which scans for `/handl-packages/` in the path)
-/// when no `/contracts/` segment is present.
+/// Given `…/<arrows-root>/contracts/list.hnl`, returns
+/// `…/<arrows-root>/` if that directory exists. Falls back to
+/// `find_arrows_root` (which scans for `/handl-packages/` or `/fixtures/`
+/// in the path) when no `/contracts/` segment is present.
 fn arrows_root_from_contracts_path(contract_path: &str) -> Option<String> {
     if let Some(idx) = contract_path.find("/contracts/") {
         let root = &contract_path[..idx];
