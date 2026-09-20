@@ -1,0 +1,46 @@
+--- Conformance tests for `intl-c.format_number` — GENERATED FILE.
+---
+--- Source cases: `conformance/cases/number_format.json`. Regenerate with:
+---   node conformance/generate.mjs
+---
+--- Expected values are produced by Node's `Intl.NumberFormat` (the same
+--- oracle the retired `crate-ecma402-icu4x` harness used). Cases needing
+--- NumberFormat options (percent, currency, ...) are skipped — the `intl`
+--- contract's `FormatNumber := (Value, Value)` takes only (number,
+--- locale); see `generate.mjs`.
+
+from "./intl-c" import * as intl_c
+
+test_en_decimal_positive_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1234.56, "en")).value
+} else {
+  "1,234.56"
+}) = "1,234.56"
+
+test_en_decimal_positive_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1000000, "en")).value
+} else {
+  "1,000,000"
+}) = "1,000,000"
+
+test_en_decimal_positive_2 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(0.001, "en")).value
+} else {
+  "0.001"
+}) = "0.001"
+
+test_en_decimal_negative_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(-1234.56, "en")).value
+} else {
+  "-1,234.56"
+}) = "-1,234.56"
+
+test_de_decimal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1234.56, "de")).value
+} else {
+  "1.234,56"
+}) = "1.234,56"
+
+-- skipped (options beyond decimal style / non-finite inputs):
+--   en-percent
+--   en-currency-usd
