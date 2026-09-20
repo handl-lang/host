@@ -5,9 +5,10 @@ idiom rules after. For _why_ the seams exist, see ADR-0044/0077/0083/0096.
 
 ## What stays Rust
 
-Only the calculus vocabulary and irreducible atoms: combinators, `cap`/`op`
-declarations handled by `rust_*` natives, FFI marshalling primitives.
-Everything else — including interfaces to those atoms — is handl.
+Only the calculus vocabulary and irreducible atoms: combinators, effect ops
+(`cap`/`op` + `handle ... with rust_*` natives — the host/FFI seam, _not_
+the abstraction mechanism), FFI marshalling primitives. Everything else —
+including interfaces to those atoms — is handl.
 
 ## Construct map
 
@@ -27,7 +28,7 @@ Everything else — including interfaces to those atoms — is handl.
 | recursion           | `while`/`for` (preferred) or self-application `(self ~> self(self, x))`                           | `examples/handl/destructure.hnl`            |
 | `mut` / `&mut`      | `:=` writeback in `for` bodies; state record threaded through `while`/`rec`; no aliasing          | `{ xs: xs, acc: acc }`                      |
 | `panic!`/`unwrap`   | `result.err(msg)` — fallible arrows return `Result`; no raise/throw in handl                      | `generated/libc` adapters                   |
-| trait + impls       | contract pkg (`axiom`/`op`/`guarantee:`) + backend pkg per impl                                   | `unicode` → `unicode-handl`                 |
+| trait + impls       | type decl + a value of that type — `I := { f: T ~> U }`, `impl: I := { f: ... }`                  | `unicode-handl.hnl`, `time-c`               |
 | module/`impl` block | `do { helpers := ...; { exported: fields } }` — module-as-record                                  | `unicode-handl.hnl`                         |
 | `cargo test`        | `*.test.hnl` + `hnl test`; `test_name := assert expr`                                             | `option/option.test.hnl`                    |
 | dep in Cargo.toml   | `.handl.toml` `[dependencies] name = { path = ... }`                                              | —                                           |
@@ -53,7 +54,8 @@ from "m" import { a, b }          -- named (handl packages need this)
 from "m" import * as m            -- namespace → m.f(...)
 mod.f(...)                        -- host-module fallback (tag, error, str, …);
                                   -- importing `* as mod` is the explicit style
-handle arr f with Mod             -- capability injection (see time-c)
+handle arr f with Mod             -- effect injection — host/native ops only
+                                  -- (see time-c); NOT the trait/impl idiom
 ```
 
 ## FFI descriptor map (ADR-0083)
@@ -82,10 +84,14 @@ wrap in `result.err` at the adapter edge (see `generated/libc`).
 
 ## Idiom rules
 
-1. **Contract first.** Declare the interface (`axiom`/`op`/`guarantee:` or
-   exported types + `cap`) in a neutral package; backends are
-   `name-handl` / `name-c` / `name-native` / `name-stub`. Callers pick the
-   backend by import path (`from "time-c" import { now_ms }`).
+1. **Contract = a type; impl = a value of that type.** Declare the
+   interface as a record/arrow type (`I := { f: T ~> U, ... }`, plus
+   `axiom`/`guarantee:` laws where refinement matters) in a neutral
+   package; a backend (`name-handl` / `name-c` / `name-native` /
+   `name-stub`) exports a value of that type — usually a `do { ...;
+{ f: impl } }` record. Callers pick the backend by import path
+   (`from "time-c" import { now_ms }`). `cap`/`op`/`handle ... with`
+   are for _effects_ (host/FFI ops), never for trait-style abstraction.
 2. **Errors are values — no raise/throw.** Fallible arrows return
    `Result<T, E>`; `error.raise`/`error.try` are host atoms for runtime
    internals, not the handl idiom (legacy corpus usage like
