@@ -5,6 +5,7 @@ use handl_plugin_lib_http_client_std::StdHttpClient;
 use handl_plugin_sdkgen::DocSource;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// Best-effort doc lookup via MDN. Fetches
 /// `https://developer.mozilla.org/en-US/docs/Web/API/<path>/index.json`
@@ -14,6 +15,7 @@ use std::collections::HashMap;
 pub struct MdnDocSource {
     client: StdHttpClient,
     cache: RefCell<HashMap<String, Option<String>>>,
+    cache_path: Option<PathBuf>,
 }
 
 impl MdnDocSource {
@@ -21,6 +23,23 @@ impl MdnDocSource {
         Self {
             client: StdHttpClient,
             cache: RefCell::new(HashMap::new()),
+            cache_path: None,
+        }
+    }
+
+    /// Like [`MdnDocSource::new`] but persists the lookup cache as a JSON
+    /// map at `path` — loaded on construction, written back on drop.
+    /// Repeat sdkgen runs then skip the network entirely for known keys
+    /// (misses are cached too, so 404s don't refetch).
+    pub fn with_disk_cache(path: PathBuf) -> Self {
+        let cache = std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        Self {
+            client: StdHttpClient,
+            cache: RefCell::new(cache),
+            cache_path: Some(path),
         }
     }
 
@@ -65,6 +84,16 @@ fn mdn_paths(key: &str) -> Vec<String> {
             format!("{interface}/{member}"),
             format!("{interface}/{member}_static"),
         ],
+    }
+}
+
+impl Drop for MdnDocSource {
+    fn drop(&mut self) {
+        if let Some(path) = &self.cache_path {
+            if let Ok(json) = serde_json::to_string(&*self.cache.borrow()) {
+                let _ = std::fs::write(path, json);
+            }
+        }
     }
 }
 

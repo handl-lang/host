@@ -4,7 +4,7 @@ use handl_plugin_lib_http_client::{HttpClient, HttpMethod, HttpRequest};
 use handl_plugin_lib_http_client_std::StdHttpClient;
 use handl_plugin_sdkgen::{Emitter, SdkgenBackend};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
-use handl_plugin_sdkgen_backend_webidl::{WebIdlBackend, WebIdlConfig};
+use handl_plugin_sdkgen_backend_webidl::{MdnDocSource, WebIdlBackend, WebIdlConfig};
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -178,7 +178,15 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 }
             };
             module.source = source_url.clone();
-            backend.apply_docs(&mut module, &config, None);
+            // Persistent MDN cache beside the generated output — repeat
+            // regens skip the network for known keys (misses cached too).
+            let mdn = MdnDocSource::with_disk_cache(
+                output_path
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .join(".mdn-cache.json"),
+            );
+            backend.apply_docs(&mut module, &config, Some(&mdn));
             for d in &module.diagnostics {
                 eprintln!("sdkgen: diagnostic: {d}");
             }

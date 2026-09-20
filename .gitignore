@@ -63,3 +63,4 @@ node_modules
 # sdkgen spec inputs fetched via `hnl sdkgen --from-url` (upstream artifacts)
 /handl-packages/generated/*.webidl
 /handl-packages/generated/*.idl
+/handl-packages/generated/.mdn-cache.json
