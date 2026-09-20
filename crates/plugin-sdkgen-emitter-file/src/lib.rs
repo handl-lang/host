@@ -133,6 +133,11 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
         }
         out.push_str(&format!("export {} := {{\n", rec.name));
         for (i, f) in rec.fields.iter().enumerate() {
+            if let Some(d) = &f.doc {
+                for line in d.lines() {
+                    out.push_str(&format!("  --- {}\n", line.trim()));
+                }
+            }
             let comma = if i == rec.fields.len() - 1 { "" } else { "," };
             out.push_str(&format!("  {}: {}{}\n", f.name, f.port, comma));
         }
@@ -149,6 +154,11 @@ fn build_port(module: &SdkgenModule, lib: &str, name: &str) -> String {
     }
 
     for c in &module.enum_constants {
+        if let Some(d) = &c.doc {
+            for line in d.lines() {
+                out.push_str(&format!("--- {}\n", line.trim()));
+            }
+        }
         out.push_str(&format!("export {}: Int\n", c.name));
     }
     if !module.enum_constants.is_empty() {

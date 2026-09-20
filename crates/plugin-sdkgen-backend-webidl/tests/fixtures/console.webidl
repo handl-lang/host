@@ -1,8 +1,10 @@
 // Sample WebIDL fixture covering the supported subset.
 
 [Exposed=Window]
+/// The Event interface is the basis for the DOM event system.
 interface Event {
     readonly attribute DOMString type;
+    /// Whether the event bubbles through the DOM tree.
     attribute boolean bubbles;
     constructor(DOMString type, optional EventInit eventInitDict);
     undefined stopPropagation();

@@ -1,6 +1,7 @@
 //! Handl SDK generator core IR and traits (ADR-0107).
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Platform-agnostic SDK module produced by a backend and consumed by an emitter.
@@ -55,6 +56,9 @@ pub struct Field {
     pub size: usize,
     pub ptr_depth: usize,
     pub is_const: bool,
+    /// Doc comment captured from the spec, if any.
+    #[serde(default)]
+    pub doc: Option<String>,
 }
 
 /// Foreign function.
@@ -93,6 +97,47 @@ pub struct Typedef {
 pub struct EnumConst {
     pub name: String,
     pub value: i64,
+    /// Doc comment captured from the spec, if any.
+    #[serde(default)]
+    pub doc: Option<String>,
+}
+
+/// External, best-effort documentation lookup keyed by symbol name
+/// (`clock_gettime`), record/member path (`sockaddr.sa_family`), or
+/// constant.
+pub trait DocSource {
+    /// The doc for `key`, or `None` when the source has none.
+    fn lookup(&self, key: &str) -> Option<String>;
+}
+
+/// Resolve a single `doc` slot from the three doc layers: hand-written
+/// `overrides`, a comment already captured into the slot, then an
+/// external [`DocSource`].
+///
+/// `keys` are candidate override keys in priority order (e.g. a record
+/// field tries `record.field`); the highest-priority override wins, and
+/// the first key with no override stops at the in-source comment.
+/// `external_key` is the key handed to `source` — `None` disables
+/// external resolution for slots that are not queryable symbols.
+pub fn pick_doc(
+    slot: &mut Option<String>,
+    overrides: &HashMap<String, String>,
+    keys: &[&str],
+    source: Option<&dyn DocSource>,
+    external_key: Option<&str>,
+) {
+    for key in keys {
+        if let Some(doc) = overrides.get(*key) {
+            *slot = Some(doc.clone());
+            return;
+        }
+        if slot.is_some() {
+            return;
+        }
+        if let (Some(source), Some(_)) = (source, external_key) {
+            *slot = source.lookup(key);
+        }
+    }
 }
 
 /// Backend-specific parser from a foreign API description to [`SdkgenModule`].

@@ -4,7 +4,7 @@ use handl_plugin_lib_http_client::{HttpClient, HttpMethod, HttpRequest};
 use handl_plugin_lib_http_client_std::StdHttpClient;
 use handl_plugin_sdkgen::{Emitter, SdkgenBackend};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
-use handl_plugin_sdkgen_backend_webidl::WebIdlBackend;
+use handl_plugin_sdkgen_backend_webidl::{WebIdlBackend, WebIdlConfig};
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -144,6 +144,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 }
             };
             module.source = source_url.clone();
+            backend.apply_docs(&mut module, None);
             for d in &module.diagnostics {
                 eprintln!("sdkgen: diagnostic: {d}");
             }
@@ -154,10 +155,20 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             }
         }
         "webidl" => {
-            if include.is_some() || exclude.is_some() || config_path.is_some() {
-                eprintln!("sdkgen: --include/--exclude/--config are only supported for `sdkgen c`");
+            if include.is_some() || exclude.is_some() {
+                eprintln!("sdkgen: --include/--exclude are only supported for `sdkgen c`");
                 return 2;
             }
+            let config = match config_path {
+                Some(p) => match WebIdlConfig::load(Path::new(&p)) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("sdkgen: {e}");
+                        return 1;
+                    }
+                },
+                None => WebIdlConfig::default(),
+            };
             let backend = WebIdlBackend::new(target);
             let mut module = match backend.parse_header(&header) {
                 Ok(m) => m,
@@ -167,6 +178,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 }
             };
             module.source = source_url.clone();
+            backend.apply_docs(&mut module, &config, None);
             let emitter = FileEmitter::new();
             if let Err(e) = emitter.emit(&module, output_path) {
                 eprintln!("sdkgen: {e}");
@@ -175,7 +187,9 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
         }
         "python" => {
             if target.is_some() || include.is_some() || exclude.is_some() || config_path.is_some() {
-                eprintln!("sdkgen: --target/--include/--exclude/--config are only supported for `sdkgen c`");
+                eprintln!(
+                    "sdkgen: --target/--include/--exclude/--config are only supported for `sdkgen c`/`sdkgen webidl`"
+                );
                 return 2;
             }
             if let Err(e) = generate_python(&header, output_path) {
@@ -216,8 +230,7 @@ fn fetch_spec(url: &str, dir: &Path) -> Result<PathBuf, String> {
         ));
     }
 
-    std::fs::create_dir_all(dir)
-        .map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+    std::fs::create_dir_all(dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
     let path = dir.join(basename);
     std::fs::write(&path, &resp.body)
         .map_err(|e| format!("failed to write {}: {e}", path.display()))?;

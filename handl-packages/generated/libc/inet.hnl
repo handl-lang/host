@@ -513,18 +513,30 @@ export INADDR_MAX_LOCAL_GROUP: Int
 export INET_ADDRSTRLEN: Int
 export INET6_ADDRSTRLEN: Int
 
+--- Convert Internet host address from numbers-and-dots notation in CP
+--- into binary data in network byte order.
 --- ffi: in_addr_t (const char *)
 export InetAddr: (String) ~[1]~> Result<InAddr, Errno>
 
+--- Extract the network number in network byte order from the address
+--- in numbers-and-dots natation starting at CP.
 --- ffi: in_addr_t (const char *)
 export InetNetwork: (String) ~[1]~> Result<InAddr, Errno>
 
+--- Convert from presentation format of an Internet number in buffer
+--- starting at CP to the binary network format and store result for
+--- interface type AF in buffer starting at BUF.
 --- ffi: int (int, const char *restrict, void *restrict)
 export InetPton: (Int, String) ~[1]~> Result<Bytes, Errno>
 
+--- Convert a Internet address in binary network format for interface
+--- type AF in buffer starting at CP to presentation form and place
+--- result in buffer of length LEN astarting at BUF.
 --- ffi:
 export InetNtop: (Int, Bytes, Int) ~[1]~> Result<Bytes, Errno>
 
+--- Convert Internet host address from numbers-and-dots notation in CP
+--- into binary data and store the result in the structure INP.
 export InetAtonResult := {
   ret: Int,
   buf: in_addr
@@ -533,8 +545,13 @@ export InetAtonResult := {
 --- ffi: int (const char *, struct in_addr *)
 export InetAton: (String) ~[1]~> Result<InetAtonResult, Errno>
 
+--- Convert network number for interface type AF from presentation in
+--- buffer starting at CP to network format and store result int
+--- buffer starting at BUF of size LEN.
 --- ffi: int (int, const char *, void *, size_t)
 export InetNetPton: (Int, String, Handle, Size) ~[1]~> Result<Int, Errno>
 
+--- Convert internet address in binary form in LEN bytes starting at CP
+--- a presentation form and place result in BUF.
 --- ffi: char *(int, const unsigned char *, char *)
 export InetNsapNtoa: (Int, String, String) ~[1]~> Result<String, Errno>

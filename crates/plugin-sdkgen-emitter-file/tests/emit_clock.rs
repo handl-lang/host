@@ -24,6 +24,7 @@ fn build_clock_module() -> SdkgenModule {
                 size: 8,
                 ptr_depth: 0,
                 is_const: false,
+                doc: None,
             },
             Field {
                 name: "tv_nsec".to_string(),
@@ -33,6 +34,7 @@ fn build_clock_module() -> SdkgenModule {
                 size: 8,
                 ptr_depth: 0,
                 is_const: false,
+                doc: None,
             },
         ],
         size: 16,

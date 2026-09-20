@@ -5,6 +5,7 @@
 
 /** A point in 2D space. */
 struct point {
+    /* X coordinate. */
     int x;
     long long y;
 };
@@ -17,6 +18,7 @@ struct sockaddr {
 
 /** Add two integers. */
 int add(int a, int b);
+/* Move a point by (dx, dy). */
 int move_point(struct point *p, int dx, int dy);
 
 /** Send bytes on a socket. */
@@ -33,10 +35,15 @@ int sock_setopt(int fd, int level, int name, const void *optval, socklen_t optle
 /** Function-like macros are not constants. */
 #define TEST_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-enum { ANON_ONE = 1, ANON_TWO = 2 };
+enum {
+    /** The first constant. */
+    ANON_ONE = 1,
+    ANON_TWO = 2,
+};
 
 /** An opaque context — incomplete, never defined. */
 struct opaque_ctx;
+// Ping an opaque context.
 int opaque_ping(struct opaque_ctx *ctx);
 
 /** Read a message, returning a borrowed string. */

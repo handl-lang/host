@@ -10,9 +10,12 @@ export timespec := {
   tv_nsec: Int
 }
 
+--- Time used by the program so far (user time + system time).
+--- The result / CLOCKS_PER_SEC is program time in seconds.
 --- ffi: clock_t (void)
 export Clock: () ~[1]~> Result<Int, Errno>
 
+--- Return the current time and put it in *TIMER if TIMER is not NULL.
 export TimeResult := {
   ret: Int,
   buf: Bytes,
@@ -22,9 +25,13 @@ export TimeResult := {
 --- ffi:
 export Time: () ~[1]~> Result<TimeResult, Errno>
 
+--- Return the difference between TIME1 and TIME0.
 --- ffi: double (time_t, time_t)
 export Difftime: (Time, Time) ~[1]~> Result<Float, Errno>
 
+--- Pause execution for a number of nanoseconds.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
 export NanosleepResult := {
   ret: Int,
   buf: timespec
@@ -33,6 +40,7 @@ export NanosleepResult := {
 --- ffi: int (const struct timespec *, struct timespec *)
 export Nanosleep: (timespec) ~[1]~> Result<NanosleepResult, Errno>
 
+--- Get resolution of clock CLOCK_ID.
 export ClockGetresResult := {
   ret: Int,
   buf: timespec
@@ -41,6 +49,7 @@ export ClockGetresResult := {
 --- ffi: int (clockid_t, struct timespec *)
 export ClockGetres: (ClockId) ~[1]~> Result<ClockGetresResult, Errno>
 
+--- Get current value of clock CLOCK_ID and store it in TP.
 export ClockGettimeResult := {
   ret: Int,
   buf: timespec
@@ -49,5 +58,6 @@ export ClockGettimeResult := {
 --- ffi: int (clockid_t, struct timespec *)
 export ClockGettime: (ClockId) ~[1]~> Result<ClockGettimeResult, Errno>
 
+--- Set clock CLOCK_ID to value TP.
 --- ffi: int (clockid_t, const struct timespec *)
 export ClockSettime: (ClockId, timespec) ~[1]~> Result<Int, Errno>

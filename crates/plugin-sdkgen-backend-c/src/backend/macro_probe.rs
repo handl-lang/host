@@ -82,6 +82,10 @@ pub(crate) fn eval_macros(
                 out.push(EnumConst {
                     name: macro_name.to_string(),
                     value,
+                    // The probe TU holds synthesized `enum { … }` — the
+                    // macro's own comment lives on the main TU's cursor,
+                    // which is where the caller fills this in.
+                    doc: None,
                 });
             }
         }

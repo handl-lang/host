@@ -11,7 +11,7 @@ use glob::Pattern;
 use handl_plugin_sdkgen::{EnumConst, SdkgenModule};
 use std::ffi::c_void;
 
-use crate::cx::{children_of_kind, cursor_name, from_main_file, is_system_header};
+use crate::cx::{children_of_kind, cursor_name, doc_comment, from_main_file, is_system_header};
 
 /// Buckets of collected cursors plus the `include`/`exclude`/`constants`
 /// filters.
@@ -148,6 +148,10 @@ pub(crate) fn collect_enum(
             continue;
         }
         let value = unsafe { clang_getEnumConstantDeclValue(c) };
-        module.enum_constants.push(EnumConst { name, value });
+        module.enum_constants.push(EnumConst {
+            name,
+            value,
+            doc: doc_comment(c),
+        });
     }
 }

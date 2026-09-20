@@ -29,6 +29,17 @@ fn parses_console_webidl() {
     assert!(event.fields[0].is_const);
     assert_eq!(event.fields[1].descriptor, "bool");
 
+    // In-source docs: the interface comment becomes the record doc and
+    // the member comment lands on its field.
+    assert!(event.doc.as_deref().unwrap().contains("basis for the DOM"));
+    assert!(
+        event.fields[1]
+            .doc
+            .as_deref()
+            .unwrap()
+            .contains("bubbles through")
+    );
+
     let event_init = module
         .records
         .iter()
@@ -101,6 +112,43 @@ fn parses_console_webidl() {
         .find(|c| c.name == "ShadowRootMode_Closed")
         .expect("Closed");
     assert_eq!(closed.value, 1);
+}
+
+/// `static` ops, `stringifier attribute`, bare `stringifier;`, and
+/// `iterable<K,V>` members must parse without diagnostics — statics map to
+/// functions, the stringifier attribute to a readonly field, and the
+/// container/stringifier markers drop cleanly.
+#[test]
+fn parses_extended_member_forms() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/members.webidl");
+    let backend = WebIdlBackend::new(None);
+    let module = backend.parse_header(&path).expect("parse fixture");
+
+    assert!(module.diagnostics.is_empty(), "{:?}", module.diagnostics);
+
+    let widget = module
+        .records
+        .iter()
+        .find(|r| r.name == "Widget")
+        .expect("Widget record");
+    assert_eq!(
+        widget.fields.iter().map(|f| &f.name).collect::<Vec<_>>(),
+        vec!["href", "origin"]
+    );
+
+    for port in ["WidgetFind", "WidgetCanFind"] {
+        assert!(
+            module.functions.iter().any(|f| f.port_name == port),
+            "missing {port}"
+        );
+    }
+    let find = module
+        .functions
+        .iter()
+        .find(|f| f.port_name == "WidgetFind")
+        .unwrap();
+    assert_eq!(find.arg_descriptors, &["js_string"]);
 }
 
 /// Enum constants are gathered through a `HashMap` merge; without a sort the

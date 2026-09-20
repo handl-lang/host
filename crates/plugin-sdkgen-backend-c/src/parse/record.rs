@@ -88,5 +88,6 @@ fn parse_field(cursor: CXCursor) -> Result<Field, String> {
         size: size as usize,
         ptr_depth,
         is_const: unsafe { clang_isConstQualifiedType(ty) != 0 },
+        doc: doc_comment(cursor),
     })
 }

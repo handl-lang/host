@@ -25,7 +25,7 @@ mod cx;
 mod map;
 mod parse;
 
-pub use backend::CBackend;
+pub use backend::{CBackend, ManPageDocSource};
 pub use config::{SdkgenConfig, SymbolOverride};
 
 #[cfg(test)]

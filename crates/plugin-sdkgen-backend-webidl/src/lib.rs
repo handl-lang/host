@@ -1,13 +1,18 @@
 //! WebIDL backend for the Handl SDK generator (ADR-0113).
 
 use handl_plugin_sdkgen::{
-    Arg, EnumConst, Field, Function, Record, SdkgenBackend, SdkgenError, SdkgenModule, Typedef,
+    Arg, DocSource, EnumConst, Field, Function, Record, SdkgenBackend, SdkgenError, SdkgenModule,
+    Typedef, pick_doc,
 };
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
-#[allow(dead_code)]
+mod config;
+mod mdn;
 mod parser;
+
+pub use config::WebIdlConfig;
+pub use mdn::MdnDocSource;
 use parser::{AstDef, Member, Type};
 
 /// WebIDL parser backend.
@@ -23,6 +28,62 @@ impl WebIdlBackend {
 
     fn default_target() -> String {
         "browser".into()
+    }
+
+    /// Layer `docs:` overrides and an optional external [`DocSource`]
+    /// (e.g. [`MdnDocSource`]) over comments captured from the spec. Per
+    /// slot: override > in-source comment > external lookup. Keys are
+    /// `Interface.member` c_decls (snake `interface_member` and port
+    /// `InterfaceMember` spellings also match overrides), `Interface`,
+    /// `Interface.field`, and typedef/constant names.
+    ///
+    /// When `external_docs` is not `false` (the default) and no `source`
+    /// is supplied, an [`MdnDocSource`] is auto-created and consulted.
+    pub fn apply_docs(
+        &self,
+        module: &mut SdkgenModule,
+        config: &WebIdlConfig,
+        source: Option<&dyn DocSource>,
+    ) {
+        let docs = &config.docs;
+        // Respect `external_docs: false` — skip external lookup entirely.
+        // Otherwise auto-create an MDN source if the caller gave none.
+        let fallback = if config.external_docs != Some(false) && source.is_none() {
+            Some(MdnDocSource::new())
+        } else {
+            None
+        };
+        let src: Option<&dyn DocSource> = if config.external_docs == Some(false) {
+            None
+        } else {
+            source.or_else(|| fallback.as_ref().map(|s| s as &dyn DocSource))
+        };
+        for f in &mut module.functions {
+            // `Intf.member` c_decls map to MDN member pages; callback
+            // c_decls (`callback Name(...)`) have no page.
+            let external =
+                (f.c_decl.contains('.') && !f.c_decl.contains(' ')).then_some(f.c_decl.as_str());
+            pick_doc(
+                &mut f.doc,
+                docs,
+                &[&f.c_decl, &f.name, &f.port_name],
+                src,
+                external,
+            );
+        }
+        for r in &mut module.records {
+            pick_doc(&mut r.doc, docs, &[&r.name], src, Some(&r.name));
+            for f in &mut r.fields {
+                let key = format!("{}.{}", r.name, f.name);
+                pick_doc(&mut f.doc, docs, &[&key], src, Some(&key));
+            }
+        }
+        for t in &mut module.typedefs {
+            pick_doc(&mut t.doc, docs, &[&t.name], None, None);
+        }
+        for c in &mut module.enum_constants {
+            pick_doc(&mut c.doc, docs, &[&c.name], None, None);
+        }
     }
 }
 
@@ -65,9 +126,15 @@ impl SdkgenBackend for WebIdlBackend {
 
         for def in by_key.into_values() {
             match def {
-                AstDef::Interface { name, members, .. }
-                | AstDef::Mixin { name, members, .. }
-                | AstDef::Dictionary { name, members, .. } => {
+                AstDef::Interface {
+                    name, members, doc, ..
+                }
+                | AstDef::Mixin {
+                    name, members, doc, ..
+                }
+                | AstDef::Dictionary {
+                    name, members, doc, ..
+                } => {
                     let mut fields = Vec::new();
                     for m in &members {
                         if let Some(field) = member_to_field(m) {
@@ -81,7 +148,7 @@ impl SdkgenBackend for WebIdlBackend {
                             fields,
                             size: 0,
                             align: 0,
-                            doc: None,
+                            doc,
                         },
                     );
                     for m in &members {
@@ -97,15 +164,16 @@ impl SdkgenBackend for WebIdlBackend {
                         }
                     }
                 }
-                AstDef::Enum { name, values } => {
+                AstDef::Enum { name, values, .. } => {
                     for (i, v) in values.iter().enumerate() {
                         enum_constants.push(EnumConst {
-                            name: format!("{name}_{}", to_pascal(v)),
+                            name: format!("{name}_{}", to_pascal(&v.name)),
                             value: i as i64,
+                            doc: v.doc.clone(),
                         });
                     }
                 }
-                AstDef::Typedef { name, ty } => {
+                AstDef::Typedef { name, ty, doc } => {
                     let (port, descriptor) = map_type(&ty);
                     typedefs.insert(
                         name.clone(),
@@ -113,7 +181,7 @@ impl SdkgenBackend for WebIdlBackend {
                             name,
                             port,
                             descriptor,
-                            doc: None,
+                            doc,
                         },
                     );
                 }
@@ -121,9 +189,10 @@ impl SdkgenBackend for WebIdlBackend {
                     name,
                     return_ty,
                     args,
+                    doc,
                     ..
                 } => {
-                    if let Some(f) = callback_to_function(&name, &return_ty, &args) {
+                    if let Some(f) = callback_to_function(&name, &return_ty, &args, doc) {
                         functions.insert((name.clone(), f.name.clone()), f);
                     }
                 }
@@ -143,7 +212,12 @@ impl SdkgenBackend for WebIdlBackend {
 
 fn member_to_field(m: &Member) -> Option<Field> {
     match m {
-        Member::Attribute { name, ty, readonly } => {
+        Member::Attribute {
+            name,
+            ty,
+            readonly,
+            doc,
+        } => {
             let (port, descriptor) = map_type(ty);
             Some(Field {
                 name: name.clone(),
@@ -153,9 +227,10 @@ fn member_to_field(m: &Member) -> Option<Field> {
                 size: 0,
                 ptr_depth: 0,
                 is_const: *readonly,
+                doc: doc.clone(),
             })
         }
-        Member::DictionaryField { name, ty, .. } => {
+        Member::DictionaryField { name, ty, doc, .. } => {
             let (port, descriptor) = map_type(ty);
             Some(Field {
                 name: name.clone(),
@@ -165,6 +240,7 @@ fn member_to_field(m: &Member) -> Option<Field> {
                 size: 0,
                 ptr_depth: 0,
                 is_const: false,
+                doc: doc.clone(),
             })
         }
         _ => None,
@@ -172,13 +248,14 @@ fn member_to_field(m: &Member) -> Option<Field> {
 }
 
 fn member_to_function(intf: &str, m: &Member) -> Option<Function> {
-    let (op_name, return_ty, args) = match m {
+    let (op_name, return_ty, args, doc) = match m {
         Member::Operation {
             name,
             return_ty,
             args,
-        } => (name.clone(), return_ty, args),
-        Member::Constructor { args } => ("constructor".into(), &Type::Void, args),
+            doc,
+        } => (name.clone(), return_ty, args, doc.clone()),
+        Member::Constructor { args, doc } => ("constructor".into(), &Type::Void, args, doc.clone()),
         _ => return None,
     };
     let snake = to_snake(&op_name);
@@ -186,7 +263,7 @@ fn member_to_function(intf: &str, m: &Member) -> Option<Function> {
     let port_name = format!("{}{}", to_pascal(intf), to_pascal(&to_snake(&op_name)));
     let c_decl = format!("{}.{}", intf, op_name);
     Some(build_function(
-        &full_name, port_name, return_ty, args, c_decl,
+        &full_name, port_name, return_ty, args, c_decl, doc,
     ))
 }
 
@@ -194,6 +271,7 @@ fn callback_to_function(
     name: &str,
     return_ty: &Type,
     args: &[parser::Argument],
+    doc: Option<String>,
 ) -> Option<Function> {
     let port_name = to_pascal(&to_snake(name));
     let c_decl = format!(
@@ -210,6 +288,7 @@ fn callback_to_function(
         return_ty,
         args,
         c_decl,
+        doc,
     ))
 }
 
@@ -219,6 +298,7 @@ fn build_function(
     return_ty: &Type,
     args: &[parser::Argument],
     c_decl: String,
+    doc: Option<String>,
 ) -> Function {
     let mut port_args = Vec::new();
     let mut arg_descriptors = Vec::new();
@@ -245,7 +325,7 @@ fn build_function(
         out_struct: None,
         variadic,
         c_decl,
-        doc: None,
+        doc,
     }
 }
 

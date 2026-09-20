@@ -1,9 +1,8 @@
 --- Generated adapter for fetch-webidl-browser/fetch
---- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/fetch.idl
 
 from "js" import { call, error }
 from "result" import { ok, err }
-from "../fetch/fetch" import { Body, DeferredRequestInit, FetchLaterResult, Headers, Request, RequestInit, Response, ResponseInit, Window, WindowOrWorkerGlobalScope, BodyArrayBuffer, BodyBlob, BodyBytes, BodyFormData, BodyJson, BodyText, BodyTextStream, HeadersAppend, HeadersConstructor, HeadersDelete, HeadersGet, HeadersGetSetCookie, HeadersHas, HeadersSet, RequestClone, RequestConstructor, ResponseClone, ResponseConstructor, WindowFetchLater, WindowOrWorkerGlobalScopeFetch }
+from "../fetch/fetch" import { Body, DeferredRequestInit, FetchLaterResult, Headers, Request, RequestInit, Response, ResponseInit, Window, WindowOrWorkerGlobalScope, BodyArrayBuffer, BodyBlob, BodyBytes, BodyFormData, BodyJson, BodyText, BodyTextStream, HeadersAppend, HeadersConstructor, HeadersDelete, HeadersGet, HeadersGetSetCookie, HeadersHas, HeadersSet, RequestClone, RequestConstructor, ResponseClone, ResponseConstructor, ResponseError, ResponseJson, ResponseRedirect, WindowFetchLater, WindowOrWorkerGlobalScopeFetch }
 
 export RequestCache_Default: Int := 0
 export RequestCache_ForceCache: Int := 4
@@ -226,6 +225,36 @@ export response_clone: ResponseClone := () ~> do {
 
 export response_constructor: ResponseConstructor := (body, init) ~> do {
   r = call("fetch", "constructor", [body, init], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_error: ResponseError := () ~> do {
+  r = call("fetch", "error", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_json: ResponseJson := (data, init) ~> do {
+  r = call("fetch", "json", [data, init], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export response_redirect: ResponseRedirect := (url, status) ~> do {
+  r = call("fetch", "redirect", [url, status], ["js_string", "js_number"], "js_object", false)
   e = error()
   if e == null {
     ok(r)

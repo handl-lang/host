@@ -13,18 +13,27 @@ export sockaddr_storage := {
   __ss_align: Nat
 }
 
+--- Structure describing an Internet socket address.
 export sockaddr_in := {
   sin_family: SaFamily,
+  --- Port number.
   sin_port: InPort,
+  --- Internet address.
   sin_addr: in_addr,
+  --- Pad to size of `struct sockaddr'.
   sin_zero: Bytes
 }
 
+--- Ditto, for IPv6.
 export sockaddr_in6 := {
   sin6_family: SaFamily,
+  --- Transport layer port #
   sin6_port: InPort,
+  --- IPv6 flow information
   sin6_flowinfo: Uint32,
+  --- IPv6 address
   sin6_addr: in6_addr,
+  --- IPv6 scope-id
   sin6_scope_id: Uint32
 }
 
@@ -67,69 +76,127 @@ export SCM_PIDFD: Int
 export SHUT_RD: Int
 export SHUT_WR: Int
 export SHUT_RDWR: Int
+--- Dummy protocol for TCP.
 export IPPROTO_IP: Int
+--- Internet Control Message Protocol.
 export IPPROTO_ICMP: Int
+--- Internet Group Management Protocol.
 export IPPROTO_IGMP: Int
+--- IPIP tunnels (older KA9Q tunnels use 94).
 export IPPROTO_IPIP: Int
+--- Transmission Control Protocol.
 export IPPROTO_TCP: Int
+--- Exterior Gateway Protocol.
 export IPPROTO_EGP: Int
+--- PUP protocol.
 export IPPROTO_PUP: Int
+--- User Datagram Protocol.
 export IPPROTO_UDP: Int
+--- XNS IDP protocol.
 export IPPROTO_IDP: Int
+--- SO Transport Protocol Class 4.
 export IPPROTO_TP: Int
+--- Datagram Congestion Control Protocol.
 export IPPROTO_DCCP: Int
+--- IPv6 header.
 export IPPROTO_IPV6: Int
+--- Reservation Protocol.
 export IPPROTO_RSVP: Int
+--- General Routing Encapsulation.
 export IPPROTO_GRE: Int
+--- encapsulating security payload.
 export IPPROTO_ESP: Int
+--- authentication header.
 export IPPROTO_AH: Int
+--- Multicast Transport Protocol.
 export IPPROTO_MTP: Int
+--- IP option pseudo header for BEET.
 export IPPROTO_BEETPH: Int
+--- Encapsulation Header.
 export IPPROTO_ENCAP: Int
+--- Protocol Independent Multicast.
 export IPPROTO_PIM: Int
+--- Compression Header Protocol.
 export IPPROTO_COMP: Int
+--- Layer 2 Tunnelling Protocol.
 export IPPROTO_L2TP: Int
+--- Stream Control Transmission Protocol.
 export IPPROTO_SCTP: Int
+--- UDP-Lite protocol.
 export IPPROTO_UDPLITE: Int
+--- MPLS in IP.
 export IPPROTO_MPLS: Int
+--- Ethernet-within-IPv6 Encapsulation.
 export IPPROTO_ETHERNET: Int
+--- AGGFRAG in ESP (RFC 9347).
 export IPPROTO_AGGFRAG: Int
+--- Raw IP packets.
 export IPPROTO_RAW: Int
+--- Shared Memory Communications.
 export IPPROTO_SMC: Int
+--- Multipath TCP connection.
 export IPPROTO_MPTCP: Int
 export IPPROTO_MAX: Int
+--- IPv6 Hop-by-Hop options.
 export IPPROTO_HOPOPTS: Int
+--- IPv6 routing header.
 export IPPROTO_ROUTING: Int
+--- IPv6 fragmentation header.
 export IPPROTO_FRAGMENT: Int
+--- ICMPv6.
 export IPPROTO_ICMPV6: Int
+--- IPv6 no next header.
 export IPPROTO_NONE: Int
+--- IPv6 destination options.
 export IPPROTO_DSTOPTS: Int
+--- IPv6 mobility header.
 export IPPROTO_MH: Int
+--- Echo service.
 export IPPORT_ECHO: Int
+--- Discard transmissions service.
 export IPPORT_DISCARD: Int
+--- System status service.
 export IPPORT_SYSTAT: Int
+--- Time of day service.
 export IPPORT_DAYTIME: Int
+--- Network status service.
 export IPPORT_NETSTAT: Int
+--- File Transfer Protocol.
 export IPPORT_FTP: Int
+--- Telnet protocol.
 export IPPORT_TELNET: Int
+--- Simple Mail Transfer Protocol.
 export IPPORT_SMTP: Int
+--- Timeserver service.
 export IPPORT_TIMESERVER: Int
+--- Domain Name Service.
 export IPPORT_NAMESERVER: Int
+--- Internet Whois service.
 export IPPORT_WHOIS: Int
 export IPPORT_MTP: Int
+--- Trivial File Transfer Protocol.
 export IPPORT_TFTP: Int
 export IPPORT_RJE: Int
+--- Finger service.
 export IPPORT_FINGER: Int
 export IPPORT_TTYLINK: Int
+--- SUPDUP protocol.
 export IPPORT_SUPDUP: Int
+--- execd service.
 export IPPORT_EXECSERVER: Int
+--- rlogind service.
 export IPPORT_LOGINSERVER: Int
 export IPPORT_CMDSERVER: Int
 export IPPORT_EFSSERVER: Int
+--- UDP ports.
 export IPPORT_BIFFUDP: Int
+--- UDP ports.
 export IPPORT_WHOSERVER: Int
+--- UDP ports.
 export IPPORT_ROUTESERVER: Int
+--- Ports less than this value are reserved for privileged processes.
 export IPPORT_RESERVED: Int
+--- Ports greater this value are reserved for (non-privileged) servers.
 export IPPORT_USERRESERVED: Int
 export unix: Int
 export linux: Int
@@ -531,6 +598,11 @@ export INADDR_MAX_LOCAL_GROUP: Int
 export INET_ADDRSTRLEN: Int
 export INET6_ADDRSTRLEN: Int
 
+--- Functions to convert between host and network byte order.
+--- Please note that these functions normally take `unsigned long int' or
+--- `unsigned short int' values as arguments and also return them.  But
+--- this was a short-sighted decision since on different systems the types
+--- may have different representations but the values are always the same.
 --- ffi: uint32_t (uint32_t)
 export Ntohl: (Uint32) ~[1]~> Result<Uint32, Errno>
 
@@ -543,6 +615,7 @@ export Htonl: (Uint32) ~[1]~> Result<Uint32, Errno>
 --- ffi: uint16_t (uint16_t)
 export Htons: (Uint16) ~[1]~> Result<Uint16, Errno>
 
+--- Bind socket to a privileged IP port.
 export BindresvportResult := {
   ret: Int,
   buf: sockaddr_in
@@ -551,6 +624,7 @@ export BindresvportResult := {
 --- ffi: int (int, struct sockaddr_in *)
 export Bindresvport: (Int) ~[1]~> Result<BindresvportResult, Errno>
 
+--- The IPv6 version of this function.
 export Bindresvport6Result := {
   ret: Int,
   buf: sockaddr_in6
@@ -559,6 +633,7 @@ export Bindresvport6Result := {
 --- ffi: int (int, struct sockaddr_in6 *)
 export Bindresvport6: (Int) ~[1]~> Result<Bindresvport6Result, Errno>
 
+--- Obsolete hop-by-hop and Destination Options Processing (RFC 2292).
 --- ffi: int (int)
 export Inet6OptionSpace: (Int) ~[1]~> Result<Int, Errno>
 
@@ -568,6 +643,7 @@ export Inet6OptionAppend: (Handle, String, Int, Int) ~[1]~> Result<Int, Errno>
 --- ffi: uint8_t *(struct cmsghdr *, int, int, int)
 export Inet6OptionAlloc: (Handle, Int, Int, Int) ~[1]~> Result<String, Errno>
 
+--- Hop-by-Hop and Destination Options Processing (RFC 3542).
 --- ffi: int (void *, socklen_t)
 export Inet6OptInit: (Handle, Socklen) ~[1]~> Result<Int, Errno>
 
@@ -580,6 +656,7 @@ export Inet6OptSetVal: (Handle, Int, Handle, Socklen) ~[1]~> Result<Int, Errno>
 --- ffi: int (void *, int, void *, socklen_t)
 export Inet6OptGetVal: (Handle, Int, Handle, Socklen) ~[1]~> Result<Int, Errno>
 
+--- Routing Header Option (RFC 3542).
 --- ffi: socklen_t (int, int)
 export Inet6RthSpace: (Int, Int) ~[1]~> Result<Socklen, Errno>
 
@@ -589,5 +666,6 @@ export Inet6RthInit: (Handle, Socklen, Int, Int) ~[1]~> Result<Handle, Errno>
 --- ffi: int (void *, const struct in6_addr *)
 export Inet6RthAdd: (Handle, Handle) ~[1]~> Result<Int, Errno>
 
+--- Set source filter.
 --- ffi: int (int, uint32_t, const struct sockaddr *, socklen_t, uint32_t, uint32_t, const struct sockaddr_storage *)
 export Setsourcefilter: (Int, Uint32, Bytes, Uint32, Uint32, sockaddr_storage) ~[1]~> Result<Int, Errno>

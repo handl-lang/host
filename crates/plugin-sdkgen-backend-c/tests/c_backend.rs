@@ -1,5 +1,5 @@
-use handl_plugin_sdkgen::SdkgenBackend;
-use handl_plugin_sdkgen_backend_c::CBackend;
+use handl_plugin_sdkgen::{DocSource, SdkgenBackend};
+use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use std::path::Path;
 
 #[test]
@@ -229,4 +229,156 @@ fn only_filter_matches_records() {
     assert_eq!(module.records.len(), 1);
     assert_eq!(module.records[0].name, "point");
     assert!(module.functions.is_empty());
+}
+
+#[test]
+fn captures_plain_in_source_comments() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/simple.h");
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
+    let module = backend.parse_header(&path).expect("parse header");
+
+    // A plain, non-doxygen block comment is captured verbatim.
+    let mv = module
+        .functions
+        .iter()
+        .find(|f| f.name == "move_point")
+        .expect("move_point function");
+    assert_eq!(mv.doc.as_deref(), Some("Move a point by (dx, dy)."));
+
+    // So is a `//` line comment.
+    let ping = module
+        .functions
+        .iter()
+        .find(|f| f.name == "opaque_ping")
+        .expect("opaque_ping function");
+    assert_eq!(ping.doc.as_deref(), Some("Ping an opaque context."));
+
+    // Record fields carry their own comments.
+    let point = module
+        .records
+        .iter()
+        .find(|r| r.name == "point")
+        .expect("point record");
+    assert_eq!(point.fields[0].name, "x");
+    assert!(
+        point.fields[0]
+            .doc
+            .as_deref()
+            .unwrap()
+            .contains("X coordinate")
+    );
+
+    // Enum constants do too.
+    let one = module
+        .enum_constants
+        .iter()
+        .find(|c| c.name == "ANON_ONE")
+        .expect("ANON_ONE constant");
+    assert_eq!(one.doc.as_deref(), Some("The first constant."));
+    // (Evaluated macros get their doc from the macro cursor of the main TU;
+    // libclang only reports a raw comment for macro cursors when the host
+    // clang attaches one, so there is nothing to assert for them here.)
+}
+
+#[test]
+fn apply_docs_prefers_overrides_and_fills_record_fields() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/simple.h");
+    let config = SdkgenConfig {
+        docs: [
+            ("add".to_string(), "override".to_string()),
+            ("point.y".to_string(), "Y coordinate override.".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    let backend = CBackend::new(None, config, None, None).unwrap();
+    let mut module = backend.parse_header(&path).expect("parse header");
+
+    // Before `apply_docs`, `add` carries its header comment.
+    let add = module
+        .functions
+        .iter()
+        .find(|f| f.name == "add")
+        .expect("add function");
+    assert!(add.doc.as_deref().unwrap().contains("Add two"));
+
+    backend.apply_docs(&mut module, None);
+
+    // A symbol-name override beats the in-source comment...
+    let add = module
+        .functions
+        .iter()
+        .find(|f| f.name == "add")
+        .expect("add function");
+    assert_eq!(add.doc.as_deref(), Some("override"));
+
+    // ...and a `record.field` override reaches the field. `x` has no
+    // override, so its header comment survives.
+    let point = module
+        .records
+        .iter()
+        .find(|r| r.name == "point")
+        .expect("point record");
+    assert_eq!(point.fields[0].doc.as_deref(), Some("X coordinate."));
+    assert_eq!(
+        point.fields[1].doc.as_deref(),
+        Some("Y coordinate override.")
+    );
+}
+
+/// A [`DocSource`] that documents every key it is asked about.
+struct StubSource;
+
+impl DocSource for StubSource {
+    fn lookup(&self, key: &str) -> Option<String> {
+        Some(format!("man:{key}"))
+    }
+}
+
+#[test]
+fn apply_docs_consults_external_source_only_without_comment() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/simple.h");
+    let backend = CBackend::new(None, Default::default(), None, None).unwrap();
+    let mut module = backend.parse_header(&path).expect("parse header");
+    backend.apply_docs(&mut module, Some(&StubSource));
+
+    // An undocumented symbol picks up the external doc; record fields and
+    // enum constants are not man-page queryable, so they keep their own
+    // (possibly absent) in-source doc.
+    let flags = module
+        .functions
+        .iter()
+        .find(|f| f.name == "flags_check")
+        .expect("flags_check function");
+    assert_eq!(flags.doc.as_deref(), Some("man:flags_check"));
+    let point = module
+        .records
+        .iter()
+        .find(|r| r.name == "point")
+        .expect("point record");
+    assert_eq!(point.fields[1].doc, None);
+    assert!(
+        !module
+            .enum_constants
+            .iter()
+            .any(|c| c.doc.as_deref().is_some_and(|d| d.starts_with("man:")))
+    );
+    let one = module
+        .enum_constants
+        .iter()
+        .find(|c| c.name == "ANON_ONE")
+        .expect("ANON_ONE constant");
+    assert_eq!(one.doc.as_deref(), Some("The first constant."));
+
+    // The in-source comment wins over the external source.
+    let mv = module
+        .functions
+        .iter()
+        .find(|f| f.name == "move_point")
+        .expect("move_point function");
+    assert_eq!(mv.doc.as_deref(), Some("Move a point by (dx, dy)."));
 }

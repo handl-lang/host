@@ -23,7 +23,7 @@ mod prune_test;
 
 use clang_sys::*;
 use glob::Pattern;
-use handl_plugin_sdkgen::{SdkgenBackend, SdkgenError, SdkgenModule};
+use handl_plugin_sdkgen::{DocSource, SdkgenBackend, SdkgenError, SdkgenModule, pick_doc};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CString, c_int, c_void};
@@ -76,6 +76,127 @@ impl CBackend {
             exclude,
             consts,
         })
+    }
+
+    /// Layer `.sdkgen.yaml` `docs:` overrides and an optional external
+    /// [`DocSource`] (e.g. [`crate::ManPageDocSource`]) over comments
+    /// captured from the header. Per slot: override > in-source comment
+    /// > external lookup. Keys are C symbol names; record fields use
+    /// `record.field`.
+    ///
+    /// When `external_docs` is not `false` (the default) and no `source`
+    /// is supplied, a [`ManPageDocSource`] is auto-created and consulted.
+    pub fn apply_docs(&self, module: &mut SdkgenModule, source: Option<&dyn DocSource>) {
+        let docs = &self.config.docs;
+        // Respect `external_docs: false` — skip external lookup entirely.
+        // Otherwise auto-create a man-page source if the caller gave none.
+        let fallback = if self.config.external_docs != Some(false) && source.is_none() {
+            Some(ManPageDocSource::new())
+        } else {
+            None
+        };
+        let src: Option<&dyn DocSource> = if self.config.external_docs == Some(false) {
+            None
+        } else {
+            source.or_else(|| fallback.as_ref().map(|s| s as &dyn DocSource))
+        };
+        for f in &mut module.functions {
+            pick_doc(&mut f.doc, docs, &[&f.name], src, Some(&f.name));
+        }
+        for r in &mut module.records {
+            pick_doc(&mut r.doc, docs, &[&r.name], src, Some(&r.name));
+            for f in &mut r.fields {
+                let key = format!("{}.{}", r.name, f.name);
+                pick_doc(&mut f.doc, docs, &[&key], None, None);
+            }
+        }
+        for t in &mut module.typedefs {
+            pick_doc(&mut t.doc, docs, &[&t.name], src, Some(&t.name));
+        }
+        for c in &mut module.enum_constants {
+            pick_doc(&mut c.doc, docs, &[&c.name], None, None);
+        }
+    }
+}
+
+/// Best-effort doc lookup via the `man` command. Tries sections 2 (system
+/// calls) and 3 (library functions); the NAME-section description is
+/// extracted and cached per symbol. Returns `None` when `man` is absent
+/// or the symbol has no page.
+pub struct ManPageDocSource {
+    cache: RefCell<HashMap<String, Option<String>>>,
+}
+
+impl ManPageDocSource {
+    pub fn new() -> Self {
+        Self {
+            cache: RefCell::new(HashMap::new()),
+        }
+    }
+
+    fn lookup_uncached(&self, key: &str) -> Option<String> {
+        for section in ["2", "3"] {
+            if let Some(text) = run_man(section, key) {
+                if let Some(desc) = extract_name_section(&text) {
+                    return Some(desc);
+                }
+            }
+        }
+        None
+    }
+}
+
+impl Default for ManPageDocSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn run_man(section: &str, symbol: &str) -> Option<String> {
+    let output = std::process::Command::new("man")
+        .args(["-P", "cat", "-S", section, symbol])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Extract the description from the NAME section of a man page.
+/// The NAME section looks like:
+/// ```text
+/// NAME
+///        symbol - description text
+/// ```
+fn extract_name_section(text: &str) -> Option<String> {
+    let mut lines = text.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == "NAME" {
+            if let Some(name_line) = lines.next() {
+                let trimmed = name_line.trim();
+                if let Some(pos) = trimmed.find(" - ") {
+                    let desc = trimmed[pos + 3..].trim();
+                    if !desc.is_empty() {
+                        return Some(desc.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+impl DocSource for ManPageDocSource {
+    fn lookup(&self, key: &str) -> Option<String> {
+        if let Some(cached) = self.cache.borrow().get(key) {
+            return cached.clone();
+        }
+        let result = self.lookup_uncached(key);
+        self.cache
+            .borrow_mut()
+            .insert(key.to_string(), result.clone());
+        result
     }
 }
 
@@ -209,14 +330,21 @@ impl SdkgenBackend for CBackend {
             collect_enum(cursor, &mut module, &include, &exclude, &self.consts);
         }
 
-        let macro_names: Vec<String> = cursor_data
-            .macros
-            .iter()
-            .map(|&c| cursor_name(c))
-            .filter(|n| !n.is_empty())
-            .collect();
-        for c in macro_probe::eval_macros(index, &args, &macro_names, path) {
+        // Macro constants are evaluated in a probe TU, which has no comment
+        // of its own — the doc comes from the main TU's macro cursors.
+        let mut macro_docs: HashMap<String, Option<String>> = HashMap::new();
+        let mut macro_names: Vec<String> = Vec::new();
+        for &c in &cursor_data.macros {
+            let name = cursor_name(c);
+            if name.is_empty() {
+                continue;
+            }
+            macro_docs.insert(name.clone(), crate::cx::doc_comment(c));
+            macro_names.push(name);
+        }
+        for mut c in macro_probe::eval_macros(index, &args, &macro_names, path) {
             if !module.enum_constants.iter().any(|e| e.name == c.name) {
+                c.doc = macro_docs.get(&c.name).cloned().flatten();
                 module.enum_constants.push(c);
             }
         }
@@ -235,7 +363,11 @@ impl SdkgenBackend for CBackend {
                     // signature we cannot parse (e.g. `char**` params).
                     let fname = cursor_name(cursor);
                     match self.config.rescue_function(&fname) {
-                        Some(f) if !self.config.should_skip(&f.name) => {
+                        Some(mut f) if !self.config.should_skip(&f.name) => {
+                            // The signature came from config, but the
+                            // declaration cursor still carries its own doc
+                            // comment.
+                            f.doc = crate::cx::doc_comment(cursor);
                             module.functions.push(f);
                         }
                         _ => module.diagnostics.push(e),

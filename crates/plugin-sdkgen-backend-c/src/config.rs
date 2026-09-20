@@ -30,6 +30,14 @@ pub struct SdkgenConfig {
     /// Per-symbol overrides.
     #[serde(default)]
     pub symbols: HashMap<String, SymbolOverride>,
+    /// Hand-written doc comments, keyed by symbol name (`clock_gettime`),
+    /// record.field (`sockaddr.sa_family`), or constant (`EPOLLIN`).
+    /// Overrides beat both header comments and man-page lookup.
+    #[serde(default)]
+    pub docs: HashMap<String, String>,
+    /// Set `false` to disable external doc resolution (man pages).
+    /// Absent = enabled.
+    pub external_docs: Option<bool>,
 }
 
 /// Per-header options.

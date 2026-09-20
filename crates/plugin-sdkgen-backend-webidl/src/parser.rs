@@ -6,17 +6,37 @@ pub enum Token<'a> {
     Number(&'a str),
     String(&'a str),
     Sym(char),
+    /// `//` or `/* */` comment inner text (markers stripped). `same_line`
+    /// marks comments that begin on the same line as the preceding
+    /// token — those document the item they trail rather than the next.
+    /// `blank_after` marks comments followed by a blank line: a block
+    /// ending that way is file provenance (e.g. webref headers), not a
+    /// doc comment.
+    Comment {
+        text: &'a str,
+        same_line: bool,
+        blank_after: bool,
+    },
     Eof,
 }
 
 struct Tokenizer<'a> {
     src: &'a str,
     pos: usize,
+    /// A newline was crossed since the last emitted token — feeds the
+    /// `same_line` classification on [`Token::Comment`].
+    newline: bool,
 }
 
 impl<'a> Tokenizer<'a> {
     fn new(src: &'a str) -> Self {
-        Self { src, pos: 0 }
+        Self {
+            src,
+            pos: 0,
+            // The start of the file counts as a fresh line — a comment
+            // before any token is a leading comment, not a trailing one.
+            newline: true,
+        }
     }
 
     fn eof(&self) -> bool {
@@ -33,43 +53,56 @@ impl<'a> Tokenizer<'a> {
         Some(c)
     }
 
-    fn skip_ws_comments(&mut self) {
-        loop {
-            if self.eof() {
-                return;
+    /// Skip whitespace only, tracking whether a newline was crossed so
+    /// the next [`Token::Comment`] can be classified `same_line`.
+    fn skip_ws(&mut self) {
+        while let Some(c) = self.peek_char() {
+            if !c.is_whitespace() {
+                break;
             }
-            if self.src[self.pos..].starts_with("//") {
-                let rest = &self.src[self.pos..];
-                if let Some(n) = rest.find('\n') {
-                    self.pos += n + 1;
-                } else {
-                    self.pos = self.src.len();
-                }
-                continue;
+            if c == '\n' {
+                self.newline = true;
             }
-            if self.src[self.pos..].starts_with("/*") {
-                let rest = &self.src[self.pos + 2..];
-                if let Some(n) = rest.find("*/") {
-                    self.pos += 2 + n + 2;
-                } else {
-                    self.pos = self.src.len();
-                }
-                continue;
-            }
-            let c = self.peek_char().unwrap();
-            if c.is_whitespace() {
-                self.advance_char();
-                continue;
-            }
-            break;
+            self.advance_char();
         }
     }
 
     fn next_token(&mut self) -> Token<'a> {
-        self.skip_ws_comments();
+        self.skip_ws();
         if self.eof() {
             return Token::Eof;
         }
+        let rest = &self.src[self.pos..];
+        if let Some(inner) = rest.strip_prefix("//") {
+            let same_line = !self.newline;
+            let end = inner.find('\n').unwrap_or(inner.len());
+            // `///`/`//!`-style comments carry an extra marker char.
+            let text = inner[..end].strip_prefix('/').unwrap_or(&inner[..end]);
+            let after = self.pos + 2 + end;
+            let blank_after = blanks_ahead(self.src, after);
+            self.pos = after;
+            return Token::Comment {
+                text,
+                same_line,
+                blank_after,
+            };
+        }
+        if let Some(inner) = rest.strip_prefix("/*") {
+            let same_line = !self.newline;
+            let (text, consumed) = match inner.find("*/") {
+                Some(n) => (&inner[..n], 2 + n + 2),
+                None => (inner, rest.len()),
+            };
+            let after = self.pos + consumed;
+            let blank_after = blanks_ahead(self.src, after);
+            self.pos = after;
+            return Token::Comment {
+                text,
+                same_line,
+                blank_after,
+            };
+        }
+        self.newline = false;
         let start = self.pos;
         let c = self.peek_char().unwrap();
         match c {
@@ -204,26 +237,74 @@ pub enum Member {
         name: String,
         ty: Type,
         value: i64,
+        doc: Option<String>,
     },
     Attribute {
         name: String,
         ty: Type,
         readonly: bool,
+        doc: Option<String>,
     },
     DictionaryField {
         name: String,
         ty: Type,
         required: bool,
+        doc: Option<String>,
     },
     Operation {
         name: String,
         return_ty: Type,
         args: Vec<Argument>,
+        doc: Option<String>,
     },
     Constructor {
         args: Vec<Argument>,
+        doc: Option<String>,
     },
     Skip(String),
+}
+
+/// One enum value plus its optional doc comment.
+#[derive(Debug, Clone)]
+pub struct EnumValue {
+    pub name: String,
+    pub doc: Option<String>,
+}
+
+/// Doc-comment plumbing shared by [`Member`] and [`AstDef`]: leading
+/// comment lines are stashed in [`Parser::pending`] and stamped via
+/// `set_doc`; same-line trailing comments are appended via `append_doc`.
+trait DocTarget {
+    fn doc_mut(&mut self) -> Option<&mut Option<String>>;
+    fn set_doc(&mut self, doc: String) {
+        if let Some(slot) = self.doc_mut() {
+            *slot = Some(doc);
+        }
+    }
+    fn append_doc(&mut self, extra: &str) {
+        if let Some(slot) = self.doc_mut() {
+            match slot {
+                Some(d) => {
+                    d.push('\n');
+                    d.push_str(extra);
+                }
+                None => *slot = Some(extra.to_string()),
+            }
+        }
+    }
+}
+
+impl DocTarget for Member {
+    fn doc_mut(&mut self) -> Option<&mut Option<String>> {
+        match self {
+            Member::Const { doc, .. }
+            | Member::Attribute { doc, .. }
+            | Member::DictionaryField { doc, .. }
+            | Member::Operation { doc, .. }
+            | Member::Constructor { doc, .. } => Some(doc),
+            Member::Skip(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -233,38 +314,60 @@ pub enum AstDef {
         base: Option<String>,
         members: Vec<Member>,
         partial: bool,
+        doc: Option<String>,
     },
     Mixin {
         name: String,
         members: Vec<Member>,
         partial: bool,
+        doc: Option<String>,
     },
     Dictionary {
         name: String,
         base: Option<String>,
         members: Vec<Member>,
         partial: bool,
+        doc: Option<String>,
     },
     Namespace {
         name: String,
         members: Vec<Member>,
         partial: bool,
+        doc: Option<String>,
     },
     Enum {
         name: String,
-        values: Vec<String>,
+        values: Vec<EnumValue>,
+        doc: Option<String>,
     },
     Typedef {
         name: String,
         ty: Type,
+        doc: Option<String>,
     },
     Callback {
         name: String,
         return_ty: Type,
         args: Vec<Argument>,
         partial: bool,
+        doc: Option<String>,
     },
     Skip(String),
+}
+
+impl DocTarget for AstDef {
+    fn doc_mut(&mut self) -> Option<&mut Option<String>> {
+        match self {
+            AstDef::Interface { doc, .. }
+            | AstDef::Mixin { doc, .. }
+            | AstDef::Dictionary { doc, .. }
+            | AstDef::Namespace { doc, .. }
+            | AstDef::Enum { doc, .. }
+            | AstDef::Typedef { doc, .. }
+            | AstDef::Callback { doc, .. } => Some(doc),
+            AstDef::Skip(_) => None,
+        }
+    }
 }
 
 impl AstDef {
@@ -294,26 +397,47 @@ impl AstDef {
         }
     }
 
+    /// The doc comment attached to this definition, if any.
+    pub fn doc(&self) -> Option<&str> {
+        match self {
+            AstDef::Interface { doc, .. }
+            | AstDef::Mixin { doc, .. }
+            | AstDef::Dictionary { doc, .. }
+            | AstDef::Namespace { doc, .. }
+            | AstDef::Enum { doc, .. }
+            | AstDef::Typedef { doc, .. }
+            | AstDef::Callback { doc, .. } => doc.as_deref(),
+            AstDef::Skip(_) => None,
+        }
+    }
+
     pub fn members_mut(&mut self) -> Option<&mut Vec<Member>> {
         match self {
-            AstDef::Interface { members, .. }
-            | AstDef::Mixin { members, .. }
-            | AstDef::Dictionary { members, .. }
-            | AstDef::Namespace { members, .. } => Some(members),
+            Self::Interface { members, .. }
+            | Self::Mixin { members, .. }
+            | Self::Dictionary { members, .. }
+            | Self::Namespace { members, .. } => Some(members),
             _ => None,
         }
     }
 
+    /// Update `self` in place — counter decrement is a small mutation that the
+    /// match guard already guards; `...` is used to keep the arm short.
+
     pub fn set_partial(&mut self, partial: bool) {
         match self {
-            AstDef::Interface { partial: p, .. }
-            | AstDef::Mixin { partial: p, .. }
-            | AstDef::Dictionary { partial: p, .. }
-            | AstDef::Namespace { partial: p, .. }
-            | AstDef::Callback { partial: p, .. } => *p = partial,
+            Self::Interface { partial: p, .. }
+            | Self::Mixin { partial: p, .. }
+            | Self::Dictionary { partial: p, .. }
+            | Self::Namespace { partial: p, .. }
+            | Self::Callback { partial: p, .. } => *p = partial,
             _ => {}
         }
     }
+
+    /// Spawn a single member — actually parses the next chunk as one and pushes
+    /// the result onto `self.members`. The helper avoids repeating the bracket
+    /// count twice per loop iteration.
 
     pub fn merge(&mut self, mut other: AstDef, diags: &mut Vec<String>) {
         if self.kind() != other.kind() {
@@ -323,6 +447,14 @@ impl AstDef {
                 self.kind()
             ));
             return;
+        }
+        // A doc on the non-partial declaration wins; a doc that only
+        // exists on the partial still lands on the merged def.
+        let other_doc = other.doc_mut().and_then(|d| d.take());
+        if let (Some(slot), Some(d)) = (self.doc_mut(), other_doc)
+            && slot.is_none()
+        {
+            *slot = Some(d);
         }
         if let (Some(a), Some(b)) = (self.members_mut(), other.members_mut()) {
             a.extend(std::mem::take(b));
@@ -360,6 +492,34 @@ struct Parser<'a> {
     tokens: Vec<Token<'a>>,
     pos: usize,
     diags: Vec<String>,
+    /// Leading doc lines collected from own-line comments, consumed by
+    /// the next def/member/enum-value parse via [`Parser::take_pending`].
+    pending: Vec<String>,
+}
+
+/// Comment inner text → doc lines: trims each line and drops `*`
+/// margins from `/* */` blocks.
+fn normalize_comment(raw: &str) -> Vec<String> {
+    raw.lines()
+        .map(|l| l.trim().trim_start_matches('*').trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect()
+}
+
+/// Whether a blank line (two or more consecutive newlines, other
+/// whitespace allowed mid-run) separates `pos` from the next non-whitespace
+/// character.
+fn blanks_ahead(src: &str, pos: usize) -> bool {
+    let mut newlines = 0;
+    for c in src[pos..].chars() {
+        if !c.is_whitespace() {
+            break;
+        }
+        if c == '\n' {
+            newlines += 1;
+        }
+    }
+    newlines >= 2
 }
 
 impl<'a> Parser<'a> {
@@ -368,6 +528,7 @@ impl<'a> Parser<'a> {
             tokens,
             pos: 0,
             diags: Vec::new(),
+            pending: Vec::new(),
         }
     }
 
@@ -387,6 +548,50 @@ impl<'a> Parser<'a> {
 
     fn diag(&mut self, msg: &str) {
         self.diags.push(msg.to_string());
+    }
+
+    /// Consume a run of comment tokens. Own-line comments accumulate in
+    /// `pending` (docs for the next item); same-line comments are
+    /// returned so the caller can append them to the item just parsed.
+    /// A comment block whose last comment is followed by a blank line is
+    /// file provenance, not documentation — dropped entirely.
+    fn drain_comments(&mut self) -> Option<String> {
+        let mut trailing = Vec::new();
+        let mut block: Vec<String> = Vec::new();
+        let mut block_blank_terminated = false;
+        while let Token::Comment {
+            text,
+            same_line,
+            blank_after,
+        } = self.peek()
+        {
+            let (text, same_line, blank_after) = (*text, *same_line, *blank_after);
+            self.advance();
+            let lines = normalize_comment(text);
+            if same_line {
+                trailing.extend(lines);
+                continue;
+            }
+            block.extend(lines);
+            block_blank_terminated = blank_after;
+        }
+        if !block_blank_terminated {
+            self.pending.extend(block);
+        }
+        if trailing.is_empty() {
+            None
+        } else {
+            Some(trailing.join("\n"))
+        }
+    }
+
+    /// Take the accumulated leading doc lines, if any.
+    fn take_pending(&mut self) -> Option<String> {
+        if self.pending.is_empty() {
+            None
+        } else {
+            Some(std::mem::take(&mut self.pending).join("\n"))
+        }
     }
 
     fn match_sym(&mut self, c: char) -> bool {
@@ -429,7 +634,17 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_extended_attrs(&mut self) {
-        while self.match_sym('[') {
+        loop {
+            // Comments wedged between attrs still count as docs for the
+            // item the attrs decorate.
+            while let Token::Comment { text, .. } = self.peek() {
+                let text = *text;
+                self.advance();
+                self.pending.extend(normalize_comment(text));
+            }
+            if !self.match_sym('[') {
+                break;
+            }
             let mut depth = 1;
             while depth > 0 && !matches!(self.peek(), Token::Eof) {
                 if self.match_sym('[') {
@@ -457,6 +672,22 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
             self.advance();
+        }
+    }
+
+    fn skip_generic_args(&mut self) {
+        if !self.match_sym('<') {
+            return;
+        }
+        let mut depth = 1;
+        while depth > 0 && !matches!(self.peek(), Token::Eof) {
+            if self.match_sym('<') {
+                depth += 1;
+            } else if self.match_sym('>') {
+                depth -= 1;
+            } else {
+                self.advance();
+            }
         }
     }
 
@@ -662,7 +893,12 @@ impl<'a> Parser<'a> {
         let ty = self.parse_type();
         let name = self.expect_ident("attribute name");
         self.consume_trailing_semi();
-        Some(Member::Attribute { name, ty, readonly })
+        Some(Member::Attribute {
+            name,
+            ty,
+            readonly,
+            doc: None,
+        })
     }
 
     fn parse_const_member(&mut self) -> Option<Member> {
@@ -671,7 +907,12 @@ impl<'a> Parser<'a> {
         self.expect_sym('=');
         let value = self.parse_const_value();
         self.consume_trailing_semi();
-        Some(Member::Const { name, ty, value })
+        Some(Member::Const {
+            name,
+            ty,
+            value,
+            doc: None,
+        })
     }
 
     fn parse_member(&mut self, ctx: Container) -> Option<Member> {
@@ -686,7 +927,40 @@ impl<'a> Parser<'a> {
             self.expect_sym('(');
             let args = self.parse_args_body();
             self.consume_trailing_semi();
-            return Some(Member::Constructor { args });
+            return Some(Member::Constructor { args, doc: None });
+        }
+
+        // `iterable<K,V>`/`maplike<K,V>`/`setlike<T>` declare container
+        // semantics — nothing maps into the port.
+        if matches!(self.peek(), Token::Ident(s) if matches!(*s, "iterable" | "maplike" | "setlike"))
+            && matches!(self.at(1), Token::Sym('<'))
+        {
+            self.advance();
+            self.skip_generic_args();
+            self.consume_trailing_semi();
+            return None;
+        }
+
+        // `static` qualifies operations only — parse the rest as usual.
+        self.consume_if_ident("static");
+
+        if self.consume_if_ident("stringifier") {
+            if self.consume_if_ident("attribute") {
+                let ty = self.parse_type();
+                let name = self.expect_ident("attribute name");
+                self.consume_trailing_semi();
+                return Some(Member::Attribute {
+                    name,
+                    ty,
+                    readonly: true,
+                    doc: None,
+                });
+            }
+            // Bare `stringifier;` marks the default toString — nothing to emit.
+            if self.match_sym(';') {
+                return None;
+            }
+            // `stringifier <type> <name>(...)` falls through to operation parse.
         }
 
         if ctx == Container::Dictionary && self.consume_if_ident("required") {
@@ -700,6 +974,7 @@ impl<'a> Parser<'a> {
                 name,
                 ty,
                 required: true,
+                doc: None,
             });
         }
 
@@ -726,6 +1001,7 @@ impl<'a> Parser<'a> {
                 name,
                 return_ty: ty,
                 args,
+                doc: None,
             });
         } else if ctx == Container::Dictionary {
             if self.match_sym('=') {
@@ -736,6 +1012,7 @@ impl<'a> Parser<'a> {
                 name,
                 ty,
                 required: false,
+                doc: None,
             })
         } else {
             self.diag("expected '(' for operation");
@@ -753,14 +1030,28 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_members(&mut self, ctx: Container) -> Vec<Member> {
-        let mut members = Vec::new();
+        let mut members: Vec<Member> = Vec::new();
         loop {
+            if let Some(t) = self.drain_comments()
+                && let Some(last) = members.last_mut()
+            {
+                last.append_doc(&t);
+            }
             self.skip_extended_attrs();
+            if let Some(t) = self.drain_comments()
+                && let Some(last) = members.last_mut()
+            {
+                last.append_doc(&t);
+            }
             if matches!(self.peek(), Token::Sym('}') | Token::Eof) {
+                self.pending.clear();
                 break;
             }
             let start = self.pos;
-            if let Some(m) = self.parse_member(ctx) {
+            if let Some(mut m) = self.parse_member(ctx) {
+                if let Some(doc) = self.take_pending() {
+                    m.set_doc(doc);
+                }
                 members.push(m);
             }
             if self.pos == start {
@@ -786,6 +1077,7 @@ impl<'a> Parser<'a> {
             base,
             members,
             partial,
+            doc: None,
         }
     }
 
@@ -798,6 +1090,7 @@ impl<'a> Parser<'a> {
             name,
             members,
             partial,
+            doc: None,
         }
     }
 
@@ -816,6 +1109,7 @@ impl<'a> Parser<'a> {
             base,
             members,
             partial,
+            doc: None,
         }
     }
 
@@ -828,21 +1122,38 @@ impl<'a> Parser<'a> {
             name,
             members,
             partial,
+            doc: None,
         }
     }
 
     fn parse_enum(&mut self) -> AstDef {
         let name = self.expect_ident("enum name");
         self.expect_sym('{');
-        let mut values = Vec::new();
+        let mut values: Vec<EnumValue> = Vec::new();
         loop {
+            if let Some(t) = self.drain_comments()
+                && let Some(last) = values.last_mut()
+            {
+                match &mut last.doc {
+                    Some(d) => {
+                        d.push('\n');
+                        d.push_str(&t);
+                    }
+                    None => last.doc = Some(t),
+                }
+            }
             self.skip_extended_attrs();
             if self.match_sym('}') {
+                self.pending.clear();
                 break;
             }
             match self.peek() {
                 Token::String(s) => {
-                    values.push((*s).to_string());
+                    let value = EnumValue {
+                        name: (*s).to_string(),
+                        doc: self.take_pending(),
+                    };
+                    values.push(value);
                     self.advance();
                 }
                 _ => {
@@ -861,13 +1172,21 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        AstDef::Enum { name, values }
+        AstDef::Enum {
+            name,
+            values,
+            doc: None,
+        }
     }
 
     fn parse_typedef(&mut self) -> AstDef {
         let ty = self.parse_type();
         let name = self.expect_ident("typedef name");
-        AstDef::Typedef { name, ty }
+        AstDef::Typedef {
+            name,
+            ty,
+            doc: None,
+        }
     }
 
     fn parse_callback(&mut self) -> AstDef {
@@ -887,6 +1206,7 @@ impl<'a> Parser<'a> {
             return_ty,
             args,
             partial: false,
+            doc: None,
         }
     }
 
@@ -926,14 +1246,31 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(mut self) -> (Vec<AstDef>, Vec<String>) {
-        let mut defs = Vec::new();
+        let mut defs: Vec<AstDef> = Vec::new();
         while !matches!(self.peek(), Token::Eof) {
+            if let Some(t) = self.drain_comments()
+                && let Some(last) = defs.last_mut()
+            {
+                last.append_doc(&t);
+            }
             self.skip_extended_attrs();
+            if let Some(t) = self.drain_comments()
+                && let Some(last) = defs.last_mut()
+            {
+                last.append_doc(&t);
+            }
             if matches!(self.peek(), Token::Eof) {
                 break;
             }
+            // Drain the def-level doc BEFORE parsing — the container's
+            // member loop would otherwise attribute it to the first
+            // member.
+            let def_doc = self.take_pending();
             let start = self.pos;
-            if let Some(d) = self.parse_definition() {
+            if let Some(mut d) = self.parse_definition() {
+                if let Some(doc) = def_doc {
+                    d.set_doc(doc);
+                }
                 defs.push(d);
                 if !self.match_sym(';') {
                     if !matches!(self.peek(), Token::Eof) {
@@ -954,4 +1291,25 @@ impl<'a> Parser<'a> {
 pub fn parse_webidl(src: &str) -> (Vec<AstDef>, Vec<String>) {
     let tokens = Tokenizer::new(src).tokenize();
     Parser::new(tokens).parse()
+}
+
+#[cfg(test)]
+mod doc_tests {
+    use super::*;
+
+    /// Own-line comments before a definition become its doc; comments
+    /// inside a container attach to their member.
+    #[test]
+    fn leading_comment_becomes_doc() {
+        let (defs, diags) = parse_webidl(
+            "/// Interface doc.\n[Exposed=Window]\ninterface Event {\n  /// Field doc.\n  readonly attribute DOMString type;\n};\n",
+        );
+        assert!(diags.is_empty(), "{diags:?}");
+        assert_eq!(defs.len(), 1);
+        assert_eq!(defs[0].doc(), Some("Interface doc."));
+        let mut defs = defs;
+        let members = defs[0].members_mut().unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].doc_mut().unwrap().as_deref(), Some("Field doc."),);
+    }
 }

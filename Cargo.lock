@@ -2215,7 +2215,12 @@ dependencies = [
 name = "handl-plugin-sdkgen-backend-webidl"
 version = "0.1.0"
 dependencies = [
+ "handl-plugin-lib-http-client",
+ "handl-plugin-lib-http-client-std",
  "handl-plugin-sdkgen",
+ "serde",
+ "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]

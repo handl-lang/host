@@ -31,7 +31,7 @@ pub(crate) fn parse_snippet(src: &str) -> Snippet {
     assert!(!index.is_null(), "createIndex failed");
     let c_src = CString::new(src).unwrap();
     let name = CString::new("snippet.h").unwrap();
-    let args: Vec<CString> = ["-x", "c", "-std=c11"]
+    let args: Vec<CString> = ["-x", "c", "-std=c11", "-fparse-all-comments"]
         .iter()
         .map(|s| CString::new(*s).unwrap())
         .collect();

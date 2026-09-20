@@ -21,6 +21,7 @@ fn serde_round_trip() {
                 size: 8,
                 ptr_depth: 0,
                 is_const: false,
+                doc: None,
             },
             Field {
                 name: "tv_nsec".to_string(),
@@ -30,6 +31,7 @@ fn serde_round_trip() {
                 size: 8,
                 ptr_depth: 0,
                 is_const: false,
+                doc: None,
             },
         ],
         size: 16,

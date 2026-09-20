@@ -45,8 +45,7 @@ fn emits_js_port_and_adapter() {
     FileEmitter::new().emit(&module, &port_dir).unwrap();
 
     let port = fs::read_to_string(port_dir.join("console.hnl")).unwrap();
-    let adapter =
-        fs::read_to_string(tmp.join("console-webidl-browser/console.hnl")).unwrap();
+    let adapter = fs::read_to_string(tmp.join("console-webidl-browser/console.hnl")).unwrap();
 
     assert!(
         port.contains("--- source: https://example.test/console.idl"),
