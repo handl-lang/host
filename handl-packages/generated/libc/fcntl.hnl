@@ -5,11 +5,17 @@ from "ffi" import { Errno }
 from "result" import { Result }
 
 export O_NONBLOCK: Int
+--- Set close_on_exec.
 export O_CLOEXEC: Int
+--- Get file descriptor flags.
 export F_GETFD: Int
+--- Set file descriptor flags.
 export F_SETFD: Int
+--- Get file status flags.
 export F_GETFL: Int
+--- Set file status flags.
 export F_SETFL: Int
+--- Actually anything with low bit set goes
 export FD_CLOEXEC: Int
 
 --- ffi: int (int, int, ...)

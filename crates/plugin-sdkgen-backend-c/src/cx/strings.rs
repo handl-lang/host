@@ -1,7 +1,9 @@
 //! `CXString` → `String` conversions and cursor name/spelling/doc helpers.
 
 use clang_sys::*;
-use std::ffi::CStr;
+use std::collections::HashMap;
+use std::ffi::{CStr, c_uint};
+use std::path::PathBuf;
 
 /// Convert a libclang `CXString` to an owned `String`, disposing the
 /// `CXString` after copying.
@@ -54,8 +56,78 @@ pub(crate) fn doc_comment(cursor: CXCursor) -> Option<String> {
     normalize_doc(&raw)
 }
 
+/// Doc for a `#define` constant. libclang does not reliably attach raw
+/// comments to `MacroDefinition` cursors (host-version dependent), so
+/// when the cursor carries none the source text is scanned directly: a
+/// trailing comment on the definition line wins, else a contiguous
+/// comment block ending on the line above. `files` caches file contents
+/// across the (many) macros a header defines.
+pub(crate) fn macro_doc(
+    cursor: CXCursor,
+    files: &mut HashMap<PathBuf, Vec<String>>,
+) -> Option<String> {
+    if let Some(doc) = doc_comment(cursor) {
+        return Some(doc);
+    }
+    let loc = unsafe { clang_getCursorLocation(cursor) };
+    let mut file: CXFile = std::ptr::null_mut();
+    let mut line: c_uint = 0;
+    unsafe {
+        clang_getFileLocation(
+            loc,
+            &mut file,
+            &mut line,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
+    };
+    if file.is_null() || line == 0 {
+        return None;
+    }
+    let path = PathBuf::from(unsafe { cx_string(clang_getFileName(file)) });
+    let lines = files.entry(path.clone()).or_insert_with(|| {
+        std::fs::read_to_string(&path)
+            .map(|s| s.lines().map(str::to_string).collect())
+            .unwrap_or_default()
+    });
+    lexical_doc(lines, line as usize - 1)
+}
+
+/// Extract a doc for the item defined on `def_line` (0-based): a
+/// trailing comment on that line, else the contiguous comment block
+/// ending on the line directly above.
+fn lexical_doc(lines: &[String], def_line: usize) -> Option<String> {
+    if let Some(raw) = trailing_comment(lines.get(def_line)?) {
+        return normalize_doc(&raw);
+    }
+    let mut block: Vec<&str> = Vec::new();
+    let mut i = def_line;
+    while i > 0 {
+        let l = lines[i - 1].trim();
+        if l.starts_with("//") || l.starts_with("/*") || l.starts_with('*') || l.ends_with("*/") {
+            block.push(lines[i - 1].as_str());
+            i -= 1;
+        } else {
+            break;
+        }
+    }
+    block.reverse();
+    normalize_doc(&block.join("\n"))
+}
+
+/// The comment text on a source line — from `/*` or `//` to the end of
+/// the comment (or line). The earliest opener wins so `/* a // b */`
+/// yields the block, not the nested `//`.
+fn trailing_comment(line: &str) -> Option<String> {
+    let start = [line.find("//"), line.find("/*")]
+        .into_iter()
+        .flatten()
+        .min()?;
+    Some(line[start..].to_string())
+}
+
 /// Strip C comment syntax and translate Doxygen tags into plain doc lines.
-fn normalize_doc(raw: &str) -> Option<String> {
+pub(crate) fn normalize_doc(raw: &str) -> Option<String> {
     let mut lines: Vec<String> = Vec::new();
     for line in raw.lines() {
         let mut l = line.trim();

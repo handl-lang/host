@@ -27,7 +27,7 @@ use handl_plugin_sdkgen::{DocSource, SdkgenBackend, SdkgenError, SdkgenModule, p
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CString, c_int, c_void};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::collect::{CursorData, collect_cursors, collect_enum};
 use crate::config::SdkgenConfig;
@@ -331,7 +331,9 @@ impl SdkgenBackend for CBackend {
         }
 
         // Macro constants are evaluated in a probe TU, which has no comment
-        // of its own — the doc comes from the main TU's macro cursors.
+        // of its own — the doc comes from the main TU's macro cursors or,
+        // failing that, the source text around the `#define` itself.
+        let mut macro_files: HashMap<PathBuf, Vec<String>> = HashMap::new();
         let mut macro_docs: HashMap<String, Option<String>> = HashMap::new();
         let mut macro_names: Vec<String> = Vec::new();
         for &c in &cursor_data.macros {
@@ -339,7 +341,7 @@ impl SdkgenBackend for CBackend {
             if name.is_empty() {
                 continue;
             }
-            macro_docs.insert(name.clone(), crate::cx::doc_comment(c));
+            macro_docs.insert(name.clone(), crate::cx::macro_doc(c, &mut macro_files));
             macro_names.push(name);
         }
         for mut c in macro_probe::eval_macros(index, &args, &macro_names, path) {

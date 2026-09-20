@@ -34,6 +34,7 @@ int sock_setopt(int fd, int level, int name, const void *optval, socklen_t optle
 #define TEST_AF_INET 2
 /** Function-like macros are not constants. */
 #define TEST_MAX(a, b) ((a) > (b) ? (a) : (b))
+#define TEST_SHUT_RD 0 /* No more receptions. */
 
 enum {
     /** The first constant. */

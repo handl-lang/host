@@ -134,9 +134,9 @@ pub fn pick_doc(
         if slot.is_some() {
             return;
         }
-        if let (Some(source), Some(_)) = (source, external_key) {
-            *slot = source.lookup(key);
-        }
+    }
+    if let (Some(source), Some(key)) = (source, external_key) {
+        *slot = source.lookup(key);
     }
 }
 
@@ -172,3 +172,44 @@ impl std::fmt::Display for SdkgenError {
 }
 
 impl std::error::Error for SdkgenError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cell::RefCell;
+
+    /// A [`DocSource`] that records every key it is asked about.
+    struct RecordingSource(RefCell<Vec<String>>);
+
+    impl DocSource for RecordingSource {
+        fn lookup(&self, key: &str) -> Option<String> {
+            self.0.borrow_mut().push(key.to_string());
+            Some(format!("ext:{key}"))
+        }
+    }
+
+    #[test]
+    fn pick_doc_queries_external_source_once_with_external_key() {
+        let src = RecordingSource(RefCell::new(Vec::new()));
+        let mut doc = None;
+        pick_doc(
+            &mut doc,
+            &HashMap::new(),
+            &["Intf.member", "member", "member_op"],
+            Some(&src),
+            Some("Intf.member"),
+        );
+        assert_eq!(doc.as_deref(), Some("ext:Intf.member"));
+        // One lookup with the external key — not one per override key.
+        assert_eq!(src.0.borrow().as_slice(), &["Intf.member".to_string()]);
+    }
+
+    #[test]
+    fn pick_doc_skips_external_when_key_absent() {
+        let src = RecordingSource(RefCell::new(Vec::new()));
+        let mut doc = None;
+        pick_doc(&mut doc, &HashMap::new(), &["c"], Some(&src), None);
+        assert_eq!(doc, None);
+        assert!(src.0.borrow().is_empty());
+    }
+}

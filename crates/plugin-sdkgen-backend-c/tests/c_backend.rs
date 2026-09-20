@@ -276,9 +276,22 @@ fn captures_plain_in_source_comments() {
         .find(|c| c.name == "ANON_ONE")
         .expect("ANON_ONE constant");
     assert_eq!(one.doc.as_deref(), Some("The first constant."));
-    // (Evaluated macros get their doc from the macro cursor of the main TU;
-    // libclang only reports a raw comment for macro cursors when the host
-    // clang attaches one, so there is nothing to assert for them here.)
+
+    // Macro constants get docs even when libclang attaches no comment to
+    // the macro cursor — a leading block …
+    let af = module
+        .enum_constants
+        .iter()
+        .find(|c| c.name == "TEST_AF_INET")
+        .expect("TEST_AF_INET constant");
+    assert_eq!(af.doc.as_deref(), Some("Address family constant."));
+    // … or a trailing comment on the `#define` line itself.
+    let rd = module
+        .enum_constants
+        .iter()
+        .find(|c| c.name == "TEST_SHUT_RD")
+        .expect("TEST_SHUT_RD constant");
+    assert_eq!(rd.doc.as_deref(), Some("No more receptions."));
 }
 
 #[test]
