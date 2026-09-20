@@ -251,7 +251,11 @@ fn binding_target_name(lang: &Language, ast: &Ast, node_ref: AstRef) -> Option<S
         return Some(name);
     }
     let children = children_of(node);
-    for role in ["target", "subject", "body"] {
+    // `source` is tried first: a `dim_arrow` (`X: (A,B) ~[N]~> R`) stores
+    // the declared name under `source` (in a `type-annot`), while its
+    // `target` is the return-type expression — descending there would
+    // "bind" the result-type constructor (e.g. `Result`) instead.
+    for role in ["source", "target", "subject", "body"] {
         if let Ok(Some(idx)) = lang.child_role_index(&node.kind, role) {
             if let Some(&raw) = children.get(idx) {
                 if let Some(name) = binding_target_name(lang, ast, AstRef::new(raw)) {

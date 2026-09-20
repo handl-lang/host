@@ -72,6 +72,12 @@ pub struct HandlTypecheckEngine {
     /// argument so `var` lookup for module/global names does not emit a
     /// false unbound error (ADR-0096).
     prelude: Value,
+    /// Whether [`TypecheckEngine::typecheck`] invokes the interpreted
+    /// `.hnl` model at all. When `false`, the call returns
+    /// [`LangError::NotImplemented`] immediately so the host falls back
+    /// to the Rust bootstrap checker — the practical path for `hnl
+    /// typecheck`, since the model costs minutes even on trivial ASTs.
+    model_enabled: bool,
 }
 
 impl HandlTypecheckEngine {
@@ -89,6 +95,7 @@ impl HandlTypecheckEngine {
             globals: HashMap::new(),
             cached_lang: Rc::new(RefCell::new(None)),
             prelude: Value::Null,
+            model_enabled: true,
         };
         if let Err(e) = this.ensure_model() {
             eprintln!("handl-plugin-engine-typecheck-handl: model load at construction: {e}");
@@ -99,6 +106,17 @@ impl HandlTypecheckEngine {
     /// Configure the host-supplied wire-name prelude.
     pub fn with_prelude(mut self, names: std::collections::HashSet<String>) -> Self {
         self.prelude = Value::Array(names.into_iter().map(Value::String).collect());
+        self
+    }
+
+    /// Enable or disable the interpreted `.hnl` typecheck model.
+    ///
+    /// Enabled by default (the adapter exists to run the model). Hosts
+    /// that need a fast, predictable `typecheck` path — e.g. the `hnl
+    /// typecheck` CLI gate — disable it and let the caller fall back to
+    /// the Rust bootstrap checker on [`LangError::NotImplemented`].
+    pub fn with_model_enabled(mut self, enabled: bool) -> Self {
+        self.model_enabled = enabled;
         self
     }
 
@@ -287,6 +305,15 @@ impl TypecheckEngine for HandlTypecheckEngine {
         lang: &Language,
         req: &TypecheckRequest,
     ) -> Result<TypecheckResult, LangError> {
+        // When the caller has not opted the interpreted model in
+        // (`model_enabled`), defer to the Rust bootstrap checker — the
+        // model marshals the ~31k-node Language and runs an O(n^2) eval
+        // with a fixed fuel budget, measured at minutes even for a
+        // 9-node AST, so it is unusable as a default CLI path.
+        if !self.model_enabled {
+            return Err(LangError::NotImplemented);
+        }
+
         // Circuit breaker: the Handl-authored typecheck model has O(n^2)
         // tendencies and a fixed 50k fuel budget. On ASTs larger than a
         // modest example it can take minutes to exhaust fuel and then
@@ -350,6 +377,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             globals: self.globals.clone(),
             cached_lang: self.cached_lang.clone(),
             prelude: self.prelude.clone(),
+            model_enabled: self.model_enabled,
         })
     }
 
@@ -364,6 +392,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             globals: self.globals.clone(),
             cached_lang: self.cached_lang.clone(),
             prelude: self.prelude.clone(),
+            model_enabled: self.model_enabled,
         })
     }
 
@@ -377,6 +406,7 @@ impl TypecheckEngine for HandlTypecheckEngine {
             globals,
             cached_lang: self.cached_lang.clone(),
             prelude: self.prelude.clone(),
+            model_enabled: self.model_enabled,
         })
     }
 }
@@ -390,6 +420,7 @@ impl Clone for HandlTypecheckEngine {
             globals: self.globals.clone(),
             cached_lang: self.cached_lang.clone(),
             prelude: self.prelude.clone(),
+            model_enabled: self.model_enabled,
         }
     }
 }

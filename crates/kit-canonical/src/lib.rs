@@ -912,6 +912,13 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
         "typecheck",
         "compile",
         "run_compiled",
+        // Primitive type wires that no stdlib module exports as values —
+        // `Int`/`Bool`/`Nat`/`String`/`Handle` arrive via module exports,
+        // but `Float`/`Bytes`/`List` are only reachable as builtin type
+        // names at eval time, so the checker prelude names them here.
+        "Float",
+        "Bytes",
+        "List",
     ] {
         names.insert(extra.to_string());
     }
@@ -2388,7 +2395,11 @@ impl Kit {
                     HandlTypecheckEngine::new(Box::new(
                         handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
                     ))
-                    .with_prelude(canonical_wire_names()),
+                    .with_prelude(canonical_wire_names())
+                    // The interpreted .hnl model costs minutes even on
+                    // trivial ASTs — the CLI gate takes the Rust bootstrap
+                    // checker instead. Re-enable for model work.
+                    .with_model_enabled(false),
                 );
             }
         }

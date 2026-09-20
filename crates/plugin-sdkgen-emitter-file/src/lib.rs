@@ -30,6 +30,10 @@ impl Emitter for FileEmitter {
         std::fs::create_dir_all(&adapter_dir)
             .map_err(|e| SdkgenError(format!("failed to create adapter dir: {e}")))?;
 
+        if module.per_record_files {
+            return emit_per_record(module, output, &adapter_dir, &lib, &adapter_pkg);
+        }
+
         let port = canonicalize(build_port(module, &lib, module_name));
         let adapter = canonicalize(build_adapter(module, &lib, module_name, &adapter_pkg));
 
@@ -43,6 +47,69 @@ impl Emitter for FileEmitter {
 
         Ok(())
     }
+}
+
+/// Per-record layout: one `<Record>.hnl` port/adapter pair per record
+/// plus `types.hnl` for typedefs, enum constants, and functions not
+/// owned by a record (namespace members, callbacks). The single-file
+/// layout's `<module>.hnl` artifacts are removed so a regenerated spec
+/// doesn't leave a stale, oversized file behind.
+fn emit_per_record(
+    module: &SdkgenModule,
+    output: &Path,
+    adapter_dir: &Path,
+    lib: &str,
+    adapter_pkg: &str,
+) -> Result<(), SdkgenError> {
+    let stale_port = output.join(format!("{}.hnl", module.module));
+    let stale_adapter = adapter_dir.join(format!("{}.hnl", module.module));
+    let _ = std::fs::remove_file(stale_port);
+    let _ = std::fs::remove_file(stale_adapter);
+
+    let record_names: std::collections::HashSet<&str> =
+        module.records.iter().map(|r| r.name.as_str()).collect();
+
+    // A function belongs to the interface its `c_decl` names
+    // (`Request.arrayBuffer` → `Request`); anything else lands in
+    // `types.hnl`.
+    let mut owned: std::collections::HashMap<&str, Vec<handl_plugin_sdkgen::Function>> =
+        std::collections::HashMap::new();
+    let mut loose: Vec<handl_plugin_sdkgen::Function> = Vec::new();
+    for f in &module.functions {
+        let owner = f.c_decl.split('.').next().unwrap_or("");
+        if record_names.contains(owner) {
+            owned.entry(owner).or_default().push(f.clone());
+        } else {
+            loose.push(f.clone());
+        }
+    }
+
+    let write = |sub: &SdkgenModule, name: &str| -> Result<(), SdkgenError> {
+        let port = canonicalize(build_port(sub, lib, name));
+        let adapter = canonicalize(build_adapter(sub, lib, name, adapter_pkg));
+        std::fs::write(output.join(format!("{name}.hnl")), port)
+            .map_err(|e| SdkgenError(format!("failed to write {name}.hnl: {e}")))?;
+        std::fs::write(adapter_dir.join(format!("{name}.hnl")), adapter)
+            .map_err(|e| SdkgenError(format!("failed to write adapter {name}.hnl: {e}")))?;
+        Ok(())
+    };
+
+    for rec in &module.records {
+        let mut sub = module.clone();
+        sub.records = vec![rec.clone()];
+        sub.functions = owned.remove(rec.name.as_str()).unwrap_or_default();
+        sub.typedefs = Vec::new();
+        sub.enum_constants = Vec::new();
+        write(&sub, &rec.name)?;
+    }
+
+    let mut types = module.clone();
+    types.records = Vec::new();
+    types.functions = loose;
+    if !types.typedefs.is_empty() || !types.enum_constants.is_empty() || !types.functions.is_empty() {
+        write(&types, "types")?;
+    }
+    Ok(())
 }
 
 /// Run emitted source through the canonical formatter so generated files
@@ -400,7 +467,7 @@ fn build_adapter(module: &SdkgenModule, lib: &str, name: &str, adapter_pkg: &str
         let arg_names = f
             .port_args
             .iter()
-            .map(|a| a.name.clone())
+            .map(|a| safe_ident(&a.name))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -502,4 +569,25 @@ fn js_descriptor(d: &str) -> String {
 
 fn is_numeric_descriptor(d: &str) -> bool {
     d.starts_with('i') || d.starts_with('u') || d == "f64"
+}
+
+/// Canonical Handl keywords (mirrors `lex.keyword.*` in
+/// `handl-kit-data-canonical/data/lexer_rules.yaml`). Spec argument names
+/// that collide (`data`, `type`, `for`, …) cannot be emitted verbatim in
+/// binder position — the adapter's `(params) ~> do` would not parse.
+/// Suffix `_` keeps the name legible and consistent between the param
+/// list and the call-args list.
+const HANDL_KEYWORDS: &[&str] = &[
+    "absurd", "app", "arr", "as", "axiom", "data", "do", "else", "export", "first", "for", "from",
+    "grade", "grades", "handle", "if", "id2", "impl", "import", "in", "infer", "law", "left", "let",
+    "match", "op", "rec", "return", "rewrite", "right", "second", "sort", "then", "trait", "type",
+    "where", "while", "with",
+];
+
+fn safe_ident(name: &str) -> String {
+    if HANDL_KEYWORDS.contains(&name) {
+        format!("{name}_")
+    } else {
+        name.to_string()
+    }
 }

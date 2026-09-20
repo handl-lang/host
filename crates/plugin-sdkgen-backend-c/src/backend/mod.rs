@@ -302,6 +302,24 @@ impl SdkgenBackend for CBackend {
 
         prune::prune_unreferenced(&mut module);
 
+        // A `rec:` field whose nested record was skipped or pruned would
+        // emit a dangling port type (e.g. glibc's `__atomic_wide_counter`
+        // union, which has no standalone decl). Degrade its port to
+        // `Handle` — the ABI stays right via the field's byte size, the
+        // same fallback `record_fields_descriptor` uses for unknown
+        // nested records.
+        let emitted: std::collections::HashSet<String> =
+            module.records.iter().map(|r| r.name.clone()).collect();
+        for r in &mut module.records {
+            for f in &mut r.fields {
+                if let Some(rn) = f.descriptor.strip_prefix("rec:") {
+                    if !emitted.contains(rn) {
+                        f.port = "Handle".into();
+                    }
+                }
+            }
+        }
+
         // Collect types/c aliases referenced by the surviving port types,
         // grouped by submodule, so the emitter can render
         // `from "types/c/<header>" import {...}` — declared on the module

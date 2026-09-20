@@ -26,6 +26,15 @@ pub struct SdkgenModule {
     /// committed generated files record the pin they were produced from.
     #[serde(default)]
     pub source: Option<String>,
+    /// File layout hint for emitters that support it: when set, the
+    /// module is written as one `<Record>.hnl` port/adapter pair per
+    /// record plus a `types.hnl` for typedefs, enum constants, and
+    /// functions not owned by a record. Keeping each generated file
+    /// small keeps it under typechecker node budgets; the C backend
+    /// leaves this unset because its records reference each other by
+    /// name and must share one module scope.
+    #[serde(default)]
+    pub per_record_files: bool,
     pub diagnostics: Vec<String>,
 }
 

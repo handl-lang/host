@@ -106,6 +106,9 @@ impl SdkgenBackend for WebIdlBackend {
             .unwrap_or("module")
             .to_string();
         module.module = module.library.clone();
+        // WebIDL records never reference each other by name (foreign
+        // types map to `Handle`), so each interface can be its own file.
+        module.per_record_files = true;
 
         // `A includes B;` pairs graft the mixin's members onto the
         // target interface below; they aren't definitions themselves.
