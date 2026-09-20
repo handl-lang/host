@@ -2,23 +2,29 @@
 //!
 //! Encoding abstractions for the handl runtime.
 //!
-//! Provides the `Encoding` trait and a registry for codecs such as
+//! Provides `Encoder`, `Decoder`, `Encoding`, and `EncodingRegistry`
+//! abstractions shared by the `handl-lib-*` codec crates. The generic
+//! [`Encoder`]/[`Decoder`] traits support typed codecs (e.g.
+//! `Decoder<Bytes, Frame>` for a WebSocket frame codec); the concrete
+//! [`Encoding`] trait covers the `Value`-to-`Value` codecs such as
 //! `base64` and `hex`.
 //!
 //! This crate has been migrated to the `op`/`handl` declaration form
 //! (ADR-0077 Phase 4). The encoding interface is declared in
-//! `handl-packages/encoding/encoding.hnl`. The [`Encoding`] trait and
-//! [`EncodingRegistry`] remain in Rust — they are implemented by concrete
-//! encoding crates (e.g. `plugin-lib-base64`, `plugin-lib-hex`). The
+//! `handl-packages/encoding/encoding.hnl`. The [`Encoder`], [`Decoder`],
+//! [`Encoding`], and [`EncodingRegistry`] traits remain in Rust — they
+//! are implemented by concrete encoding crates (e.g. base64, hex). The
 //! [`EncodingLibraryPlugin`] wraps the generic [`HandlLibraryPlugin`] with
 //! the `.hnl` source, eliminating the hand-rolled `Plugin` trait
 //! scaffolding.
 
-use std::collections::HashMap;
-use std::sync::Arc;
+pub mod encoding;
+pub mod error;
+pub mod traits;
 
-use serde_json::Value;
-use thiserror::Error;
+pub use encoding::{Encoding, EncodingRegistry};
+pub use error::EncodingError;
+pub use traits::{Decoder, Encoder};
 
 use handl_plugin_lib_handl::HandlLibraryPlugin;
 
@@ -27,46 +33,21 @@ use handl_plugin_lib_handl::HandlLibraryPlugin;
 /// kit-stdlib data dir.
 const ENCODING_HNL: &str = include_str!("../../../handl-packages/encoding/encoding.hnl");
 
-/// Errors that can occur when encoding or decoding.
-#[derive(Debug, Error)]
-pub enum EncodingError {
-    #[error("encoding error: {0}")]
-    Message(String),
+/// Encode a value using the provided encoder.
+pub fn encode<T, E>(value: &T, encoder: &E) -> Result<E::Output, EncodingError>
+where
+    E: Encoder<T>,
+{
+    encoder.encode(value)
 }
 
-/// An encoding that can turn values into strings and back again.
-pub trait Encoding: Send + Sync {
-    /// Encode `value` according to this encoding.
-    fn encode(&self, value: &Value) -> Result<Value, EncodingError>;
-
-    /// Decode `value` from this encoding.
-    fn decode(&self, value: &Value) -> Result<Value, EncodingError>;
-}
-
-/// A registry of named encodings.
-#[derive(Default)]
-pub struct EncodingRegistry {
-    encodings: HashMap<String, Arc<dyn Encoding>>,
-}
-
-impl EncodingRegistry {
-    /// Creates an empty registry.
-    pub fn new() -> Self {
-        Self {
-            encodings: HashMap::new(),
-        }
-    }
-
-    /// Registers an encoding under a name.
-    pub fn with(mut self, name: impl Into<String>, encoding: impl Encoding + 'static) -> Self {
-        self.encodings.insert(name.into(), Arc::new(encoding));
-        self
-    }
-
-    /// Returns the encoding registered under `name`, if any.
-    pub fn get(&self, name: &str) -> Option<&dyn Encoding> {
-        self.encodings.get(name).map(|e| e.as_ref())
-    }
+/// Decode input using the provided decoder.
+pub fn decode<I, T, D>(input: &I, decoder: &D) -> Result<T, EncodingError>
+where
+    I: ?Sized,
+    D: Decoder<I, T>,
+{
+    decoder.decode(input)
 }
 
 // ---------------------------------------------------------------------------
