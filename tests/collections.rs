@@ -10,8 +10,28 @@
 use handl_platform::{EvalContext, EvalError, Module};
 use std::sync::Arc;
 
-use handl_plugin_lib_stdlib::module_ref;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
+use handl_plugin_lib_stdlib::{load_hnl_file, module_ref};
+
+/// The `array` package is file-driven (loaded from
+/// `collections/array/index.hnl`, not a table `ModuleSpec`).
+fn array_module() -> Arc<handl_plugin_lib_handl::HandlModule> {
+    load_hnl_file(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../handl-packages/collections/array/index.hnl"
+    ))
+    .expect("array module")
+}
+
+/// Call a native `array.*` op (`push`/`range`/arrow-taking members) through
+/// the collections `OpRegistry`.
+fn call_op(op: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    let f = handl_plugin_lib_stdlib::ops::collections::collections_op_registry()
+        .get(op)
+        .unwrap_or_else(|| panic!("missing op {op}"));
+    let mut ctx = EvalContext::new();
+    norm(&f.call(args, &mut ctx).expect("call succeeds"))
+}
 
 /// Normalize a JSON value for comparison: handl-produced numbers are
 /// integers while the native ops produce f64, so numeric leaves are
@@ -351,129 +371,129 @@ fn hash_set_algebra() {
 
 #[test]
 fn array_basics() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     let a = arr(&[n(1.0), n(2.0), n(3.0)]);
-    assert_eq!(call(m, "len", &[a.clone()]), n(3.0));
-    assert_eq!(call(m, "is_empty", &[a.clone()]), serde_json::json!(false));
-    assert_eq!(call(m, "is_empty", &[arr(&[])]), serde_json::json!(true));
+    assert_eq!(call(m.as_ref(), "len", &[a.clone()]), n(3.0));
+    assert_eq!(call(m.as_ref(), "is_empty", &[a.clone()]), serde_json::json!(false));
+    assert_eq!(call(m.as_ref(), "is_empty", &[arr(&[])]), serde_json::json!(true));
     assert_eq!(
-        call(m, "reverse", &[a.clone()]),
+        call(m.as_ref(), "reverse", &[a.clone()]),
         arr(&[n(3.0), n(2.0), n(1.0)])
     );
     assert_eq!(
-        call(m, "concat", &[a.clone(), arr(&[n(4.0)])]),
+        call(m.as_ref(), "concat", &[a.clone(), arr(&[n(4.0)])]),
         arr(&[n(1.0), n(2.0), n(3.0), n(4.0)])
     );
     assert_eq!(
-        call(m, "contains", &[a.clone(), n(2.0)]),
+        call(m.as_ref(), "contains", &[a.clone(), n(2.0)]),
         serde_json::json!(true)
     );
     assert_eq!(
-        call(m, "contains", &[a.clone(), n(9.0)]),
+        call(m.as_ref(), "contains", &[a.clone(), n(9.0)]),
         serde_json::json!(false)
     );
-    assert_eq!(call(m, "index_of", &[a.clone(), n(3.0)]), n(2.0));
-    assert_eq!(call(m, "index_of", &[a.clone(), n(9.0)]), n(-1.0));
-    assert_eq!(call(m, "first", &[a.clone()]), n(1.0));
-    assert_eq!(call(m, "last", &[a.clone()]), n(3.0));
-    assert_eq!(call(m, "at", &[a.clone(), n(1.0)]), n(2.0));
-    assert_eq!(call(m, "at", &[a.clone(), n(9.0)]), serde_json::Value::Null);
-    assert_eq!(call(m, "first", &[arr(&[])]), serde_json::Value::Null);
-    assert_eq!(call(m, "last", &[arr(&[])]), serde_json::Value::Null);
+    assert_eq!(call(m.as_ref(), "index_of", &[a.clone(), n(3.0)]), n(2.0));
+    assert_eq!(call(m.as_ref(), "index_of", &[a.clone(), n(9.0)]), n(-1.0));
+    assert_eq!(call(m.as_ref(), "first", &[a.clone()]), n(1.0));
+    assert_eq!(call(m.as_ref(), "last", &[a.clone()]), n(3.0));
+    assert_eq!(call(m.as_ref(), "at", &[a.clone(), n(1.0)]), n(2.0));
+    assert_eq!(call(m.as_ref(), "at", &[a.clone(), n(9.0)]), serde_json::Value::Null);
+    assert_eq!(call(m.as_ref(), "first", &[arr(&[])]), serde_json::Value::Null);
+    assert_eq!(call(m.as_ref(), "last", &[arr(&[])]), serde_json::Value::Null);
 }
 
 #[test]
 fn array_push_pop_shift_slice() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     let a = arr(&[n(1.0), n(2.0), n(3.0)]);
     // `push` is variadic (rest param).
     assert_eq!(
-        call(m, "push", &[a.clone(), n(4.0), n(5.0)]),
+        call_op("array.push", &[a.clone(), n(4.0), n(5.0)]),
         arr(&[n(1.0), n(2.0), n(3.0), n(4.0), n(5.0)])
     );
-    assert_eq!(call(m, "pop", &[a.clone()]), arr(&[n(1.0), n(2.0)]));
-    assert_eq!(call(m, "pop", &[arr(&[])]), arr(&[]));
-    assert_eq!(call(m, "shift", &[a.clone()]), arr(&[n(2.0), n(3.0)]));
-    assert_eq!(call(m, "shift", &[arr(&[])]), arr(&[]));
+    assert_eq!(call(m.as_ref(), "pop", &[a.clone()]), arr(&[n(1.0), n(2.0)]));
+    assert_eq!(call(m.as_ref(), "pop", &[arr(&[])]), arr(&[]));
+    assert_eq!(call(m.as_ref(), "shift", &[a.clone()]), arr(&[n(2.0), n(3.0)]));
+    assert_eq!(call(m.as_ref(), "shift", &[arr(&[])]), arr(&[]));
     assert_eq!(
-        call(m, "prepend", &[a.clone(), n(0.0)]),
+        call(m.as_ref(), "prepend", &[a.clone(), n(0.0)]),
         arr(&[n(0.0), n(1.0), n(2.0), n(3.0)])
     );
     assert_eq!(
-        call(m, "slice", &[a.clone(), n(0.0), n(2.0)]),
+        call(m.as_ref(), "slice", &[a.clone(), n(0.0), n(2.0)]),
         arr(&[n(1.0), n(2.0)])
     );
     // end is clamped to len; start clamped to end.
     assert_eq!(
-        call(m, "slice", &[a.clone(), n(1.0), n(99.0)]),
+        call(m.as_ref(), "slice", &[a.clone(), n(1.0), n(99.0)]),
         arr(&[n(2.0), n(3.0)])
     );
 }
 
 #[test]
 fn array_take_drop_fill_range() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     let a = arr(&[n(1.0), n(2.0), n(3.0), n(4.0)]);
     assert_eq!(
-        call(m, "take", &[a.clone(), n(2.0)]),
+        call(m.as_ref(), "take", &[a.clone(), n(2.0)]),
         arr(&[n(1.0), n(2.0)])
     );
-    assert_eq!(call(m, "take", &[a.clone(), n(99.0)]), a);
+    assert_eq!(call(m.as_ref(), "take", &[a.clone(), n(99.0)]), a);
     assert_eq!(
-        call(m, "drop", &[a.clone(), n(2.0)]),
+        call(m.as_ref(), "drop", &[a.clone(), n(2.0)]),
         arr(&[n(3.0), n(4.0)])
     );
-    assert_eq!(call(m, "drop", &[a.clone(), n(99.0)]), arr(&[]));
+    assert_eq!(call(m.as_ref(), "drop", &[a.clone(), n(99.0)]), arr(&[]));
     assert_eq!(
-        call(m, "fill", &[n(3.0), s("x")]),
+        call(m.as_ref(), "fill", &[n(3.0), s("x")]),
         arr(&[s("x"), s("x"), s("x")])
     );
     // range with default and explicit step.
     assert_eq!(
-        call(m, "range", &[n(0.0), n(4.0)]),
+        call_op("array.range", &[n(0.0), n(4.0)]),
         arr(&[n(0.0), n(1.0), n(2.0), n(3.0)])
     );
     assert_eq!(
-        call(m, "range", &[n(0.0), n(6.0), n(2.0)]),
+        call_op("array.range", &[n(0.0), n(6.0), n(2.0)]),
         arr(&[n(0.0), n(2.0), n(4.0)])
     );
     assert_eq!(
-        call(m, "range", &[n(5.0), n(0.0), n(-2.0)]),
+        call_op("array.range", &[n(5.0), n(0.0), n(-2.0)]),
         arr(&[n(5.0), n(3.0), n(1.0)])
     );
 }
 
 #[test]
 fn array_flatten_family() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     let nested = arr(&[arr(&[n(1.0), n(2.0)]), n(3.0), arr(&[arr(&[n(4.0)])])]);
     assert_eq!(
-        call(m, "flatten", &[nested.clone()]),
+        call(m.as_ref(), "flatten", &[nested.clone()]),
         arr(&[n(1.0), n(2.0), n(3.0), arr(&[n(4.0)])])
     );
     assert_eq!(
-        call(m, "deep_flatten", &[nested]),
+        call(m.as_ref(), "deep_flatten", &[nested]),
         arr(&[n(1.0), n(2.0), n(3.0), n(4.0)])
     );
-    assert_eq!(call(m, "flatten", &[arr(&[])]), arr(&[]));
+    assert_eq!(call(m.as_ref(), "flatten", &[arr(&[])]), arr(&[]));
 }
 
 #[test]
 fn array_pairs_and_windows() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     let a = arr(&[s("a"), s("b")]);
     assert_eq!(
-        call(m, "enumerate", &[a]),
+        call(m.as_ref(), "enumerate", &[a]),
         arr(&[arr(&[n(0.0), s("a")]), arr(&[n(1.0), s("b")])])
     );
     let pairs = arr(&[arr(&[n(1.0), s("x")]), arr(&[n(2.0), s("y")])]);
     assert_eq!(
-        call(m, "unzip", &[pairs.clone()]),
+        call(m.as_ref(), "unzip", &[pairs.clone()]),
         arr(&[arr(&[n(1.0), n(2.0)]), arr(&[s("x"), s("y")])])
     );
     assert_eq!(
         call(
-            m,
+            m.as_ref(),
             "zip",
             &[arr(&[n(1.0), n(2.0), n(3.0)]), arr(&[s("a"), s("b")])]
         ),
@@ -481,31 +501,31 @@ fn array_pairs_and_windows() {
     );
     let xs = arr(&[n(1.0), n(2.0), n(3.0), n(4.0)]);
     assert_eq!(
-        call(m, "windows", &[xs.clone(), n(2.0)]),
+        call(m.as_ref(), "windows", &[xs.clone(), n(2.0)]),
         arr(&[
             arr(&[n(1.0), n(2.0)]),
             arr(&[n(2.0), n(3.0)]),
             arr(&[n(3.0), n(4.0)])
         ])
     );
-    assert_eq!(call(m, "windows", &[xs.clone(), n(9.0)]), arr(&[]));
+    assert_eq!(call(m.as_ref(), "windows", &[xs.clone(), n(9.0)]), arr(&[]));
     assert_eq!(
-        call(m, "chunk", &[xs, n(3.0)]),
+        call(m.as_ref(), "chunk", &[xs, n(3.0)]),
         arr(&[arr(&[n(1.0), n(2.0), n(3.0)]), arr(&[n(4.0)])])
     );
 }
 
 #[test]
 fn array_dedupe_compact_transpose_insert_remove() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     // `dedupe` removes only *consecutive* duplicates.
     assert_eq!(
-        call(m, "dedupe", &[arr(&[n(1.0), n(1.0), n(2.0), n(1.0)])]),
+        call(m.as_ref(), "dedupe", &[arr(&[n(1.0), n(1.0), n(2.0), n(1.0)])]),
         arr(&[n(1.0), n(2.0), n(1.0)])
     );
     assert_eq!(
         call(
-            m,
+            m.as_ref(),
             "compact",
             &[arr(&[n(1.0), serde_json::Value::Null, n(2.0)])]
         ),
@@ -513,36 +533,36 @@ fn array_dedupe_compact_transpose_insert_remove() {
     );
     assert_eq!(
         call(
-            m,
+            m.as_ref(),
             "transpose",
             &[arr(&[arr(&[n(1.0), n(2.0)]), arr(&[n(3.0), n(4.0)])])]
         ),
         arr(&[arr(&[n(1.0), n(3.0)]), arr(&[n(2.0), n(4.0)])])
     );
     assert_eq!(
-        call(m, "insert_at", &[arr(&[n(1.0), n(3.0)]), n(1.0), n(2.0)]),
+        call(m.as_ref(), "insert_at", &[arr(&[n(1.0), n(3.0)]), n(1.0), n(2.0)]),
         arr(&[n(1.0), n(2.0), n(3.0)])
     );
     assert_eq!(
-        call(m, "remove_at", &[arr(&[n(1.0), n(2.0), n(3.0)]), n(1.0)]),
+        call(m.as_ref(), "remove_at", &[arr(&[n(1.0), n(2.0), n(3.0)]), n(1.0)]),
         arr(&[n(1.0), n(3.0)])
     );
     assert_eq!(
-        call(m, "remove_at", &[arr(&[n(1.0)]), n(9.0)]),
+        call(m.as_ref(), "remove_at", &[arr(&[n(1.0)]), n(9.0)]),
         arr(&[n(1.0)])
     );
 }
 
 #[test]
 fn array_intersperse_intercalate_pluck() {
-    let m = module_ref("array").expect("array module");
+    let m = array_module();
     assert_eq!(
-        call(m, "intersperse", &[arr(&[n(1.0), n(2.0), n(3.0)]), n(0.0)]),
+        call(m.as_ref(), "intersperse", &[arr(&[n(1.0), n(2.0), n(3.0)]), n(0.0)]),
         arr(&[n(1.0), n(0.0), n(2.0), n(0.0), n(3.0)])
     );
     assert_eq!(
         call(
-            m,
+            m.as_ref(),
             "intercalate",
             &[
                 arr(&[arr(&[n(1.0)]), arr(&[n(2.0), n(3.0)])]),
@@ -553,7 +573,7 @@ fn array_intersperse_intercalate_pluck() {
     );
     let rows = arr(&[obj(&[("k", s("a"))]), obj(&[("k", s("b"))]), n(5.0)]);
     assert_eq!(
-        call(m, "pluck", &[rows, s("k")]),
+        call(m.as_ref(), "pluck", &[rows, s("k")]),
         arr(&[s("a"), s("b"), serde_json::Value::Null])
     );
 }
@@ -566,7 +586,8 @@ fn array_intersperse_intercalate_pluck() {
 
 #[test]
 fn array_arrow_ops_registered() {
-    let m = module_ref("array").expect("array module");
+    let registry =
+        handl_plugin_lib_stdlib::ops::collections::collections_op_registry();
     for name in [
         "take_while",
         "drop_while",
@@ -576,6 +597,9 @@ fn array_arrow_ops_registered() {
         "find_last",
         "find_last_index",
     ] {
-        assert!(m.function(name).is_some(), "missing array.{name}");
+        assert!(
+            registry.contains(&format!("array.{name}")),
+            "missing array.{name}"
+        );
     }
 }
