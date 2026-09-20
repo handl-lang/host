@@ -12,14 +12,34 @@ const CRYPTO_HNL: &str = include_str!("../../../handl-packages/crypto/crypto.hnl
 /// impl registered in the [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
 const CRYPTO_OPS: &[&str] = &["crypto.sha256", "crypto.md5"];
 
+/// Pure-handl record fields exposed by `crypto.hnl`.
+///
+/// `crypto.sha1` is implemented in Handl (over the `math`/`bytes`/`typeof`
+/// atoms) rather than as a native Rust handl — needed by the pure-Handl
+/// WebSocket client, whose handshake computes
+/// `base64(sha1(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))` (RFC 6455).
+const CRYPTO_FUNCS: &[&str] = &["sha1"];
+
 /// Build the [`HandlModule`] for crypto.
 ///
-/// All functions are op-backed (FFI atoms). No pure-logic arrows are
-/// used (`func_names` is empty); the `HandlModule` dispatches every
-/// function lookup to the [`OpRegistry`] via [`OpFunction`].
+/// `crypto.sha256`/`crypto.md5` are op-backed (FFI atoms dispatched to the
+/// [`OpRegistry`] via [`OpFunction`]); `crypto.sha1` is a pure-handl arrow
+/// defined in `crypto.hnl` itself, so it is exposed as a record-field
+/// function via [`CRYPTO_FUNCS`]. The pure-handl body imports `math`,
+/// `bytes`, and `typeof` — wired here as module dependencies.
 fn build_crypto_module() -> HandlModule {
     let registry = Arc::new(super::crypto_op_registry());
-    HandlModule::new("crypto", CRYPTO_HNL, &[]).with_ops(CRYPTO_OPS, registry)
+    HandlModule::new("crypto", CRYPTO_HNL, CRYPTO_FUNCS)
+        .with_ops(CRYPTO_OPS, registry)
+        .with_dependency(
+            handl_plugin_lib_stdlib::module("math").expect("crypto requires the math module"),
+        )
+        .with_dependency(
+            handl_plugin_lib_stdlib::module("bytes").expect("crypto requires the bytes module"),
+        )
+        .with_dependency(
+            handl_plugin_lib_stdlib::module("typeof").expect("crypto requires the typeof module"),
+        )
 }
 
 /// A thread-safe lazy-initialized [`HandlModule`] for crypto.
