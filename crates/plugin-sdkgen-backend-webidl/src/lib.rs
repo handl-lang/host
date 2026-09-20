@@ -134,6 +134,7 @@ impl SdkgenBackend for WebIdlBackend {
         module.records = records.into_values().collect();
         module.typedefs = typedefs.into_values().collect();
         module.functions = functions.into_values().collect();
+        enum_constants.sort_by(|a, b| a.name.cmp(&b.name));
         module.enum_constants = enum_constants;
         module.diagnostics = diags;
         Ok(module)

@@ -1,0 +1,197 @@
+--- Generated port for fetch.fetch
+--- js target: browser
+
+from "js" import { JsError }
+from "result" import { Result }
+
+export Body := {
+  body: Handle,
+  bodyUsed: Bool
+}
+
+export DeferredRequestInit := {
+  activateAfter: Handle
+}
+
+export FetchLaterResult := {
+  activated: Bool
+}
+
+export Headers := {
+}
+
+export Request := {
+  method: String,
+  url: String,
+  headers: Handle,
+  destination: Handle,
+  referrer: String,
+  referrerPolicy: Handle,
+  mode: Handle,
+  credentials: Handle,
+  cache: Handle,
+  redirect: Handle,
+  integrity: String,
+  keepalive: Bool,
+  isReloadNavigation: Bool,
+  isHistoryNavigation: Bool,
+  signal: Handle,
+  duplex: Handle
+}
+
+export RequestInit := {
+  method: String,
+  headers: Handle,
+  body: Handle,
+  referrer: String,
+  referrerPolicy: Handle,
+  mode: Handle,
+  credentials: Handle,
+  cache: Handle,
+  redirect: Handle,
+  integrity: String,
+  keepalive: Bool,
+  signal: Handle,
+  duplex: Handle,
+  priority: Handle,
+  window: Handle
+}
+
+export Response := {
+  type: Handle,
+  url: String,
+  redirected: Bool,
+  status: Nat,
+  ok: Bool,
+  statusText: String,
+  headers: Handle
+}
+
+export ResponseInit := {
+  status: Nat,
+  statusText: String,
+  headers: Handle
+}
+
+export Window := {
+}
+
+export WindowOrWorkerGlobalScope := {
+}
+
+export BodyInit := Handle
+
+export HeadersInit := Handle
+
+export RequestInfo := Handle
+
+export XMLHttpRequestBodyInit := Handle
+
+export RequestCache_Default: Int
+export RequestCache_ForceCache: Int
+export RequestCache_NoCache: Int
+export RequestCache_NoStore: Int
+export RequestCache_OnlyIfCached: Int
+export RequestCache_Reload: Int
+export RequestCredentials_Include: Int
+export RequestCredentials_Omit: Int
+export RequestCredentials_SameOrigin: Int
+export RequestDestination_: Int
+export RequestDestination_Audio: Int
+export RequestDestination_Audioworklet: Int
+export RequestDestination_Document: Int
+export RequestDestination_Embed: Int
+export RequestDestination_Font: Int
+export RequestDestination_Frame: Int
+export RequestDestination_Iframe: Int
+export RequestDestination_Image: Int
+export RequestDestination_Json: Int
+export RequestDestination_Manifest: Int
+export RequestDestination_Object: Int
+export RequestDestination_Paintworklet: Int
+export RequestDestination_Report: Int
+export RequestDestination_Script: Int
+export RequestDestination_Sharedworker: Int
+export RequestDestination_Style: Int
+export RequestDestination_Text: Int
+export RequestDestination_Track: Int
+export RequestDestination_Video: Int
+export RequestDestination_Worker: Int
+export RequestDestination_Xslt: Int
+export RequestDuplex_Half: Int
+export RequestMode_Cors: Int
+export RequestMode_Navigate: Int
+export RequestMode_NoCors: Int
+export RequestMode_SameOrigin: Int
+export RequestPriority_Auto: Int
+export RequestPriority_High: Int
+export RequestPriority_Low: Int
+export RequestRedirect_Error: Int
+export RequestRedirect_Follow: Int
+export RequestRedirect_Manual: Int
+export ResponseType_Basic: Int
+export ResponseType_Cors: Int
+export ResponseType_Default: Int
+export ResponseType_Error: Int
+export ResponseType_Opaque: Int
+export ResponseType_Opaqueredirect: Int
+
+--- js: Body.arrayBuffer
+export BodyArrayBuffer: () ~[1]~> Result<Handle, JsError>
+
+--- js: Body.blob
+export BodyBlob: () ~[1]~> Result<Handle, JsError>
+
+--- js: Body.bytes
+export BodyBytes: () ~[1]~> Result<Handle, JsError>
+
+--- js: Body.formData
+export BodyFormData: () ~[1]~> Result<Handle, JsError>
+
+--- js: Body.json
+export BodyJson: () ~[1]~> Result<Handle, JsError>
+
+--- js: Body.text
+export BodyText: () ~[1]~> Result<Handle, JsError>
+
+--- js: Body.textStream
+export BodyTextStream: () ~[1]~> Result<Handle, JsError>
+
+--- js: Headers.append
+export HeadersAppend: (String, String) ~[1]~> Result < (), JsError >
+
+--- js: Headers.constructor
+export HeadersConstructor: (Handle) ~[1]~> Result < (), JsError >
+
+--- js: Headers.delete
+export HeadersDelete: (String) ~[1]~> Result < (), JsError >
+
+--- js: Headers.get
+export HeadersGet: (String) ~[1]~> Result<Handle, JsError>
+
+--- js: Headers.getSetCookie
+export HeadersGetSetCookie: () ~[1]~> Result<Handle, JsError>
+
+--- js: Headers.has
+export HeadersHas: (String) ~[1]~> Result<Bool, JsError>
+
+--- js: Headers.set
+export HeadersSet: (String, String) ~[1]~> Result < (), JsError >
+
+--- js: Request.clone
+export RequestClone: () ~[1]~> Result<Handle, JsError>
+
+--- js: Request.constructor
+export RequestConstructor: (Handle, Handle) ~[1]~> Result < (), JsError >
+
+--- js: Response.clone
+export ResponseClone: () ~[1]~> Result<Handle, JsError>
+
+--- js: Response.constructor
+export ResponseConstructor: (Handle, Handle) ~[1]~> Result < (), JsError >
+
+--- js: Window.fetchLater
+export WindowFetchLater: (Handle, Handle) ~[1]~> Result<Handle, JsError>
+
+--- js: WindowOrWorkerGlobalScope.fetch
+export WindowOrWorkerGlobalScopeFetch: (Handle, Handle) ~[1]~> Result<Handle, JsError>

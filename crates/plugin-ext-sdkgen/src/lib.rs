@@ -1,16 +1,18 @@
 //! `hnl sdkgen` CLI extension (ADR-0107).
 
+use handl_plugin_lib_http_client::{HttpClient, HttpMethod, HttpRequest};
+use handl_plugin_lib_http_client_std::StdHttpClient;
 use handl_plugin_sdkgen::{Emitter, SdkgenBackend};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use handl_plugin_sdkgen_backend_webidl::WebIdlBackend;
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Run the `hnl sdkgen` subcommand and return the process exit code.
 pub fn sdkgen_command(args: &[String]) -> i32 {
-    let usage = "usage: hnl sdkgen <c|webidl|python> <header|spec> --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>]";
+    let usage = "usage: hnl sdkgen <c|webidl|python> [<header|spec> | --from-url <url>] --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>]";
     if args.is_empty() {
         eprintln!("{usage}");
         return 2;
@@ -28,6 +30,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
     let mut include: Option<String> = None;
     let mut exclude: Option<String> = None;
     let mut config_path: Option<String> = None;
+    let mut from_url: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -52,6 +55,10 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 i += 1;
                 config_path = args.get(i).map(String::to_string);
             }
+            "--from-url" => {
+                i += 1;
+                from_url = args.get(i).map(String::to_string);
+            }
             s if s.starts_with("--") => {
                 eprintln!("sdkgen: unknown flag `{s}`");
                 return 2;
@@ -68,16 +75,45 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
         i += 1;
     }
 
-    let Some(header) = header else {
-        eprintln!("sdkgen: missing <header|spec>");
-        return 2;
-    };
     let Some(output) = output else {
         eprintln!("sdkgen: missing --output");
         return 2;
     };
+    if header.is_some() && from_url.is_some() {
+        eprintln!("sdkgen: <header|spec> and --from-url are mutually exclusive");
+        return 2;
+    }
 
     let output_path = Path::new(&output);
+
+    // Resolve the input spec: either a local path or a downloaded URL. The
+    // fetched file lands next to the output dir (the `generated/` spec
+    // convention) so the port's `module.library` still derives from the
+    // upstream basename.
+    let header: PathBuf = match (header, from_url) {
+        (Some(h), None) => PathBuf::from(h),
+        (None, Some(url)) => {
+            let spec_dir = output_path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
+            match fetch_spec(&url, spec_dir) {
+                Ok(p) => {
+                    eprintln!("sdkgen: fetched {url} -> {}", p.display());
+                    p
+                }
+                Err(e) => {
+                    eprintln!("sdkgen: {e}");
+                    return 1;
+                }
+            }
+        }
+        (None, None) => {
+            eprintln!("sdkgen: missing <header|spec>");
+            return 2;
+        }
+        (Some(_), Some(_)) => unreachable!(),
+    };
 
     match kind.as_str() {
         "c" => {
@@ -98,7 +134,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                     return 1;
                 }
             };
-            let module = match backend.parse_header(Path::new(&header)) {
+            let module = match backend.parse_header(&header) {
                 Ok(m) => m,
                 Err(e) => {
                     eprintln!("sdkgen: {e}");
@@ -120,7 +156,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 return 2;
             }
             let backend = WebIdlBackend::new(target);
-            let module = match backend.parse_header(Path::new(&header)) {
+            let module = match backend.parse_header(&header) {
                 Ok(m) => m,
                 Err(e) => {
                     eprintln!("sdkgen: {e}");
@@ -138,7 +174,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
                 eprintln!("sdkgen: --target/--include/--exclude/--config are only supported for `sdkgen c`");
                 return 2;
             }
-            if let Err(e) = generate_python(Path::new(&header), output_path) {
+            if let Err(e) = generate_python(&header, output_path) {
                 eprintln!("sdkgen: {e}");
                 return 1;
             }
@@ -147,6 +183,41 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
     }
 
     0
+}
+
+// ---------------------------------------------------------------------------
+// `--from-url` spec fetching
+// ---------------------------------------------------------------------------
+
+/// Download `url` into `dir` under the URL's basename and return the local
+/// path. The basename is preserved because backends derive the module/library
+/// name from the input file stem.
+fn fetch_spec(url: &str, dir: &Path) -> Result<PathBuf, String> {
+    let basename = url
+        .split(['?', '#'])
+        .next()
+        .and_then(|u| u.rsplit('/').next())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("spec")
+        .to_string();
+
+    let req = HttpRequest::new(HttpMethod::Get, url).with_timeout(30_000);
+    let resp = StdHttpClient
+        .request(&req)
+        .map_err(|e| format!("failed to fetch {url}: {e}"))?;
+    if !(200..300).contains(&resp.status) {
+        return Err(format!(
+            "failed to fetch {url}: HTTP {} {}",
+            resp.status, resp.status_text
+        ));
+    }
+
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+    let path = dir.join(basename);
+    std::fs::write(&path, &resp.body)
+        .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    Ok(path)
 }
 
 // ---------------------------------------------------------------------------

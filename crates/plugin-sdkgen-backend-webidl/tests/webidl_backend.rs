@@ -102,3 +102,36 @@ fn parses_console_webidl() {
         .expect("Closed");
     assert_eq!(closed.value, 1);
 }
+
+/// Enum constants are gathered through a `HashMap` merge; without a sort the
+/// emitted order varies per run (fresh `RandomState`). Parsing twice in one
+/// process must yield identical output.
+#[test]
+fn enum_constants_are_deterministic() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/enums.webidl");
+    let backend = WebIdlBackend::new(None);
+
+    let names = |m: &handl_plugin_sdkgen::SdkgenModule| {
+        m.enum_constants
+            .iter()
+            .map(|c| c.name.clone())
+            .collect::<Vec<_>>()
+    };
+    let first = backend.parse_header(&path).expect("parse fixture");
+    for _ in 0..16 {
+        let again = backend.parse_header(&path).expect("parse fixture");
+        assert_eq!(names(&first), names(&again));
+    }
+    assert_eq!(
+        names(&first),
+        vec![
+            "AlphaMode_X",
+            "AlphaMode_Y",
+            "MidMode_M",
+            "MidMode_N",
+            "ZetaMode_A",
+            "ZetaMode_B"
+        ]
+    );
+}

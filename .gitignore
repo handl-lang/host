@@ -59,3 +59,7 @@ node_modules
 # Archived pre-migration Rust stdlib crates (moved to handl-hnl packages).
 # Untracked on disk (recoverable from git history); kept out of the workspace.
 /.old-stdlib/
+
+# sdkgen spec inputs fetched via `hnl sdkgen --from-url` (upstream artifacts)
+/handl-packages/generated/*.webidl
+/handl-packages/generated/*.idl
