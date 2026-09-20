@@ -1,0 +1,271 @@
+--- ws-whatwg-c/http -- pure HTTP/1.1 upgrade-handshake helpers
+--- (RFC 6455 section 1.2).
+---
+--- @details
+--- Everything here is `~>` pure string/byte work: building the client
+--- upgrade request, computing `Sec-WebSocket-Accept`, parsing the
+--- server response head, and the small `ws://` URL reader `connect`
+--- consumes.
+---
+--- Two helpers exist because the host stdlib codecs are string-only:
+--- `crypto.sha1` returns a *hex* string, so `hex_decode` turns it back
+--- into digest bytes, and `base64.encode` takes a String (the raw
+--- digest is not valid UTF-8), so `b64_encode` encodes a byte list in
+--- pure Handl. The same `b64_encode` also encodes the 16-byte nonce
+--- into `Sec-WebSocket-Key`.
+---
+--- `parse_url` is a pure `ws://` reader rather than `url_whatwg.parse`
+--- because the url_whatwg op module is not wired into this runtime --
+--- and v1 only needs scheme + IPv4 host + port + path anyway.
+
+from "bytes" import * as bytes
+from "str" import * as str
+from "char" import * as char
+from "math" import * as math
+from "crypto" import * as crypto
+
+--- The `{host, port, path}` triple `parse_url` produces and
+--- `upgrade_req` consumes.
+export UrlIn := { host: String, port: Int, path: String }
+
+--- A single response header; `name` is stored lowercased.
+export Header := { name: String, value: String }
+
+--- A parsed response head: the numeric status plus the header list.
+export Head := { status: Int, headers: [Header] }
+
+--- The RFC 6455 section 1.3 magic GUID appended to the client key
+--- before hashing.
+export GUID := "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+--- nat_of -- parse a non-empty digit string to an Int, or -1 when any
+--- char is not a digit. Internal; the callers add the range checks.
+nat_of := (s) ~> do {
+  n :: str.length(s)
+  if n == 0 {
+    0 - 1
+  } else {
+    while { i: 0, acc: 0, bad: false } {
+      (i, acc, bad) ~> if i >= n {
+        if bad {
+          { out: 0 - 1 }
+        } else {
+          { out: acc }
+        }
+      } else {
+        do {
+          c :: char.code_point_at(s, i)
+          if c >= 48 && c <= 57 {
+            { state: { i: i + 1, acc: acc * 10 + (c - 48), bad: bad } }
+          } else {
+            { state: { i: i + 1, acc: acc, bad: true } }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- hex_val -- the value of one hex digit char code; raises otherwise.
+hex_val := (c) ~> if c >= 48 && c <= 57 {
+  c - 48
+} else if c >= 97 && c <= 102 {
+  c - 87
+} else if c >= 65 && c <= 70 {
+  c - 55
+} else {
+  error.raise("ws-whatwg-c: bad hex digit")
+}
+
+--- hex_decode -- decode a hex string (any mix of upper/lowercase) into
+--- a list of byte ints. Pairs are consumed left to right; a trailing
+--- half-pair is dropped.
+--- @param {s} - the hex string
+--- @returns {List Int - the decoded bytes}
+export hex_decode := (s) ~> do {
+  n :: str.length(s)
+  while { i: 0, acc: [] } {
+    (i, acc) ~> if i + 1 >= n {
+      { out: acc }
+    } else {
+      do {
+        hi :: hex_val(char.code_point_at(s, i))
+        lo :: hex_val(char.code_point_at(s, i + 1))
+        { state: { i: i + 2, acc: [...acc, hi * 16 + lo] } }
+      }
+    }
+  }
+}
+
+--- list_len -- element count of a list (internal).
+list_len := (xs) ~> while { xs: xs, n: 0 } {
+  (xs, n) ~> match xs {
+    []: { out: n },
+    [h, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
+
+--- b64_encode -- standard base64 (RFC 4648, `+/` alphabet with `=`
+--- padding) over a list of byte ints.
+--- @param {bs} - the input bytes as a list of ints
+--- @returns {String - the base64 encoding}
+export b64_encode := (bs) ~> do {
+  alpha :: char.chars("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+  n :: list_len(bs)
+  while { i: 0, out: "" } {
+    (i, out) ~> if i >= n {
+      { out: out }
+    } else {
+      do {
+        b0 :: bs[i]
+        b1 :: if i + 1 < n { bs[i + 1] } else { 0 }
+        b2 :: if i + 2 < n { bs[i + 2] } else { 0 }
+        c0 :: math.shr(b0, 2)
+        c1 :: math.bit_or(math.shl(math.bit_and(b0, 3), 4), math.shr(b1, 4))
+        c2 :: math.bit_or(math.shl(math.bit_and(b1, 15), 2), math.shr(b2, 6))
+        c3 :: math.bit_and(b2, 63)
+        s :: out + alpha[c0] + alpha[c1] +
+             (if i + 1 < n { alpha[c2] } else { "=" }) +
+             (if i + 2 < n { alpha[c3] } else { "=" })
+        { state: { i: i + 3, out: s } }
+      }
+    }
+  }
+}
+
+--- upgrade_req -- build the RFC 6455 section 1.2 client upgrade
+--- request for `{host, port, path}` and the base64 nonce `key`.
+--- @param {u} - { host: String, port: Int, path: String }
+--- @param {key} - the base64 Sec-WebSocket-Key nonce
+--- @returns {String - the raw HTTP request head}
+export upgrade_req := (u, key) ~> (
+  "GET " + u.path + " HTTP/1.1\r\n" +
+  "Host: " + u.host + ":" + type.to_string(u.port) + "\r\n" +
+  "Upgrade: websocket\r\n" +
+  "Connection: Upgrade\r\n" +
+  "Sec-WebSocket-Key: " + key + "\r\n" +
+  "Sec-WebSocket-Version: 13\r\n" +
+  "\r\n"
+)
+
+--- accept_key -- the expected `Sec-WebSocket-Accept` value for a client
+--- nonce: `base64(sha1(key ++ GUID))` (RFC 6455 section 1.3).
+--- `crypto.sha1` returns hex, so the digest is decoded to bytes before
+--- the pure `b64_encode`.
+--- @param {key} - the Sec-WebSocket-Key the client sent
+--- @returns {String - the Sec-WebSocket-Accept value to expect}
+export accept_key := (key) ~> (
+  b64_encode(hex_decode(crypto.sha1(key + GUID)))
+)
+
+--- status_of -- the numeric status out of a status line
+--- `HTTP/1.1 <code> <reason>` (the second whitespace-separated token),
+--- or -1 when it is not a digit string.
+status_of := (line0) ~> do {
+  ws :: str.split_whitespace(line0)
+  match ws {
+    [proto, code, ...tail]: nat_of(code),
+    _: 0 - 1
+  }
+}
+
+--- headers_of -- parse `": "`-separated header lines into `{name,
+--- value}` records with lowercased names. Lines without a colon
+--- (including the blank terminator) are skipped.
+headers_of := (rest) ~> while { xs: rest, acc: [] } {
+  (xs, acc) ~> match xs {
+    []: { out: acc },
+    [h, ...t]: do {
+      c :: str.find(h, ":")
+      if c < 0 {
+        { state: { xs: t, acc: acc } }
+      } else {
+        do {
+          nm :: str.lower(str.trim(str.slice(h, 0, c)))
+          v :: str.trim(str.slice(h, c + 1, str.length(h)))
+          { state: { xs: t, acc: [...acc, { name: nm, value: v }] } }
+        }
+      }
+    }
+  }
+}
+
+--- parse_head -- parse a raw HTTP response head: the status line
+--- `HTTP/1.1 <code> <reason>` plus colon-separated header lines into
+--- `{status, headers}` with header names lowercased. Lines without a
+--- colon (including the blank terminator) are skipped.
+--- @param {s} - the raw response head
+--- @returns {Head - { status: Int, headers: [{name, value}] }}
+export parse_head := (s) ~> do {
+  lines :: str.split(s, "\r\n")
+  match lines {
+    []: { status: 0, headers: [] },
+    [line0, ...rest]: { status: status_of(line0), headers: headers_of(rest) }
+  }
+}
+
+--- header_get -- case-insensitive header lookup over a `parse_head`
+--- header list; returns the value or null when absent.
+--- @param {headers} - the [{name, value}] list from parse_head
+--- @param {name} - the header name to find (any case)
+--- @returns {String - the value, or null}
+export header_get := (headers, name) ~> while { xs: headers, want: str.lower(name) } {
+  (xs, want) ~> match xs {
+    []: { out: null },
+    [h, ...t]: if h.name == want {
+      { out: h.value }
+    } else {
+      { state: { xs: t, want: want } }
+    }
+  }
+}
+
+--- head_end -- the index just past the first `"\r\n\r\n"` terminator
+--- in a byte buffer, or -1 while the head is still incomplete. Pure
+--- byte scan so the (possibly binary) frame bytes trailing the head are
+--- never UTF-8 decoded.
+--- @param {buf} - the Bytes accumulated so far
+--- @returns {Int - index after the terminator, or -1}
+export head_end := (buf) ~> while { i: 0, n: bytes.len(buf) } {
+  (i, n) ~> if i + 4 > n {
+    { out: 0 - 1 }
+  } else {
+    if bytes.at(buf, i) == 13 && bytes.at(buf, i + 1) == 10 &&
+       bytes.at(buf, i + 2) == 13 && bytes.at(buf, i + 3) == 10 {
+      { out: i + 4 }
+    } else {
+      { state: { i: i + 1, n: n } }
+    }
+  }
+}
+
+--- parse_url -- read a `ws://host[:port][/path]` URL into `{host,
+--- port, path}`. v1 scope: `ws://` scheme and IPv4-literal hosts only;
+--- port defaults to 80, path to `"/"`. Raises on any other scheme, an
+--- empty host, or a non-numeric/out-of-range port.
+--- @param {s} - the URL string
+--- @returns {UrlIn - { host: String, port: Int, path: String }}
+export parse_url := (s) ~> do {
+  if str.starts_with(s, "ws://") == false {
+    error.raise("ws-whatwg-c: only ws:// URLs are supported (v1)")
+  } else {
+    do {
+      rest :: str.slice(s, 5, str.length(s))
+      slash :: str.find(rest, "/")
+      authority :: if slash < 0 { rest } else { str.slice(rest, 0, slash) }
+      path :: if slash < 0 { "/" } else { str.slice(rest, slash, str.length(rest)) }
+      colon :: str.find(authority, ":")
+      host :: if colon < 0 { authority } else { str.slice(authority, 0, colon) }
+      port :: if colon < 0 { 80 } else {
+        nat_of(str.slice(authority, colon + 1, str.length(authority)))
+      }
+      if str.length(host) == 0 {
+        error.raise("ws-whatwg-c: empty host in URL")
+      } else if port < 0 || port > 65535 {
+        error.raise("ws-whatwg-c: bad port in URL")
+      } else {
+        { host: host, port: port, path: path }
+      }
+    }
+  }
+}

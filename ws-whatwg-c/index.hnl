@@ -1,0 +1,44 @@
+--- ws-whatwg-c -- WHATWG WebSocket client over the generated libc C ABI.
+---
+--- @details
+--- Transport layer above `ws_frame`: socket I/O is `~[1]~>` effectful
+--- arrows over libc adapters; handshake/sockaddr/head logic is pure `~>`.
+--- Entropy enters through libc `getrandom(2)` via the generated
+--- `libc-c-linux-x86_64/random.hnl` adapter -- masking stays a
+--- caller-supplied input to the pure codec, never an ambient effect.
+---
+--- Laws are `~[2]~>` 2-cell terms quantified over impl arrows, as in
+--- `compress`. Only pure helpers carry laws -- effectful composition
+--- across a network boundary is not a morphism equation.
+---
+--- v1 scope: `ws://` URLs with IPv4-literal hosts only -- no DNS, no
+--- `wss://`/TLS, no IPv6, no redirects, no permessage-deflate.
+
+from "bytes" import { Bytes }
+
+--- An open client connection: the socket fd plus `rbuf`, the receive
+--- buffer of undecoded bytes already read off the wire.
+export Conn := { fd: Int, rbuf: Bytes }
+
+--- A packed socket address as a record (what `sockaddr_out` returns).
+export Sockaddr := { port: Int, ip: String }
+
+--- sockaddr_in pack signature: (port, dotted-quad) ~> 16 wire bytes.
+export SockaddrPack := (Int, String) ~> Bytes
+
+--- sockaddr_in unpack signature: 16 wire bytes ~> {port, ip}.
+export SockaddrUnpack := (Bytes) ~> Sockaddr
+
+--- The identity arrow, named so laws can mention it.
+export id := (x) ~> x
+
+--- sockaddr_record -- rebuild the `{port, ip}` record out of `pack`'s
+--- input pair. Named so the roundtrip law has an honest right side:
+--- `pack >>> unpack` maps (port, ip) to a *record*, not back to the
+--- input tuple, so `id` is not the correct codomain arrow here.
+export sockaddr_record := (port, ip) ~> { port: port, ip: ip }
+
+--- unpack is a left inverse of pack: decoding what a conforming packer
+--- produced returns the input address as a record. Quantified over the
+--- contract signatures so any implementation can be checked against it.
+export sockaddr_roundtrip := (pack: SockaddrPack, unpack: SockaddrUnpack) ~> (pack >>> unpack) ~[2]~> sockaddr_record

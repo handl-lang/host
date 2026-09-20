@@ -1,0 +1,101 @@
+--- ws-whatwg-c/sockaddr -- pure sockaddr_in pack/unpack.
+---
+--- @details
+--- `sockaddr_in` is the 16-byte IPv4 socket address `connect(2)`
+--- expects: `sin_family` as a host-order u16 (AF_INET -- little-endian
+--- on x86_64, so the low byte comes first), `sin_port` as a big-endian
+--- u16, `sin_addr` as the four dotted-quad octets in network order, then
+--- 8 zero bytes of `sin_zero` padding.
+---
+--- The dotted-quad parse is done in pure Handl: calling `inet_pton`
+--- would drag an effectful libc call into what is just byte packing.
+--- Both arrows are `~>` pure -- this module never touches a socket.
+
+from "bytes" import * as bytes
+from "str" import * as str
+from "char" import * as char
+from "math" import * as math
+from "../generated/libc-c-linux-x86_64/in" import { AF_INET }
+from "./index" import { SockaddrPack, SockaddrUnpack }
+
+--- nat_of -- parse a non-empty digit string to an Int, or -1 when any
+--- char is not a digit. Internal; the callers add the range checks.
+nat_of := (s) ~> do {
+  n :: str.length(s)
+  if n == 0 {
+    0 - 1
+  } else {
+    while { i: 0, acc: 0, bad: false } {
+      (i, acc, bad) ~> if i >= n {
+        if bad {
+          { out: 0 - 1 }
+        } else {
+          { out: acc }
+        }
+      } else {
+        do {
+          c :: char.code_point_at(s, i)
+          if c >= 48 && c <= 57 {
+            { state: { i: i + 1, acc: acc * 10 + (c - 48), bad: bad } }
+          } else {
+            { state: { i: i + 1, acc: acc, bad: true } }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- octet -- parse one dotted-quad octet (0..255); raises on a
+--- non-digit char or an out-of-range value.
+octet := (s) ~> do {
+  v :: nat_of(s)
+  if v < 0 || v > 255 {
+    error.raise("ws-whatwg-c: bad octet in IPv4 literal")
+  } else {
+    v
+  }
+}
+
+--- sockaddr_in -- pack `(port, ip)` into the 16-byte `sockaddr_in`
+--- image `connect(2)` expects.
+--- @param {port} - the TCP port (0..65535)
+--- @param {ip} - the IPv4 dotted-quad, e.g. `"127.0.0.1"`
+--- @returns {Bytes - the 16-byte sockaddr_in}
+--- @details Layout: `[AF_INET lo, AF_INET hi]` (host order),
+--- `[port hi, port lo]` (big-endian), the four octets in order, then
+--- eight zero bytes. Raises on a malformed dotted-quad or an
+--- out-of-range port -- the input is an IPv4 literal, never a hostname.
+export sockaddr_in: SockaddrPack := (port, ip) ~> do {
+  if port < 0 || port > 65535 {
+    error.raise("ws-whatwg-c: port out of range")
+  } else {
+    do {
+      ps :: str.split(ip, ".")
+      match ps {
+        [a, b, c, d]: bytes.from_list([
+          math.bit_and(AF_INET, 255), math.bit_and(math.shr(AF_INET, 8), 255),
+          math.bit_and(math.shr(port, 8), 255), math.bit_and(port, 255),
+          octet(a), octet(b), octet(c), octet(d),
+          0, 0, 0, 0, 0, 0, 0, 0]),
+        _: error.raise("ws-whatwg-c: expected an IPv4 dotted-quad host")
+      }
+    }
+  }
+}
+
+--- sockaddr_out -- unpack a 16-byte `sockaddr_in` image back to
+--- `{port, ip}`. The inverse of `sockaddr_in`; reads `sin_port`
+--- big-endian and renders `sin_addr` as a dotted-quad. The family field
+--- is not checked -- this arrow only projects the two fields callers
+--- set.
+--- @param {buf} - the 16-byte sockaddr_in image
+--- @returns {Sockaddr - { port: Int, ip: String }}
+export sockaddr_out: SockaddrUnpack := (buf) ~> do {
+  port :: bytes.at(buf, 2) * 256 + bytes.at(buf, 3)
+  ip :: type.to_string(bytes.at(buf, 4)) + "." +
+        type.to_string(bytes.at(buf, 5)) + "." +
+        type.to_string(bytes.at(buf, 6)) + "." +
+        type.to_string(bytes.at(buf, 7))
+  { port: port, ip: ip }
+}

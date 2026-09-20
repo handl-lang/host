@@ -22,7 +22,7 @@
 
 from "type" import { Nat }
 from "option" import { Option }
-from "bytes" import * as bytes
+from "bytes" import { Bytes }
 
 --- A decoded frame. `fin` is 1 (final fragment) or 0 (continuation);
 --- `op` is the 4-bit opcode -- use the `Op*` constants; `payload` is
@@ -96,16 +96,13 @@ export all_need_more := (decode: Decode, bs) ~> while { xs: bs, ok: true } {
 --- conforming encoder produced returns the input frame (the mask key is
 --- consumed on the wire). Quantified over the contract signatures so
 --- any implementation can be checked against it.
-export roundtrip := (encode: Encode, decode: Decode) ~>
-  (encode >>> decode >>> frame_of) ~[2]~> frame_in
+export roundtrip := (encode: Encode, decode: Decode) ~> (encode >>> decode >>> frame_of) ~[2]~> frame_in
 
 --- decode consumes exactly one frame: a lone encoded frame leaves an
 --- empty rest. Coalesced frames are therefore peeled one at a time by
 --- feeding `rest` back to `decode`.
-export complete := (encode: Encode, decode: Decode) ~>
-  (encode >>> decode >>> rest_of) ~[2]~> empty
+export complete := (encode: Encode, decode: Decode) ~> (encode >>> decode >>> rest_of) ~[2]~> empty
 
 --- need_more on every strict prefix: no proper truncation of an encoded
 --- frame decodes to a frame -- incremental decoding is honest.
-export prefix := (encode: Encode, decode: Decode) ~>
-  (encode >>> prefixes >>> (bs) ~> all_need_more(decode, bs)) ~[2]~> (x) ~> true
+export prefix := (encode: Encode, decode: Decode) ~> (encode >>> prefixes >>> (bs) ~> all_need_more(decode, bs)) ~[2]~> (x) ~> true

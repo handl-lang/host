@@ -1,0 +1,168 @@
+--- Tests for ws-whatwg-c/conn -- the effectful connection layer.
+---
+--- `connect` itself needs a live server, so everything else is exercised
+--- over `socketpair(AF_UNIX, SOCK_STREAM)`: the same `socket.send`/
+--- `socket.recv` code paths carry bytes both ways, and `frame.decode`
+--- on the peer side verifies the masked wire format. `test_connect_live`
+--- is gated on the `WS_TEST_URL` env var -- without it the test passes
+--- trivially.
+
+from "./conn" import * as conn
+from "../ws_frame-handl/frame" import * as frame
+from "../ws_frame" import * as ws_frame
+from "bytes" import * as bytes
+from "math" import * as math
+from "../generated/libc-c-linux-x86_64/socket" import * as socket
+
+--- u32le -- one little-endian i32 out of the socketpair `outs` blob.
+u32le := (buf, off) ~> (
+  bytes.at(buf, off) +
+  math.shl(bytes.at(buf, off + 1), 8) +
+  math.shl(bytes.at(buf, off + 2), 16) +
+  math.shl(bytes.at(buf, off + 3), 24)
+)
+
+--- pair -- a connected socketpair; `a` plays the client side, `b` the
+--- peer. Fds arrive in `outs[0]` as two little-endian i32s.
+pair := () ~> do {
+  r :: socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+  fds :: tag.untag(r).value.outs[0]
+  { a: u32le(fds, 0), b: u32le(fds, 4) }
+}
+
+test_random_bytes := assert(do {
+  b :: conn.random_bytes(16)
+  bytes.len(b)
+}) = 16
+
+test_write_all := assert(do {
+  p :: pair()
+  w :: conn.write_all(p.a, bytes.utf8_encode("hello"))
+  b :: socket.recv(p.b, 0)
+  { tag: tag.tag_of(w),
+    n: tag.untag(w).value,
+    got: bytes.utf8_decode(tag.untag(b).value) }
+}) = { tag: "ok", n: 5, got: "hello" }
+
+test_read_head := assert(do {
+  p :: pair()
+  s :: socket.send(p.b, bytes.utf8_encode("HTTP/1.1 101 Switching\r\n\r\nREST"),
+                   socket.MSG_NOSIGNAL)
+  h :: conn.read_head(p.a)
+  hr :: tag.untag(h).value
+  { tag: tag.tag_of(h),
+    head: hr.head,
+    rest: bytes.utf8_decode(hr.rest) }
+}) = { tag: "ok", head: "HTTP/1.1 101 Switching\r\n\r\n", rest: "REST" }
+
+test_read_head_split := assert(do {
+  p :: pair()
+  s1 :: socket.send(p.b, bytes.utf8_encode("HTTP/1.1 101 Swit"), socket.MSG_NOSIGNAL)
+  s2 :: socket.send(p.b, bytes.utf8_encode("ching\r\n\r\n"), socket.MSG_NOSIGNAL)
+  h :: conn.read_head(p.a)
+  tag.untag(h).value.head
+}) = "HTTP/1.1 101 Switching\r\n\r\n"
+
+-- A text send goes on the wire masked (mask bit set in byte 1) and the
+-- peer's pure `frame.decode` recovers the payload.
+test_send_text_wire := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  s :: conn.send(c, "hi")
+  wire :: tag.untag(socket.recv(p.b, 0)).value
+  d :: frame.decode(wire)
+  { tag: tag.tag_of(s),
+    op: d.value.frame.op,
+    msg: bytes.utf8_decode(d.value.frame.payload),
+    maskbit: math.bit_and(bytes.at(wire, 1), 128) }
+}) = { tag: "ok", op: 1, msg: "hi", maskbit: 128 }
+
+test_recv_text := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  f :: frame.encode({ fin: 1, op: ws_frame.OpText,
+                      payload: bytes.utf8_encode("yo"),
+                      mask_key: bytes.from_list([]) })
+  s :: socket.send(p.b, f, socket.MSG_NOSIGNAL)
+  r :: conn.recv(c)
+  { tag: tag.tag_of(r), msg: tag.untag(r).value.msg }
+}) = { tag: "ok", msg: "yo" }
+
+test_recv_eagain := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  r :: conn.recv(c)
+  { tag: tag.tag_of(r), msg: tag.untag(r).value.msg }
+}) = { tag: "ok", msg: null }
+
+-- A frame split across two reads buffers in `conn.rbuf`.
+test_recv_partial := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  f :: frame.encode({ fin: 1, op: ws_frame.OpText,
+                      payload: bytes.utf8_encode("hello"),
+                      mask_key: bytes.from_list([]) })
+  s1 :: socket.send(p.b, bytes.slice(f, 0, 3), socket.MSG_NOSIGNAL)
+  r1 :: conn.recv(c)
+  s2 :: socket.send(p.b, bytes.slice(f, 3, bytes.len(f) - 3), socket.MSG_NOSIGNAL)
+  r2 :: conn.recv(tag.untag(r1).value.conn)
+  { m1: tag.untag(r1).value.msg, m2: tag.untag(r2).value.msg }
+}) = { m1: null, m2: "hello" }
+
+test_recv_binary := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  f :: frame.encode({ fin: 1, op: ws_frame.OpBinary,
+                      payload: bytes.from_list([1, 2, 3]),
+                      mask_key: bytes.from_list([]) })
+  s :: socket.send(p.b, f, socket.MSG_NOSIGNAL)
+  r :: conn.recv(c)
+  bytes.to_list(tag.untag(r).value.msg)
+}) = [1, 2, 3]
+
+-- Control frames surface as {op, payload} records.
+test_recv_ping := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  f :: frame.encode({ fin: 1, op: ws_frame.OpPing,
+                      payload: bytes.utf8_encode("x"),
+                      mask_key: bytes.from_list([]) })
+  s :: socket.send(p.b, f, socket.MSG_NOSIGNAL)
+  r :: conn.recv(c)
+  m :: tag.untag(r).value.msg
+  { op: m.op, payload: bytes.utf8_decode(m.payload) }
+}) = { op: 9, payload: "x" }
+
+-- Full client->peer masked round trip through the pair.
+test_send_recv_pair := assert(do {
+  p :: pair()
+  ca :: { fd: p.a, rbuf: bytes.from_list([]) }
+  cb :: { fd: p.b, rbuf: bytes.from_list([]) }
+  s :: conn.send(ca, "ping")
+  r :: conn.recv(cb)
+  { msg: tag.untag(r).value.msg }
+}) = { msg: "ping" }
+
+-- close emits a masked op-8 frame the peer can decode.
+test_close := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  cl :: conn.close(c)
+  wire :: tag.untag(socket.recv(p.b, 0)).value
+  d :: frame.decode(wire)
+  { tag: tag.tag_of(cl), op: d.value.frame.op }
+}) = { tag: "ok", op: 8 }
+
+-- Gated live test: runs the real handshake only when WS_TEST_URL
+-- points at a server (e.g. ws://127.0.0.1:8080/); skipped otherwise.
+test_connect_live := assert(do {
+  u :: ffi.call("libc.so.6", "getenv", ["WS_TEST_URL"], ["cstr"], "cstr", false)
+  if u == null {
+    true
+  } else {
+    do {
+      c :: conn.connect(u)
+      tag.tag_of(c) == "ok"
+    }
+  }
+}) = true
