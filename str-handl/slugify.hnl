@@ -1,0 +1,59 @@
+--- `str.slugify` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/rev.hnl" import rev
+from "./internal/drop_while.hnl" import drop_while
+from "./internal/map.hnl" import map
+
+--- Converts `s` to a URL-safe slug.
+---
+--- @details
+--- Lowercases `s`, keeps alphanumerics, maps whitespace/`-`/`_` to `-`,
+--- drops every other char, and collapses and trims `-` runs:
+--- `"Hello, World!"` -> `"hello-world"`.
+---
+--- @param {s} - the input string
+--- @returns {String - the slug}
+--- @example
+--- `str.slugify("Hello, World!")`
+--- -- => "hello-world"
+---
+export slugify := (s) ~> do {
+  lower := char.from_chars(map(char.chars(s), c ~> char.to_lower(c)))
+  cs := char.chars(lower)
+  mapped_rev := []
+  for h in cs { do {
+    if char.is_alnum(h) {
+      mapped_rev := [h, ...mapped_rev]
+    } else {
+      if char.is_whitespace(h) {
+        mapped_rev := ["-", ...mapped_rev]
+      } else {
+        if h == "-" {
+          mapped_rev := ["-", ...mapped_rev]
+        } else {
+          if h == "_" {
+            mapped_rev := ["-", ...mapped_rev]
+          }
+        }
+      }
+    }
+  } }
+  mapped := rev(mapped_rev)
+  t1 := drop_while(mapped, c ~> c == "-")
+  t2 := rev(drop_while(rev(t1), c ~> c == "-"))
+  acc := []
+  prev_dash := false
+  for h in t2 { do {
+    if h == "-" {
+      if !prev_dash {
+        acc := [h, ...acc]
+      }
+      prev_dash := true
+    } else {
+      acc := [h, ...acc]
+      prev_dash := false
+    }
+  } }
+  char.from_chars(rev(acc))
+}

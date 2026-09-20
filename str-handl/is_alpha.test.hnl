@@ -1,0 +1,13 @@
+from "./is_alpha" import * as m
+
+test_is_alpha_alpha := assert m.is_alpha("abc") = true
+
+test_is_alpha_digit := assert m.is_alpha("a1") = false
+
+test_is_alpha_empty := assert m.is_alpha("") = false
+
+test_is_alpha_mixed_case := assert m.is_alpha("abcXYZ") = true
+
+test_is_alpha_punct := assert m.is_alpha("a-b") = false
+
+test_is_alpha_space := assert m.is_alpha(" ") = false

@@ -1,0 +1,14 @@
+--- `str.equals` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+--- Whether `a` and `b` are character-for-character equal.
+---
+--- @param {a} - the left string
+--- @param {b} - the right string
+--- @returns {Bool - `true` iff `a == b`}
+--- @example
+--- `str.equals("a", "a")`
+--- -- => true
+---
+export equals := (a, b) ~> do {
+  a == b
+}

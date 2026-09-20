@@ -1,0 +1,7 @@
+from "./len" import * as m
+
+test_len_basic := assert m.len([1, 2, 3]) = 3
+
+test_len_empty := assert m.len([]) = 0
+
+test_len_single := assert m.len(["a"]) = 1

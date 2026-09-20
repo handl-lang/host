@@ -1,0 +1,19 @@
+--- `str.trim` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/rev.hnl" import rev
+from "./internal/drop_while.hnl" import drop_while
+
+--- Removes leading and trailing whitespace.
+---
+--- @param {s} - the input string
+--- @returns {String - `s` with whitespace stripped from both ends}
+--- @example
+--- `str.trim("  hi  ")`
+--- -- => "hi"
+---
+export trim := (s) ~> do {
+  a := drop_while(char.chars(s), c ~> char.is_whitespace(c))
+  b := drop_while(rev(a), c ~> char.is_whitespace(c))
+  char.from_chars(rev(b))
+}

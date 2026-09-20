@@ -1,0 +1,17 @@
+from "./word_wrap" import * as m
+
+test_word_wrap_basic := assert m.word_wrap("the quick brown fox", 9) = "the quick\nbrown fox"
+
+test_word_wrap_exact := assert m.word_wrap("aaa bbb", 3) = "aaa\nbbb"
+
+test_word_wrap_long_word := assert m.word_wrap("aaa", 2) = "aaa"
+
+test_word_wrap_empty := assert m.word_wrap("", 5) = ""
+
+test_word_wrap_zero_w := assert m.word_wrap("a b", 0) = ""
+
+test_word_wrap_multiline := assert m.word_wrap("a\nb c", 3) = "a\nb c"
+
+test_word_wrap_three := assert m.word_wrap("one two three", 7) = "one two\nthree"
+
+test_word_wrap_fit := assert m.word_wrap("a b c", 5) = "a b c"

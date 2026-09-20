@@ -1,0 +1,17 @@
+--- `str.pad_left` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "./internal/pad_to.hnl" import pad_to
+
+--- Left-pads `s` to `n` chars by cycling the chars of `p`.
+---
+--- @param {s} - the input string
+--- @param {n} - the target length
+--- @param {p} - the pad pattern (empty `p` is a no-op)
+--- @returns {String - `s` left-padded to at least `n` chars}
+--- @example
+--- `str.pad_left("ab", 5, "0")`
+--- -- => "000ab"
+---
+export pad_left := (s, n, p) ~> do {
+  pad_to(s, n, p, true)
+}

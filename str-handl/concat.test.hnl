@@ -1,0 +1,11 @@
+from "./concat" import * as m
+
+test_concat_basic := assert m.concat("a", "b") = "ab"
+
+test_concat_both_empty := assert m.concat("", "") = ""
+
+test_concat_left_empty := assert m.concat("", "b") = "b"
+
+test_concat_right_empty := assert m.concat("a", "") = "a"
+
+test_concat_words := assert m.concat("foo", "bar") = "foobar"

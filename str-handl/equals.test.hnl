@@ -1,0 +1,13 @@
+from "./equals" import * as m
+
+test_equals_same := assert m.equals("a", "a") = true
+
+test_equals_diff := assert m.equals("a", "b") = false
+
+test_equals_both_empty := assert m.equals("", "") = true
+
+test_equals_words := assert m.equals("abc", "abc") = true
+
+test_equals_near := assert m.equals("abc", "abd") = false
+
+test_equals_empty_vs := assert m.equals("", "a") = false

@@ -1,0 +1,17 @@
+--- `str.trim_end` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+from "char" import * as char
+from "./internal/rev.hnl" import rev
+from "./internal/drop_while.hnl" import drop_while
+
+--- Removes trailing whitespace.
+---
+--- @param {s} - the input string
+--- @returns {String - `s` with trailing whitespace stripped}
+--- @example
+--- `str.trim_end("  hi  ")`
+--- -- => "  hi"
+---
+export trim_end := (s) ~> do {
+  char.from_chars(rev(drop_while(rev(char.chars(s)), c ~> char.is_whitespace(c))))
+}

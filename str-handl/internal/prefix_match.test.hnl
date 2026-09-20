@@ -1,0 +1,15 @@
+from "./prefix_match" import * as m
+
+test_prefix_match_same := assert m.prefix_match([1, 2], [1, 2]) = true
+
+test_prefix_match_shorter_xs := assert m.prefix_match([1], [1, 2]) = false
+
+test_prefix_match_empty_ps := assert m.prefix_match([1, 2], []) = true
+
+test_prefix_match_both_empty := assert m.prefix_match([], []) = true
+
+test_prefix_match_prefix := assert m.prefix_match([1, 2, 3], [1, 2]) = true
+
+test_prefix_match_mismatch := assert m.prefix_match([1, 9], [1, 2]) = false
+
+test_prefix_match_empty_xs := assert m.prefix_match([], [1]) = false

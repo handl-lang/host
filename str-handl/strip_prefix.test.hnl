@@ -1,0 +1,13 @@
+from "./strip_prefix" import * as m
+
+test_strip_prefix_basic := assert m.strip_prefix("hello", "he") = "llo"
+
+test_strip_prefix_miss := assert m.strip_prefix("abc", "z") = "abc"
+
+test_strip_prefix_whole := assert m.strip_prefix("abc", "abc") = ""
+
+test_strip_prefix_empty_pat := assert m.strip_prefix("abc", "") = "abc"
+
+test_strip_prefix_empty_s := assert m.strip_prefix("", "a") = ""
+
+test_strip_prefix_longer := assert m.strip_prefix("ab", "abc") = "ab"

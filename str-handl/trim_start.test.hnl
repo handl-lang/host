@@ -1,0 +1,13 @@
+from "./trim_start" import * as m
+
+test_trim_start_basic := assert m.trim_start("  hi") = "hi"
+
+test_trim_start_end_kept := assert m.trim_start("hi  ") = "hi  "
+
+test_trim_start_empty := assert m.trim_start("") = ""
+
+test_trim_start_none := assert m.trim_start("hi") = "hi"
+
+test_trim_start_all_ws := assert m.trim_start("   ") = ""
+
+test_trim_start_tab := assert m.trim_start("\t hi") = "hi"

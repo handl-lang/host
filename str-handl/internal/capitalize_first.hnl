@@ -1,0 +1,17 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+from "char" import * as char
+
+--- Uppercases the first character of `w`, leaving the rest untouched.
+---
+--- @example
+--- `capitalize_first("hello")`
+--- -- => "Hello"
+---
+export capitalize_first := (w) ~> do {
+  wc := char.chars(w)
+  match wc {
+    []: "",
+    [h, ...t]: char.to_upper(h) + char.from_chars(t)
+  }
+}

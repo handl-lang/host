@@ -1,0 +1,33 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+from "./len.hnl" import len
+from "./head.hnl" import head
+from "./drop.hnl" import drop
+
+--- Whether `ps` is a prefix of `xs`.
+---
+--- This is the char-list scan behind `starts_with`,
+--- `ends_with`, `split`, `replace`, `count`, and the `strip_*` arrows.
+---
+--- @example
+--- `prefix_match([1, 2, 3], [1, 2])`
+--- -- => true
+---
+export prefix_match := (xs, ps) ~> do {
+  ok := true
+  ys := xs
+  for p in ps { do {
+    if ok {
+      if len(ys) == 0 {
+        ok := false
+      } else {
+        if head(ys) == p {
+          ys := drop(ys, 1)
+        } else {
+          ok := false
+        }
+      }
+    }
+  } }
+  ok
+}

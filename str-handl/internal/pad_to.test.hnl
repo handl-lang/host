@@ -1,0 +1,15 @@
+from "./pad_to" import * as m
+
+test_pad_to_left := assert m.pad_to("hi", 5, "ab", true) = "abahi"
+
+test_pad_to_right := assert m.pad_to("hi", 5, "ab", false) = "hiaba"
+
+test_pad_to_enough := assert m.pad_to("hi", 1, "*", true) = "hi"
+
+test_pad_to_empty_s := assert m.pad_to("", 3, "x", true) = "xxx"
+
+test_pad_to_empty_pad := assert m.pad_to("hi", 5, "", true) = "hi"
+
+test_pad_to_right2 := assert m.pad_to("hi", 4, "*", false) = "hi**"
+
+test_pad_to_exact := assert m.pad_to("ab", 2, "x", true) = "ab"

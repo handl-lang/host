@@ -1,0 +1,21 @@
+--- Internal helper for `str-handl` — not part of the `str` contract surface.
+
+from "./rev.hnl" import rev
+
+--- `xs` without its first `n` elements.
+---
+--- @example
+--- `drop([1, 2, 3, 4], 2)`
+--- -- => [3, 4]
+---
+export drop := (xs, n) ~> do {
+  out := []
+  k := 0
+  for x in xs { do {
+    if k >= n {
+      out := [x, ...out]
+    }
+    k := k + 1
+  } }
+  rev(out)
+}

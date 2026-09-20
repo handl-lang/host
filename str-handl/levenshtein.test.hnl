@@ -1,0 +1,15 @@
+from "./levenshtein" import * as m
+
+test_levenshtein_classic := assert m.levenshtein("kitten", "sitting") = 3
+
+test_levenshtein_empty_b := assert m.levenshtein("", "ab") = 2
+
+test_levenshtein_same := assert m.levenshtein("abc", "abc") = 0
+
+test_levenshtein_both_empty := assert m.levenshtein("", "") = 0
+
+test_levenshtein_empty_a := assert m.levenshtein("ab", "") = 2
+
+test_levenshtein_subst := assert m.levenshtein("abc", "abd") = 1
+
+test_levenshtein_flaw := assert m.levenshtein("flaw", "lawn") = 2

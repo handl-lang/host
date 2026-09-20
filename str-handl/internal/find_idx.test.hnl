@@ -1,0 +1,15 @@
+from "./find_idx" import * as m
+
+test_find_idx_basic := assert m.find_idx([1, 2, 3], [2]) = 1
+
+test_find_idx_miss := assert m.find_idx([1, 2], [9]) = -1
+
+test_find_idx_sublist := assert m.find_idx([1, 2, 3], [2, 3]) = 1
+
+test_find_idx_both_empty := assert m.find_idx([], []) = -1
+
+test_find_idx_zero := assert m.find_idx([1, 2], [1, 2]) = 0
+
+test_find_idx_empty_ps := assert m.find_idx([1, 2], []) = 0
+
+test_find_idx_late := assert m.find_idx([9, 9, 7], [7]) = 2

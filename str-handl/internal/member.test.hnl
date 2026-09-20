@@ -1,0 +1,11 @@
+from "./member" import * as m
+
+test_member_hit := assert m.member(2, [1, 2, 3]) = true
+
+test_member_miss := assert m.member(9, [1, 2, 3]) = false
+
+test_member_empty := assert m.member(1, []) = false
+
+test_member_str := assert m.member("b", ["a", "b"]) = true
+
+test_member_last := assert m.member(3, [1, 2, 3]) = true

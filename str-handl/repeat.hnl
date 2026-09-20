@@ -1,0 +1,23 @@
+--- `str.repeat` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
+
+--- `s` concatenated with itself `n` times.
+---
+--- @details
+--- `n <= 0` yields `""`.
+---
+--- @param {s} - the input string
+--- @param {n} - the repetition count
+--- @returns {String - `s` repeated `n` times}
+--- @example
+--- `str.repeat("ab", 3)`
+--- -- => "ababab"
+---
+export repeat := (s, n) ~> do {
+  while { n: n, acc: "" } {
+    [n, acc] ~> if n <= 0 {
+      { out: acc }
+    } else {
+      { state: { n: n - 1, acc: acc + s } }
+    }
+  }
+}

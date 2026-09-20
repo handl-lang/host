@@ -1,0 +1,17 @@
+from "./truncate" import * as m
+
+test_truncate_basic := assert m.truncate("hello world", 8) = "hello..."
+
+test_truncate_fits := assert m.truncate("hi", 2) = "hi"
+
+test_truncate_tiny := assert m.truncate("hello", 2) = "he"
+
+test_truncate_exact_suf := assert m.truncate("hello", 3) = "..."
+
+test_truncate_exact_len := assert m.truncate("hello", 5) = "hello"
+
+test_truncate_longer := assert m.truncate("hello", 10) = "hello"
+
+test_truncate_four := assert m.truncate("abcdef", 4) = "a..."
+
+test_truncate_zero := assert m.truncate("abc", 0) = ""
