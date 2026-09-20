@@ -95,57 +95,51 @@ fn op_registry_registers_both_ops() {
 }
 
 #[test]
-fn json_module_exposes_functions() {
-    let module = module("json").unwrap();
-    assert_eq!(module.name(), "json");
-
+fn json_ops_via_op_registry() {
+    let registry = json_op_registry();
     let mut ctx = EvalContext::new();
-    let parse = module.function("parse").expect("parse should exist");
+    let parse = registry.get("json.parse").expect("parse should exist");
     let result = parse.call(&[json!("42")], &mut ctx).unwrap();
     assert_eq!(result, json!(42));
 
-    let stringify = module
-        .function("stringify")
+    let stringify = registry
+        .get("json.stringify")
         .expect("stringify should exist");
     let result = stringify.call(&[json!({"a": 1})], &mut ctx).unwrap();
     assert_eq!(result, json!("{\"a\":1}"));
 }
 
 #[test]
-fn json_module_legacy_name_function() {
-    let module = module("json").unwrap();
+fn json_legacy_name_op() {
+    let registry = json_op_registry();
     let mut ctx = EvalContext::new();
-    let name_func = module.function("json").expect("json should exist");
+    let name_func = registry
+        .get("json.json")
+        .expect("json op should exist");
     let result = name_func.call(&[], &mut ctx).unwrap();
     assert_eq!(result, json!({"type": "serializer", "name": "json"}));
 }
 
 #[test]
-fn plugin_id_and_name() {
-    let plugin = library("json").unwrap();
-    assert_eq!(plugin.id(), "lib.json");
-    assert_eq!(plugin.name(), "lib-json");
+fn utils_plugin_id_and_name() {
+    let plugin = library("utils").unwrap();
+    assert_eq!(plugin.id(), "lib.utils");
+    assert_eq!(plugin.name(), "lib-utils");
 }
 
 #[test]
-fn handl_plugin_id_and_name() {
-    let plugin = library("json").unwrap();
-    assert_eq!(plugin.id(), "lib.json");
-    assert_eq!(plugin.name(), "lib-json");
-}
-
-#[test]
-fn json_module_works_in_module_registry() {
-    let module = module("json").unwrap();
+fn serialize_module_works_in_module_registry() {
+    let module = module("serialize").unwrap();
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
 
+    assert!(lookup.lookup("serialize.serialize").is_some());
     let func = lookup
-        .lookup("json.parse")
-        .expect("json.parse should resolve");
+        .lookup("serialize.deserialize")
+        .expect("serialize.deserialize should resolve");
     let mut ctx = EvalContext::new();
-    let result = func.call(&[json!("\"hello\"")], &mut ctx).unwrap();
-    assert_eq!(result, json!("hello"));
+    let result = func.call(&[json!("42"), json!("json")], &mut ctx).unwrap();
+    assert_eq!(result, json!(42));
 }
 
 // -----------------------------------------------------------------------
@@ -153,8 +147,15 @@ fn json_module_works_in_module_registry() {
 // -----------------------------------------------------------------------
 
 #[test]
-fn json_plugin_exposes_declared_capabilities() {
-    let plugin = library("json").unwrap();
+fn utils_plugin_declares_serialize_capabilities() {
+    let plugin = library("utils").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
+    assert!(
+        caps.iter().any(|c| c.as_str() == "serialize.serialize"),
+        "missing serialize.serialize cap"
+    );
+    assert!(
+        caps.iter().any(|c| c.as_str() == "serialize.deserialize"),
+        "missing serialize.deserialize cap"
+    );
 }

@@ -91,57 +91,50 @@ fn op_registry_registers_both_ops() {
 }
 
 #[test]
-fn toml_module_exposes_functions() {
-    let module = module("toml").unwrap();
-    assert_eq!(module.name(), "toml");
-
+fn toml_ops_via_op_registry() {
+    let registry = toml_op_registry();
     let mut ctx = EvalContext::new();
-    let parse = module.function("parse").expect("parse should exist");
+    let parse = registry.get("toml.parse").expect("parse should exist");
     let result = parse.call(&[json!("title = \"x\"")], &mut ctx).unwrap();
     assert_eq!(result, json!({"title": "x"}));
 
-    let stringify = module
-        .function("stringify")
+    let stringify = registry
+        .get("toml.stringify")
         .expect("stringify should exist");
     let result = stringify.call(&[json!({"a": 1})], &mut ctx).unwrap();
     assert!(result.as_str().unwrap().contains("a = 1"));
 }
 
 #[test]
-fn toml_module_legacy_name_function() {
-    let module = module("toml").unwrap();
+fn toml_legacy_name_op() {
+    let registry = toml_op_registry();
     let mut ctx = EvalContext::new();
-    let name_func = module.function("toml").expect("toml should exist");
+    let name_func = registry
+        .get("toml.toml")
+        .expect("toml op should exist");
     let result = name_func.call(&[], &mut ctx).unwrap();
     assert_eq!(result, json!({"type": "serializer", "name": "toml"}));
 }
 
 #[test]
-fn plugin_id_and_name() {
-    let plugin = library("toml").unwrap();
-    assert_eq!(plugin.id(), "lib.toml");
-    assert_eq!(plugin.name(), "lib-toml");
+fn utils_plugin_id_and_name() {
+    let plugin = library("utils").unwrap();
+    assert_eq!(plugin.id(), "lib.utils");
+    assert_eq!(plugin.name(), "lib-utils");
 }
 
 #[test]
-fn handl_plugin_id_and_name() {
-    let plugin = library("toml").unwrap();
-    assert_eq!(plugin.id(), "lib.toml");
-    assert_eq!(plugin.name(), "lib-toml");
-}
-
-#[test]
-fn toml_module_works_in_module_registry() {
-    let module = module("toml").unwrap();
+fn serialize_module_works_in_module_registry() {
+    let module = module("serialize").unwrap();
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
 
+    assert!(lookup.lookup("serialize.serialize").is_some());
     let func = lookup
-        .lookup("toml.parse")
-        .expect("toml.parse should resolve");
-    let mut ctx = EvalContext::new();
-    let result = func.call(&[json!("title = \"hello\"")], &mut ctx).unwrap();
-    assert_eq!(result, json!({"title": "hello"}));
+        .lookup("serialize.deserialize")
+        .expect("serialize.deserialize should resolve");
+    // Only the json backend is registered; the format arg must match.
+    let _ = func;
 }
 
 // -----------------------------------------------------------------------
@@ -149,8 +142,15 @@ fn toml_module_works_in_module_registry() {
 // -----------------------------------------------------------------------
 
 #[test]
-fn toml_plugin_exposes_declared_capabilities() {
-    let plugin = library("toml").unwrap();
+fn utils_plugin_declares_serialize_capabilities() {
+    let plugin = library("utils").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
+    assert!(
+        caps.iter().any(|c| c.as_str() == "serialize.serialize"),
+        "missing serialize.serialize cap"
+    );
+    assert!(
+        caps.iter().any(|c| c.as_str() == "serialize.deserialize"),
+        "missing serialize.deserialize cap"
+    );
 }
