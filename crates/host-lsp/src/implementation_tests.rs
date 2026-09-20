@@ -65,7 +65,7 @@ fn make_temp_dir(prefix: &str) -> PathBuf {
 }
 
 /// Build a temp tree with `contracts/sorted.hnl` (declaring `axiom Sorted`)
-/// and `arrows/collection/insert.hnl` (the insert arrow that infers Sorted).
+/// and `arrows/collections/insert.hnl` (the insert arrow that infers Sorted).
 /// Returns the contract file path.
 fn make_sorted_tree() -> PathBuf {
     let dir = make_temp_dir("sorted");

@@ -54,7 +54,7 @@ fn workspace_symbols_finds_arrow_by_name() {
     // A general .hnl file whose top-level binding is named `insert`.
     write_file(
         &dir,
-        "handl-packages/collection/insert.hnl",
+        "handl-packages/collections/insert.hnl",
         "insert :: 1\n",
     );
 
@@ -94,10 +94,10 @@ fn workspace_symbols_empty_query_returns_all() {
     let dir = unique_temp_dir("empty-query");
     write_file(
         &dir,
-        "handl-packages/collection/insert.hnl",
+        "handl-packages/collections/insert.hnl",
         "insert :: 1\n",
     );
-    write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
+    write_file(&dir, "handl-packages/transform/map.hnl", "map :: 1\n");
 
     let results = workspace_symbols(
         "",
@@ -123,7 +123,7 @@ fn workspace_symbols_no_match_returns_empty() {
     let dir = unique_temp_dir("no-match");
     write_file(
         &dir,
-        "handl-packages/collection/insert.hnl",
+        "handl-packages/collections/insert.hnl",
         "insert :: 1\n",
     );
 
@@ -145,7 +145,7 @@ fn workspace_symbols_case_insensitive() {
     let dir = unique_temp_dir("case-insensitive");
     write_file(
         &dir,
-        "handl-packages/collection/insert.hnl",
+        "handl-packages/collections/insert.hnl",
         "insert :: 1\n",
     );
 
@@ -167,10 +167,10 @@ fn workspace_symbols_includes_container_name() {
     let dir = unique_temp_dir("container-name");
     write_file(
         &dir,
-        "handl-packages/collection/insert.hnl",
+        "handl-packages/collections/insert.hnl",
         "insert :: 1\n",
     );
-    write_file(&dir, "handl-packages/fn/map.hnl", "map :: 1\n");
+    write_file(&dir, "handl-packages/transform/map.hnl", "map :: 1\n");
 
     let results = workspace_symbols(
         "",
@@ -184,8 +184,8 @@ fn workspace_symbols_includes_container_name() {
         .and_then(|c| c.as_str())
         .expect("containerName present");
     assert_eq!(
-        container, "collection",
-        "insert containerName should be 'collection': {:?}",
+        container, "collections",
+        "insert containerName should be 'collections': {:?}",
         insert
     );
 
@@ -195,8 +195,8 @@ fn workspace_symbols_includes_container_name() {
         .and_then(|c| c.as_str())
         .expect("containerName present");
     assert_eq!(
-        container, "fn",
-        "map containerName should be 'fn': {:?}",
+        container, "transform",
+        "map containerName should be 'transform': {:?}",
         map
     );
 }
@@ -206,7 +206,7 @@ fn workspace_symbols_returns_valid_json() {
     let dir = unique_temp_dir("valid-json");
     write_file(
         &dir,
-        "handl-packages/collection/insert.hnl",
+        "handl-packages/collections/insert.hnl",
         "insert :: 1\n",
     );
 

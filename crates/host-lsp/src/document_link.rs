@@ -307,11 +307,11 @@ fn find_arrow_refs(
 // Path resolution
 // ---------------------------------------------------------------------------
 
-/// Resolve a file reference (e.g. `sort.hnl` or `collection/insert.hnl`) to
+/// Resolve a file reference (e.g. `sort.hnl` or `collections/insert.hnl`) to
 /// a `file://` URI.
 ///
 /// Bare filenames (`sort.hnl`) resolve relative to the current file's
-/// directory. Paths containing a separator (`collection/insert.hnl`) resolve
+/// directory. Paths containing a separator (`collections/insert.hnl`) resolve
 /// relative to the arrows root. Returns `None` when `file_path` is `None` or
 /// no arrows root can be derived from it.
 fn resolve_file_target(file_ref: &str, file_path: Option<&str>) -> Option<String> {

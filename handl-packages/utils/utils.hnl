@@ -23,32 +23,34 @@
 --- bool.implies -- logical implication (a implies b).
 --- bool.eq -- test whether two booleans are equal.
 ---
---- ## fn module
---- fn.pipe -- pipe a value through a sequence of functions left-to-right.
---- fn.flow -- alias of pipe: flow a value through functions left-to-right.
---- fn.compose -- compose two functions right-to-left.
---- fn.fanout -- apply a value to multiple functions, collecting results.
---- fn.fanout_fn -- fanout returning a function for deferred application.
---- fn.choice -- select between two functions based on a predicate.
---- fn.apply -- apply a function to a single argument.
---- fn.map -- map a function over an array.
---- fn.filter -- filter an array by a predicate.
---- fn.reduce -- reduce an array with a function and initial value.
---- fn.flat_map -- map then flatten one level.
---- fn.find -- find the first element satisfying a predicate.
---- fn.some -- test whether any element satisfies a predicate.
---- fn.every -- test whether all elements satisfy a predicate.
---- fn.group_by -- group array elements by a key function.
---- fn.partition -- partition an array into satisfying/non-satisfying.
---- fn.count_by -- count elements per key from a key function.
---- fn.tap -- apply a side-effect function, returning the original value.
---- fn.match -- pattern-match dispatch over a tagged value.
---- fn.constantly -- return a function that always yields a constant.
---- fn.flip -- flip the argument order of a binary function.
---- fn.partial -- partially apply (curry) the first argument of a function.
---- fn.when -- apply a function only when a predicate holds.
---- fn.unless -- apply a function only when a predicate does not hold.
---- fn.converge -- apply multiple functions to one input then combine.
+--- ## combinators module
+--- combinators.pipe -- pipe a value through a sequence of functions left-to-right.
+--- combinators.flow -- alias of pipe: flow a value through functions left-to-right.
+--- combinators.compose -- compose two functions right-to-left.
+--- combinators.fanout -- apply a value to multiple functions, collecting results.
+--- combinators.fanout_fn -- fanout returning a function for deferred application.
+--- combinators.choice -- select between two functions based on a predicate.
+--- combinators.apply -- apply a function to a single argument.
+--- combinators.flat_map -- map then flatten one level.
+--- combinators.find -- find the first element satisfying a predicate.
+--- combinators.some -- test whether any element satisfies a predicate.
+--- combinators.every -- test whether all elements satisfy a predicate.
+--- combinators.group_by -- group array elements by a key function.
+--- combinators.partition -- partition an array into satisfying/non-satisfying.
+--- combinators.count_by -- count elements per key from a key function.
+--- combinators.tap -- apply a side-effect function, returning the original value.
+--- combinators.match -- pattern-match dispatch over a tagged value.
+--- combinators.constantly -- return a function that always yields a constant.
+--- combinators.flip -- flip the argument order of a binary function.
+--- combinators.partial -- partially apply (curry) the first argument of a function.
+--- combinators.when -- apply a function only when a predicate holds.
+--- combinators.unless -- apply a function only when a predicate does not hold.
+--- combinators.converge -- apply multiple functions to one input then combine.
+---
+--- ## transform module
+--- transform.map -- map a function over an array.
+--- transform.filter -- filter an array by a predicate.
+--- transform.reduce -- reduce an array with a function and initial value.
 ---
 --- ## math module
 --- math.abs -- absolute value of a number.

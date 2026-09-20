@@ -38,7 +38,7 @@ pub struct PluginReference {
 /// Phase 9.5 package management supports **vendored / path dependencies
 /// only** — a dependency names a local package directory containing `.hnl`
 /// sources. The name is the import specifier's first path segment:
-/// `import "arrows/fn/map.hnl"` resolves inside the `arrows` dependency's
+/// `import "arrows/transform/map.hnl"` resolves inside the `arrows` dependency's
 /// directory. Registry/content-addressed resolution is future work
 /// (ADR-0010).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

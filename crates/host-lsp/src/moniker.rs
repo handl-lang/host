@@ -12,15 +12,15 @@
 //! * **Arrow files** — the file path relative to the kit root
 //!   (`handl-packages/`) is used, with path separators normalised to
 //!   `/` and the `.hnl` extension stripped. For example
-//!   `/repo/handl-packages/collection/sort.hnl` yields the
-//!   moniker `collection/sort`.
+//!   `/repo/handl-packages/collections/vec.hnl` yields the
+//!   moniker `collections/vec`.
 //! * **Local symbols** — identifiers that are not part of an arrow or
 //!   contract file fall back to `<filename>/<name>`.
 //!
 //! Each moniker is a JSON object:
 //!
 //! ```json
-//! { "scheme": "handl", "identifier": "collection/sort", "unique": "identifier" }
+//! { "scheme": "handl", "identifier": "collections/vec", "unique": "identifier" }
 //! ```
 
 use serde_json::{Value, json};

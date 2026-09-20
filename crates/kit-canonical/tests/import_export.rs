@@ -120,15 +120,15 @@ fn export_passes_through() {
 // `.handl.toml` `[dependencies]` — project dependency resolution (Phase 9.5)
 // ---------------------------------------------------------------------------
 
-/// `import "arrows/fn/map.hnl"` resolves inside the `arrows` dependency's
+/// `import "arrows/transform/map.hnl"` resolves inside the `arrows` dependency's
 /// directory declared in the project manifest's `[dependencies]` table.
 ///
 /// Fixture layout (built in a tempdir, mirroring `hnl run`):
 ///
 /// ```text
 /// <root>/.handl.toml               [dependencies] arrows = "vendor/arrows"
-/// <root>/vendor/arrows/fn/map.hnl  double :: x ~> x * 2
-/// <root>/main.hnl                  import "arrows/fn/map.hnl" ... double(21)
+/// <root>/vendor/arrows/transform/map.hnl  double :: x ~> x * 2
+/// <root>/main.hnl                  import "arrows/transform/map.hnl" ... double(21)
 /// ```
 ///
 /// `Kit::discover` finds the manifest from the entry file's directory and
@@ -149,7 +149,7 @@ fn import_resolves_handl_toml_dependencies() {
     let main = write_module(
         root,
         "main.hnl",
-        "do { import \"arrows/fn/map.hnl\"; double(21) }",
+        "do { import \"arrows/transform/map.hnl\"; double(21) }",
     );
 
     let kit = Kit::discover(&main).expect("kit");
@@ -186,7 +186,7 @@ fn import_resolves_table_form_dependencies() {
 }
 
 /// Nested relative imports resolve against the importing module's own
-/// directory: `vendor/arrows/fn/map.hnl` can `import "../consts.hnl"` to
+/// directory: `vendor/arrows/transform/map.hnl` can `import "../consts.hnl"` to
 /// reach `vendor/arrows/consts.hnl`.
 #[test]
 fn import_nested_relative_resolves_against_module_dir() {
@@ -213,7 +213,7 @@ fn import_nested_relative_resolves_against_module_dir() {
     let main = write_module(
         root,
         "main.hnl",
-        "do { import \"arrows/fn/map.hnl\"; double(21) }",
+        "do { import \"arrows/transform/map.hnl\"; double(21) }",
     );
 
     let kit = Kit::discover(&main).expect("kit");
@@ -239,11 +239,11 @@ fn import_dependency_fallback_to_module_root() {
     // A path that looks like a dep specifier but matches nothing resolves
     // module-root-relative and fails with a read error naming the path.
     let err = kit
-        .eval("do { import \"arrows/fn/map.hnl\"; x }")
+        .eval("do { import \"arrows/transform/map.hnl\"; x }")
         .expect_err("undeclared dep path should error");
     let msg = format!("{}", err);
     assert!(
-        msg.contains("arrows/fn/map.hnl") || msg.contains("cannot read module"),
+        msg.contains("arrows/transform/map.hnl") || msg.contains("cannot read module"),
         "error should mention the unresolved path: {}",
         msg
     );

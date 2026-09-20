@@ -94,7 +94,7 @@ fn document_links_empty_source_returns_empty() {
 fn document_links_resolves_relative_to_arrows_root() {
     // A file reference containing a path separator resolves relative to the
     // arrows root rather than the current file's directory.
-    let source = "-- see collection/insert.hnl\n";
+    let source = "-- see collections/insert.hnl\n";
     let links = document_links(source, Some("file:///tmp/handl-packages/sort.hnl"));
     let target = links
         .iter()
@@ -104,10 +104,10 @@ fn document_links_resolves_relative_to_arrows_root() {
                 .map(|t| t.contains("insert.hnl"))
                 .unwrap_or(false)
         })
-        .expect("should have a link for collection/insert.hnl");
+        .expect("should have a link for collections/insert.hnl");
     assert_eq!(
         target["target"].as_str(),
-        Some("file:///tmp/handl-packages/collection/insert.hnl"),
+        Some("file:///tmp/handl-packages/collections/insert.hnl"),
         "path-style reference resolves under the arrows root"
     );
 }

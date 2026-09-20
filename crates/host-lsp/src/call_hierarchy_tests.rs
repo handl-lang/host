@@ -86,7 +86,7 @@ fn prepare_call_hierarchy_returns_item_for_unnamed_file_stem_arrow() {
     let source = "myarrow >>> id";
     let offset = source.find("myarrow").unwrap();
 
-    let file_path = "/tmp/handl-lsp-call-hierarchy-unnamed/arrows/collection/myarrow.hnl";
+    let file_path = "/tmp/handl-lsp-call-hierarchy-unnamed/arrows/collections/myarrow.hnl";
     let items = prepare_call_hierarchy(source, offset, Some(file_path));
     assert_eq!(items.len(), 1, "expected one item for the file-stem arrow");
     assert_eq!(items[0]["name"].as_str().unwrap(), "myarrow");
@@ -100,7 +100,7 @@ fn prepare_call_hierarchy_returns_empty_for_non_arrow() {
     // so `insert` does not match any arrow name → empty.
     let source = "loop(insert >>> id)";
     let offset = source.find("insert").unwrap();
-    let file_path = "/tmp/handl-lsp-call-hierarchy-non-arrow/arrows/collection/sort.hnl";
+    let file_path = "/tmp/handl-lsp-call-hierarchy-non-arrow/arrows/collections/sort.hnl";
 
     let items = prepare_call_hierarchy(source, offset, Some(file_path));
     assert!(
@@ -354,7 +354,7 @@ fn prepare_call_hierarchy_ignores_let_bindings_in_arrow_body() {
     // be treated as a named-arrow definition. The only arrow here is the
     // unnamed file-stem arrow `insert`.
     let source = "rec {\n  elem: input.0,\n  acc: input.1\n} (\n  state ~> match state.acc {\n    []: return [state.elem],\n    [h, ...t]:\n      cmp = prim.compare(state.elem, h) in\n      insert({ elem: state.elem, acc: t })\n  }\n)\n";
-    let file_path = "/tmp/handl-lsp-call-hierarchy-let/arrows/collection/insert.hnl";
+    let file_path = "/tmp/handl-lsp-call-hierarchy-let/arrows/collections/insert.hnl";
 
     // Cursor on `cmp` (the let-binding name) — not an arrow definition.
     let offset = source.find("cmp").unwrap();

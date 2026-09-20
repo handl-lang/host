@@ -2,19 +2,19 @@ use crate::moniker::moniker;
 
 #[test]
 fn moniker_for_arrow_file_uses_relative_path() {
-    // An arrow file under /repo/handl-packages/collection/myarrow.hnl yields the
-    // moniker `collection/myarrow` (path relative to the kit root,
+    // An arrow file under /repo/handl-packages/collections/myarrow.hnl yields the
+    // moniker `collections/myarrow` (path relative to the kit root,
     // extension stripped).
     let source = "myarrow = 1";
     let offset = source.find("myarrow").unwrap();
-    let path = "/repo/handl-packages/collection/myarrow.hnl";
+    let path = "/repo/handl-packages/collections/myarrow.hnl";
     let result = moniker(source, offset, Some(path));
     assert_eq!(result.len(), 1, "expected one moniker: {result:?}");
     let m = &result[0];
     assert_eq!(m["scheme"].as_str(), Some("handl"));
     assert_eq!(
         m["identifier"].as_str(),
-        Some("collection/myarrow"),
+        Some("collections/myarrow"),
         "identifier should be relative to kit root: {m:?}"
     );
     assert_eq!(m["unique"].as_str(), Some("identifier"));

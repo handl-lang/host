@@ -1404,8 +1404,8 @@ pub struct ModuleLoader {
     /// Project dependencies declared in `.handl.toml`'s `[dependencies]`
     /// table: import-name → absolute package root directory. An import path
     /// whose first `/`-separated segment names a dependency resolves inside
-    /// that directory (`import "arrows/fn/map.hnl"` →
-    /// `<deps["arrows"]>/fn/map.hnl`).
+    /// that directory (`import "arrows/transform/map.hnl"` →
+    /// `<deps["arrows"]>/transform/map.hnl`).
     dependencies: HashMap<String, PathBuf>,
     /// Directory stack for nested imports: while a module is being
     /// evaluated, its own directory is the resolution base for relative
@@ -1475,7 +1475,7 @@ impl ModuleLoader {
     /// 1. **Dependency specifier.** If the first `/`-separated segment of
     ///    `path` names a declared `[dependencies]` entry, the remainder of
     ///    the path resolves inside that package's root directory:
-    ///    `import "arrows/fn/map.hnl"` → `<deps["arrows"]>/fn/map.hnl`.
+    ///    `import "arrows/transform/map.hnl"` → `<deps["arrows"]>/transform/map.hnl`.
     ///    Dependency names shadow a same-named directory relative to the
     ///    module root.
     /// 2. **Relative path.** Otherwise `path` resolves against the directory
