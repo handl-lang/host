@@ -46,6 +46,7 @@ export URLSearchParams := {
 --- js: URL.canParse
 export URLCanParse: (String, String) ~[1]~> Result<Bool, JsError>
 
+--- The URL() constructor returns a newly created URL object representing the URL defined by the parameters.
 --- js: URL.constructor
 export URLConstructor: (String, String) ~[1]~> Result<(), JsError>
 
@@ -65,6 +66,8 @@ export URLToJSON: () ~[1]~> Result<String, JsError>
 --- js: URLSearchParams.append
 export URLSearchParamsAppend: (String, String) ~[1]~> Result<(), JsError>
 
+--- The URLSearchParams() constructor creates and returns a
+--- new URLSearchParams object.
 --- js: URLSearchParams.constructor
 export URLSearchParamsConstructor: (Handle) ~[1]~> Result<(), JsError>
 

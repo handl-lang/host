@@ -229,6 +229,8 @@ export BodyTextStream: () ~[1]~> Result<Handle, JsError>
 --- js: Headers.append
 export HeadersAppend: (String, String) ~[1]~> Result<(), JsError>
 
+--- The Headers() constructor creates a new
+--- Headers object.
 --- js: Headers.constructor
 export HeadersConstructor: (Handle) ~[1]~> Result<(), JsError>
 
@@ -264,6 +266,8 @@ export HeadersSet: (String, String) ~[1]~> Result<(), JsError>
 --- js: Request.clone
 export RequestClone: () ~[1]~> Result<Handle, JsError>
 
+--- The Request() constructor creates a new
+--- Request object.
 --- js: Request.constructor
 export RequestConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 
@@ -271,6 +275,7 @@ export RequestConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 --- js: Response.clone
 export ResponseClone: () ~[1]~> Result<Handle, JsError>
 
+--- The Response() constructor creates a new Response object.
 --- js: Response.constructor
 export ResponseConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 
