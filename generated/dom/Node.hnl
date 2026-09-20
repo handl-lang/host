@@ -1,0 +1,144 @@
+--- Generated port for dom.Node
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The DOM Node interface is an abstract base
+--- class upon which many other DOM API objects are based, thus letting those object types
+--- be used similarly and often interchangeably. As an abstract class, there is
+--- no such thing as a plain Node object. All objects that implement
+--- Node functionality are based on one of its subclasses. Most notable are
+--- Document, Element, and DocumentFragment.
+export Node := {
+  --- The read-only nodeType property of a Node interface is an integer
+  --- that identifies what the node is. It distinguishes different kinds of nodes from each other,
+  --- such as elements, text, and comments.
+  nodeType: Nat,
+  --- The read-only nodeName property of Node returns the name of the current node as a string.
+  nodeName: String,
+  --- The read-only baseURI property of the Node interface
+  --- returns the absolute base URL of the document containing the node.
+  baseURI: String,
+  --- The read-only isConnected property of the Node interface returns a boolean indicating whether the node is connected (directly or indirectly) to a Document object.
+  isConnected: Bool,
+  --- The read-only ownerDocument property of the Node interface
+  --- returns the top-level document object of the node.
+  ownerDocument: Handle,
+  --- The read-only parentNode property of the Node interface
+  --- returns the parent of the specified node in the DOM tree.
+  parentNode: Handle,
+  --- The read-only parentElement property of Node interface
+  --- returns the DOM node's parent Element, or null if the node either has no
+  --- parent, or its parent isn't a DOM Element. Node.parentNode on the other hand returns any kind of parent, regardless of its type.
+  parentElement: Handle,
+  --- The read-only childNodes property of the Node interface returns a live
+  --- NodeList of child nodes of the given element where
+  --- the first child node is assigned index 0. Child nodes include elements, text and
+  --- comments.
+  childNodes: Handle,
+  --- The read-only firstChild property of the Node interface
+  --- returns the node's first child in the tree,
+  --- or null if the node has no children.
+  firstChild: Handle,
+  --- The read-only lastChild property of the Node interface
+  --- returns the last child of the node, or null if there are no child nodes.
+  lastChild: Handle,
+  --- The read-only previousSibling property of the Node interface
+  --- returns the node immediately preceding the specified one in its parent's
+  --- childNodes list,
+  --- or null if the specified node is the first in that list.
+  previousSibling: Handle,
+  --- The read-only nextSibling property of the Node interface
+  --- returns the node immediately following the specified one in their
+  --- parent's childNodes, or returns null
+  --- if the specified node is the last child in the parent element.
+  nextSibling: Handle,
+  --- The nodeValue property of the Node interface returns or sets the value of the current node.
+  nodeValue: Handle,
+  --- The textContent property of the Node interface represents the text content of the node and its descendants.
+  textContent: Handle
+}
+
+--- The appendChild() method of the Node interface adds a node to the end of the list of children of a specified parent node.
+--- js: Node.appendChild
+export NodeAppendChild: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The cloneNode() method of the Node interface returns a duplicate of the node on which this method was called. Its parameter controls if the subtree contained in the node is also cloned or not.
+--- js: Node.cloneNode
+export NodeCloneNode: (Bool) ~[1]~> Result<Handle, JsError>
+
+--- The compareDocumentPosition() method of the Node interface reports the position of its argument node relative to the node on which it is called.
+--- js: Node.compareDocumentPosition
+export NodeCompareDocumentPosition: (Handle) ~[1]~> Result<Nat, JsError>
+
+--- The contains() method of the Node interface
+--- returns a boolean value indicating
+--- whether a node is a descendant of a given node, that is the node itself,
+--- one of its direct children (childNodes),
+--- one of the children's direct children, and so on.
+--- js: Node.contains
+export NodeContains: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The getRootNode() method of the Node interface
+--- returns the context object's root,
+--- which optionally includes the shadow root if it is available.
+--- js: Node.getRootNode
+export NodeGetRootNode: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The hasChildNodes() method of the Node interface
+--- returns a boolean value indicating
+--- whether the given Node has child nodes or not.
+--- js: Node.hasChildNodes
+export NodeHasChildNodes: () ~[1]~> Result<Bool, JsError>
+
+--- The insertBefore() method of the Node interface
+--- inserts a node before a reference node as a child of a specified parent node.
+--- js: Node.insertBefore
+export NodeInsertBefore: (Handle, Handle) ~[1]~> Result<Handle, JsError>
+
+--- The isDefaultNamespace() method of the Node interface accepts a namespace URI as an argument.
+--- It returns a boolean value that is true if the namespace is the default namespace on the given node and false if not. The default namespace can be retrieved with Node.lookupNamespaceURI() by passing null as the argument.
+--- js: Node.isDefaultNamespace
+export NodeIsDefaultNamespace: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The isEqualNode() method of the Node interface tests whether two nodes are equal.
+--- Two nodes are equal when they have the same type, defining characteristics (for
+--- elements, this would be their ID, number of children, and so forth), its attributes
+--- match, and so on. The specific set of data points that must match varies depending on
+--- the types of the nodes.
+--- js: Node.isEqualNode
+export NodeIsEqualNode: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- legacy alias of ===
+--- js: Node.isSameNode
+export NodeIsSameNode: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The lookupNamespaceURI() method of the Node interface
+--- takes a prefix as parameter and returns the namespace URI associated with it on the given node if found (and
+--- null if not). This method's existence allows Node objects to be passed as a namespace resolver to XPathEvaluator.createExpression() and XPathEvaluator.evaluate().
+--- js: Node.lookupNamespaceURI
+export NodeLookupNamespaceURI: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The lookupPrefix() method of the Node interface
+--- returns a string containing the prefix for a given namespace URI, if present,
+--- and null if not.
+--- When multiple prefixes are possible, the first prefix is returned.
+--- js: Node.lookupPrefix
+export NodeLookupPrefix: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The normalize() method of the Node interface puts the specified node
+--- and all of its sub-tree into a normalized form.
+--- In a normalized sub-tree, no text nodes in the sub-tree are empty and there are no adjacent text nodes.
+--- js: Node.normalize
+export NodeNormalize: () ~[1]~> Result<(), JsError>
+
+--- The removeChild() method of the Node interface
+--- removes a child node from the DOM and returns the removed node.
+--- js: Node.removeChild
+export NodeRemoveChild: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The replaceChild() method of the Node interface replaces a child node within the given (parent) node.
+--- js: Node.replaceChild
+export NodeReplaceChild: (Handle, Handle) ~[1]~> Result<Handle, JsError>

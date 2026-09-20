@@ -1,0 +1,26 @@
+--- Generated adapter for hr-time-webidl-browser/Performance
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/hr-time.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../hr-time/Performance" import { Performance, PerformanceNow, PerformanceToJSON }
+
+export performance_now: PerformanceNow := () ~> do {
+  r = call("hr-time", "now", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export performance_to_j_s_o_n: PerformanceToJSON := () ~> do {
+  r = call("hr-time", "toJSON", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

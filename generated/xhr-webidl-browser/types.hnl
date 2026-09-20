@@ -1,0 +1,12 @@
+--- Generated adapter for xhr-webidl-browser/types
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/xhr.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+
+export XMLHttpRequestResponseType_: Int := 0
+export XMLHttpRequestResponseType_Arraybuffer: Int := 1
+export XMLHttpRequestResponseType_Blob: Int := 2
+export XMLHttpRequestResponseType_Document: Int := 3
+export XMLHttpRequestResponseType_Json: Int := 4
+export XMLHttpRequestResponseType_Text: Int := 5

@@ -1,0 +1,25 @@
+--- Generated port for xhr.ProgressEvent
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/xhr.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The ProgressEvent interface represents events that measure the progress of an underlying process, like an HTTP request (e.g., an XMLHttpRequest, or the loading of the underlying resource of an <img>, <audio>, <video>, <style> or <link>).
+export ProgressEvent := {
+  --- The
+  --- ProgressEvent.lengthComputable read-only property is a
+  --- boolean flag indicating if the resource concerned by the
+  --- ProgressEvent has a length that can be calculated. If not, the
+  --- ProgressEvent.total property has no significant value.
+  lengthComputable: Bool,
+  --- The ProgressEvent.loaded read-only property is a number indicating the size of the data already transmitted or processed.
+  --- The progress ratio can be calculated by dividing the value of this property by ProgressEvent.total.
+  loaded: Float,
+  --- The ProgressEvent.total read-only property is a number indicating the total size of the data being transmitted or processed.
+  total: Float
+}
+
+--- The ProgressEvent() constructor returns a new ProgressEvent object, representing the current completion of a long process.
+--- js: ProgressEvent.constructor
+export ProgressEventConstructor: (String, Handle) ~[1]~> Result<(), JsError>

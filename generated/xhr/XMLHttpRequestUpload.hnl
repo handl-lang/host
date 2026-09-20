@@ -1,0 +1,10 @@
+--- Generated port for xhr.XMLHttpRequestUpload
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/xhr.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The XMLHttpRequestUpload interface represents the upload process for a specific XMLHttpRequest. It is an opaque object that represents the underlying, browser-dependent, upload process. It is an XMLHttpRequestEventTarget and can be obtained by calling XMLHttpRequest.upload.
+export XMLHttpRequestUpload := {
+}

@@ -1,0 +1,16 @@
+--- Generated adapter for dom-webidl-browser/XPathExpression
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/XPathExpression" import { XPathExpression, XPathExpressionEvaluate }
+
+export x_path_expression_evaluate: XPathExpressionEvaluate := (contextNode, type_, result) ~> do {
+  r = call("dom", "evaluate", [contextNode, type_, result], ["js_object", "js_number", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

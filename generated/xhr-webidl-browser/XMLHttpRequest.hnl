@@ -1,0 +1,86 @@
+--- Generated adapter for xhr-webidl-browser/XMLHttpRequest
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/xhr.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../xhr/XMLHttpRequest" import { XMLHttpRequest, XMLHttpRequestAbort, XMLHttpRequestConstructor, XMLHttpRequestGetAllResponseHeaders, XMLHttpRequestGetResponseHeader, XMLHttpRequestOpen, XMLHttpRequestOverrideMimeType, XMLHttpRequestSend, XMLHttpRequestSetRequestHeader }
+
+export x_m_l_http_request_abort: XMLHttpRequestAbort := () ~> do {
+  r = call("xhr", "abort", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_constructor: XMLHttpRequestConstructor := () ~> do {
+  r = call("xhr", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_get_all_response_headers: XMLHttpRequestGetAllResponseHeaders := () ~> do {
+  r = call("xhr", "getAllResponseHeaders", [], [], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_get_response_header: XMLHttpRequestGetResponseHeader := (name) ~> do {
+  r = call("xhr", "getResponseHeader", [name], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_open: XMLHttpRequestOpen := (method, url, async, username, password) ~> do {
+  r = call("xhr", "open", [method, url, async, username, password], ["js_string", "js_string", "js_boolean", "js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_override_mime_type: XMLHttpRequestOverrideMimeType := (mime) ~> do {
+  r = call("xhr", "overrideMimeType", [mime], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_send: XMLHttpRequestSend := (body) ~> do {
+  r = call("xhr", "send", [body], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export x_m_l_http_request_set_request_header: XMLHttpRequestSetRequestHeader := (name, value) ~> do {
+  r = call("xhr", "setRequestHeader", [name, value], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

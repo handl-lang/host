@@ -1,0 +1,76 @@
+--- Generated adapter for fileapi-webidl-browser/Blob
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/FileAPI.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fileapi/Blob" import { Blob, BlobArrayBuffer, BlobBytes, BlobConstructor, BlobSlice, BlobStream, BlobText, BlobTextStream }
+
+export blob_array_buffer: BlobArrayBuffer := () ~> do {
+  r = call("FileAPI", "arrayBuffer", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export blob_bytes: BlobBytes := () ~> do {
+  r = call("FileAPI", "bytes", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export blob_constructor: BlobConstructor := (blobParts, options) ~> do {
+  r = call("FileAPI", "constructor", [blobParts, options], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export blob_slice: BlobSlice := (start, end, contentType) ~> do {
+  r = call("FileAPI", "slice", [start, end, contentType], ["js_number", "js_number", "js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export blob_stream: BlobStream := () ~> do {
+  r = call("FileAPI", "stream", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export blob_text: BlobText := () ~> do {
+  r = call("FileAPI", "text", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export blob_text_stream: BlobTextStream := () ~> do {
+  r = call("FileAPI", "textStream", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

@@ -1,0 +1,23 @@
+--- Generated port for dom.HTMLCollection
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The HTMLCollection interface represents a generic collection (array-like object similar to arguments) of elements (in document order) and offers methods and properties for selecting from the list.
+export HTMLCollection := {
+  --- The HTMLCollection.length property returns the number of
+  --- items in a HTMLCollection.
+  length: Nat
+}
+
+--- The HTMLCollection method item()
+--- returns the element located at the specified offset into the collection.
+--- js: HTMLCollection.item
+export HTMLCollectionItem: (Nat) ~[1]~> Result<Handle, JsError>
+
+--- The namedItem() method of the HTMLCollection interface returns
+--- the first Element in the collection whose id or name attribute match the specified name, or null if no element matches.
+--- js: HTMLCollection.namedItem
+export HTMLCollectionNamedItem: (String) ~[1]~> Result<Handle, JsError>

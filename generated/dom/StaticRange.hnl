@@ -1,0 +1,16 @@
+--- Generated port for dom.StaticRange
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The DOM StaticRange interface extends AbstractRange to provide a method to specify a range of content in the DOM whose contents don't update to reflect changes which occur within the DOM tree.
+export StaticRange := {
+}
+
+--- The StaticRange() constructor
+--- creates a new StaticRange object representing a span of content within
+--- the DOM.
+--- js: StaticRange.constructor
+export StaticRangeConstructor: (Handle) ~[1]~> Result<(), JsError>

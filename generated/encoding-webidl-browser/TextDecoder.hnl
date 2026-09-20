@@ -1,0 +1,26 @@
+--- Generated adapter for encoding-webidl-browser/TextDecoder
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/encoding.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../encoding/TextDecoder" import { TextDecoder, TextDecoderConstructor, TextDecoderDecode }
+
+export text_decoder_constructor: TextDecoderConstructor := (label, options) ~> do {
+  r = call("encoding", "constructor", [label, options], ["js_string", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export text_decoder_decode: TextDecoderDecode := (input, options) ~> do {
+  r = call("encoding", "decode", [input, options], ["js_object", "js_object"], "js_string", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

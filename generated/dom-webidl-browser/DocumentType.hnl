@@ -1,0 +1,46 @@
+--- Generated adapter for dom-webidl-browser/DocumentType
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/DocumentType" import { DocumentType, DocumentTypeAfter, DocumentTypeBefore, DocumentTypeRemove, DocumentTypeReplaceWith }
+
+export document_type_after: DocumentTypeAfter := (nodes) ~> do {
+  r = call("dom", "after", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_type_before: DocumentTypeBefore := (nodes) ~> do {
+  r = call("dom", "before", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_type_remove: DocumentTypeRemove := () ~> do {
+  r = call("dom", "remove", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_type_replace_with: DocumentTypeReplaceWith := (nodes) ~> do {
+  r = call("dom", "replaceWith", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

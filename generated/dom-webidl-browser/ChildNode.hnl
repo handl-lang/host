@@ -1,0 +1,46 @@
+--- Generated adapter for dom-webidl-browser/ChildNode
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/ChildNode" import { ChildNode, ChildNodeAfter, ChildNodeBefore, ChildNodeRemove, ChildNodeReplaceWith }
+
+export child_node_after: ChildNodeAfter := (nodes) ~> do {
+  r = call("dom", "after", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export child_node_before: ChildNodeBefore := (nodes) ~> do {
+  r = call("dom", "before", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export child_node_remove: ChildNodeRemove := () ~> do {
+  r = call("dom", "remove", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export child_node_replace_with: ChildNodeReplaceWith := (nodes) ~> do {
+  r = call("dom", "replaceWith", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

@@ -1,0 +1,30 @@
+--- Generated port for streams.WritableStream
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The WritableStream interface of the Streams API provides a standard abstraction for writing streaming data to a destination, known as a sink.
+--- This object comes with built-in backpressure and queuing.
+export WritableStream := {
+  --- The locked read-only property of the WritableStream interface returns a boolean indicating whether the WritableStream is locked to a writer.
+  locked: Bool
+}
+
+--- The abort() method of the WritableStream interface aborts the stream, signaling that the producer can no longer successfully write to the stream and it is to be immediately moved to an error state, with any queued writes discarded.
+--- js: WritableStream.abort
+export WritableStreamAbort: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- The close() method of the WritableStream interface closes the associated stream. All chunks written before this method is called are sent before the returned promise is fulfilled.
+--- js: WritableStream.close
+export WritableStreamClose: () ~[1]~> Result<Handle, JsError>
+
+--- The WritableStream() constructor creates a new WritableStream object instance.
+--- js: WritableStream.constructor
+export WritableStreamConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The getWriter() method of the WritableStream interface returns a new instance of WritableStreamDefaultWriter and locks the stream to that instance.
+--- While the stream is locked, no other writer can be acquired until this one is released.
+--- js: WritableStream.getWriter
+export WritableStreamGetWriter: () ~[1]~> Result<Handle, JsError>

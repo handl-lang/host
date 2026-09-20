@@ -1,0 +1,196 @@
+--- Generated adapter for console-webidl-browser/types
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/console.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../console/types" import { ConsoleAssert, ConsoleClear, ConsoleCount, ConsoleCountReset, ConsoleDebug, ConsoleDir, ConsoleDirxml, ConsoleError, ConsoleGroup, ConsoleGroupCollapsed, ConsoleGroupEnd, ConsoleInfo, ConsoleLog, ConsoleTable, ConsoleTime, ConsoleTimeEnd, ConsoleTimeLog, ConsoleTrace, ConsoleWarn }
+
+export console_assert: ConsoleAssert := (condition, data_) ~> do {
+  r = call("console", "assert", [condition, data_], ["js_boolean", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_clear: ConsoleClear := () ~> do {
+  r = call("console", "clear", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_count: ConsoleCount := (label) ~> do {
+  r = call("console", "count", [label], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_count_reset: ConsoleCountReset := (label) ~> do {
+  r = call("console", "countReset", [label], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_debug: ConsoleDebug := (data_) ~> do {
+  r = call("console", "debug", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_dir: ConsoleDir := (item, options) ~> do {
+  r = call("console", "dir", [item, options], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_dirxml: ConsoleDirxml := (data_) ~> do {
+  r = call("console", "dirxml", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_error: ConsoleError := (data_) ~> do {
+  r = call("console", "error", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_group: ConsoleGroup := (data_) ~> do {
+  r = call("console", "group", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_group_collapsed: ConsoleGroupCollapsed := (data_) ~> do {
+  r = call("console", "groupCollapsed", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_group_end: ConsoleGroupEnd := () ~> do {
+  r = call("console", "groupEnd", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_info: ConsoleInfo := (data_) ~> do {
+  r = call("console", "info", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_log: ConsoleLog := (data_) ~> do {
+  r = call("console", "log", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_table: ConsoleTable := (tabularData, properties) ~> do {
+  r = call("console", "table", [tabularData, properties], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_time: ConsoleTime := (label) ~> do {
+  r = call("console", "time", [label], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_time_end: ConsoleTimeEnd := (label) ~> do {
+  r = call("console", "timeEnd", [label], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_time_log: ConsoleTimeLog := (label, data_) ~> do {
+  r = call("console", "timeLog", [label, data_], ["js_string", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_trace: ConsoleTrace := (data_) ~> do {
+  r = call("console", "trace", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export console_warn: ConsoleWarn := (data_) ~> do {
+  r = call("console", "warn", [data_], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

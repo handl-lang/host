@@ -1,0 +1,296 @@
+--- Generated adapter for dom-webidl-browser/Document
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/Document" import { Document, DocumentAdoptNode, DocumentAppend, DocumentConstructor, DocumentCreateAttribute, DocumentCreateAttributeNS, DocumentCreateCDATASection, DocumentCreateComment, DocumentCreateDocumentFragment, DocumentCreateElement, DocumentCreateElementNS, DocumentCreateEvent, DocumentCreateExpression, DocumentCreateNSResolver, DocumentCreateNodeIterator, DocumentCreateProcessingInstruction, DocumentCreateRange, DocumentCreateTextNode, DocumentCreateTreeWalker, DocumentEvaluate, DocumentGetElementById, DocumentGetElementsByClassName, DocumentGetElementsByTagName, DocumentGetElementsByTagNameNS, DocumentImportNode, DocumentMoveBefore, DocumentPrepend, DocumentQuerySelector, DocumentQuerySelectorAll, DocumentReplaceChildren }
+
+export document_adopt_node: DocumentAdoptNode := (node) ~> do {
+  r = call("dom", "adoptNode", [node], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_append: DocumentAppend := (nodes) ~> do {
+  r = call("dom", "append", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_constructor: DocumentConstructor := () ~> do {
+  r = call("dom", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_attribute: DocumentCreateAttribute := (localName) ~> do {
+  r = call("dom", "createAttribute", [localName], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_attribute_n_s: DocumentCreateAttributeNS := (namespace, qualifiedName) ~> do {
+  r = call("dom", "createAttributeNS", [namespace, qualifiedName], ["js_object", "js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_c_d_a_t_a_section: DocumentCreateCDATASection := (data_) ~> do {
+  r = call("dom", "createCDATASection", [data_], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_comment: DocumentCreateComment := (data_) ~> do {
+  r = call("dom", "createComment", [data_], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_document_fragment: DocumentCreateDocumentFragment := () ~> do {
+  r = call("dom", "createDocumentFragment", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_element: DocumentCreateElement := (localName, options) ~> do {
+  r = call("dom", "createElement", [localName, options], ["js_string", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_element_n_s: DocumentCreateElementNS := (namespace, qualifiedName, options) ~> do {
+  r = call("dom", "createElementNS", [namespace, qualifiedName, options], ["js_object", "js_string", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_event: DocumentCreateEvent := (interface) ~> do {
+  r = call("dom", "createEvent", [interface], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_expression: DocumentCreateExpression := (expression, resolver) ~> do {
+  r = call("dom", "createExpression", [expression, resolver], ["js_string", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_n_s_resolver: DocumentCreateNSResolver := (nodeResolver) ~> do {
+  r = call("dom", "createNSResolver", [nodeResolver], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_node_iterator: DocumentCreateNodeIterator := (root, whatToShow, filter) ~> do {
+  r = call("dom", "createNodeIterator", [root, whatToShow, filter], ["js_object", "js_number", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_processing_instruction: DocumentCreateProcessingInstruction := (target, data_) ~> do {
+  r = call("dom", "createProcessingInstruction", [target, data_], ["js_string", "js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_range: DocumentCreateRange := () ~> do {
+  r = call("dom", "createRange", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_text_node: DocumentCreateTextNode := (data_) ~> do {
+  r = call("dom", "createTextNode", [data_], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_create_tree_walker: DocumentCreateTreeWalker := (root, whatToShow, filter) ~> do {
+  r = call("dom", "createTreeWalker", [root, whatToShow, filter], ["js_object", "js_number", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_evaluate: DocumentEvaluate := (expression, contextNode, resolver, type_, result) ~> do {
+  r = call("dom", "evaluate", [expression, contextNode, resolver, type_, result], ["js_string", "js_object", "js_object", "js_number", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_get_element_by_id: DocumentGetElementById := (elementId) ~> do {
+  r = call("dom", "getElementById", [elementId], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_get_elements_by_class_name: DocumentGetElementsByClassName := (classNames) ~> do {
+  r = call("dom", "getElementsByClassName", [classNames], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_get_elements_by_tag_name: DocumentGetElementsByTagName := (qualifiedName) ~> do {
+  r = call("dom", "getElementsByTagName", [qualifiedName], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_get_elements_by_tag_name_n_s: DocumentGetElementsByTagNameNS := (namespace, localName) ~> do {
+  r = call("dom", "getElementsByTagNameNS", [namespace, localName], ["js_object", "js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_import_node: DocumentImportNode := (node, options) ~> do {
+  r = call("dom", "importNode", [node, options], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_move_before: DocumentMoveBefore := (node, child) ~> do {
+  r = call("dom", "moveBefore", [node, child], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_prepend: DocumentPrepend := (nodes) ~> do {
+  r = call("dom", "prepend", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_query_selector: DocumentQuerySelector := (selectors) ~> do {
+  r = call("dom", "querySelector", [selectors], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_query_selector_all: DocumentQuerySelectorAll := (selectors) ~> do {
+  r = call("dom", "querySelectorAll", [selectors], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_replace_children: DocumentReplaceChildren := (nodes) ~> do {
+  r = call("dom", "replaceChildren", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

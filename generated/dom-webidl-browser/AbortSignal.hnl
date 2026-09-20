@@ -1,0 +1,46 @@
+--- Generated adapter for dom-webidl-browser/AbortSignal
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/AbortSignal" import { AbortSignal, AbortSignalAbort, AbortSignalAny, AbortSignalThrowIfAborted, AbortSignalTimeout }
+
+export abort_signal_abort: AbortSignalAbort := (reason) ~> do {
+  r = call("dom", "abort", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export abort_signal_any: AbortSignalAny := (signals) ~> do {
+  r = call("dom", "_any", [signals], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export abort_signal_throw_if_aborted: AbortSignalThrowIfAborted := () ~> do {
+  r = call("dom", "throwIfAborted", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export abort_signal_timeout: AbortSignalTimeout := (milliseconds) ~> do {
+  r = call("dom", "timeout", [milliseconds], ["js_number"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

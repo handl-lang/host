@@ -1,0 +1,18 @@
+--- Generated port for streams.WritableStreamDefaultController
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The WritableStreamDefaultController interface of the Streams API represents a controller allowing control of a WritableStream's state. When constructing a WritableStream, the underlying sink is given a corresponding WritableStreamDefaultController instance to manipulate.
+export WritableStreamDefaultController := {
+  --- The read-only signal property of the WritableStreamDefaultController interface returns the AbortSignal associated with the controller.
+  signal: Handle
+}
+
+--- The error() method of the
+--- WritableStreamDefaultController interface causes any future interactions
+--- with the associated stream to error.
+--- js: WritableStreamDefaultController.error
+export WritableStreamDefaultControllerError: (Handle) ~[1]~> Result<(), JsError>

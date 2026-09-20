@@ -1,0 +1,76 @@
+--- Generated adapter for fetch-webidl-browser/Headers
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/fetch.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fetch/Headers" import { Headers, HeadersAppend, HeadersConstructor, HeadersDelete, HeadersGet, HeadersGetSetCookie, HeadersHas, HeadersSet }
+
+export headers_append: HeadersAppend := (name, value) ~> do {
+  r = call("fetch", "append", [name, value], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_constructor: HeadersConstructor := (init) ~> do {
+  r = call("fetch", "constructor", [init], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_delete: HeadersDelete := (name) ~> do {
+  r = call("fetch", "delete", [name], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_get: HeadersGet := (name) ~> do {
+  r = call("fetch", "get", [name], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_get_set_cookie: HeadersGetSetCookie := () ~> do {
+  r = call("fetch", "getSetCookie", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_has: HeadersHas := (name) ~> do {
+  r = call("fetch", "has", [name], ["js_string"], "js_boolean", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export headers_set: HeadersSet := (name, value) ~> do {
+  r = call("fetch", "set", [name, value], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

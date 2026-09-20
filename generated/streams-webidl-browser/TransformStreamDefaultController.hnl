@@ -1,0 +1,36 @@
+--- Generated adapter for streams-webidl-browser/TransformStreamDefaultController
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../streams/TransformStreamDefaultController" import { TransformStreamDefaultController, TransformStreamDefaultControllerEnqueue, TransformStreamDefaultControllerError, TransformStreamDefaultControllerTerminate }
+
+export transform_stream_default_controller_enqueue: TransformStreamDefaultControllerEnqueue := (chunk) ~> do {
+  r = call("streams", "enqueue", [chunk], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transform_stream_default_controller_error: TransformStreamDefaultControllerError := (reason) ~> do {
+  r = call("streams", "error", [reason], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export transform_stream_default_controller_terminate: TransformStreamDefaultControllerTerminate := () ~> do {
+  r = call("streams", "terminate", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

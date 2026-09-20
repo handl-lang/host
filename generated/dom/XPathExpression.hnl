@@ -1,0 +1,14 @@
+--- Generated port for dom.XPathExpression
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- This interface is a compiled XPath expression that can be evaluated on a document or specific node to return information from its DOM tree.
+export XPathExpression := {
+}
+
+--- XPathResult.ANY_TYPE = 0
+--- js: XPathExpression.evaluate
+export XPathExpressionEvaluate: (Handle, Nat, Handle) ~[1]~> Result<Handle, JsError>

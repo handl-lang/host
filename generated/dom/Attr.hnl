@@ -1,0 +1,25 @@
+--- Generated port for dom.Attr
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The Attr interface represents one of an element's attributes as an object. In most situations, you will directly retrieve the attribute value as a string (e.g., Element.getAttribute()), but some cases may require interacting with Attr instances (e.g., Element.getAttributeNode()).
+export Attr := {
+  --- The read-only namespaceURI property of the Attr interface returns the namespace URI of the attribute,
+  --- or null if the element is not in a namespace.
+  namespaceURI: Handle,
+  --- The read-only prefix property of the Attr returns the namespace prefix of the attribute, or null if no prefix is specified.
+  prefix: Handle,
+  --- The read-only localName property of the Attr interface returns the local part of the qualified name of an attribute, that is the name of the attribute, stripped from any namespace in front of it. For example, if the qualified name is xml:lang, the returned local name is lang, if the element supports that namespace.
+  localName: String,
+  --- The read-only name property of the Attr interface returns the qualified name of an attribute, that is the name of the attribute, with the namespace prefix, if any, in front of it. For example, if the local name is lang and the namespace prefix is xml, the returned qualified name is xml:lang.
+  name: String,
+  --- The value property of the Attr interface contains the value of the attribute.
+  value: String,
+  --- The read-only ownerElement property of the Attr interface returns the Element the attribute belongs to.
+  ownerElement: Handle,
+  --- historical; always returns true
+  specified: Bool
+}

@@ -1,0 +1,35 @@
+--- Generated port for dom.MutationObserver
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The MutationObserver interface provides the ability to watch for changes being made to the DOM tree. It is designed as a replacement for the older Mutation Events feature, which was part of the DOM3 Events specification.
+export MutationObserver := {
+}
+
+--- The DOM MutationObserver()
+--- constructor — part of the MutationObserver interface — creates and
+--- returns a new observer which invokes a specified callback when DOM events
+--- occur.
+--- js: MutationObserver.constructor
+export MutationObserverConstructor: (Handle) ~[1]~> Result<(), JsError>
+
+--- The MutationObserver method
+--- disconnect() tells the observer to stop watching for
+--- mutations.
+--- js: MutationObserver.disconnect
+export MutationObserverDisconnect: () ~[1]~> Result<(), JsError>
+
+--- The MutationObserver method observe() configures the MutationObserver
+--- callback to begin receiving notifications of changes to the DOM that match the given options.
+--- js: MutationObserver.observe
+export MutationObserverObserve: (Handle, Handle) ~[1]~> Result<(), JsError>
+
+--- The MutationObserver method
+--- takeRecords() returns a list of all matching DOM changes
+--- that have been detected but not yet processed by the observer's callback function,
+--- leaving the mutation queue empty.
+--- js: MutationObserver.takeRecords
+export MutationObserverTakeRecords: () ~[1]~> Result<Handle, JsError>

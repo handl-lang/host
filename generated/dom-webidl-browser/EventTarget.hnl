@@ -1,0 +1,46 @@
+--- Generated adapter for dom-webidl-browser/EventTarget
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/EventTarget" import { EventTarget, EventTargetAddEventListener, EventTargetConstructor, EventTargetDispatchEvent, EventTargetRemoveEventListener }
+
+export event_target_add_event_listener: EventTargetAddEventListener := (type_, callback, options) ~> do {
+  r = call("dom", "addEventListener", [type_, callback, options], ["js_string", "js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_target_constructor: EventTargetConstructor := () ~> do {
+  r = call("dom", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_target_dispatch_event: EventTargetDispatchEvent := (event) ~> do {
+  r = call("dom", "dispatchEvent", [event], ["js_object"], "js_boolean", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export event_target_remove_event_listener: EventTargetRemoveEventListener := (type_, callback, options) ~> do {
+  r = call("dom", "removeEventListener", [type_, callback, options], ["js_string", "js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

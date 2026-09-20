@@ -1,0 +1,86 @@
+--- Generated adapter for dom-webidl-browser/ProcessingInstruction
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/ProcessingInstruction" import { ProcessingInstruction, ProcessingInstructionConstructor, ProcessingInstructionGetAttribute, ProcessingInstructionGetAttributeNames, ProcessingInstructionHasAttribute, ProcessingInstructionHasAttributes, ProcessingInstructionRemoveAttribute, ProcessingInstructionSetAttribute, ProcessingInstructionToggleAttribute }
+
+export processing_instruction_constructor: ProcessingInstructionConstructor := (target, data_) ~> do {
+  r = call("dom", "constructor", [target, data_], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_get_attribute: ProcessingInstructionGetAttribute := (name) ~> do {
+  r = call("dom", "getAttribute", [name], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_get_attribute_names: ProcessingInstructionGetAttributeNames := () ~> do {
+  r = call("dom", "getAttributeNames", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_has_attribute: ProcessingInstructionHasAttribute := (name) ~> do {
+  r = call("dom", "hasAttribute", [name], ["js_string"], "js_boolean", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_has_attributes: ProcessingInstructionHasAttributes := () ~> do {
+  r = call("dom", "hasAttributes", [], [], "js_boolean", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_remove_attribute: ProcessingInstructionRemoveAttribute := (name) ~> do {
+  r = call("dom", "removeAttribute", [name], ["js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_set_attribute: ProcessingInstructionSetAttribute := (name, value) ~> do {
+  r = call("dom", "setAttribute", [name, value], ["js_string", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export processing_instruction_toggle_attribute: ProcessingInstructionToggleAttribute := (name, force) ~> do {
+  r = call("dom", "toggleAttribute", [name, force], ["js_string", "js_boolean"], "js_boolean", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

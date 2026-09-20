@@ -1,0 +1,26 @@
+--- Generated adapter for dom-webidl-browser/CustomEvent
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/CustomEvent" import { CustomEvent, CustomEventConstructor, CustomEventInitCustomEvent }
+
+export custom_event_constructor: CustomEventConstructor := (type_, eventInitDict) ~> do {
+  r = call("dom", "constructor", [type_, eventInitDict], ["js_string", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export custom_event_init_custom_event: CustomEventInitCustomEvent := (type_, bubbles, cancelable, detail) ~> do {
+  r = call("dom", "initCustomEvent", [type_, bubbles, cancelable, detail], ["js_string", "js_boolean", "js_boolean", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

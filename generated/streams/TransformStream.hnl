@@ -1,0 +1,18 @@
+--- Generated port for streams.TransformStream
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The TransformStream interface of the Streams API represents a concrete implementation of the pipe chain transform stream concept.
+export TransformStream := {
+  --- The readable read-only property of the TransformStream interface returns the ReadableStream instance controlled by this TransformStream. This stream emits the transformed output data.
+  readable: Handle,
+  --- The writable read-only property of the TransformStream interface returns the WritableStream instance controlled by this TransformStream. This stream accepts input data that will be transformed and emitted to the readable stream.
+  writable: Handle
+}
+
+--- The TransformStream() constructor creates a new TransformStream object which represents a pair of streams: a WritableStream representing the writable side, and a ReadableStream representing the readable side.
+--- js: TransformStream.constructor
+export TransformStreamConstructor: (Handle, Handle, Handle) ~[1]~> Result<(), JsError>

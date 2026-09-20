@@ -1,0 +1,26 @@
+--- Generated adapter for streams-webidl-browser/ReadableStreamBYOBRequest
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../streams/ReadableStreamBYOBRequest" import { ReadableStreamBYOBRequest, ReadableStreamBYOBRequestRespond, ReadableStreamBYOBRequestRespondWithNewView }
+
+export readable_stream_b_y_o_b_request_respond: ReadableStreamBYOBRequestRespond := (bytesWritten) ~> do {
+  r = call("streams", "respond", [bytesWritten], ["js_number"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_b_y_o_b_request_respond_with_new_view: ReadableStreamBYOBRequestRespondWithNewView := (view) ~> do {
+  r = call("streams", "respondWithNewView", [view], ["js_bytes"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

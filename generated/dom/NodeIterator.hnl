@@ -1,0 +1,50 @@
+--- Generated port for dom.NodeIterator
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The NodeIterator interface represents an iterator to traverse nodes of a DOM subtree in document order.
+export NodeIterator := {
+  --- The NodeIterator.root read-only property represents the
+  --- Node that is the root of what the NodeIterator
+  --- traverses.
+  root: Handle,
+  --- The NodeIterator.referenceNode read-only property returns the
+  --- Node to which the iterator is anchored; as new nodes are inserted, the
+  --- iterator remains anchored to the reference node as specified by this property.
+  referenceNode: Handle,
+  --- The NodeIterator.pointerBeforeReferenceNode read-only
+  --- property returns a boolean flag that indicates whether the
+  --- NodeFilter is anchored before (if this value is true) or
+  --- after (if this value is false) the anchor node indicated by the
+  --- NodeIterator.referenceNode property.
+  pointerBeforeReferenceNode: Bool,
+  --- The NodeIterator.whatToShow read-only property represents
+  --- an unsigned integer representing a bitmask signifying what types of nodes
+  --- should be returned by the NodeIterator.
+  whatToShow: Nat,
+  --- The NodeIterator.filter read-only property returns a
+  --- NodeFilter object, that is an object which implements an
+  --- acceptNode(node) method, used to screen nodes.
+  filter: Handle
+}
+
+--- The NodeIterator.detach() method is a no-op, kept for
+--- backward compatibility only.
+--- js: NodeIterator.detach
+export NodeIteratorDetach: () ~[1]~> Result<(), JsError>
+
+--- The NodeIterator.nextNode() method returns the next node
+--- in the set represented by the NodeIterator and advances the position of
+--- the iterator within the set. The first call to nextNode() returns the
+--- first node in the set.
+--- js: NodeIterator.nextNode
+export NodeIteratorNextNode: () ~[1]~> Result<Handle, JsError>
+
+--- The NodeIterator.previousNode() method returns the
+--- previous node in the set represented by the NodeIterator and moves the
+--- position of the iterator backwards within the set.
+--- js: NodeIterator.previousNode
+export NodeIteratorPreviousNode: () ~[1]~> Result<Handle, JsError>

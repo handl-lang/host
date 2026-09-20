@@ -1,0 +1,66 @@
+--- Generated adapter for fileapi-webidl-browser/FileReader
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/FileAPI.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../fileapi/FileReader" import { FileReader, FileReaderAbort, FileReaderConstructor, FileReaderReadAsArrayBuffer, FileReaderReadAsBinaryString, FileReaderReadAsDataURL, FileReaderReadAsText }
+
+export file_reader_abort: FileReaderAbort := () ~> do {
+  r = call("FileAPI", "abort", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_constructor: FileReaderConstructor := () ~> do {
+  r = call("FileAPI", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_read_as_array_buffer: FileReaderReadAsArrayBuffer := (blob) ~> do {
+  r = call("FileAPI", "readAsArrayBuffer", [blob], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_read_as_binary_string: FileReaderReadAsBinaryString := (blob) ~> do {
+  r = call("FileAPI", "readAsBinaryString", [blob], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_read_as_data_u_r_l: FileReaderReadAsDataURL := (blob) ~> do {
+  r = call("FileAPI", "readAsDataURL", [blob], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export file_reader_read_as_text: FileReaderReadAsText := (blob, encoding) ~> do {
+  r = call("FileAPI", "readAsText", [blob, encoding], ["js_object", "js_string"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

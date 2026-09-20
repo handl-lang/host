@@ -1,0 +1,27 @@
+--- Generated port for dom.XPathEvaluator
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The XPathEvaluator interface allows you to compile and evaluate XPath expressions.
+export XPathEvaluator := {
+}
+
+--- The XPathEvaluator() constructor creates a new XPathEvaluator.
+--- js: XPathEvaluator.constructor
+export XPathEvaluatorConstructor: () ~[1]~> Result<(), JsError>
+
+--- This method compiles an XPathExpression which can then be used for
+--- (repeated) evaluations of the XPath expression.
+--- js: XPathEvaluator.createExpression
+export XPathEvaluatorCreateExpression: (String, Handle) ~[1]~> Result<Handle, JsError>
+
+--- legacy
+--- js: XPathEvaluator.createNSResolver
+export XPathEvaluatorCreateNSResolver: (Handle) ~[1]~> Result<Handle, JsError>
+
+--- XPathResult.ANY_TYPE = 0
+--- js: XPathEvaluator.evaluate
+export XPathEvaluatorEvaluate: (String, Handle, Handle, Nat, Handle) ~[1]~> Result<Handle, JsError>

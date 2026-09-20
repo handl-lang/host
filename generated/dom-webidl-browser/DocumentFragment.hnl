@@ -1,0 +1,86 @@
+--- Generated adapter for dom-webidl-browser/DocumentFragment
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/DocumentFragment" import { DocumentFragment, DocumentFragmentAppend, DocumentFragmentConstructor, DocumentFragmentGetElementById, DocumentFragmentMoveBefore, DocumentFragmentPrepend, DocumentFragmentQuerySelector, DocumentFragmentQuerySelectorAll, DocumentFragmentReplaceChildren }
+
+export document_fragment_append: DocumentFragmentAppend := (nodes) ~> do {
+  r = call("dom", "append", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_constructor: DocumentFragmentConstructor := () ~> do {
+  r = call("dom", "constructor", [], [], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_get_element_by_id: DocumentFragmentGetElementById := (elementId) ~> do {
+  r = call("dom", "getElementById", [elementId], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_move_before: DocumentFragmentMoveBefore := (node, child) ~> do {
+  r = call("dom", "moveBefore", [node, child], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_prepend: DocumentFragmentPrepend := (nodes) ~> do {
+  r = call("dom", "prepend", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_query_selector: DocumentFragmentQuerySelector := (selectors) ~> do {
+  r = call("dom", "querySelector", [selectors], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_query_selector_all: DocumentFragmentQuerySelectorAll := (selectors) ~> do {
+  r = call("dom", "querySelectorAll", [selectors], ["js_string"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export document_fragment_replace_children: DocumentFragmentReplaceChildren := (nodes) ~> do {
+  r = call("dom", "replaceChildren", [nodes], ["js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

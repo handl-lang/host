@@ -1,0 +1,76 @@
+--- Generated adapter for streams-webidl-browser/ReadableStream
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../streams/ReadableStream" import { ReadableStream, ReadableStreamCancel, ReadableStreamConstructor, ReadableStreamFrom, ReadableStreamGetReader, ReadableStreamPipeThrough, ReadableStreamPipeTo, ReadableStreamTee }
+
+export readable_stream_cancel: ReadableStreamCancel := (reason) ~> do {
+  r = call("streams", "cancel", [reason], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_constructor: ReadableStreamConstructor := (underlyingSource, strategy) ~> do {
+  r = call("streams", "constructor", [underlyingSource, strategy], ["js_object", "js_object"], "js_void", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_from: ReadableStreamFrom := (asyncIterable) ~> do {
+  r = call("streams", "from", [asyncIterable], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_get_reader: ReadableStreamGetReader := (options) ~> do {
+  r = call("streams", "getReader", [options], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_pipe_through: ReadableStreamPipeThrough := (transform, options) ~> do {
+  r = call("streams", "pipeThrough", [transform, options], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_pipe_to: ReadableStreamPipeTo := (destination, options) ~> do {
+  r = call("streams", "pipeTo", [destination, options], ["js_object", "js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
+
+export readable_stream_tee: ReadableStreamTee := () ~> do {
+  r = call("streams", "tee", [], [], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}

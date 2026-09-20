@@ -1,0 +1,29 @@
+--- Generated port for streams.ReadableStreamDefaultController
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/streams.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The ReadableStreamDefaultController interface of the Streams API represents a controller allowing control of a ReadableStream's state and internal queue. Default controllers are for streams that are not byte streams.
+export ReadableStreamDefaultController := {
+  --- The desiredSize read-only property of the
+  --- ReadableStreamDefaultController interface returns the desired size
+  --- required to fill the stream's internal queue.
+  desiredSize: Handle
+}
+
+--- The close() method of the ReadableStreamDefaultController interface closes the associated stream.
+--- js: ReadableStreamDefaultController.close
+export ReadableStreamDefaultControllerClose: () ~[1]~> Result<(), JsError>
+
+--- The enqueue() method of the
+--- ReadableStreamDefaultController interface enqueues a given chunk in the associated stream.
+--- js: ReadableStreamDefaultController.enqueue
+export ReadableStreamDefaultControllerEnqueue: (Handle) ~[1]~> Result<(), JsError>
+
+--- The error() method of the
+--- ReadableStreamDefaultController interface causes any future interactions
+--- with the associated stream to error.
+--- js: ReadableStreamDefaultController.error
+export ReadableStreamDefaultControllerError: (Handle) ~[1]~> Result<(), JsError>

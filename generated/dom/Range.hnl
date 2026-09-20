@@ -1,0 +1,127 @@
+--- Generated port for dom.Range
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The Range interface represents a fragment of a document that can contain nodes and parts of text nodes.
+export Range := {
+  --- The Range.commonAncestorContainer read-only property
+  --- returns the deepest — or furthest down the document tree — Node that
+  --- contains both boundary points of the Range. This means that if
+  --- startContainer and endContainer both refer to
+  --- the same node, this node is the common ancestor container.
+  commonAncestorContainer: Handle
+}
+
+--- The cloneContents() method of the Range interface copies the selected Node children of the range's commonAncestorContainer and puts them in a new DocumentFragment object.
+--- js: Range.cloneContents
+export RangeCloneContents: () ~[1]~> Result<Handle, JsError>
+
+--- The Range.cloneRange() method returns a
+--- Range object with boundary points identical to the cloned
+--- Range.
+--- js: Range.cloneRange
+export RangeCloneRange: () ~[1]~> Result<Handle, JsError>
+
+--- The collapse() method of the Range interface collapses the
+--- Range to one of its boundary points.
+--- js: Range.collapse
+export RangeCollapse: (Bool) ~[1]~> Result<(), JsError>
+
+--- The compareBoundaryPoints() method of the Range interface compares the boundary points of the Range with those of another range.
+--- js: Range.compareBoundaryPoints
+export RangeCompareBoundaryPoints: (Nat, Handle) ~[1]~> Result<Int, JsError>
+
+--- The comparePoint() method of the Range interface determines whether a specified point is before, within, or after the Range. The point is specified by a reference node and an offset within that node.
+--- js: Range.comparePoint
+export RangeComparePoint: (Handle, Nat) ~[1]~> Result<Int, JsError>
+
+--- The Range() constructor returns a newly created
+--- Range object whose start and end are offset 0 of the global document
+--- object.
+--- js: Range.constructor
+export RangeConstructor: () ~[1]~> Result<(), JsError>
+
+--- The Range.deleteContents() method removes all completely-selected nodes within this range from the document. For the partially selected nodes at the start or end of the range, only the selected portion of the text is deleted, while the node itself remains intact. Afterwards, the range is collapsed to the end of the last selected node.
+--- js: Range.deleteContents
+export RangeDeleteContents: () ~[1]~> Result<(), JsError>
+
+--- The Range.detach() method does nothing. It used to
+--- disable the Range object and enable the browser to release associated
+--- resources. The method has been kept for compatibility.
+--- js: Range.detach
+export RangeDetach: () ~[1]~> Result<(), JsError>
+
+--- The extractContents() method of the Range interface is similar to a combination of Range.cloneContents() and Range.deleteContents(). It removes the child Nodes of the range from the document, clones them, and returns them as a new DocumentFragment object. For partially selected nodes, only the selected text is deleted, but all containing parent nodes up to the common ancestor are cloned as well, resulting in two copies of these nodes, one in the original document and one in the extracted fragment.
+--- js: Range.extractContents
+export RangeExtractContents: () ~[1]~> Result<Handle, JsError>
+
+--- The Range.insertNode() method inserts a node at the start
+--- of the Range.
+--- js: Range.insertNode
+export RangeInsertNode: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.intersectsNode() method returns a boolean
+--- indicating whether the given Node intersects the Range.
+--- js: Range.intersectsNode
+export RangeIntersectsNode: (Handle) ~[1]~> Result<Bool, JsError>
+
+--- The isPointInRange() method of the Range interface determines whether a specified point is within the Range. The point is specified by a reference node and an offset within that node. It is equivalent to calling Range.comparePoint() and checking if the result is 0.
+--- js: Range.isPointInRange
+export RangeIsPointInRange: (Handle, Nat) ~[1]~> Result<Bool, JsError>
+
+--- The Range.selectNode() method sets the
+--- Range to contain the Node and its contents. The parent
+--- Node of the start and end of the Range will be the same as
+--- the parent of the referenceNode.
+--- js: Range.selectNode
+export RangeSelectNode: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.selectNodeContents() method sets the Range to contain the contents of a Node.
+--- js: Range.selectNodeContents
+export RangeSelectNodeContents: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setEnd() method sets the end position of a Range to be located at the given offset into the specified node. Setting
+--- the end point above (higher in the document) than the start point will result in a
+--- collapsed range with the start and end points both set to the specified end position.
+--- js: Range.setEnd
+export RangeSetEnd: (Handle, Nat) ~[1]~> Result<(), JsError>
+
+--- The Range.setEndAfter() method sets the end position of a
+--- Range relative to another Node. The parent
+--- Node of end of the Range will be the same as that for the
+--- referenceNode.
+--- js: Range.setEndAfter
+export RangeSetEndAfter: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setEndBefore() method sets the end position of
+--- a Range relative to another Node. The parent
+--- Node of end of the Range will be the same as that for the
+--- referenceNode.
+--- js: Range.setEndBefore
+export RangeSetEndBefore: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setStart() method sets the start position of a
+--- Range.
+--- js: Range.setStart
+export RangeSetStart: (Handle, Nat) ~[1]~> Result<(), JsError>
+
+--- The Range.setStartAfter() method sets the start position
+--- of a Range relative to a Node. The parent
+--- Node of the start of the Range will be the same as that
+--- for the referenceNode.
+--- js: Range.setStartAfter
+export RangeSetStartAfter: (Handle) ~[1]~> Result<(), JsError>
+
+--- The Range.setStartBefore() method sets the start position
+--- of a Range relative to another Node. The parent
+--- Node of the start of the Range will be the same as that
+--- for the referenceNode.
+--- js: Range.setStartBefore
+export RangeSetStartBefore: (Handle) ~[1]~> Result<(), JsError>
+
+--- The surroundContents() method of the Range interface surrounds the selected content by a provided node. It extracts the contents of the range, replaces the children of newParent with the extracted contents, inserts newParent at the location of the extracted contents, and makes the range select newParent.
+--- js: Range.surroundContents
+export RangeSurroundContents: (Handle) ~[1]~> Result<(), JsError>

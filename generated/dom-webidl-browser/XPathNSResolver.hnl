@@ -1,0 +1,16 @@
+--- Generated adapter for dom-webidl-browser/XPathNSResolver
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/dom.idl
+
+from "js" import { call, error }
+from "result" import { ok, err }
+from "../dom/XPathNSResolver" import { XPathNSResolver, XPathNSResolverLookupNamespaceURI }
+
+export x_path_n_s_resolver_lookup_namespace_u_r_i: XPathNSResolverLookupNamespaceURI := (prefix) ~> do {
+  r = call("dom", "lookupNamespaceURI", [prefix], ["js_object"], "js_object", false)
+  e = error()
+  if e == null {
+    ok(r)
+  } else {
+    err(e)
+  }
+}
