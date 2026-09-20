@@ -4,5 +4,7 @@
 from "ffi" import { Errno }
 from "result" import { Result }
 
+--- Don't delay send to coalesce packets
 export TCP_NODELAY: Int
+--- Control sending of partial frames
 export TCP_CORK: Int
