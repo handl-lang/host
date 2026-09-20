@@ -1,12 +1,13 @@
-//! Rust `Function` impls for the `fn` module — the handls (handlers)
-//! for the `op`/`handl` declarations in `fn.hnl`.
+//! Rust `Function` impls for the `combinators` and `transform` modules —
+//! the handls (handlers) for the `op`/`handl` declarations in
+//! `combinators.hnl` / `transform.hnl`.
 //!
-//! All 25 functions are FFI atoms: they manipulate `serde_json::Value`
+//! All functions are FFI atoms: they manipulate `serde_json::Value`
 //! callables via `apply_fn` from `crate::shared` and cannot be expressed
 //! as pure handl arrows without losing the exact `TypeMismatch` error
 //! messages the tests rely on. The `op`/`handl` declaration form
-//! (ADR-0077 Phase 2) declares the interface in `fn.hnl`; these impls
-//! provide the logic and are registered in an
+//! (ADR-0077 Phase 2) declares the interface in `combinators.hnl`; these
+//! impls provide the logic and are registered in an
 //! [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
 
 use handl_platform::{EvalContext, EvalError, Function};
