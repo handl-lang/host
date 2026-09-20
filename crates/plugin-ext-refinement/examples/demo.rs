@@ -13,19 +13,18 @@ use handl_plugin_ext_refinement::{
 fn main() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
-    // The former `handl-packages/{fn,collection,state}/` arrows — superseded
-    // as stdlib packages, kept only as refinement-checker fixtures.
+    // The former `handl-packages/{fn,collection,state,contracts,parse-pratt}/`
+    // arrows — superseded as stdlib packages, kept only as
+    // refinement-checker fixtures.
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     println!("=== ADR-0069: .hnl arrow files → Term → inferred contracts ===");
     println!("Atom contracts: {}", registry.len());
-    println!("Arrows directory: {}", arrows_dir);
+    println!("Arrows directory: {}", fixtures_dir);
     println!();
 
     // Load all arrow files for cross-file reference resolution
-    let mut graph_map = load_all_arrows(&arrows_dir).expect("failed to load arrow files");
-    graph_map.extend(load_all_arrows(&fixtures_dir).expect("failed to load fixture arrows"));
+    let graph_map = load_all_arrows(&fixtures_dir).expect("failed to load fixture arrows");
     println!("Loaded {} arrow files from stdlib", graph_map.len());
     println!();
 
@@ -35,7 +34,7 @@ fn main() {
         ("map", &fixtures_dir, "fn/map.hnl"),
         ("filter", &fixtures_dir, "fn/filter.hnl"),
         ("fold", &fixtures_dir, "fn/fold.hnl"),
-        ("pratt", &arrows_dir, "parse-pratt/pratt.hnl"),
+        ("pratt", &fixtures_dir, "parse-pratt/pratt.hnl"),
         ("counter", &fixtures_dir, "state/counter.hnl"),
         ("buffer", &fixtures_dir, "state/buffer.hnl"),
         ("protocol", &fixtures_dir, "state/protocol.hnl"),
