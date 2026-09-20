@@ -126,10 +126,14 @@ else
 fi
 
 echo
-echo "== hnl test (jobs: $JOBS) =="
+echo "== hnl test (jobs: $JOBS, per-file) =="
 test_status=0
 if [ "${#canonical_files[@]}" -gt 0 ]; then
-  if ! "$HNL" test --jobs "auto" "${canonical_files[@]}"; then
+  # Per-file processes: a single `hnl test` over the corpus accumulates
+  # module state per file and gets OOM-killed (~9GB on ~225 files);
+  # even 12-file batches at -P8 blew past 11GB. One file per process
+  # bounds peak RSS to the worst single file.
+  if ! printf '%s\n' "${canonical_files[@]}" | xargs -P "$JOBS" -n 1 "$HNL" test --jobs 4; then
     test_status=1
     status=1
   fi
