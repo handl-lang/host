@@ -73,6 +73,10 @@ from "../math-c/shl" import shl as __shl
 export shl := __shl
 from "../math-c/shr" import shr as __shr
 export shr := __shr
+from "../math-c/rotl32" import rotl32 as __rotl32
+export rotl32 := __rotl32
+from "../math-c/u32" import u32 as __u32
+export u32 := __u32
 from "../math-c/degrees" import degrees as __degrees
 export degrees := __degrees
 from "../math-c/e" import e as __e
