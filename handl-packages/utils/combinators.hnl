@@ -1,42 +1,44 @@
---- fn -- function combinator utilities for the handl runtime.
+--- combinators -- function combinator utilities for the handl runtime.
 ---
---- Single source of truth for the `fn` stdlib interface: 22 function
---- combinators covering composition, control flow, collection iteration,
---- and function manipulation. The Rust bridge in `plugin-lib-utils` loads
---- this file via `include_str!`, parses the `cap` declarations for the
---- plugin capability surface, and registers the Rust handls (handlers) in
---- an `OpRegistry` that dispatches each `op` to its native Rust impl.
+--- Single source of truth for the `combinators` stdlib interface: 22
+--- function combinators covering composition, control flow, collection
+--- iteration, and function manipulation. The Rust bridge in
+--- `plugin-lib-stdlib` loads this file via `include_str!`, parses the
+--- `cap` declarations for the plugin capability surface, and registers
+--- the Rust handls (handlers) in an `OpRegistry` that dispatches each
+--- `op` to its native Rust impl. The `fn` module name resolves to this
+--- module as an alias (`kit-canonical`'s `StdlibResolver`).
 ---
 --- All 22 functions are FFI atoms (they manipulate `serde_json::Value`
 --- callables via `apply_fn` from `crate::shared` and cannot be expressed
 --- as pure handl arrows without losing the exact `TypeMismatch` error
 --- messages the tests rely on). The `op`/`handl` declaration form
 --- (ADR-0077 Phase 2) declares the interface; the Rust `Function` impls
---- in `ops.rs` provide the logic.
+--- in `ops/combinators.rs` provide the logic.
 ---
 --- ## Capability declarations (ADR-0077 Phase 4)
---- fn.pipe -- pipe a value through a sequence of functions left-to-right.
---- fn.flow -- compose functions left-to-right into a single inlined function.
---- fn.compose -- compose functions right-to-left into a single inlined function.
---- fn.fanout -- apply a value to each of several functions, collecting results into a list.
---- fn.fanout_fn -- lazy fanout: return a function that splits its input across branches.
---- fn.choice -- conditional branching: apply one of two functions based on a predicate.
---- fn.apply -- apply a function to an array of arguments.
---- fn.flat_map -- map a function over a list and flatten the results.
---- fn.find -- find the first element of a list satisfying a predicate.
---- fn.some -- test whether any element of a list satisfies a predicate.
---- fn.every -- test whether all elements of a list satisfy a predicate.
---- fn.group_by -- group elements of a list by a key function.
---- fn.partition -- split a list into matching and non-matching elements.
---- fn.count_by -- count elements of a list grouped by a key function.
---- fn.tap -- call a function for its side effect, returning the original value.
---- fn.match -- pattern-match a value against a sequence of pattern/handler branches.
---- fn.constantly -- return a function that always yields a fixed value.
---- fn.flip -- swap the first two parameters of a function.
---- fn.partial -- partially apply a function by binding its leading arguments.
---- fn.when -- apply a transform when a predicate holds, otherwise return the value unchanged.
---- fn.unless -- apply a transform unless a predicate holds, otherwise return the value unchanged.
---- fn.converge -- apply branches to a value, then combine the results with a combiner.
+--- combinators.pipe -- pipe a value through a sequence of functions left-to-right.
+--- combinators.flow -- compose functions left-to-right into a single inlined function.
+--- combinators.compose -- compose functions right-to-left into a single inlined function.
+--- combinators.fanout -- apply a value to each of several functions, collecting results into a list.
+--- combinators.fanout_fn -- lazy fanout: return a function that splits its input across branches.
+--- combinators.choice -- conditional branching: apply one of two functions based on a predicate.
+--- combinators.apply -- apply a function to an array of arguments.
+--- combinators.flat_map -- map a function over a list and flatten the results.
+--- combinators.find -- find the first element of a list satisfying a predicate.
+--- combinators.some -- test whether any element of a list satisfies a predicate.
+--- combinators.every -- test whether all elements of a list satisfy a predicate.
+--- combinators.group_by -- group elements of a list by a key function.
+--- combinators.partition -- split a list into matching and non-matching elements.
+--- combinators.count_by -- count elements of a list grouped by a key function.
+--- combinators.tap -- call a function for its side effect, returning the original value.
+--- combinators.match -- pattern-match a value against a sequence of pattern/handler branches.
+--- combinators.constantly -- return a function that always yields a fixed value.
+--- combinators.flip -- swap the first two parameters of a function.
+--- combinators.partial -- partially apply a function by binding its leading arguments.
+--- combinators.when -- apply a transform when a predicate holds, otherwise return the value unchanged.
+--- combinators.unless -- apply a transform unless a predicate holds, otherwise return the value unchanged.
+--- combinators.converge -- apply branches to a value, then combine the results with a combiner.
 cap "combinators.pipe"
 cap "combinators.flow"
 cap "combinators.compose"
@@ -72,9 +74,6 @@ op "combinators.fanout_fn" : Value -> Value
 op "combinators.choice" : (Value * Value * Value * Value) -> Value
   guarantee: True
 op "combinators.apply" : (Value * Value) -> Value
-  guarantee: True
-  guarantee: True
-  guarantee: True
   guarantee: True
 op "combinators.flat_map" : (Value * Value) -> Value
   guarantee: True

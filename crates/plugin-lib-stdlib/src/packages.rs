@@ -119,7 +119,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "combinators",
-        hnl: include_str!("../../../handl-packages/utils/fn.hnl"),
+        hnl: include_str!("../../../handl-packages/utils/combinators.hnl"),
         funcs: &[],
         ops: ops::combinators::COMBINATORS_OPS,
         values: &[],
