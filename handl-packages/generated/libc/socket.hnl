@@ -397,6 +397,10 @@ export SocketpairResult := {
 --- ffi:
 export Socketpair: (Int, Int, Int) ~[1]~> Result<SocketpairResult, Errno>
 
+--- Give the socket FD the local address ADDR (which is LEN bytes long).
+--- ffi:
+export Bind: (Int, Bytes) ~[1]~> Result<Int, Errno>
+
 --- Put the local address of FD into *ADDR and its length in *LEN.
 export GetsocknameResult := {
   ret: Int,
@@ -406,6 +410,15 @@ export GetsocknameResult := {
 
 --- ffi:
 export Getsockname: (Int) ~[1]~> Result<GetsocknameResult, Errno>
+
+--- Open a connection on socket FD to peer at ADDR (which LEN bytes long).
+--- For connectionless socket types, just set the default address to send to
+--- and the only address from which to accept transmissions.
+--- Return 0 on success, -1 for errors.
+--- This function is a cancellation point and therefore not marked with
+--- __THROW.
+--- ffi:
+export Connect: (Int, Bytes) ~[1]~> Result<Int, Errno>
 
 --- Put the address of the peer connected to socket FD into *ADDR
 --- (which is *LEN bytes long), and its actual length into *LEN.
@@ -478,6 +491,16 @@ export RecvmsgMsg := {
 
 --- ffi: ssize_t (int, struct msghdr *, int)
 export Recvmsg: (Int, Int) ~[1]~> Result<RecvmsgResult, Errno>
+
+--- get and set options on sockets
+export GetsockoptResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: List<Bytes>
+}
+
+--- ffi:
+export Getsockopt: (Int, Int, Int) ~[1]~> Result<GetsockoptResult, Errno>
 
 --- get and set options on sockets
 --- ffi: int (int, int, int, const void *, socklen_t)

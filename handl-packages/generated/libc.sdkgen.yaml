@@ -257,3 +257,23 @@ symbols:
   fcntl:
     args: ["i32", "i32", "i32"]
     names: ["fd", "cmd", "arg"]
+
+  # int bind/connect(int fd, const struct sockaddr *addr, socklen_t len)
+  # __CONST_SOCKADDR_ARG is a transparent union the backend can't map,
+  # so in_buf passes handl-packed sockaddr bytes as (ptr, len) — the two
+  # slots it expands to are exactly (addr, addrlen).
+  bind:
+    args: ["i32", "in_buf"]
+    names: ["fd"]
+  connect:
+    args: ["i32", "in_buf"]
+    names: ["fd"]
+
+  # int getsockopt(int fd, int level, int optname, void *optval,
+  #                socklen_t *optlen)
+  # io_buf is the (optval, optlen) value-result pair: allocates the
+  # buffer plus a len cell seeded with 16 and passes (ptr, &len).
+  # Needed for the SO_ERROR check after a nonblocking connect.
+  getsockopt:
+    args: ["i32", "i32", "i32", "io_buf:16"]
+    names: ["fd", "level", "optname"]
