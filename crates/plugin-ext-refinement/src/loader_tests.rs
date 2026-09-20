@@ -1919,10 +1919,10 @@ fn test_flatten_program_transitive_bare_name_discovery() {
 // have no filesystem dependency (they use `MemoryResolver`).
 
 /// The source text of `collection/insert.hnl` (with `export insert`).
-const INSERT_SRC: &str = include_str!("../../../handl-packages/collection/insert.hnl");
+const INSERT_SRC: &str = include_str!("../tests/fixtures/collection/insert.hnl");
 
 /// The source text of `collection/sort.hnl` (with `import insert`).
-const SORT_SRC: &str = include_str!("../../../handl-packages/collection/sort.hnl");
+const SORT_SRC: &str = include_str!("../tests/fixtures/collection/sort.hnl");
 
 /// Build a `MemoryResolver` populated with the real arrow file contents,
 /// rooted at the arrows directory layout (e.g. `"collection/sort"` →

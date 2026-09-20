@@ -14,8 +14,8 @@ fn main() {
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
-    // The former `handl-packages/fn/` arrows — superseded as a stdlib package,
-    // kept only as refinement-checker fixtures.
+    // The former `handl-packages/{fn,collection,state}/` arrows — superseded
+    // as stdlib packages, kept only as refinement-checker fixtures.
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     println!("=== ADR-0069: .hnl arrow files → Term → inferred contracts ===");
@@ -30,15 +30,15 @@ fn main() {
     println!();
 
     let files = [
-        ("insert", &arrows_dir, "collection/insert.hnl"),
-        ("sort", &arrows_dir, "collection/sort.hnl"),
+        ("insert", &fixtures_dir, "collection/insert.hnl"),
+        ("sort", &fixtures_dir, "collection/sort.hnl"),
         ("map", &fixtures_dir, "fn/map.hnl"),
         ("filter", &fixtures_dir, "fn/filter.hnl"),
         ("fold", &fixtures_dir, "fn/fold.hnl"),
         ("pratt", &arrows_dir, "parse-pratt/pratt.hnl"),
-        ("counter", &arrows_dir, "state/counter.hnl"),
-        ("buffer", &arrows_dir, "state/buffer.hnl"),
-        ("protocol", &arrows_dir, "state/protocol.hnl"),
+        ("counter", &fixtures_dir, "state/counter.hnl"),
+        ("buffer", &fixtures_dir, "state/buffer.hnl"),
+        ("protocol", &fixtures_dir, "state/protocol.hnl"),
     ];
 
     for (name, base_dir, rel_path) in files {
@@ -85,7 +85,7 @@ fn main() {
 
     // Also demonstrate the one-call API: infer_file does load + resolve + infer
     println!("--- One-call API: infer_file(path, registry) ---");
-    let sort_path = format!("{}/collection/sort.hnl", arrows_dir);
+    let sort_path = format!("{}/collection/sort.hnl", fixtures_dir);
     match infer_file(&sort_path, &registry) {
         Ok(r) => {
             println!(

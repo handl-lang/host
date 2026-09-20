@@ -20,9 +20,9 @@ use crate::inference::infer_refinement;
 use crate::types::{Measure, Pred};
 
 // Embed the actual .hnl stdlib files for testing.
-const COUNTER_HNL: &str = include_str!("../../../handl-packages/state/counter.hnl");
-const BUFFER_HNL: &str = include_str!("../../../handl-packages/state/buffer.hnl");
-const PROTOCOL_HNL: &str = include_str!("../../../handl-packages/state/protocol.hnl");
+const COUNTER_HNL: &str = include_str!("../tests/fixtures/state/counter.hnl");
+const BUFFER_HNL: &str = include_str!("../tests/fixtures/state/buffer.hnl");
+const PROTOCOL_HNL: &str = include_str!("../tests/fixtures/state/protocol.hnl");
 
 // ============================================================================
 // Hand-built state machine graphs (matching the .hnl files)
@@ -556,8 +556,8 @@ fn test_protocol_termination_constant() {
 #[test]
 fn test_load_counter_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
-    let counter_path = format!("{}/state/counter.hnl", arrows_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
+    let counter_path = format!("{}/state/counter.hnl", fixtures_dir);
 
     let scheme = load_arrow_file(&counter_path).expect("load counter from disk");
     assert!(
@@ -569,8 +569,8 @@ fn test_load_counter_from_disk() {
 #[test]
 fn test_infer_counter_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
-    let counter_path = format!("{}/state/counter.hnl", arrows_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
+    let counter_path = format!("{}/state/counter.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
     let result = infer_file(&counter_path, &registry).expect("infer counter from disk");
@@ -587,8 +587,8 @@ fn test_infer_counter_from_disk() {
 #[test]
 fn test_infer_buffer_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
-    let buffer_path = format!("{}/state/buffer.hnl", arrows_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
+    let buffer_path = format!("{}/state/buffer.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
     let result = infer_file(&buffer_path, &registry).expect("infer buffer from disk");
@@ -608,8 +608,8 @@ fn test_infer_buffer_from_disk() {
 #[test]
 fn test_infer_protocol_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
-    let protocol_path = format!("{}/state/protocol.hnl", arrows_dir);
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
+    let protocol_path = format!("{}/state/protocol.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
     let result = infer_file(&protocol_path, &registry).expect("infer protocol from disk");

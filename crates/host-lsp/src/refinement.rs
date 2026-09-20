@@ -370,9 +370,12 @@ pub(crate) fn format_refinement_summary(result: &RefinementResult) -> String {
 /// Looks for `/handl-packages/` in the path and returns everything up to and
 /// including it. Returns `None` if the path doesn.t contain `/handl-packages/`.
 pub(crate) fn find_arrows_root(path: &str) -> Option<String> {
-    let marker = "/handl-packages/";
-    let idx = path.find(marker)?;
-    Some(path[..idx + marker.len()].to_string())
+    for marker in ["/handl-packages/", "/fixtures/"] {
+        if let Some(idx) = path.find(marker) {
+            return Some(path[..idx + marker.len()].to_string());
+        }
+    }
+    None
 }
 
 /// Parse the rec state declaration from an arrow file to extract field

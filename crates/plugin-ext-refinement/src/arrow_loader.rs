@@ -148,12 +148,16 @@ pub fn resolve_apps(scheme: &Term, graph_map: &HashMap<String, Term>) -> Term {
 
 /// Find the arrows root directory from a file path.
 ///
-/// Looks for `/handl-packages/` in the path and returns everything up to and
-/// including it. Returns `None` if the path doesn.t contain `/handl-packages/`.
+/// Looks for `/handl-packages/` (stdlib corpus) or `/fixtures/` (test
+/// fixture corpus) in the path and returns everything up to and including
+/// it. Returns `None` if the path contains neither marker.
 fn find_arrows_root(path: &str) -> Option<String> {
-    let marker = "/handl-packages/";
-    let idx = path.find(marker)?;
-    Some(path[..idx + marker.len()].to_string())
+    for marker in ["/handl-packages/", "/fixtures/"] {
+        if let Some(idx) = path.find(marker) {
+            return Some(path[..idx + marker.len()].to_string());
+        }
+    }
+    None
 }
 
 // ============================================================================

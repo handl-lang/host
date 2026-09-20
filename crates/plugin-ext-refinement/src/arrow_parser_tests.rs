@@ -37,16 +37,16 @@ fn op(name: &str) -> TermData {
 }
 
 // Embed the actual .hnl stdlib files for testing.
-const INSERT_HNL: &str = include_str!("../../../handl-packages/collection/insert.hnl");
-const SORT_HNL: &str = include_str!("../../../handl-packages/collection/sort.hnl");
+const INSERT_HNL: &str = include_str!("../tests/fixtures/collection/insert.hnl");
+const SORT_HNL: &str = include_str!("../tests/fixtures/collection/sort.hnl");
 const MAP_HNL: &str = include_str!("../tests/fixtures/fn/map.hnl");
 const FILTER_HNL: &str = include_str!("../tests/fixtures/fn/filter.hnl");
 const FOLD_HNL: &str = include_str!("../tests/fixtures/fn/fold.hnl");
 
 // New rich-loop pattern files (scan, take, drop).
 const SCAN_RICH_HNL: &str = include_str!("../tests/fixtures/fn/scan_rich.hnl");
-const TAKE_RICH_HNL: &str = include_str!("../../../handl-packages/collection/take_rich.hnl");
-const DROP_RICH_HNL: &str = include_str!("../../../handl-packages/collection/drop_rich.hnl");
+const TAKE_RICH_HNL: &str = include_str!("../tests/fixtures/collection/take_rich.hnl");
+const DROP_RICH_HNL: &str = include_str!("../tests/fixtures/collection/drop_rich.hnl");
 const NESTED_MAP_RICH_HNL: &str = include_str!("../tests/fixtures/fn/nested_map_rich.hnl");
 const ZIP_RICH_HNL: &str = include_str!("../tests/fixtures/fn/zip_rich.hnl");
 const REDUCE_RICH_HNL: &str = include_str!("../tests/fixtures/fn/reduce_rich.hnl");
@@ -821,7 +821,6 @@ fn test_parsed_drop_rich_matches_handbuilt() {
 #[test]
 fn test_load_new_rich_loops_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Load scan_rich.hnl from disk
@@ -830,12 +829,12 @@ fn test_load_new_rich_loops_from_disk() {
     assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load take_rich.hnl from disk
-    let take_path = format!("{}/collection/take_rich.hnl", arrows_dir);
+    let take_path = format!("{}/collection/take_rich.hnl", fixtures_dir);
     let scheme = load_arrow_file(&take_path).expect("load take_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load drop_rich.hnl from disk
-    let drop_path = format!("{}/collection/drop_rich.hnl", arrows_dir);
+    let drop_path = format!("{}/collection/drop_rich.hnl", fixtures_dir);
     let scheme = load_arrow_file(&drop_path).expect("load drop_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
@@ -1353,11 +1352,10 @@ fn test_infer_all_five_from_hnl() {
 #[test]
 fn test_load_arrow_file_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Load insert.hnl from disk
-    let insert_path = format!("{}/collection/insert.hnl", arrows_dir);
+    let insert_path = format!("{}/collection/insert.hnl", fixtures_dir);
     let scheme = load_arrow_file(&insert_path).expect("load insert from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 
@@ -1389,11 +1387,11 @@ fn test_load_all_arrows_from_disk() {
 #[test]
 fn test_infer_file_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
     let registry = ContractRegistry::minimal();
+    let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     // Infer insert from disk
-    let insert_path = format!("{}/collection/insert.hnl", arrows_dir);
+    let insert_path = format!("{}/collection/insert.hnl", fixtures_dir);
     let result = infer_file(&insert_path, &registry).expect("infer insert from disk");
     let pretty = result.guarantee.pretty();
     assert!(
@@ -1403,7 +1401,7 @@ fn test_infer_file_from_disk() {
     );
 
     // Infer sort from disk (should resolve insert reference)
-    let sort_path = format!("{}/collection/sort.hnl", arrows_dir);
+    let sort_path = format!("{}/collection/sort.hnl", fixtures_dir);
     let result = infer_file(&sort_path, &registry).expect("infer sort from disk");
     let pretty = result.guarantee.pretty();
     assert!(

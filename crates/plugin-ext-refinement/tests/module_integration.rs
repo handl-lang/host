@@ -33,14 +33,10 @@ fn examples_dir() -> PathBuf {
     workspace_root().join("examples/handl")
 }
 
-/// The `handl-packages/` directory.
-fn kit_stdlib_arrows_dir() -> PathBuf {
-    workspace_root().join("handl-packages")
-}
-
 /// This crate's arrow-dialect fixture corpus (`tests/fixtures/`). The former
-/// `handl-packages/fn/` arrows live here — they are superseded as a stdlib
-/// package and kept only as refinement-checker fixtures.
+/// `handl-packages/{fn,collection,state}/` arrows live here — they are
+/// superseded as stdlib packages and kept only as refinement-checker
+/// fixtures.
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
 }
@@ -357,32 +353,30 @@ fn test_three_file_chain() {
 
 #[test]
 fn test_file_resolver_kit_stdlib() {
-    let dir = kit_stdlib_arrows_dir();
+    // The arrow-dialect corpus (formerly `handl-packages/{fn,collection,
+    // state}/`) lives under `tests/fixtures/` — those packages are superseded
+    // and survive only as refinement-checker fixtures.
+    let dir = fixtures_dir();
     if !dir.is_dir() {
-        eprintln!(
-            "  [skip] handl-packages directory not found at {}",
-            dir.display()
-        );
+        eprintln!("  [skip] fixtures directory not found at {}", dir.display());
         return;
     }
     let loader = loader_for(dir);
-    let fixtures_loader = loader_for(fixtures_dir());
 
-    // A representative selection of kit-stdlib arrow files plus the
-    // arrow-dialect fixtures under `tests/fixtures/`. These use the rich
-    // `rec { ... } (...)` / `loop { ... } (...)` surface syntax.
+    // A representative selection of arrow-dialect fixture files. These use
+    // the rich `rec { ... } (...)` / `loop { ... } (...)` surface syntax.
     let candidates = [
-        (&fixtures_loader, "fn/map"),
-        (&loader, "collection/sort"),
-        (&loader, "state/counter"),
-        (&loader, "collection/insert"),
-        (&fixtures_loader, "fn/filter"),
-        (&fixtures_loader, "fn/fold"),
+        "fn/map",
+        "collection/sort",
+        "state/counter",
+        "collection/insert",
+        "fn/filter",
+        "fn/fold",
     ];
 
     let mut loaded_any = false;
-    for &(loader, name) in &candidates {
-        let loaded = match try_load_example(loader, name) {
+    for &name in &candidates {
+        let loaded = match try_load_example(&loader, name) {
             Some(m) => m,
             None => continue,
         };
@@ -394,7 +388,7 @@ fn test_file_resolver_kit_stdlib() {
         );
 
         // Strategy B: flatten_program should produce a clean graph.
-        match flatten_program(name, loader) {
+        match flatten_program(name, &loader) {
             Ok(flat) => {
                 assert!(
                     !contains_module_ref(&flat),
