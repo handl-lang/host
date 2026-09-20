@@ -804,6 +804,14 @@ do {
     if a_norm == b_norm {
       { ok: true, metas: metas, path: funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) }
     } else {
+      --- `type.unknown` is the open type: names bound by imports are
+      --- opaque across module boundaries, and error-recovery positions
+      --- carry it so a single failure does not cascade. It unifies with
+      --- everything — the same "open operand" treatment `flow` and
+      --- `axis_flow` composition already give it.
+      if type_tag(a_norm) == "type.unknown" || type_tag(b_norm) == "type.unknown" {
+        { ok: true, metas: metas, path: funcs.make_type("Path", set(set({}, "frm", a_norm), "to", b_norm)) }
+      } else {
       if is_meta(a_norm) {
         do {
           a_id :: meta_id(a_norm)
@@ -881,6 +889,7 @@ do {
             }
           }
         }
+      }
       }
     }
   }
