@@ -522,14 +522,200 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "intl_c",
         hnl: include_str!("../../../handl-packages/intl-c/intl-c.hnl"),
-        funcs: &["compare_strings", "format_number"],
+        funcs: &[
+            "compare_strings",
+            "format_number",
+            "format_number_to_parts",
+            "select_plural",
+            "format_list",
+            "format_relative_time",
+            "format_date",
+            "format_date_to_parts",
+            "format_duration",
+            "display_name",
+            "segment",
+            "locale",
+            "get_canonical_locales",
+            "supported_locales_of",
+        ],
         ops: &[],
         values: &["available", "icu_version"],
         registry: None,
     },
+    // ── icu_c_* — sdkgen-generated ICU4C adapter modules (i18n) ────────
+    // Table-only modules: `intl_c` reaches them via
+    // `from "../generated/icu-c-linux-x86_64/<mod>" import * as <mod>`,
+    // which basename-normalizes to these names in the module table. Not
+    // contributed by any package — they are intl_c's internal FFI surface.
+    ModuleSpec {
+        name: "ucol",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/ucol.hnl"),
+        funcs: &[
+            "ucol_close_78",
+            "ucol_countAvailable_78",
+            "ucol_equal_78",
+            "ucol_getAttribute_78",
+            "ucol_getAvailable_78",
+            "ucol_getDisplayName_78",
+            "ucol_getLocaleByType_78",
+            "ucol_getSortKey_78",
+            "ucol_getStrength_78",
+            "ucol_greater_78",
+            "ucol_greaterOrEqual_78",
+            "ucol_open_78",
+            "ucol_openRules_78",
+            "ucol_setAttribute_78",
+            "ucol_setStrength_78",
+            "ucol_strcoll_78",
+            "ucol_strcollUTF8_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "unum",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/unum.hnl"),
+        funcs: &[
+            "unum_format_78",
+            "unum_formatDecimal_78",
+            "unum_formatDouble_78",
+            "unum_formatDoubleForFields_78",
+            "unum_formatInt64_78",
+            "unum_getAttribute_78",
+            "unum_getLocaleByType_78",
+            "unum_getSymbol_78",
+            "unum_open_78",
+            "unum_setAttribute_78",
+            "unum_setSymbol_78",
+            "unum_setTextAttribute_78",
+            "unum_toPattern_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "upluralrules",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/upluralrules.hnl"),
+        funcs: &[
+            "uplrules_close_78",
+            "uplrules_open_78",
+            "uplrules_openForType_78",
+            "uplrules_select_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ureldatefmt",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/ureldatefmt.hnl"),
+        funcs: &[
+            "ureldatefmt_close_78",
+            "ureldatefmt_format_78",
+            "ureldatefmt_formatNumeric_78",
+            "ureldatefmt_open_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "udat",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/udat.hnl"),
+        funcs: &[
+            "udat_close_78",
+            "udat_format_78",
+            "udat_formatForFields_78",
+            "udat_open_78",
+            "udat_parse_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ufieldpositer",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/ufieldpositer.hnl"),
+        funcs: &[
+            "ufieldpositer_close_78",
+            "ufieldpositer_next_78",
+            "ufieldpositer_open_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    // ── icu_uc_* — sdkgen-generated ICU4C adapter modules (common) ─────
+    ModuleSpec {
+        name: "ubrk",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/ubrk.hnl"),
+        funcs: &[
+            "ubrk_close_78",
+            "ubrk_countAvailable_78",
+            "ubrk_current_78",
+            "ubrk_first_78",
+            "ubrk_getAvailable_78",
+            "ubrk_getRuleStatus_78",
+            "ubrk_last_78",
+            "ubrk_next_78",
+            "ubrk_open_78",
+            "ubrk_previous_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uloc",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/uloc.hnl"),
+        funcs: &[
+            "uloc_countAvailable_78",
+            "uloc_forLanguageTag_78",
+            "uloc_getAvailable_78",
+            "uloc_getCountry_78",
+            "uloc_getLanguage_78",
+            "uloc_getName_78",
+            "uloc_getScript_78",
+            "uloc_getVariant_78",
+            "uloc_toLanguageTag_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uldnames",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/uldnames.hnl"),
+        funcs: &[
+            "uldn_close_78",
+            "uldn_keyDisplayName_78",
+            "uldn_keyValueDisplayName_78",
+            "uldn_languageDisplayName_78",
+            "uldn_localeDisplayName_78",
+            "uldn_open_78",
+            "uldn_regionDisplayName_78",
+            "uldn_scriptDisplayName_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ures",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/ures.hnl"),
+        funcs: &[
+            "ures_close_78",
+            "ures_getByKey_78",
+            "ures_getUTF8String_78",
+            "ures_open_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
 ];
-
-/// The modules contributed by the `utils` aggregate package (matches the
 /// former `UtilsLibraryPlugin::contribute` module list).
 const UTILS_MODULES: &[&str] = &[
     "math",
@@ -972,14 +1158,25 @@ fn module_cache() -> &'static Mutex<HashMap<String, &'static HandlModule>> {
 
 /// Get a shared `&'static` [`HandlModule`] for the table module `name`,
 /// building it on first access.
+///
+/// The build runs *outside* the lock: `HandlModule::new`'s `analyze_source`
+/// can run a nested eval that re-enters this cache — holding the lock
+/// across `module()` would deadlock on the same thread.
 pub fn module_ref(name: &str) -> Option<&'static HandlModule> {
     module_spec(name)?;
-    let mut cache = module_cache().lock().ok()?;
-    Some(
-        *cache.entry(name.to_string()).or_insert_with(|| {
-            Box::leak(Box::new(module(name).expect("module_spec checked above")))
+    if let Some(m) = module_cache().lock().ok()?.get(name) {
+        return Some(*m);
+    }
+    // `with_loader_disabled`: `HandlModule::new`'s `analyze_source` would
+    // otherwise run `loader.analyze` — a nested eval that can re-enter
+    // this cache (miss → build → analyze → …) — unbounded recursion.
+    let built: &'static HandlModule = Box::leak(Box::new(
+        handl_plugin_lib_handl::with_loader_disabled(|| {
+            module(name).expect("module_spec checked above")
         }),
-    )
+    ));
+    let mut cache = module_cache().lock().ok()?;
+    Some(*cache.entry(name.to_string()).or_insert(built))
 }
 
 // ---------------------------------------------------------------------------
