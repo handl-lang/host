@@ -1,5 +1,6 @@
 --- Generated port for fetch.fetch
 --- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/fetch.idl
 
 from "js" import { JsError }
 from "result" import { Result }
@@ -228,8 +229,6 @@ export BodyTextStream: () ~[1]~> Result<Handle, JsError>
 --- js: Headers.append
 export HeadersAppend: (String, String) ~[1]~> Result<(), JsError>
 
---- The Headers() constructor creates a new
---- Headers object.
 --- js: Headers.constructor
 export HeadersConstructor: (Handle) ~[1]~> Result<(), JsError>
 
@@ -265,8 +264,6 @@ export HeadersSet: (String, String) ~[1]~> Result<(), JsError>
 --- js: Request.clone
 export RequestClone: () ~[1]~> Result<Handle, JsError>
 
---- The Request() constructor creates a new
---- Request object.
 --- js: Request.constructor
 export RequestConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 
@@ -274,7 +271,6 @@ export RequestConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 --- js: Response.clone
 export ResponseClone: () ~[1]~> Result<Handle, JsError>
 
---- The Response() constructor creates a new Response object.
 --- js: Response.constructor
 export ResponseConstructor: (Handle, Handle) ~[1]~> Result<(), JsError>
 
