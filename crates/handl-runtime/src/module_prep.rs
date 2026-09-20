@@ -7,10 +7,15 @@
 
 /// Prepare a module source for evaluation: strip comments and declarations,
 /// then rewrite top-level `export` declarations into a single object literal.
-pub fn prepare_module(src: &str) -> String {
+///
+/// `is_file_spec` reports whether an import specifier resolves to a file —
+/// those are the executable import op (ADR-0096) and must survive prep.
+/// Specifiers naming host modules (`from "str" import …`, `import <name>`)
+/// are decorative declarations and are dropped.
+pub fn prepare_module(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> String {
     let src = strip_comment_lines(src);
     let src = strip_declaration_lines(&src);
-    transform_export_to_object(&src)
+    transform_export_to_object(&src, is_file_spec)
 }
 
 /// Strip `--` comment lines from a `.hnl` source.
@@ -55,7 +60,7 @@ fn strip_declaration_lines(src: &str) -> String {
 /// Transform top-level `export name <::|:=|=> expr` declarations into an
 /// object literal.  Type-only `export Name: Type` declarations are given the
 /// value `null` so that type expressions are not evaluated at runtime.
-fn transform_export_to_object(src: &str) -> String {
+fn transform_export_to_object(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> String {
     // Each top-level binding is collected as `(name, expr_lines)`.
     // Non-private entries become object fields (`{ name: expr }`); private
     // entries become `do`-block assignments (`name := expr;`) emitted *before*
@@ -83,9 +88,15 @@ fn transform_export_to_object(src: &str) -> String {
         let trimmed = line.trim_start();
         if is_top_import_line(line) {
             finalize!();
-            if let Some((_, names)) = from_export_to_import(line) {
-                for (name, alias) in names {
-                    entries.push((name, vec![alias]));
+            // Only file-resolving specs can re-export; module-name specs
+            // name host modules and are decorative (ADR-0096).
+            let file_spec =
+                import_line_spec(line).map_or(false, |s| is_file_spec(&s));
+            if file_spec {
+                if let Some((_, names)) = from_export_to_import(line) {
+                    for (name, alias) in names {
+                        entries.push((name, vec![alias]));
+                    }
                 }
             }
             continue;
@@ -142,16 +153,15 @@ fn transform_export_to_object(src: &str) -> String {
     }
     finalize!();
 
-    let imports = collect_import_lines(src);
+    let imports = collect_executable_import_lines(src, is_file_spec);
 
-    // If there are no exports at all, preserve the original `drop_import_lines`
-    // behavior so that scripts/test files (which define private bindings but
-    // no exports) are unchanged.
+    // If there are no exports at all, preserve the original script/test
+    // behavior: private bindings stay verbatim, decorative import
+    // declarations are dropped — but executable path imports
+    // (`import "f.hnl"`, `from "./f" import …`) are kept so nested imports
+    // still run (ADR-0096).
     if entries.is_empty() {
-        if imports.is_empty() {
-            return src.to_string();
-        }
-        return drop_import_lines(src);
+        return drop_non_file_import_lines(src, is_file_spec);
     }
 
     // Build the body: private bindings as do-block assignments, then the
@@ -245,9 +255,17 @@ fn extract_quoted_path(line: &str) -> Option<(String, &str)> {
     Some((path.to_string(), rest))
 }
 
-fn collect_import_lines(src: &str) -> Vec<String> {
+/// Top-level import lines whose specifier resolves to a file — the
+/// executable import op (ADR-0096). Decorative declarations
+/// (`import <name>`, module-name specs like `from "str" import …`) are
+/// excluded: the host module chain supplies those bindings.
+fn collect_executable_import_lines(
+    src: &str,
+    is_file_spec: &dyn Fn(&str) -> bool,
+) -> Vec<String> {
     src.lines()
         .filter(|line| is_top_import_line(line))
+        .filter(|line| import_line_spec(line).map_or(false, |s| is_file_spec(&s)))
         .map(|line| {
             from_export_to_import(line)
                 .map(|(import_line, _)| import_line)
@@ -256,11 +274,34 @@ fn collect_import_lines(src: &str) -> Vec<String> {
         .collect()
 }
 
-fn drop_import_lines(src: &str) -> String {
+/// Drop top-level import declarations that do not resolve to a file.
+/// Executable path imports are kept so they still run at eval time.
+fn drop_non_file_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> String {
     src.lines()
-        .filter(|line| !is_top_import_line(line))
+        .filter(|line| {
+            !is_top_import_line(line)
+                || import_line_spec(line).map_or(false, |s| is_file_spec(&s))
+        })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Extract the quoted specifier from `import "<spec>"` or
+/// `from "<spec>" …`. Non-quoted forms (`import <name>`, bare `import`)
+/// return `None`.
+fn import_line_spec(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    let rest = trimmed
+        .strip_prefix("import")
+        .or_else(|| trimmed.strip_prefix("from"))?;
+    let rest = rest.trim_start();
+    let quote = rest.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
+    }
+    let after = &rest[quote.len_utf8()..];
+    let end = after.find(quote)?;
+    Some(after[..end].to_string())
 }
 
 fn is_import_line(trimmed: &str) -> bool {

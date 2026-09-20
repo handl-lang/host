@@ -1604,7 +1604,9 @@ impl ModuleLoader {
         // become an object literal so multi-export modules evaluate to a
         // record and type-only exports like `export Clock<T>: Grade` are
         // safe to run.
-        let src = module_prep::prepare_module(&src);
+        let src = module_prep::prepare_module(&src, &|spec: &str| {
+            self.spec_resolves_to_file(spec, resolved)
+        });
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
