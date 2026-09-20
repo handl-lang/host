@@ -151,6 +151,46 @@ fn parses_extended_member_forms() {
     assert_eq!(find.arg_descriptors, &["js_string"]);
 }
 
+/// `A includes B;` grafts the mixin's members onto the target interface:
+/// `Request`/`Response` gain `Body`'s ops as their own ports while `Body`
+/// keeps its own. Missing targets/mixins surface as diagnostics.
+#[test]
+fn includes_grafts_mixin_members() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/includes.webidl");
+    let backend = WebIdlBackend::new(None);
+    let module = backend.parse_header(&path).expect("parse fixture");
+
+    for port in [
+        "BodyText",
+        "RequestText",
+        "RequestBlob",
+        "ResponseText",
+        "ResponseBlob",
+    ] {
+        assert!(
+            module.functions.iter().any(|f| f.port_name == port),
+            "missing {port}"
+        );
+    }
+    let req = module
+        .records
+        .iter()
+        .find(|r| r.name == "Request")
+        .expect("Request record");
+    assert!(
+        req.fields.iter().any(|f| f.name == "bodyUsed"),
+        "grafted attribute missing"
+    );
+    assert_eq!(
+        module.diagnostics,
+        vec![
+            "includes: Ghost is not an interface in this spec",
+            "includes: mixin MissingMixin not found (on Request)",
+        ]
+    );
+}
+
 /// Enum constants are gathered through a `HashMap` merge; without a sort the
 /// emitted order varies per run (fresh `RandomState`). Parsing twice in one
 /// process must yield identical output.

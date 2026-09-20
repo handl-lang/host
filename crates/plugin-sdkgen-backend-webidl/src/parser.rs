@@ -364,6 +364,8 @@ pub enum AstDef {
         partial: bool,
         doc: Option<String>,
     },
+    /// `Target includes Mixin;` — the includer gains the mixin's members.
+    Includes { target: String, mixin: String },
     Skip(String),
 }
 
@@ -377,7 +379,7 @@ impl DocTarget for AstDef {
             | AstDef::Enum { doc, .. }
             | AstDef::Typedef { doc, .. }
             | AstDef::Callback { doc, .. } => Some(doc),
-            AstDef::Skip(_) => None,
+            AstDef::Includes { .. } | AstDef::Skip(_) => None,
         }
     }
 }
@@ -392,6 +394,7 @@ impl AstDef {
             | AstDef::Enum { name, .. }
             | AstDef::Typedef { name, .. }
             | AstDef::Callback { name, .. } => name,
+            AstDef::Includes { target, .. } => target,
             AstDef::Skip(_) => "",
         }
     }
@@ -405,6 +408,7 @@ impl AstDef {
             AstDef::Enum { .. } => "enum",
             AstDef::Typedef { .. } => "typedef",
             AstDef::Callback { .. } => "callback",
+            AstDef::Includes { .. } => "includes",
             AstDef::Skip(_) => "skip",
         }
     }
@@ -419,7 +423,7 @@ impl AstDef {
             | AstDef::Enum { doc, .. }
             | AstDef::Typedef { doc, .. }
             | AstDef::Callback { doc, .. } => doc.as_deref(),
-            AstDef::Skip(_) => None,
+            AstDef::Includes { .. } | AstDef::Skip(_) => None,
         }
     }
 
@@ -1268,15 +1272,15 @@ impl<'a> Parser<'a> {
         if self.consume_if_ident("mixin") {
             return Some(self.parse_mixin(partial));
         }
-        // `A includes B;` — mixin inclusion. The mixin's members already
-        // emit as their own ports; record the statement and move on.
+        // `A includes B;` — mixin inclusion. The target's member list
+        // gains the mixin's members during `parse_header`'s graft pass.
         if matches!(self.peek(), Token::Ident(_))
             && matches!(self.at(1), Token::Ident(s) if *s == "includes")
         {
             let target = self.expect_ident("includes target name");
             self.advance();
             let mixin = self.expect_ident("includes mixin name");
-            return Some(AstDef::Skip(format!("{target} includes {mixin}")));
+            return Some(AstDef::Includes { target, mixin });
         }
         match self.peek() {
             Token::Ident(s) => self.diag(&format!("unsupported definition: {s}")),

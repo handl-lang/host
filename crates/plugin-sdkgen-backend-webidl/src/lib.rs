@@ -107,14 +107,53 @@ impl SdkgenBackend for WebIdlBackend {
             .to_string();
         module.module = module.library.clone();
 
+        // `A includes B;` pairs graft the mixin's members onto the
+        // target interface below; they aren't definitions themselves.
+        let mut includes: Vec<(String, String)> = Vec::new();
         // Merge partials of the same kind and name.
         let mut by_key: HashMap<(String, &'static str), AstDef> = HashMap::new();
         for def in defs {
+            if let AstDef::Includes { target, mixin } = &def {
+                includes.push((target.clone(), mixin.clone()));
+                continue;
+            }
             let key = (def.name().to_string(), def.kind());
             match by_key.get_mut(&key) {
                 Some(existing) => existing.merge(def, &mut diags),
                 None => {
                     by_key.insert(key, def);
+                }
+            }
+        }
+
+        // Graft each mixin's members onto its includers. Members the
+        // target already declares are not duplicated.
+        let mixin_members: HashMap<String, Vec<Member>> = by_key
+            .values()
+            .filter_map(|d| match d {
+                AstDef::Mixin { name, members, .. } => Some((name.clone(), members.clone())),
+                _ => None,
+            })
+            .collect();
+        for (target, mixin) in includes {
+            let Some(members) = mixin_members.get(&mixin) else {
+                diags.push(format!("includes: mixin {mixin} not found (on {target})"));
+                continue;
+            };
+            let Some(target_members) =
+                by_key
+                    .get_mut(&(target.clone(), "interface"))
+                    .and_then(AstDef::members_mut)
+            else {
+                diags.push(format!("includes: {target} is not an interface in this spec"));
+                continue;
+            };
+            for m in members {
+                let dup = member_name(m).is_some_and(|n| {
+                    target_members.iter().any(|t| member_name(t) == Some(n))
+                });
+                if !dup {
+                    target_members.push(m.clone());
                 }
             }
         }
@@ -196,7 +235,7 @@ impl SdkgenBackend for WebIdlBackend {
                         functions.insert((name.clone(), f.name.clone()), f);
                     }
                 }
-                AstDef::Skip(_) => {}
+                AstDef::Includes { .. } | AstDef::Skip(_) => {}
             }
         }
 
@@ -207,6 +246,18 @@ impl SdkgenBackend for WebIdlBackend {
         module.enum_constants = enum_constants;
         module.diagnostics = diags;
         Ok(module)
+    }
+}
+
+/// The declared name of a member, when it has one (constructors and
+/// skipped members are anonymous).
+fn member_name(m: &Member) -> Option<&str> {
+    match m {
+        Member::Const { name, .. }
+        | Member::Attribute { name, .. }
+        | Member::DictionaryField { name, .. }
+        | Member::Operation { name, .. } => Some(name),
+        Member::Constructor { .. } | Member::Skip(_) => None,
     }
 }
 
