@@ -30,11 +30,6 @@ All SDK-generated adapters import from one place:
 --- `call`, `bind`, and `errno` are injected by the Rust runtime so they are
 --- typed, documented, and imported like ordinary Handl arrows.
 
-from "grade" import { Grade }
-
---- FFI grade. A subset of `Effect` used by every adapter that calls a foreign ABI.
-export FFI: Grade
-
 --- C `errno` value as a Handl integer.
 export Errno := Int
 

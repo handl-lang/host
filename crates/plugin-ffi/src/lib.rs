@@ -1,6 +1,4 @@
-//! # handl-plugin-ffi
-//!
-//! Generic FFI dispatcher for handl (ADR-0083 §4).
+//! Generic FFI dispatcher for handl.
 //!
 //! This crate provides [`FfiOpFunction`], a [`handl_platform::Function`]
 //! implementation that dispatches handl calls to arbitrary C symbols loaded
@@ -34,6 +32,7 @@
 //! | `"void"`   | `void` (return)   | — (returns null)    |
 //! | `"in_buf"` | `const void * + size_t` | `Bytes` (`{__bytes__:[...]}` or `[...]`) |
 //! | `"cbytes"` | `const void * + size_t` | `Bytes` (raw, no NUL termination)        |
+//! | `"in_ptr"` | `const void *`          | `Bytes` (bare pointer, no size arg)      |
 //! | `"out_buf:N"` | `void * + size_t` | — (allocates N; returns `{ ret, buf }`) |
 //!
 //! Buffer descriptors (`in_buf` / `cbytes` / `out_buf:N`) require the `Bytes`
@@ -494,11 +493,56 @@ impl Function for FfiErrno {
     }
 }
 
+/// `ffi.load(lib) -> {"__tag__": "ok"|"err", "value": ...}`
+///
+/// Non-raising library probe: attempts `dlopen` for `lib` (cached) and
+/// returns an ok/err tag instead of raising. This is the Result-pattern
+/// way to test library availability — versioned sonames, optional
+/// dependencies — without `error.try`.
+pub struct FfiLoad;
+
+impl Function for FfiLoad {
+    fn call(&self, args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        if args.len() != 1 {
+            return Err(EvalError::TypeMismatch("ffi.load(lib)".to_string()));
+        }
+        let lib = require_str(&args[0], "lib")?;
+        match resolve_library(lib) {
+            Ok(()) => Ok(json!({"__tag__": "ok", "value": null})),
+            Err(e) => Ok(json!({"__tag__": "err", "value": e.to_string()})),
+        }
+    }
+}
+
+/// `ffi.sym(lib, sym) -> {"__tag__": "ok"|"err", "value": addr|msg}`
+///
+/// Non-raising symbol probe: resolves `sym` in `lib` (`dlopen`ing the
+/// library first if needed). On success the ok `value` is the symbol's
+/// address; on failure the err `value` is the `dlsym`/`dlopen` message.
+pub struct FfiSym;
+
+impl Function for FfiSym {
+    fn call(&self, args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        if args.len() != 2 {
+            return Err(EvalError::TypeMismatch("ffi.sym(lib, sym)".to_string()));
+        }
+        let lib = require_str(&args[0], "lib")?;
+        let sym = require_str(&args[1], "sym")?;
+        match resolve_symbol(lib, sym) {
+            Ok(ptr) => Ok(json!({"__tag__": "ok", "value": ptr as i64})),
+            Err(e) => Ok(json!({"__tag__": "err", "value": e.to_string()})),
+        }
+    }
+}
+
 static FFI_BIND: FfiBind = FfiBind;
 static FFI_CALL: FfiCall = FfiCall;
 static FFI_ERRNO: FfiErrno = FfiErrno;
+static FFI_LOAD: FfiLoad = FfiLoad;
+static FFI_SYM: FfiSym = FfiSym;
 
-/// The host `ffi` module, exposing `ffi.bind`, `ffi.call`, and `ffi.errno`.
+/// The host `ffi` module, exposing `ffi.bind`, `ffi.call`, `ffi.errno`,
+/// `ffi.load`, and `ffi.sym`.
 #[derive(Clone, Copy)]
 pub struct FfiModule;
 
@@ -512,6 +556,8 @@ impl Module for FfiModule {
             "bind" => Some(&FFI_BIND),
             "call" => Some(&FFI_CALL),
             "errno" => Some(&FFI_ERRNO),
+            "load" => Some(&FFI_LOAD),
+            "sym" => Some(&FFI_SYM),
             _ => None,
         }
     }
@@ -521,6 +567,8 @@ impl Module for FfiModule {
             ("bind", &FFI_BIND as &dyn Function),
             ("call", &FFI_CALL as &dyn Function),
             ("errno", &FFI_ERRNO as &dyn Function),
+            ("load", &FFI_LOAD as &dyn Function),
+            ("sym", &FFI_SYM as &dyn Function),
         ]
     }
 }

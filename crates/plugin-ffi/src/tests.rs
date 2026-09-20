@@ -10,11 +10,11 @@
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Value, json};
 
-use crate::FfiOpFunction;
 use crate::marshal::{
-    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, marshal_struct_arg, unmarshal_io_struct,
-    unmarshal_return,
+    CArg, CRet, bytes_to_json, json_to_bytes, marshal_arg, marshal_call_args, marshal_struct_arg,
+    unmarshal_io_struct, unmarshal_return,
 };
+use crate::{FfiLoad, FfiOpFunction, FfiSym};
 
 /// Call an [`FfiOpFunction`] with a fresh [`EvalContext`].
 fn call(func: &FfiOpFunction, args: &[Value]) -> Result<Value, EvalError> {
@@ -1183,4 +1183,77 @@ fn io_struct_unmarshal_arr_and_rec_fields() {
         inner.get("tv_sec").and_then(|v| v.as_i64()),
         Some(1700000000)
     );
+}
+
+// -------------------------------------------------------------------------
+// in_ptr — bare Bytes pointer, no trailing size_t
+// -------------------------------------------------------------------------
+
+#[test]
+fn marshal_in_ptr_expands_to_one_arg() {
+    let res = marshal_call_args(&["in_ptr".to_string()], &[json!({"__bytes__": [1, 2, 3]})])
+        .expect("in_ptr marshal should succeed");
+    assert_eq!(res.c_args.len(), 1, "in_ptr expands to a single C arg");
+    match res.c_args[0] {
+        CArg::Int(p) => assert_ne!(p, 0),
+        other => panic!("expected Int pointer, got {other:?}"),
+    }
+    assert_eq!(res.byte_keep_alive.len(), 1);
+}
+
+#[test]
+fn in_ptr_real_call_memcmp() {
+    // memcmp(a, b, n) — (const void*, const void*, size_t): two in_ptr
+    // args plus an explicit length.
+    let func = FfiOpFunction::new(
+        "libc.so.6",
+        "memcmp",
+        vec!["in_ptr".to_string(), "in_ptr".to_string(), "i64".to_string()],
+        "i32",
+        false,
+    );
+    let eq = call(&func, &[json!([1, 2, 3]), json!([1, 2, 3]), json!(3)])
+        .expect("memcmp call should succeed");
+    assert_eq!(eq.as_i64(), Some(0));
+    let ne = call(&func, &[json!([1, 2, 3]), json!([1, 2, 4]), json!(3)])
+        .expect("memcmp call should succeed");
+    assert!(ne.as_i64().unwrap() != 0);
+}
+
+// -------------------------------------------------------------------------
+// ffi.load / ffi.sym — non-raising probes (Result-tag returns)
+// -------------------------------------------------------------------------
+
+#[test]
+fn ffi_load_returns_ok_tag_for_libc() {
+    let mut ctx = EvalContext::new();
+    let r = FfiLoad
+        .call(&[json!("libc.so.6")], &mut ctx)
+        .expect("ffi.load should not raise");
+    assert_eq!(r["__tag__"], "ok");
+}
+
+#[test]
+fn ffi_load_returns_err_tag_for_missing_lib() {
+    let mut ctx = EvalContext::new();
+    let r = FfiLoad
+        .call(&[json!("libdefinitely-not-present.so")], &mut ctx)
+        .expect("ffi.load should not raise");
+    assert_eq!(r["__tag__"], "err");
+    assert!(r["value"].as_str().unwrap().contains("dlopen"));
+}
+
+#[test]
+fn ffi_sym_resolves_getpid_and_reports_missing() {
+    let mut ctx = EvalContext::new();
+    let ok = FfiSym
+        .call(&[json!("libc.so.6"), json!("getpid")], &mut ctx)
+        .expect("ffi.sym should not raise");
+    assert_eq!(ok["__tag__"], "ok");
+    assert_ne!(ok["value"].as_i64(), Some(0));
+
+    let err = FfiSym
+        .call(&[json!("libc.so.6"), json!("no_such_symbol_xyz")], &mut ctx)
+        .expect("ffi.sym should not raise");
+    assert_eq!(err["__tag__"], "err");
 }

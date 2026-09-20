@@ -17,6 +17,7 @@
 //! | `"void"`       | `void` (return)         | — (returns null)     |
 //! | `"in_buf"`     | `const void * + size_t` | `Bytes`              |
 //! | `"cbytes"`     | `const void * + size_t` | `Bytes`              |
+//! | `"in_ptr"`     | `const void *`          | `Bytes`              |
 //! | `"out_buf:N"`  | `void * + size_t`       | — (allocates N)      |
 //! | `"out_ptr:N"`  | `void *`                | — (allocates N)      |
 //! | `"io_buf:N"`   | `void * + size_t *`     | — (allocates N)      |
@@ -32,15 +33,18 @@
 //! `iov`/`iovbuf:K:M` (iovec arrays), `ptr` (raw pointer slot),
 //! `arr:N:T` (inline array), `rec:{...}` (inline nested struct).
 //!
-//! `in_buf` / `cbytes` / `out_buf:N` / `out_ptr:N` / `io_buf:N` are the
-//! buffer descriptors introduced with the `Bytes` type (ADR-0078 Phase 2 /
-//! ADR-0083 §2.1). `in_buf` and `cbytes` each expand to **two** C
+//! `in_buf` / `cbytes` / `in_ptr` / `out_buf:N` / `out_ptr:N` / `io_buf:N`
+//! are the buffer descriptors introduced with the `Bytes` type (ADR-0078
+//! Phase 2 / ADR-0083 §2.1). `in_buf` and `cbytes` each expand to **two** C
 //! arguments — `(ptr, len)` — and consume one handl `Bytes` argument.
 //! `out_buf:N` allocates `N` bytes, passes `(ptr, N)` as two C arguments,
 //! consumes **no** handl argument, and produces an out-slot trimmed to the
 //! `ret` byte count. `out_ptr:N` allocates `N` bytes and passes the bare
 //! pointer as **one** C argument (e.g. `int sv[2]` in `socketpair`) — the
-//! slot is the full `N` bytes. `io_buf:N` allocates an `N`-byte buffer
+//! slot is the full `N` bytes. `in_ptr` is the input counterpart: the
+//! `Bytes` pointer alone as **one** C argument, for signatures whose
+//! length travels separately or with a non-`size_t` width (e.g. ICU's
+//! `UChar * + int32_t` pairs). `io_buf:N` allocates an `N`-byte buffer
 //! plus a `size_t` cell initialised to `N` and passes `(ptr, &len)` — the
 //! POSIX value-result pattern (`sockaddr * + socklen_t *` in `accept`,
 //! `getsockname`, `recvfrom`); the slot is trimmed to the length the
@@ -338,6 +342,15 @@ pub(crate) fn marshal_call_args(
             res.byte_keep_alive.push(bytes);
             res.c_args.push(CArg::Int(ptr));
             res.c_args.push(CArg::Int(len));
+        } else if desc == "in_ptr" {
+            let value = args
+                .get(arg_idx)
+                .ok_or_else(|| EvalError::TypeMismatch("missing argument for in_ptr".to_string()))?;
+            arg_idx += 1;
+            let bytes = json_to_bytes(value)?;
+            let ptr = bytes.as_ptr() as i64;
+            res.byte_keep_alive.push(bytes);
+            res.c_args.push(CArg::Int(ptr));
         } else if let Some(n_str) = desc.strip_prefix("out_buf:") {
             let n = parse_size("out_buf", n_str)?;
             let mut buf = vec![0u8; n];
