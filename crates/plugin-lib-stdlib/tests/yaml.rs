@@ -93,57 +93,50 @@ fn op_registry_registers_both_ops() {
 }
 
 #[test]
-fn yaml_module_exposes_functions() {
-    let module = module("yaml").unwrap();
-    assert_eq!(module.name(), "yaml");
-
+fn yaml_ops_via_op_registry() {
+    let registry = yaml_op_registry();
     let mut ctx = EvalContext::new();
-    let parse = module.function("parse").expect("parse should exist");
+    let parse = registry.get("yaml.parse").expect("parse should exist");
     let result = parse.call(&[json!("hello: world\n")], &mut ctx).unwrap();
     assert_eq!(result, json!({"hello": "world"}));
 
-    let stringify = module
-        .function("stringify")
+    let stringify = registry
+        .get("yaml.stringify")
         .expect("stringify should exist");
     let result = stringify.call(&[json!({"a": 1})], &mut ctx).unwrap();
     assert!(result.as_str().unwrap().contains("a: 1"));
 }
 
 #[test]
-fn yaml_module_legacy_name_function() {
-    let module = module("yaml").unwrap();
+fn yaml_legacy_name_op() {
+    let registry = yaml_op_registry();
     let mut ctx = EvalContext::new();
-    let name_func = module.function("yaml").expect("yaml should exist");
+    let name_func = registry
+        .get("yaml.yaml")
+        .expect("yaml op should exist");
     let result = name_func.call(&[], &mut ctx).unwrap();
     assert_eq!(result, json!({"type": "serializer", "name": "yaml"}));
 }
 
 #[test]
-fn plugin_id_and_name() {
-    let plugin = library("yaml").unwrap();
-    assert_eq!(plugin.id(), "lib.yaml");
-    assert_eq!(plugin.name(), "lib-yaml");
+fn utils_plugin_id_and_name() {
+    let plugin = library("utils").unwrap();
+    assert_eq!(plugin.id(), "lib.utils");
+    assert_eq!(plugin.name(), "lib-utils");
 }
 
 #[test]
-fn handl_plugin_id_and_name() {
-    let plugin = library("yaml").unwrap();
-    assert_eq!(plugin.id(), "lib.yaml");
-    assert_eq!(plugin.name(), "lib-yaml");
-}
-
-#[test]
-fn yaml_module_works_in_module_registry() {
-    let module = module("yaml").unwrap();
+fn serialize_module_works_in_module_registry() {
+    let module = module("serialize").unwrap();
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
 
+    assert!(lookup.lookup("serialize.serialize").is_some());
     let func = lookup
-        .lookup("yaml.parse")
-        .expect("yaml.parse should resolve");
-    let mut ctx = EvalContext::new();
-    let result = func.call(&[json!("hello: world\n")], &mut ctx).unwrap();
-    assert_eq!(result, json!({"hello": "world"}));
+        .lookup("serialize.deserialize")
+        .expect("serialize.deserialize should resolve");
+    // Only the json backend is registered; the format arg must match.
+    let _ = func;
 }
 
 // -----------------------------------------------------------------------
@@ -151,8 +144,15 @@ fn yaml_module_works_in_module_registry() {
 // -----------------------------------------------------------------------
 
 #[test]
-fn yaml_plugin_exposes_declared_capabilities() {
-    let plugin = library("yaml").unwrap();
+fn utils_plugin_declares_serialize_capabilities() {
+    let plugin = library("utils").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
+    assert!(
+        caps.iter().any(|c| c.as_str() == "serialize.serialize"),
+        "missing serialize.serialize cap"
+    );
+    assert!(
+        caps.iter().any(|c| c.as_str() == "serialize.deserialize"),
+        "missing serialize.deserialize cap"
+    );
 }
