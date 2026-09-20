@@ -165,6 +165,18 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: Some(ops::encoding::encoding_op_registry),
     },
+    // ── bytes ──────────────────────────────────────────────────────────
+    // Byte-buffer primitives for the `Bytes` scalar type — the only
+    // .hnl-side constructor (previously only FFI `out_buf` produced them).
+    // Ops-only module: every function is an irreducible atom.
+    ModuleSpec {
+        name: "bytes",
+        hnl: include_str!("../../../handl-packages/bytes/bytes.hnl"),
+        funcs: &[],
+        ops: ops::bytes::BYTES_OPS,
+        values: &[],
+        registry: Some(ops::bytes::bytes_op_registry),
+    },
     // ── datetime (pure handl, formerly plugin-lib-datetime Rust crate) ──────
     // Moved to handl-packages/datetime/ as pure handl over math/str/char/typeof.
     // No `ops` table needed — the handl module is a self-contained record.
@@ -626,6 +638,13 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.error",
         plugin_name: "lib-error",
         hnl: include_str!("../../../handl-packages/error/error.hnl"),
+        modules: &[],
+    },
+    PackageSpec {
+        lib_name: "bytes",
+        plugin_id: "lib.bytes",
+        plugin_name: "lib-bytes",
+        hnl: include_str!("../../../handl-packages/bytes/bytes.hnl"),
         modules: &[],
     },
     PackageSpec {

@@ -1784,3 +1784,403 @@ fn floor_div_zero_divisor_errors() {
     let result = call_err(module_ref("math").unwrap(), "floor_div", &[n(7.0), n(0.0)]);
     assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
 }
+
+// ── bitwise ops ────────────────────────────────────────────────────
+// `math.bit_*` operate on i64 values; results come back as JSON
+// integers, so `as_i64` is used for exact comparisons.
+
+fn i(v: i64) -> serde_json::Value {
+    serde_json::Value::from(v)
+}
+
+#[test]
+fn bit_and_truth_table() {
+    let m = module_ref("math").unwrap();
+    assert_eq!(call(m, "bit_and", &[i(0), i(0)]).as_i64(), Some(0));
+    assert_eq!(call(m, "bit_and", &[i(0), i(1)]).as_i64(), Some(0));
+    assert_eq!(call(m, "bit_and", &[i(1), i(0)]).as_i64(), Some(0));
+    assert_eq!(call(m, "bit_and", &[i(1), i(1)]).as_i64(), Some(1));
+}
+
+#[test]
+fn bit_and_mask() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_and", &[i(12), i(10)]).as_i64(),
+        Some(8)
+    );
+    // WebSocket-style byte masking: low 7 bits of a flags byte.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_and", &[i(0x81), i(127)]).as_i64(),
+        Some(1)
+    );
+}
+
+#[test]
+fn bit_and_negative() {
+    // Two's-complement: -1 & 0xFF keeps the low byte set.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_and", &[i(-1), i(0xFF)]).as_i64(),
+        Some(0xFF)
+    );
+}
+
+#[test]
+fn bit_xor_truth_table() {
+    let m = module_ref("math").unwrap();
+    assert_eq!(call(m, "bit_xor", &[i(0), i(0)]).as_i64(), Some(0));
+    assert_eq!(call(m, "bit_xor", &[i(0), i(1)]).as_i64(), Some(1));
+    assert_eq!(call(m, "bit_xor", &[i(1), i(0)]).as_i64(), Some(1));
+    assert_eq!(call(m, "bit_xor", &[i(1), i(1)]).as_i64(), Some(0));
+}
+
+#[test]
+fn bit_xor_mask_byte() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_xor", &[i(12), i(10)]).as_i64(),
+        Some(6)
+    );
+    // RFC 6455 payload masking: byte ^ mask byte.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_xor", &[i(0x48), i(0x37)]).as_i64(),
+        Some(0x7F)
+    );
+}
+
+#[test]
+fn bit_xor_self_is_zero() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_xor", &[i(-1), i(-1)]).as_i64(),
+        Some(0)
+    );
+}
+
+#[test]
+fn bit_or_basic() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_or", &[i(12), i(10)]).as_i64(),
+        Some(14)
+    );
+}
+
+#[test]
+fn bit_not_zero() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_not", &[i(0)]).as_i64(),
+        Some(-1)
+    );
+}
+
+#[test]
+fn bit_not_neg_one() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_not", &[i(-1)]).as_i64(),
+        Some(0)
+    );
+}
+
+#[test]
+fn bit_not_positive() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "bit_not", &[i(5)]).as_i64(),
+        Some(-6)
+    );
+}
+
+#[test]
+fn bit_and_no_args_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_and", &[]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
+#[test]
+fn bit_and_one_arg_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_and", &[i(1)]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2, 1
+        )))
+    );
+}
+
+#[test]
+fn bit_and_non_integer_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_and", &[s("x"), i(1)]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer"
+        )))
+    );
+}
+
+#[test]
+fn bit_and_float_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_and", &[n(1.5), i(1)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
+#[test]
+fn bit_xor_non_integer_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_xor", &[i(1), s("x")]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
+}
+
+#[test]
+fn bit_not_no_args_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_not", &[]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0
+        )))
+    );
+}
+
+#[test]
+fn bit_not_non_integer_errors() {
+    let result = call_err(module_ref("math").unwrap(), "bit_not", &[s("x")]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch { .. })));
+}
+
+// ── rotl32 ─────────────────────────────────────────────────────────
+// Rotate-left within the low 32 bits; the count is total (mod 32).
+
+#[test]
+fn rotl32_zero_count() {
+    assert_eq!(
+        call(
+            module_ref("math").unwrap(),
+            "rotl32",
+            &[i(0x12345678), i(0)]
+        )
+        .as_i64(),
+        Some(0x12345678)
+    );
+}
+
+#[test]
+fn rotl32_basic() {
+    // SHA-1 uses rotl32(w, 5): 0x12345678 <<< 5 = 0x468ACF02.
+    assert_eq!(
+        call(
+            module_ref("math").unwrap(),
+            "rotl32",
+            &[i(0x12345678), i(5)]
+        )
+        .as_i64(),
+        Some(0x468ACF02)
+    );
+}
+
+#[test]
+fn rotl32_high_bit() {
+    // 0x80000000 <<< 1 wraps the sign bit around to bit 0.
+    assert_eq!(
+        call(
+            module_ref("math").unwrap(),
+            "rotl32",
+            &[i(0x80000000), i(1)]
+        )
+        .as_i64(),
+        Some(1)
+    );
+}
+
+#[test]
+fn rotl32_max_count() {
+    // n = 31: 1 <<< 31 = 0x80000000, returned as a non-negative Int.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "rotl32", &[i(1), i(31)]).as_i64(),
+        Some(0x80000000)
+    );
+}
+
+#[test]
+fn rotl32_count_wraps_at_32() {
+    // n = 32 is n = 0 (identity).
+    assert_eq!(
+        call(
+            module_ref("math").unwrap(),
+            "rotl32",
+            &[i(0xDEADBEEF), i(32)]
+        )
+        .as_i64(),
+        Some(0xDEADBEEF)
+    );
+    // n = 33 is n = 1.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "rotl32", &[i(1), i(33)]).as_i64(),
+        Some(2)
+    );
+}
+
+#[test]
+fn rotl32_negative_count() {
+    // n = -1 is n = 31: 1 <<< 31 = 0x80000000.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "rotl32", &[i(1), i(-1)]).as_i64(),
+        Some(0x80000000)
+    );
+}
+
+#[test]
+fn rotl32_truncates_to_low_32_bits() {
+    // Only the low 32 bits participate: 0x1_0000_0001 <<< 1 = 2.
+    assert_eq!(
+        call(
+            module_ref("math").unwrap(),
+            "rotl32",
+            &[i(0x1_0000_0001), i(1)]
+        )
+        .as_i64(),
+        Some(2)
+    );
+    // Negative input is masked to its low 32 bits: -1 low32 = 0xFFFFFFFF.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "rotl32", &[i(-1), i(1)]).as_i64(),
+        Some(0xFFFFFFFF)
+    );
+}
+
+#[test]
+fn rotl32_result_is_non_negative() {
+    // 0x7FFFFFFF <<< 1 = 0xFFFFFFFE — must not come back negative.
+    assert_eq!(
+        call(
+            module_ref("math").unwrap(),
+            "rotl32",
+            &[i(0x7FFFFFFF), i(1)]
+        )
+        .as_i64(),
+        Some(0xFFFFFFFE)
+    );
+}
+
+#[test]
+fn rotl32_no_args_errors() {
+    let result = call_err(module_ref("math").unwrap(), "rotl32", &[]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
+#[test]
+fn rotl32_one_arg_errors() {
+    let result = call_err(module_ref("math").unwrap(), "rotl32", &[i(1)]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            2, 1
+        )))
+    );
+}
+
+#[test]
+fn rotl32_non_integer_errors() {
+    let result = call_err(module_ref("math").unwrap(), "rotl32", &[s("x"), i(1)]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer"
+        )))
+    );
+}
+
+#[test]
+fn rotl32_second_arg_non_integer_errors() {
+    let result = call_err(module_ref("math").unwrap(), "rotl32", &[i(1), n(1.5)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}
+
+// ── u32 ────────────────────────────────────────────────────────────
+// Wrap to the unsigned 32-bit range (low 32 bits as a non-negative Int).
+
+#[test]
+fn u32_zero() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(0)]).as_i64(),
+        Some(0)
+    );
+}
+
+#[test]
+fn u32_positive_in_range() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(305419896)]).as_i64(),
+        Some(305419896)
+    );
+}
+
+#[test]
+fn u32_negative_one() {
+    // -1 -> 0xFFFFFFFF.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(-1)]).as_i64(),
+        Some(4294967295)
+    );
+}
+
+#[test]
+fn u32_negative_small() {
+    // -256 -> 0xFFFFFF00.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(-256)]).as_i64(),
+        Some(4294967040)
+    );
+}
+
+#[test]
+fn u32_above_range_wraps() {
+    // 2^32 wraps to 0; 2^32 + 7 wraps to 7.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(4294967296)]).as_i64(),
+        Some(0)
+    );
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(4294967303)]).as_i64(),
+        Some(7)
+    );
+}
+
+#[test]
+fn u32_large_negative() {
+    // i64::MIN has all-zero low 32 bits.
+    assert_eq!(
+        call(module_ref("math").unwrap(), "u32", &[i(i64::MIN)]).as_i64(),
+        Some(0)
+    );
+}
+
+#[test]
+fn u32_no_args_errors() {
+    let result = call_err(module_ref("math").unwrap(), "u32", &[]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {} args, got {}",
+            1, 0
+        )))
+    );
+}
+
+#[test]
+fn u32_non_integer_errors() {
+    let result = call_err(module_ref("math").unwrap(), "u32", &[s("x")]);
+    assert_eq!(
+        result,
+        Err(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer"
+        )))
+    );
+}
+
+#[test]
+fn u32_float_errors() {
+    let result = call_err(module_ref("math").unwrap(), "u32", &[n(1.5)]);
+    assert!(matches!(result, Err(EvalError::TypeMismatch(_))));
+}

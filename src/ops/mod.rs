@@ -7,6 +7,7 @@
 //! crates — only the `Module`/`Plugin` boilerplate was dropped.
 
 pub mod base64;
+pub mod bytes;
 pub mod cmp;
 pub mod collections;
 pub mod combinators;
