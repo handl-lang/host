@@ -4,11 +4,11 @@
 --- `Query` handler.  The default handler keeps a `HashMap<String, (Array) -> Value>`
 --- registry.  Everything below reduces to the generic `Op`/`Handle` kernel.
 
-from "grade" import { Op, Grade }
 from "type" import { String, Value, Bool, Array }
 from "collections/hash_map" import * as hash_map
+from "sym" import { sym }
 
-export Query := Grade
+export Query := sym()
 
 --- call a registered query by name with arguments.
 -- TODO(n-dim): effect row
