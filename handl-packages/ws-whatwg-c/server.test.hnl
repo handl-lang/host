@@ -1,0 +1,77 @@
+--- Tests for ws-whatwg-c/server -- listen/accept and the server-side
+--- handshake.
+---
+--- A real loopback round trip runs single-threaded: `connect(2)` to a
+--- listening socket completes through the kernel backlog, so the test
+--- can open the client TCP socket first, write the upgrade request,
+--- then let `accept` pick the queued peer up and answer -- no
+--- concurrency primitive needed. Message flow is then exercised over
+--- `conn.send`/`conn.recv` in both directions (client frames arrive
+--- masked, server frames go back unmasked).
+
+from "./server" import * as server
+from "./conn" import * as conn
+from "./http" import * as http
+from "./sockaddr" import * as sockaddr
+from "bytes" import * as bytes
+from "../generated/libc-c-linux-x86_64/socket" import * as socket
+from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
+
+--- bound_port -- the kernel-assigned port of a `listen(..., 0)` fd,
+--- read back through `getsockname` + the pure `sockaddr_out` unpack.
+bound_port := (fd) ~> do {
+  g :: socket.getsockname(fd)
+  sockaddr.sockaddr_out(tag.untag(g).value.buf).port
+}
+
+-- listen on port 0 returns a usable fd and getsockname reports a
+-- real bound port.
+test_listen_port0 := assert(do {
+  l :: server.listen("127.0.0.1", 0)
+  if tag.tag_of(l) == "err" {
+    { tag: "err" }
+  } else {
+    do {
+      fd :: tag.untag(l).value
+      port :: bound_port(fd)
+      c :: unistd.close(fd)
+      { tag: tag.tag_of(l), ok_port: port > 0 }
+    }
+  }
+}) = { tag: "ok", ok_port: true }
+
+-- Full single-threaded loopback: client socket -> upgrade request ->
+-- server.accept answers 101 -> client verifies -> masked client
+-- frame, unmasked server frame, both decoded by conn.recv.
+test_accept_loopback := assert(do {
+  l :: server.listen("127.0.0.1", 0)
+  lfd :: tag.untag(l).value
+  port :: bound_port(lfd)
+  cs :: tag.untag(socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)).value
+  cc :: socket.connect(cs, sockaddr.sockaddr_in(port, "127.0.0.1"))
+  key :: "dGhlIHNhbXBsZSBub25jZQ=="
+  u :: { host: "127.0.0.1", port: port, path: "/", scheme: "ws" }
+  w :: conn.write_all(cs, bytes.utf8_encode(http.upgrade_req(u, key)))
+  sc :: server.accept(lfd)
+  srv :: tag.untag(sc).value
+  h :: conn.read_head(cs)
+  hr :: tag.untag(h).value
+  p :: http.parse_head(hr.head)
+  acc :: http.header_get(p.headers, "sec-websocket-accept")
+  cli :: { fd: cs, rbuf: hr.rest, ssl: null, ssl_ctx: null,
+           server: false }
+  s1 :: conn.send(cli, "ping")
+  r1 :: conn.recv(srv)
+  s2 :: conn.send(srv, "pong")
+  r2 :: conn.recv(cli)
+  c1 :: conn.close(cli)
+  c2 :: conn.close(srv)
+  c3 :: unistd.close(lfd)
+  { accept_tag: tag.tag_of(sc),
+    status: p.status,
+    accept_ok: acc == http.accept_key(key),
+    server_flag: srv.server,
+    got_ping: tag.untag(r1).value.msg,
+    got_pong: tag.untag(r2).value.msg }
+}) = { accept_tag: "ok", status: 101, accept_ok: true,
+       server_flag: true, got_ping: "ping", got_pong: "pong" }

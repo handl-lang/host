@@ -1,4 +1,5 @@
---- ws-whatwg-c -- WHATWG WebSocket client over the generated libc C ABI.
+--- ws-whatwg-c -- WHATWG WebSocket client and server over the
+--- generated libc/libssl C ABIs.
 ---
 --- @details
 --- Transport layer above `ws_frame`: socket I/O is `~[1]~>` effectful
@@ -11,14 +12,30 @@
 --- `compress`. Only pure helpers carry laws -- effectful composition
 --- across a network boundary is not a morphism equation.
 ---
---- v1 scope: `ws://` URLs with IPv4-literal hosts only -- no DNS, no
---- `wss://`/TLS, no IPv6, no redirects, no permessage-deflate.
+--- Scope: `ws://` and `wss://` URLs (TLS via the generated
+--- `libssl-c-linux-x86_64/ssl.hnl` adapter), IPv4-literal hosts with
+--- `getaddrinfo` DNS fallback, a blocking `listen`/`accept` server
+--- half in `server.hnl`. No IPv6, no redirects, no permessage-deflate,
+--- no SNI or certificate verification on `wss://` (the context is
+--- OpenSSL's default `SSL_VERIFY_NONE` -- v1 trusts any certificate).
+---
+--- Blocking asymmetry: `recv` on a plain `ws://` conn polls with
+--- `MSG_DONTWAIT`, but on a `wss://` conn it calls `SSL_read`, which
+--- BLOCKS -- `MSG_DONTWAIT` does not reach through the TLS record
+--- layer. Use `recv_wait` when blocking semantics are wanted on both
+--- (or call `recv` knowing `wss` already blocks).
 
 from "bytes" import { Bytes }
 
---- An open client connection: the socket fd plus `rbuf`, the receive
---- buffer of undecoded bytes already read off the wire.
-export Conn := { fd: Int, rbuf: Bytes }
+--- An open connection: the socket fd plus `rbuf`, the receive buffer
+--- of undecoded bytes already read off the wire. `ssl` is the TLS
+--- session handle for `wss://` conns (null on plain `ws://`), and
+--- `ssl_ctx` the `SSL_CTX` it was created from -- the context must
+--- outlive the session, so both ride on the conn for `close` to free
+--- in order. `server` marks the `accept`ed half of a server
+--- connection: server sends are unmasked (RFC 6455 section 5.1 --
+--- clients mask, servers must not).
+export Conn := { fd: Int, rbuf: Bytes, ssl: Value, ssl_ctx: Value, server: Bool }
 
 --- A packed socket address as a record (what `sockaddr_out` returns).
 export Sockaddr := { port: Int, ip: String }

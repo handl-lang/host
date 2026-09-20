@@ -4,8 +4,12 @@
 --- over `socketpair(AF_UNIX, SOCK_STREAM)`: the same `socket.send`/
 --- `socket.recv` code paths carry bytes both ways, and `frame.decode`
 --- on the peer side verifies the masked wire format. `test_connect_live`
---- is gated on the `WS_TEST_URL` env var -- without it the test passes
---- trivially.
+--- and `test_connect_wss_live` are gated on the `WS_TEST_URL` /
+--- `WSS_TEST_URL` env vars -- without them the tests pass trivially.
+--- The TLS session path (`conn.ssl != null`) needs a live `wss` peer
+--- and is exercised only through `test_connect_wss_live`; the libssl
+--- adapters themselves get a no-socket smoke test
+--- (`test_ssl_ctx_roundtrip`).
 
 from "./conn" import * as conn
 from "../ws_frame-handl/frame" import * as frame
@@ -13,6 +17,7 @@ from "../ws_frame" import * as ws_frame
 from "bytes" import * as bytes
 from "math" import * as math
 from "../generated/libc-c-linux-x86_64/socket" import * as socket
+from "../generated/libssl-c-linux-x86_64/ssl" import * as ssl
 
 --- u32le -- one little-endian i32 out of the socketpair `outs` blob.
 u32le := (buf, off) ~> (
@@ -29,6 +34,11 @@ pair := () ~> do {
   fds :: tag.untag(r).value.outs[0]
   { a: u32le(fds, 0), b: u32le(fds, 4) }
 }
+
+--- mkconn -- a plain (non-TLS, client-side) test Conn over `fd`.
+mkconn := (fd) ~> {
+  fd: fd, rbuf: bytes.from_list([]), ssl: null, ssl_ctx: null,
+  server: false }
 
 test_random_bytes := assert(do {
   b :: conn.random_bytes(16)
@@ -67,7 +77,7 @@ test_read_head_split := assert(do {
 -- peer's pure `frame.decode` recovers the payload.
 test_send_text_wire := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   s :: conn.send(c, "hi")
   wire :: tag.untag(socket.recv(p.b, 0)).value
   d :: frame.decode(wire)
@@ -79,7 +89,7 @@ test_send_text_wire := assert(do {
 
 test_recv_text := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   f :: frame.encode({ fin: 1, op: ws_frame.OpText,
                       payload: bytes.utf8_encode("yo"),
                       mask_key: bytes.from_list([]) })
@@ -90,7 +100,7 @@ test_recv_text := assert(do {
 
 test_recv_eagain := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   r :: conn.recv(c)
   { tag: tag.tag_of(r), msg: tag.untag(r).value.msg }
 }) = { tag: "ok", msg: null }
@@ -98,7 +108,7 @@ test_recv_eagain := assert(do {
 -- A frame split across two reads buffers in `conn.rbuf`.
 test_recv_partial := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   f :: frame.encode({ fin: 1, op: ws_frame.OpText,
                       payload: bytes.utf8_encode("hello"),
                       mask_key: bytes.from_list([]) })
@@ -111,7 +121,7 @@ test_recv_partial := assert(do {
 
 test_recv_binary := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   f :: frame.encode({ fin: 1, op: ws_frame.OpBinary,
                       payload: bytes.from_list([1, 2, 3]),
                       mask_key: bytes.from_list([]) })
@@ -123,7 +133,7 @@ test_recv_binary := assert(do {
 -- Control frames surface as {op, payload} records.
 test_recv_ping := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   f :: frame.encode({ fin: 1, op: ws_frame.OpPing,
                       payload: bytes.utf8_encode("x"),
                       mask_key: bytes.from_list([]) })
@@ -136,27 +146,92 @@ test_recv_ping := assert(do {
 -- Full client->peer masked round trip through the pair.
 test_send_recv_pair := assert(do {
   p :: pair()
-  ca :: { fd: p.a, rbuf: bytes.from_list([]) }
-  cb :: { fd: p.b, rbuf: bytes.from_list([]) }
+  ca :: mkconn(p.a)
+  cb :: mkconn(p.b)
   s :: conn.send(ca, "ping")
   r :: conn.recv(cb)
   { msg: tag.untag(r).value.msg }
 }) = { msg: "ping" }
 
+-- A server conn (`server: true`) sends UNMASKED frames -- the peer
+-- sees mask bit 0 in byte 1 (RFC 6455 section 5.1: only clients mask).
+test_send_server_unmasked := assert(do {
+  p :: pair()
+  c :: { fd: p.a, rbuf: bytes.from_list([]), ssl: null, ssl_ctx: null,
+         server: true }
+  s :: conn.send(c, "hi")
+  wire :: tag.untag(socket.recv(p.b, 0)).value
+  d :: frame.decode(wire)
+  { tag: tag.tag_of(s),
+    msg: bytes.utf8_decode(d.value.frame.payload),
+    maskbit: math.bit_and(bytes.at(wire, 1), 128) }
+}) = { tag: "ok", msg: "hi", maskbit: 0 }
+
+-- recv_wait blocks on the socketpair -- here the frame is already
+-- buffered, so it returns the decoded text message.
+test_recv_wait := assert(do {
+  p :: pair()
+  c :: mkconn(p.a)
+  f :: frame.encode({ fin: 1, op: ws_frame.OpText,
+                      payload: bytes.utf8_encode("waited"),
+                      mask_key: bytes.from_list([]) })
+  s :: socket.send(p.b, f, socket.MSG_NOSIGNAL)
+  r :: conn.recv_wait(c)
+  { tag: tag.tag_of(r), msg: tag.untag(r).value.msg }
+}) = { tag: "ok", msg: "waited" }
+
+-- A peer shutdown makes the blocking read return 0 bytes, which
+-- surfaces as the synthesized close message.
+test_recv_wait_close := assert(do {
+  p :: pair()
+  c :: mkconn(p.a)
+  s :: socket.shutdown(p.b, socket.SHUT_WR)
+  r :: conn.recv_wait(c)
+  m :: tag.untag(r).value.msg
+  { tag: tag.tag_of(r), op: m.op }
+}) = { tag: "ok", op: 8 }
+
 -- close emits a masked op-8 frame the peer can decode.
 test_close := assert(do {
   p :: pair()
-  c :: { fd: p.a, rbuf: bytes.from_list([]) }
+  c :: mkconn(p.a)
   cl :: conn.close(c)
   wire :: tag.untag(socket.recv(p.b, 0)).value
   d :: frame.decode(wire)
   { tag: tag.tag_of(cl), op: d.value.frame.op }
 }) = { tag: "ok", op: 8 }
 
+-- libssl smoke: method -> ctx -> session -> free both, no socket
+-- needed (SSL_new/SSL_free never touch an fd without SSL_set_fd).
+test_ssl_ctx_roundtrip := assert(do {
+  m :: ssl.TLS_client_method()
+  c :: ssl.SSL_CTX_new(tag.untag(m).value)
+  ctx :: tag.untag(c).value
+  s :: ssl.SSL_new(ctx)
+  f1 :: ssl.SSL_free(tag.untag(s).value)
+  f2 :: ssl.SSL_CTX_free(ctx)
+  { m: tag.tag_of(m), c: tag.tag_of(c), s: tag.tag_of(s),
+    f1: tag.tag_of(f1), f2: tag.tag_of(f2) }
+}) = { m: "ok", c: "ok", s: "ok", f1: "ok", f2: "ok" }
+
 -- Gated live test: runs the real handshake only when WS_TEST_URL
 -- points at a server (e.g. ws://127.0.0.1:8080/); skipped otherwise.
 test_connect_live := assert(do {
   u :: ffi.call("libc.so.6", "getenv", ["WS_TEST_URL"], ["cstr"], "cstr", false)
+  if u == null {
+    true
+  } else {
+    do {
+      c :: conn.connect(u)
+      tag.tag_of(c) == "ok"
+    }
+  }
+}) = true
+
+-- Gated live TLS test: runs the real wss:// handshake only when
+-- WSS_TEST_URL points at a TLS WebSocket server; skipped otherwise.
+test_connect_wss_live := assert(do {
+  u :: ffi.call("libc.so.6", "getenv", ["WSS_TEST_URL"], ["cstr"], "cstr", false)
   if u == null {
     true
   } else {

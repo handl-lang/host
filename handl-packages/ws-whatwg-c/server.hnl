@@ -1,0 +1,155 @@
+--- ws-whatwg-c/server -- the `accept` half of a WebSocket server:
+--- `listen` on an IPv4 socket, `accept` a TCP peer, and run the
+--- server side of the RFC 6455 handshake.
+---
+--- @details
+--- `listen` is a thin `socket`/`bind`/`listen` sequence over the
+--- generated libc adapters (host must be an IPv4 literal -- the pure
+--- `sockaddr_in` pack path, no DNS). `accept` takes the listening fd,
+--- accepts one peer (blocking), reads its HTTP upgrade request head,
+--- pulls out `Sec-WebSocket-Key`, answers with the `101` response
+--- `http.build_101_resp` builds, and hands back a `Conn` with
+--- `server: true` -- the flag that makes `send`/`close` emit unmasked
+--- frames (RFC 6455 section 5.1: only clients mask).
+---
+--- There is no TLS accept half: `wss` servers would need
+--- `SSL_accept` plus certificate loading, which the generated adapter
+--- does not yet surface. Plain `ws://` only, matching the client.
+--- Both arrows are `~[1]~>`; every libc failure propagates its `err`
+--- unchanged, and a request head that fails the upgrade validation
+--- (non-`GET` method, no `Upgrade: websocket` header, no
+--- `Sec-WebSocket-Key`) maps to `err(ECONNABORTED)` like a refused
+--- client handshake.
+---
+--- Blocking model: `accept` parks the caller in `accept(2)` and a
+--- blocking head read -- the run-time is single-threaded, so a
+--- listener can serve exactly one handshake at a time. Concurrency is
+--- out of scope for v1 (see the `concurrent`/`concurrent-epoll`
+--- packages for the cooperative scheduler this could slot into).
+
+from "bytes" import * as bytes
+from "str" import * as str
+from "result" import { Result, ok, err }
+from "ffi" import { Errno }
+from "../generated/libc-c-linux-x86_64/socket" import * as socket
+from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
+from "../generated/libc-c-linux-x86_64/errno" import * as errno
+from "./index" import { Conn }
+from "./sockaddr" import * as sockaddr
+from "./http" import * as http
+from "./conn" import * as conn
+
+--- listen -- create a listening TCP socket bound to `host:port`.
+--- @param {host} - an IPv4 literal (`"0.0.0.0"`, `"127.0.0.1"`, ...)
+--- @param {port} - the TCP port; 0 asks the kernel for a free one
+---   (read it back with `socket.getsockname` + `sockaddr_out`)
+--- @returns {Result<Int, Errno> - the listening fd, or the errno}
+--- @details Pure pack path only -- a non-literal `host` raises in
+--- `sockaddr_in`. `SO_REUSEADDR` is set before `bind` so a restarted
+--- listener can retake its port while a peer lingers in TIME_WAIT.
+--- Backlog is 128. On `setsockopt`/`bind`/`listen` failure the fd is
+--- closed before the err propagates.
+export listen: (String, Int) ~[1]~> Result<Int, Errno> := (host, port) ~> do {
+  sa :: sockaddr.sockaddr_in(port, host)
+  s :: socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+  if tag.tag_of(s) == "err" {
+    s
+  } else {
+    do {
+      fd :: tag.untag(s).value
+      o :: socket.setsockopt(
+        fd, socket.SOL_SOCKET, socket.SO_REUSEADDR,
+        bytes.from_list([1, 0, 0, 0]))
+      if tag.tag_of(o) == "err" {
+        do {
+          dropped :: unistd.close(fd)
+          o
+        }
+      } else {
+        do {
+          b :: socket.bind(fd, sa)
+          if tag.tag_of(b) == "err" {
+            do {
+              dropped :: unistd.close(fd)
+              b
+            }
+          } else {
+            do {
+              l :: socket.listen(fd, 128)
+              if tag.tag_of(l) == "err" {
+                do {
+                  dropped :: unistd.close(fd)
+                  l
+                }
+              } else {
+                ok(fd)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+--- accept -- accept one peer on `listen_fd` and run the server half
+--- of the RFC 6455 handshake: blocking `accept(2)`, the request head,
+--- `Sec-WebSocket-Key`, then the `101` response. The returned `Conn`
+--- has `server: true` and `rbuf` holding any frame bytes that
+--- arrived with the request head.
+--- @param {listen_fd} - a listening fd from `listen`
+--- @returns {Result<Conn, Errno> - the server conn, or the errno}
+--- @details The request head is validated as a WebSocket upgrade: a
+--- `GET` request line, an `Upgrade: websocket` header (value compared
+--- case-insensitively), and a present `Sec-WebSocket-Key`. Anything
+--- else maps to `err(ECONNABORTED)` like a refused client handshake
+--- (`Connection: Upgrade` is not checked -- v1 trusts the rest of the
+--- handshake shape). On any failure after `accept(2)` the peer fd is
+--- closed before propagating.
+export accept: (Int) ~[1]~> Result<Conn, Errno> := (listen_fd) ~> do {
+  a :: socket.accept(listen_fd)
+  if tag.tag_of(a) == "err" {
+    a
+  } else {
+    do {
+      fd :: tag.untag(a).value.ret
+      h :: conn.read_head(fd)
+      if tag.tag_of(h) == "err" {
+        do {
+          dropped :: unistd.close(fd)
+          h
+        }
+      } else {
+        do {
+          hr :: tag.untag(h).value
+          p :: http.parse_req_head(hr.head)
+          up :: http.header_get(p.headers, "upgrade")
+          key :: http.header_get(p.headers, "sec-websocket-key")
+          bad :: (p.method != "GET" ||
+                  up == null || str.lower(up) != "websocket" ||
+                  key == null)
+          if bad {
+            do {
+              dropped :: unistd.close(fd)
+              err(errno.ECONNABORTED)
+            }
+          } else {
+            do {
+              w :: conn.write_all(fd, bytes.utf8_encode(http.build_101_resp(key)))
+              if tag.tag_of(w) == "err" {
+                do {
+                  dropped :: unistd.close(fd)
+                  w
+                }
+              } else {
+                ok({
+                  fd: fd, rbuf: hr.rest,
+                  ssl: null, ssl_ctx: null, server: true })
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
