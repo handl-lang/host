@@ -26,14 +26,17 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // resolved to `bool` package value exports (`globals.yaml`).
     // +1 `token.flow_axis_open` for `>>>[` axis composition (ADR-0120
     // Phase 2).
-    assert_eq!(lang.tokens.len(), 104);
+    // +1 `token.keyword.absurd` for absurd match arms (nonlinear index
+    // solving).
+    assert_eq!(lang.tokens.len(), 105);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
     // +1 `lex.newline` for the layout newline token.
     // `lex.bool.{true,false}` removed — booleans are imported values.
     // +1 `lex.flow_axis_open` for `>>>[` (ADR-0120 Phase 2).
-    assert_eq!(lang.lexer_rules.len(), 101);
+    // +1 `lex.keyword.absurd` for absurd match arms.
+    assert_eq!(lang.lexer_rules.len(), 102);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -49,7 +52,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +9 Option B infix/id2 rows - 8 removed call-style rows = +1.
     // `grammar.value.bool` removed — `true`/`false` parse as `var`.
     // +1 `grammar.axis_flow.infix` for `>>>[k]` (ADR-0120 Phase 2).
-    assert_eq!(lang.grammar.len(), 84);
+    // +1 `grammar.absurd.prefix` for absurd match arms.
+    assert_eq!(lang.grammar.len(), 85);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
@@ -83,7 +87,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `ast.axis_flow` for `>>>[k]` (ADR-0120 Phase 2).
     // +3 `ast.{pi,sigma,family}` internal type-level shapes (ADR-0120
     // Phase 4 dependent structure).
-    assert_eq!(lang.ast.len(), 93);
+    // +1 `ast.absurd` for absurd match arms.
+    assert_eq!(lang.ast.len(), 94);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -120,8 +125,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 104);
-    assert_eq!(rt.lang().grammar.len(), 84);
+    assert_eq!(rt.lang().tokens.len(), 105);
+    assert_eq!(rt.lang().grammar.len(), 85);
 }
 
 #[test]

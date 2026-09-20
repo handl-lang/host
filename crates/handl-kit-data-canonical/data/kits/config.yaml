@@ -23,7 +23,7 @@ caps:
     description: pure library capability
   - id: lib.datetime
     description: pure library capability
-  - id: lib.intl
+  - id: lib.intl-c
     description: pure library capability
   - id: lib.kv
     description: pure library capability
@@ -33,7 +33,7 @@ modules:
   - cmp
   - crypto
   - datetime
-  - intl
+  - intl_c
   - kv-hashmap
   - collections
   - unicode

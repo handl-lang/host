@@ -34,7 +34,6 @@ members = [
   "crates/plugin-lib-http-client-std",
   "crates/plugin-lib-http-server",
   "crates/plugin-lib-http-server-std",
-  "crates/plugin-lib-intl",
   "crates/plugin-lib-lang-lex",
   "crates/plugin-lib-lang-parse",
   "crates/plugin-lib-lang-eval",
@@ -171,7 +170,6 @@ handl-plugin-lib-http-client = { path = "crates/plugin-lib-http-client" }
 handl-plugin-lib-http-client-std = { path = "crates/plugin-lib-http-client-std" }
 handl-plugin-lib-http-server = { path = "crates/plugin-lib-http-server" }
 handl-plugin-lib-http-server-std = { path = "crates/plugin-lib-http-server-std" }
-handl-plugin-lib-intl = { path = "crates/plugin-lib-intl" }
 handl-plugin-lib-lang-lex = { path = "crates/plugin-lib-lang-lex" }
 handl-plugin-lib-lang-parse = { path = "crates/plugin-lib-lang-parse" }
 handl-plugin-lib-lang-eval = { path = "crates/plugin-lib-lang-eval" }

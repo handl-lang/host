@@ -709,7 +709,7 @@ mod tests {
                 "lib.type",
                 "lib.crypto",
                 "lib.datetime",
-                "lib.intl",
+                "lib.intl-c",
                 "lib.kv",
             ]
         );
@@ -748,7 +748,7 @@ mod tests {
             "lib.type",
             "lib.crypto",
             "lib.datetime",
-            "lib.intl",
+            "lib.intl-c",
             "lib.kv",
         ] {
             assert!(lang.caps.get_by_id(id).is_some(), "missing {}", id);
@@ -768,7 +768,7 @@ mod tests {
         let server = kit_module_names("server").unwrap();
         assert_eq!(server.first().unwrap(), "module-runtime");
         assert_eq!(server.last().unwrap(), "otlp-std");
-        assert_eq!(server.len(), 17);
+        assert_eq!(server.len(), 14);
     }
 
     #[test]
@@ -807,7 +807,7 @@ mod tests {
             "lib.type",
             "lib.crypto",
             "lib.datetime",
-            "lib.intl",
+            "lib.intl-c",
             "lib.kv",
         ] {
             assert!(
@@ -838,7 +838,7 @@ mod tests {
             "lib.type",
             "lib.crypto",
             "lib.datetime",
-            "lib.intl",
+            "lib.intl-c",
             "lib.kv",
         ] {
             assert!(lang.caps.get_by_id(id).is_some(), "missing cap {}", id);

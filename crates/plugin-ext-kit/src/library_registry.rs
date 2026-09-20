@@ -42,8 +42,9 @@ pub fn populate(reg: &mut LibraryRegistry) {
         handl_plugin_lib_stdlib::library("bytes")
             .unwrap_or_else(|| panic!("unknown stdlib package 'bytes'"))
     });
-    reg.register("intl", || {
-        Box::new(handl_plugin_lib_intl::LibraryPlugin::new()) as LibraryPlugin
+    reg.register("intl_c", || {
+        handl_plugin_lib_stdlib::library("intl_c")
+            .unwrap_or_else(|| panic!("unknown stdlib package 'intl_c'"))
     });
     reg.register("kv-hashmap", || {
         Box::new(handl_plugin_lib_kv_hashmap::LibraryPlugin::new()) as LibraryPlugin
