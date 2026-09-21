@@ -46,10 +46,20 @@ fn encode_bytes(buf: Vec<u8>) -> serde_json::Value {
 }
 
 fn require_integer(arg: &serde_json::Value) -> Result<i64, EvalError> {
-    arg.as_i64().ok_or(EvalError::TypeMismatch(format!(
-        "expected {}, got {}",
-        "integer", "non-integer",
-    )))
+    // Integral floats count: upstream ops (e.g. `char.code_point_at`)
+    // produce `f64` values, so an integer-valued `127.0` must satisfy the
+    // `List Int` contract just like a literal `127` does — matching the
+    // `require_int` convention in `plugin-lib-char-native`.
+    arg.as_i64()
+        .or_else(|| {
+            arg.as_f64()
+                .filter(|n| n.fract() == 0.0 && n.is_finite())
+                .map(|n| n as i64)
+        })
+        .ok_or(EvalError::TypeMismatch(format!(
+            "expected {}, got {}",
+            "integer", "non-integer",
+        )))
 }
 
 fn require_string(arg: &serde_json::Value) -> Result<&str, EvalError> {

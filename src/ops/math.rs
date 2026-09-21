@@ -25,7 +25,15 @@ fn require_number(arg: &serde_json::Value) -> Result<f64, EvalError> {
 }
 
 fn require_integer(arg: &serde_json::Value) -> Result<i64, EvalError> {
+    // Integral floats count: ops like `char.code_point_at` return `f64`,
+    // so `127.0` must satisfy the integer contract like `127` does —
+    // matching `require_int` in `plugin-lib-char-native`.
     arg.as_i64()
+        .or_else(|| {
+            arg.as_f64()
+                .filter(|n| n.fract() == 0.0 && n.is_finite())
+                .map(|n| n as i64)
+        })
         .ok_or(handl_platform::EvalError::TypeMismatch(format!(
             "expected {}, got {}",
             "integer", "non-integer",

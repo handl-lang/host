@@ -146,8 +146,31 @@ fn module_name_for_path(path: &Path) -> Option<String> {
 
 fn prepare_module_source(src: &str) -> String {
     let src = strip_comment_lines(src);
+    let op_names = collect_op_decl_names(&src);
     let src = strip_declaration_lines(&src);
-    transform_export_to_object(&src)
+    transform_export_to_object(&src, &op_names)
+}
+
+/// Collect the qualified names from `op "<name>" : ...` declaration lines
+/// (e.g. `op "bytes.from_list"` → `bytes.from_list`).
+fn collect_op_decl_names(src: &str) -> Vec<String> {
+    src.lines()
+        .filter_map(|line| {
+            let trimmed = line.trim_start();
+            let rest = trimmed.strip_prefix("op")?;
+            if !rest.starts_with(' ') && !rest.starts_with('\t') && !rest.starts_with('"') {
+                return None;
+            }
+            let rest = rest.trim_start();
+            let quote = rest.chars().next()?;
+            if quote != '"' && quote != '\'' {
+                return None;
+            }
+            let after = &rest[quote.len_utf8()..];
+            let end = after.find(quote)?;
+            Some(after[..end].to_string())
+        })
+        .collect()
 }
 
 fn strip_comment_lines(src: &str) -> String {
@@ -208,7 +231,7 @@ fn collect_export_names(src: &str) -> Vec<String> {
     names
 }
 
-fn transform_export_to_object(src: &str) -> String {
+fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     // Each top-level binding is collected as `(name, expr_lines)`.
     // Non-private entries become object fields (`{ name: expr }`); private
     // entries become `do`-block assignments (`name := expr;`) emitted *before*
@@ -296,6 +319,22 @@ fn transform_export_to_object(src: &str) -> String {
     }
     finalize!();
 
+    // `op "mod.name" : T` declarations name host-registered operations.
+    // Emit each as an exported field of the qualified-name *string*: a
+    // string callee dispatches through `call_host` → the module chain →
+    // the op's native impl, so an interface-only module's exports stay
+    // callable when it is imported as a file.
+    for qualified in op_names {
+        let local = qualified.rsplit('.').next().unwrap_or(qualified);
+        if local.is_empty()
+            || !is_valid_ident(local)
+            || entries.iter().any(|(n, _)| n == local)
+        {
+            continue;
+        }
+        entries.push((local.to_string(), vec![format!("\"{qualified}\"")]));
+    }
+
     let imports = collect_executable_import_lines(src);
 
     // If there are no exports at all, preserve the original script/test
@@ -307,9 +346,13 @@ fn transform_export_to_object(src: &str) -> String {
     }
 
     // Build the body: private bindings as do-block assignments, then the
-    // export object literal.
+    // export object literal. A name that isn't a valid identifier (e.g.
+    // the keyword `first`) needs a quoted record key.
     let mut body = String::new();
     for (name, expr_lines) in &privates {
+        if !is_valid_ident(name) {
+            continue;
+        }
         let expr = expr_lines.join("\n");
         let expr = expr.trim();
         body.push_str(name);
@@ -322,8 +365,12 @@ fn transform_export_to_object(src: &str) -> String {
         if i > 0 {
             body.push_str(", ");
         }
+        // Always quote record keys: an export name may be a keyword
+        // (`first`, `export`) that lexes as `token.keyword.*`, not an
+        // identifier — `is_valid_ident` is only a shape check.
+        body.push('"');
         body.push_str(name);
-        body.push_str(": ");
+        body.push_str("\": ");
         body.push_str(expr_lines.join("\n").trim());
     }
     body.push_str(" }");
@@ -427,9 +474,13 @@ fn collect_executable_import_lines(src: &str) -> Vec<String> {
         .filter(|line| is_top_import_line(line))
         .filter(|line| import_line_spec(line).is_some())
         .map(|line| {
-            from_export_to_import(line)
+            let line = from_export_to_import(line)
                 .map(|(import_line, _)| import_line)
-                .unwrap_or_else(|| line.to_string())
+                .unwrap_or_else(|| line.to_string());
+            // Inside a `do {}` block, `import <names>` trailing-tokens
+            // parsing does not stop at the newline — terminate each
+            // import with `;` so the following statement can't merge in.
+            format!("{};", line)
         })
         .collect()
 }
