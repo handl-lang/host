@@ -11,16 +11,16 @@ remains:
 - `sym()`/`sym(A)` and `instanceof`: implemented, with nominal `<:` decided by
   the parent chain (Phase 4); the legacy `__tag__` bridge remains until
   `type.hnl` finishes migrating.
-- Serializable arrows: partially implemented — tree-walk arrows carry an
-  explicit `body_def` and apply after transport; `env` removal and
-  bytecode/cranelift minting remain (Phase 5 note + "Design: serializable
-  arrow representation (item 2)").
+- Serializable arrows: implemented. `TaggedValue::Arrow` is now
+  `{params, rest, array_pattern, body_def, binds, handlers}` — `body`,
+  `env`, and `home` are gone from the value. All three engines mint and
+  apply the self-contained form, and a JSON-round-tripped arrow remains
+  applicable. See the "Current truth" note in the representation section.
 - Per-call argument binding (env-removal for the `HandlFunction::call` seam):
   implemented — `Runtime::eval_shared_with_call_args` binds `__arg_N` directly
   on the call frame's `ScopeStack` globals (excluded from `capture()`), instead
   of injecting per-call engine globals via `with_global` cloning (zero engine
-  clones per call). The arrow value's `env` field is still captured state; its
-  removal remains (Phase 5 note).
+  clones per call).
 - Graded arrows `A ~[R]~> B`: implemented (canonical spelling; legacy
   `~R~>` accepted).
 - Dimensions `f<...>`: syntax implemented; specialization semantics remain.
@@ -622,33 +622,23 @@ pins the parts that _are_ checkable through public APIs:
 
 ### TODO(ADR-0106) — what must change for §6/§8 to hold
 
-1. **Drop `env` from the arrow value.** `TaggedValue::Arrow.env`
-   (`handl-value/src/lib.rs:353`) and its encoder/decoder (`:729-757`,
-   `:576-610`) must go; arrow inputs/outputs become explicit object fields.
-   Consumers: tree-walk closure mint/apply
-   (`plugin-engine-exec-tree-walk/src/lib.rs:2328-2336`, `:3834-3975`,
-   `:4007-4016`), bytecode scope stack
-   (`plugin-engine-exec-bytecode/src/vm.rs:133-256`), cranelift scope stack
-   (`plugin-engine-exec-cranelift/src/lib.rs:613-700`), and the runtime VM
-   primitives (`handl-runtime/src/vm_primitives.rs:45-78`, `:141-204`).
-2. **Replace the `body` AST index with a serializable arrow graph.** Remove
-   the process-local home-frame table
-   (`plugin-engine-exec-tree-walk/src/lib.rs:120-134`, `:152-162`,
-   `:189-200`) and the `home`/`__home__` mechanism
-   (`handl-value/src/lib.rs:354`, `:750-752`;
-   `handl-language/src/lib.rs:318-319`;
-   `plugin-lib-handl/src/lib.rs:884-893`), so an arrow's body is data that
-   survives a round-trip.
-3. **Eliminate the scope stacks.** `push_scope`/`pop_scope`/`bind`/`lookup`/
-   `capture` in all three engines (tree-walk `:291-403`; bytecode
-   `vm.rs:133-256`; cranelift `lib.rs:613-700`) must be deleted in favour of
-   explicit arrow-graph substitution, as must the
-   `MakeClosureFn`/`CallFn` host primitives
-   (`handl-runtime/src/vm_primitives.rs:141-204`).
-4. **Close the `Resource`-in-`env` leak.** Either make arrow `env` incapable
-   of holding non-serializable values (encode-time error) or carry opaque
-   handles out-of-band; today they serialize as a finalizer-less pointer
-   (`handl-value/src/lib.rs:758-764`) and leak on round-trip.
+1. **(done)** `env` dropped from the arrow value. `TaggedValue::Arrow` no
+   longer carries a captured lexical environment — see "Current truth"
+   below for the shipped `body_def` + `binds` + `handlers` shape.
+2. **(done)** The `body` AST index and the process-local home-frame table
+   (`HOME_FRAMES`, `home`/`__home__`, `stamp_home`) are removed; an arrow's
+   body is the serialized `body_def` arena and survives a round-trip.
+3. **(partially done)** Scope stacks still exist as eval-time machinery in
+   all three engines (`push_scope`/`pop_scope`/`bind`/`lookup`/`capture`),
+   but they no longer back arrow _values_ — an arrow's visible bindings are
+   its own `binds` map plus its call-time scopes. Fully eliminating the
+   stacks in favour of pure arrow-graph substitution remains open; the
+   `MakeClosureFn`/`CallFn` host primitives were replaced by per-call
+   `__arg_N` binding on the frame's globals.
+4. **(narrowed, still open)** The `Resource` leak is no longer hidden in an
+   `env`: resources sit in the explicit `binds` map and still serialize as
+   a finalizer-less pointer on round-trip. Closing the leak fully means
+   either an encode-time error or out-of-band opaque handles.
 5. **Make `>>>` compose.** Surface `>>>` is currently _application_, not
    composition (`handl-kit-data-canonical/data/types.yaml:2158-2166`); the
    ADR-0106 §3 composed-arrow value does not exist yet, so "a composed arrow
@@ -797,31 +787,90 @@ The `__arrow__` object gains exactly one optional key, emitted only when
    references, so non-arena payload numbers are never rewritten and
    out-of-range values are left untouched. This makes the extracted arena
    genuinely standalone for any body.
-3. **Remaining.** Populate `body_def` at the bytecode and cranelift mint sites
-   (their body is an instruction index, not an AST node, so this needs an
-   AST-level body representation there).
-4. **Remaining.** Drop `env` and `home`/`__home__`, leaving `body_def` (plus a
-   serialized `Language` reference) as the arrow's whole definitional content.
+3. **(done)** `body_def` is minted at all three engines' closure sites.
+   Bytecode `Instr::Closure` and the shared `closure` op mint the
+   substituted definition; cranelift applies `body_def` arenas by
+   delegating to the tree-walk (`Cranelift` has no AST interpreter of its
+   own — `body_def` evaluation is an interpretive act).
+4. **(done)** `env` and `home`/`__home__` are gone from
+   `TaggedValue::Arrow`. The representation that shipped differs from the
+   additive plan above and supersedes it — see "Current truth".
 
-### Current truth after steps 1 / 2a / 2
+### Current truth — self-contained arrows (steps 1–4 landed)
 
-An arrow minted by the tree-walk engine is **self-describing and applicable
-without its minting frame**: `round_tripped_arrow_is_applicable_without_its_frame`
-(`crates/handl-runtime/tests/arrow_serializability.rs`) mints `x ~> x + 1` in
-one runtime, transports the value as JSON, and applies it in a _second_
-runtime whose arena never contained that body — result `42`, identical to a
-directly-minted arrow. The same test strips `body_def` as a control: the
-transported value then cannot reproduce the result, which shows the behaviour
-comes from the explicit definition rather than the ambient arena.
+`TaggedValue::Arrow` is now exactly:
 
-Arrows minted by the bytecode/cranelift engines currently carry
-`body_def: None` (step 3); `env` is still a captured lexical environment
-(step 4). So §6 is _partially_ satisfied today: bodies are explicit for
-tree-walk arrows, environments are not explicit yet.
+```rust
+Arrow {
+    params: Rc<[String]>,
+    rest: Option<Rc<str>>,
+    array_pattern: bool,
+    body_def: Rc<TaggedValue>,                  // substituted body arena
+    binds: Rc<FxHashMap<Rc<str>, TaggedValue>>, // residual bindings
+    handlers: Rc<[TaggedValue]>,                // carried handlers
+}
+```
 
-**Attempted, reverted, and the pre-existing bug behind it.** Skipping the
-environment capture when the body contains no `var` node (i.e. "cannot read a
-binding") was implemented and then reverted. In the course of checking it,
+The mint (shared `closure` op, `plugin-engine-exec/src/native_ops.rs`, and
+`Instr::Closure` in bytecode) collects the definition-site bindings via
+`env_capture`, filters them to the body's free-variable candidates
+(`subtree_name_candidates`), excludes the arrow's own parameter names, and
+splits the rest two ways:
+
+- **Substituted into `body_def`** (`Ast::instantiate`,
+  `crates/handl-language/src/instantiate.rs`): arrow-free, serializable
+  values are baked into the copied body arena as `lit` nodes. Substitution
+  is binder-aware — it does not descend under shadowing `params`/`pattern`/
+  `target`/`subject` roles — and literal payload positions
+  (`field-access.field`, `entry.key`) are never touched.
+- **Kept as residual `binds`**: active `eval_rec` binders (substituting a
+  rec name would embed a stale current-pass value and break fixpoint
+  convergence), `Resource`s (unserializable finalizers), and other arrows
+  (substituting an arrow would expand its `binds`/`body_def` transitively
+  at every mint — exponential on the helper-diamond graphs of real
+  modules). `binds` shares the `Rc`, so nested arrows are O(1) to mint.
+
+At apply time the engines install `binds` as the scope stack's
+`captured_root`, bind the params, and evaluate the `body_def` arena —
+memoized per definition value (`cached_def_arena`, keyed by `Rc` pointer).
+Bytecode resolves `body_def` nodes through a per-application definition
+arena slot; a lexical `floor` on the `ScopeStack` keeps a callee's
+`lookup`/`assign` from reaching below the call boundary. `handlers` are
+pushed onto the ambient handler stack for the body's duration.
+
+The arrow is therefore **self-contained serializable data**: a JSON
+round-trip preserves `params`/`body_def`/`binds`/`handlers` and the decoded
+value applies identically — `round_tripped_arrow_is_applicable_without_its_frame`
+(`crates/handl-runtime/tests/arrow_serializability.rs`) exercises exactly
+this. `Eq`/`Hash` compare the full data payload (`params`, `body_def`,
+`binds`, `handlers`, `rest`, `array_pattern`): an arrow's identity is its
+data. `eval_rec`'s convergence check (`rec_value_eq`) compares only
+`params` + `body_def`, since `binds` legitimately differ between fixpoint
+passes.
+
+Two honest edges remain:
+
+- A `Resource` in `binds` still serializes as a finalizer-less pointer
+  (`{"__resource__": {"ptr": …}}`) — the same lossy round-trip as before,
+  but now as _explicit_ data rather than hidden state (TODO item 4's leak
+  is narrowed to a visible, documented shape).
+- The engines still run scope stacks internally as evaluation machinery;
+  they no longer back arrow _values_ (TODO item 3's value-level goal is
+  met; deleting the stacks themselves is orthogonal).
+
+**Capture reduction — landed.** The `closure` mint now filters the
+definition-site bindings to the body's free-variable candidates
+(`subtree_name_candidates`, a syntax-directed pass that finds every name a
+subtree can reference — including names read through scheme ops like
+`proj_env`/`lookup`, not just `var` nodes). `None` (unresolvable subtree)
+keeps the full binding set: over-collection is safe, under-collection is
+not. The regression oracle is
+`import_module_with_many_closures_does_not_explode`
+(`crates/kit-canonical/tests/import_export.rs`), which a module of ~30
+sibling closures could not survive unfiltered.
+
+**The pre-existing `fanout` bug behind an earlier attempt.** While checking
+a prior capture-reduction attempt,
 `handl-kit-canonical`'s `fp_integration::fanout_eager_pair_from_source` was
 found to **stack-overflow** (`fanout_eager_pair_from_source`, and the same
 class of abort in `fanout_with_expressions` — the whole `&&&` fanout path
@@ -832,19 +881,6 @@ none of this work applied. So the overflow is a real, unfixed bug in the
 `fanout` evaluation path, and it also means the `handl-kit-canonical` suite is
 **already red on main** (the abort kills the test binary), which made it a poor
 oracle for judging the capture reduction.
-
-The reduction itself is therefore **unproven, not disproven**: the risk is that
-engine-generated or desugared bodies read bindings through scheme ops
-(`proj_env`, `lookup`, `extend_env`) that leave no `var` node for a kind-based
-test to find. Landing it safely requires binding-reads derived from the **eval
-schemes** (or an explicit free-variable pass over the lowered body) plus a green
-`fanout` path to serve as an oracle. Current behaviour is pinned by
-`arrow_capture_is_currently_unconditional` in
-`crates/handl-runtime/tests/arrow_serializability.rs`, so the unconditional
-capture cannot change silently.
-
-TODOs: (1) fix the `fanout` stack overflow; (2) implement the scheme-derived
-binding-read analysis and drop `env` for arrows that provably read nothing.
 
 **Fanout diagnosis recorded (follow-up).** A focused investigation of the
 overflow (branch `doc/adr0106-fanout-diagnosis`-sibling work, since dropped)
