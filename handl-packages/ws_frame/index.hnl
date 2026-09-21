@@ -60,7 +60,7 @@ export OpPong := 10
 
 --- frame_in -- the `Frame` an `Encode` input describes (`mask_key` is
 --- encode-only; it does not survive a decode round-trip).
-export frame_in := (r) ~> { fin: r.fin, op: r.op, payload: r.payload }
+export frame_in := (r) ~> ({ fin: r.fin, op: r.op, payload: r.payload })
 
 --- frame_of -- project the frame out of a `Some` decode result.
 export frame_of := (o) ~> o.value.frame
@@ -105,4 +105,4 @@ export complete := (encode: Encode, decode: Decode) ~> (encode >>> decode >>> re
 
 --- need_more on every strict prefix: no proper truncation of an encoded
 --- frame decodes to a frame -- incremental decoding is honest.
-export prefix := (encode: Encode, decode: Decode) ~> (encode >>> prefixes >>> (bs) ~> all_need_more(decode, bs)) ~[2]~> (x) ~> true
+export prefix := (encode: Encode, decode: Decode) ~> (encode >>> prefixes >>> ((bs) ~> all_need_more(decode, bs))) ~[2]~> (x) ~> true

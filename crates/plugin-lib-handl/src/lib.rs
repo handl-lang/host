@@ -331,9 +331,13 @@ mod bootstrap {
         src.lines()
             .filter(|line| is_top_import_line(line))
             .map(|line| {
-                from_export_to_import(line)
+                let line = from_export_to_import(line)
                     .map(|(import_line, _)| import_line)
-                    .unwrap_or_else(|| line.to_string())
+                    .unwrap_or_else(|| line.to_string());
+                // Inside a `do {}` block, `import <names>` trailing-tokens
+                // parsing does not stop at the newline — terminate each
+                // import with `;` so the following statement can't merge in.
+                format!("{};", line)
             })
             .collect()
     }
@@ -548,8 +552,12 @@ mod bootstrap {
                 record.push_str(", ");
             }
             first = false;
+            // Always quote record keys: an export name may be a keyword
+            // (`first`, `export`) that lexes as `token.keyword.*`, not an
+            // identifier — `is_valid_ident` is only a shape check.
+            record.push('"');
             record.push_str(name);
-            record.push_str(": ");
+            record.push_str("\": ");
             record.push_str(expr_lines.join("\n").trim());
         }
         record.push_str(" }");
@@ -1977,7 +1985,7 @@ impl HandlLoader {
     }
 
     /// Invoke a loader transform function on `src`.
-    fn call(&self, func: &str, src: &str) -> Result<serde_json::Value, EvalError> {
+    pub fn call(&self, func: &str, src: &str) -> Result<serde_json::Value, EvalError> {
         let f = self
             .module
             .function(func)
@@ -2008,8 +2016,13 @@ pub fn loader() -> Option<&'static HandlLoader> {
 /// Call a transform on the installed loader; `None` when no loader is
 /// installed or the call fails (callers fall back to `bootstrap`).
 fn loader_call(func: &str, src: &str) -> Option<serde_json::Value> {
-    let result = loader()?.call(func, src).ok();
-    result
+    match loader()?.call(func, src) {
+        Ok(v) => Some(v),
+        Err(e) => {
+            eprintln!("loader_call {func} failed: {e}");
+            None
+        }
+    }
 }
 
 /// The record field names exposed by `str-handl.hnl`.

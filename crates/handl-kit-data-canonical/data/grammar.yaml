@@ -83,6 +83,12 @@
   child_shape:
     node_kind: type-annot
     arity: 2
+    # Lift the subject's name into `payload.name` — `eval.type-annot`
+    # binds via `extend_env $payload`, which requires it. Not `required`:
+    # a non-name subject (e.g. `(f x): T`) simply yields no name.
+    payload_extract:
+      - child: 0
+        field: name
 - id: grammar.field-access.postfix
   token: token.dot
   position: Infix

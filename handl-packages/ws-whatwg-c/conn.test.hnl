@@ -36,9 +36,9 @@ pair := () ~> do {
 }
 
 --- mkconn -- a plain (non-TLS, client-side) test Conn over `fd`.
-mkconn := (fd) ~> {
+mkconn := (fd) ~> ({
   fd: fd, rbuf: bytes.from_list([]), ssl: null, ssl_ctx: null,
-  server: false }
+  server: false })
 
 test_random_bytes := assert(do {
   b :: conn.random_bytes(16)

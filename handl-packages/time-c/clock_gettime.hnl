@@ -33,6 +33,6 @@ read_impl = (clock_id) ~> do {
   }
 }
 
-Clock = () ~> { read: read_impl }
+Clock = () ~> ({ read: read_impl })
 
-export read_ns := handle arr read with Clock
+export read_ns := handle arr read with Clock()

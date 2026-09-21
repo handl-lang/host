@@ -54,7 +54,7 @@ export id := (x) ~> x
 --- input pair. Named so the roundtrip law has an honest right side:
 --- `pack >>> unpack` maps (port, ip) to a *record*, not back to the
 --- input tuple, so `id` is not the correct codomain arrow here.
-export sockaddr_record := (port, ip) ~> { port: port, ip: ip }
+export sockaddr_record := (port, ip) ~> ({ port: port, ip: ip })
 
 --- unpack is a left inverse of pack: decoding what a conforming packer
 --- produced returns the input address as a record. Quantified over the

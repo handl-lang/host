@@ -782,7 +782,21 @@ fn lower_block(
             // value, not null.
             Some(term) if i + 1 == count => last = Some(term),
             Some(_) => {}
-            None => last = Some(lower_node(ast, lang, idx, &env, params)?),
+            // Non-binding statements carry effects the pure term cannot
+            // sequence — `stmt.import` runs its `env_define`s only when
+            // the `import` op evaluates, `assert(...)` raises only when
+            // it runs. Lowering-then-discarding them would silently skip
+            // the effect (`import m; 1` used to evaluate to `1` without
+            // loading anything). Decline so the runtime falls back to the
+            // AST eval engine, which evaluates them in order.
+            None if i + 1 == count => last = Some(lower_node(ast, lang, idx, &env, params)?),
+            None => {
+                return Err(format!(
+                    "block statement {} is not a binding; its effects cannot be \
+                     sequenced in the pure arrow calculus (falling back to AST eval)",
+                    idx
+                ));
+            }
         }
     }
 
@@ -814,7 +828,11 @@ fn lower_rec(
     let mut local = HashSet::new();
     for &idx in init {
         if bind_stmt(ast, lang, idx, &mut env, &mut local, params)?.is_none() {
-            lower_node(ast, lang, idx, &env, params)?;
+            return Err(format!(
+                "rec statement {} is not a binding; its effects cannot be \
+                 sequenced in the pure arrow calculus (falling back to AST eval)",
+                idx
+            ));
         }
     }
     lower_node(ast, lang, *last, &env, params)

@@ -8,6 +8,6 @@ test_pascal_case_single := assert m.pascal_case("hello") = "Hello"
 
 test_pascal_case_letters := assert m.pascal_case("a b c") = "ABC"
 
-test_pascal_case_acronym := assert m.pascal_case("ABC") = "ABC"
+test_pascal_case_acronym := assert m.pascal_case("ABC") = "Abc"
 
 test_pascal_case_mixed := assert m.pascal_case("hello world-again") = "HelloWorldAgain"

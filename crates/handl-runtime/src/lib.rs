@@ -1624,27 +1624,24 @@ impl ModuleLoader {
         // become an object literal so multi-export modules evaluate to a
         // record and type-only exports like `export Clock<T>: Grade` are
         // safe to run.
-        let src = module_prep::prepare_module(&src, &|spec: &str| {
-            self.spec_resolves_to_file(spec, resolved)
-        });
-        // The parser yields one top-level statement per parse, so a bare
-        // multi-statement body (`private := …; { exports }`) evaluates
-        // only its first declaration and the import binds a single-field
-        // record. Wrap the body in `do { … }` — the same trick `hnl run`
-        // applies — so every statement evaluates in one scope and the
-        // export record is the block's value. (`prepare_module` already
-        // emits `do { … }` itself when the module has executable imports;
-        // the guard avoids double-wrapping.)
-        let trimmed = src.trim_start();
-        let wrapped = if trimmed.starts_with("do") {
-            src
-        } else {
-            format!("do {{\n{}\n}}", src)
-        };
-        if std::env::var("HNL_DEBUG_PREP").is_ok() {
-            eprintln!("[prep] ==== {} ====\n{}\n====", display_path, wrapped);
-        }
-        let source = Source::new(&wrapped);
+        // `is_bindable` — a name can be a `:=` binding target iff it lexes
+        // as a lone `token.identifier`; keyword names (`first`, `export`,
+        // …) lex as `token.keyword.*` and can only appear as quoted record
+        // keys. Resolved data-driven through this module's own language.
+        let src = module_prep::prepare_module(
+            &src,
+            &|spec: &str| self.spec_resolves_to_file(spec, resolved),
+            &|name: &str| {
+                self.lex_engine
+                    .lex(&self.lang, &LexerRequest::new(Source::new(name)))
+                    .map(|toks| {
+                        toks.as_slice().len() == 1
+                            && toks.as_slice()[0].kind == "token.identifier"
+                    })
+                    .unwrap_or(false)
+            },
+        );
+        let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
             self.lex_engine.lex(&self.lang, &req).map_err(|e| {
@@ -1742,38 +1739,66 @@ impl ModuleLoader {
     /// [`ModuleLoader::resolve_path`].
     fn strip_module_decl_lines(&self, src: &str, resolved: &str) -> String {
         src.lines()
-            .filter(|line| {
+            .flat_map(|line| {
                 let trimmed = line.trim_start();
                 if let Some(rest) = trimmed.strip_prefix("import") {
                     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
                         let inner = rest.trim_start();
                         if inner.starts_with('"') || inner.starts_with('\'') {
                             // `import "<spec>"` — keep: the executable op.
-                            return true;
+                            return vec![line.to_string()];
                         }
-                        // `import <name> ...` — a declaration the canonical
-                        // grammar cannot execute; always decorative here.
-                        return false;
+                        // `import <name> ...` — a host-module declaration;
+                        // lower to `name := "name"` string bindings so the
+                        // bare name dispatches through the module chain.
+                        return self.host_import_lines(trimmed);
                     }
-                    return true;
+                    return vec![line.to_string()];
                 }
                 if let Some(rest) = trimmed.strip_prefix("from") {
                     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
                         // `from "<spec>" import ...` — keep iff <spec>
                         // resolves to a file (the executable import op);
-                        // strip when it names a host module.
+                        // otherwise lower the named imports to
+                        // `name := "spec.name"` string bindings that
+                        // dispatch through the host module chain.
                         return match first_quoted_spec(rest) {
-                            Some(spec) => self.spec_resolves_to_file(spec, resolved),
+                            Some(spec) if self.spec_resolves_to_file(spec, resolved) => {
+                                vec![line.to_string()]
+                            }
+                            Some(_) => self.host_import_lines(trimmed),
                             // Unparseable declaration — keep it so the
                             // parser reports the error.
-                            None => true,
+                            None => vec![line.to_string()],
                         };
                     }
                 }
-                true
+                vec![line.to_string()]
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    /// Lower a host-module import declaration to `local := "spec.name"`
+    /// binding lines (see [`module_prep::host_import_bindings`]). Names
+    /// that can't be `:=` targets (keywords like `first`) are skipped.
+    fn host_import_lines(&self, line: &str) -> Vec<String> {
+        module_prep::host_import_bindings(line)
+            .into_iter()
+            .filter(|(local, _, _)| self.is_bindable_name(local))
+            .map(|(local, expr, _)| format!("{local} := {expr}"))
+            .collect()
+    }
+
+    /// Whether `name` can be a `:=` binding target — i.e. lexes as a lone
+    /// `token.identifier` (keywords like `first` cannot).
+    fn is_bindable_name(&self, name: &str) -> bool {
+        self.lex_engine
+            .lex(&self.lang, &LexerRequest::new(Source::new(name)))
+            .map(|toks| {
+                toks.as_slice().len() == 1 && toks.as_slice()[0].kind == "token.identifier"
+            })
+            .unwrap_or(false)
     }
 
     /// Whether `spec` resolves to an existing file, using the same bases as

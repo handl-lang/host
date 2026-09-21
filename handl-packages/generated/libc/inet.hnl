@@ -682,8 +682,14 @@ export InetNetwork: (String) ~[1]~> Result<InAddr, Errno>
 --- Convert from presentation format of an Internet number in buffer
 --- starting at CP to the binary network format and store result for
 --- interface type AF in buffer starting at BUF.
+export InetPtonResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes]
+}
+
 --- ffi: int (int, const char *restrict, void *restrict)
-export InetPton: (Int, String) ~[1]~> Result<Bytes, Errno>
+export InetPton: (Int, String) ~[1]~> Result<InetPtonResult, Errno>
 
 --- Convert a Internet address in binary network format for interface
 --- type AF in buffer starting at CP to presentation form and place

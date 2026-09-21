@@ -637,8 +637,8 @@ fn as_number(v: &Value) -> f64 {
 }
 
 // ---------------------------------------------------------------------------
-// 9. Arrow capture today: every arrow mints with the enclosing scope captured
-//    (ADR-0106 §6 — a known, pinned limitation).
+// 9. Arrow capture: filtered to names the body subtree can reference
+//    (ADR-0106 §6 — the reduction this section anticipated has landed).
 // ---------------------------------------------------------------------------
 //
 // A reduction was attempted and **reverted as unsound**: skipping the capture
@@ -646,31 +646,36 @@ fn as_number(v: &Value) -> f64 {
 // `fp_integration::fanout_eager_pair_from_source` with a stack overflow, because
 // engine-generated / desugared bodies read bindings through scheme ops
 // (`proj_env`, `lookup`, `extend_env`) that have no `var` node to detect — so
-// "no `var` ⇒ reads nothing" is false. Doing this safely needs
-// binding-reads derived from the eval schemes (or an explicit
-// free-variable pass), not from node kinds.
+// "no `var` ⇒ reads nothing" is false.
 //
-// These tests pin the *current* behaviour so the reduction cannot land
-// silently and cannot regress the soundness evidence when it does.
+// The sound version that landed: `handl_language::subtree_name_candidates`
+// collects **every string** in the body subtree — not `var` nodes — which is a
+// conservative superset of the subtree's free names: every env read
+// (`proj_env`/`extend_env` `lit: $payload` schemes, assign targets, pattern
+// binders) spells the name as a literal string in the subtree, so the filter
+// can over-capture but never under-capture. Unreferenced bindings are no
+// longer captured — closing the exponential env-expansion blowup where each
+// closure captured all previously-defined siblings.
+//
+// These tests pin the *filtered* behaviour so a regression back to
+// unconditional capture (or an over-aggressive filter) fails loudly.
 
-/// Every arrow mints with the enclosing scope captured, whether or not its
-/// body reads a binding. This is the state ADR-0106 §6 objects to; the tests
-/// above/below show it is still correct, just not yet minimal.
+/// An arrow captures only the bindings its body subtree references.
 #[test]
-fn arrow_capture_is_currently_unconditional() {
+fn arrow_capture_is_filtered_to_referenced_names() {
     let rt = canonical_runtime();
     let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
 
-    // Body `1` reads nothing, yet the enclosing binding is captured today.
+    // Body `1` reads nothing — `y` is no longer captured.
     let no_refs = eval_in(&rt, "do { y :: 5; x ~> 1 }", &empty);
     assert_eq!(no_refs["__arrow__"], json!(true), "an arrow is returned");
     assert_eq!(
         no_refs["env"],
-        json!({ "y": 5 }),
-        "pin: the capture is currently unconditional (ADR-0106 §6 TODO): {no_refs}",
+        json!({}),
+        "pin: unreferenced bindings are not captured: {no_refs}",
     );
 
-    // A body that *does* read the binding also captures it — and works.
+    // A body that *does* read the binding still captures it — and works.
     let with_ref = eval_in(&rt, "do { y :: 5; x ~> y }", &empty);
     assert!(
         with_ref["env"].as_object().expect("env").contains_key("y"),

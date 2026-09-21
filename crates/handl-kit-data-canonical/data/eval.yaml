@@ -43,22 +43,36 @@
         source: Native
         lit: 1
     source: Native
+# `&&` short-circuits: the LHS is tagged into an Either and `Choice`
+# dispatches — falsy LHS yields `false` without evaluating the RHS;
+# truthy LHS evaluates the RHS and coerces through `truthy` so the
+# result stays a strict `Bool` (matching the old eager `and` op).
 - id: eval.binary.and
   node_kind: binary.and
-  scheme: !Op
-    name: and
-    args:
-      - !Op
+  scheme: !Seq
+    fst: !Seq
+      fst: !Op
         name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Op
-        name: proj_child
+      snd: !Op
+        name: tag
         args: []
         source: Native
-        lit: 1
-    source: Native
+    snd: !Choice
+      l: !Seq
+        fst: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 1
+        snd: !Op
+          name: truthy
+          args: []
+          source: Native
+      r: !Arr
+        value: false
 - id: eval.bind
   node_kind: bind
   scheme: !Op
@@ -225,22 +239,34 @@
         source: Native
         lit: 1
     source: Native
+# `||` short-circuits: truthy LHS yields `true` without evaluating the
+# RHS; falsy LHS evaluates the RHS and coerces through `truthy`.
 - id: eval.binary.or
   node_kind: binary.or
-  scheme: !Op
-    name: or
-    args:
-      - !Op
+  scheme: !Seq
+    fst: !Seq
+      fst: !Op
         name: proj_child
         args: []
         source: Native
         lit: 0
-      - !Op
-        name: proj_child
+      snd: !Op
+        name: tag
         args: []
         source: Native
-        lit: 1
-    source: Native
+    snd: !Choice
+      l: !Arr
+        value: true
+      r: !Seq
+        fst: !Op
+          name: proj_child
+          args: []
+          source: Native
+          lit: 1
+        snd: !Op
+          name: truthy
+          args: []
+          source: Native
 - id: eval.binary.pow
   node_kind: binary.pow
   scheme: !Op

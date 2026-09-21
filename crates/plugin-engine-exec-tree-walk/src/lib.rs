@@ -1334,7 +1334,9 @@ impl TreeWalkEngine {
                 ) {
                     Ok(handler_val) => {
                         let _ = target; // retained for diagnostics
-                        self.handler_stack.borrow_mut().push(handler_val);
+                        self.handler_stack
+                            .borrow_mut()
+                            .push(handler_val.clone());
                         let result = self.eval_inner_td(
                             &body,
                             ast,
@@ -1345,7 +1347,15 @@ impl TreeWalkEngine {
                             incoming,
                         );
                         self.handler_stack.borrow_mut().pop();
-                        result
+                        // Deep handler: when the body produces an
+                        // applicable value (an `arr <op>` dispatch object
+                        // or a closure), the handler travels with it and
+                        // is reinstalled on every application —
+                        // `handle arr read with Clock` binds a reusable
+                        // handled arrow, not a one-shot dispatch.
+                        result.map(|(val, pushed)| {
+                            (attach_carried_handler(val, &handler_val), pushed)
+                        })
                     }
                     Err(_) => {
                         let eliminated = {
@@ -2616,6 +2626,14 @@ impl TreeWalkEngine {
             // the right callee, destructuring a categorical `Pair` (`***`)
             // into multiple positional args. Mirrors the bytecode/cranelift
             // `flow` arms and the `call` dispatch path.
+            //
+            // When BOTH operands are arrow values (`TaggedValue::Arrow`
+            // closures or `{"__tag__": "Arrow"}` composite/descriptor
+            // records), `f >>> g` is sequential 1-cell composition, not
+            // application — it yields the `Arrow{first, second}` composite
+            // (`handl_value::compose1`, the `∘₀` step of `cell_comp_axis`).
+            // This is what `~[2]~>` law sources need: `(pack >>> unpack)`
+            // must evaluate to the composite arrow, not `unpack(pack)`.
             "flow" => {
                 if args.len() != 2 {
                     return Err(LangError::engine_node(
@@ -2625,6 +2643,11 @@ impl TreeWalkEngine {
                 }
                 let input = &args[0];
                 let callee = &args[1];
+                if is_arrow_like(input) && is_arrow_like(callee) {
+                    let composed = handl_value::cell_comp_axis(0, 1, input, callee)
+                        .map_err(|e| LangError::engine_node(e, current_node))?;
+                    return Ok((composed, false));
+                }
                 let actual_args: Vec<TaggedValue> = if matches!(input, TaggedValue::Pair(_)) {
                     flatten_pair(input)
                 } else {
@@ -2728,9 +2751,29 @@ impl TreeWalkEngine {
                     current_node,
                 )
             })?;
+            // Deep-handler carry (ADR-0076): `handle arr <op> with <h>`
+            // attaches `<h>` under `handlers` — reinstall it for this
+            // dispatch so the op resolves through its captured handler.
+            let carried: Vec<TaggedValue> = match inner.get("handlers") {
+                Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
+                _ => Vec::new(),
+            };
+            {
+                let mut stack = self.handler_stack.borrow_mut();
+                for h in &carried {
+                    stack.push(h.clone());
+                }
+            }
             let incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let (val, pushed) =
-                self.arr_dispatch(op, &incoming, ast, node_ref, lang, env, current_node)?;
+            let dispatch_result =
+                self.arr_dispatch(op, &incoming, ast, node_ref, lang, env, current_node);
+            {
+                let mut stack = self.handler_stack.borrow_mut();
+                for _ in 0..carried.len() {
+                    stack.pop();
+                }
+            }
+            let (val, pushed) = dispatch_result?;
             if pushed {
                 env.pop_scope();
             }
@@ -2742,6 +2785,36 @@ impl TreeWalkEngine {
         // `Type.rec(m, c0..)(params.., v)` feeds the dispatch the flat
         // tuple `[motive, c0.., params.., v]` — products, not currying.
         if let TaggedValue::Obj(map) = callee {
+            // `Arrow{first, second}` composite record (`>>>` composition,
+            // `handl_value::compose1`): applying it runs `first` on the
+            // args, then `second` on the result — `x ~> second(first(x))`.
+            // A `second` that is a bare string is a host-function name and
+            // dispatches through `call_host_fn`.
+            if map.get("__tag__").and_then(|t| t.as_str()) == Some("Arrow") {
+                if let (Some(first), Some(second)) = (map.get("first"), map.get("second")) {
+                    let mid = self.apply_app(
+                        first,
+                        args,
+                        ast,
+                        lang,
+                        env,
+                        node_ref,
+                        current_node,
+                    )?;
+                    if let Some(name) = second.as_str() {
+                        return self.call_host_fn(name, &[mid], current_node);
+                    }
+                    return self.apply_app(
+                        second,
+                        &[mid],
+                        ast,
+                        lang,
+                        env,
+                        node_ref,
+                        current_node,
+                    );
+                }
+            }
             if let Some(term_val) = map.get("__term__") {
                 let mut elems: Vec<TaggedValue> = Vec::new();
                 if let Some(bound) = map.get("__bound__") {
@@ -3019,6 +3092,15 @@ impl TreeWalkEngine {
         lang: &Language,
         globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
     ) -> Result<TaggedValue, LangError> {
+        // Deep-handler carry (ADR-0076): `handle <arrow> with <h>` binds a
+        // reusable handled arrow — the handler lives in the arrow's env
+        // under `__handlers__` and is reinstalled for each application,
+        // so `arr <op>` dispatches inside the body still find it.
+        let carried_handlers: Vec<TaggedValue> =
+            match captured_env.get("__handlers__") {
+                Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
+                _ => Vec::new(),
+            };
         let body_ref = AstRef::new(body_idx);
         let mut arrow_env = ScopeStack::new();
         arrow_env.captured = Some(captured_env);
@@ -3036,7 +3118,20 @@ impl TreeWalkEngine {
                 TaggedValue::Arr(Rc::from(rest_args.to_vec())),
             );
         }
-        self.eval_node_inner(ast, body_ref, lang, &mut arrow_env)
+        {
+            let mut stack = self.handler_stack.borrow_mut();
+            for h in &carried_handlers {
+                stack.push(h.clone());
+            }
+        }
+        let result = self.eval_node_inner(ast, body_ref, lang, &mut arrow_env);
+        {
+            let mut stack = self.handler_stack.borrow_mut();
+            for _ in 0..carried_handlers.len() {
+                stack.pop();
+            }
+        }
+        result
     }
 
     /// Evaluate a single node by looking up its eval scheme and
@@ -4300,6 +4395,21 @@ impl NativeOpCtx for TwCtx<'_, '_> {
     }
 }
 
+/// Whether `v` is an arrow-level value — a `TaggedValue::Arrow` closure
+/// or an `{"__tag__": "Arrow"}` descriptor/composite record (`first`/
+/// `second` from `compose1`, or `inputs`/`output` from `~[n]~>`). Used by
+/// the `flow` op to pick `∘₀` composition over pipeline application.
+fn is_arrow_like(v: &TaggedValue) -> bool {
+    match v {
+        TaggedValue::Arrow { .. } => true,
+        TaggedValue::Obj(m) => {
+            m.get("__tag__").and_then(|t| t.as_str()) == Some("Arrow")
+                && (m.get("first").is_some() || m.get("inputs").is_some())
+        }
+        _ => false,
+    }
+}
+
 /// Construct a pair value `(a, b)`.
 fn pair(a: TaggedValue, b: TaggedValue) -> TaggedValue {
     handl_value::pair(a, b)
@@ -4347,6 +4457,69 @@ fn handler_impl(v: &TaggedValue, op: &str) -> Option<Value> {
         .and_then(|impls| impls.get(op))
         .or_else(|| v.get(op))
         .map(tagged_to_value)
+}
+
+/// Deep-handler attachment (ADR-0076): record `handler` on an applicable
+/// value produced under `handle … with handler`, so each later
+/// application reinstalls it (see the `__handlers__` /
+/// `__arr__.handlers` reads in `apply_arrow_body` / `apply_app`).
+///
+/// - `arr <op>` dispatch objects (`{__arr__: {op}}`) carry
+///   `__arr__.handlers`.
+/// - Closures (`TaggedValue::Arrow`) carry `__handlers__` in their env.
+/// - Anything else passes through unchanged — a non-applicable `handle`
+///   result keeps pure dynamic-extent semantics.
+fn attach_carried_handler(val: TaggedValue, handler: &TaggedValue) -> TaggedValue {
+    match val {
+        TaggedValue::Obj(map) if map.get(ARR_DISPATCH_TAG).is_some() => {
+            let mut map = (*map).clone();
+            let mut inner: FxHashMap<Rc<str>, TaggedValue> = map
+                .get(ARR_DISPATCH_TAG)
+                .and_then(|v| v.as_object().cloned())
+                .unwrap_or_default();
+            let mut handlers: Vec<TaggedValue> = match inner.get("handlers") {
+                Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
+                _ => Vec::new(),
+            };
+            handlers.push(handler.clone());
+            inner.insert(
+                Rc::from("handlers"),
+                TaggedValue::Arr(Rc::from(handlers)),
+            );
+            map.insert(Rc::from(ARR_DISPATCH_TAG), TaggedValue::Obj(Rc::new(inner)));
+            TaggedValue::Obj(Rc::new(map))
+        }
+        TaggedValue::Arrow {
+            params,
+            rest,
+            body,
+            env,
+            home,
+            array_pattern,
+            body_def,
+        } => {
+            let mut env_map = (*env).clone();
+            let mut handlers: Vec<TaggedValue> = match env_map.get("__handlers__") {
+                Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
+                _ => Vec::new(),
+            };
+            handlers.push(handler.clone());
+            env_map.insert(
+                Rc::from("__handlers__"),
+                TaggedValue::Arr(Rc::from(handlers)),
+            );
+            TaggedValue::Arrow {
+                params,
+                rest,
+                body,
+                env: Rc::new(env_map),
+                home,
+                array_pattern,
+                body_def,
+            }
+        }
+        other => other,
+    }
 }
 
 /// Construct a `left` Either value.

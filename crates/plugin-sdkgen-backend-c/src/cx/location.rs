@@ -18,22 +18,11 @@ fn expansion_location(cursor: CXCursor) -> CXSourceLocation {
         let mut file: CXFile = std::ptr::null_mut();
         let mut line = 0;
         let mut column = 0;
-        clang_getExpansionLocation(
-            loc,
-            &mut file,
-            &mut line,
-            &mut column,
-            std::ptr::null_mut(),
-        );
+        clang_getExpansionLocation(loc, &mut file, &mut line, &mut column, std::ptr::null_mut());
         if file.is_null() {
             return loc;
         }
-        clang_getLocation(
-            clang_Cursor_getTranslationUnit(cursor),
-            file,
-            line,
-            column,
-        )
+        clang_getLocation(clang_Cursor_getTranslationUnit(cursor), file, line, column)
     }
 }
 

@@ -317,11 +317,18 @@ fn import_preamble(src: &str, module: &Path) -> String {
             continue;
         }
         // `import <name> ...` is a module-name declaration (never
-        // executable); only the quoted `import "<spec>"` form is kept.
+        // executable); bind `name := "name"` so the bare name dispatches
+        // through the module chain. Only the quoted `import "<spec>"`
+        // form is a file import.
         if let Some(rest) = trimmed.strip_prefix("import") {
             if rest.starts_with(' ') || rest.starts_with('\t') {
                 let inner = rest.trim_start();
                 if !inner.starts_with('"') && !inner.starts_with('\'') {
+                    for (local, expr, _) in
+                        handl_runtime::module_prep::host_import_bindings(trimmed)
+                    {
+                        preamble.push_str(&format!("{local} := {expr};\n"));
+                    }
                     continue;
                 }
             }
@@ -350,8 +357,22 @@ fn import_preamble(src: &str, module: &Path) -> String {
             } else {
                 rewritten
             };
+            // Inside the `do {}` eval block, `import <names>` trailing-
+            // tokens parsing does not stop at the newline — terminate
+            // each preamble statement with `;`.
             preamble.push_str(&rewritten);
-            preamble.push('\n');
+            preamble.push_str(";\n");
+        } else {
+            // Module-name import — the kit's module chain supplies the
+            // names (ADR-0096). Lower each imported name to a
+            // `local := "spec.name"` string binding so bare names
+            // dispatch through `call_host` exactly like the ambient
+            // dotted form `spec.name(...)`.
+            for (local, expr, _) in
+                handl_runtime::module_prep::host_import_bindings(trimmed)
+            {
+                preamble.push_str(&format!("{local} := {expr};\n"));
+            }
         }
     }
     preamble
@@ -620,8 +641,42 @@ fn discover_tests_in_module(
     module: &Path,
 ) -> Result<Vec<TestCase>, String> {
     let chunks = split_statements(src);
-    let preamble = import_preamble(src, module);
+    let mut preamble = import_preamble(src, module);
     let mut tests = Vec::new();
+
+    // Classification pass: chunks that are not test declarations are
+    // top-level helper bindings (`pair := ...`) — splice them into the
+    // eval preamble (after the imports, in source order) so test bodies
+    // can call them, mirroring `hnl run`'s whole-file scope.
+    for chunk in &chunks {
+        let ast = parse_chunk(lang, &chunk.text)?;
+        if ast.is_empty() {
+            continue;
+        }
+        let root_idx = ast.len() - 1;
+        let root = match ast.at(AstRef::new(root_idx)) {
+            Ok(n) => n,
+            Err(_) => continue,
+        };
+        let mut is_test = test_decl_roles(lang, &root.kind).is_some()
+            || root.kind.contains("test");
+        if !is_test {
+            let (target_idx, _value_idx) = binding_roles(lang, &root.kind);
+            if let Some(ti) = target_idx {
+                if let Some(&target_raw) = children_of(root).get(ti) {
+                    if let Ok(target_node) = ast.at(AstRef::new(target_raw)) {
+                        if let Some(name) = var_name(lang, &ast, target_node) {
+                            is_test = name.starts_with("test_");
+                        }
+                    }
+                }
+            }
+        }
+        if !is_test {
+            preamble.push_str(&chunk.text);
+            preamble.push_str(";\n");
+        }
+    }
 
     for chunk in &chunks {
         let ast = parse_chunk(lang, &chunk.text)?;
@@ -1371,10 +1426,16 @@ pub(crate) fn run_selected_impl(
         }
 
         states.push(TestState::Run);
+        // `rt.run` parses a single expression (the Pratt parser consumes
+        // one statement per call), so a multi-statement `preamble + body`
+        // source would silently evaluate only the import preamble — the
+        // assertion would never run. Wrap in `do { ... }` so the whole
+        // sequence evaluates and the block's value is the body's result,
+        // mirroring `hnl run`'s treatment of multi-statement sources.
         let body = if case.preamble.is_empty() {
             case.body_source.clone()
         } else {
-            format!("{}\n{}", case.preamble, case.body_source)
+            format!("do {{\n{}\n{}\n}}", case.preamble, case.body_source)
         };
         jobs.push((i, Box::new(move || eval_test_body(&body))));
     }

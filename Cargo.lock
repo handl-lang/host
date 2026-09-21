@@ -823,6 +823,7 @@ dependencies = [
  "handl-plugin-ext-sdkgen",
  "handl-plugin-lib-scheduler",
  "handl-runtime",
+ "handl-value",
  "serde_json",
 ]
 
@@ -1003,6 +1004,7 @@ version = "0.1.0"
 dependencies = [
  "handl-language",
  "handl-plugin-engine-typecheck",
+ "handl-value",
  "plugin-engine",
  "rayon",
  "serde",
@@ -1621,6 +1623,7 @@ dependencies = [
  "handl-plugin-lib-char-native",
  "handl-plugin-module",
  "handl-runtime",
+ "handl-value",
  "plugin-engine",
  "serde_json",
 ]

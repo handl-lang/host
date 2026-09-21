@@ -702,12 +702,9 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         // `ffi`. Built with the stdlib resolver so `ffi`/`char`/`type`/
         // `tag` resolve through the kit chain.
         if want("intl_c") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "intl_c",
-                || stdlib::module_with("intl_c", Arc::new(StdlibResolver)).expect("intl_c"),
-            );
+            register_handl(&mut stdlib_registry, &mut handl_modules, "intl_c", || {
+                stdlib::module_with("intl_c", Arc::new(StdlibResolver)).expect("intl_c")
+            });
         }
         // `collections` — the aggregate module over the package-table
         // sub-modules (vec/list/queue/stack/deque/hash_map/hash_set/array),

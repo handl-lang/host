@@ -1,0 +1,39 @@
+//! Regression: a callee's `do`-block bindings must not leak into (or mutate)
+//! the caller's live scope. The bytecode VM shares one `ScopeStack` across
+//! `apply_app` calls; without a lexical floor, `t :: ...` inside a callee
+//! body could overwrite a same-named binding the caller had in scope (here,
+//! a match-pattern binding) — the caller then read the callee's value.
+
+use handl_platform::{EvalContext, Function, Module};
+use handl_plugin_lib_handl::HandlModule;
+
+const SRC: &str = r#"do {
+  inner := s ~> do {
+    t := s + "!"
+    { text: t }
+  }
+  f := xs ~> match xs {
+    []: "empty",
+    [h, ...t]: do {
+      q := inner(h)
+      t
+    }
+  }
+  { f: f }
+}"#;
+
+#[test]
+fn callee_bindings_do_not_leak_into_caller() {
+    for eng in ["tree-walk", "bytecode"] {
+        let m = HandlModule::new_raw("t", SRC, &["f"]).with_eval_engine(eng);
+        let r = m
+            .function("f")
+            .unwrap()
+            .call(
+                &[serde_json::json!(["a", "b"])],
+                &mut EvalContext::new(),
+            )
+            .unwrap();
+        assert_eq!(r, serde_json::json!(["b"]), "{eng}: caller's `t` was shadowed by the callee's");
+    }
+}

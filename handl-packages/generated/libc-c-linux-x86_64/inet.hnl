@@ -525,11 +525,11 @@ export inet_network: InetNetwork := (__cp) ~> do {
 }
 
 export inet_pton: InetPton := (__af, __cp) ~> do {
-  r = ffi.call("libc.so.6", "inet_pton", [__af, __cp], ["i32", "cstr", "out_buf:16"], "i32", false)
+  r = ffi.call("libc.so.6", "inet_pton", [__af, __cp], ["i32", "cstr", "out_ptr:16"], "i32", false)
   if r.ret < 0 {
     err(ffi.errno())
   } else {
-    ok(r.buf)
+    ok(r)
   }
 }
 

@@ -368,8 +368,7 @@ pub trait NativeOpCtx {
     /// Returns `Err` when the pattern is malformed or a literal pattern
     /// fails to evaluate. Engines that cannot pattern-match should
     /// return `Err` and report [`OpService::Pattern`] as unsupported.
-    fn try_pattern(&mut self, pattern: AstRef, scrutinee: &TaggedValue)
-    -> Result<bool, LangError>;
+    fn try_pattern(&mut self, pattern: AstRef, scrutinee: &TaggedValue) -> Result<bool, LangError>;
 
     /// The `kind` of the node at `r` — the `kind == "rest"`/`"entry"`
     /// role-less fallbacks (ADR-0081) in `array`/`object` read this.
@@ -892,23 +891,19 @@ pub fn apply_native_op(
                     .and_then(|v| v.as_str())
                     .map(String::from);
                 (p_names, rest_name, b as usize, false)
-            } else if let Some(children) =
-                payload.get("children").and_then(|c| c.as_array())
-            {
+            } else if let Some(children) = payload.get("children").and_then(|c| c.as_array()) {
                 let params_role = ctx.child_role_index("params").unwrap_or(0);
                 let body_role = ctx.child_role_index("body").unwrap_or(1);
                 let param_idx = children
                     .get(params_role)
                     .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::engine("closure: missing param child".to_string())
-                    })? as usize;
+                    .ok_or_else(|| LangError::engine("closure: missing param child".to_string()))?
+                    as usize;
                 let body_idx = children
                     .get(body_role)
                     .and_then(|v| v.as_u64())
-                    .ok_or_else(|| {
-                        LangError::engine("closure: missing body child".to_string())
-                    })? as usize;
+                    .ok_or_else(|| LangError::engine("closure: missing body child".to_string()))?
+                    as usize;
                 let (param_names, rest_name, array_pattern) =
                     ctx.closure_params_at(AstRef::new(param_idx))?;
                 (param_names, rest_name, body_idx, array_pattern)
@@ -918,6 +913,25 @@ pub fn apply_native_op(
                 ));
             };
             let captured = ctx.env_capture();
+            // Free-variable capture: keep only the bindings the body can
+            // actually reference. Unfiltered capture snapshots the entire
+            // scope stack into every closure, so a module with N sequential
+            // function declarations serializes to O(2^N) nodes at the
+            // module-boundary `tagged_to_value` conversion (each arrow's
+            // env nests all previously-minted sibling arrows). `None`
+            // (unresolvable subtree) keeps the full env — over-capture is
+            // always safe, under-capture is not.
+            let captured = match handl_language::subtree_name_candidates(
+                |r| ctx.node_payload_at(r),
+                AstRef::new(body),
+            ) {
+                Some(names) => {
+                    let mut filtered = (*captured).clone();
+                    filtered.retain(|k, _| names.contains(k));
+                    Rc::new(filtered)
+                }
+                None => captured,
+            };
             let body_def = ctx.closure_body_def(AstRef::new(body)).map(Rc::new);
             Ok((
                 TaggedValue::Arrow {
@@ -943,11 +957,7 @@ pub fn apply_native_op(
             if let Some(elements) = payload.get("elements") {
                 return Ok(Some((TaggedValue::from(elements.clone()), false)));
             }
-            let Some(children) = payload
-                .get("children")
-                .and_then(|c| c.as_array())
-                .cloned()
-            else {
+            let Some(children) = payload.get("children").and_then(|c| c.as_array()).cloned() else {
                 return Err(LangError::engine(
                     "array: missing elements/children in payload".to_string(),
                 ));
@@ -1011,11 +1021,7 @@ pub fn apply_native_op(
                 }
                 return Ok(Some((TaggedValue::Obj(Rc::new(obj)), false)));
             }
-            let Some(children) = payload
-                .get("children")
-                .and_then(|c| c.as_array())
-                .cloned()
-            else {
+            let Some(children) = payload.get("children").and_then(|c| c.as_array()).cloned() else {
                 return Err(LangError::engine(
                     "object: missing entries/children in payload".to_string(),
                 ));
@@ -1329,6 +1335,15 @@ pub fn apply_native_op(
         }
         // --- logic --------------------------------------------------------
         "not" => Ok((TaggedValue::Bool(!is_truthy(&args[0])), false)),
+        // Boolean coercion — used by the short-circuit `&&`/`||` schemes
+        // (`eval.binary.and`/`eval.binary.or`) to keep results strict
+        // `Bool`s while the `Choice` arm returns the RHS value.
+        "truthy" => Ok((
+            TaggedValue::Bool(is_truthy(
+                &incoming.or_else(|| args.first().cloned()).unwrap_or(TaggedValue::Null),
+            )),
+            false,
+        )),
         "and" => Ok((
             TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1])),
             false,
@@ -1976,21 +1991,19 @@ pub fn apply_native_op(
             let resolver = ctx.import_resolver().ok_or_else(|| {
                 LangError::engine("import: no import resolver configured".to_string())
             })?;
-            let bindings = resolver.resolve_import(&path).map_err(|e| {
-                LangError::engine(format!("import \"{}\": {}", path, e))
-            })?;
+            let bindings = resolver
+                .resolve_import(&path)
+                .map_err(|e| LangError::engine(format!("import \"{}\": {}", path, e)))?;
             if let Some(arr) = names_val.as_ref().and_then(|v| v.as_array()) {
                 for item in arr {
                     let (imported, local) = match item {
                         Value::String(s) => (s.as_str(), s.as_str()),
                         Value::Object(obj) => {
-                            let n =
-                                obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
-                                    LangError::engine(
-                                        "import: missing 'name' in braced import entry"
-                                            .to_string(),
-                                    )
-                                })?;
+                            let n = obj.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
+                                LangError::engine(
+                                    "import: missing 'name' in braced import entry".to_string(),
+                                )
+                            })?;
                             let a = obj.get("as").and_then(|v| v.as_str()).unwrap_or(n);
                             (n, a)
                         }
@@ -2553,7 +2566,15 @@ fn match_shell(op: &str, ctx: &mut dyn NativeOpCtx) -> OpResult {
     }
 
     if is_match {
-        Err(LangError::engine("match: no arm matched".to_string()))
+        let shown = format!("{scrut_val:?}");
+        let shown = if shown.len() > 160 {
+            format!("{}…", &shown[..160])
+        } else {
+            shown
+        };
+        Err(LangError::engine(format!(
+            "match: no arm matched (scrutinee: {shown})"
+        )))
     } else {
         // No clause matched — the handled value passes through as-is.
         Ok((scrut_val, false))

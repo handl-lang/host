@@ -120,6 +120,19 @@ pub(crate) enum CRet {
 // Marshalling: JSON -> C
 // ---------------------------------------------------------------------------
 
+/// Read a JSON value as an `i64`, accepting integral floats (`18080.0`).
+/// Handl ops like `char.code_point_at` produce `f64` numbers, so integer
+/// values frequently arrive at the FFI boundary in float form — the same
+/// tolerance `plugin-lib-char-native::require_int` applies.
+fn as_integral_i64(value: &JsonValue) -> Option<i64> {
+    value.as_i64().or_else(|| {
+        value
+            .as_f64()
+            .filter(|n| n.fract() == 0.0 && n.is_finite())
+            .map(|n| n as i64)
+    })
+}
+
 /// Marshal a single JSON argument to a [`CArg`] per its descriptor string.
 ///
 /// For `cstr` descriptors the produced [`CString`] is pushed into
@@ -132,16 +145,14 @@ pub(crate) fn marshal_arg(
 ) -> Result<CArg, EvalError> {
     match descriptor {
         "i32" => {
-            let n = value
-                .as_i64()
+            let n = as_integral_i64(value)
                 .ok_or_else(|| EvalError::TypeMismatch("expected number for i32".to_string()))?;
             let v = i32::try_from(n)
                 .map_err(|_| EvalError::TypeMismatch(format!("i32 overflow: {n}")))?;
             Ok(CArg::Int(v as i64))
         }
         "i64" => {
-            let n = value
-                .as_i64()
+            let n = as_integral_i64(value)
                 .ok_or_else(|| EvalError::TypeMismatch("expected number for i64".to_string()))?;
             Ok(CArg::Int(n))
         }
@@ -149,11 +160,9 @@ pub(crate) fn marshal_arg(
         // `uInt`): range-checked, widened to `i64` like every other integer
         // descriptor.
         "u8" | "u16" | "u32" | "u64" => {
-            let n = value
-                .as_i64()
-                .ok_or_else(|| EvalError::TypeMismatch(format!(
-                    "expected number for {descriptor}"
-                )))?;
+            let n = as_integral_i64(value).ok_or_else(|| {
+                EvalError::TypeMismatch(format!("expected number for {descriptor}"))
+            })?;
             let max = match descriptor {
                 "u8" => u8::MAX as i64,
                 "u16" => u16::MAX as i64,
@@ -184,8 +193,7 @@ pub(crate) fn marshal_arg(
             Ok(CArg::Int(ptr as i64))
         }
         "ptr" => {
-            let n = value
-                .as_i64()
+            let n = as_integral_i64(value)
                 .ok_or_else(|| EvalError::TypeMismatch("expected number for ptr".to_string()))?;
             Ok(CArg::Int(n))
         }
@@ -198,11 +206,11 @@ pub(crate) fn marshal_arg(
                 .as_object()
                 .and_then(|obj| obj.get("__resource__"))
                 .and_then(|r| r.get("ptr"))
-                .and_then(|v| v.as_i64())
+                .and_then(as_integral_i64)
             {
                 return Ok(CArg::Int(ptr_n));
             }
-            let n = value.as_i64().ok_or_else(|| {
+            let n = as_integral_i64(value).ok_or_else(|| {
                 EvalError::TypeMismatch("expected resource or number for handle".to_string())
             })?;
             Ok(CArg::Int(n))
@@ -312,7 +320,7 @@ pub(crate) fn json_to_bytes(value: &JsonValue) -> Result<Vec<u8>, EvalError> {
     };
     let mut out = Vec::with_capacity(arr.len());
     for el in arr {
-        let n = el.as_i64().ok_or_else(|| {
+        let n = as_integral_i64(el).ok_or_else(|| {
             EvalError::TypeMismatch("Bytes array must contain numbers".to_string())
         })?;
         let b = u8::try_from(n)
@@ -415,7 +423,7 @@ pub(crate) fn marshal_call_args(
         } else if let Some(ty) = desc.strip_prefix("io_scalar:") {
             // Value-result scalar: caller seeds the cell, C writes back.
             let size = scalar_size(ty)?;
-            let value = args.get(arg_idx).and_then(|v| v.as_i64()).ok_or_else(|| {
+            let value = args.get(arg_idx).and_then(as_integral_i64).ok_or_else(|| {
                 EvalError::TypeMismatch(format!("missing int argument for {desc}"))
             })?;
             arg_idx += 1;
@@ -844,7 +852,7 @@ fn fill_fields(
                 aux_idx.push(None);
                 let value = obj
                     .and_then(|o| o.get(name))
-                    .and_then(|v| v.as_i64())
+                    .and_then(as_integral_i64)
                     .unwrap_or_else(|| {
                         // Auto-*len* fill: an absent scalar named `*len`
                         // takes the preceding reference field's length.
@@ -861,11 +869,11 @@ fn fill_fields(
                 let value = obj
                     .and_then(|o| o.get(name))
                     .and_then(|v| {
-                        v.as_i64().or_else(|| {
+                        as_integral_i64(v).or_else(|| {
                             v.as_object()
                                 .and_then(|r| r.get("__resource__"))
                                 .and_then(|r| r.get("ptr"))
-                                .and_then(|p| p.as_i64())
+                                .and_then(as_integral_i64)
                         })
                     })
                     .unwrap_or(0);
@@ -886,7 +894,7 @@ fn fill_fields(
                 } else if let Some(list) = obj.and_then(|o| o.get(name)).and_then(|v| v.as_array())
                 {
                     for (i, el) in list.iter().take(*n).enumerate() {
-                        if let Some(v) = el.as_i64() {
+                        if let Some(v) = as_integral_i64(el) {
                             write_int(buf, *offset + i * esz, esz, v);
                         }
                     }

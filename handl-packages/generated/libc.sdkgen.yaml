@@ -240,9 +240,11 @@ symbols:
     skip: true
 
   # int inet_pton(int af, const char *src, void *dst)
-  # dst is a 4- or 16-byte out-buffer → { ret, buf }.
+  # dst is a 4- or 16-byte out-buffer — `out_ptr` (full buffer): the
+  # return is a 0/1 status, not a byte count, so `out_buf`'s ByRet
+  # trim would cut buf to 1 byte.
   inet_pton:
-    args: ["i32", "cstr", "out_buf:16"]
+    args: ["i32", "cstr", "out_ptr:16"]
 
   # const char *inet_ntop(int af, const void *src, char *dst, socklen_t n)
   # src is the packed address as a 16-byte in_buf; dst is out_buf:64.

@@ -28,6 +28,29 @@ fn cfg(yaml: &str) -> SdkgenConfig {
 }
 
 #[test]
+fn module_level_guard_default_applies_and_symbol_wins() {
+    // Top-level `guard: false` disables the errno guard for every
+    // function — including auto-mapped ones with no symbol override.
+    // A per-symbol `guard:` still wins.
+    let c = cfg("guard: false\nsymbols:\n  keep_guard:\n    guard: true\n");
+    let mut auto = func("auto_fn", &[]);
+    c.apply_to_function("auto_fn", &mut auto);
+    assert!(
+        !auto.errno_guard,
+        "module default should reach auto-mapped fns"
+    );
+
+    let mut listed = func("keep_guard", &[]);
+    c.apply_to_function("keep_guard", &mut listed);
+    assert!(listed.errno_guard, "per-symbol guard must win");
+
+    // Rescued functions honor the module default too.
+    let c = cfg("guard: false\nsymbols:\n  rescued:\n    args: [i32]\n");
+    let f = c.rescue_function("rescued").expect("rescued");
+    assert!(!f.errno_guard);
+}
+
+#[test]
 fn should_skip() {
     let c = cfg("symbols:\n  old_fn:\n    skip: true\n  keep_fn:\n    skip: false\n");
     assert!(c.should_skip("old_fn"));

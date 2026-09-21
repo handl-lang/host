@@ -54,7 +54,9 @@ export FormatDate := (Value, Value, Value) ~[1]~> Result<String, String>
 --- Format a date into named parts.
 export FormatDateToParts := (Value, Value, Value) ~[1]~> Result<Value, String>
 
---- Format a duration in seconds for a locale.
+--- Format a duration for a locale (Intl.DurationFormat): the value is a
+--- {years,…,nanoseconds} record or an elapsed-seconds number; opts.style is
+--- "long"|"short"|"narrow"|"digital" (default "short").
 export FormatDuration := (Value, Value, Value) ~[1]~> Result<String, String>
 
 -- display names / segmentation / locale utilities ------------------------------

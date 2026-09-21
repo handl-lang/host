@@ -289,6 +289,12 @@ impl Function for FfiOpFunction {
         // backing storage (CStrings, source Vec<u8>s, output buffers) is owned
         // by `marshaled` and stays alive for the duration of the C call.
         let marshaled = marshal_call_args(&self.arg_descriptors, args)?;
+        if std::env::var("HNL_FFI_DEBUG").is_ok() {
+            eprintln!(
+                "[ffi] {}.{} args={:?} c_args={:?}",
+                self.library, self.symbol, args, marshaled.c_args
+            );
+        }
 
         // Determine return kind and call.
         let ret_kind = return_kind(&self.return_descriptor)?;
@@ -376,7 +382,7 @@ impl Function for FfiCall {
         let ret_kind = require_str(&args[4], "ret_kind")?;
         let error_on_lt_zero = args.get(5).and_then(|v| v.as_bool()).unwrap_or(false);
 
-        let op = FfiOpFunction::new(lib, sym, descriptors, ret_kind, error_on_lt_zero);
+        let op = FfiOpFunction::new(lib, sym, descriptors.clone(), ret_kind, error_on_lt_zero);
         op.call(all_args, ctx)
     }
 }

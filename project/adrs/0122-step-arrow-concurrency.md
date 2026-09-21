@@ -29,7 +29,7 @@ Options considered:
 Sanada's _Algebraic Effects and Handlers for Arrows_ (the calculus's
 foundation) makes the step model principled rather than ad hoc: folding a
 task arrow into the free A-algebra yields `{op, args, k}` nodes where `k` is
-the continuation *as data* — serializable, inspectable, schedulable. The
+the continuation _as data_ — serializable, inspectable, schedulable. The
 explicit `{state}` field is the same defunctionalized continuation written
 by hand.
 
@@ -39,7 +39,7 @@ Adopt the **step-arrow model**, staged:
 
 - **B0 (now)**: `handl-packages/concurrent/concurrent.hnl` defines the step
   protocol — a task is `S ~> Step` where `Step = {state: S} | {out: V} |
-  {call: Req, state: S}`; `{call}` suspends on a named op (`name` is the
+{call: Req, state: S}`; `{call}` suspends on a named op (`name` is the
   discriminator — `op` is a grammar keyword) and the scheduler resumes the
   task by re-invoking the arrow with `state.result = R`.
   `handl-packages/concurrent-epoll/` implements it over the generated libc

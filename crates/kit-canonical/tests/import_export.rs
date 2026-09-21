@@ -102,6 +102,62 @@ fn import_detects_circular_imports() {
     );
 }
 
+/// A filesystem-imported module with several private declarations and
+/// several exports must evaluate to the *complete* export record — not
+/// just the first top-level binding. `ModuleLoader` wraps the prepared
+/// `privates; { exports }` body in `do { … }` (the same trick `hnl run`
+/// uses), so every declaration runs in one scope.
+#[test]
+fn import_multi_export_module_binds_full_record() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    write_module(
+        root,
+        "multi.hnl",
+        concat!(
+            "helper := (x) ~> x * 2\n",
+            "seed := 21\n",
+            "export a := 1\n",
+            "export b := helper(seed)\n",
+            "export c := \"three\"\n",
+        ),
+    );
+    let main = write_module(
+        root,
+        "main.hnl",
+        "do { from \"./multi\" import * as m; { a: m.a, b: m.b, c: m.c } }",
+    );
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    assert_eq!(val, json!({ "a": 1, "b": 42, "c": "three" }));
+}
+
+/// The same completeness guarantee through named projection:
+/// `from "m" import { b }` must see every export, not only the first
+/// binding of the module body.
+#[test]
+fn import_multi_export_named_projection() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    write_module(
+        root,
+        "multi.hnl",
+        concat!(
+            "helper := (x) ~> x * 2\n",
+            "export a := 1\n",
+            "export b := helper(21)\n",
+        ),
+    );
+    let main = write_module(root, "main.hnl", "do { from \"./multi\" import { b }; b }");
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    assert_eq!(val, json!(42));
+}
+
 /// `export <expr>` is a bootstrap pass-through: it evaluates the child
 /// expression and returns it.
 #[test]
@@ -375,4 +431,68 @@ fn nested_module_with_name_first_decl_header() {
         .eval("do { import \"inner.hnl\"; x }")
         .expect("module with name-first decl header should load");
     assert_eq!(val, json!(5));
+}
+
+/// Closure capture must be limited to the names a body actually
+/// references. Before the free-variable filter, `closure` minting
+/// snapshotted the *entire* scope into every arrow's env, so a module
+/// with N sequential function declarations produced O(2^N) nested env
+/// structure — the module-boundary `tagged_to_value` conversion then
+/// expanded it and the process was OOM-killed. A module exporting a
+/// closure after ~30 sibling closures would not survive this test
+/// without the filter.
+#[test]
+fn import_module_with_many_closures_does_not_explode() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+
+    // `helper` exercises cross-closure capture (f_i references helper);
+    // `v_i` exercises scalar capture.
+    let mut module = String::from("helper := (x) ~> x * 2\n");
+    for i in 0..30 {
+        module.push_str(&format!("v{i} := {i}\n"));
+        module.push_str(&format!("f{i} := (x) ~> helper(x) + v{i}\n"));
+    }
+    module.push_str("export head_fn := f0\nexport tail_fn := f29\n");
+    write_module(root, "closures.hnl", &module);
+
+    let main = write_module(
+        root,
+        "main.hnl",
+        "do { from \"./closures\" import * as m; { a: m.head_fn(1), b: m.tail_fn(1) } }",
+    );
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    // head_fn: helper(1) + v0 = 2 + 0; tail_fn: helper(1) + v29 = 2 + 29.
+    assert_eq!(val, json!({ "a": 2, "b": 31 }));
+}
+
+/// An imported closure must retain access to its module-private bindings
+/// after crossing the module boundary — the captured env is serialized
+/// and reconstructed, so this fails if private captures are dropped.
+#[test]
+fn imported_closure_sees_module_privates() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path();
+    write_module(
+        root,
+        "priv.hnl",
+        concat!(
+            "offset := 100\n",
+            "bump := (x) ~> x + offset\n",
+            "export go := (x) ~> bump(x)\n",
+        ),
+    );
+    let main = write_module(
+        root,
+        "main.hnl",
+        "do { from \"./priv\" import * as m; m.go(1) }",
+    );
+
+    let kit = Kit::discover(&main).expect("kit");
+    let src = fs::read_to_string(&main).expect("read main.hnl");
+    let val = kit.eval(&src).expect("eval should succeed");
+    assert_eq!(val, json!(101));
 }

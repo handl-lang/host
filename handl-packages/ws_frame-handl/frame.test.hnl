@@ -239,7 +239,7 @@ test_law_roundtrip := assert(do {
              payload: bytes.utf8_encode("law"),
              mask_key: bytes.from_list([]) }
   ws_frame.frame_of(frame.decode(frame.encode(input)))
-}) = ws_frame.frame_in(input)
+}) = { fin: 1, op: 1, payload: bytes.utf8_encode("law") }
 
 -- `complete`: encode >>> decode >>> rest_of == empty.
 test_law_complete := assert ws_frame.rest_of(frame.decode(frame.encode({
