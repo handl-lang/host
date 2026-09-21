@@ -7,7 +7,7 @@ Accepted.
 ## Context
 
 WHATWG/W3C specs routinely apply `X includes Y` where `Y` is an
-`interface mixin` declared in a *different* spec. Concretely, `encoding.idl`
+`interface mixin` declared in a _different_ spec. Concretely, `encoding.idl`
 declares:
 
     TextDecoderStream includes GenericTransformStream;
@@ -24,7 +24,7 @@ Two designs were considered:
 1. **Multi-spec generation** — parse N idl files into one `SdkgenModule`.
    Merges unrelated surfaces into a single package and breaks the
    `<spec-stem>` → package-name convention (which stem wins?).
-2. **Supplementary mixin specs** — supplementary files contribute *only*
+2. **Supplementary mixin specs** — supplementary files contribute _only_
    mixin definitions to `includes` resolution; their interfaces, records,
    typedefs, and constants are not emitted.
 

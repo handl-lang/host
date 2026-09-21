@@ -150,9 +150,14 @@ impl SdkgenBackend for WebIdlBackend {
                 _ => None,
             })
             .collect();
-        // Supplementary specs contribute mixin definitions only — used to
-        // resolve cross-spec `includes` (encoding -> streams). Primary
-        // spec mixins win on a name collision.
+        // Supplementary specs contribute mixin definitions *and* graft
+        // targets: an `includes` whose interface lives in another spec
+        // (storage.idl's `Navigator includes NavigatorStorage`, where
+        // `Navigator` is html.idl's) grafts onto the foreign interface and
+        // emits the augmented record in this package. Primary-spec defs
+        // win on a name collision.
+        let mut include_interfaces: HashMap<String, Vec<Member>> = HashMap::new();
+        let mut include_includes: Vec<(String, String)> = Vec::new();
         for inc in &self.include_specs {
             match std::fs::read_to_string(inc) {
                 Ok(src) => {
@@ -161,12 +166,54 @@ impl SdkgenBackend for WebIdlBackend {
                         diags.push(format!("{}: {d}", inc.display()));
                     }
                     for d in inc_defs {
-                        if let AstDef::Mixin { name, members, .. } = d {
-                            mixin_members.entry(name).or_insert(members);
+                        match d {
+                            AstDef::Mixin { name, members, .. } => {
+                                mixin_members.entry(name).or_insert(members);
+                            }
+                            // Merge partials like the primary `by_key` pass —
+                            // `interface Navigator` + `partial interface
+                            // Navigator` contribute one member set.
+                            AstDef::Interface { name, members, .. } => {
+                                let entry = include_interfaces.entry(name).or_default();
+                                for m in members {
+                                    let dup = member_name(&m).is_some_and(|n| {
+                                        entry.iter().any(|e| member_name(e) == Some(n))
+                                    });
+                                    if !dup {
+                                        entry.push(m);
+                                    }
+                                }
+                            }
+                            // The supplementary spec's own augmentations —
+                            // html.idl builds `Navigator` almost entirely
+                            // through `Navigator includes NavigatorID` etc.
+                            AstDef::Includes { target, mixin } => {
+                                include_includes.push((target, mixin));
+                            }
+                            _ => {}
                         }
                     }
                 }
                 Err(e) => diags.push(format!("failed to read include spec {}: {e}", inc.display())),
+            }
+        }
+        // Graft supplementary-spec `includes` onto supplementary interfaces so
+        // foreign targets arrive complete (NavigatorID/Language/… onto
+        // Navigator) before the primary pass consumes them.
+        for (target, mixin) in include_includes {
+            let (Some(members), Some(target_members)) = (
+                mixin_members.get(&mixin),
+                include_interfaces.get_mut(&target),
+            ) else {
+                continue;
+            };
+            for m in members {
+                let dup = member_name(m).is_some_and(|n| {
+                    target_members.iter().any(|t| member_name(t) == Some(n))
+                });
+                if !dup {
+                    target_members.push(m.clone());
+                }
             }
         }
         for (target, mixin) in includes {
@@ -174,6 +221,22 @@ impl SdkgenBackend for WebIdlBackend {
                 diags.push(format!("includes: mixin {mixin} not found (on {target})"));
                 continue;
             };
+            // Foreign target: pull the interface from an include spec into
+            // `by_key` so the augmented record emits in this package.
+            if !by_key.contains_key(&(target.clone(), "interface")) {
+                if let Some(inc_members) = include_interfaces.get(&target) {
+                    by_key.insert(
+                        (target.clone(), "interface"),
+                        AstDef::Interface {
+                            name: target.clone(),
+                            base: None,
+                            members: inc_members.clone(),
+                            partial: false,
+                            doc: None,
+                        },
+                    );
+                }
+            }
             let Some(target_members) =
                 by_key
                     .get_mut(&(target.clone(), "interface"))

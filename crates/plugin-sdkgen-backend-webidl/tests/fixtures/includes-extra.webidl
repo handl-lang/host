@@ -9,3 +9,10 @@ interface mixin MissingMixin {
 interface SupplementaryOnly {
   readonly attribute boolean shouldNotAppear;
 };
+
+// Graft target for `Foreign includes Body` in includes.webidl — the
+// interface is foreign to the primary spec, so the augmented record
+// emits in the primary package.
+interface Foreign {
+  readonly attribute boolean ownMember;
+};

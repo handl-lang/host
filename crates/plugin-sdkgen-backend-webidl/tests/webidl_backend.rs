@@ -222,6 +222,37 @@ fn includes_resolve_across_specs() {
     );
 }
 
+/// An `includes` whose *target* is foreign (storage.idl's
+/// `Navigator includes NavigatorStorage`, where `Navigator` is html.idl's)
+/// grafts onto the supplementary interface and emits the augmented record
+/// in the primary package.
+#[test]
+fn includes_graft_onto_foreign_interface() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = manifest.join("tests/fixtures/includes-foreign.webidl");
+    let extra = manifest.join("tests/fixtures/includes-extra.webidl");
+    let mut backend = WebIdlBackend::new(None);
+    backend.add_include_spec(&extra);
+    let module = backend.parse_header(&path).expect("parse fixture");
+
+    let foreign = module
+        .records
+        .iter()
+        .find(|r| r.name == "Foreign")
+        .expect("Foreign record emitted in primary package");
+    for field in ["ownMember", "bodyUsed"] {
+        assert!(
+            foreign.fields.iter().any(|f| f.name == field),
+            "grafted/own field {field} missing"
+        );
+    }
+    assert!(
+        module.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        module.diagnostics
+    );
+}
+
 /// Enum constants are gathered through a `HashMap` merge; without a sort the
 /// emitted order varies per run (fresh `RandomState`). Parsing twice in one
 /// process must yield identical output.
