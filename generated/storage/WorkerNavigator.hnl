@@ -1,0 +1,52 @@
+--- Generated port for storage.WorkerNavigator
+--- js target: browser
+--- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/storage.idl
+
+from "js" import { JsError }
+from "result" import { Result }
+
+--- The WorkerNavigator interface represents a subset of the Navigator interface allowed to be accessed from a Worker. Such an object is initialized for each worker and is available via the self.navigator property.
+export WorkerNavigator := {
+  --- constant "Mozilla"
+  appCodeName: String,
+  --- constant "Netscape"
+  appName: String,
+  --- Returns either "4.0" or a string representing version information about
+  --- the browser.
+  appVersion: String,
+  --- Returns a string representing the platform of the browser. The specification allows
+  --- browsers to always return the empty string, so don't rely on this property to get a
+  --- reliable answer.
+  platform: String,
+  --- constant "Gecko"
+  product: String,
+  productSub: String,
+  --- The WorkerNavigator.userAgent read-only property returns the
+  --- user agent string for the current browser.
+  userAgent: String,
+  vendor: String,
+  --- constant ""
+  vendorSub: String,
+  --- The WorkerNavigator.language read-only property returns
+  --- a string representing the preferred language of the user, usually the language of the
+  --- browser UI.
+  language: String,
+  --- The WorkerNavigator.languages read-only property
+  --- returns an array of strings representing the user's preferred
+  --- languages. The language is described using BCP 47 language tags. In the returned
+  --- array they are ordered by preference with the most preferred language first.
+  languages: Handle,
+  --- Returns the online status of the browser. The property returns a boolean value, with true meaning online and false meaning offline. The property sends updates whenever the browser's ability to connect to the network changes. The update occurs when the user follows links or when a script requests a remote page.
+  onLine: Bool,
+  --- The navigator.hardwareConcurrency read-only property
+  --- returns the number of logical processors available to run threads on the user's
+  --- computer.
+  hardwareConcurrency: Nat,
+  --- The storage read-only property of the WorkerNavigator interface
+  --- returns the singleton StorageManager object used to
+  --- access the overall storage capabilities of the browser for the current site or app.
+  --- The returned object lets you examine and configure persistence of data stores and
+  --- learn approximately how much more space your browser has available for local storage
+  --- use.
+  storage: Handle
+}
