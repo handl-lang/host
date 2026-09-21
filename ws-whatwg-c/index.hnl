@@ -15,9 +15,10 @@
 --- Scope: `ws://` and `wss://` URLs (TLS via the generated
 --- `libssl-c-linux-x86_64/ssl.hnl` adapter), IPv4-literal hosts with
 --- `getaddrinfo` DNS fallback, a blocking `listen`/`accept` server
---- half in `server.hnl`. No IPv6, no redirects, no permessage-deflate,
---- no SNI or certificate verification on `wss://` (the context is
---- OpenSSL's default `SSL_VERIFY_NONE` -- v1 trusts any certificate).
+--- half in `server.hnl`. `wss://` sends SNI and verifies the peer
+--- certificate chain and hostname against the default CA store
+--- (`SSL_CERT_FILE`/`SSL_CERT_DIR` honoured). No IPv6, no redirects,
+--- no permessage-deflate.
 ---
 --- Blocking asymmetry: `recv` on a plain `ws://` conn polls with
 --- `MSG_DONTWAIT`, but on a `wss://` conn it calls `SSL_read`, which
