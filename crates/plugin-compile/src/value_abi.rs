@@ -447,8 +447,23 @@ impl ValueAbi {
             .and_then(|v| v.as_object())
             .ok_or_else(|| CompileError::InvalidInput("arrow needs 'env' object".to_string()))?;
         let mut env = HashMap::new();
-        for (k, v) in env_json {
-            env.insert(k.clone(), ValueAbi::from_json(v)?);
+        if let Some(id) = env_json.get("__envref__").and_then(|v| v.as_u64()) {
+            // Env by reference (`{"__envref__": id}`): the compiler needs
+            // the actual bindings, so resolve the registry entry and
+            // convert each value through `TaggedValue` → JSON → ValueAbi.
+            let map = handl_value::env_ref_lookup(id).ok_or_else(|| {
+                CompileError::InvalidInput("arrow 'env' reference not found".to_string())
+            })?;
+            for (k, v) in map.iter() {
+                env.insert(
+                    k.to_string(),
+                    ValueAbi::from_json(&handl_value::tagged_to_value(v))?,
+                );
+            }
+        } else {
+            for (k, v) in env_json {
+                env.insert(k.clone(), ValueAbi::from_json(v)?);
+            }
         }
 
         let rest = if let Some(v) = obj.get("rest") {

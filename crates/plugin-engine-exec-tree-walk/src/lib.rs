@@ -3906,6 +3906,12 @@ fn stamp_home(value: &mut Value, frame_id: u64) {
             {
                 o.insert("__home__".to_string(), Value::from(frame_id));
             }
+            // Arrow envs serialize by reference (`{"__envref__": id}`) —
+            // stamp the env-resident arrows in `TaggedValue` space, where
+            // the shared env DAG is still reachable.
+            if let Some(id) = o.get("__envref__").and_then(|v| v.as_u64()) {
+                handl_value::stamp_env_home(id, frame_id);
+            }
             for v in o.values_mut() {
                 stamp_home(v, frame_id);
             }
@@ -3989,12 +3995,8 @@ impl TreeWalkCallable {
         })?;
         let captured_env: FxHashMap<Rc<str>, TaggedValue> = obj
             .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| {
-                m.iter()
-                    .map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v.clone())))
-                    .collect()
-            })
+            .and_then(handl_value::env_from_json)
+            .map(|rc| (*rc).clone())
             .unwrap_or_default();
         // ADR-0074: destructure a single Pair (product) arg for multi-param
         // arrows. Host functions like fn.map may pass a Pair to a multi-param
