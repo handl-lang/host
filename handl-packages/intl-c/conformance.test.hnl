@@ -4,43 +4,56 @@
 ---   node conformance/generate.mjs
 ---
 --- Expected values are produced by Node's `Intl.NumberFormat` (the same
---- oracle the retired `crate-ecma402-icu4x` harness used). Cases needing
---- NumberFormat options (percent, currency, ...) are skipped — the `intl`
---- contract's `FormatNumber := (Value, Value)` takes only (number,
---- locale); see `generate.mjs`.
+--- oracle the retired `crate-ecma402-icu4x` harness used). Cases whose
+--- options fall outside `intl-c`'s opts surface are skipped and listed
+--- below; see `generate.mjs`.
 
 from "./intl-c" import * as intl_c
 
 test_en_decimal_positive_0 := assert(if intl_c.available {
-  tag.untag(intl_c.format_number(1234.56, "en")).value
+  tag.untag(intl_c.format_number(1234.56, "en", { style: "decimal" })).value
 } else {
   "1,234.56"
 }) = "1,234.56"
 
 test_en_decimal_positive_1 := assert(if intl_c.available {
-  tag.untag(intl_c.format_number(1000000, "en")).value
+  tag.untag(intl_c.format_number(1000000, "en", { style: "decimal" })).value
 } else {
   "1,000,000"
 }) = "1,000,000"
 
 test_en_decimal_positive_2 := assert(if intl_c.available {
-  tag.untag(intl_c.format_number(0.001, "en")).value
+  tag.untag(intl_c.format_number(0.001, "en", { style: "decimal" })).value
 } else {
   "0.001"
 }) = "0.001"
 
 test_en_decimal_negative_0 := assert(if intl_c.available {
-  tag.untag(intl_c.format_number(-1234.56, "en")).value
+  tag.untag(intl_c.format_number(-1234.56, "en", { style: "decimal" })).value
 } else {
   "-1,234.56"
 }) = "-1,234.56"
 
 test_de_decimal_0 := assert(if intl_c.available {
-  tag.untag(intl_c.format_number(1234.56, "de")).value
+  tag.untag(intl_c.format_number(1234.56, "de", { style: "decimal" })).value
 } else {
   "1.234,56"
 }) = "1.234,56"
 
--- skipped (options beyond decimal style / non-finite inputs):
---   en-percent
---   en-currency-usd
+test_en_percent_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(0.05, "en", { style: "percent" })).value
+} else {
+  "5%"
+}) = "5%"
+
+test_en_percent_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1, "en", { style: "percent" })).value
+} else {
+  "100%"
+}) = "100%"
+
+test_en_currency_usd_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number(1234.5, "en", { style: "currency", currency: "USD" })).value
+} else {
+  "$1,234.50"
+}) = "$1,234.50"

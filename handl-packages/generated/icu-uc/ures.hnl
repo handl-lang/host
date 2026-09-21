@@ -1,0 +1,112 @@
+--- Generated port for icu-uc.ures
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+--- Opens a UResourceBundle, from which users can extract strings by using
+--- their corresponding keys.
+--- Note that the caller is responsible of calling <TT>ures_close</TT> on each successfully
+--- opened resource bundle.
+--- packageName: The packageName and locale together point to an ICU udata object,
+--- as defined by <code> udata_open( packageName, "res", locale, err) </code>
+--- or equivalent.  Typically, packageName will refer to a (.dat) file, or to
+--- a package registered with udata_setAppData(). Using a full file or directory
+--- pathname for packageName is deprecated. If NULL, ICU data will be used.
+--- locale: specifies the locale for which we want to open the resource
+--- if NULL, the default locale will be used. If strlen(locale) == 0
+--- root locale will be used.
+--- status: fills in the outgoing error code.
+--- The UErrorCode err parameter is used to return status information to the user. To
+--- check whether the construction succeeded or not, you should check the value of
+--- U_SUCCESS(err). If you wish more detailed information, you can check for
+--- informational status results which still indicate success. U_USING_FALLBACK_WARNING
+--- indicates that a fall back locale was used. For example, 'de_CH' was requested,
+--- but nothing was found there, so 'de' was used. U_USING_DEFAULT_WARNING indicates that
+--- the default locale data or root locale data was used; neither the requested locale
+--- nor any of its fall back locales could be found. Please see the users guide for more
+--- information on this topic.
+--- Returns: a newly allocated resource bundle.
+--- See: ures_close
+--- @stable ICU 2.0
+export UresOpen78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export UresOpen78: (Int, String, Int) ~[1]~> Result<UresOpen78Result, Errno>
+
+--- Close a resource bundle, all pointers returned from the various ures_getXXX calls
+--- on this particular bundle should be considered invalid henceforth.
+--- resourceBundle: a pointer to a resourceBundle struct. Can be NULL.
+--- See: ures_open
+--- @stable ICU 2.0
+--- ffi: void (UResourceBundle *)
+export UresClose78: (Handle) ~[1]~> Result<(), Errno>
+
+--- Returns a UTF-8 string from a string resource.
+--- The UTF-8 string may be returnable directly as a pointer, or
+--- it may need to be copied, or transformed from UTF-16 using u_strToUTF8()
+--- or equivalent.
+--- If forceCopy==true, then the string is always written to the dest buffer
+--- and dest is returned.
+--- If forceCopy==false, then the string is returned as a pointer if possible,
+--- without needing a dest buffer (it can be NULL). If the string needs to be
+--- copied or transformed, then it may be placed into dest at an arbitrary offset.
+--- If the string is to be written to dest, then U_BUFFER_OVERFLOW_ERROR and
+--- U_STRING_NOT_TERMINATED_WARNING are set if appropriate, as usual.
+--- If the string is transformed from UTF-16, then a conversion error may occur
+--- if an unpaired surrogate is encountered. If the function is successful, then
+--- the output UTF-8 string is always well-formed.
+--- resB: Resource bundle.
+--- dest: Destination buffer. Can be NULL only if capacity=*length==0.
+--- length: Input: Capacity of destination buffer.
+--- Output: Actual length of the UTF-8 string, not counting the
+--- terminating NUL, even in case of U_BUFFER_OVERFLOW_ERROR.
+--- Can be NULL, meaning capacity=0 and the string length is not
+--- returned to the caller.
+--- forceCopy: If true, then the output string will always be written to
+--- dest, with U_BUFFER_OVERFLOW_ERROR and
+--- U_STRING_NOT_TERMINATED_WARNING set if appropriate.
+--- If false, then the dest buffer may or may not contain a
+--- copy of the string. dest may or may not be modified.
+--- If a copy needs to be written, then the UErrorCode parameter
+--- indicates overflow etc. as usual.
+--- status: Pointer to a standard ICU error code. Its input value must
+--- pass the U_SUCCESS() test, or else the function returns
+--- immediately. Check for U_FAILURE() on output or use with
+--- function chaining. (See User Guide for details.)
+--- Returns: The pointer to the UTF-8 string. It may be dest, or at some offset
+--- from dest (only if !forceCopy), or in unrelated memory.
+--- Always NUL-terminated unless the string was written to dest and
+--- length==capacity (in which case U_STRING_NOT_TERMINATED_WARNING is set).
+--- See: ures_getString
+--- See: u_strToUTF8
+--- @stable ICU 3.6
+export UresGetUtf8String78Result := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes],
+  vals: [Int]
+}
+
+--- ffi:
+export UresGetUtf8String78: (Handle, Int, Int, Int) ~[1]~> Result<UresGetUtf8String78Result, Errno>
+
+--- Returns a resource in a given resource that has a given key. This procedure works only with table
+--- resources. Features a fill-in parameter.
+--- resourceBundle: a resource
+--- key: a key associated with the wanted resource
+--- fillIn: if NULL a new UResourceBundle struct is allocated and must be closed by the caller.
+--- Alternatively, you can supply a struct to be filled by this function.
+--- status: fills in the outgoing error code.
+--- Returns: a pointer to a UResourceBundle struct. If fill in param was NULL, caller must close it
+--- @stable ICU 2.0
+export UresGetByKey78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export UresGetByKey78: (Handle, String, Int, Int) ~[1]~> Result<UresGetByKey78Result, Errno>

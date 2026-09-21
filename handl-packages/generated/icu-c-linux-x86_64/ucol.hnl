@@ -1,0 +1,89 @@
+--- Generated adapter for icu-c-linux-x86_64/ucol
+
+from "result" import { ok, err }
+from "../icu/ucol" import { UcolOpen78, UcolOpenRules78, UcolClose78, UcolStrcoll78, UcolStrcollUtf878, UcolGreater78, UcolGreaterOrEqual78, UcolEqual78, UcolGetStrength78, UcolSetStrength78, UcolGetDisplayName78, UcolGetAvailable78, UcolCountAvailable78, UcolGetSortKey78, UcolSetAttribute78, UcolGetAttribute78, UcolGetLocaleByType78 }
+
+export ucol_open_78: UcolOpen78 := (locale, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_open_78", [locale, status], ["cstr", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export ucol_openRules_78: UcolOpenRules78 := (rules, rules_length, mode, parse_error, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_openRules_78", [rules, rules_length, mode, parse_error, status], ["in_ptr", "i32", "i32", "ptr", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export ucol_close_78: UcolClose78 := (coll) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_close_78", [coll], ["handle"], "void", false)
+  ok(null)
+}
+
+export ucol_strcoll_78: UcolStrcoll78 := (coll, source, source_length, target, target_length) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_strcoll_78", [coll, source, source_length, target, target_length], ["handle", "in_ptr", "i32", "in_ptr", "i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_strcollUTF8_78: UcolStrcollUtf878 := (coll, source, target, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_strcollUTF8_78", [coll, source, target, status], ["handle", "in_buf", "in_buf", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_greater_78: UcolGreater78 := (coll, source, source_length, target, target_length) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_greater_78", [coll, source, source_length, target, target_length], ["handle", "in_ptr", "i32", "in_ptr", "i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_greaterOrEqual_78: UcolGreaterOrEqual78 := (coll, source, source_length, target, target_length) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_greaterOrEqual_78", [coll, source, source_length, target, target_length], ["handle", "in_ptr", "i32", "in_ptr", "i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_equal_78: UcolEqual78 := (coll, source, source_length, target, target_length) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_equal_78", [coll, source, source_length, target, target_length], ["handle", "in_ptr", "i32", "in_ptr", "i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_getStrength_78: UcolGetStrength78 := (coll) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_getStrength_78", [coll], ["handle"], "i32", false)
+  ok(r)
+}
+
+export ucol_setStrength_78: UcolSetStrength78 := (coll, strength) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_setStrength_78", [coll, strength], ["handle", "i32"], "void", false)
+  ok(null)
+}
+
+export ucol_getDisplayName_78: UcolGetDisplayName78 := (obj_locale, display_locale, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_getDisplayName_78", [obj_locale, display_locale, capacity, status], ["cstr", "cstr", "out_ptr:512", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_getAvailable_78: UcolGetAvailable78 := (localeIndex) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_getAvailable_78", [localeIndex], ["i32"], "cstr", false)
+  ok(r)
+}
+
+export ucol_countAvailable_78: UcolCountAvailable78 := () ~> do {
+  r = ffi.call("libicui18n.so", "ucol_countAvailable_78", [], [], "i32", false)
+  ok(r)
+}
+
+export ucol_getSortKey_78: UcolGetSortKey78 := (coll, source, source_length, capacity) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_getSortKey_78", [coll, source, source_length, capacity], ["handle", "in_ptr", "i32", "out_ptr:4096", "i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_setAttribute_78: UcolSetAttribute78 := (coll, attr, value, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_setAttribute_78", [coll, attr, value, status], ["handle", "i32", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_getAttribute_78: UcolGetAttribute78 := (coll, attr, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_getAttribute_78", [coll, attr, status], ["handle", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export ucol_getLocaleByType_78: UcolGetLocaleByType78 := (coll, type_, status) ~> do {
+  r = ffi.call("libicui18n.so", "ucol_getLocaleByType_78", [coll, type_, status], ["handle", "i32", "io_scalar:i32"], "cstr", false)
+  ok(r)
+}

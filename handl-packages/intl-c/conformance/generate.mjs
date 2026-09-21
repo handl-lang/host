@@ -1,14 +1,14 @@
 // Regenerates `../conformance.test.hnl` from `cases/number_format.json`
 // using Node's `Intl.NumberFormat` as the oracle — the same role the old
 // `crate-ecma402-icu4x` conformance harness played against the Rust impl,
-// now targeting the `intl-c` package's `format_number(n, locale)`.
+// now targeting the `intl-c` package's `format_number(n, locale, opts)`.
 //
 //   node conformance/generate.mjs        (from handl-packages/intl-c/)
 //
-// Cases whose `options` go beyond `{ "style": "decimal" }` are skipped:
-// the `intl` contract's `FormatNumber := (Value, Value)` takes only
-// (number, locale) — there is no options parameter yet. Extend the
-// contract + `intl-c` first, then unskip here.
+// Cases are emitted when every option key maps onto `intl-c`'s opts
+// surface (SUPPORTED_OPTS below — style incl. percent/currency, the
+// currency code, digit limits, grouping toggle). Anything else is
+// skipped and listed at the bottom of the generated file.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -48,7 +48,38 @@ function testName(id, index) {
   return "test_" + id.replace(/[^a-zA-Z0-9]+/g, "_") + "_" + index;
 }
 
-const supported = (options) => Object.keys(options).length === 1 && options.style === "decimal";
+// Option keys `intl-c` understands today (num_style + num_attrs in
+// intl-c.hnl). A case is skipped unless every key lands here and the
+// style maps to a UNUM_* style the backend binds.
+const SUPPORTED_OPTS = new Set([
+  "style",
+  "currency",
+  "useGrouping",
+  "minimumFractionDigits",
+  "maximumFractionDigits",
+  "minimumIntegerDigits",
+  "maximumIntegerDigits",
+]);
+const SUPPORTED_STYLES = new Set([
+  "decimal",
+  "percent",
+  "currency",
+  "scientific",
+  "spellout",
+  "ordinal",
+  "duration",
+]);
+
+const supported = (options) =>
+  Object.keys(options).every((k) => SUPPORTED_OPTS.has(k)) &&
+  (options.style === undefined || SUPPORTED_STYLES.has(options.style)) &&
+  (options.style !== "currency" || typeof options.currency === "string");
+
+// handl record literal for the opts arg (`{ style: "currency", … }`)
+function hnlOpts(options) {
+  const entries = Object.entries(options).map(([k, v]) => `${k}: ${JSON.stringify(v)}`);
+  return `{ ${entries.join(", ")} }`;
+}
 
 const lines = [
   "--- Conformance tests for `intl-c.format_number` — GENERATED FILE.",
@@ -57,10 +88,9 @@ const lines = [
   "---   node conformance/generate.mjs",
   "---",
   "--- Expected values are produced by Node's `Intl.NumberFormat` (the same",
-  "--- oracle the retired `crate-ecma402-icu4x` harness used). Cases needing",
-  "--- NumberFormat options (percent, currency, ...) are skipped — the `intl`",
-  "--- contract's `FormatNumber := (Value, Value)` takes only (number,",
-  "--- locale); see `generate.mjs`.",
+  "--- oracle the retired `crate-ecma402-icu4x` harness used). Cases whose",
+  "--- options fall outside `intl-c`'s opts surface are skipped and listed",
+  "--- below; see `generate.mjs`.",
   "",
   'from "./intl-c" import * as intl_c',
   "",
@@ -85,7 +115,7 @@ for (const testCase of cases) {
     const expected = hnlString(fmt.format(value));
     lines.push(
       `${testName(testCase.id, i)} := assert(if intl_c.available {`,
-      `  tag.untag(intl_c.format_number(${input}, ${hnlString(testCase.locale)})).value`,
+      `  tag.untag(intl_c.format_number(${input}, ${hnlString(testCase.locale)}, ${hnlOpts(testCase.options)})).value`,
       `} else {`,
       `  ${expected}`,
       `}) = ${expected}`,

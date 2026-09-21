@@ -417,9 +417,22 @@ mod bootstrap {
     /// If no `export` lines are found and there are no imports, the source is
     /// returned unchanged (the existing object-literal form is preserved).
     pub(super) fn transform_export_to_object(src: &str) -> String {
-        // Collect (name, expr_lines) pairs from top-level export lines.
-        let mut entries: Vec<(String, Vec<String>)> = Vec::new();
-        let mut current: Option<(String, Vec<String>)> = None;
+        // Collect (name, expr_lines, exported) triples in source order.
+        // All bindings become `do`-block assignments (`name := expr;`)
+        // emitted *before* the object so closures can reference siblings
+        // — exported or not. The object literal projects the exported
+        // names (`{ name: name }`) — mirrors `handl_runtime::module_prep`.
+        let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
+        let mut current: Option<(String, Vec<String>, bool)> = None;
+
+        // Finalize `current` into the ordered binding list.
+        macro_rules! finalize {
+            () => {
+                if let Some(entry) = current.take() {
+                    bindings.push(entry);
+                }
+            };
+        }
 
         for line in src.lines() {
             let trimmed = line.trim_start();
@@ -428,11 +441,9 @@ mod bootstrap {
             // the current entry and contribute one record field per name.
             if is_top_import_line(line) {
                 if let Some((_, names)) = from_export_to_import(line) {
-                    if let Some(entry) = current.take() {
-                        entries.push(entry);
-                    }
+                    finalize!();
                     for (name, alias) in names {
-                        entries.push((name, vec![alias]));
+                        bindings.push((name, vec![alias], true));
                     }
                 }
                 continue;
@@ -440,9 +451,7 @@ mod bootstrap {
             // A top-level export line starts at column 0 with `export `.
             if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
                 // Flush the previous entry.
-                if let Some(entry) = current.take() {
-                    entries.push(entry);
-                }
+                finalize!();
                 let rest = &trimmed["export ".len()..];
                 // Find the binding separator (`::`, `:=`, or legacy `=`).
                 if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
@@ -457,11 +466,36 @@ mod bootstrap {
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
                     }
-                    current = Some((name, expr_lines));
+                    current = Some((name, expr_lines, true));
                 }
                 continue;
                 // If no separator found, skip (not a valid export binding).
-            } else if let Some((_, ref mut lines)) = current {
+            } else if !line.starts_with(' ') && !line.starts_with('\t') {
+                // Column-0 line that is not an import or `export`
+                // declaration. Detect a *private* (non-exported) top-level
+                // binding so that helper functions are preserved instead of
+                // dropped — mirrors `handl_runtime::module_prep`.
+                if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
+                    let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                    if is_valid_ident(&name) {
+                        finalize!();
+                        let is_type_only =
+                            sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
+                        let expr_start = if is_type_only {
+                            "null"
+                        } else {
+                            trimmed[sep_pos + sep_len..].trim()
+                        };
+                        let mut expr_lines = Vec::new();
+                        if !expr_start.is_empty() {
+                            expr_lines.push(expr_start.to_string());
+                        }
+                        current = Some((name, expr_lines, false));
+                        continue;
+                    }
+                }
+            }
+            if let Some((_, ref mut lines, _)) = current {
                 // Accumulate indented continuation lines (part of the export
                 // expression body). Stop at blank lines only if the next
                 // non-blank line is a top-level export.
@@ -470,37 +504,66 @@ mod bootstrap {
                 }
             }
         }
-        if let Some(entry) = current.take() {
-            entries.push(entry);
-        }
+        finalize!();
+
+        let has_exports = bindings.iter().any(|(_, _, exported)| *exported);
 
         let imports = collect_import_lines(src);
 
-        let body = if entries.is_empty() {
-            if imports.is_empty() {
+        if !has_exports {
+            if imports.is_empty() && bindings.is_empty() {
                 return src.to_string();
             }
-            drop_import_lines(src)
-        } else {
-            // Build the object literal.
-            let mut out = String::from("{ ");
-            for (i, (name, expr_lines)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                out.push_str(name);
-                out.push_str(": ");
-                let expr = expr_lines.join("\n");
-                out.push_str(expr.trim());
+            // Preserve bindings verbatim when there are no exports —
+            // the module is a script, not a record.
+            let stripped = drop_import_lines(src);
+            if imports.is_empty() {
+                return stripped;
             }
-            out.push_str(" }");
-            out
-        };
+            // Imports still need to execute — wrap like the self-hosted
+            // loader does so they run ahead of the bare script body.
+            return format!("do {{\n{}\n{}\n}}", imports.join("\n"), stripped);
+        }
 
-        if imports.is_empty() {
-            body
+        // Private bindings hoist as `name := expr;` prelude assignments;
+        // exports stay inline in the trailing record literal (`name: expr`)
+        // — mirrors `loader.hnl`'s `prelude + emit_object`.
+        let mut prelude = String::new();
+        for (name, expr_lines, exported) in &bindings {
+            if *exported {
+                continue;
+            }
+            prelude.push_str(name);
+            prelude.push_str(" := ");
+            prelude.push_str(expr_lines.join("\n").trim());
+            prelude.push_str(";\n");
+        }
+        let mut record = String::from("{ ");
+        let mut first = true;
+        for (name, expr_lines, exported) in &bindings {
+            if !exported {
+                continue;
+            }
+            if !first {
+                record.push_str(", ");
+            }
+            first = false;
+            record.push_str(name);
+            record.push_str(": ");
+            record.push_str(expr_lines.join("\n").trim());
+        }
+        record.push_str(" }");
+
+        // A bare export record stands alone; a private prelude or import
+        // lines turn the module into a multi-statement body — wrap in
+        // `do { … }` so it evaluates as a single expression (mirrors
+        // `loader.hnl` and `module_prep`).
+        if imports.is_empty() && prelude.is_empty() {
+            record
+        } else if imports.is_empty() {
+            format!("do {{\n{}{}\n}}", prelude, record)
         } else {
-            format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
+            format!("do {{\n{}\n{}{}\n}}", imports.join("\n"), prelude, record)
         }
     }
 
@@ -580,6 +643,20 @@ mod bootstrap {
             i += 1;
         }
         s.trim().to_string()
+    }
+
+    /// True when `s` is a plausible Handl identifier: starts with an
+    /// alphabetic character or underscore, followed by zero or more
+    /// alphanumeric characters or underscores. Mirrors
+    /// `handl_runtime::module_prep`.
+    fn is_valid_ident(s: &str) -> bool {
+        let mut chars = s.chars();
+        match chars.next() {
+            Some(c) if c.is_alphabetic() || c == '_' => {
+                chars.all(|c| c.is_alphanumeric() || c == '_')
+            }
+            _ => false,
+        }
     }
 
     /// Returns true if the line is an import declaration (`import ...` or

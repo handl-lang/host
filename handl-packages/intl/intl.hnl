@@ -8,6 +8,9 @@
 ---
 --- Locale arguments are `Value` (a `String` BCP-47 tag, or `null` for the
 --- host default locale) until the contract grows a `Locale` record type.
+--- Trailing `Value` params are option records — `null`/absent fields mean
+--- "backend default" (e.g. `{ style: "currency", currency: "EUR" }` for
+--- FormatNumber, `{ sensitivity: "base" }` for CompareStrings).
 --- All backends return `Result` values — expected backend failures
 --- (missing data, bad locale, library error) are `err`, never raises.
 ---
@@ -20,50 +23,50 @@ from "result" import { Result }
 
 --- Compare two strings under locale-aware collation.
 --- `ok -1 | 0 | 1`, or `err msg`.
-export CompareStrings := (String, String, Value) ~[1]~> Result<Int, String>
+export CompareStrings := (String, String, Value, Value) ~[1]~> Result<Int, String>
 
 -- number formatting ----------------------------------------------------------
 
 --- Format a number for a locale.
 --- `ok "1,234.5"`, or `err msg`.
-export FormatNumber := (Value, Value) ~[1]~> Result<String, String>
+export FormatNumber := (Value, Value, Value) ~[1]~> Result<String, String>
 
 --- Format a number into named parts (integer, fraction, group, ...).
-export FormatNumberToParts := (Value, Value) ~[1]~> Result<Value, String>
+export FormatNumberToParts := (Value, Value, Value) ~[1]~> Result<Value, String>
 
 -- plural selection -----------------------------------------------------------
 
 --- Select the plural category of a number in a locale.
 --- `ok "one" | "few" | "other" | ...`, or `err msg`.
-export SelectPlural := (Value, Value) ~[1]~> Result<String, String>
+export SelectPlural := (Value, Value, Value) ~[1]~> Result<String, String>
 
 -- list / relative-time / date / duration formatting ----------------------------
 
 --- Format a list of strings for a locale (`"a, b, and c"`).
-export FormatList := (Value, Value) ~[1]~> Result<String, String>
+export FormatList := (Value, Value, Value) ~[1]~> Result<String, String>
 
 --- Format a value + unit as relative time (`"3 days ago"`).
-export FormatRelativeTime := (Value, Value, Value) ~[1]~> Result<String, String>
+export FormatRelativeTime := (Value, Value, Value, Value) ~[1]~> Result<String, String>
 
 --- Format a date for a locale with options.
-export FormatDate := (Value, Value) ~[1]~> Result<String, String>
+export FormatDate := (Value, Value, Value) ~[1]~> Result<String, String>
 
 --- Format a date into named parts.
-export FormatDateToParts := (Value, Value) ~[1]~> Result<Value, String>
+export FormatDateToParts := (Value, Value, Value) ~[1]~> Result<Value, String>
 
 --- Format a duration in seconds for a locale.
-export FormatDuration := (Value, Value) ~[1]~> Result<String, String>
+export FormatDuration := (Value, Value, Value) ~[1]~> Result<String, String>
 
 -- display names / segmentation / locale utilities ------------------------------
 
 --- Display name for a code (language, region, script) in a locale.
-export DisplayName := (Value, Value, Value) ~[1]~> Result<String, String>
+export DisplayName := (Value, Value, Value, Value) ~[1]~> Result<String, String>
 
 --- Segment text by granularity (grapheme, word, sentence, line).
-export Segment := (String, Value, Value) ~[1]~> Result<Value, String>
+export Segment := (String, Value, Value, Value) ~[1]~> Result<Value, String>
 
 --- Parse a BCP-47 locale tag into its components.
-export Locale := (String) ~[1]~> Result<Value, String>
+export Locale := (String, Value) ~[1]~> Result<Value, String>
 
 --- Canonicalize a locale or list of locales.
 export GetCanonicalLocales := (Value) ~[1]~> Result<Value, String>

@@ -1,0 +1,74 @@
+--- Generated adapter for icu-c-linux-x86_64/unum
+
+from "result" import { ok, err }
+from "../icu/unum" import { UnumOpen78, UnumClose78, UnumFormat78, UnumFormatInt6478, UnumFormatDouble78, UnumFormatDoubleForFields78, UnumFormatDecimal78, UnumGetAttribute78, UnumSetAttribute78, UnumSetTextAttribute78, UnumToPattern78, UnumGetSymbol78, UnumSetSymbol78, UnumGetLocaleByType78 }
+
+export unum_open_78: UnumOpen78 := (style, pattern, pattern_length, locale, parse_error, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_open_78", [style, pattern, pattern_length, locale, parse_error, status], ["i32", "ptr", "i32", "cstr", "ptr", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export unum_close_78: UnumClose78 := (format) ~> do {
+  r = ffi.call("libicui18n.so", "unum_close_78", [format], ["handle"], "i32", false)
+  ok(r)
+}
+
+export unum_format_78: UnumFormat78 := (format, number, capacity, pos, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_format_78", [format, number, capacity, pos, status], ["handle", "i32", "out_ptr:512", "i32", "ptr", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_formatInt64_78: UnumFormatInt6478 := (format, number, capacity, pos, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_formatInt64_78", [format, number, capacity, pos, status], ["handle", "i64", "out_ptr:512", "i32", "ptr", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_formatDouble_78: UnumFormatDouble78 := (format, number, capacity, pos, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_formatDouble_78", [format, number, capacity, pos, status], ["handle", "f64", "out_ptr:512", "i32", "ptr", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_formatDoubleForFields_78: UnumFormatDoubleForFields78 := (format, number, capacity, fpositer, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_formatDoubleForFields_78", [format, number, capacity, fpositer, status], ["handle", "f64", "out_ptr:512", "i32", "handle", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_formatDecimal_78: UnumFormatDecimal78 := (format, number, number_length, capacity, pos, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_formatDecimal_78", [format, number, number_length, capacity, pos, status], ["handle", "cstr", "i32", "out_ptr:512", "i32", "ptr", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_getAttribute_78: UnumGetAttribute78 := (format, attr, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_getAttribute_78", [format, attr, status], ["handle", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_setAttribute_78: UnumSetAttribute78 := (format, attr, value, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_setAttribute_78", [format, attr, value, status], ["handle", "i32", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_setTextAttribute_78: UnumSetTextAttribute78 := (format, tag, value, value_length, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_setTextAttribute_78", [format, tag, value, value_length, status], ["handle", "i32", "in_ptr", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_toPattern_78: UnumToPattern78 := (format, localized, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_toPattern_78", [format, localized, capacity, status], ["handle", "i32", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_getSymbol_78: UnumGetSymbol78 := (format, symbol, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_getSymbol_78", [format, symbol, capacity, status], ["handle", "i32", "out_ptr:128", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_setSymbol_78: UnumSetSymbol78 := (format, symbol, value, length, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_setSymbol_78", [format, symbol, value, length, status], ["handle", "i32", "in_ptr", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unum_getLocaleByType_78: UnumGetLocaleByType78 := (format, type_, status) ~> do {
+  r = ffi.call("libicui18n.so", "unum_getLocaleByType_78", [format, type_, status], ["handle", "i32", "io_scalar:i32"], "cstr", false)
+  ok(r)
+}

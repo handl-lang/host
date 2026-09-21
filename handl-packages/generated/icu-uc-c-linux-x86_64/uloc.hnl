@@ -1,0 +1,49 @@
+--- Generated adapter for icu-uc-c-linux-x86_64/uloc
+
+from "result" import { ok, err }
+from "../icu-uc/uloc" import { UlocGetLanguage78, UlocGetScript78, UlocGetCountry78, UlocGetVariant78, UlocGetName78, UlocGetAvailable78, UlocCountAvailable78, UlocForLanguageTag78, UlocToLanguageTag78 }
+
+export uloc_getLanguage_78: UlocGetLanguage78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getLanguage_78", [locale_id, capacity, status], ["cstr", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uloc_getScript_78: UlocGetScript78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getScript_78", [locale_id, capacity, status], ["cstr", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uloc_getCountry_78: UlocGetCountry78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getCountry_78", [locale_id, capacity, status], ["cstr", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uloc_getVariant_78: UlocGetVariant78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getVariant_78", [locale_id, capacity, status], ["cstr", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uloc_getName_78: UlocGetName78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getName_78", [locale_id, capacity, status], ["cstr", "out_ptr:128", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uloc_getAvailable_78: UlocGetAvailable78 := (index) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getAvailable_78", [index], ["i32"], "cstr", false)
+  ok(r)
+}
+
+export uloc_countAvailable_78: UlocCountAvailable78 := () ~> do {
+  r = ffi.call("libicuuc.so", "uloc_countAvailable_78", [], [], "i32", false)
+  ok(r)
+}
+
+export uloc_forLanguageTag_78: UlocForLanguageTag78 := (langtag, capacity, parsed_length, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_forLanguageTag_78", [langtag, capacity, parsed_length, status], ["cstr", "out_ptr:128", "i32", "io_scalar:i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uloc_toLanguageTag_78: UlocToLanguageTag78 := (locale_id, capacity, strict, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_toLanguageTag_78", [locale_id, capacity, strict, status], ["cstr", "out_ptr:128", "i32", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}

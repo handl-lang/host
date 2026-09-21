@@ -1356,3 +1356,17 @@ fn ffi_read_null_pointer_errors() {
         .expect_err("ffi.read null");
     assert!(err.to_string().contains("null"));
 }
+
+#[test]
+fn in_ptr_bytes_content() {
+    // `in_ptr` must pass the raw byte buffer — UTF-16 LE consumers (ICU
+    // UChar* params) read it verbatim.
+    let text = json!({"__bytes__": [97, 0, 46, 0, 98, 0]});
+    let res = marshal_call_args(&["in_ptr".to_string()], &[text]).unwrap();
+    let ptr = match res.c_args[0] {
+        CArg::Int(p) => p as *const u8,
+        _ => panic!(),
+    };
+    let bytes: Vec<u8> = unsafe { std::slice::from_raw_parts(ptr, 6).to_vec() };
+    assert_eq!(bytes, vec![97, 0, 46, 0, 98, 0]);
+}

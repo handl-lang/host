@@ -1,0 +1,44 @@
+--- Generated adapter for icu-uc-c-linux-x86_64/uldnames
+
+from "result" import { ok, err }
+from "../icu-uc/uldnames" import { UldnOpen78, UldnClose78, UldnLocaleDisplayName78, UldnLanguageDisplayName78, UldnScriptDisplayName78, UldnRegionDisplayName78, UldnKeyDisplayName78, UldnKeyValueDisplayName78 }
+
+export uldn_open_78: UldnOpen78 := (locale, dialect, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_open_78", [locale, dialect, status], ["cstr", "i32", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export uldn_close_78: UldnClose78 := (ldn) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_close_78", [ldn], ["handle"], "void", false)
+  ok(null)
+}
+
+export uldn_localeDisplayName_78: UldnLocaleDisplayName78 := (ldn, locale, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_localeDisplayName_78", [ldn, locale, capacity, status], ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uldn_languageDisplayName_78: UldnLanguageDisplayName78 := (ldn, lang, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_languageDisplayName_78", [ldn, lang, capacity, status], ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uldn_scriptDisplayName_78: UldnScriptDisplayName78 := (ldn, script, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_scriptDisplayName_78", [ldn, script, capacity, status], ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uldn_regionDisplayName_78: UldnRegionDisplayName78 := (ldn, region, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_regionDisplayName_78", [ldn, region, capacity, status], ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uldn_keyDisplayName_78: UldnKeyDisplayName78 := (ldn, key, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_keyDisplayName_78", [ldn, key, capacity, status], ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export uldn_keyValueDisplayName_78: UldnKeyValueDisplayName78 := (ldn, key, value, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uldn_keyValueDisplayName_78", [ldn, key, value, capacity, status], ["handle", "cstr", "cstr", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}

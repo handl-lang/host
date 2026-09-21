@@ -145,16 +145,41 @@ mod bootstrap {
         false
     }
 
+    fn is_valid_ident(s: &str) -> bool {
+        let mut chars = s.chars();
+        match chars.next() {
+            Some(c) if c.is_alphabetic() || c == '_' => {
+                chars.all(|c| c.is_alphanumeric() || c == '_')
+            }
+            _ => false,
+        }
+    }
+
     pub fn transform_export_to_object(src: &str) -> String {
+        // Mirrors `plugin_lib_handl::bootstrap::transform_export_to_object`:
+        // non-private entries become object fields; private entries become
+        // `do`-block assignments emitted before the object (private-binding
+        // hoisting, mirroring `handl_runtime::module_prep`).
         let mut entries: Vec<(String, Vec<String>)> = Vec::new();
+        let mut privates: Vec<(String, Vec<String>)> = Vec::new();
         let mut current: Option<(String, Vec<String>)> = None;
+        let mut current_is_private: bool = false;
+        macro_rules! finalize {
+            () => {
+                if let Some(entry) = current.take() {
+                    if current_is_private {
+                        privates.push(entry);
+                    } else {
+                        entries.push(entry);
+                    }
+                }
+            };
+        }
         for line in src.lines() {
             let trimmed = line.trim_start();
             if is_top_import_line(line) {
                 if let Some((_, names)) = from_export_to_import(line) {
-                    if let Some(entry) = current.take() {
-                        entries.push(entry);
-                    }
+                    finalize!();
                     for (name, alias) in names {
                         entries.push((name, vec![alias]));
                     }
@@ -162,38 +187,73 @@ mod bootstrap {
                 continue;
             }
             if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
-                if let Some(entry) = current.take() {
-                    entries.push(entry);
-                }
+                finalize!();
                 let rest = &trimmed["export ".len()..];
                 if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
-                    let name = rest[..sep_pos].trim().to_string();
-                    let expr_start = rest[sep_pos + sep_len..].trim();
+                    let name = strip_export_name(&rest[..sep_pos]);
+                    let is_type_only =
+                        sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                    let expr_start = if is_type_only {
+                        "null"
+                    } else {
+                        rest[sep_pos + sep_len..].trim()
+                    };
                     let mut expr_lines = Vec::new();
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
                     }
                     current = Some((name, expr_lines));
+                    current_is_private = false;
                 }
-            } else if let Some((_, ref mut lines)) = current {
+                continue;
+            } else if !line.starts_with(' ') && !line.starts_with('\t') {
+                if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
+                    let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                    if is_valid_ident(&name) {
+                        finalize!();
+                        let is_type_only =
+                            sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
+                        let expr_start = if is_type_only {
+                            "null"
+                        } else {
+                            trimmed[sep_pos + sep_len..].trim()
+                        };
+                        let mut expr_lines = Vec::new();
+                        if !expr_start.is_empty() {
+                            expr_lines.push(expr_start.to_string());
+                        }
+                        current = Some((name, expr_lines));
+                        current_is_private = true;
+                        continue;
+                    }
+                }
+            }
+            if let Some((_, ref mut lines)) = current {
                 if !line.trim().is_empty() {
                     lines.push(line.to_string());
                 }
             }
         }
-        if let Some(entry) = current.take() {
-            entries.push(entry);
-        }
+        finalize!();
 
         let imports = collect_import_lines(src);
 
+        let mut prelude = String::new();
+        for (name, expr_lines) in &privates {
+            prelude.push_str(name);
+            prelude.push_str(" := ");
+            prelude.push_str(expr_lines.join("\n").trim());
+            prelude.push_str(";\n");
+        }
+
         let body = if entries.is_empty() {
-            if imports.is_empty() {
+            if imports.is_empty() && privates.is_empty() {
                 return src.to_string();
             }
             drop_import_lines(src)
         } else {
-            let mut out = String::from("{ ");
+            let mut out = prelude;
+            out.push_str("{ ");
             for (i, (name, expr_lines)) in entries.iter().enumerate() {
                 if i > 0 {
                     out.push_str(", ");
@@ -207,10 +267,33 @@ mod bootstrap {
         };
 
         if imports.is_empty() {
-            body
+            if privates.is_empty() || entries.is_empty() {
+                body
+            } else {
+                format!("do {{\n{}\n}}", body)
+            }
         } else {
             format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
         }
+    }
+
+    fn strip_export_name(s: &str) -> String {
+        let bytes = s.as_bytes();
+        let mut i = 0;
+        let mut depth: i32 = 0;
+        while i < bytes.len() {
+            let c = bytes[i];
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b'<' | b':' if depth == 0 => {
+                    return s[..i].trim().to_string();
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        s.trim().to_string()
     }
 
     fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
@@ -218,6 +301,7 @@ mod bootstrap {
         let mut i = 0;
         let mut depth: i32 = 0;
         let mut first_eq: Option<usize> = None;
+        let mut first_colon: Option<usize> = None;
         while i < bytes.len() {
             let c = bytes[i];
             match c {
@@ -226,6 +310,12 @@ mod bootstrap {
                 b':' if depth == 0 => {
                     if i + 1 < bytes.len() && bytes[i + 1] == b':' {
                         return Some((i, 2));
+                    }
+                    if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
+                        return Some((i, 2));
+                    }
+                    if first_colon.is_none() {
+                        first_colon = Some(i);
                     }
                 }
                 b'=' if depth == 0 => {
@@ -244,7 +334,10 @@ mod bootstrap {
             }
             i += 1;
         }
-        first_eq.map(|pos| (pos, 1))
+        if let Some(pos) = first_eq {
+            return Some((pos, 1));
+        }
+        first_colon.map(|pos| (pos, 1))
     }
 
     fn extract_quoted(s: &str) -> Option<(String, &str)> {
@@ -409,6 +502,13 @@ const CORPUS: &[&str] = &[
     // names, single-quoted spec, a `from` line whose tail is NOT `export`,
     // and a `from`-export line interleaved with a plain export.
     "from \"./upper.hnl\" export upper\nfrom \"./pair.hnl\" export a, b\nfrom './q.hnl' export q\nfrom \"char\" import * as char\nexport z :: x ~> x\nfrom \"./w.hnl\" export w",
+    // Private top-level bindings before, between, and after exports —
+    // hoisted into the do-block so exported closures can see them.
+    "helper :: x ~> x + 1\nconst := 3\nexport a :: x ~> helper(x)\nmiddle :: y ~> y * const\nexport b :: x ~> middle(x)",
+    // Private bindings with no exports at all — source preserved verbatim.
+    "helper :: x ~> x + 1\nother := helper(1)",
+    // Private multi-line arrow between exports.
+    "export a :: x ~> helper(x)\nhelper :: x ~> do {\n  y :: x + 1\n  y\n}\nexport b :: x ~> helper(x)",
     // NOTE: whole-package sources (e.g. str-handl.hnl) are excluded: the
     // interpreted transform over ~25k chars is far too slow for a test —
     // see AGENTS.md "loader self-hosting" for the performance note.
