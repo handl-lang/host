@@ -404,8 +404,31 @@ do {
     str.join(kept, nl)
   }
 
+  -- True when `s` is a plausible Handl identifier: starts with an
+  -- alphabetic character or underscore, followed by zero or more
+  -- alphanumeric characters or underscores.  Mirrors
+  -- `handl_runtime::module_prep`'s private-binding check.
+  is_valid_ident :: s ~> do {
+    if slen(s) == 0 { false } else {
+      c0 :: atc(s, 0)
+      if !(char.is_alpha(c0) || c0 == "_") { false } else {
+        while { i: 1, ok: true } {
+          [i, ok] ~> if !ok || i >= slen(s) { { out: ok } } else {
+            c :: atc(s, i)
+            { state: { i: i + 1, ok: char.is_alnum(c) || c == "_" } }
+          }
+        }
+      }
+    }
+  }
+
   -- Scan lines, collecting `{name, expr}` entries.  `cur` is null or the
-  -- current `{name, lines}` record under construction (lines reversed).
+  -- current `{name, lines}` record under construction (lines reversed);
+  -- `cur_priv` marks it as a private (non-exported) top-level binding.
+  -- Export entries become object fields (`{ name: expr }`); private
+  -- entries become `do`-block assignments (`name := expr;`) emitted
+  -- *before* the object so exported closures can reference private
+  -- helpers — mirrors `handl_runtime::module_prep`.
   --
   -- When the source contains top-level import statements they are hoisted,
   -- in original order, ahead of the record literal inside a `do { ... }`
@@ -413,72 +436,103 @@ do {
   -- names for the record.  With no imports the bare object literal (or the
   -- untouched source) is returned, exactly as before.
   transform_export_to_object :: s ~> do {
-    scan :: while { xs: str.lines(s), entries: [], cur: null } {
-      [xs, entries, cur] ~> match xs {
-        []: match cur {
-          null: { out: entries },
-          c: { out: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries] }
-        },
+    -- fin :: append the in-flight entry (if any) to its collection.
+    fin :: [coll, cur] ~> match cur {
+      null: coll,
+      c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...coll]
+    }
+    scan :: while { xs: str.lines(s), entries: [], priv: [], cur: null, cur_priv: false } {
+      [xs, entries, priv, cur, cur_priv] ~> match xs {
+        []: { out: { entries: if cur_priv { entries } else { fin(entries, cur) },
+                     priv: if cur_priv { fin(priv, cur) } else { priv } } },
         [h, ...t]: if is_top_import_line(h) {
           fe :: from_export_to_import(h)
           if fe == null {
-            { state: { xs: t, entries: entries, cur: cur } }
+            { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv } }
           } else {
-            entries2 :: match cur {
-              null: entries,
-              c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries]
-            }
+            entries2 :: if cur_priv { entries } else { fin(entries, cur) }
+            priv2 :: if cur_priv { fin(priv, cur) } else { priv }
             entries3 :: while { ys: fe.names, acc: entries2 } {
               [ys, acc] ~> match ys {
                 []: { out: acc },
                 [p, ...pt]: { state: { ys: pt, acc: [{ name: p.name, expr: p.alias }, ...acc] } }
               }
             }
-            { state: { xs: t, entries: entries3, cur: null } }
+            { state: { xs: t, entries: entries3, priv: priv2, cur: null, cur_priv: false } }
           }
         } else {
           if is_export_line(h) {
             rest :: sdrop(trim_start(h), 7)
             sep :: find_binding_sep(rest)
-            entries2 :: match cur {
-              null: entries,
-              c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...entries]
-            }
+            entries2 :: if cur_priv { entries } else { fin(entries, cur) }
+            priv2 :: if cur_priv { fin(priv, cur) } else { priv }
             if sep == null {
-              { state: { xs: t, entries: entries2, cur: null } }
+              { state: { xs: t, entries: entries2, priv: priv2, cur: null, cur_priv: false } }
             } else {
-              expr0 :: trim(sdrop(rest, sep.pos + sep.len))
-              { state: { xs: t, entries: entries2,
+              type_only :: sep.len == 1 && atc(rest, sep.pos) == ":"
+              expr0 :: if type_only { "null" } else { trim(sdrop(rest, sep.pos + sep.len)) }
+              { state: { xs: t, entries: entries2, priv: priv2,
                          cur: { name: trim(strip_export_name(stake(rest, sep.pos))),
-                                lines: if slen(expr0) == 0 { [] } else { [expr0] } } } }
+                                lines: if slen(expr0) == 0 { [] } else { [expr0] } },
+                         cur_priv: false } }
             }
           } else {
-            match cur {
-              null: { state: { xs: t, entries: entries, cur: cur } },
-              c: if blank(h) {
-                { state: { xs: t, entries: entries, cur: cur } }
-              } else {
-                { state: { xs: t, entries: entries,
-                           cur: { name: c.name, lines: [h, ...c.lines] } } }
+            -- Column-0 line that is not an import or `export`: detect a
+            -- *private* top-level binding so helpers survive into the
+            -- do-block instead of being dropped or swallowed into the
+            -- previous export's expression.
+            t0 :: trim_start(h)
+            sep0 :: if indented(h) { null } else { find_binding_sep(t0) }
+            nm :: if sep0 == null { "" } else { trim(strip_export_name(stake(t0, sep0.pos))) }
+            if sep0 != null && is_valid_ident(nm) {
+              entries2 :: if cur_priv { entries } else { fin(entries, cur) }
+              priv2 :: if cur_priv { fin(priv, cur) } else { priv }
+              type_only :: sep0.len == 1 && atc(t0, sep0.pos) == ":"
+              expr0 :: if type_only { "null" } else { trim(sdrop(t0, sep0.pos + sep0.len)) }
+              { state: { xs: t, entries: entries2, priv: priv2,
+                         cur: { name: nm,
+                                lines: if slen(expr0) == 0 { [] } else { [expr0] } },
+                         cur_priv: true } }
+            } else {
+              match cur {
+                null: { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv } },
+                c: if blank(h) {
+                  { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv } }
+                } else {
+                  { state: { xs: t, entries: entries, priv: priv,
+                             cur: { name: c.name, lines: [h, ...c.lines] }, cur_priv: cur_priv } }
+                }
               }
             }
           }
         }
       }
     }
-    entries :: rev(scan)
+    entries :: rev(scan.entries)
+    privs :: rev(scan.priv)
     imports :: collect_import_lines(s)
+    -- Private bindings as do-block assignments ahead of the record.
+    prelude :: while { xs: privs, acc: "" } {
+      [xs, acc] ~> match xs {
+        []: { out: acc },
+        [h, ...t]: { state: { xs: t, acc: acc + h.name + " := " + trim(h.expr) + ";" + nl } }
+      }
+    }
     if list_len(imports) == 0 {
       if list_len(entries) == 0 {
         s
-      } else {
+      } else if list_len(privs) == 0 {
         emit_object(entries)
+      } else {
+        -- `(source).name` projections evaluate the source as a single
+        -- expression — private statements need a `do` block.
+        "do {" + nl + prelude + emit_object(entries) + nl + "}"
       }
     } else {
       body :: if list_len(entries) == 0 {
         drop_import_lines(s)
       } else {
-        emit_object(entries)
+        prelude + emit_object(entries)
       }
       "do {" + nl + str.join(imports, nl) + nl + body + nl + "}"
     }

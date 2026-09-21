@@ -1,0 +1,24 @@
+--- Generated adapter for icu-c-linux-x86_64/ureldatefmt
+
+from "result" import { ok, err }
+from "../icu/ureldatefmt" import { UreldatefmtOpen78, UreldatefmtClose78, UreldatefmtFormatNumeric78, UreldatefmtFormat78 }
+
+export ureldatefmt_open_78: UreldatefmtOpen78 := (locale, nf_to_adopt, width, capitalization, status) ~> do {
+  r = ffi.call("libicui18n.so", "ureldatefmt_open_78", [locale, nf_to_adopt, width, capitalization, status], ["cstr", "ptr", "i32", "i32", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export ureldatefmt_close_78: UreldatefmtClose78 := (fmt) ~> do {
+  r = ffi.call("libicui18n.so", "ureldatefmt_close_78", [fmt], ["handle"], "void", false)
+  ok(null)
+}
+
+export ureldatefmt_formatNumeric_78: UreldatefmtFormatNumeric78 := (fmt, offset, unit, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "ureldatefmt_formatNumeric_78", [fmt, offset, unit, capacity, status], ["handle", "f64", "i32", "out_ptr:512", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export ureldatefmt_format_78: UreldatefmtFormat78 := (fmt, offset, unit, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "ureldatefmt_format_78", [fmt, offset, unit, capacity, status], ["handle", "f64", "i32", "out_ptr:512", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}

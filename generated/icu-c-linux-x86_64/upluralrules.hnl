@@ -1,0 +1,24 @@
+--- Generated adapter for icu-c-linux-x86_64/upluralrules
+
+from "result" import { ok, err }
+from "../icu/upluralrules" import { UplrulesOpen78, UplrulesOpenForType78, UplrulesClose78, UplrulesSelect78 }
+
+export uplrules_open_78: UplrulesOpen78 := (locale, status) ~> do {
+  r = ffi.call("libicui18n.so", "uplrules_open_78", [locale, status], ["cstr", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export uplrules_openForType_78: UplrulesOpenForType78 := (locale, type_, status) ~> do {
+  r = ffi.call("libicui18n.so", "uplrules_openForType_78", [locale, type_, status], ["cstr", "i32", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export uplrules_close_78: UplrulesClose78 := (rules) ~> do {
+  r = ffi.call("libicui18n.so", "uplrules_close_78", [rules], ["handle"], "void", false)
+  ok(null)
+}
+
+export uplrules_select_78: UplrulesSelect78 := (rules, number, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "uplrules_select_78", [rules, number, capacity, status], ["handle", "f64", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}

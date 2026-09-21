@@ -1,0 +1,54 @@
+--- Generated adapter for icu-uc-c-linux-x86_64/ubrk
+
+from "result" import { ok, err }
+from "../icu-uc/ubrk" import { UbrkOpen78, UbrkClose78, UbrkCurrent78, UbrkNext78, UbrkPrevious78, UbrkFirst78, UbrkLast78, UbrkGetAvailable78, UbrkCountAvailable78, UbrkGetRuleStatus78 }
+
+export ubrk_open_78: UbrkOpen78 := (type_, locale, text, text_length, status) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_open_78", [type_, locale, text, text_length, status], ["i32", "cstr", "ptr", "i32", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export ubrk_close_78: UbrkClose78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_close_78", [bi], ["handle"], "void", false)
+  ok(null)
+}
+
+export ubrk_current_78: UbrkCurrent78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_current_78", [bi], ["handle"], "i32", false)
+  ok(r)
+}
+
+export ubrk_next_78: UbrkNext78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_next_78", [bi], ["handle"], "i32", false)
+  ok(r)
+}
+
+export ubrk_previous_78: UbrkPrevious78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_previous_78", [bi], ["handle"], "i32", false)
+  ok(r)
+}
+
+export ubrk_first_78: UbrkFirst78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_first_78", [bi], ["handle"], "i32", false)
+  ok(r)
+}
+
+export ubrk_last_78: UbrkLast78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_last_78", [bi], ["handle"], "i32", false)
+  ok(r)
+}
+
+export ubrk_getAvailable_78: UbrkGetAvailable78 := (index) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_getAvailable_78", [index], ["i32"], "cstr", false)
+  ok(r)
+}
+
+export ubrk_countAvailable_78: UbrkCountAvailable78 := () ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_countAvailable_78", [], [], "i32", false)
+  ok(r)
+}
+
+export ubrk_getRuleStatus_78: UbrkGetRuleStatus78 := (bi) ~> do {
+  r = ffi.call("libicuuc.so", "ubrk_getRuleStatus_78", [bi], ["handle"], "i32", false)
+  ok(r)
+}
