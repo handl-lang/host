@@ -19,6 +19,6 @@ export uplrules_close_78: UplrulesClose78 := (rules) ~> do {
 }
 
 export uplrules_select_78: UplrulesSelect78 := (rules, number, capacity, status) ~> do {
-  r = ffi.call("libicui18n.so", "uplrules_select_78", [rules, number, capacity, status], ["handle", "f64", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
+  r = ffi.call("libicui18n.so", "uplrules_select_78", [rules, number, capacity, status], ["handle", "f64", "out_ptr:128", "i32", "io_scalar:i32"], "i32", false)
   ok(r)
 }

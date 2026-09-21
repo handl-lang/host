@@ -82,6 +82,18 @@ headers:
       ]
   ufieldpositer.h:
     include: ["ufieldpositer_open_78", "ufieldpositer_next_78", "ufieldpositer_close_78"]
+  unumberformatter.h:
+    include:
+      [
+        "unumf_openForSkeletonAndLocale_78",
+        "unumf_openResult_78",
+        "unumf_formatDouble_78",
+        "unumf_resultToString_78",
+        "unumf_close_78",
+        "unumf_closeResult_78",
+      ]
+  uformattednumber.h:
+    include: ["unumf_openResult_78", "unumf_resultToString_78", "unumf_closeResult_78"]
 
 symbols:
   # const UCollator* ucol_open(const char *loc, UErrorCode *status)
@@ -309,7 +321,7 @@ symbols:
   # int32_t uplrules_select(const UPluralRules*, double, UChar*, int32_t,
   #                         UErrorCode*)
   uplrules_select_78:
-    args: ["handle", "f64", "out_ptr:64", "i32", "io_scalar:i32"]
+    args: ["handle", "f64", "out_ptr:128", "i32", "io_scalar:i32"]
     names: ["rules", "number", "capacity", "status"]
     ret: Int
     descriptor: "i32"
@@ -415,3 +427,42 @@ symbols:
   ufieldpositer_close_78:
     args: ["handle"]
     names: ["iter"]
+
+  # UNumberFormatter* unumf_openForSkeletonAndLocale(const UChar* skeleton,
+  #   int32_t skeletonLen, const char* locale, UErrorCode* ec)
+  unumf_openForSkeletonAndLocale_78:
+    args: ["in_ptr", "i32", "cstr", "io_scalar:i32"]
+    names: ["skeleton", "skeleton_len", "locale", "status"]
+    ret: Int
+    descriptor: "handle"
+
+  # UFormattedNumber* unumf_openResult(UErrorCode* ec)
+  unumf_openResult_78:
+    args: ["io_scalar:i32"]
+    names: ["status"]
+    ret: Int
+    descriptor: "handle"
+
+  # void unumf_formatDouble(const UNumberFormatter*, double value,
+  #   UFormattedNumber* result, UErrorCode*)
+  unumf_formatDouble_78:
+    args: ["handle", "f64", "handle", "io_scalar:i32"]
+    names: ["formatter", "value", "result", "status"]
+
+  # int32_t unumf_resultToString(const UFormattedNumber*, UChar* buffer,
+  #   int32_t bufferCapacity, UErrorCode*)
+  unumf_resultToString_78:
+    args: ["handle", "out_ptr:256", "i32", "io_scalar:i32"]
+    names: ["result", "capacity", "status"]
+    ret: Int
+    descriptor: "i32"
+
+  # void unumf_close(UNumberFormatter*)
+  unumf_close_78:
+    args: ["handle"]
+    names: ["formatter"]
+
+  # void unumf_closeResult(UFormattedNumber*)
+  unumf_closeResult_78:
+    args: ["handle"]
+    names: ["result"]

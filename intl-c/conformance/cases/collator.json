@@ -1,0 +1,83 @@
+[
+  {
+    "id": "en-basic",
+    "locale": "en",
+    "options": {},
+    "pairs": [
+      ["a", "b"],
+      ["b", "a"],
+      ["abc", "abc"],
+      ["apple", "banana"]
+    ]
+  },
+  {
+    "id": "en-accent",
+    "locale": "en",
+    "options": {},
+    "pairs": [
+      ["é", "z"],
+      ["resume", "résumé"]
+    ]
+  },
+  {
+    "id": "en-sensitivity-base",
+    "locale": "en",
+    "options": { "sensitivity": "base" },
+    "pairs": [
+      ["é", "e"],
+      ["A", "a"],
+      ["abc", "ABC"]
+    ]
+  },
+  {
+    "id": "en-numeric",
+    "locale": "en",
+    "options": { "numeric": true },
+    "pairs": [
+      ["a2", "a10"],
+      ["x10y", "x9y"]
+    ]
+  },
+  {
+    "id": "en-numeric-off",
+    "locale": "en",
+    "options": { "numeric": false },
+    "pairs": [["a2", "a10"]]
+  },
+  {
+    "id": "en-case-first",
+    "locale": "en",
+    "options": { "caseFirst": "upper" },
+    "pairs": [
+      ["A", "a"],
+      ["B", "a"]
+    ]
+  },
+  {
+    "id": "de-phonebook",
+    "locale": "de-u-co-phonebk",
+    "options": {},
+    "pairs": [
+      ["ä", "ae"],
+      ["ö", "o"]
+    ]
+  },
+  {
+    "id": "sv",
+    "locale": "sv",
+    "options": {},
+    "pairs": [
+      ["z", "ä"],
+      ["v", "w"]
+    ]
+  },
+  {
+    "id": "zh",
+    "locale": "zh",
+    "options": {},
+    "pairs": [
+      ["中", "文"],
+      ["a", "中"]
+    ]
+  }
+]

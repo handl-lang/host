@@ -1,10 +1,15 @@
 --- Generated adapter for icu-uc-c-linux-x86_64/ures
 
 from "result" import { ok, err }
-from "../icu-uc/ures" import { UresOpen78, UresClose78, UresGetUtf8String78, UresGetByKey78 }
+from "../icu-uc/ures" import { UresOpen78, UresOpenDirect78, UresClose78, UresGetUtf8String78, UresGetByKey78 }
 
 export ures_open_78: UresOpen78 := (package, locale, status) ~> do {
   r = ffi.call("libicuuc.so", "ures_open_78", [package, locale, status], ["ptr", "cstr", "io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export ures_openDirect_78: UresOpenDirect78 := (package, locale, status) ~> do {
+  r = ffi.call("libicuuc.so", "ures_openDirect_78", [package, locale, status], ["ptr", "cstr", "io_scalar:i32"], "handle", false)
   ok(r)
 }
 

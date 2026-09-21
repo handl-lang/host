@@ -173,13 +173,84 @@ test_date_parts := assert(if intl_c.available {
 
 -- duration --------------------------------------------------------------------------
 
--- UNUM_DURATION renders elapsed seconds; only assert the call succeeds
--- (shape is "h:mm:ss"-ish but CLDR-version dependent).
+-- Intl.DurationFormat: default "short" → CLDR unit list; "digital" → h:mm:ss
 test_duration_ok := assert(if intl_c.available {
-  tag.tag_of(intl_c.format_duration(3725, "en", null))
+  intl_c.format_duration({ hours: 1, minutes: 46, seconds: 40 }, "en", null)
 } else {
-  "ok"
-}) = "ok"
+  ok("skip")
+}) = ok("1 hr, 46 min, 40 sec")
+
+test_duration_digital := assert(if intl_c.available {
+  intl_c.format_duration(3725, "en", { style: "digital" })
+} else {
+  ok("skip")
+}) = ok("1:02:05")
+
+test_duration_long := assert(if intl_c.available {
+  intl_c.format_duration({ days: 2, hours: 4 }, "en", { style: "long" })
+} else {
+  ok("skip")
+}) = ok("2 days, 4 hours")
+
+test_duration_narrow := assert(if intl_c.available {
+  intl_c.format_duration({ hours: 1, minutes: 46 }, "en", { style: "narrow" })
+} else {
+  ok("skip")
+}) = ok("1h 46m")
+
+test_duration_digital_frac := assert(if intl_c.available {
+  intl_c.format_duration({ minutes: 1, seconds: 5, milliseconds: 250 }, "en", { style: "digital", fractionalDigits: 2 })
+} else {
+  ok("skip")
+}) = ok("0:01:05.25")
+
+test_duration_neg := assert(if intl_c.available {
+  intl_c.format_duration({ hours: -1, minutes: -30 }, "en", null)
+} else {
+  ok("skip")
+}) = ok("-1 hr, 30 min")
+
+test_duration_neg_digital := assert(if intl_c.available {
+  intl_c.format_duration({ minutes: -1, seconds: -5 }, "en", { style: "digital" })
+} else {
+  ok("skip")
+}) = ok("-0:01:05")
+
+test_duration_zero := assert(if intl_c.available {
+  intl_c.format_duration({ seconds: 0 }, "en", null)
+} else {
+  ok("skip")
+}) = ok("")
+
+test_duration_ms_only := assert(if intl_c.available {
+  intl_c.format_duration({ milliseconds: 500 }, "en", { style: "digital" })
+} else {
+  ok("skip")
+}) = ok("0:00:00.5")
+
+test_duration_mixed_sign := assert(if intl_c.available {
+  tag.tag_of(intl_c.format_duration({ hours: 1, minutes: -30 }, "en", null))
+} else {
+  "err"
+}) = "err"
+
+test_duration_empty := assert(if intl_c.available {
+  tag.tag_of(intl_c.format_duration({}, "en", null))
+} else {
+  "err"
+}) = "err"
+
+test_duration_nonint := assert(if intl_c.available {
+  tag.tag_of(intl_c.format_duration({ hours: 1.5 }, "en", null))
+} else {
+  "err"
+}) = "err"
+
+test_duration_locale := assert(if intl_c.available {
+  intl_c.format_duration({ hours: 1, minutes: 30 }, "de", { style: "long" })
+} else {
+  ok("skip")
+}) = ok("1 Stunde, 30 Minuten")
 
 -- display names -----------------------------------------------------------------------
 

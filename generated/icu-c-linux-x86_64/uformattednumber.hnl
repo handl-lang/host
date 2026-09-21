@@ -1,0 +1,19 @@
+--- Generated adapter for icu-c-linux-x86_64/uformattednumber
+
+from "result" import { ok, err }
+from "../icu/uformattednumber" import { UnumfOpenResult78, UnumfResultToString78, UnumfCloseResult78 }
+
+export unumf_openResult_78: UnumfOpenResult78 := (status) ~> do {
+  r = ffi.call("libicui18n.so", "unumf_openResult_78", [status], ["io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export unumf_resultToString_78: UnumfResultToString78 := (result, capacity, status) ~> do {
+  r = ffi.call("libicui18n.so", "unumf_resultToString_78", [result, capacity, status], ["handle", "out_ptr:256", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
+export unumf_closeResult_78: UnumfCloseResult78 := (result) ~> do {
+  r = ffi.call("libicui18n.so", "unumf_closeResult_78", [result], ["handle"], "void", false)
+  ok(null)
+}

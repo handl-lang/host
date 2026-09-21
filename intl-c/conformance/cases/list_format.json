@@ -1,0 +1,56 @@
+[
+  {
+    "id": "en-conjunction",
+    "locale": "en",
+    "options": { "type": "conjunction" },
+    "inputs": [["a"], ["a", "b"], ["a", "b", "c"], ["one", "two", "three", "four"]]
+  },
+  {
+    "id": "en-disjunction",
+    "locale": "en",
+    "options": { "type": "disjunction" },
+    "inputs": [
+      ["a", "b"],
+      ["a", "b", "c"]
+    ]
+  },
+  {
+    "id": "en-unit",
+    "locale": "en",
+    "options": { "type": "unit" },
+    "inputs": [
+      ["1 lb", "2 oz"],
+      ["5 ft", "10 in", "2 cm"]
+    ]
+  },
+  {
+    "id": "en-unit-narrow",
+    "locale": "en",
+    "options": { "type": "unit", "style": "narrow" },
+    "inputs": [["1 lb", "2 oz"]]
+  },
+  {
+    "id": "en-conj-short",
+    "locale": "en",
+    "options": { "type": "conjunction", "style": "short" },
+    "inputs": [["a", "b", "c"]]
+  },
+  {
+    "id": "de-conjunction",
+    "locale": "de",
+    "options": { "type": "conjunction" },
+    "inputs": [
+      ["a", "b"],
+      ["a", "b", "c"]
+    ]
+  },
+  {
+    "id": "ja-conjunction",
+    "locale": "ja",
+    "options": { "type": "conjunction" },
+    "inputs": [
+      ["あ", "い"],
+      ["あ", "い", "う"]
+    ]
+  }
+]

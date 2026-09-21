@@ -43,6 +43,8 @@ from "../generated/icu-c-linux-x86_64/upluralrules" import * as upluralrules
 from "../generated/icu-c-linux-x86_64/ureldatefmt" import * as ureldatefmt
 from "../generated/icu-c-linux-x86_64/udat" import * as udat
 from "../generated/icu-c-linux-x86_64/ufieldpositer" import * as ufieldpositer
+from "../generated/icu-c-linux-x86_64/unumberformatter" import * as unumf
+from "../generated/icu-c-linux-x86_64/uformattednumber" import * as ufnum
 
 -- sdkgen-generated ICU4C adapters (libicuuc).
 from "../generated/icu-uc-c-linux-x86_64/ubrk" import * as ubrk
@@ -272,6 +274,15 @@ map_list := (xs, f) ~> while { xs: xs, acc: [] } {
 
 imin := (a, b) ~> if a < b { a } else { b }
 
+list_has := (xs, v) ~> while { xs: xs, hit: false } {
+  (xs, hit) ~> if hit { { out: true } } else {
+    match xs {
+      []: { out: false },
+      [h, ...t]: { state: { xs: t, hit: h == v } }
+    }
+  }
+}
+
 -- unit slice [i, j) of a UTF-16 unit list
 uslice := (us, i, j) ~> take(drop(us, i), j - i)
 
@@ -457,7 +468,10 @@ num_attrs := (fmt, o) ~> do {
     unum.unum_setTextAttribute_78(fmt, 5, e.bytes, e.len, 0)
   } }
   _a = if o.minimumFractionDigits == null { 0 } else { unum.unum_setAttribute_78(fmt, 7, o.minimumFractionDigits, 0) }
-  _b = if o.maximumFractionDigits == null { 0 } else { unum.unum_setAttribute_78(fmt, 6, o.maximumFractionDigits, 0) }
+  _b = if o.maximumFractionDigits != null { unum.unum_setAttribute_78(fmt, 6, o.maximumFractionDigits, 0) } else if o.style == "scientific" { unum.unum_setAttribute_78(fmt, 6, 3, 0) } else { 0 }
+  -- ECMA-402 rounds half away from zero ("1.2345" → "1.235"); ICU defaults
+  -- to half-even. UNUM_ROUNDING_MODE=11, UNUM_ROUND_HALFUP=6.
+  _r = unum.unum_setAttribute_78(fmt, 11, 6, 0)
   _d = if o.minimumIntegerDigits == null { 0 } else { unum.unum_setAttribute_78(fmt, 4, o.minimumIntegerDigits, 0) }
   _e = if o.maximumIntegerDigits == null { 0 } else { unum.unum_setAttribute_78(fmt, 3, o.maximumIntegerDigits, 0) }
   _g = if nz(o.useGrouping, true) { 0 } else { unum.unum_setAttribute_78(fmt, 1, 0, 0) }
@@ -473,7 +487,8 @@ num_run := (fmt, n) ~> do {
 -- UNUM field id → part type; UNUM_SIGN=10 falls to `_` and `seg` decides
 num_part_type := (f, seg) ~> match f {
   0: "integer", 1: "fraction", 2: "decimal", 3: "exponentSeparator",
-  4: "exponentSign", 5: "exponentInteger", 6: "group", 7: "currency",
+  4: if seg == "-" { "exponentMinusSign" } else if seg == "+" { "exponentPlusSign" } else { "exponentSign" },
+  5: "exponentInteger", 6: "group", 7: "currency",
   8: "percentSign", 9: "permilleSign", 11: "unit", 12: "compact",
   13: "approximatelySign",
   _: if seg == "-" { "minusSign" } else if seg == "+" { "plusSign" } else { "sign" }
@@ -666,26 +681,6 @@ date_with := (v, locale, opts, parts) ~> do {
   }
 }
 
--- duration formatting ---------------------------------------------------------------------
-
--- seconds, or a {years,…,milliseconds} record summed approximately (the old
--- Rust backend's Temporal.Duration-ish input shape)
-duration_seconds := (v) ~> if type.of(v) == "number" { v } else if type.of(v) == "object" { do {
-  o = opt_rec(v)
-  nz(o.years, 0) * 31557600 + nz(o.months, 0) * 2629800 + nz(o.weeks, 0) * 604800 +
-  nz(o.days, 0) * 86400 + nz(o.hours, 0) * 3600 + nz(o.minutes, 0) * 60 +
-  nz(o.seconds, 0) + nz(o.milliseconds, 0) / 1000 + nz(o.microseconds, 0) / 1000000 +
-  nz(o.nanoseconds, 0) / 1000000000
-} } else { null }
-
-format_duration_impl := (v, locale, _opts) ~> do {
-  sec = duration_seconds(v)
-  if sec == null { err("unsupported duration value") } else {
-    r = statused(unum.unum_open_78(7, 0, 0, loc_or_root(locale), 0, 0), "unum_open")
-    if tag.tag_of(r) == "err" { r } else { num_run(tag.untag(r).value.ret, sec) }
-  }
-}
-
 -- list formatting (CLDR listPattern via ures — no UChar*[] ffi needed) ------------
 
 -- ECMA type "conjunction"|"disjunction"|"unit" → CLDR listPattern key
@@ -697,9 +692,18 @@ listpat_key := (o) ~> do {
 
 res_child := (parent, key, what) ~> statused(ures.ures_getByKey_78(parent, key, 0, 0), what)
 
+-- ures_getByKeyWithFallback is ICU-internal (no installed header decl)
+-- but exported — call it through generic ffi directly. Missing keys fall
+-- back through the bundle's parent chain: trimmed locales (de carries
+-- only `2`/`end` in listPattern tables) resolve start/middle from root.
+res_child_fb := (parent, key, what) ~> statused(ok(ffi.call(
+  "libicuuc.so", "ures_getByKeyWithFallback_78",
+  [parent, key, 0, 0],
+  ["handle", "cstr", "ptr", "io_scalar:i32"], "handle", false)), what)
+
 -- read a string resource under `parent` at `key`; closes the child handle
 res_str := (parent, key) ~> do {
-  c = res_child(parent, key, "ures_getByKey")
+  c = res_child_fb(parent, key, "ures_getByKey")
   if tag.tag_of(c) == "err" { c } else {
     h = tag.untag(c).value.ret
     s = statused(ures.ures_getUTF8String_78(h, 256, 1, 0), "ures_getUTF8String")
@@ -711,8 +715,7 @@ res_str := (parent, key) ~> do {
   }
 }
 
--- {start, middle, end, two} CLDR list patterns for locale+opts
-list_patterns := (locale, o) ~> do {
+list_patterns_key := (locale, key) ~> do {
   r0 = statused(ures.ures_open_78(0, loc_or_root(locale), 0), "ures_open")
   if tag.tag_of(r0) == "err" { r0 } else {
     h0 = tag.untag(r0).value.ret
@@ -722,7 +725,7 @@ list_patterns := (locale, o) ~> do {
       r1
     } else {
       h1 = tag.untag(r1).value.ret
-      r2 = res_child(h1, listpat_key(o), "listPattern." + listpat_key(o))
+      r2 = res_child(h1, key, "listPattern." + key)
       if tag.tag_of(r2) == "err" {
         _1 = ures.ures_close_78(h1)
         _2 = ures.ures_close_78(h0)
@@ -736,11 +739,13 @@ list_patterns := (locale, o) ~> do {
         _1 = ures.ures_close_78(h2)
         _2 = ures.ures_close_78(h1)
         _3 = ures.ures_close_78(h0)
-        bad = if tag.tag_of(p_start) == "err" { p_start } else if tag.tag_of(p_mid) == "err" { p_mid } else if tag.tag_of(p_end) == "err" { p_end } else { p_two }
-        if tag.tag_of(bad) == "err" { bad } else {
+        -- `two` is the only required pattern; trimmed bundles may lack
+        -- start/middle/end, which list_join then falls back to `two` for
+        if tag.tag_of(p_two) == "err" { p_two } else {
+          pv = (p) ~> if tag.tag_of(p) == "err" { null } else { tag.untag(p).value }
           ok({
-            start: tag.untag(p_start).value, middle: tag.untag(p_mid).value,
-            end: tag.untag(p_end).value, two: tag.untag(p_two).value
+            start: pv(p_start), middle: pv(p_mid),
+            end: pv(p_end), two: tag.untag(p_two).value
           })
         }
       }
@@ -748,20 +753,23 @@ list_patterns := (locale, o) ~> do {
   }
 }
 
+-- {start, middle, end, two} CLDR list patterns for locale+opts
+list_patterns := (locale, o) ~> list_patterns_key(locale, listpat_key(o))
+
 -- CLDR composition: n==1 → item; n==2 → "2"; else start(x0, middle…(end(x[n-2], x[n-1])))
 list_join := (xs, pats) ~> do {
   n = list_len(xs)
   if n == 0 { "" } else if n == 1 { at(xs, 0) } else if n == 2 {
     fmt2(pats.two, at(xs, 0), at(xs, 1))
   } else {
-    tail = while { i: n - 3, acc: fmt2(pats.end, at(xs, n - 2), at(xs, n - 1)) } {
+    tail = while { i: n - 3, acc: fmt2(nz(pats.end, pats.two), at(xs, n - 2), at(xs, n - 1)) } {
       (i, acc) ~> if i < 1 {
         { out: acc }
       } else {
-        { state: { i: i - 1, acc: fmt2(pats.middle, at(xs, i), acc) } }
+        { state: { i: i - 1, acc: fmt2(nz(pats.middle, pats.two), at(xs, i), acc) } }
       }
     }
-    fmt2(pats.start, at(xs, 0), tail)
+    fmt2(nz(pats.start, pats.two), at(xs, 0), tail)
   }
 }
 
@@ -772,19 +780,275 @@ format_list_impl := (items, locale, opts) ~> if type.of(items) == "array" {
   err("format_list expects a list of strings")
 }
 
+-- duration (Intl.DurationFormat) -------------------------------------------------------
+
+-- spec field order → CLDR `units/<length>/duration-<unit>` resource stems
+dur_unit_res := ["duration-year", "duration-month", "duration-week", "duration-day",
+  "duration-hour", "duration-minute", "duration-second", "duration-millisecond",
+  "duration-microsecond", "duration-nanosecond"]
+
+-- ToDurationRecord: every present field must be an integer (nested ifs — && is
+-- eager and math.is_integer throws on non-numbers)
+dur_field_int := (v) ~> if v == null { true } else if type.of(v) != "number" { false } else {
+  math.is_integer(v)
+}
+
+dur_rec_ok := (o) ~> (dur_field_int(o.years) && dur_field_int(o.months) &&
+  dur_field_int(o.weeks) && dur_field_int(o.days) && dur_field_int(o.hours) &&
+  dur_field_int(o.minutes) && dur_field_int(o.seconds) && dur_field_int(o.milliseconds) &&
+  dur_field_int(o.microseconds) && dur_field_int(o.nanoseconds))
+
+dur_any := (o) ~> ((o.years != null) || (o.months != null) || (o.weeks != null) ||
+  (o.days != null) || (o.hours != null) || (o.minutes != null) || (o.seconds != null) ||
+  (o.milliseconds != null) || (o.microseconds != null) || (o.nanoseconds != null))
+
+-- duration record → values in spec order
+dur_vals := (o) ~> [nz(o.years, 0), nz(o.months, 0), nz(o.weeks, 0), nz(o.days, 0),
+  nz(o.hours, 0), nz(o.minutes, 0), nz(o.seconds, 0), nz(o.milliseconds, 0),
+  nz(o.microseconds, 0), nz(o.nanoseconds, 0)]
+
+-- number input = elapsed seconds (extension over spec records); decompose the
+-- magnitude into h/m/s so digital gives "1:01:01" and textual "1 hr, …"
+dur_of_num := (v) ~> do {
+  s = if v < 0 { -1 } else { 1 }
+  a = math.abs(v)
+  h = math.floor_div(a, 3600)
+  m = math.floor_div(a - h * 3600, 60)
+  r = [0, 0, 0, 0, s * h, s * m, s * (a - h * 3600 - m * 60), 0, 0, 0]
+  r
+}
+
+dur_vals_of := (v) ~> if type.of(v) == "number" {
+  dur_of_num(v)
+} else if type.of(v) == "object" {
+  if dur_any(v) && dur_rec_ok(v) { dur_vals(v) } else { null }
+} else {
+  null
+}
+
+-- DurationSign: sign of the most significant non-zero field (0 if all zero)
+dur_sign := (vs) ~> while { xs: vs, s: 0 } {
+  (xs, s) ~> match xs {
+    []: { out: s },
+    [h, ...t]: { state: { xs: t, s: if(s == 0) && (h != 0) { if h < 0 { -1 } else { 1 } } else { s } } }
+  }
+}
+
+-- IsValidDuration: all non-zero fields share a sign
+dur_sign_ok := (vs) ~> while { xs: vs, s: 0, ok_so_far: true } {
+  (xs, s, ok_so_far) ~> if !ok_so_far { { out: false } } else {
+    match xs {
+      []: { out: true },
+      [h, ...t]: do {
+        sh = if h == 0 { 0 } else if h < 0 { -1 } else { 1 }
+        if(s != 0) && (sh != 0) && (sh != s) {
+          { out: false }
+        } else {
+          { state: { xs: t, s: if s == 0 { sh } else { s }, ok_so_far: true } }
+        }
+      }
+    }
+  }
+}
+
+-- Intl style → NumberFormatter `unit-width` token
+dur_width := (s) ~> match s {
+  "long": "full-name",
+  "narrow": "narrow",
+  _: "short"
+}
+
+-- "measure-unit/duration-<unit> unit-width-<w>" skeleton → localized "N unit"
+-- ("1 hour", "5 hr", "9ns" — plural + number handled by the formatter)
+dur_unit_str := (resname, width, n, locale) ~> do {
+  skel = utf16_enc("measure-unit/" + resname + " unit-width-" + width)
+  r = statused(unumf.unumf_openForSkeletonAndLocale_78(skel.bytes, skel.len, loc_or_root(locale), 0), "unumf_open")
+  if tag.tag_of(r) == "err" { r } else {
+    fmt = tag.untag(r).value.ret
+    rr = statused(ufnum.unumf_openResult_78(0), "unumf_openResult")
+    if tag.tag_of(rr) == "err" {
+      _ = unumf.unumf_close_78(fmt)
+      rr
+    } else {
+      res = tag.untag(rr).value.ret
+      f0 = statused(unumf.unumf_formatDouble_78(fmt, n, res, 0), "unumf_formatDouble")
+      s = if tag.tag_of(f0) == "err" { f0 } else {
+        statused(ufnum.unumf_resultToString_78(res, 128, 0), "unumf_resultToString")
+      }
+      _1 = ufnum.unumf_closeResult_78(res)
+      _2 = unumf.unumf_close_78(fmt)
+      if tag.tag_of(s) == "err" { s } else { ok(rd16(tag.untag(s).value)) }
+    }
+  }
+}
+
+-- nonzero units vals[lo..hi) appended to `acc0` as localized "N unit" strings;
+-- `zi` is a fallback unit index formatted at 0 when nothing was emitted
+-- (-1 = none)
+dur_units_str := (vals, locale, width, lo, hi, zi, acc0) ~> do {
+  res0 = while { i: lo, acc: acc0, bad: null } {
+    (i, acc, bad) ~> if(bad != null) || (i >= hi) {
+      { out: if bad == null { ok(acc) } else { bad } }
+    } else {
+      n = at(vals, i)
+      if n == 0 {
+        { state: { i: i + 1, acc: acc, bad: bad } }
+      } else {
+        s = dur_unit_str(at(dur_unit_res, i), width, n, locale)
+        if tag.tag_of(s) == "err" {
+          { state: { i: i + 1, acc: acc, bad: s } }
+        } else {
+          { state: { i: i + 1, acc: [...acc, tag.untag(s).value], bad: bad } }
+        }
+      }
+    }
+  }
+  if(tag.tag_of(res0) == "ok") && (list_len(tag.untag(res0).value) == 0) && (zi >= 0) {
+    z = dur_unit_str(at(dur_unit_res, zi), width, 0, locale)
+    if tag.tag_of(z) == "err" { z } else { ok([tag.untag(z).value]) }
+  } else {
+    res0
+  }
+}
+
+-- duration join: `listPattern.unit` isn't present in every locale bundle —
+-- fall back through unit → unit-short → standard (+ narrow variants)
+dur_pats := (locale, list_style) ~> do {
+  keys = if list_style == "narrow" {
+    ["unit-narrow", "unit-short", "unit", "standard-narrow", "standard-short", "standard"]
+  } else {
+    ["unit", "unit-short", "standard", "unit-narrow", "standard-short", "standard-narrow"]
+  }
+  while { ks: keys, hit: null } {
+    (ks, hit) ~> if(hit != null) || (match ks { []: true, _: false }) {
+      { out: hit }
+    } else {
+      p = list_patterns_key(locale, at(ks, 0))
+      if tag.tag_of(p) == "ok" {
+        { state: { ks: ks, hit: p } }
+      } else {
+        { state: { ks: drop(ks, 1), hit: hit } }
+      }
+    }
+  }
+}
+
+-- join unit strings with the CLDR `unit` list pattern for the style
+dur_join := (parts, locale, list_style) ~> do {
+  p = dur_pats(locale, list_style)
+  if(tag.tag_of(p) == "err") || (p == null) { err("listPattern") } else {
+    ok(list_join(parts, tag.untag(p).value))
+  }
+}
+
+-- "digital": units ≥day format in "short" style; the h:m:s clock is always
+-- emitted as h:mm:ss (hours unpadded, minutes/seconds 2-digit), with ms/μs/ns
+-- folded into the seconds fraction (fractionalDigits opt, else up-to-9
+-- trimmed). Negative durations sign the whole string.
+dur_digital := (vals, locale, o) ~> do {
+  neg = dur_sign(vals) < 0
+  vs = if neg { map_list(vals, (x) ~> math.abs(x)) } else { vals }
+  h = at(vs, 4)
+  m = at(vs, 5)
+  s = at(vs, 6)
+  frac = (s - math.trunc(s)) + math.div(at(vs, 7) * 1000000 + at(vs, 8) * 1000 + at(vs, 9), 1000000000)
+  secv = math.trunc(s) + frac
+  big = dur_units_str(vs, locale, "short", 0, 4, -1, [])
+  if tag.tag_of(big) == "err" { big } else {
+    bp = tag.untag(big).value
+    fd = o.fractionalDigits
+    fo = if fd == null {
+      { minimumIntegerDigits: 2, maximumFractionDigits: 9, useGrouping: false }
+    } else {
+      { minimumIntegerDigits: 2, minimumFractionDigits: fd, maximumFractionDigits: fd, useGrouping: false }
+    }
+    ss = payload(num_with(secv, locale, fo, false))
+    mm = payload(num_with(m, locale, { minimumIntegerDigits: 2, useGrouping: false }, false))
+    hh = payload(num_with(h, locale, { useGrouping: false }, false))
+    if(ss == null) || (mm == null) || (hh == null) {
+      err("unum_formatDouble")
+    } else {
+      j = dur_join([...bp, hh + ":" + mm + ":" + ss], locale, "short")
+      if tag.tag_of(j) == "err" { j } else {
+        ok(if neg { "-" + tag.untag(j).value } else { tag.untag(j).value })
+      }
+    }
+  }
+}
+
+format_duration_impl := (v, locale, opts) ~> do {
+  o = opt_rec(opts)
+  style = nz(o.style, "short")
+  vs = dur_vals_of(v)
+  fd = o.fractionalDigits
+  fd_ok = if fd == null { true } else if type.of(fd) != "number" { false } else {
+    math.is_integer(fd) && (fd >= 0) && (fd <= 9)
+  }
+  if(style != "digital") && (style != "long") && (style != "short") && (style != "narrow") {
+    err("unsupported duration style: " + type.to_string(o.style))
+  } else if vs == null {
+    err("invalid duration value")
+  } else if !dur_sign_ok(vs) {
+    err("invalid duration value")
+  } else if !fd_ok {
+    err("fractionalDigits must be an integer 0-9")
+  } else if style == "digital" {
+    dur_digital(vs, locale, o)
+  } else {
+    -- textual styles: nonzero units only; sign goes on the whole string
+    -- ("-2 hr, 30 min"), an all-zero duration formats as ""
+    neg = dur_sign(vs) < 0
+    avs = if neg { map_list(vs, (x) ~> math.abs(x)) } else { vs }
+    r = dur_units_str(avs, locale, dur_width(style), 0, 10, -1, [])
+    if tag.tag_of(r) == "err" { r } else {
+      j = dur_join(tag.untag(r).value, locale, style)
+      if tag.tag_of(j) == "err" { j } else {
+        ok(if neg { "-" + tag.untag(j).value } else { tag.untag(j).value })
+      }
+    }
+  }
+}
+
 -- display names -------------------------------------------------------------------------
+
+-- ECMA display-name type → unicode extension key. Canonicalizing a
+-- synthetic `und-u-<key>-<code>` locale resolves the code's ICU-internal
+-- keyword/value pair (ECMA "gregory" → ICU "calendar=gregorian").
+dname_ukey := (t) ~> match t {
+  "calendar": "ca", "collation": "co", "currency": "cu",
+  "numberingSystem": "nu", _: null
+}
+
+-- {k, v}: canonical ICU keyword + value for a unicode-extension code
+dname_kv := (uk, code) ~> do {
+  r = payload(statused(uloc.uloc_canonicalize_78("und-u-" + uk + "-" + code, 128, 0), "uloc_canonicalize"))
+  if r == null { { k: uk, v: code } } else {
+    s = cstr_of(r.buf)
+    i = find_sub(s, "@")
+    j = find_sub(s, "=")
+    if i < 0 || j < 0 { { k: uk, v: code } } else {
+      cs = char.chars(s)
+      {
+        k: char.from_chars(take(drop(cs, i + 1), j - i - 1)),
+        v: char.from_chars(drop(cs, j + 1))
+      }
+    }
+  }
+}
 
 display_name_impl := (code, name_type, locale, _opts) ~> do {
   r = statused(uldnames.uldn_open_78(loc_or_root(locale), 0, 0), "uldn_open")
   if tag.tag_of(r) == "err" { r } else {
     ldn = tag.untag(r).value.ret
+    uk = dname_ukey(name_type)
+    kv = if uk == null { { k: name_type, v: code } } else { dname_kv(uk, code) }
     f = match name_type {
       "language": uldnames.uldn_languageDisplayName_78(ldn, code, 256, 0),
       "region": uldnames.uldn_regionDisplayName_78(ldn, code, 256, 0),
       "script": uldnames.uldn_scriptDisplayName_78(ldn, code, 256, 0),
       "locale": uldnames.uldn_localeDisplayName_78(ldn, code, 256, 0),
       "key": uldnames.uldn_keyDisplayName_78(ldn, code, 256, 0),
-      _: uldnames.uldn_keyValueDisplayName_78(ldn, name_type, code, 256, 0)
+      _: uldnames.uldn_keyValueDisplayName_78(ldn, kv.k, kv.v, 256, 0)
     }
     s = statused(f, "uldn_displayName")
     _ = uldnames.uldn_close_78(ldn)
@@ -874,27 +1138,100 @@ canon_tag := (lid) ~> do {
   if v == null { lid } else { cstr_of(v.buf) }
 }
 
+-- CLDR alias lookup under an open `metadata/alias` handle:
+-- <kind>/<code>/replacement → replacement string or null. Missing keys
+-- set U_MISSING_RESOURCE_ERROR (still an ok() Result) — `statused` folds
+-- that to null so absent aliases never yield a dangling 0 handle.
+alias_get := (a, kind, code) ~> do {
+  k = payload(statused(ures.ures_getByKey_78(a, kind, 0, 0), "alias"))
+  c = if k == null { null } else { payload(statused(ures.ures_getByKey_78(k.ret, code, 0, 0), "alias")) }
+  rp = if c == null { null } else { payload(statused(ures.ures_getByKey_78(c.ret, "replacement", 0, 0), "alias")) }
+  s = if rp == null { null } else { payload(statused(ures.ures_getUTF8String_78(rp.ret, 256, 1, 0), "alias")) }
+  _1 = if rp == null { 0 } else { ures.ures_close_78(rp.ret) }
+  _2 = if c == null { 0 } else { ures.ures_close_78(c.ret) }
+  _3 = if k == null { 0 } else { ures.ures_close_78(k.ret) }
+  if s == null { null } else { s.ret }
+}
+
+-- CLDR alias table: metadata/alias — locale-invariant, so it's opened
+-- with ures_openDirect (no fallback). `f` receives the alias table handle
+-- and returns the result; all handles are closed on the way out.
+with_aliases := (f) ~> do {
+  o = payload(statused(ures.ures_openDirect_78(0, "metadata", 0), "metadata"))
+  if o == null { f(null) } else { do {
+    h0 = o.ret
+    a = payload(statused(ures.ures_getByKey_78(h0, "alias", 0, 0), "alias"))
+    r = f(if a == null { null } else { a.ret })
+    _1 = if a == null { 0 } else { ures.ures_close_78(a.ret) }
+    _2 = ures.ures_close_78(h0)
+    r
+  } }
+}
+
+-- text up to the first space — territory replacements can be
+-- space-separated lists ("SU" → "RU AM AZ …"); ECMA-402 keeps the first
+first_word := (s) ~> do {
+  i = find_sub(s, " ")
+  if i < 0 { s } else { char.from_chars(take(char.chars(s), i)) }
+}
+
+-- apply CLDR aliases to the base subtags of a canonical ICU locale id:
+-- language alias on the first subtag ("cmn"→"zh"), territory alias on
+-- 2-3-alpha / 3-digit subtags after it ("BU"→"MM"). `@key=value`
+-- extension keywords pass through untouched.
+alias_lid := (lid) ~> do {
+  i = find_sub(lid, "@")
+  base = if i < 0 { lid } else { char.from_chars(take(char.chars(lid), i)) }
+  ext = if i < 0 { "" } else { char.from_chars(drop(char.chars(lid), i)) }
+  ps = str.split(base, "_")
+  aliased = with_aliases((a) ~> while { xs: ps, i: 0, acc: [] } {
+    (xs, i, acc) ~> match xs {
+      []: { out: acc },
+      [h, ...t]: do {
+        n = list_len(char.chars(h))
+        rep = if a == null { null }
+              else if i == 0 { alias_get(a, "language", h) }
+              else if(n == 2 || n == 3) && str.is_alpha(h) || n == 3 && str.is_numeric(h) { alias_get(a, "territory", h) }
+              else { null }
+        { state: { xs: t, i: i + 1, acc: [...acc, if rep == null { h } else { first_word(rep) }] } }
+      }
+    }
+  })
+  str.join(aliased, "_") + ext
+}
+
 -- BCP-47 tag → canonical tag ("EN_us" → "en-US"); falls back to input.
 -- `_` is normalized to `-` first — ICU's forLanguageTag is strict BCP-47
--- and returns "und" for underscore separators.
+-- and returns "und" for underscore separators. uloc_canonicalize fixes
+-- casing/order and keyword-value aliases ("gregory"→"gregorian");
+-- alias_lid then applies CLDR subtag aliases ("cmn"→"zh") that
+-- canonicalize leaves alone.
 canon := (t) ~> do {
   r = payload(uloc.uloc_forLanguageTag_78(str.replace(t, "_", "-"), 128, 0, 0))
-  if r == null { t } else { canon_tag(cstr_of(r.buf)) }
+  if r == null { t } else {
+    lid = cstr_of(r.buf)
+    cl = payload(statused(uloc.uloc_canonicalize_78(lid, 128, 0), "uloc_canonicalize"))
+    canon_tag(alias_lid(if cl == null { lid } else { cstr_of(cl.buf) }))
+  }
 }
 
 locale_impl := (t, _opts) ~> do {
   r = statused(uloc.uloc_forLanguageTag_78(str.replace(t, "_", "-"), 128, 0, 0), "uloc_forLanguageTag")
   if tag.tag_of(r) == "err" { r } else {
     lid = cstr_of(tag.untag(r).value.buf)
+    cl = payload(statused(uloc.uloc_canonicalize_78(lid, 128, 0), "uloc_canonicalize"))
+    clid = alias_lid(if cl == null { lid } else { cstr_of(cl.buf) })
+    bi = find_sub(clid, "@")
+    base_lid = if bi < 0 { clid } else { char.from_chars(take(char.chars(clid), bi)) }
     ok({
       tag: t,
       locale_id: lid,
-      base_name: loc_field(lid, "name"),
-      language: loc_field(lid, "language"),
-      script: loc_field(lid, "script"),
-      region: loc_field(lid, "region"),
-      variant: loc_field(lid, "variant"),
-      canonical: canon_tag(lid)
+      base_name: canon_tag(base_lid),
+      language: loc_field(clid, "language"),
+      script: loc_field(clid, "script"),
+      region: loc_field(clid, "region"),
+      variant: loc_field(clid, "variant"),
+      canonical: canon_tag(clid)
     })
   }
 }
@@ -938,7 +1275,7 @@ supported_locales_of_impl := (requested, _opts) ~> do {
     kept = while { xs: canon_reqs, acc: [] } {
       (xs, acc) ~> match xs {
         []: { out: acc },
-        [h, ...t]: { state: { xs: t, acc: if supported_any(avs, sub_all(h, "-", "_")) { [...acc, h] } else { acc } } }
+        [h, ...t]: { state: { xs: t, acc: if supported_any(avs, sub_all(h, "-", "_")) && !list_has(acc, h) { [...acc, h] } else { acc } } }
       }
     }
     ok(kept)
@@ -1020,8 +1357,11 @@ export format_date_to_parts := (v, locale, opts) ~> if avail {
   err("icu-unavailable")
 }
 
---- Elapsed-seconds duration ("2:15:00") via UNUM_DURATION; a
---- {years,…,nanoseconds} record is summed to approximate seconds.
+--- Intl.DurationFormat: `v` is a {years,…,nanoseconds} record (integer fields,
+--- consistent sign) or an elapsed-seconds number (extension).
+--- `opts`: { style: "long"|"short"|"narrow"|"digital" (default "short"),
+---           fractionalDigits: 0-9 } — "digital" gives "1:46:40", textual
+--- styles give "1 hr, 46 min and 40 sec" via CLDR unit + list patterns.
 export format_duration := (v, locale, opts) ~> if avail {
   format_duration_impl(v, locale, opts)
 } else {
@@ -1053,7 +1393,7 @@ export locale := (t, opts) ~> if avail {
 }
 
 --- Canonicalize a tag or list of tags → same shape back.
-export get_canonical_locales := (v) ~> if avail {
+export get_canonical_locales := v ~> if avail {
   get_canonical_locales_impl(v)
 } else {
   err("icu-unavailable")

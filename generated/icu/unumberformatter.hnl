@@ -1,0 +1,50 @@
+--- Generated port for icu.unumberformatter
+--- ffi target: x86_64-pc-linux
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+--- Creates a new UNumberFormatter for the given skeleton string and locale. This is currently the only
+--- method for creating a new UNumberFormatter.
+--- Objects of type UNumberFormatter returned by this method are threadsafe.
+--- For more details on skeleton strings, see the documentation in numberformatter.h. For more details on
+--- the usage of this API, see the documentation at the top of unumberformatter.h.
+--- For more information on number skeleton strings, see:
+--- https://unicode-org.github.io/icu/userguide/format_parse/numbers/skeletons.html
+--- NOTE: This is a C-compatible API; C++ users should build against numberformatter.h instead.
+--- skeleton: The skeleton string, like u"percent precision-integer"
+--- skeletonLen: The number of UChars in the skeleton string, or -1 if it is NUL-terminated.
+--- locale: The NUL-terminated locale ID.
+--- ec: Set if an error occurs.
+--- @stable ICU 62
+export UnumfOpenForSkeletonAndLocale78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export UnumfOpenForSkeletonAndLocale78: (Bytes, Int, String, Int) ~[1]~> Result<UnumfOpenForSkeletonAndLocale78Result, Errno>
+
+--- Uses a UNumberFormatter to format a double to a UFormattedNumber. A string, field position, and other
+--- information can be retrieved from the UFormattedNumber.
+--- The UNumberFormatter can be shared between threads. Each thread should have its own local
+--- UFormattedNumber, however, for storing the result of the formatting operation.
+--- NOTE: This is a C-compatible API; C++ users should build against numberformatter.h instead.
+--- uformatter: A formatter object created by unumf_openForSkeletonAndLocale or similar.
+--- value: The number to be formatted.
+--- uresult: The object that will be mutated to store the result; see unumf_openResult.
+--- ec: Set if an error occurs.
+--- @stable ICU 62
+export UnumfFormatDouble78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export UnumfFormatDouble78: (Handle, Float, Handle, Int) ~[1]~> Result<UnumfFormatDouble78Result, Errno>
+
+--- Releases the UNumberFormatter created by unumf_openForSkeletonAndLocale().
+--- uformatter: An object created by unumf_openForSkeletonAndLocale().
+--- @stable ICU 62
+--- ffi: void (UNumberFormatter *)
+export UnumfClose78: (Handle) ~[1]~> Result<(), Errno>

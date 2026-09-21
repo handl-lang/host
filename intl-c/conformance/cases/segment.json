@@ -1,0 +1,32 @@
+[
+  {
+    "id": "grapheme-en",
+    "locale": "en",
+    "granularity": "grapheme",
+    "inputs": ["Hello!", "ab cd", "café"]
+  },
+  {
+    "id": "grapheme-combining",
+    "locale": "en",
+    "granularity": "grapheme",
+    "inputs": ["é", "áb"]
+  },
+  {
+    "id": "word-en",
+    "locale": "en",
+    "granularity": "word",
+    "inputs": ["a b", "Hello, world!", "it's 3.5 km"]
+  },
+  {
+    "id": "word-ja",
+    "locale": "ja",
+    "granularity": "word",
+    "inputs": ["こんにちは世界"]
+  },
+  {
+    "id": "sentence-en",
+    "locale": "en",
+    "granularity": "sentence",
+    "inputs": ["Hello. Bye.", "Hi there! How are you?"]
+  }
+]
