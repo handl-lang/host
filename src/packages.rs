@@ -577,6 +577,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "unum",
         hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/unum.hnl"),
         funcs: &[
+            "unum_close_78",
             "unum_format_78",
             "unum_formatDecimal_78",
             "unum_formatDouble_78",
