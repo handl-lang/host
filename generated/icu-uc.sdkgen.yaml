@@ -72,6 +72,7 @@ headers:
         "ures_getByKey_78",
         "ures_getByKeyWithFallback_78",
         "ures_getUTF8String_78",
+        "ures_getLocaleByType_78",
       ]
 
 symbols:
@@ -333,6 +334,15 @@ symbols:
     names: ["res", "key", "fill_in", "status"]
     ret: Int
     descriptor: "handle"
+
+  # const char* ures_getLocaleByType(const UResourceBundle*,
+  #   ULocDataLocaleType, UErrorCode*) — ULOC_ACTUAL_LOCALE=0 names where
+  #   the bundle's data actually came from after fallback.
+  ures_getLocaleByType_78:
+    args: ["handle", "i32", "io_scalar:i32"]
+    names: ["res", "type", "status"]
+    ret: String
+    descriptor: "cstr"
 
   # const char* ures_getUTF8String(res, char *dest, int32_t *length,
   #   UBool forceCopy, UErrorCode *status)

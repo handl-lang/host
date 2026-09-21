@@ -68,6 +68,23 @@ export UresOpenDirect78: (Int, String, Int) ~[1]~> Result<UresOpenDirect78Result
 --- ffi: void (UResourceBundle *)
 export UresClose78: (Handle) ~[1]~> Result<(), Errno>
 
+--- Return the name of the Locale associated with this ResourceBundle.
+--- You can choose between requested, valid and real locale.
+--- resourceBundle: resource bundle in question
+--- type: You can choose between requested, valid and actual
+--- locale. For description see the definition of
+--- ULocDataLocaleType in uloc.h
+--- status: just for catching illegal arguments
+--- Returns: A Locale name
+--- @stable ICU 2.8
+export UresGetLocaleByType78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export UresGetLocaleByType78: (Handle, Int, Int) ~[1]~> Result<UresGetLocaleByType78Result, Errno>
+
 --- Returns a UTF-8 string from a string resource.
 --- The UTF-8 string may be returnable directly as a pointer, or
 --- it may need to be copied, or transformed from UTF-16 using u_strToUTF8()

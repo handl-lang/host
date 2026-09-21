@@ -1244,38 +1244,37 @@ get_canonical_locales_impl := (v) ~> if type.of(v) == "array" {
   err("expected a locale tag or list of tags")
 }
 
--- locale-id list of everything ICU ships ("en_US" style)
-avail_locales := () ~> do {
-  n = payload(uloc.uloc_countAvailable_78())
-  while { i: 0, acc: [] } {
-    (i, acc) ~> if n == null || i >= n { { out: acc } } else { do {
-      v = payload(uloc.uloc_getAvailable_78(i))
-      { state: { i: i + 1, acc: if v == null { acc } else { [...acc, v] } } }
-    } }
+-- the actual data locale of `c` ("en_US" form): ures_open follows the
+-- fallback chain, so the bundle's ACTUAL locale (ULOC_ACTUAL_LOCALE=0)
+-- equals `c` iff ICU carries data for `c` itself
+locale_data := (c) ~> do {
+  b = payload(statused(ures.ures_open_78(0, c, 0), "ures_open"))
+  if b == null { null } else {
+    a = payload(statused(ures.ures_getLocaleByType_78(b.ret, 0, 0), "ures_getLocaleByType"))
+    _ = ures.ures_close_78(b.ret)
+    if a == null { null } else { a.ret }
   }
 }
 
--- req ("en_US") covered by an available id — exact or prefix parent/child
-locale_covers := (avail_id, req) ~> avail_id == req || starts_with(req, avail_id + "_") || starts_with(avail_id, req + "_")
-
-supported_any := (avails, req) ~> while { xs: avails, hit: false } {
-  (xs, hit) ~> if hit { { out: true } } else {
-    match xs {
-      []: { out: false },
-      [h, ...t]: { state: { xs: t, hit: locale_covers(h, req) } }
-    }
-  }
+-- ECMA-402 BestAvailableLocale: strip the rightmost subtag until an
+-- ancestor carries data; "" (root) is never "available" for matching
+best_available := (req_us) ~> while { c: req_us } {
+  (st) ~> if st.c == "" { { out: false } } else { do {
+    if locale_data(st.c) == st.c { { out: true } } else { do {
+      p = payload(statused(uloc.uloc_getParent_78(st.c, 128, 0), "uloc_getParent"))
+      { state: { c: if p == null { "" } else { cstr_of(p.buf) } } }
+    } }
+  } }
 }
 
 supported_locales_of_impl := (requested, _opts) ~> do {
   reqs = if type.of(requested) == "array" { requested } else if type.of(requested) == "string" { [requested] } else { null }
   if reqs == null { err("expected a locale tag or list of tags") } else {
-    avs = avail_locales()
     canon_reqs = map_list(reqs, canon)
     kept = while { xs: canon_reqs, acc: [] } {
       (xs, acc) ~> match xs {
         []: { out: acc },
-        [h, ...t]: { state: { xs: t, acc: if supported_any(avs, sub_all(h, "-", "_")) && !list_has(acc, h) { [...acc, h] } else { acc } } }
+        [h, ...t]: { state: { xs: t, acc: if best_available(sub_all(h, "-", "_")) && !list_has(acc, h) { [...acc, h] } else { acc } } }
       }
     }
     ok(kept)

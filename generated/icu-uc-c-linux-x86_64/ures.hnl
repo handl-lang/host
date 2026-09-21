@@ -1,7 +1,7 @@
 --- Generated adapter for icu-uc-c-linux-x86_64/ures
 
 from "result" import { ok, err }
-from "../icu-uc/ures" import { UresOpen78, UresOpenDirect78, UresClose78, UresGetUtf8String78, UresGetByKey78 }
+from "../icu-uc/ures" import { UresOpen78, UresOpenDirect78, UresClose78, UresGetLocaleByType78, UresGetUtf8String78, UresGetByKey78 }
 
 export ures_open_78: UresOpen78 := (package, locale, status) ~> do {
   r = ffi.call("libicuuc.so", "ures_open_78", [package, locale, status], ["ptr", "cstr", "io_scalar:i32"], "handle", false)
@@ -16,6 +16,11 @@ export ures_openDirect_78: UresOpenDirect78 := (package, locale, status) ~> do {
 export ures_close_78: UresClose78 := (res) ~> do {
   r = ffi.call("libicuuc.so", "ures_close_78", [res], ["handle"], "void", false)
   ok(null)
+}
+
+export ures_getLocaleByType_78: UresGetLocaleByType78 := (res, type_, status) ~> do {
+  r = ffi.call("libicuuc.so", "ures_getLocaleByType_78", [res, type_, status], ["handle", "i32", "io_scalar:i32"], "cstr", false)
+  ok(r)
 }
 
 export ures_getUTF8String_78: UresGetUtf8String78 := (res, length, force_copy, status) ~> do {
