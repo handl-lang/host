@@ -65,7 +65,7 @@ chan_main := (s) ~> match s.phase {
   "done": { out: { chan_sum: s.sum, worker: s.result } }
 }
 
-r1 := run(chan_main, {})
+r1 := run(chan_main, { phase: "new" })
 
 test_chan_sum := assert r1.main.chan_sum := 42
 
@@ -127,7 +127,7 @@ mutex_main := (s) ~> match s.phase {
   "done": { out: s.result }
 }
 
-test_mutex := assert run(mutex_main, {}).main := 2
+test_mutex := assert run(mutex_main, { phase: "mutex" }).main := 2
 
 -- ---------------------------------------------------------------
 -- sleep
@@ -183,11 +183,11 @@ connector := (s) ~> match s.phase {
   },
   "recv": {
     call: { name: "recv", fd: s.fd },
-    state: { phase: "close", fd: s.fd, got: s.result }
+    state: { phase: "close", fd: s.fd }
   },
   "close": {
     call: { name: "close", fd: s.fd },
-    state: { phase: "done", got: s.got }
+    state: { phase: "done", got: s.result }
   },
   "done": { out: s.got }
 }
@@ -195,7 +195,7 @@ connector := (s) ~> match s.phase {
 tcp_main := (s) ~> match s.phase {
   "spawn_l": {
     call: { name: "spawn", task: listener, init: { phase: "accept", lfd: s.lfd } },
-    state: { phase: "spawn_c" }
+    state: { phase: "spawn_c", cinit: s.cinit }
   },
   "spawn_c": {
     call: { name: "spawn", task: connector, init: s.cinit },
@@ -212,13 +212,13 @@ tcp_main := (s) ~> match s.phase {
   "done": { out: { echoed: s.got } }
 }
 
-lfd := tcp_listen({ host: "127.0.0.1", port: 18347 })
-
-c := tcp_connect({ host: "127.0.0.1", port: 18347 })
-
-r2 := run(tcp_main, {
-  lfd: lfd,
-  cinit: { phase: "wait", fd: c.fd, msg: utf8_encode("ping") }
-})
-
-test_tcp_echo := assert utf8_decode(r2.main.echoed) := "ping"
+test_tcp_echo := assert utf8_decode(do {
+  lfd := tcp_listen({ host: "127.0.0.1", port: 18347 })
+  c := tcp_connect({ host: "127.0.0.1", port: 18347 })
+  r2 := run(tcp_main, {
+    phase: "spawn_l",
+    lfd: lfd,
+    cinit: { phase: "wait", fd: c.fd, msg: utf8_encode("ping") }
+  })
+  r2.main.echoed
+}) := "ping"

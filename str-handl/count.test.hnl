@@ -1,6 +1,6 @@
 from "./count" import * as m
 
-test_count_basic := assert m.count("aXaXa", "a") = 2
+test_count_basic := assert m.count("aXaXa", "a") = 3
 
 test_count_no_overlap := assert m.count("aaa", "aa") = 1
 
