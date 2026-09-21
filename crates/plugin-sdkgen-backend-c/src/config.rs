@@ -38,6 +38,12 @@ pub struct SdkgenConfig {
     /// Set `false` to disable external doc resolution (man pages).
     /// Absent = enabled.
     pub external_docs: Option<bool>,
+    /// Default `guard` for every function emitted for this library —
+    /// per-symbol `symbols.<name>.guard` wins. Set `false` for libraries
+    /// whose failures never arrive via `errno` (ICU's `UErrorCode*`
+    /// status words, Win32 `GetLastError`) so auto-mapped functions do
+    /// not sprout a spurious `ret < 0` check on valid negative returns.
+    pub guard: Option<bool>,
 }
 
 /// Per-header options.
@@ -89,6 +95,9 @@ impl SdkgenConfig {
 
     /// Apply overrides to a parsed C function.
     pub fn apply_to_function(&self, name: &str, f: &mut Function) {
+        if let Some(guard) = self.guard {
+            f.errno_guard = guard;
+        }
         let Some(ov) = self.symbols.get(name) else {
             return;
         };
@@ -116,6 +125,7 @@ impl SdkgenConfig {
                                 .port_args
                                 .get(idx)
                                 .map(|a| a.name.clone())
+                                .filter(|n| !n.is_empty())
                                 .unwrap_or_else(|| format!("__arg_{}", idx)),
                             port: if d.starts_with("in_struct:") {
                                 format!("{}Msg", f.port_name)

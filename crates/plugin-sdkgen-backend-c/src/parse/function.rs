@@ -37,7 +37,13 @@ pub(crate) fn parse_function(cursor: CXCursor, ctx: &ParseCtx) -> Result<Functio
     let mut i = 0;
     while i < cursors.len() {
         let arg = cursors[i];
-        let arg_name = cursor_name(arg);
+        let arg_name = {
+            let n = cursor_name(arg);
+            // Unnamed params (`SSL_CTX_free(SSL_CTX *)`) must still emit
+            // a port name — an empty string would render as `()` and
+            // silently drop the argument from the ffi.call.
+            if n.is_empty() { format!("__arg_{i}") } else { n }
+        };
         let arg_ty = unsafe { clang_getCursorType(arg) };
         if arg_ty.kind == CXType_Void {
             // `int f(void)` — the void placeholder is not a real argument.

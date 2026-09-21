@@ -1,6 +1,8 @@
 # SDK generation config for OpenSSL's libssl — the TLS layer `wss://`
-# needs. Only the minimal client surface is bound: context creation,
-# session wrap of an fd, handshake, read/write, shutdown, teardown.
+# needs. Client surface: context creation, session wrap of an fd,
+# handshake, read/write, shutdown, teardown, and certificate
+# verification (default CA paths, `SSL_set1_host`
+# hostname matching, `SSL_get_verify_result`, `SSL_ctrl` for SNI).
 # Opaque SSL*/SSL_CTX* pointers are `handle` descriptors.
 library: libssl.so.3
 
@@ -20,10 +22,29 @@ headers:
         "SSL_get_error",
         "TLS_client_method",
         "OPENSSL_init_ssl",
+        "SSL_CTX_set_default_verify_paths",
+        "SSL_set_verify",
+        "SSL_set1_host",
+        "SSL_get_verify_result",
+        "SSL_ctrl",
         "SSL_ERROR_*",
+        "SSL_VERIFY_*",
       ]
     exclude:
       - "__*"
+
+# Constants from headers pulled in by ssl.h's include closure:
+# X509_V_OK (x509_vfy.h) is the `SSL_get_verify_result` success word;
+# SSL_CTRL_SET_TLSEXT_HOSTNAME + TLSEXT_NAMETYPE_host_name (tls1.h) are
+# the `SSL_ctrl` pair `SSL_set_tlsext_host_name` expands to for SNI.
+constants:
+  [
+    "X509_V_OK",
+    "SSL_VERIFY_PEER",
+    "SSL_CTRL_SET_TLSEXT_HOSTNAME",
+    "TLSEXT_NAMETYPE_host_name",
+    "SSL_ERROR_*",
+  ]
 
 symbols:
   # const SSL_METHOD *TLS_client_method(void) — returns the method
@@ -78,3 +99,35 @@ symbols:
   # one-time init; OpenSSL 3 also self-inits on first use.
   OPENSSL_init_ssl:
     args: ["u64", "ptr"]
+
+  # int SSL_CTX_set_default_verify_paths(SSL_CTX *ctx) — load the system
+  # CA store (honours SSL_CERT_FILE/SSL_CERT_DIR); 1 = ok.
+  SSL_CTX_set_default_verify_paths:
+    args: ["handle"]
+
+  # void SSL_set_verify(SSL *ssl, int mode, callback) — SSL_VERIFY_PEER
+  # with a null callback = verify against the loaded CA store. The C
+  # decl's function-pointer param doesn't parse, so the signature is
+  # rescued whole: void return, no errno guard.
+  SSL_set_verify:
+    args: ["handle", "i32", "ptr"]
+    ret: "()"
+    guard: false
+
+  # int SSL_set1_host(SSL *ssl, const char *host) — expected DNS
+  # hostname for certificate verification; 1 = ok.
+  SSL_set1_host:
+    args: ["handle", "cstr"]
+
+  # long SSL_get_verify_result(const SSL *ssl) — X509_V_OK (0) = the
+  # peer chain verified.
+  SSL_get_verify_result:
+    args: ["handle"]
+
+  # long SSL_ctrl(SSL *ssl, int cmd, long larg, void *parg) — used for
+  # SNI: cmd=SSL_CTRL_SET_TLSEXT_HOSTNAME, larg=TLSEXT_NAMETYPE_host_name,
+  # parg=hostname (`cstr` marshals the string pointer).
+  SSL_ctrl:
+    args: ["handle", "i32", "i64", "cstr"]
+    ret: "Int"
+    descriptor: "i64"

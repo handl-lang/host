@@ -22,12 +22,14 @@
 --- the ctx must outlive the session. TLS reads and writes go through
 --- `SSL_read`/`SSL_write` (see `io_read_some`/`io_write_all`); the
 --- upgrade handshake itself then runs *inside* the TLS channel.
+--- `ssl_wrap` sends SNI and verifies the peer chain against the
+--- default CA store (`SSL_VERIFY_PEER` + `SSL_set1_host` + a
+--- `SSL_get_verify_result` == `X509_V_OK` check after `SSL_connect`).
 ---
 --- Scope: `ws://` and `wss://` over IPv4 — literals take the pure
 --- `sockaddr_in` path, DNS hostnames resolve through `getaddrinfo`
 --- (`resolve`). See `index.hnl` for the `recv` blocking asymmetry
---- (`SSL_read` always blocks) and the missing SNI/certificate
---- verification on `wss://`.
+--- (`SSL_read` always blocks).
 
 from "bytes" import * as bytes
 from "result" import { Result, ok, err }
@@ -312,20 +314,26 @@ ssl_cleanup := (fd, s, ctx, e) ~> do {
 }
 
 --- ssl_wrap -- upgrade a connected TCP fd to a client TLS session:
---- `TLS_client_method` -> `SSL_CTX_new` -> `SSL_new` -> `SSL_set_fd`
---- -> `SSL_connect`. `SSL_connect` must return exactly 1; any other
---- non-positive step return maps to `err(ECONNABORTED)`. On failure
---- everything allocated so far is freed and the fd is closed before
---- the err propagates (`ssl_cleanup`).
+--- `TLS_client_method` -> `SSL_CTX_new` ->
+--- `SSL_CTX_set_default_verify_paths` -> `SSL_new` -> SNI via
+--- `SSL_ctrl` -> `SSL_set_verify` -> `SSL_set1_host` -> `SSL_set_fd`
+--- -> `SSL_connect` -> `SSL_get_verify_result`. `SSL_connect` must
+--- return exactly 1 and the verify result `X509_V_OK`; any other
+--- step return maps to `err(ECONNABORTED)`. On failure everything
+--- allocated so far is freed and the fd is closed before the err
+--- propagates (`ssl_cleanup`).
 --- @param {fd} - the connected socket fd (blocking)
+--- @param {host} - the expected peer name: sent as SNI and checked
+---   against the certificate's SANs (OpenSSL's `SSL_set1_host` also
+---   matches iPAddress SANs for IP literals)
 --- @returns {Result<SslPair, Errno> - {ssl, ctx}, or the failing errno}
 --- @details The fd stays blocking -- `SSL_read`/`SSL_write` drive the
 --- TLS record layer over it, and `MSG_DONTWAIT` does not apply (see
---- `index.hnl`). v1 sends no SNI and performs no certificate
---- verification (`SSL_VERIFY_NONE` default). The `*_new` adapters do
+--- `index.hnl`). The peer chain verifies against the default CA store
+--- (honouring `SSL_CERT_FILE`/`SSL_CERT_DIR`). The `*_new` adapters do
 --- not null-check, so a failed `SSL_CTX_new`/`SSL_new` surfaces only
 --- at the next call -- a known adapter limitation.
-ssl_wrap := (fd) ~> do {
+ssl_wrap := (fd, host) ~> do {
   m :: ssl.TLS_client_method()
   if tag.tag_of(m) == "err" {
     ssl_cleanup(fd, null, null, m)
@@ -337,26 +345,65 @@ ssl_wrap := (fd) ~> do {
       } else {
         do {
           ctx :: tag.untag(c).value
-          s :: ssl.SSL_new(ctx)
-          if tag.tag_of(s) == "err" {
-            ssl_cleanup(fd, null, ctx, s)
+          vp :: ssl.SSL_CTX_set_default_verify_paths(ctx)
+          if tag.tag_of(vp) == "err" {
+            ssl_cleanup(fd, null, ctx, vp)
+          } else if tag.untag(vp).value != 1 {
+            ssl_cleanup(fd, null, ctx, err(errno.ECONNABORTED))
           } else {
             do {
-              sv :: tag.untag(s).value
-              sf :: ssl.SSL_set_fd(sv, fd)
-              if tag.tag_of(sf) == "err" {
-                ssl_cleanup(fd, sv, ctx, sf)
-              } else if tag.untag(sf).value <= 0 {
-                ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+              s :: ssl.SSL_new(ctx)
+              if tag.tag_of(s) == "err" {
+                ssl_cleanup(fd, null, ctx, s)
               } else {
                 do {
-                  hs :: ssl.SSL_connect(sv)
-                  if tag.tag_of(hs) == "err" {
-                    ssl_cleanup(fd, sv, ctx, hs)
-                  } else if tag.untag(hs).value != 1 {
+                  sv :: tag.untag(s).value
+                  sni :: ssl.SSL_ctrl(
+                    sv,
+                    ssl.SSL_CTRL_SET_TLSEXT_HOSTNAME,
+                    ssl.TLSEXT_NAMETYPE_host_name,
+                    host)
+                  vm :: ssl.SSL_set_verify(sv, ssl.SSL_VERIFY_PEER, 0)
+                  hn :: ssl.SSL_set1_host(sv, host)
+                  if tag.tag_of(sni) == "err" {
+                    ssl_cleanup(fd, sv, ctx, sni)
+                  } else if tag.untag(sni).value <= 0 {
+                    ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+                  } else if tag.tag_of(vm) == "err" {
+                    ssl_cleanup(fd, sv, ctx, vm)
+                  } else if tag.tag_of(hn) == "err" {
+                    ssl_cleanup(fd, sv, ctx, hn)
+                  } else if tag.untag(hn).value != 1 {
                     ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
                   } else {
-                    ok({ ssl: sv, ctx: ctx })
+                    do {
+                      sf :: ssl.SSL_set_fd(sv, fd)
+                      if tag.tag_of(sf) == "err" {
+                        ssl_cleanup(fd, sv, ctx, sf)
+                      } else if tag.untag(sf).value <= 0 {
+                        ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+                      } else {
+                        do {
+                          hs :: ssl.SSL_connect(sv)
+                          if tag.tag_of(hs) == "err" {
+                            ssl_cleanup(fd, sv, ctx, hs)
+                          } else if tag.untag(hs).value != 1 {
+                            ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+                          } else {
+                            do {
+                              vr :: ssl.SSL_get_verify_result(sv)
+                              if tag.tag_of(vr) == "err" {
+                                ssl_cleanup(fd, sv, ctx, vr)
+                              } else if tag.untag(vr).value != ssl.X509_V_OK {
+                                ssl_cleanup(fd, sv, ctx, err(errno.ECONNABORTED))
+                              } else {
+                                ok({ ssl: sv, ctx: ctx })
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -421,7 +468,7 @@ export connect: String ~[1]~> Result<Conn, Errno> := (url) ~> do {
           } else {
             do {
               tw :: if u.scheme == "wss" {
-                ssl_wrap(fd)
+                ssl_wrap(fd, u.host)
               } else {
                 ok({ ssl: null, ctx: null })
               }
