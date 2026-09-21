@@ -367,7 +367,7 @@ fn lower_via_scheme(
         env,
         params,
     };
-    instantiate_scheme(&def.scheme, true, &ctx)
+    instantiate_scheme(&def.scheme, true, false, &ctx)
 }
 
 /// Instantiate a scheme subterm.
@@ -392,11 +392,12 @@ fn lower_via_scheme(
 fn instantiate_scheme(
     term: &Term,
     input_faithful: bool,
+    either_input: bool,
     ctx: &SchemeCtx<'_>,
 ) -> Result<Term, String> {
     match term {
         Term::Arr { dim, value } => Ok(Term::Arr {
-            dim: Box::new(instantiate_dim(dim, input_faithful, ctx)?),
+            dim: Box::new(instantiate_dim(dim, input_faithful, either_input, ctx)?),
             value: value.clone(),
         }),
         Term::Const { .. } | Term::Opaque { .. } => Ok(term.clone()),
@@ -406,7 +407,16 @@ fn instantiate_scheme(
             args,
             source,
             lit,
-        } => instantiate_op(dim, name, args, source, lit.as_ref(), input_faithful, ctx),
+        } => instantiate_op(
+            dim,
+            name,
+            args,
+            source,
+            lit.as_ref(),
+            input_faithful,
+            either_input,
+            ctx,
+        ),
         Term::Seq { axis, fst, snd } => {
             // `>>>[k]` has two regimes (ADR-0120 Phase 5): `axis 0` on
             // 1-cells is sequential composition (`snd` is fed `fst`'s
@@ -417,36 +427,40 @@ fn instantiate_scheme(
             // schemes instantiate: their dim-2 operands always take the
             // pasting branch.
             //
-            // `Seq{untag, snd}` is the second faithful case: under the
-            // `tag_pair`/`untag` contract (eval.binary.and/or) the Either
-            // `untag` unwraps carries the node's own input as its
-            // payload, so `snd` runs on the node input regardless of how
-            // this Seq itself was reached.
-            let snd_faithful =
-                (input_faithful && seq_pastes(axis, fst)) || seq_reenters_input(fst);
+            // `Seq{pair_tag, snd}` is the second faithful-adjacent case:
+            // `pair_tag` emits an `Either` whose payload is the node's own
+            // input (the `product(cond, id)` contract), so a `Choice` in
+            // `snd` hands its *arms* the node input — tracked by
+            // `either_input` rather than `input_faithful` since `snd`
+            // itself sees the Either, not the input.
+            let snd_faithful = input_faithful && seq_pastes(axis, fst);
+            let snd_either_input = is_pair_tag(fst);
             Ok(Term::Seq {
                 // The axis is an ordinary expression position (ADR-0120
                 // Phase 2), evaluated against the same incoming as `fst`.
-                axis: Box::new(instantiate_scheme(axis, input_faithful, ctx)?),
-                fst: Box::new(instantiate_scheme(fst, input_faithful, ctx)?),
-                snd: Box::new(instantiate_scheme(snd, snd_faithful, ctx)?),
+                axis: Box::new(instantiate_scheme(axis, input_faithful, either_input, ctx)?),
+                fst: Box::new(instantiate_scheme(fst, input_faithful, either_input, ctx)?),
+                snd: Box::new(instantiate_scheme(snd, snd_faithful, snd_either_input, ctx)?),
             })
         }
         Term::First { inner } => Ok(Term::First {
-            inner: Box::new(instantiate_scheme(inner, false, ctx)?),
+            inner: Box::new(instantiate_scheme(inner, false, false, ctx)?),
         }),
         Term::Choice { l, r } => Ok(Term::Choice {
-            l: Box::new(instantiate_scheme(l, false, ctx)?),
-            r: Box::new(instantiate_scheme(r, false, ctx)?),
+            // An arm's incoming is the Either *payload*: the node input
+            // when the upstream was `pair_tag` (`either_input`), the
+            // tagged LHS otherwise.
+            l: Box::new(instantiate_scheme(l, either_input, false, ctx)?),
+            r: Box::new(instantiate_scheme(r, either_input, false, ctx)?),
         }),
         Term::Loop { body } => Ok(Term::Loop {
-            body: Box::new(instantiate_scheme(body, false, ctx)?),
+            body: Box::new(instantiate_scheme(body, false, false, ctx)?),
         }),
         Term::App { callee, args } => Ok(Term::App {
-            callee: Box::new(instantiate_scheme(callee, input_faithful, ctx)?),
+            callee: Box::new(instantiate_scheme(callee, input_faithful, either_input, ctx)?),
             args: args
                 .iter()
-                .map(|a| instantiate_scheme(a, input_faithful, ctx))
+                .map(|a| instantiate_scheme(a, input_faithful, either_input, ctx))
                 .collect::<Result<_, _>>()?,
         }),
         Term::Iter {
@@ -457,10 +471,10 @@ fn instantiate_scheme(
         } => Ok(Term::Iter {
             // The iteration protocol threads state pairs, not the node
             // input — placeholders anywhere inside are not input-faithful.
-            fuel: Box::new(instantiate_scheme(fuel, false, ctx)?),
-            predicate: Box::new(instantiate_scheme(predicate, false, ctx)?),
-            step: Box::new(instantiate_scheme(step, false, ctx)?),
-            initial: Box::new(instantiate_scheme(initial, false, ctx)?),
+            fuel: Box::new(instantiate_scheme(fuel, false, false, ctx)?),
+            predicate: Box::new(instantiate_scheme(predicate, false, false, ctx)?),
+            step: Box::new(instantiate_scheme(step, false, false, ctx)?),
+            initial: Box::new(instantiate_scheme(initial, false, false, ctx)?),
         }),
         Term::Child { role } => {
             if !input_faithful {
@@ -475,10 +489,10 @@ fn instantiate_scheme(
             target,
             impl_,
         } => Ok(Term::Handle {
-            body: Box::new(instantiate_scheme(body, input_faithful, ctx)?),
+            body: Box::new(instantiate_scheme(body, input_faithful, either_input, ctx)?),
             target: target.clone(),
             // `impl_` evaluates on a constant input, not the node input.
-            impl_: Box::new(instantiate_scheme(impl_, false, ctx)?),
+            impl_: Box::new(instantiate_scheme(impl_, false, false, ctx)?),
         }),
         Term::Rewrite {
             source,
@@ -487,18 +501,18 @@ fn instantiate_scheme(
         } => Ok(Term::Rewrite {
             // Conservative: rewrite operands are not ordinary expression
             // positions the arrow model shares placeholder semantics with.
-            source: Box::new(instantiate_scheme(source, false, ctx)?),
-            target: Box::new(instantiate_scheme(target, false, ctx)?),
+            source: Box::new(instantiate_scheme(source, false, false, ctx)?),
+            target: Box::new(instantiate_scheme(target, false, false, ctx)?),
             witness: witness.clone(),
         }),
         Term::Src { cell } => Ok(Term::Src {
-            cell: Box::new(instantiate_scheme(cell, input_faithful, ctx)?),
+            cell: Box::new(instantiate_scheme(cell, input_faithful, either_input, ctx)?),
         }),
         Term::Tgt { cell } => Ok(Term::Tgt {
-            cell: Box::new(instantiate_scheme(cell, input_faithful, ctx)?),
+            cell: Box::new(instantiate_scheme(cell, input_faithful, either_input, ctx)?),
         }),
         Term::RecordProj { record, field } => Ok(Term::RecordProj {
-            record: Box::new(instantiate_scheme(record, input_faithful, ctx)?),
+            record: Box::new(instantiate_scheme(record, input_faithful, either_input, ctx)?),
             field: field.clone(),
         }),
         Term::RecordWith {
@@ -506,18 +520,18 @@ fn instantiate_scheme(
             field,
             value,
         } => Ok(Term::RecordWith {
-            record: Box::new(instantiate_scheme(record, input_faithful, ctx)?),
+            record: Box::new(instantiate_scheme(record, input_faithful, either_input, ctx)?),
             field: field.clone(),
-            value: Box::new(instantiate_scheme(value, input_faithful, ctx)?),
+            value: Box::new(instantiate_scheme(value, input_faithful, either_input, ctx)?),
         }),
         Term::Tag { tag, value } => Ok(Term::Tag {
             tag: tag.clone(),
-            value: Box::new(instantiate_scheme(value, input_faithful, ctx)?),
+            value: Box::new(instantiate_scheme(value, input_faithful, either_input, ctx)?),
         }),
         Term::Cobind { grade, body } => Ok(Term::Cobind {
             // The grade is a label/dimension position, like `Op.dim`.
-            grade: Box::new(instantiate_dim(grade, input_faithful, ctx)?),
-            body: Box::new(instantiate_scheme(body, input_faithful, ctx)?),
+            grade: Box::new(instantiate_dim(grade, input_faithful, either_input, ctx)?),
+            body: Box::new(instantiate_scheme(body, input_faithful, either_input, ctx)?),
         }),
     }
 }
@@ -537,13 +551,12 @@ fn seq_pastes(axis: &Term, fst: &Term) -> bool {
     }
 }
 
-/// Whether `Seq{fst, snd}` re-enters the node input — i.e. `fst` is the
-/// `untag` op under the `tag_pair`/`untag` contract (eval.binary.and/or):
-/// the Either `untag` unwraps was packed with the node's `__in` as its
-/// payload, so `snd`'s placeholders are input-faithful even though the
-/// Seq itself may sit inside a `Choice` arm.
-fn seq_reenters_input(fst: &Term) -> bool {
-    matches!(fst, Term::Op { name, .. } if name == "untag")
+/// Whether `fst` is the `pair_tag` op — `Seq{pair_tag, snd}` produces an
+/// `Either` whose payload is the node's own input (the `product(cond,
+/// id)` contract used by `eval.binary.and/or` and the `if` lowering), so
+/// a `Choice` in `snd` hands its arms the node input.
+fn is_pair_tag(fst: &Term) -> bool {
+    matches!(fst, Term::Op { name, .. } if name == "pair_tag")
 }
 
 /// The globular dimension of a scheme term (ADR-0120 Phase 5) — the same
@@ -585,6 +598,7 @@ fn instantiate_op(
     source: &ArrSource,
     lit: Option<&Value>,
     input_faithful: bool,
+    either_input: bool,
     ctx: &SchemeCtx<'_>,
 ) -> Result<Term, String> {
     match name {
@@ -608,7 +622,7 @@ fn instantiate_op(
                     ));
                 }
             };
-            lift_to_dim(term, dim, input_faithful, ctx)
+            lift_to_dim(term, dim, input_faithful, either_input, ctx)
         }
         "proj_rest" => {
             if !input_faithful {
@@ -622,10 +636,10 @@ fn instantiate_op(
                 .skip(1)
                 .map(|&i| lower_node(ctx.ast, ctx.lang, i, ctx.env, ctx.params))
                 .collect::<Result<Vec<_>, _>>()?;
-            lift_to_dim(Term::op_native("array", terms), dim, input_faithful, ctx)
+            lift_to_dim(Term::op_native("array", terms), dim, input_faithful, either_input, ctx)
         }
         _ => {
-            let dim = instantiate_dim(dim, input_faithful, ctx)?;
+            let dim = instantiate_dim(dim, input_faithful, either_input, ctx)?;
             let name = if name == "$payload" {
                 payload_sentinel(ctx.node)?
                     .as_str()
@@ -640,7 +654,7 @@ fn instantiate_op(
             };
             let args = args
                 .iter()
-                .map(|a| instantiate_scheme(a, input_faithful, ctx))
+                .map(|a| instantiate_scheme(a, input_faithful, either_input, ctx))
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(Term::Op {
                 dim: Box::new(dim),
@@ -665,6 +679,7 @@ fn lift_to_dim(
     term: Term,
     dim: &Term,
     input_faithful: bool,
+    either_input: bool,
     ctx: &SchemeCtx<'_>,
 ) -> Result<Term, String> {
     if dim.nat_literal() == Some(1) {
@@ -673,7 +688,7 @@ fn lift_to_dim(
     Ok(Term::seq(
         term,
         Term::Op {
-            dim: Box::new(instantiate_dim(dim, input_faithful, ctx)?),
+            dim: Box::new(instantiate_dim(dim, input_faithful, either_input, ctx)?),
             name: "id".to_string(),
             args: vec![],
             source: ArrSource::Native,
@@ -689,7 +704,12 @@ fn lift_to_dim(
 /// `eval.dim_arrow`/`eval.witness` read these children as labels.
 /// Non-placeholder dimension terms instantiate as ordinary expressions
 /// (the `Seq.axis` slot is handled by [`instantiate_scheme`] itself).
-fn instantiate_dim(term: &Term, input_faithful: bool, ctx: &SchemeCtx<'_>) -> Result<Term, String> {
+fn instantiate_dim(
+    term: &Term,
+    input_faithful: bool,
+    either_input: bool,
+    ctx: &SchemeCtx<'_>,
+) -> Result<Term, String> {
     match term {
         Term::Child { role } => {
             if !input_faithful {
@@ -725,7 +745,7 @@ fn instantiate_dim(term: &Term, input_faithful: bool, ctx: &SchemeCtx<'_>) -> Re
                 )),
             }
         }
-        _ => instantiate_scheme(term, input_faithful, ctx),
+        _ => instantiate_scheme(term, input_faithful, either_input, ctx),
     }
 }
 

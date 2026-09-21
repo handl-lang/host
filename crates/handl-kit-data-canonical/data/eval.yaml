@@ -43,18 +43,18 @@
         source: Native
         lit: 1
     source: Native
-# `&&` short-circuits: `pair` packs `[lhs, __in]`, `tag_pair` tags the
-# Either by lhs-truthiness while carrying `__in` as the payload, and each
-# `Choice` arm re-enters via `untag` so the RHS placeholder keeps its
-# honest input — this is what lets the scheme lower (a bare `tag` drops
-# `__in`, forcing the arm placeholders into non-input positions). Falsy
-# LHS yields `false` without evaluating the RHS; truthy LHS coerces the
-# RHS through `truthy` so the result stays a strict `Bool`.
+# `&&` short-circuits: `product` packs `(lhs, __in)`, `pair_tag` tags the
+# Either by lhs-truthiness while carrying `__in` as the payload, so each
+# `Choice` arm's incoming *is* the node input — the RHS placeholder stays
+# input-faithful and the scheme lowers (a bare `tag` would hand the arm
+# the LHS instead). Falsy LHS yields `false` without evaluating the RHS;
+# truthy LHS coerces the RHS through `truthy` so the result stays a
+# strict `Bool`.
 - id: eval.binary.and
   node_kind: binary.and
   scheme: !Seq
     fst: !Op
-      name: pair
+      name: product
       args:
         - !Op
           name: proj_child
@@ -68,25 +68,20 @@
       source: Native
     snd: !Seq
       fst: !Op
-        name: tag_pair
+        name: pair_tag
         args: []
         source: Native
       snd: !Choice
         l: !Seq
           fst: !Op
-            name: untag
+            name: proj_child
             args: []
             source: Native
-          snd: !Seq
-            fst: !Op
-              name: proj_child
-              args: []
-              source: Native
-              lit: 1
-            snd: !Op
-              name: truthy
-              args: []
-              source: Native
+            lit: 1
+          snd: !Op
+            name: truthy
+            args: []
+            source: Native
         r: !Arr
           value: false
 - id: eval.bind
@@ -255,14 +250,14 @@
         source: Native
         lit: 1
     source: Native
-# `||` short-circuits: same `pair`/`tag_pair`/`untag` plumbing as `&&` —
+# `||` short-circuits: same `product`/`pair_tag` plumbing as `&&` —
 # truthy LHS yields `true` without evaluating the RHS; falsy LHS
 # evaluates the RHS and coerces through `truthy`.
 - id: eval.binary.or
   node_kind: binary.or
   scheme: !Seq
     fst: !Op
-      name: pair
+      name: product
       args:
         - !Op
           name: proj_child
@@ -276,7 +271,7 @@
       source: Native
     snd: !Seq
       fst: !Op
-        name: tag_pair
+        name: pair_tag
         args: []
         source: Native
       snd: !Choice
@@ -284,19 +279,14 @@
           value: true
         r: !Seq
           fst: !Op
-            name: untag
+            name: proj_child
             args: []
             source: Native
-          snd: !Seq
-            fst: !Op
-              name: proj_child
-              args: []
-              source: Native
-              lit: 1
-            snd: !Op
-              name: truthy
-              args: []
-              source: Native
+            lit: 1
+          snd: !Op
+            name: truthy
+            args: []
+            source: Native
 - id: eval.binary.pow
   node_kind: binary.pow
   scheme: !Op

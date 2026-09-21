@@ -521,20 +521,12 @@ pub fn apply_native_op(
                 Ok((either_right(v), false))
             }
         }
-        // `pair(a, b)` → the calculus pair `(a, b)` — used by the
-        // short-circuit `&&`/`||` schemes to pack `[lhs, __in]` so the
-        // Either produced by `tag_pair` can carry the node input.
-        "pair" => Ok((
-            TaggedValue::Pair(Rc::new((
-                args.first().cloned().unwrap_or(TaggedValue::Null),
-                args.get(1).cloned().unwrap_or(TaggedValue::Null),
-            ))),
-            false,
-        )),
-        // `(d, v)` → `Either v` tagged by truthiness of `d`. Unlike `tag`
-        // the payload is `v`, not the discriminated value — this is what
-        // lets `untag` in a `Choice` arm restore the node input.
-        "tag_pair" => {
+        // `pair_tag` — `(d, v)` → `Either v` tagged by truthiness of `d`
+        // (mirrors the term-interpreter's op used by the `if` lowering).
+        // Unlike `tag` the payload is `v`, not the discriminated value —
+        // this is what lets `Choice` arms re-enter the node input in the
+        // short-circuit `&&`/`||` schemes.
+        "pair_tag" => {
             let v = incoming
                 .or_else(|| args.first().cloned())
                 .unwrap_or(TaggedValue::Null);
@@ -547,20 +539,6 @@ pub fn apply_native_op(
                 Ok((either_left(payload), false))
             } else {
                 Ok((either_right(payload), false))
-            }
-        }
-        // `Either v` → `v`. The lowerer treats a `Seq{untag, _}` `fst` as
-        // restoring the node input (the `tag_pair`/`untag` contract), so
-        // child placeholders under the `snd` stay input-faithful.
-        "untag" => {
-            let v = incoming
-                .or_else(|| args.first().cloned())
-                .unwrap_or(TaggedValue::Null);
-            match v {
-                TaggedValue::EitherLeft(x) | TaggedValue::EitherRight(x) => {
-                    Ok(((*x).clone(), false))
-                }
-                other => Ok((other, false)),
             }
         }
         "desugar_error" => {
