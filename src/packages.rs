@@ -648,6 +648,30 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
+    ModuleSpec {
+        name: "unumberformatter",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/unumberformatter.hnl"),
+        funcs: &[
+            "unumf_close_78",
+            "unumf_formatDouble_78",
+            "unumf_openForSkeletonAndLocale_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uformattednumber",
+        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/uformattednumber.hnl"),
+        funcs: &[
+            "unumf_closeResult_78",
+            "unumf_openResult_78",
+            "unumf_resultToString_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
     // ── icu_uc_* — sdkgen-generated ICU4C adapter modules (common) ─────
     ModuleSpec {
         name: "ubrk",
