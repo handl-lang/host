@@ -416,7 +416,14 @@ fn instantiate_scheme(
             // Seq pastes — this is what lets the `eval.cell_*` frontier
             // schemes instantiate: their dim-2 operands always take the
             // pasting branch.
-            let snd_faithful = input_faithful && seq_pastes(axis, fst);
+            //
+            // `Seq{untag, snd}` is the second faithful case: under the
+            // `tag_pair`/`untag` contract (eval.binary.and/or) the Either
+            // `untag` unwraps carries the node's own input as its
+            // payload, so `snd` runs on the node input regardless of how
+            // this Seq itself was reached.
+            let snd_faithful =
+                (input_faithful && seq_pastes(axis, fst)) || seq_reenters_input(fst);
             Ok(Term::Seq {
                 // The axis is an ordinary expression position (ADR-0120
                 // Phase 2), evaluated against the same incoming as `fst`.
@@ -528,6 +535,15 @@ fn seq_pastes(axis: &Term, fst: &Term) -> bool {
         Some(k) => k < d,
         None => false,
     }
+}
+
+/// Whether `Seq{fst, snd}` re-enters the node input — i.e. `fst` is the
+/// `untag` op under the `tag_pair`/`untag` contract (eval.binary.and/or):
+/// the Either `untag` unwraps was packed with the node's `__in` as its
+/// payload, so `snd`'s placeholders are input-faithful even though the
+/// Seq itself may sit inside a `Choice` arm.
+fn seq_reenters_input(fst: &Term) -> bool {
+    matches!(fst, Term::Op { name, .. } if name == "untag")
 }
 
 /// The globular dimension of a scheme term (ADR-0120 Phase 5) — the same

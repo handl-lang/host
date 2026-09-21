@@ -1,4 +1,5 @@
-//! Closure home-frame parity for `HandlModule` on tree-walk vs bytecode.
+//! Closure parity for `HandlModule` on tree-walk vs bytecode (ADR-0106:
+//! arrows are self-contained `body_def` + `binds` data).
 //!
 //! Real `.hnl` modules (`transform.map` and a tiny `maker` module) that take
 //! or return closures are built with both eval engines, then driven through a

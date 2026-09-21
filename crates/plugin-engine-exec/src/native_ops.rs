@@ -351,7 +351,10 @@ pub trait NativeOpCtx {
     /// errors directly keep the default no-op.
     fn clear_eval_error(&mut self) {}
 
-    /// Capture the visible environment for a closure.
+    /// Collect the visible definition-site bindings for a `closure` mint.
+    /// The op splits the result into `body_def` substitution entries and
+    /// residual `binds` on the minted arrow (ADR-0106) — no captured
+    /// environment is stored on the arrow itself.
     fn env_capture(&mut self) -> Rc<FxHashMap<Rc<str>, TaggedValue>>;
 
     /// Interpret the pattern node at `pattern` against `scrutinee` — the
@@ -403,13 +406,41 @@ pub trait NativeOpCtx {
         r: AstRef,
     ) -> Result<(Vec<String>, Option<String>, bool), LangError>;
 
-    /// The `body_def` a minted `closure` carries (ADR-0106 item 2 step
-    /// 1): the body subtree as a self-describing `{"__ast__": <Ast>}`
-    /// value. Engines whose arrow `body` is not an AST arena index
-    /// (compiled instruction references) keep the default `None`.
-    fn closure_body_def(&mut self, _body: AstRef) -> Option<TaggedValue> {
-        None
+    /// The `body_def` a minted `closure` carries (ADR-0106): the body
+    /// subtree as a self-describing `{"__ast__": <Ast>}` value with every
+    /// free variable in `env` substituted by a `lit` node holding its
+    /// serialized definition-site value. `env` is already filtered to the
+    /// body's free-name superset and already excludes the residual names
+    /// ([`rec_bound_names`](Self::rec_bound_names), non-serializable
+    /// captures) — the engine only runs the substitution.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when the body subtree cannot be extracted or
+    /// instantiated (out-of-bounds child, missing `Language`).
+    fn closure_body_def(
+        &mut self,
+        body: AstRef,
+        env: &std::collections::HashMap<Rc<str>, Value>,
+    ) -> Result<TaggedValue, LangError>;
+
+    /// The names currently bound by enclosing `eval_rec` regions. The
+    /// `closure` op keeps these as residual `binds` on the minted arrow
+    /// instead of substituting them into `body_def`: substituting a rec
+    /// name would embed the *current pass's* sibling value, which both
+    /// breaks fixpoint convergence (every pass would mint a different
+    /// body) and severs the recursion (the arrow would reference a stale
+    /// generation rather than the converged binding).
+    fn rec_bound_names(&self) -> std::collections::HashSet<Rc<str>> {
+        std::collections::HashSet::new()
     }
+
+    /// Mark `names` as bound by the `eval_rec` region about to run; every
+    /// [`rec_region_enter`] must be matched by a [`rec_region_exit`]
+    /// before the region's scope pops.
+    fn rec_region_enter(&mut self, _names: &[Rc<str>]) {}
+    /// Pop the innermost rec-region name set.
+    fn rec_region_exit(&mut self) {}
 
     /// Apply an arrow value to `args`.
     ///
@@ -488,6 +519,48 @@ pub fn apply_native_op(
                 Ok((either_left(v), false))
             } else {
                 Ok((either_right(v), false))
+            }
+        }
+        // `pair(a, b)` → the calculus pair `(a, b)` — used by the
+        // short-circuit `&&`/`||` schemes to pack `[lhs, __in]` so the
+        // Either produced by `tag_pair` can carry the node input.
+        "pair" => Ok((
+            TaggedValue::Pair(Rc::new((
+                args.first().cloned().unwrap_or(TaggedValue::Null),
+                args.get(1).cloned().unwrap_or(TaggedValue::Null),
+            ))),
+            false,
+        )),
+        // `(d, v)` → `Either v` tagged by truthiness of `d`. Unlike `tag`
+        // the payload is `v`, not the discriminated value — this is what
+        // lets `untag` in a `Choice` arm restore the node input.
+        "tag_pair" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            let (d, payload) = match &v {
+                TaggedValue::Pair(p) => (p.0.clone(), p.1.clone()),
+                TaggedValue::Arr(a) if a.len() == 2 => (a[0].clone(), a[1].clone()),
+                _ => (TaggedValue::Null, v.clone()),
+            };
+            if is_truthy(&d) {
+                Ok((either_left(payload), false))
+            } else {
+                Ok((either_right(payload), false))
+            }
+        }
+        // `Either v` → `v`. The lowerer treats a `Seq{untag, _}` `fst` as
+        // restoring the node input (the `tag_pair`/`untag` contract), so
+        // child placeholders under the `snd` stay input-faithful.
+        "untag" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            match v {
+                TaggedValue::EitherLeft(x) | TaggedValue::EitherRight(x) => {
+                    Ok(((*x).clone(), false))
+                }
+                other => Ok((other, false)),
             }
         }
         "desugar_error" => {
@@ -864,9 +937,11 @@ pub fn apply_native_op(
         //   `params`/`body` positions resolve by named role (ADR-0081)
         //   with positional 0/1 fallback; the params node resolves via
         //   `closure_params_at` (`param_names` + `is_array_pattern`).
-        // The minted arrow captures the current env (`env_capture`) and
-        // optionally a self-describing `body_def` (`closure_body_def` —
-        // `None` on engines whose `body` is not an AST index).
+        // The minted arrow is self-contained data (ADR-0106): the body is
+        // instantiated with the visible env baked in as `lit` nodes
+        // (`closure_body_def`), and only the names that cannot be
+        // substituted — active `eval_rec` binders and non-serializable
+        // values — survive as explicit residual `binds`.
         "closure" => {
             if !ctx.supports(OpService::Env) {
                 return Ok(None);
@@ -913,14 +988,15 @@ pub fn apply_native_op(
                 ));
             };
             let captured = ctx.env_capture();
-            // Free-variable capture: keep only the bindings the body can
-            // actually reference. Unfiltered capture snapshots the entire
-            // scope stack into every closure, so a module with N sequential
-            // function declarations serializes to O(2^N) nodes at the
-            // module-boundary `tagged_to_value` conversion (each arrow's
-            // env nests all previously-minted sibling arrows). `None`
-            // (unresolvable subtree) keeps the full env — over-capture is
-            // always safe, under-capture is not.
+            // Free-variable collection: keep only the bindings the body
+            // can actually reference. Unfiltered collection snapshots the
+            // entire scope stack into every minted arrow, so a module with
+            // N sequential function declarations serializes to O(2^N)
+            // nodes at the module-boundary `tagged_to_value` conversion
+            // (each arrow's `binds` nests all previously-minted sibling
+            // arrows). `None` (unresolvable subtree) keeps the full
+            // binding set — over-collection is always safe, under-collection
+            // is not.
             let captured = match handl_language::subtree_name_candidates(
                 |r| ctx.node_payload_at(r),
                 AstRef::new(body),
@@ -932,16 +1008,53 @@ pub fn apply_native_op(
                 }
                 None => captured,
             };
-            let body_def = ctx.closure_body_def(AstRef::new(body)).map(Rc::new);
+            // The arrow's own parameters are bound at apply time — they are
+            // binders, not free variables. Excluding them from capture is
+            // required for correctness, not just size: if a param name
+            // collides with an in-scope binding, substituting it would bake
+            // the *enclosing* value into `body_def` and shadow the argument
+            // (e.g. `xs ~> ... xs ...` minted where `xs` is already bound).
+            let captured = {
+                let mut filtered = (*captured).clone();
+                for p in &params {
+                    filtered.remove(p.as_str());
+                }
+                if let Some(r) = &rest {
+                    filtered.remove(r.as_str());
+                }
+                Rc::new(filtered)
+            };
+            // Split the captured env into the substitution map (baked
+            // into `body_def` as `lit` nodes) and residual `binds`
+            // (kept as explicit data on the arrow). Substitution is
+            // restricted to *arrow-free* values: embedding a captured
+            // arrow's serialized form would expand its `binds`/`body_def`
+            // transitively at every mint — exponential on the
+            // helper-diamond graphs of real modules. Arrows are already
+            // self-contained serializable data, so keeping them in
+            // `binds` preserves semantics and shares the `Rc` (O(1)).
+            // Rec-region binders must also stay free for the fixpoint
+            // pass, and `Resource`s are not serializable.
+            let rec_names = ctx.rec_bound_names();
+            let mut subst: std::collections::HashMap<Rc<str>, Value> =
+                std::collections::HashMap::with_capacity(captured.len());
+            let mut binds: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+            for (name, value) in captured.iter() {
+                if rec_names.contains(name) || !arrow_free(value) {
+                    binds.insert(Rc::clone(name), value.clone());
+                } else {
+                    subst.insert(Rc::clone(name), handl_value::tagged_to_value(value));
+                }
+            }
+            let body_def = ctx.closure_body_def(AstRef::new(body), &subst)?;
             Ok((
                 TaggedValue::Arrow {
                     params: Rc::from(params),
                     rest: rest.map(Rc::from),
-                    body,
-                    env: captured,
-                    home: None,
                     array_pattern,
-                    body_def,
+                    body_def: Rc::new(body_def),
+                    binds: Rc::new(binds),
+                    handlers: Rc::from(Vec::new()),
                 },
                 false,
             ))
@@ -1719,11 +1832,10 @@ pub fn apply_native_op(
                     TaggedValue::Arrow {
                         params,
                         rest,
-                        body,
-                        env,
-                        home,
                         array_pattern,
-                        ..
+                        body_def,
+                        binds,
+                        handlers,
                     },
                     TaggedValue::Str(key),
                 ) => match key.as_ref() {
@@ -1739,12 +1851,9 @@ pub fn apply_native_op(
                         Some(r) => Ok((TaggedValue::Str(r.clone()), false)),
                         None => Ok((TaggedValue::Null, false)),
                     },
-                    "body" => Ok((TaggedValue::Int(body as i64), false)),
-                    "env" => Ok((TaggedValue::Obj(Rc::clone(&env)), false)),
-                    "home" => match home {
-                        Some(id) => Ok((TaggedValue::Int(id as i64), false)),
-                        None => Ok((TaggedValue::Null, false)),
-                    },
+                    "body_def" => Ok(((*body_def).clone(), false)),
+                    "binds" => Ok((TaggedValue::Obj(binds), false)),
+                    "handlers" => Ok((TaggedValue::Arr(handlers), false)),
                     "array_pattern" => Ok((TaggedValue::Bool(array_pattern), false)),
                     _ => Ok((TaggedValue::Null, false)),
                 },
@@ -2256,28 +2365,48 @@ fn binding_target_name(
 
 /// Convergence comparison for `eval_rec` bindings.
 ///
-/// Closures (`TaggedValue::Arrow`) are compared by params and body index
-/// only, NOT by their captured env. In a `rec` fixpoint, each pass
-/// re-evaluates a closure binding and creates a new closure that captures
-/// the current scope (which now includes other rec bindings). The
-/// captured env naturally differs each pass even though the closure's
-/// code is identical, so a full structural `eq` would never converge.
-/// Comparing only params + body lets the fixpoint converge after the env
-/// stabilizes. Non-closure values use the standard structural `eq`.
+/// Closures (`TaggedValue::Arrow`) are compared by params and `body_def`
+/// only, NOT by their residual `binds`. In a `rec` fixpoint, each pass
+/// re-evaluates a closure binding and mints a new arrow whose `binds`
+/// include the other rec-region names (which stay residual — they are
+/// excluded from substitution). The `binds` map naturally differs each
+/// pass even though the closure's code is identical, so a full structural
+/// `eq` would never converge. Comparing only params + `body_def` lets the
+/// fixpoint converge. Non-closure values use the standard structural `eq`.
+///
+/// Whether `v` contains no `Arrow` and no `Resource` — i.e. it is safe to
+/// substitute into a `body_def` as a literal. Arrows carry their own
+/// serialized data and embed transitively (exponential on diamond graphs);
+/// `Resource`s carry unserializable finalizers. Both stay in `binds`.
+pub fn arrow_free(v: &TaggedValue) -> bool {
+    match v {
+        TaggedValue::Arrow { .. } | TaggedValue::Resource(_) => false,
+        TaggedValue::Arr(a) => a.iter().all(arrow_free),
+        TaggedValue::Obj(o) => o.values().all(arrow_free),
+        TaggedValue::Pair(p) => arrow_free(&p.0) && arrow_free(&p.1),
+        TaggedValue::EitherLeft(i) | TaggedValue::EitherRight(i) => arrow_free(i),
+        _ => true,
+    }
+}
+
 fn rec_value_eq(a: &TaggedValue, b: &TaggedValue) -> bool {
     match (a, b) {
         (
             TaggedValue::Arrow {
                 params: p1,
-                body: b1,
+                body_def: d1,
                 ..
             },
             TaggedValue::Arrow {
                 params: p2,
-                body: b2,
+                body_def: d2,
                 ..
             },
-        ) => p1.len() == p2.len() && p1.iter().zip(p2.iter()).all(|(a, b)| a == b) && b1 == b2,
+        ) => {
+            p1.len() == p2.len()
+                && p1.iter().zip(p2.iter()).all(|(a, b)| a == b)
+                && handl_value::eq(d1, d2)
+        }
         _ => handl_value::eq(a, b),
     }
 }
@@ -2296,12 +2425,10 @@ fn eval_rec_region(
     ctx: &mut dyn NativeOpCtx,
     children: &[Value],
 ) -> Result<TaggedValue, LangError> {
-    // Track the previous value of each binding for change detection.
-    // Initialize from the enclosing scope so we can detect the first
-    // change correctly: the caller already pushed the rec scope, so the
-    // `env_lookup` below searches innermost-first, but the inner scope is
-    // empty at this point and falls through.
-    let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+    // Collect the region's binder names first so they can be marked as
+    // rec-bound for the duration of the fixpoint: the `closure` op keeps
+    // these names as residual `binds` on minted arrows rather than
+    // substituting them into `body_def`.
     let mut binding_names: Vec<Rc<str>> = Vec::new();
     for entry in children {
         let child_idx = entry.as_u64().ok_or_else(|| {
@@ -2319,14 +2446,34 @@ fn eval_rec_region(
                             )
                         })?;
                     if let Ok(name) = binding_target_name(ctx, var_idx, "eval_rec") {
-                        let outer_val = ctx.env_lookup(&name).unwrap_or(TaggedValue::Null);
-                        let name_rc: Rc<str> = Rc::from(name.as_str());
-                        prev_values.insert(Rc::clone(&name_rc), outer_val);
-                        binding_names.push(name_rc);
+                        binding_names.push(Rc::from(name.as_str()));
                     }
                 }
             }
         }
+    }
+    ctx.rec_region_enter(&binding_names);
+    let out = eval_rec_region_loop(ctx, children, binding_names);
+    ctx.rec_region_exit();
+    out
+}
+
+/// The `eval_rec` fixpoint loop — runs between
+/// [`NativeOpCtx::rec_region_enter`] and [`rec_region_exit`].
+fn eval_rec_region_loop(
+    ctx: &mut dyn NativeOpCtx,
+    children: &[Value],
+    binding_names: Vec<Rc<str>>,
+) -> Result<TaggedValue, LangError> {
+    // Track the previous value of each binding for change detection.
+    // Initialize from the enclosing scope so we can detect the first
+    // change correctly: the caller already pushed the rec scope, so the
+    // `env_lookup` below searches innermost-first, but the inner scope is
+    // empty at this point and falls through.
+    let mut prev_values: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+    for name in &binding_names {
+        let outer_val = ctx.env_lookup(name).unwrap_or(TaggedValue::Null);
+        prev_values.insert(Rc::clone(name), outer_val);
     }
 
     let mut result = TaggedValue::Null;

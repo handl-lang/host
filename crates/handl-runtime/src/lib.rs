@@ -1705,11 +1705,11 @@ impl ModuleLoader {
         // Collect the module's top-level bindings into a Value::Object.
         let bindings = collect_module_bindings(self.lang.as_ref(), &ast, value);
 
-        // Seal the exported bindings for the cross-boundary handoff: arrow
-        // values minted by this module's eval carry `body` indices into
-        // *this* AST, so the engine stamps them with a home frame (see
-        // `EvalEngine::seal_module_value`; identity for engines whose
-        // values carry no ambient-eval references).
+        // Seal the exported bindings for the cross-boundary handoff.
+        // ADR-0106: arrow values are self-contained (`body_def` carries the
+        // body arena), so sealing is identity — kept for engines that want
+        // to intercept module-value handoff (see
+        // `EvalEngine::seal_module_value`).
         engine_rc
             .seal_module_value(&ast, &self.lang, bindings)
             .map_err(|e| {

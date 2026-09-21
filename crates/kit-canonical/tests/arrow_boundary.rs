@@ -10,10 +10,10 @@
 //! comb.flip: engine error: object: key '__arrow__' is reserved in object in call
 //! ```
 //!
-//! Now arguments are bound as per-call globals (`__arg_N`) and arrows carry
-//! a `__home__` frame id so the receiving eval can route application back to
-//! the AST that minted them — see `plugin-engine-exec-tree-walk`'s
-//! home-frame registry and `HandlFunction::call`.
+//! Now arguments are bound as per-call globals (`__arg_N`) and arrows are
+//! self-contained (`body_def` + `binds` + `handlers`, ADR-0106) — an arrow
+//! crossing the boundary applies against its own serialized definition, so
+//! no provenance stamping is needed.
 
 use handl_kit_canonical::Kit;
 use serde_json::json;
@@ -36,8 +36,8 @@ fn flip_receives_arrow_arg() {
 }
 
 /// A closure *returned* by a `.hnl` function must be invocable by the
-/// caller: `constantly(7)` returns `_ ~> c` whose `body` indexes the nested
-/// eval's AST.
+/// caller: `constantly(7)` returns `_ ~> c` whose `body_def` is its own
+/// serialized AST arena with `c` substituted in.
 #[test]
 fn constantly_returns_arrow() {
     assert_eq!(eval("comb.constantly(7)(99)"), json!(7));

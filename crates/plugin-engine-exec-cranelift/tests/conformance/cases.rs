@@ -84,19 +84,22 @@ fn num_tag(n: i64) -> Value {
     json!({ "__tag__": "Number", "value": n })
 }
 
-/// A closure value `{"__arrow__": true, "params": [...], "body": <arena
-/// idx>, "env": {}}` — the shape all three `EvalEngine`s apply via
-/// `apply_app`. `body` indexes a [`ProbeNode`] carrying the body scheme.
+/// A closure-value fixture `{"__arrow__": true, "params": [...], "body":
+/// <probe-node idx>}` — a *marker* shape that `build_probe` rewrites into
+/// the self-contained ADR-0106 wire form (`body_def` = one-node `__ast__`
+/// arena holding `nodes[body]`). Fixture bodies are always scheme-carrying
+/// leaf nodes; their schemes resolve against the ambient probe `Language`
+/// via `node.kind`.
 fn arrow(params: &[&str], body: usize) -> Value {
     let ps: Vec<Value> = params.iter().map(|p| json!(p)).collect();
-    json!({ "__arrow__": true, "params": ps, "body": body, "env": {} })
+    json!({ "__arrow__": true, "params": ps, "body": body })
 }
 
 /// Same, but an array-pattern arrow (`[a, b] ~> body` destructures the
 /// single array argument by position).
 fn arrow_pat(params: &[&str], body: usize) -> Value {
     let ps: Vec<Value> = params.iter().map(|p| json!(p)).collect();
-    json!({ "__arrow__": true, "params": ps, "body": body, "env": {}, "array_pattern": true })
+    json!({ "__arrow__": true, "params": ps, "body": body, "array_pattern": true })
 }
 
 /// Serialized `Term` value — the callee shape `term_interpreter`'s

@@ -20,10 +20,11 @@
 //!   into a `left` Either and a falsy value into a `right` Either (the
 //!   `Branch` lowering: `c >>> arr tag >>> Choice(t, e)`).
 //! - **Arrow-value** (`App`): `{"__arrow__": true, "params": [...],
-//!   "body": <idx>, "env": {...}}`. `App` evaluates the callee; if it is
-//!   a string naming a registered host function, dispatches to it;
-//!   otherwise applies the closure (swap-in captured env, bind params,
-//!   eval body node, restore).
+//!   "body_def": {"__ast__": <arena>}, "binds": {...}, "handlers": [...]}`
+//!   — self-contained serializable data (ADR-0106). `App` evaluates the
+//!   callee; if it is a string naming a registered host function,
+//!   dispatches to it; otherwise applies the arrow (install `binds` as the
+//!   captured root, bind params, eval the `body_def` arena, restore).
 //!
 //! ## `$payload` convention
 //!
@@ -97,7 +98,7 @@ pub trait AssertHandler: std::fmt::Debug {
 }
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use rustc_hash::FxHashMap;
@@ -128,7 +129,6 @@ fn term_dim(td: &TermData) -> u64 {
 // ValueCallable impl can access them when host functions (e.g. fn.map)
 // call arrow-values via ctx.try_call_value.
 thread_local! {
-    static CURRENT_AST: RefCell<Option<Rc<Ast>>> = RefCell::new(None);
     static CURRENT_LANG: RefCell<Option<Rc<Language>>> = RefCell::new(None);
     static CURRENT_MODULES: RefCell<Option<Rc<dyn ModuleLookup>>> = RefCell::new(None);
     // Host-provided globals (e.g. `self`), shared via `Rc` so the
@@ -140,65 +140,48 @@ thread_local! {
     // test runner needs the module loader's resolver to re-resolve its home
     // AST's imports).
     static CURRENT_IMPORT_RESOLVER: RefCell<Option<Rc<dyn ImportResolver>>> = RefCell::new(None);
-    // Registry of "home" eval frames — the `Rc`s a minted arrow needs for
-    // its `body` index to remain meaningful after the arrow has crossed a
-    // runtime boundary (a `.hnl` module function receiving or returning a
-    // closure). Keyed by the `Rc<Ast>` pointer, which stays alive as long
-    // as the entry exists (the entry holds an `Rc::clone` of `ast`), so a
-    // pointer value can never be recycled while its frame is registered.
-    static HOME_FRAMES: RefCell<HashMap<u64, EvalFrame>> = RefCell::new(HashMap::new());
-    // Memo of deserialized `body_def` arenas (ADR-0106 item 2, the "Cost of
-    // step 2" TODO). Applying a self-describing arrow otherwise re-runs
-    // `tagged_to_value` + `as_ast` on *every* call, which allocates per call
-    // in hot/recursive loops.
+    // Memo of deserialized `body_def` arenas (ADR-0106). Applying a
+    // self-describing arrow otherwise re-runs `tagged_to_value` +
+    // `as_ast` on *every* call, which allocates per call in hot/recursive
+    // loops.
     //
-    // Keyed by the `Rc<TaggedValue>` pointer of the definition — the same
-    // trick (and the same safety argument) as `HOME_FRAMES`: each entry holds
-    // an `Rc::clone` of the definition, so the address cannot be recycled
-    // while the entry is registered, and a re-used address can never hit a
-    // stale entry. Structurally identical but distinct arrows have distinct
-    // addresses and therefore distinct entries.
+    // Keyed by the `Rc<TaggedValue>` pointer of the definition: each entry
+    // holds an `Rc::clone` of the definition, so the address cannot be
+    // recycled while the entry is registered, and a re-used address can
+    // never hit a stale entry. Structurally identical but distinct arrows
+    // have distinct addresses and therefore distinct entries.
     //
-    // Growth is bounded by `ARROW_ARENA_CACHE_CAP`: the table is cleared when
-    // it reaches the cap, which costs at most one re-deserialization per live
-    // arrow afterwards.
+    // Growth is bounded by `ARROW_ARENA_CACHE_CAP`: the table is cleared
+    // when it reaches the cap, which costs at most one re-deserialization
+    // per live arrow afterwards.
     static ARROW_ARENA_CACHE: RefCell<HashMap<usize, (Rc<TaggedValue>, Rc<Ast>)>> =
         RefCell::new(HashMap::new());
 }
 
-/// Maximum number of deserialized arrow-body arenas memoized per thread.
-/// Small by design: applications cycle through a handful of hot arrows, and
-/// the table is cleared (not evicted one-by-one) when it fills.
-const ARROW_ARENA_CACHE_CAP: usize = 64;
-/// Tag for first-class `arr <op>` dispatch objects (ADR-0103 value shape).
-const ARR_DISPATCH_TAG: &str = "__arr__";
-
 // ---------------------------------------------------------------------------
-// EvalFrame — arrow-value provenance across runtime boundaries
+// EvalFrame — ambient eval services for cross-runtime arrow application
 // ---------------------------------------------------------------------------
 
-/// A snapshot of the eval state an arrow value needs for its `body` index
-/// to be meaningful: the AST the index refers to, the `Language` whose
-/// schemes interpret it, the module chain for host dispatch inside the
-/// body, and the host-provided globals (e.g. `self`).
+/// The ambient services an eval provides to host callbacks that apply
+/// arrow values: the `Language` whose schemes interpret `body_def`
+/// arenas, the module chain for host dispatch, the host-provided globals
+/// (e.g. `self`), and the import resolver.
 ///
-/// Arrows minted inside an [`EvalEngine::eval`] call carry `home: None` and
-/// are applied against the *ambient* AST (threaded through `apply_app`'s
-/// `ast` parameter). An arrow that crosses a `serde_json` boundary into
-/// another runtime — e.g. a `HandlFunction` receiving an arrow argument or
-/// returning a closure — is stamped with `"__home__": <id>` so that
-/// `apply_app` / `call_value` can route application back here.
+/// This is *not* lexical state — ADR-0106 arrows are self-contained
+/// (`body_def` + `binds` + `handlers`); the frame only supplies the
+/// ambient *services* a body needs to interpret its own data. A nested
+/// runtime (e.g. a `.hnl` module function's bridge eval) enters a frame
+/// for its own eval so `ctx.try_call_value` / `TreeWalkCallable` see the
+/// innermost context.
 #[derive(Clone)]
 pub struct EvalFrame {
-    /// The AST the arrow's `body` index refers to.
-    pub ast: Rc<Ast>,
-    /// The `Language` whose eval schemes interpret that AST.
+    /// The `Language` whose eval schemes interpret `body_def` arenas.
     pub lang: Rc<Language>,
-    /// The module chain for host-function dispatch inside the body.
+    /// The module chain for host-function dispatch inside bodies.
     pub modules: Option<Rc<dyn ModuleLookup>>,
-    /// The host-provided globals visible to the body.
+    /// The host-provided globals visible to bodies.
     pub globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
-    /// The import resolver for `import` native ops inside the body.
+    /// The import resolver for `import` native ops inside bodies.
     pub import_resolver: Option<Rc<dyn ImportResolver>>,
 }
 
@@ -206,11 +189,8 @@ impl EvalFrame {
     /// Install this frame in the eval thread-locals, run `f`, then restore
     /// the previous values — the same save/restore discipline as
     /// [`EvalEngine::eval`], so nested `ctx.try_call_value` /
-    /// `TreeWalkCallable` calls inside the arrow body see the arrow's home
-    /// frame rather than the ambient one.
+    /// `TreeWalkCallable` calls inside the body see the innermost frame.
     pub fn enter<T>(&self, f: impl FnOnce() -> T) -> T {
-        let prev_ast = CURRENT_AST
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.ast))));
         let prev_lang = CURRENT_LANG
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.lang))));
         let prev_modules =
@@ -221,7 +201,6 @@ impl EvalFrame {
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.import_resolver.clone()));
 
         let out = f();
-        CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
         CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
         CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
@@ -230,39 +209,32 @@ impl EvalFrame {
     }
 }
 
-/// Look up a registered home [`EvalFrame`] by id.
-pub fn home_frame(id: u64) -> Option<EvalFrame> {
-    HOME_FRAMES.with(|m| m.borrow().get(&id).cloned())
-}
-
-/// Register `frame` under `id` if not already present and return `id`.
-fn register_frame_at(id: u64, frame: EvalFrame) -> u64 {
-    HOME_FRAMES.with(|m| {
-        let mut map = m.borrow_mut();
-        map.entry(id).or_insert(frame);
-    });
-    id
-}
+/// Maximum number of deserialized arrow-body arenas memoized per thread.
+/// Small by design: applications cycle through a handful of hot arrows, and
+/// the table is cleared (not evicted one-by-one) when it fills.
+const ARROW_ARENA_CACHE_CAP: usize = 64;
+/// Tag for first-class `arr <op>` dispatch objects (ADR-0103 value shape).
+const ARR_DISPATCH_TAG: &str = "__arr__";
 
 /// The standalone arena carried by a `body_def`, deserialized at most once
-/// per definition value (ADR-0106 item 2, "Cost of step 2").
+/// per definition value (ADR-0106).
 ///
 /// `def` is the arrow's `body_def`: a `{"__ast__": <Ast>}` value produced by
-/// `Ast::subtree` + `ast_value`. Applying a self-describing arrow needs that
-/// arena; deserializing it on every application allocates per call, so this
-/// memoizes it per thread:
+/// `Ast::instantiate` + `ast_value`. Applying a self-describing arrow needs
+/// that arena; deserializing it on every application allocates per call, so
+/// this memoizes it per thread:
 ///
 /// - **Key**: the `Rc<TaggedValue>` pointer of `def`. Safe because the cache
 ///   entry stores an `Rc::clone` of `def`, so the allocation cannot be freed
-///   (and the address reused for a different value) while the entry lives —
-///   the same argument as `HOME_FRAMES`. Two structurally identical but
-///   distinct definitions have different addresses and different entries.
+///   (and the address reused for a different value) while the entry lives.
+///   Two structurally identical but distinct definitions have different
+///   addresses and different entries.
 /// - **Bound**: the table is cleared once it reaches
 ///   [`ARROW_ARENA_CACHE_CAP`] entries, so memory stays bounded; the cost of
 ///   clearing is at most one re-deserialization per live arrow.
 ///
-/// Returns `None` when the definition is not a well-formed `__ast__` value or
-/// the arena is empty — the caller then falls back to `body`/`home`.
+/// Returns `None` when the definition is not a well-formed `__ast__` value
+/// or the arena is empty — the arrow is malformed and the caller errors.
 fn cached_def_arena(def: &Rc<TaggedValue>) -> Option<Rc<Ast>> {
     let key = Rc::as_ptr(def) as usize;
     ARROW_ARENA_CACHE.with(|cache| {
@@ -282,104 +254,32 @@ fn cached_def_arena(def: &Rc<TaggedValue>) -> Option<Rc<Ast>> {
     })
 }
 
-/// Capture the ambient eval frame — the `CURRENT_AST` / `CURRENT_LANG` /
-/// `CURRENT_MODULES` / `CURRENT_GLOBALS` thread-locals of the eval currently
-/// running on this thread — and return its home-frame id for `__home__`
-/// stamping.
-///
-/// Returns `None` when no tree-walk eval is running (e.g. a host function
-/// invoked directly, outside any `eval`). The id is the `Rc<Ast>` pointer:
-/// the registered entry holds an `Rc` clone of the AST, so the pointer can
-/// never be recycled while the frame is registered, and repeated captures
-/// within one eval return the same id.
-///
-/// This is the seam that lets a nested `Runtime` (e.g. a `.hnl` module
-/// function's bridge eval) invoke arrow values minted by the *outer* eval:
-/// the host stamps incoming arrow arguments with this id, and
-/// `apply_app`/`call_value` route application back to this frame.
-pub fn current_home_frame() -> Option<u64> {
-    let ast = CURRENT_AST.with(|c| c.borrow().clone())?;
-    let id = Rc::as_ptr(&ast) as usize as u64;
-    let lang = CURRENT_LANG.with(|c| c.borrow().clone())?;
-    let modules = CURRENT_MODULES.with(|c| c.borrow().clone());
-    let globals = CURRENT_GLOBALS.with(|c| c.borrow().clone());
-    let import_resolver = CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone());
-    Some(register_frame_at(
-        id,
-        EvalFrame {
-            ast,
-            lang,
-            modules,
-            globals,
-            import_resolver,
-        },
-    ))
-}
-
-/// Register a home [`EvalFrame`] for an eval performed outside the
-/// [`EvalEngine::eval`] thread-local window — e.g. the per-call bridge eval
-/// a `.hnl` module function runs — so arrows *returned* from that eval can
-/// be invoked later against this AST.
-///
-/// The id is derived from `Rc::as_ptr(&ast)`; the caller must pass an `Rc`
-/// it owns (e.g. the parsed AST kept alive for the frame's lifetime). The
-/// registered entry keeps the `Rc`s alive for the life of the thread.
-///
-/// `globals` are the extra root-scope bindings the eval ran with (e.g.
-/// per-call argument bindings); `None` means the frame has no host globals
-/// beyond what the module chain provides.
-pub fn register_home_frame(
-    ast: Rc<Ast>,
-    lang: Rc<Language>,
-    modules: Option<Rc<dyn ModuleLookup>>,
-    globals: Option<HashMap<String, Value>>,
-    import_resolver: Option<Rc<dyn ImportResolver>>,
-) -> u64 {
-    let globals = globals.map(|g| {
-        Rc::new(
-            g.into_iter()
-                .map(|(k, v)| (Rc::from(k.as_str()), TaggedValue::from(v)))
-                .collect::<FxHashMap<Rc<str>, TaggedValue>>(),
-        )
-    });
-    let id = Rc::as_ptr(&ast) as usize as u64;
-    register_frame_at(
-        id,
-        EvalFrame {
-            ast,
-            lang,
-            modules,
-            globals,
-            import_resolver,
-        },
-    )
-}
-
 // ---------------------------------------------------------------------------
 // ScopeStack
 // ---------------------------------------------------------------------------
 
 /// A scope stack: `Vec<FxHashMap<Rc<str>, TaggedValue>>` searched innermost-first.
 ///
-/// Used by the tree-walk interpreter for `extend_env` binding and closure
-/// capture/swap-in. The `scopes` field is `pub(crate)` so the engine can
-/// perform the closure-env swap-in.
+/// Used by the tree-walk interpreter for `extend_env` binding and for
+/// installing an arrow's residual `binds` at application time
+/// (`captured`, ADR-0106). The `scopes` field is `pub(crate)` so the
+/// engine can manage the binds install/restore.
 ///
 /// Host-provided globals (e.g. `self`) are kept in a separate
 /// `globals` field (a cheaply-cloned `Rc<FxHashMap>`) rather than in
 /// `scopes[0]`. This prevents the (potentially massive) globals from
-/// being captured into every closure's env on creation and re-cloned on
-/// every closure call. `lookup()` falls back to `globals` after
-/// searching the scope stack, and `capture()` only captures user-created
+/// being collected into every minted arrow's `binds` and re-cloned on
+/// every arrow call. `lookup()` falls back to `globals` after
+/// searching the scope stack, and `capture()` only collects user-created
 /// scopes — never globals.
 pub struct ScopeStack {
     /// The stack of scopes, innermost last. `pub(crate)` so the engine
-    /// can perform the closure-env swap-in.
+    /// can manage the `binds` install/restore around arrow application.
     pub(crate) scopes: Vec<FxHashMap<Rc<str>, TaggedValue>>,
-    /// The shared captured environment for a closure call, held in a
-    /// cheaply-cloned `Rc` so it is **never deep-cloned** on closure
+    /// The arrow's residual `binds` for the current application, held in
+    /// a cheaply-cloned `Rc` so it is **never deep-cloned** on arrow
     /// invocation. Only set by `apply_app`/`call_value` when applying an
-    /// arrow-value; `None` for ordinary (non-closure) scope stacks.
+    /// arrow-value; `None` for ordinary (non-arrow) scope stacks.
     /// `lookup()` consults it after the local scopes but before globals.
     pub(crate) captured: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
     /// Host-provided globals (e.g. `self`), held in a cheaply-cloned
@@ -395,6 +295,14 @@ pub struct ScopeStack {
     /// from inside `if`/`match` branch blocks, and a pass that produces
     /// any such write must not count as converged.
     pub(crate) enclosing_updated: bool,
+    /// Names bound by enclosing `eval_rec` regions (flat stack, segmented
+    /// by `rec_marks`). The `closure` op keeps these as residual `binds`
+    /// on minted arrows rather than substituting them into `body_def`
+    /// (ADR-0106): substituting a rec name would embed a stale
+    /// current-pass value and break fixpoint convergence.
+    pub(crate) rec_names: Vec<Rc<str>>,
+    /// Segment marks for `rec_names` — one per active `eval_rec` region.
+    pub(crate) rec_marks: Vec<usize>,
     /// Runtime effect/coeffect row accumulated during this evaluation.
     pub(crate) effects: Vec<String>,
 }
@@ -409,6 +317,8 @@ impl ScopeStack {
             captured: None,
             globals: Rc::new(FxHashMap::default()),
             enclosing_updated: false,
+            rec_names: Vec::new(),
+            rec_marks: Vec::new(),
             effects: Vec::new(),
         }
     }
@@ -420,7 +330,7 @@ impl ScopeStack {
     }
 
     /// Look up a variable, searching innermost scope first, then the
-    /// shared captured env (if any), then falling back to the
+    /// active arrow's `binds` (if any), then falling back to the
     /// host-provided globals.
     pub fn lookup(&self, name: &str) -> Option<&TaggedValue> {
         self.scopes
@@ -489,21 +399,20 @@ impl ScopeStack {
         }
     }
 
-    /// Capture all visible user-created variables into a single flat map,
-    /// returned as a cheaply-cloned `Rc`. Globals (held in the `globals`
-    /// field) are intentionally excluded: they are accessible via
-    /// `lookup()` at call time and must not be deep-cloned into every
-    /// closure's captured env. The captured env is shared (via `Rc`) at
-    /// call time — see `apply_app` — so this is the one-time snapshot
-    /// cost paid at closure creation, not on every call.
+    /// Collect all visible user-created bindings into a single flat map,
+    /// returned as a cheaply-cloned `Rc`. This is the definition-site
+    /// binding set the `closure` op splits into `body_def` substitution +
+    /// residual `binds` (ADR-0106). Globals (held in the `globals` field)
+    /// are intentionally excluded: they are accessible via `lookup()` at
+    /// call time and must not be copied into every minted arrow.
     ///
-    /// Includes the parent closure's captured env (if any) so that nested
-    /// closures retain access to bindings from all enclosing closure
-    /// scopes, not just the current scope stack. Current scope bindings
-    /// take priority over parent captured bindings (shadowing).
+    /// Includes the enclosing arrow's `binds` (if any) so that nested
+    /// arrows retain access to bindings from all enclosing arrow scopes,
+    /// not just the current scope stack. Current scope bindings take
+    /// priority over the enclosing `binds` (shadowing).
     pub fn capture(&self) -> Rc<FxHashMap<Rc<str>, TaggedValue>> {
         let mut captured = FxHashMap::default();
-        // Include parent closure's captured env first (lower priority).
+        // Include the enclosing arrow's `binds` first (lower priority).
         if let Some(parent_captured) = &self.captured {
             for (k, v) in parent_captured.iter() {
                 captured.insert(Rc::clone(k), v.clone());
@@ -1017,10 +926,10 @@ impl TreeWalkEngine {
                 //    the new state. A max-iteration guard bounds the loop.
                 //
                 // Optimization: when the body is a `loop_step` Arr, the
-                // body_proc sub-scheme evaluates to a closure value that
-                // captures the definition-time env. That env doesn't change
+                // body_proc sub-scheme evaluates to an arrow value whose
+                // `binds` are fixed at mint time. Those binds don't change
                 // between iterations (only the loop state changes, passed
-                // as an argument to `apply_app`). Hoist the closure
+                // as an argument to `apply_app`). Hoist the arrow
                 // evaluation outside the loop so it runs once instead of
                 // once per iteration.
                 if body.tag() == "Op" {
@@ -2482,9 +2391,8 @@ impl TreeWalkEngine {
                     }
                     TaggedValue::Arrow {
                         params,
-                        body,
-                        env: captured,
-                        home,
+                        body_def,
+                        binds,
                         ..
                     } => match field {
                         "inputs" => {
@@ -2496,19 +2404,21 @@ impl TreeWalkEngine {
                         }
                         "grade" => Ok((TaggedValue::Null, false)),
                         "output" => {
-                            if home.is_some() {
-                                return Err(LangError::engine_node(
-                                    "arrow_field: cannot project output from a foreign-frame arrow"
-                                        .to_string(),
+                            // The arrow is self-contained: evaluate the
+                            // `body_def` arena root under its residual
+                            // `binds` (unapplied, so no params bound).
+                            let def_ast = cached_def_arena(&body_def).ok_or_else(|| {
+                                LangError::engine_node(
+                                    "arrow_field: malformed body_def".to_string(),
                                     current_node,
-                                ));
-                            }
+                                )
+                            })?;
                             let mut closure_env = ScopeStack::new();
-                            closure_env.captured = Some(Rc::clone(&captured));
+                            closure_env.captured = Some(binds);
                             closure_env.globals = Rc::clone(&env.globals);
                             let body_val = self.eval_node_inner(
-                                ast,
-                                AstRef::new(body),
+                                &def_ast,
+                                AstRef::new(def_ast.len() - 1),
                                 lang,
                                 &mut closure_env,
                             )?;
@@ -2728,12 +2638,21 @@ impl TreeWalkEngine {
         Ok(TaggedValue::from(val))
     }
 
+    /// Apply a callable value to `args`: `arr <op>` dispatch objects,
+    /// bound-arrow records (`{__term__, __bound__}`), `>>>` composite
+    /// records, and `TaggedValue::Arrow` closures.
     ///
-    /// Host-function dispatch (string callee) has been moved to the
-    /// `call_host` native op. This helper only handles arrow-value
-    /// (closure) application: extract params/body/env, build a fresh
-    /// scope from the captured env, bind params, evaluate the body.
-    fn apply_app(
+    /// Public so sibling engines (the cranelift JIT) can delegate arrow
+    /// application to this reference path — an arrow's `body_def` arena
+    /// is self-contained data (ADR-0106), so any engine can interpret it
+    /// here without re-JIT-compiling per arrow.
+    ///
+    /// `ast`/`node_ref`/`current_node` supply ambient context for the
+    /// dispatch-object paths' error reporting; `env` supplies the globals
+    /// a body's free host references resolve against. The Arrow arm runs
+    /// the arrow's own `body_def` arena under a fresh scope seeded with
+    /// its `binds`.
+    pub fn apply_app(
         &self,
         callee: &TaggedValue,
         args: &[TaggedValue],
@@ -2832,99 +2751,33 @@ impl TreeWalkEngine {
                 return self.apply_app(term_val, &[tuple], ast, lang, env, node_ref, current_node);
             }
         }
-        // Closure application — match on TaggedValue::Arrow directly.
-        let (params, rest_param, body_idx, captured_env, home, array_pattern, body_def) =
-            match callee {
-                TaggedValue::Arrow {
-                    params,
-                    rest,
-                    body,
-                    env,
-                    home,
-                    array_pattern,
-                    body_def,
-                } => (
-                    params.clone(),
-                    rest.clone(),
-                    *body,
-                    Rc::clone(env),
-                    *home,
-                    *array_pattern,
-                    body_def.clone(),
-                ),
-                _ => {
-                    return Err(LangError::engine_node(
-                        "callee is not an arrow-value".to_string(),
-                        current_node,
-                    ));
-                }
-            };
-        // ADR-0106 item 2 step 2: prefer the arrow's **explicit body
-        // definition** when it carries one. `body_def` holds the body as a
-        // standalone arena (`{"__ast__": <Ast>}`, minted via
-        // `Ast::subtree` + `ast_value`), so an arrow that crossed a JSON
-        // round-trip — whose minting frame and AST are gone — is still
-        // applicable. The ambient `body` index and the `home` frame remain
-        // the fallback for arrows minted without a definition (bytecode,
-        // cranelift, hand-built values).
-        //
-        // The definition is deserialized through `cached_def_arena`, which
-        // memoizes the arena per definition value: applying the same
-        // self-describing arrow N times deserializes once, not N times.
-        let def_arena: Option<Rc<Ast>> = body_def.as_ref().and_then(cached_def_arena);
-        let (ast, body_idx, home): (&Ast, usize, Option<u64>) = match &def_arena {
-            // The extracted arena is post-order, so the body root is last.
-            Some(a) => (a.as_ref(), a.len() - 1, None),
-            None => (ast, body_idx, home),
-        };
-        if let Some(frame_id) = home {
-            // The arrow was minted by a *different* eval frame (it crossed
-            // a runtime boundary): its `body` index refers to that frame's
-            // AST. Evaluate it there — the frame is installed into the
-            // thread-locals for the duration so nested host calls
-            // (`ctx.try_call_value`) resolve against the arrow's home
-            // modules/globals too. The arrow is re-entered with
-            // `home: None` so its `body` resolves ambiently within the
-            // frame; any surplus args are curried through inside the frame
-            // (intermediate arrows index into the frame's AST).
-            let frame = home_frame(frame_id).ok_or_else(|| {
-                LangError::engine(format!("arrow: unknown home frame {}", frame_id))
-            })?;
-            // Host dispatch inside the body must see the arrow's *home*
-            // module chain, not the ambient engine's.
-            let mut engine = self.clone();
-            engine.modules = frame.modules.clone();
-            engine.import_resolver = frame.import_resolver.clone();
-            // ADR-0106 item 2 step 1: this re-wraps an existing body in the
-            // same arena, so no new definition is minted here — `body_def`
-            // stays `None` and the `home`/`body` fallback applies as before.
-            let local_callee = TaggedValue::Arrow {
-                params: params.clone(),
-                rest: rest_param.clone(),
-                body: body_idx,
-                env: captured_env.clone(),
-                home: None,
+        // Closure application — match on TaggedValue::Arrow directly. The
+        // arrow is self-contained data (ADR-0106): `body_def` is the
+        // substituted standalone arena, `binds` the explicit residual
+        // bindings, `handlers` the carried deep handlers.
+        let (params, rest_param, array_pattern, body_def, binds, handlers) = match callee {
+            TaggedValue::Arrow {
+                params,
+                rest,
                 array_pattern,
-                body_def: None,
-            };
-            let mut frame_env = ScopeStack::new();
-            if let Some(g) = &frame.globals {
-                frame_env.set_globals(Rc::clone(g));
+                body_def,
+                binds,
+                handlers,
+            } => (
+                params.clone(),
+                rest.clone(),
+                *array_pattern,
+                body_def.clone(),
+                binds.clone(),
+                handlers.clone(),
+            ),
+            _ => {
+                return Err(LangError::engine_node(
+                    "callee is not an arrow-value".to_string(),
+                    current_node,
+                ));
             }
-            let call_node = AstNode::new("call");
-            let call_ref = AstRef::new(0);
-            return frame.enter(|| {
-                engine.apply_app(
-                    &local_callee,
-                    args,
-                    &frame.ast,
-                    &frame.lang,
-                    &mut frame_env,
-                    call_ref,
-                    &call_node,
-                )
-            });
-        }
+        };
         // Array-pattern arrows (`[x, y] ~> body`) consume a single array
         // argument and destructure it by position. The array itself is the
         // sole argument; fixed names bind to leading elements and a rest
@@ -2958,13 +2811,14 @@ impl TreeWalkEngine {
             return self.apply_arrow_body(
                 &params,
                 rest_param.as_ref(),
-                body_idx,
-                captured_env,
+                &body_def,
+                &binds,
+                &handlers,
                 head,
                 tail,
-                ast,
                 lang,
                 Some(Rc::clone(&env.globals)),
+                current_node,
             );
         }
         // Positional arrows: ADR-0074 multi-param arrows may receive a
@@ -2997,26 +2851,28 @@ impl TreeWalkEngine {
             return self.apply_arrow_body(
                 &params,
                 Some(rest_name),
-                body_idx,
-                captured_env,
+                &body_def,
+                &binds,
+                &handlers,
                 head,
                 tail,
-                ast,
                 lang,
                 Some(Rc::clone(&env.globals)),
+                current_node,
             );
         }
         let (head, mut rest) = actual_args.split_at(params.len());
         let mut val = self.apply_arrow_body(
             &params,
             None,
-            body_idx,
-            captured_env,
+            &body_def,
+            &binds,
+            &handlers,
             head,
             &[],
-            ast,
             lang,
             Some(Rc::clone(&env.globals)),
+            current_node,
         )?;
         while !rest.is_empty() {
             val = self.apply_app(&val, rest, ast, lang, env, node_ref, current_node)?;
@@ -3067,43 +2923,37 @@ impl TreeWalkEngine {
         )
     }
 
-    /// Apply an arrow body: build a fresh env that **shares** the carried
-    /// env via `Rc` (an O(1) refcount bump — no deep clone of the captured
-    /// variables on every call), push a single scope for the params, and
-    /// evaluate the body. The caller's env is never mutated — no
-    /// swap/restore hack.
+    /// Apply an arrow body: evaluate the arrow's `body_def` arena under a
+    /// fresh env containing only the arrow's explicit residual `binds`
+    /// plus the call-time params (ADR-0106 — there is no captured lexical
+    /// environment). The caller's env is never mutated.
     ///
-    /// `globals` are the host globals the body should fall back to: the
-    /// ambient env's globals for same-frame arrows, or the home frame's
-    /// globals for boundary-crossed arrows (`None` → none). The carried
-    /// env only contains user-created variables (globals are excluded at
-    /// capture time), so `lookup()` checks the local param scope first,
-    /// then the shared captured env, then globals — variable shadowing and
-    /// captured-var lookup both work correctly.
+    /// `globals` are the host globals the body should fall back to (the
+    /// ambient env's globals; `None` → none). `lookup()` checks the local
+    /// param scope first, then the residual binds, then globals.
+    ///
+    /// The body root is the last node of the `body_def` arena
+    /// (post-order extraction, [`Ast::instantiate`]).
+    #[allow(clippy::too_many_arguments)]
     fn apply_arrow_body(
         &self,
         params: &[String],
         rest_param: Option<&Rc<str>>,
-        body_idx: usize,
-        captured_env: Rc<FxHashMap<Rc<str>, TaggedValue>>,
+        body_def: &Rc<TaggedValue>,
+        binds: &Rc<FxHashMap<Rc<str>, TaggedValue>>,
+        handlers: &[TaggedValue],
         actual_args: &[TaggedValue],
         rest_args: &[TaggedValue],
-        ast: &Ast,
         lang: &Language,
         globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+        current_node: &AstNode,
     ) -> Result<TaggedValue, LangError> {
-        // Deep-handler carry (ADR-0076): `handle <arrow> with <h>` binds a
-        // reusable handled arrow — the handler lives in the arrow's env
-        // under `__handlers__` and is reinstalled for each application,
-        // so `arr <op>` dispatches inside the body still find it.
-        let carried_handlers: Vec<TaggedValue> =
-            match captured_env.get("__handlers__") {
-                Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
-                _ => Vec::new(),
-            };
-        let body_ref = AstRef::new(body_idx);
+        let def_ast = cached_def_arena(body_def).ok_or_else(|| {
+            LangError::engine_node("arrow: malformed body_def".to_string(), current_node)
+        })?;
+        let body_ref = AstRef::new(def_ast.len() - 1);
         let mut arrow_env = ScopeStack::new();
-        arrow_env.captured = Some(captured_env);
+        arrow_env.captured = Some(Rc::clone(binds));
         if let Some(g) = globals {
             arrow_env.set_globals(g);
         }
@@ -3120,14 +2970,14 @@ impl TreeWalkEngine {
         }
         {
             let mut stack = self.handler_stack.borrow_mut();
-            for h in &carried_handlers {
+            for h in handlers {
                 stack.push(h.clone());
             }
         }
-        let result = self.eval_node_inner(ast, body_ref, lang, &mut arrow_env);
+        let result = self.eval_node_inner(&def_ast, body_ref, lang, &mut arrow_env);
         {
             let mut stack = self.handler_stack.borrow_mut();
-            for _ in 0..carried_handlers.len() {
+            for _ in 0..handlers.len() {
                 stack.pop();
             }
         }
@@ -3295,8 +3145,6 @@ impl TreeWalkEngine {
         let modules_rc = self.modules.clone();
         let import_resolver_rc = self.import_resolver.clone();
 
-        let prev_ast =
-            CURRENT_AST.with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&ast_rc))));
         let prev_lang = CURRENT_LANG
             .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&lang_rc))));
         let prev_modules =
@@ -3331,7 +3179,6 @@ impl TreeWalkEngine {
         let root_ref = AstRef::new(ast_rc.len() - 1);
         let result = self.eval_node(&ast_rc, root_ref, &lang_rc, &mut env);
         // Restore the previous thread-locals (None for a non-nested eval).
-        CURRENT_AST.with(|c| *c.borrow_mut() = prev_ast);
         CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
         CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
         CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
@@ -3388,31 +3235,13 @@ impl EvalEngine for TreeWalkEngine {
 
     fn seal_module_value(
         &self,
-        ast: &Ast,
-        lang: &Language,
+        _ast: &Ast,
+        _lang: &Language,
         value: Value,
     ) -> Result<Value, LangError> {
-        if !contains_unhomed_arrow(&value) {
-            return Ok(value);
-        }
-        // Register the module's eval frame so the arrow's `body` index
-        // remains meaningful in the importer's scope: `apply_app` /
-        // `call_value` route `__home__`-stamped arrows back to this frame
-        // (its AST, `Language`, module chain, and globals).
-
-        let frame_id = register_home_frame(
-            Rc::new(ast.clone()),
-            Rc::new(lang.clone()),
-            self.modules.clone(),
-            if self.globals.is_empty() {
-                None
-            } else {
-                Some(self.globals.clone())
-            },
-            self.import_resolver.clone(),
-        );
-        let mut value = value;
-        stamp_home(&mut value, frame_id);
+        // ADR-0106: arrows are self-contained (`body_def` + `binds` +
+        // `handlers`), so nothing needs stamping when a module value
+        // crosses a runtime boundary — the value is already complete.
         Ok(value)
     }
 }
@@ -3958,70 +3787,14 @@ impl Model for ValueModel {
 }
 
 // ---------------------------------------------------------------------------
-// Arrow-value sealing helpers (Phase 9.5 module import)
-// ---------------------------------------------------------------------------
-//
-// Mirrors of the private helpers in `plugin-lib-handl` (which stamp arrow
-// arguments/results crossing `HandlFunction` boundaries); kept local so the
-// sealing hook needs no cross-crate plumbing.
-
-/// Whether `value` contains an arrow value (`{"__arrow__": true, ...}`)
-/// that carries no `__home__` frame id — i.e. an arrow whose `body` index
-/// refers to the ambient eval's AST and must be stamped before it crosses
-/// into an importer's scope.
-fn contains_unhomed_arrow(value: &Value) -> bool {
-    match value {
-        Value::Array(a) => a.iter().any(contains_unhomed_arrow),
-        Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
-                return o.get("__home__").and_then(|v| v.as_u64()).is_none()
-                    || o.values().any(contains_unhomed_arrow);
-            }
-            o.values().any(contains_unhomed_arrow)
-        }
-        _ => false,
-    }
-}
-
-/// Stamp every arrow value inside `value` that lacks a `__home__` frame id
-/// with `frame_id` — recursively, including arrows nested inside a
-/// closure's captured `env` (their `body` indices refer to the same AST).
-/// Arrows that already carry a `__home__` keep it: their provenance is
-/// elsewhere.
-fn stamp_home(value: &mut Value, frame_id: u64) {
-    match value {
-        Value::Array(a) => {
-            for v in a.iter_mut() {
-                stamp_home(v, frame_id);
-            }
-        }
-        Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true)
-                && o.get("__home__").and_then(|v| v.as_u64()).is_none()
-            {
-                o.insert("__home__".to_string(), Value::from(frame_id));
-            }
-            // Arrow envs serialize by reference (`{"__envref__": id}`) —
-            // stamp the env-resident arrows in `TaggedValue` space, where
-            // the shared env DAG is still reachable.
-            if let Some(id) = o.get("__envref__").and_then(|v| v.as_u64()) {
-                handl_value::stamp_env_home(id, frame_id);
-            }
-            for v in o.values_mut() {
-                stamp_home(v, frame_id);
-            }
-        }
-        _ => {}
-    }
-}
-
-// ---------------------------------------------------------------------------
 // ValueCallable — allows host functions (fn.map, fn.filter, etc.) to call
 // arrow-values passed as arguments.
 // ---------------------------------------------------------------------------
 
-/// A `ValueCallable` that calls arrow-values using the thread-local AST
-/// and Language set by `EvalEngine::eval`.
+/// A `ValueCallable` that calls arrow-values using the thread-local
+/// Language/module context set by `EvalEngine::eval`. Arrows are
+/// self-contained (`body_def` + `binds`, ADR-0106) so no home frame is
+/// needed — application runs entirely against the arrow's own data.
 pub struct TreeWalkCallable;
 
 impl ValueCallable for TreeWalkCallable {
@@ -4030,189 +3803,57 @@ impl ValueCallable for TreeWalkCallable {
         callee: &Value,
         args: &[Value],
     ) -> Result<Value, handl_platform::EvalError> {
-        let obj = callee.as_object().ok_or_else(|| {
-            handl_platform::EvalError::Other("call_value: not an object".to_string())
-        })?;
-        if !obj
-            .get("__arrow__")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false)
-        {
+        let tagged = TaggedValue::from(callee.clone());
+        if !matches!(tagged, TaggedValue::Arrow { .. }) {
             return Err(handl_platform::EvalError::Other(
                 "call_value: not an arrow-value".to_string(),
             ));
         }
-        // Boundary-crossed arrows carry `"__home__"` — the id of the eval
-        // frame that minted them. Route the application through that frame
-        // (installed in the thread-locals for the duration) so the body's
-        // AST index and module chain resolve correctly.
-        if let Some(frame_id) = obj.get("__home__").and_then(|v| v.as_u64()) {
-            let frame = home_frame(frame_id).ok_or_else(|| {
-                handl_platform::EvalError::Other(format!(
-                    "call_value: unknown home frame {}",
-                    frame_id
-                ))
-            })?;
-            return frame.enter(|| self.call_value_in_frame(callee, args));
-        }
-        self.call_value_in_frame(callee, args)
-    }
-}
-
-impl TreeWalkCallable {
-    /// Invoke an arrow-value in the *ambient* frame — the thread-locals
-    /// currently installed (either the running eval's or a home frame's
-    /// after [`EvalFrame::enter`]).
-    fn call_value_in_frame(
-        &self,
-        callee: &Value,
-        args: &[Value],
-    ) -> Result<Value, handl_platform::EvalError> {
-        let obj = callee.as_object().ok_or_else(|| {
-            handl_platform::EvalError::Other("call_value: not an object".to_string())
-        })?;
-
-        let params: Vec<String> = obj
-            .get("params")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| {
-                handl_platform::EvalError::Other("arrow-value missing params".to_string())
-            })?
-            .iter()
-            .map(|v| {
-                v.as_str().map(String::from).ok_or_else(|| {
-                    handl_platform::EvalError::Other("arrow-value param not string".to_string())
-                })
-            })
-            .collect::<Result<_, _>>()?;
-        let body_idx = obj.get("body").and_then(|v| v.as_u64()).ok_or_else(|| {
-            handl_platform::EvalError::Other("arrow-value missing body".to_string())
-        })?;
-        let captured_env: FxHashMap<Rc<str>, TaggedValue> = obj
-            .get("env")
-            .and_then(handl_value::env_from_json)
-            .map(|rc| (*rc).clone())
-            .unwrap_or_default();
-        // ADR-0074: destructure a single Pair (product) arg for multi-param
-        // arrows. Host functions like fn.map may pass a Pair to a multi-param
-        // arrow-value.
-        let actual_args: Vec<Value> = if params.len() > 1 && args.len() == 1 {
-            // Try to flatten if the single arg is a Pair (serialized as
-            // {"__pair__": [a, b]}).
-            if let Some(pair) = args[0].get("__pair__").and_then(|v| v.as_array()) {
-                let mut flat: Vec<Value> = Vec::new();
-                fn flatten_pair_json(v: &Value, flat: &mut Vec<Value>) {
-                    if let Some(p) = v.get("__pair__").and_then(|p| p.as_array()) {
-                        if p.len() == 2 {
-                            flatten_pair_json(&p[0], flat);
-                            flatten_pair_json(&p[1], flat);
-                            return;
-                        }
-                    }
-                    flat.push(v.clone());
-                }
-                if pair.len() == 2 {
-                    flatten_pair_json(&pair[0], &mut flat);
-                    flatten_pair_json(&pair[1], &mut flat);
-                    flat
-                } else {
-                    args.to_vec()
-                }
-            } else {
-                args.to_vec()
-            }
-        } else {
-            args.to_vec()
-        };
-        if actual_args.len() < params.len() {
-            return Err(handl_platform::EvalError::Other(format!(
-                "arrow-value expects {} args, got {}",
-                params.len(),
-                actual_args.len()
-            )));
-        }
-        // Get AST and Language from thread-locals.
-        let ast = CURRENT_AST.with(|c| c.borrow().clone()).ok_or_else(|| {
-            handl_platform::EvalError::Other("call_value: no AST in thread-local".to_string())
-        })?;
+        // The arrow evaluates in the *ambient* language/module context —
+        // the thread-locals the running eval installed. `body_def`/`binds`
+        // supply everything the body needs; the language supplies schemes,
+        // the module chain supplies host functions.
         let lang = CURRENT_LANG.with(|c| c.borrow().clone()).ok_or_else(|| {
             handl_platform::EvalError::Other("call_value: no Language in thread-local".to_string())
         })?;
-        let engine = TreeWalkEngine::new();
-        // Set modules if available.
-        let engine = if let Some(mods) = CURRENT_MODULES.with(|c| c.borrow().clone()) {
-            engine.with_modules(mods)
-        } else {
-            engine
-        };
-        // Set import resolver if available (home frame may have crossed
-        // a runtime boundary, e.g. the test runner applying a `.hnl` arrow).
-        let mut engine = engine;
+        let mut engine = TreeWalkEngine::new();
+        if let Some(mods) = CURRENT_MODULES.with(|c| c.borrow().clone()) {
+            engine = engine.with_modules(mods);
+        }
         engine.import_resolver = CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone());
 
-        // Curried application, matching `apply_app`: surplus args apply
-        // the body's result (another arrow) to the remainder — `f(1, 5)`
-        // on `x ~> y ~> body` is `(f 1) 5`. The recursion goes through
-        // `call_value` so intermediate arrows keep routing by `__home__`.
-        let (head, mut rest) = actual_args.split_at(params.len());
-        let mut val = {
-            // Build a fresh env that **shares** the arrow's captured env via
-            // `Rc` (an O(1) refcount bump — no deep clone on every call).
-            let mut arrow_env = ScopeStack::new();
-            arrow_env.captured = Some(Rc::new(captured_env));
-            // Re-attach host globals (e.g. `self`) from the thread-local so
-            // the closure body can look them up. The captured env only
-            // contains user-created variables (globals are excluded at
-            // capture time), so this fallback is required.
-            if let Some(g) = CURRENT_GLOBALS.with(|c| c.borrow().clone()) {
-                arrow_env.set_globals(g);
+        let tagged_args: Vec<TaggedValue> =
+            args.iter().cloned().map(TaggedValue::from).collect();
+        // Boundary callers pass positional args; array-pattern arrows take
+        // a single array argument (the App convention), so pack here. A
+        // single argument is already the packed form — pass it through.
+        let tagged_args = if matches!(
+            &tagged,
+            TaggedValue::Arrow {
+                array_pattern: true,
+                ..
             }
-            arrow_env.push_scope();
-            for (param, arg) in params.iter().zip(head.iter()) {
-                arrow_env.define(param, TaggedValue::from(arg.clone()));
-            }
-            // Arrow bodies are carried as self-describing `body_def` AST
-            // subtrees so the body is always resolvable regardless of which
-            // runtime frame applies the arrow. Use it in preference to the
-            // ambient AST `body` index, which may be stale after the arrow
-            // crosses a serde boundary.
-            let body_res: Result<Value, handl_platform::EvalError> = if let Some(body_def) =
-                obj.get("body_def").and_then(|v| handl_language::as_ast(v))
-            {
-                if body_def.is_empty() {
-                    Err(handl_platform::EvalError::Other(
-                        "arrow body_def is empty".to_string(),
-                    ))
-                } else {
-                    let body_ref = AstRef::new(body_def.len() - 1);
-                    let body_ast = Rc::new(body_def);
-                    let frame = EvalFrame {
-                        ast: body_ast,
-                        lang: Rc::clone(&lang),
-                        modules: CURRENT_MODULES.with(|c| c.borrow().clone()),
-                        globals: CURRENT_GLOBALS.with(|c| c.borrow().clone()),
-                        import_resolver: CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone()),
-                    };
-                    frame.enter(|| {
-                        engine
-                            .eval_node_inner(&frame.ast, body_ref, &frame.lang, &mut arrow_env)
-                            .map(|v| tagged_to_value(&v))
-                            .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
-                    })
-                }
-            } else {
-                engine
-                    .eval_node_inner(&ast, AstRef::new(body_idx as usize), &lang, &mut arrow_env)
-                    .map(|v| tagged_to_value(&v))
-                    .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
-            };
-            body_res?
+        ) && tagged_args.len() != 1
+        {
+            vec![TaggedValue::Arr(Rc::from(tagged_args))]
+        } else {
+            tagged_args
         };
-        while !rest.is_empty() {
-            val = self.call_value(&val, rest)?;
-            rest = &[];
+        // `apply_app`'s ambient `ast`/`node` context is only exercised by
+        // the `__arr__`/`__term__` dispatch-object paths — the Arrow path
+        // runs the arrow's own `body_def` arena. Supply a synthetic `call`
+        // node for those paths' error reporting.
+        let mut scratch = Ast::new();
+        let call_ref = scratch.push(AstNode::new("call"));
+        let call_node = scratch.at(call_ref).expect("just pushed").clone();
+        let mut env = ScopeStack::new();
+        if let Some(g) = CURRENT_GLOBALS.with(|c| c.borrow().clone()) {
+            env.set_globals(g);
         }
-        Ok(val)
+        engine
+            .apply_app(&tagged, &tagged_args, &scratch, &lang, &mut env, call_ref, &call_node)
+            .map(|v| tagged_to_value(&v))
+            .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
     }
 }
 
@@ -4359,19 +4000,33 @@ impl NativeOpCtx for TwCtx<'_, '_> {
         Ok((names, rest, self.lang.is_array_pattern(node)))
     }
 
-    fn closure_body_def(&mut self, body: AstRef) -> Option<TaggedValue> {
-        // ADR-0106 item 2 (step 1): carry the body as explicit,
-        // serializable structure so the arrow is self-describing.
-        // `Ast::subtree` extracts a standalone arena for the body
-        // (children remapped) and `ast_value` wraps it as
-        // `{"__ast__": <Ast>}` — the same encoding used for vau-bound
-        // unevaluated expressions. Additive only: the apply path still
-        // uses `body`/`home`, and extraction failure degrades to `None`
-        // rather than failing the closure creation.
-        self.ast
-            .subtree(body)
-            .ok()
-            .map(|sub| TaggedValue::from(handl_language::ast_value(&sub)))
+    fn closure_body_def(
+        &mut self,
+        body: AstRef,
+        env: &HashMap<Rc<str>, Value>,
+    ) -> Result<TaggedValue, LangError> {
+        // ADR-0106: the body is extracted into a standalone arena with
+        // `env`'s free variables substituted as `lit` nodes
+        // (`Ast::instantiate`), then wrapped as `{"__ast__": <Ast>}` —
+        // the same encoding used for vau-bound unevaluated expressions.
+        let sub = self.ast.instantiate(body, self.lang, env)?;
+        Ok(TaggedValue::from(handl_language::ast_value(&sub)))
+    }
+
+    fn rec_bound_names(&self) -> HashSet<Rc<str>> {
+        self.env.rec_names.iter().cloned().collect()
+    }
+
+    fn rec_region_enter(&mut self, names: &[Rc<str>]) {
+        let mark = self.env.rec_names.len();
+        self.env.rec_marks.push(mark);
+        self.env.rec_names.extend(names.iter().cloned());
+    }
+
+    fn rec_region_exit(&mut self) {
+        if let Some(mark) = self.env.rec_marks.pop() {
+            self.env.rec_names.truncate(mark);
+        }
     }
 
     fn apply_arrow(
@@ -4492,30 +4147,22 @@ fn attach_carried_handler(val: TaggedValue, handler: &TaggedValue) -> TaggedValu
         TaggedValue::Arrow {
             params,
             rest,
-            body,
-            env,
-            home,
             array_pattern,
             body_def,
+            binds,
+            handlers,
         } => {
-            let mut env_map = (*env).clone();
-            let mut handlers: Vec<TaggedValue> = match env_map.get("__handlers__") {
-                Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
-                _ => Vec::new(),
-            };
-            handlers.push(handler.clone());
-            env_map.insert(
-                Rc::from("__handlers__"),
-                TaggedValue::Arr(Rc::from(handlers)),
-            );
+            // ADR-0076 carried handlers are explicit data on the arrow —
+            // no `__handlers__` env smuggling.
+            let mut hs = handlers.to_vec();
+            hs.push(handler.clone());
             TaggedValue::Arrow {
                 params,
                 rest,
-                body,
-                env: Rc::new(env_map),
-                home,
                 array_pattern,
                 body_def,
+                binds,
+                handlers: Rc::from(hs),
             }
         }
         other => other,
@@ -4624,7 +4271,7 @@ fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize
 mod tests {
     use super::*;
     use handl_language::{
-        AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Side, Term,
+        AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Term,
     };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_exec::EvalRequest;
@@ -5063,12 +4710,16 @@ mod tests {
             AstNode::new("var").with_payload(json!("x")),
             AstNode::new("test").with_payload(json!({})),
         ]);
-        // Build a closure value pointing at body node 0, param ["x"].
+        // Build a self-contained closure value (ADR-0106): `body_def` is a
+        // standalone arena holding a single `var("x")` node, param ["x"].
+        let mut body_arena = Ast::new();
+        body_arena.push(AstNode::new("var").with_payload(json!("x")));
         let closure = json!({
             "__arrow__": true,
             "params": ["x"],
-            "body": 0,
-            "env": {},
+            "body_def": handl_language::ast_value(&body_arena),
+            "binds": {},
+            "handlers": [],
         });
         // App(callee = const <closure>, args = [const 41])
         let s = app(
@@ -6467,17 +6118,14 @@ mod tests {
 
     #[test]
     fn closure_missing_params_array_errors() {
-        // With TaggedValue, a malformed __arrow__ object (params not an
-        // array) is converted gracefully: params defaults to empty, body
-        // defaults to 0. The closure is callable with 0 args. This test
-        // verifies the graceful conversion produces a callable closure.
+        // ADR-0106: a malformed __arrow__ object (params not an array,
+        // no body_def) is not applicable — the arrow value is
+        // self-contained data, so there is no ambient-arena fallback.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
             .merge(EvalSchemeDef::new("e.call", "call", app(child(0), vec![])))
             .unwrap();
-        // Callee is a "closure" with params as a string (not array).
-        // TaggedValue::from defaults params to [] and body to 0.
         let ast = make_ast(vec![
             AstNode::new("lit").with_payload(json!({
                 "__arrow__": true,
@@ -6487,18 +6135,14 @@ mod tests {
             AstNode::new("call").with_payload(json!({"children": [0]})),
         ]);
         let req = EvalRequest::new(ast);
-        // The closure has 0 params and is called with 0 args → succeeds.
-        // It evaluates body at index 0 (the lit node itself), which returns
-        // its payload as a value.
-        let result = engine.eval(&lang, &req).unwrap();
-        assert!(result.is_object());
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]
     fn closure_missing_body_errors() {
-        // With TaggedValue, a malformed __arrow__ object (missing body)
-        // is converted gracefully: body defaults to 0. This test verifies
-        // the graceful conversion produces a callable closure.
+        // ADR-0106: an __arrow__ without `body_def` cannot apply — the
+        // body is explicit data, not an ambient arena index.
         let engine = TreeWalkEngine::new();
         let mut lang = Language::new();
         lang.eval
@@ -6512,9 +6156,8 @@ mod tests {
             AstNode::new("call").with_payload(json!({"children": [0]})),
         ]);
         let req = EvalRequest::new(ast);
-        // The closure has 0 params, 0 args, body=0 → succeeds.
-        let result = engine.eval(&lang, &req).unwrap();
-        assert!(result.is_object());
+        let err = engine.eval(&lang, &req).unwrap_err();
+        assert!(matches!(err, LangError::Engine { .. }));
     }
 
     #[test]

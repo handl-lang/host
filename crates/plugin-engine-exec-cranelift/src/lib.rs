@@ -66,13 +66,15 @@
 //! - No-scheme fallback: if a node kind has no eval scheme, returns
 //!   `node.payload` directly.
 //! - Closure representation: `Value::Object` with
-//!   `{"__arrow__": true, "params": [...], "body": <arena_idx>, "env": {...}}`,
-//!   created by the `"closure"` primitive.
+//!   `{"__arrow__": true, "params": [...], "body_def": {"__ast__": <Ast>},
+//!   "binds"?: {...}, "handlers"?: [...]}` — self-contained serialized data
+//!   (ADR-0106), created by the `"closure"` primitive.
 //! - Primitives: `add, sub, mul, div, mod, eq, lt, gt, not, and, or, neg,
 //!   closure, bind` — identical semantics to the tree-walk.
 //! - Scope: `Vec<HashMap<String, Value>>` scope stack; `Bind` pushes a child
-//!   scope; lookup searches innermost-first. Closure calls swap in the
-//!   captured env, bind params, eval body, restore.
+//!   scope; lookup searches innermost-first. Arrow application delegates to
+//!   the tree-walk engine: an arrow's `body_def` arena is minted at runtime,
+//!   so it is interpreted rather than JIT-compiled.
 //!
 //! ## Safety model
 //!
@@ -423,7 +425,7 @@ fn run_native(
         ast: ast as *const Ast,
         env: ScopeStack::new(),
         current_ref: ast.len() - 1,
-        modules: modules.map(|m| Rc::as_ptr(m) as *const dyn handl_platform::ModuleLookup),
+        modules: modules.cloned(),
         import_resolver,
         compiled: compiled.clone(),
         literals,
@@ -506,8 +508,10 @@ pub struct EvalCtx {
     env: ScopeStack,
     /// The arena index of the node currently being evaluated.
     current_ref: usize,
-    /// The module registry (raw trait-object pointer; may be null).
-    modules: Option<*const dyn handl_platform::ModuleLookup>,
+    /// The module registry for `Foreign` dispatch. Held as an `Rc` (not a
+    /// raw pointer) so arrow-application fallbacks can pass a cheap clone
+    /// to the reference interpreter.
+    modules: Option<Rc<dyn handl_platform::ModuleLookup>>,
     /// The import resolver for `import "path"` statements (Phase 9.5).
     import_resolver: Option<Rc<dyn ImportResolver>>,
     /// Per-node compiled function pointers, keyed by arena index.
@@ -632,9 +636,9 @@ impl PatternMatchCtx for EvalCtx {
 /// A scope stack: `Vec<Rc<FxHashMap<Rc<str>, TaggedValue>>>` searched
 /// innermost-first.
 ///
-/// Scope frames are `Rc`-backed so that a closure's captured environment can be
-/// shared by reference (`Rc::clone`) instead of deep-cloned on every closure
-/// call (Fix #8). The innermost scope is mutated via `Rc::make_mut`, which is
+/// Scope frames are `Rc`-backed so that an arrow's residual `binds` map can be
+/// shared by reference (`Rc::clone`) instead of deep-cloned on every arrow
+/// call. The innermost scope is mutated via `Rc::make_mut`, which is
 /// cheap because it is always freshly pushed (refcount 1).
 struct ScopeStack {
     /// The stack of scope frames.
@@ -654,6 +658,13 @@ struct ScopeStack {
     /// is excluded from `capture()` and shared across closure calls.
     /// Mirrors the bytecode `ScopeStack::globals`.
     globals: Rc<FxHashMap<Rc<str>, TaggedValue>>,
+    /// Names bound by enclosing `eval_rec` regions (flat stack, segmented
+    /// by `rec_marks`). The `closure` op keeps these as residual `binds`
+    /// on minted arrows rather than substituting them into `body_def`
+    /// (ADR-0106). Mirrors the tree-walk `ScopeStack::rec_names`.
+    rec_names: Vec<Rc<str>>,
+    /// Segment marks for `rec_names` — one per active `eval_rec` region.
+    rec_marks: Vec<usize>,
 }
 
 impl ScopeStack {
@@ -662,6 +673,8 @@ impl ScopeStack {
             scopes: vec![Rc::new(FxHashMap::default())],
             enclosing_updated: false,
             globals: Rc::new(FxHashMap::default()),
+            rec_names: Vec::new(),
+            rec_marks: Vec::new(),
         }
     }
 
@@ -960,77 +973,12 @@ pub unsafe extern "C" fn helper_apply_closure(
             arg_vals.push(take_value(arg_ptr));
         }
 
-        // Parse closure. Share the captured env via Rc::clone instead of
-        // deep-cloning the HashMap (Fix #8).
-        let (params, rest_param, body_idx, captured_env) = match &closure_val {
-            TaggedValue::Arrow {
-                params,
-                rest,
-                body,
-                env,
-                ..
-            } => (params.clone(), rest.clone(), *body, Rc::clone(env)),
-            _ => {
-                return ctx.set_error(LangError::engine(
-                    "callee is not an arrow-value".to_string(),
-                ));
-            }
-        };
-
-        // Rest param (`[a, ...rest] ~> body`): surplus args bind to the
-        // rest name as an array, so `arg_vals.len() >= params.len()`.
-        let arity_ok = if rest_param.is_some() {
-            arg_vals.len() >= params.len()
-        } else {
-            params.len() == arg_vals.len()
-        };
-        if !arity_ok {
-            return ctx.set_error(LangError::engine(format!(
-                "arrow-value expects {} args, got {}",
-                params.len(),
-                arg_vals.len()
-            )));
-        }
-
-        // Look up the compiled function for the body node.
-        let func = match ctx.compiled.get(&body_idx).copied() {
-            Some(f) => f,
-            None => {
-                return ctx.set_error(LangError::engine(format!(
-                    "no compiled function for closure body {}",
-                    body_idx
-                )));
-            }
-        };
-
-        // Swap in the captured env + new scope with params.
-        let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
-        ctx.env.scopes[0] = captured_env;
-        ctx.env.push_scope();
-        for (param, arg) in params.iter().zip(arg_vals.iter()) {
-            ctx.env.define(param, arg.clone());
-        }
-        // Bind the rest param to the surplus args as an array.
-        if let Some(rest_name) = &rest_param {
-            ctx.env.define(
-                rest_name.as_ref(),
-                TaggedValue::Arr(Rc::from(arg_vals[params.len()..].to_vec())),
-            );
-        }
-
-        // Save and set current_ref for the body.
-        let saved_ref = ctx.current_ref;
-        ctx.current_ref = body_idx;
-
-        let null_incoming = null_incoming_ptr();
-        let result =
-            func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
-
-        // Restore the original scope stack and current_ref.
-        ctx.current_ref = saved_ref;
-        ctx.env = saved_env;
-
-        result
+        // ADR-0106: the arrow is self-contained data (`body_def` +
+        // `binds` + `handlers`); there is no compiled function keyed by a
+        // body index to call. Delegate application to the reference
+        // tree-walk interpreter. This v1 helper does not unpack a single
+        // array argument (the v2 `call` convention does that itself).
+        apply_value_treewalk(ctx, closure_val, arg_vals, false)
     }
 }
 
@@ -1077,14 +1025,12 @@ pub unsafe extern "C" fn helper_call_foreign(
         }
 
         // Look up the module function.
-        let modules_ptr = match ctx.modules {
-            Some(ptr) => ptr,
+        let modules = match ctx.modules.as_ref() {
+            Some(m) => Rc::clone(m),
             None => {
                 return ctx.set_error(LangError::engine(format!("unregistered foreign: {}", name)));
             }
         };
-        // SAFETY: modules_ptr is a valid trait-object pointer set by the engine.
-        let modules: &dyn handl_platform::ModuleLookup = &*modules_ptr;
         let func = match modules.lookup(&name) {
             Some(f) => f,
             None => {
@@ -1643,152 +1589,19 @@ fn apply_closure_value_opts(
                 return apply_closure_value_opts(ctx, term_val, vec![tuple], false);
             }
         }
-        // Closure application — must be a TaggedValue::Arrow.
-        // Share the captured env via Rc::clone instead of deep-cloning the
-        // HashMap (Fix #8).
-        let (params, rest_param, body_idx, captured_env, array_pattern) = match &closure_val {
-            TaggedValue::Arrow {
-                params,
-                rest,
-                body,
-                env,
-                array_pattern,
-                ..
-            } => (
-                params.clone(),
-                rest.clone(),
-                *body,
-                Rc::clone(env),
-                *array_pattern,
-            ),
-            _ => {
-                return ctx.set_error(LangError::engine(
-                    "callee is not an arrow-value".to_string(),
-                ));
-            }
-        };
-
-        let func = match ctx.compiled.get(&body_idx).copied() {
-            Some(f) => f,
-            None => {
-                return ctx.set_error(LangError::engine(format!(
-                    "no compiled v2 function for closure body {}",
-                    body_idx
-                )));
-            }
-        };
-
-        // Array-pattern arrows (`[x, y] ~> body`) consume a single array
-        // argument and destructure it by position.
-        if array_pattern {
-            if arg_vals.len() != 1 {
-                return ctx.set_error(LangError::engine(format!(
-                    "array-pattern arrow expects 1 array argument, got {}",
-                    arg_vals.len()
-                )));
-            }
-            let arr = arg_vals[0].as_array().ok_or_else(|| {
-                LangError::engine("array-pattern arrow expects an array argument".to_string())
-            });
-            let arr = match arr {
-                Ok(a) => a,
-                Err(e) => return ctx.set_error(e),
-            };
-            let fixed = params.len();
-            if arr.len() < fixed {
-                return ctx.set_error(LangError::engine(format!(
-                    "array-pattern arrow expects at least {} element(s), got {}",
-                    fixed,
-                    arr.len()
-                )));
-            }
-            if rest_param.is_none() && arr.len() != fixed {
-                return ctx.set_error(LangError::engine(format!(
-                    "array-pattern arrow expects exactly {} element(s), got {}",
-                    fixed,
-                    arr.len()
-                )));
-            }
-            let (head, tail) = arr.split_at(fixed);
-            let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
-            ctx.env.scopes[0] = captured_env;
-            ctx.env.push_scope();
-            for (param, arg) in params.iter().zip(head.iter()) {
-                ctx.env.define(param, arg.clone());
-            }
-            if let Some(rest_name) = &rest_param {
-                ctx.env.define(
-                    rest_name.as_ref(),
-                    TaggedValue::Arr(Rc::from(tail.to_vec())),
-                );
-            }
-            let saved_ref = ctx.current_ref;
-            ctx.current_ref = body_idx;
-            let null_incoming = null_incoming_ptr();
-            let result =
-                func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
-            ctx.current_ref = saved_ref;
-            ctx.env = saved_env;
-            return result;
+        // Closure application — must be a TaggedValue::Arrow. ADR-0106:
+        // the arrow is self-contained data (`body_def` + `binds` +
+        // `handlers`); there is no compiled function keyed by a body
+        // index to call — the body arena did not exist when
+        // `ctx.compiled` was built. Delegate application to the reference
+        // tree-walk interpreter (`apply_value_treewalk` handles the
+        // `unpack_arr`/`Pair`-flatten/rest/curry conventions).
+        if !matches!(closure_val, TaggedValue::Arrow { .. }) {
+            return ctx.set_error(LangError::engine(
+                "callee is not an arrow-value".to_string(),
+            ));
         }
-
-        // Positional arrows: ADR-0060 unpack single array arg for
-        // variable-arity call; ADR-0074 flatten a single `Pair`.
-        let mut arg_vals = arg_vals;
-        if unpack_arr && arg_vals.len() == 1 {
-            if let TaggedValue::Arr(arr) = &arg_vals[0] {
-                arg_vals = arr.iter().cloned().collect();
-            }
-        }
-        if params.len() > 1 && arg_vals.len() == 1 && matches!(arg_vals[0], TaggedValue::Pair(_)) {
-            arg_vals = flatten_pair(&arg_vals[0]);
-        }
-
-        let param_names: Vec<String> = params.iter().map(|s| s.to_string()).collect();
-
-        // Rest param (`[a, ...rest] ~> body`): surplus args bind to the
-        // rest name as an array, so `arg_vals.len() >= params.len()`.
-        let arity_ok = if rest_param.is_some() {
-            arg_vals.len() >= params.len()
-        } else {
-            param_names.len() == arg_vals.len()
-        };
-        if !arity_ok {
-            return ctx.set_error(LangError::engine(format!(
-                "arrow-value expects {} args, got {}",
-                param_names.len(),
-                arg_vals.len()
-            )));
-        }
-
-        // Swap in the captured env + new scope with params.
-        let saved_env = std::mem::replace(&mut ctx.env, ScopeStack::new());
-        ctx.env.scopes[0] = captured_env;
-        ctx.env.push_scope();
-        for (param, arg) in param_names.iter().zip(arg_vals.iter()) {
-            ctx.env.define(param, arg.clone());
-        }
-        // Bind the rest param to the surplus args as an array.
-        if let Some(rest_name) = &rest_param {
-            ctx.env.define(
-                rest_name.as_ref(),
-                TaggedValue::Arr(Rc::from(arg_vals[param_names.len()..].to_vec())),
-            );
-        }
-
-        let saved_ref = ctx.current_ref;
-        ctx.current_ref = body_idx;
-
-        // Closure bodies receive a boxed Null as incoming (fresh computation).
-        // Reuse the shared sentinel to avoid per-call allocation (Fix #8).
-        let null_incoming = null_incoming_ptr();
-        let result =
-            func(ctx as *mut EvalCtx as *mut u8, null_incoming as *mut u8) as *mut TaggedValue;
-
-        ctx.current_ref = saved_ref;
-        ctx.env = saved_env;
-
-        result
+        apply_value_treewalk(ctx, closure_val, arg_vals, unpack_arr)
     }
 }
 
@@ -1802,6 +1615,79 @@ fn flatten_pair(v: &TaggedValue) -> Vec<TaggedValue> {
             left
         }
         other => vec![other.clone()],
+    }
+}
+
+/// Apply a value to `args` via the reference tree-walk engine.
+///
+/// ADR-0106: arrows are self-contained data — `body_def` is a standalone
+/// substituted AST arena, `binds` the residual bindings, `handlers` the
+/// carried deep handlers — so there is no per-arrow compiled function to
+/// look up: the body arena did not exist when `ctx.compiled` was built.
+/// The tree-walk engine interprets the arena directly; `ctx` supplies the
+/// ambient services (language schemes via `ctx.lang`, module dispatch via
+/// `ctx.modules`, the import resolver, and host globals).
+///
+/// `unpack_arr` is the ADR-0060 single-array-arg unpack used by the
+/// `call`/`App` surface forms (`apply_closure_value`); `flow` and
+/// `__term__` bound-arrow dispatch pass `false` so a list input stays one
+/// argument.
+///
+/// # Safety
+///
+/// `ctx` must be a valid `&mut EvalCtx`. `ctx.lang` must point to a valid
+/// `Language` — the standalone driver (`lang` null) cannot interpret
+/// `body_def` arenas and reports an error instead.
+unsafe fn apply_value_treewalk(
+    ctx: &mut EvalCtx,
+    callee: TaggedValue,
+    mut arg_vals: Vec<TaggedValue>,
+    unpack_arr: bool,
+) -> *mut TaggedValue {
+    let Some(lang) = (unsafe { ctx.lang.as_ref() }) else {
+        return ctx.set_error(LangError::engine(
+            "arrow application requires a Language; the standalone driver has none".to_string(),
+        ));
+    };
+    // Array-pattern arrows (`[x, ...rest] ~> body`) consume the call args
+    // as a single array — mirror the `call` scheme's `proj_rest` packing
+    // when the args arrive unpacked (cranelift's call path passes them raw).
+    let callee_is_array_pattern = matches!(
+        &callee,
+        TaggedValue::Arrow {
+            array_pattern: true,
+            ..
+        }
+    );
+    if callee_is_array_pattern {
+        if !(arg_vals.len() == 1 && matches!(arg_vals[0], TaggedValue::Arr(_))) {
+            arg_vals = vec![TaggedValue::Arr(Rc::from(arg_vals))];
+        }
+    } else if unpack_arr && arg_vals.len() == 1 {
+        if let TaggedValue::Arr(arr) = &arg_vals[0] {
+            arg_vals = arr.iter().cloned().collect();
+        }
+    }
+    let mut engine = handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new();
+    if let Some(m) = ctx.modules.clone() {
+        engine = engine.with_modules(m);
+    }
+    if let Some(r) = ctx.import_resolver.clone() {
+        engine = engine.with_import_resolver(r);
+    }
+    let mut env = handl_plugin_engine_exec_tree_walk::ScopeStack::new();
+    env.set_globals(Rc::clone(&ctx.env.globals));
+    // Ambient node context for the dispatch-object paths' diagnostics —
+    // the Arrow arm runs the arrow's own `body_def` arena.
+    let mut scratch = Ast::new();
+    let call_ref = scratch.push(AstNode::new("call"));
+    let call_node = match scratch.at(call_ref) {
+        Ok(n) => n.clone(),
+        Err(e) => return ctx.set_error(e),
+    };
+    match engine.apply_app(&callee, &arg_vals, &scratch, lang, &mut env, call_ref, &call_node) {
+        Ok(v) => unsafe { box_value(v) },
+        Err(e) => ctx.set_error(e),
     }
 }
 
@@ -1827,13 +1713,12 @@ fn prim_v2_flow(ctx: &mut EvalCtx, args: &[TaggedValue]) -> *mut TaggedValue {
         vec![input.clone()]
     };
     if let TaggedValue::Str(name) = callee {
-        let modules_ptr = match ctx.modules {
-            Some(p) => p,
+        let modules = match ctx.modules.as_ref() {
+            Some(m) => m,
             None => {
                 return ctx.set_error(LangError::engine("flow: no module registry".to_string()));
             }
         };
-        let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
         let func = match modules.lookup(name.as_ref()) {
             Some(f) => f,
             None => {
@@ -2680,6 +2565,42 @@ impl NativeOpCtx for ClCtx<'_> {
         Ok((names, rest, lang.is_array_pattern(node)))
     }
 
+    fn closure_body_def(
+        &mut self,
+        body: AstRef,
+        env: &std::collections::HashMap<Rc<str>, Value>,
+    ) -> Result<TaggedValue, LangError> {
+        // ADR-0106: extract the body into a standalone arena with `env`'s
+        // free variables substituted as `lit` nodes, then wrap as
+        // `{"__ast__": <Ast>}` — the arrow's self-describing definition.
+        // `ctx.lang` is null for the standalone driver, which cannot
+        // instantiate bodies — report it cleanly.
+        let Some(lang) = (unsafe { self.ctx.lang.as_ref() }) else {
+            return Err(LangError::engine(
+                "closure: no language for body_def instantiation".to_string(),
+            ));
+        };
+        let ast = unsafe { &*self.ctx.ast };
+        let sub = ast.instantiate(body, lang, env)?;
+        Ok(TaggedValue::from(handl_language::ast_value(&sub)))
+    }
+
+    fn rec_bound_names(&self) -> std::collections::HashSet<Rc<str>> {
+        self.ctx.env.rec_names.iter().cloned().collect()
+    }
+
+    fn rec_region_enter(&mut self, names: &[Rc<str>]) {
+        let mark = self.ctx.env.rec_names.len();
+        self.ctx.env.rec_marks.push(mark);
+        self.ctx.env.rec_names.extend(names.iter().cloned());
+    }
+
+    fn rec_region_exit(&mut self) {
+        if let Some(mark) = self.ctx.env.rec_marks.pop() {
+            self.ctx.env.rec_names.truncate(mark);
+        }
+    }
+
     fn apply_arrow(
         &mut self,
         f: &TaggedValue,
@@ -2786,15 +2707,14 @@ fn apply_native_v2(
                     "call_host: callee must be a string".to_string(),
                 ));
             };
-            let modules_ptr = match ctx.modules {
-                Some(p) => p,
+            let modules = match ctx.modules.as_ref() {
+                Some(m) => m,
                 None => {
                     return ctx.set_error(LangError::engine(
                         "call_host: no module registry".to_string(),
                     ));
                 }
             };
-            let modules: &dyn handl_platform::ModuleLookup = unsafe { &*modules_ptr };
             let func = match modules.lookup(&callee) {
                 Some(f) => f,
                 None => {

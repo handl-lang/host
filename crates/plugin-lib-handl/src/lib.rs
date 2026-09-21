@@ -1146,56 +1146,7 @@ pub fn escape_handl_string(s: &str) -> String {
     out
 }
 
-/// Whether `value` contains an arrow value that carries no `__home__`
-/// frame id — i.e. an arrow whose `body` index refers to the *ambient*
-/// eval's AST and must be stamped before it crosses a runtime boundary.
-fn contains_unhomed_arrow(value: &serde_json::Value) -> bool {
-    match value {
-        serde_json::Value::Array(a) => a.iter().any(contains_unhomed_arrow),
-        serde_json::Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
-                return o.get("__home__").and_then(|v| v.as_u64()).is_none()
-                    || o.values().any(contains_unhomed_arrow);
-            }
-            o.values().any(contains_unhomed_arrow)
-        }
-        _ => false,
-    }
-}
 
-/// Stamp every arrow value inside `value` that lacks a `__home__` frame id
-/// with `frame_id` — recursively, including arrows nested inside a
-/// closure's captured `env` (their `body` indices refer to the same AST).
-///
-/// `__home__` records the eval frame (AST + Language + module chain) that
-/// minted the arrow so the receiving runtime can route application back to
-/// it — see `plugin-engine-exec-tree-walk`'s home-frame registry. Arrows
-/// that already carry a `__home__` keep it: their provenance is elsewhere.
-fn stamp_home(value: &mut serde_json::Value, frame_id: u64) {
-    match value {
-        serde_json::Value::Array(a) => {
-            for v in a.iter_mut() {
-                stamp_home(v, frame_id);
-            }
-        }
-        serde_json::Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true)
-                && o.get("__home__").and_then(|v| v.as_u64()).is_none()
-            {
-                o.insert("__home__".to_string(), serde_json::Value::from(frame_id));
-            }
-            // Arrow envs serialize by reference (`{"__envref__": id}`) —
-            // stamp env-resident arrows in `TaggedValue` space.
-            if let Some(id) = o.get("__envref__").and_then(|v| v.as_u64()) {
-                handl_value::stamp_env_home(id, frame_id);
-            }
-            for v in o.values_mut() {
-                stamp_home(v, frame_id);
-            }
-        }
-        _ => {}
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Per-thread runtime cache
@@ -1429,29 +1380,14 @@ impl Function for HandlFunction {
     ) -> Result<serde_json::Value, EvalError> {
         // Arguments are bound directly on the call frame (`__arg_N`) — never
         // serialized into the applied source text. Source literals cannot
-        // express closures (`__arrow__` — the object constructor rejects
-        // the reserved key, and a closure's `body` index only has meaning
-        // in the AST that minted it) or other reserved-key values
-        // (`__tag__`, `__pair__`, `__either__`, `__bytes__`), so values
-        // cross the boundary as *values*.
+        // express arrows (`__arrow__` — the object constructor rejects the
+        // reserved key) or other reserved-key values (`__tag__`, `__pair__`,
+        // `__either__`, `__bytes__`), so values cross the boundary as
+        // *values*.
         //
-        // Provenance: an arrow argument's `body` index refers to the
-        // *caller's* AST, so it is stamped with `__home__` = the ambient
-        // eval frame (captured before the bridge eval replaces the
-        // thread-locals); likewise, arrows in the result are stamped with
-        // this call's eval frame so the caller can apply them.
-        let caller_frame = if args.iter().any(contains_unhomed_arrow) {
-            Some(
-                handl_plugin_engine_exec_tree_walk::current_home_frame().ok_or_else(|| {
-                    EvalError::Other(format!(
-                        "{}.{}: arrow argument passed with no active eval frame",
-                        self.module_name, self.func_name
-                    ))
-                })?,
-            )
-        } else {
-            None
-        };
+        // ADR-0106: arrows are self-contained (`body_def` + `binds` +
+        // `handlers`) — an arrow argument needs no provenance stamping and
+        // an arrow result applies in the caller's context directly.
         // Build the call args as `(name, value)` pairs. The names (`__arg_N`)
         // match the cached applied-form AST `(source).func_name(__arg_0, …)`,
         // so the parse cache stays valid. Args are bound directly on the call
@@ -1464,11 +1400,7 @@ impl Function for HandlFunction {
         let mut arg_names: Vec<String> = Vec::with_capacity(args.len());
         for (i, arg) in args.iter().enumerate() {
             let name = format!("__arg_{i}");
-            let mut v = arg.clone();
-            if let Some(frame_id) = caller_frame {
-                stamp_home(&mut v, frame_id);
-            }
-            call_args.push((name.clone(), v));
+            call_args.push((name.clone(), arg.clone()));
             arg_names.push(name);
         }
         let module_id = self.module_id;
@@ -1514,25 +1446,11 @@ impl Function for HandlFunction {
                 parsed
             }
         };
-        // Keep the parsed AST: if the result contains arrows, their `body`
-        // indices refer to it — register it as a home frame so the caller
-        // can apply them.
-        let result = runtime
+        // Arrows in the result are self-contained (`body_def` + `binds`,
+        // ADR-0106) — no home-frame registration needed.
+        runtime
             .eval_shared_with_call_args(&ast, &call_args)
-            .map_err(errf)?;
-        if contains_unhomed_arrow(&result) {
-            let frame_id = handl_plugin_engine_exec_tree_walk::register_home_frame(
-                Rc::clone(&ast),
-                Rc::new(runtime.lang().clone()),
-                runtime.modules().cloned(),
-                None,
-                runtime.import_resolver().cloned(),
-            );
-            let mut result = result;
-            stamp_home(&mut result, frame_id);
-            return Ok(result);
-        }
-        Ok(result)
+            .map_err(errf)
     }
 }
 
@@ -1759,10 +1677,10 @@ impl HandlModule {
     /// transforms (`loader.hnl` `strip_decls` on a 22k-char source:
     /// ~59s tree-walk → ~0.16s bytecode).
     ///
-    /// Note: the bytecode engine now supports the same home-frame
-    /// provenance for arrows crossing the `Function::call` boundary as
-    /// tree-walk. Modules whose functions take or return closures can opt
-    /// into `"bytecode"` as well.
+    /// Note: arrows are self-contained data (`body_def` + `binds`,
+    /// ADR-0106), so closures crossing the `Function::call` boundary work
+    /// under both engines. Modules whose functions take or return closures
+    /// can opt into `"bytecode"` as well.
     pub fn with_eval_engine(mut self, eval_name: &'static str) -> Self {
         self.eval_name = eval_name;
         self.rebuild_functions();

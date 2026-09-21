@@ -1,47 +1,43 @@
 //! ADR-0106 §6/§8 — arrow serializability conformance tests (Phase 5).
 //!
-//! ADR-0106 §3/§6/§8 require arrows to be *objects*: serializable,
-//! inspectable, with **no closures, no lexical environments, no hidden
-//! captured state** (`A ~> B` is a value you can store, transmit, and cache).
-//! The tree today does **not** fully meet that: an arrow value
-//! (`TaggedValue::Arrow { params, rest, body, env, home, array_pattern }`,
-//! `crates/handl-value/src/lib.rs:345`) still carries a captured `env`
-//! (`Rc<FxHashMap<Rc<str>, TaggedValue>>`, `:353`) and a `body` AST index
-//! (`:352`) whose meaning lives in a **process-local** home-frame table
-//! (`HOME_FRAMES`, `crates/plugin-engine-exec-tree-walk/src/lib.rs:134`).
+//! Arrows are **objects**: serializable, inspectable, self-contained data
+//! with no closures, no lexical environments, and no hidden captured state.
+//! `TaggedValue::Arrow { params, rest, array_pattern, body_def, binds,
+//! handlers }` (`crates/handl-value/src/lib.rs`) carries:
 //!
-//! These tests do **not** try to remove that substrate (the closure/scope
-//! machinery is load-bearing — ADR-0106 Phase 5 scope). They pin down what is
-//! *currently true and checkable through public APIs* so that later kernel
-//! work has a regression fence:
+//! - `body_def` — the body as explicit serializable structure
+//!   (`{"__ast__": <Ast>}`), with free variables already substituted as
+//!   literal nodes (`handl_language::instantiate`). The arrow's *meaning*
+//!   travels with the value; no process-local frame is consulted.
+//! - `binds` — the residual explicit binding map: names that cannot be
+//!   substituted (recursive-region binders, whose fixpoint pass must see
+//!   them free, and non-serializable values like `Resource`).
+//! - `handlers` — carried handlers attached by `handle <arrow> with <h>`,
+//!   explicit data instead of the old `env["__handlers__"]` channel.
 //!
-//! 1. the JSON encoding of an arrow uses exactly the documented key universe
-//!    (`__arrow__`, `params`, `body`, `env`, `rest`, `__home__`,
-//!    `array_pattern`) — silent additions fail loudly;
-//! 2. an arrow with an empty `env` round-trips JSON -> value -> JSON unchanged;
-//! 3. an arrow whose `env` captures a nested arrow with a `home` id round-trips
-//!    **exactly** at the value level (the `__home__` id is serialized data);
-//! 4. an arrow whose `env` captures a `Resource` round-trips **lossily** (the
-//!    finalizer is dropped — see the test's comment for the precise result);
-//! 5. a composed arrow (`a >>> b`, represented as the `Seq` term) has no hidden
-//!    state beyond its two component terms.
+//! The pre-Phase-5 representation (`body` arena index + `env` capture map +
+//! `__home__` frame id) is gone: there is no `HOME_FRAMES` registry, no
+//! `__envref__`, and nothing process-local on the arrow.
 //!
-//! ## Not yet checkable through public APIs
+//! These tests pin down:
 //!
-//! TODO(ADR-0106): the invariant that actually matters — *an arrow's `body`
-//! index is meaningless without the engine that minted it* — is **not**
-//! observable through the public value API. `tagged_to_value` happily emits
-//! `"body": <idx>`, and a decoded arrow compares equal to the live one, yet
-//! the AST that index resolves against lives only in
-//! `HOME_FRAMES[id].ast` (`crates/plugin-engine-exec-tree-walk/src/lib.rs:155`)
-//! and is never serialized. There is no public accessor that pairs an arrow
-//! value with its frame, nor a JSON encoding that embeds the referenced AST,
-//! so a round-tripped *foreign-frame* arrow cannot be applied — the assertion
-//! "a round-tripped arrow is applicable" is unverifiable here and is left as a
-//! TODO rather than invented. Likewise, the shared scope stacks / captured
-//! environments of the bytecode (`plugin-engine-exec-bytecode/src/vm.rs:133`)
-//! and cranelift (`plugin-engine-exec-cranelift/src/lib.rs:613`) engines are
-//! `pub(crate)` and not exposed for inspection.
+//! 1. the JSON encoding of an arrow uses exactly the documented key
+//!    universe (`__arrow__`, `params`, `body_def`, `rest`,
+//!    `array_pattern`, `binds`, `handlers`) — silent additions fail loudly;
+//! 2. a bare arrow round-trips JSON -> value -> JSON unchanged;
+//! 3. an arrow whose `binds` holds a nested arrow round-trips **exactly**
+//!    at the value level;
+//! 4. an arrow whose `binds` holds a `Resource` round-trips **lossily**
+//!    (the finalizer is dropped — see the test's comment);
+//! 5. a composed arrow (`a >>> b`, represented as the `Seq` term) has no
+//!    hidden state beyond its two component terms;
+//! 6. the arrow the engine actually mints carries `body_def` and no
+//!    legacy `body`/`env`/`__home__` keys;
+//! 7. `body_def`/`binds`/`handlers` are the arrow's *identity* — equality
+//!    and hashing include them;
+//! 8. a JSON-round-tripped arrow applies correctly in a runtime that never
+//!    saw the minting one;
+//! 9. referenced bindings are substituted into `body_def`, not captured.
 
 use std::ffi::c_void;
 use std::rc::Rc;
@@ -53,19 +49,25 @@ use rustc_hash::FxHashMap;
 use serde_json::{Value, json};
 
 /// The documented JSON key universe for an arrow value (ADR-0106 §6; the
-/// `TaggedValue::Arrow` variant fields of `handl-value/src/lib.rs:345`).
+/// `TaggedValue::Arrow` variant fields of `handl-value/src/lib.rs`).
 const DOCUMENTED_ARROW_KEYS: &[&str] = &[
     "__arrow__",
     "params",
-    "body",
-    "env",
-    "rest",
-    "__home__",
-    "array_pattern",
-    // ADR-0106 item 2 step 1: the arrow's body as explicit, serializable
-    // structure (`{"__ast__": <Ast>}`), emitted only when present.
     "body_def",
+    "rest",
+    "array_pattern",
+    "binds",
+    "handlers",
 ];
+
+/// The tagged `{"__ast__": <Ast>}` shape `body_def` carries.
+fn body_def_json() -> Value {
+    json!({
+        "__ast__": {
+            "nodes": [{ "kind": "var", "span": null, "payload": { "name": "x" } }]
+        }
+    })
+}
 
 /// Round-trip a JSON value through the tagged-value representation.
 fn round_trip(v: Value) -> Value {
@@ -73,18 +75,17 @@ fn round_trip(v: Value) -> Value {
     tagged_to_value(&t)
 }
 
-/// A bare arrow (`x ~> x`) with an empty env — the value the tree-walk engine
-/// mints for `x ~> x` (see `proc_notation.rs`).
+/// A bare arrow (`x ~> x`) — the shape the engines mint.
 fn bare_arrow_json() -> Value {
-    json!({ "__arrow__": true, "params": ["x"], "body": 0, "env": {} })
+    json!({ "__arrow__": true, "params": ["x"], "body_def": body_def_json() })
 }
 
 // ---------------------------------------------------------------------------
 // 1. The JSON shape is pinned to the documented key universe.
 // ---------------------------------------------------------------------------
 
-/// A bare arrow emits **exactly** the four mandatory keys — no more. New keys
-/// added to the encoder fail this test loudly (pin the shape).
+/// A bare arrow emits **exactly** the three mandatory keys — no more. New
+/// keys added to the encoder fail this test loudly (pin the shape).
 #[test]
 fn bare_arrow_json_has_exactly_the_mandatory_keys() {
     let out = round_trip(bare_arrow_json());
@@ -93,14 +94,21 @@ fn bare_arrow_json_has_exactly_the_mandatory_keys() {
     keys.sort_unstable();
     assert_eq!(
         keys,
-        ["__arrow__", "body", "env", "params"],
+        ["__arrow__", "body_def", "params"],
         "bare arrow key set changed; if a new field is intentional, extend \
          DOCUMENTED_ARROW_KEYS and the ADR-0106 Phase 5 conformance note",
     );
+    // The pre-Phase-5 fields are gone entirely.
+    for legacy in ["body", "env", "__home__", "home"] {
+        assert!(
+            !obj.contains_key(legacy),
+            "legacy arrow key `{legacy}` must not be emitted",
+        );
+    }
 }
 
-/// The optional keys (`rest`, `__home__`, `array_pattern`) appear only when
-/// set, and every emitted key is inside the documented universe.
+/// The optional keys (`rest`, `array_pattern`, `binds`, `handlers`) appear
+/// only when set, and every emitted key is inside the documented universe.
 #[test]
 fn arrow_json_keys_are_a_subset_of_the_documented_universe() {
     // Full arrow: every optional field present.
@@ -108,11 +116,10 @@ fn arrow_json_keys_are_a_subset_of_the_documented_universe() {
         "__arrow__": true,
         "params": ["a"],
         "rest": "more",
-        "body": 3,
-        "env": {},
-        "__home__": 9,
         "array_pattern": true,
-        "body_def": { "__ast__": { "nodes": [] } },
+        "body_def": body_def_json(),
+        "binds": { "self_ref": 1 },
+        "handlers": [ { "__tag__": "Some", "value": 0 } ],
     });
     let out = round_trip(full.clone());
     assert_eq!(out, full, "full arrow round-trips unchanged");
@@ -124,21 +131,17 @@ fn arrow_json_keys_are_a_subset_of_the_documented_universe() {
             "undocumented arrow JSON key `{key}` (documented: {DOCUMENTED_ARROW_KEYS:?})",
         );
     }
-    // The variant field `home` is spelled `__home__` on the JSON side (not
-    // `home`); the value's `rest`/`array_pattern` map to identically-named keys.
-    assert!(obj.contains_key("__home__"));
-    assert!(!obj.contains_key("home"));
 }
 
 // ---------------------------------------------------------------------------
-// 2. Empty-env arrow round-trips JSON -> value -> JSON unchanged.
+// 2. Bare arrow round-trips JSON -> value -> JSON unchanged.
 // ---------------------------------------------------------------------------
 
 #[test]
-fn empty_env_arrow_round_trips_unchanged() {
+fn bare_arrow_round_trips_unchanged() {
     for arrow in [
         bare_arrow_json(),
-        json!({ "__arrow__": true, "params": ["x", "y"], "body": 7, "env": {} }),
+        json!({ "__arrow__": true, "params": ["x", "y"], "body_def": body_def_json() }),
     ] {
         assert_eq!(round_trip(arrow.clone()), arrow);
     }
@@ -146,57 +149,47 @@ fn empty_env_arrow_round_trips_unchanged() {
 
 /// Round-tripping is stable across two passes (idempotent) for a bare arrow.
 #[test]
-fn empty_env_arrow_round_trip_is_idempotent() {
+fn bare_arrow_round_trip_is_idempotent() {
     let once = round_trip(bare_arrow_json());
     let twice = round_trip(once.clone());
     assert_eq!(once, twice);
 }
 
 // ---------------------------------------------------------------------------
-// 3. Nested arrow captured in `env`, with a `home` id — round-trips exactly.
+// 3. Nested arrow in `binds` — round-trips exactly.
 // ---------------------------------------------------------------------------
 
-/// An arrow whose `env` captures a *nested arrow that itself has a `home` id*
-/// round-trips **exactly** at the value level: the `__home__` id is explicit
-/// serialized data (`tagged_to_value`, `handl-value/src/lib.rs:750`), so the
-/// decoded value compares equal to the live one.
-///
-/// Precise result recorded: the id survives; but the *frame it names*
-/// (`HOME_FRAMES[id]` — AST + Language + modules + globals) does **not**, so
-/// although the value round-trips the captured arrow is not applicable after
-/// the crossing unless that frame still exists in-process. That residual is
-/// the ADR-0106 §6 violation and is noted here, not asserted (see the file
-/// header's TODO(ADR-0106)).
+/// An arrow whose `binds` holds a *nested arrow* round-trips **exactly**:
+/// both arrows are self-contained data (`body_def` + `binds`), so nothing
+/// process-local is referenced on either side of the boundary.
 #[test]
-fn env_captured_arrow_with_home_id_round_trips_exactly() {
+fn binds_nested_arrow_round_trips_exactly() {
     let outer = json!({
         "__arrow__": true,
         "params": ["x"],
-        "body": 0,
-        "env": {
+        "body_def": body_def_json(),
+        "binds": {
             "inner": {
                 "__arrow__": true,
                 "params": ["y"],
-                "body": 4,
-                "env": {},
-                "__home__": 7,
+                "body_def": body_def_json(),
             }
         },
     });
     let out = round_trip(outer.clone());
     assert_eq!(
         out, outer,
-        "nested homed arrow must round-trip byte-for-byte"
+        "nested bound arrow must round-trip byte-for-byte"
     );
     assert_eq!(
-        out["env"]["inner"]["__home__"],
-        json!(7),
-        "the nested arrow's `home` id is preserved on the JSON side",
+        out["binds"]["inner"]["params"],
+        json!(["y"]),
+        "the nested arrow's data is preserved on the JSON side",
     );
 }
 
 // ---------------------------------------------------------------------------
-// 4. Resource captured in `env` — round-trips *lossily*.
+// 4. Resource in `binds` — round-trips *lossily*.
 // ---------------------------------------------------------------------------
 
 /// Set true by the finalizer below.
@@ -206,39 +199,38 @@ unsafe fn mark_finalized(_ptr: *mut c_void) {
     FINALIZED.store(true, Ordering::SeqCst);
 }
 
-/// An arrow whose `env` captures a `Resource` (a foreign RAII handle)
+/// An arrow whose `binds` holds a `Resource` (a foreign RAII handle)
 /// round-trips **lossily**.
 ///
 /// Precise result recorded by this test:
-/// - the JSON encoding is the debug-only `{"__resource__": {"ptr": N}}`
-///   (`handl-value/src/lib.rs:758`) — it carries the pointer but **drops the
-///   finalizer** (a function pointer, not serializable);
-/// - the decoded `Resource` has `finalizer = None` (see the decoder at
-///   `handl-value/src/lib.rs:611`), so dropping the round-tripped arrow does
-///   **not** run the original finalizer — the resource leaks. This is exactly
-///   the "hidden captured state that is not serializable" ADR-0106 §6 objects
-///   to.
+/// - the JSON encoding is the debug-only `{"__resource__": {"ptr": N}}` —
+///   it carries the pointer but **drops the finalizer** (a function
+///   pointer, not serializable);
+/// - the decoded `Resource` has `finalizer = None`, so dropping the
+///   round-tripped arrow does **not** run the original finalizer — the
+///   resource leaks. `binds` exists precisely so non-substitutable values
+///   like this are *visible* in the arrow's data rather than hidden in a
+///   captured environment.
 #[test]
-fn env_captured_resource_round_trips_lossily() {
-    // Build a *live* resource carrying a finalizer, then nest it in an arrow's
-    // env. `ptr = 1` is never dereferenced by ForeignResource (opaque handle).
+fn binds_resource_round_trips_lossily() {
+    // Build a *live* resource carrying a finalizer, then put it in an
+    // arrow's binds. `ptr = 1` is never dereferenced (opaque handle).
     let live = unsafe { resource(1 as *mut c_void, Some(mark_finalized)) };
-    let mut env: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
-    env.insert(Rc::from("handle"), live);
+    let mut binds: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+    binds.insert(Rc::from("handle"), live);
     let arrow = TaggedValue::Arrow {
         params: Rc::from(vec!["x".to_string()]),
         rest: None,
-        body: 0,
-        env: Rc::new(env),
-        home: None,
         array_pattern: false,
-        body_def: None,
+        body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
+        binds: Rc::new(binds),
+        handlers: Rc::from(Vec::<TaggedValue>::new()),
     };
 
     // Serialize: the resource becomes a debug-only pointer record, no finalizer.
     let encoded = tagged_to_value(&arrow);
     assert_eq!(
-        encoded["env"]["handle"],
+        encoded["binds"]["handle"],
         json!({ "__resource__": { "ptr": 1 } }),
         "resource encodes as a debug-only pointer record",
     );
@@ -247,11 +239,11 @@ fn env_captured_resource_round_trips_lossily() {
     FINALIZED.store(false, Ordering::SeqCst);
     let decoded: TaggedValue = encoded.clone().into();
     match &decoded {
-        TaggedValue::Arrow { env, .. } => {
-            let handle = env.get("handle").expect("decoded env keeps `handle`");
+        TaggedValue::Arrow { binds, .. } => {
+            let handle = binds.get("handle").expect("decoded binds keeps `handle`");
             assert!(
                 matches!(handle, TaggedValue::Resource(_)),
-                "decoded env value is a Resource",
+                "decoded binds value is a Resource",
             );
         }
         other => panic!("decoded arrow is not an Arrow value: {other:?}"),
@@ -279,24 +271,17 @@ fn env_captured_resource_round_trips_lossily() {
 /// Composition is represented as the `Seq` **term** — `{"__tag__": "Seq",
 /// "axis": 0, "fst": <a>, "snd": <b>}` — a plain serializable tagged record
 /// with only its axis slot and two components; the encoder adds nothing
-/// else. (At the v0.1 runtime, `>>>` surface syntax is actually
-/// *application*, not composition — see
-/// `handl-kit-data-canonical/data/types.yaml` `type.flow` — so no
-/// composed-arrow *value* with hidden state is produced today.
+/// else.
 ///
 /// The `axis` field is the composition axis (`>>>[k]`, ADR-0120 Phase 2);
 /// `>>>` is `>>>[0]`. Serialized `Seq` records written before Phase 2 (no
 /// `axis` key) still decode with the default axis 0 — see
 /// `legacy_seq_record_without_axis_decodes` below.
-///
-/// TODO(ADR-0106): when `>>>` lowers to genuine arrow composition (ADR-0106
-/// §3), add a test that the composed arrow value (if any) carries no captured
-/// state beyond its two component arrows.
 #[test]
 fn composed_seq_term_has_only_component_fields() {
     let seq = TermData::seq(
-        TermData::arr(json!({"__arrow__": true, "params": ["x"], "body": 0, "env": {}})),
-        TermData::arr(json!({"__arrow__": true, "params": ["y"], "body": 0, "env": {}})),
+        TermData::arr(bare_arrow_json()),
+        TermData::arr(json!({"__arrow__": true, "params": ["y"], "body_def": body_def_json()})),
     );
     let obj = seq
         .0
@@ -349,8 +334,8 @@ fn legacy_seq_record_without_axis_decodes() {
 fn seq_axis_record_round_trips_with_axis() {
     let seq = TermData::seq_axis(
         TermData::const_value(2),
-        TermData::arr(json!({"__arrow__": true, "params": ["x"], "body": 0, "env": {}})),
-        TermData::arr(json!({"__arrow__": true, "params": ["y"], "body": 0, "env": {}})),
+        TermData::arr(bare_arrow_json()),
+        TermData::arr(json!({"__arrow__": true, "params": ["y"], "body_def": body_def_json()})),
     );
     let term = seq.to_term().expect("seq_axis decodes");
     match term {
@@ -370,50 +355,34 @@ fn seq_axis_record_round_trips_with_axis() {
 // ---------------------------------------------------------------------------
 
 /// The tree-walk engine, asked to evaluate `x ~> x`, returns an arrow whose
-/// JSON keys are all inside the documented universe and whose mandatory keys
-/// carry the expected values (`params == ["x"]`, empty `env`). This ties the
-/// value-level shape (above) to the engine that mints arrows.
+/// JSON keys are all inside the documented universe, whose `params` is
+/// `["x"]`, and whose `body_def` is the serialized standalone AST arena —
+/// no `body` index, no `env`, no `__home__`.
 #[test]
-#[ignore = "n-dim"]
 fn engine_arrow_value_uses_documented_shape() {
-    use handl_language::Source;
-    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-    use handl_plugin_engine_lex_pattern::DataLexerEngine;
-    use handl_plugin_engine_parse_pratt::PrattEngine;
-    use handl_runtime::{EngineRegistry, Runtime};
-
-    let kit = handl_kit_data_canonical::assemble().expect("full kit assembles");
-    let mut reg = EngineRegistry::new();
-    reg.register_lex("data", Box::new(DataLexerEngine::new()));
-    reg.register_parse("pratt", PrattEngine::new());
-    reg.register_eval("tree-walk", Box::new(TreeWalkEngine::new()));
-    let registry = Rc::new(reg);
-    let mut config = kit.runtime_config().clone();
-    config.typecheck.clear();
-    let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
-        .expect("runtime binds engines");
-
-    let arrow = rt.run(&Source::new("x ~> x")).expect("x ~> x evaluates");
+    let rt = canonical_runtime();
+    let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
+    let arrow = eval_in(&rt, "x ~> x", &empty);
 
     assert_eq!(arrow["__arrow__"], json!(true), "result is an arrow value");
     assert_eq!(arrow["params"], json!(["x"]));
-    assert_eq!(
-        arrow["env"],
-        json!({}),
-        "a minted arrow's env is empty here"
-    );
-    assert!(arrow["body"].is_u64(), "arrow carries a numeric body index");
 
-    // ADR-0106 item 2 step 1: the engine also mints the body as explicit,
-    // serializable structure, so the arrow is self-describing even though the
-    // apply path still uses `body`/`home`.
+    // ADR-0106 Phase 5: the body is explicit serializable structure.
     let body_def = arrow
         .get("body_def")
-        .expect("a minted arrow carries `body_def` (ADR-0106 item 2 step 1)");
+        .expect("a minted arrow carries `body_def`");
     assert!(
         body_def.get("__ast__").is_some(),
         "`body_def` is the language-level AST value `{{\"__ast__\": <Ast>}}`: {body_def}",
     );
+
+    // The pre-Phase-5 fields are gone.
+    for legacy in ["body", "env", "__home__", "home"] {
+        assert!(
+            arrow.get(legacy).is_none(),
+            "engine produced legacy arrow key `{legacy}`",
+        );
+    }
 
     let obj = arrow.as_object().expect("arrow encodes as a JSON object");
     for key in obj.keys() {
@@ -428,45 +397,14 @@ fn engine_arrow_value_uses_documented_shape() {
 }
 
 // ---------------------------------------------------------------------------
-// 7. `body_def` (ADR-0106 item 2 step 1): additive, present-only-when-set.
+// 7. `body_def`/`binds`/`handlers` are the arrow's identity.
 // ---------------------------------------------------------------------------
 
-/// The optional `body_def` field is emitted only when set and round-trips
-/// unchanged, so the default arrow shape (pinned by test 1) is untouched.
+/// Unlike the old derived `body_def`, the standalone definition *is* the
+/// arrow: equality and hashing include `body_def`, `binds`, and `handlers`,
+/// so two arrows are equal iff their serializable data is equal.
 #[test]
-fn body_def_round_trips_when_present_and_is_absent_otherwise() {
-    // Absent: the bare arrow emits exactly the four mandatory keys.
-    let bare = round_trip(bare_arrow_json());
-    assert!(
-        bare.get("body_def").is_none(),
-        "`body_def` must not be emitted when it is `None`: {bare}",
-    );
-
-    // Present: an opaque AST-value payload survives the round-trip unchanged.
-    let with_def = json!({
-        "__arrow__": true,
-        "params": ["x"],
-        "body": 0,
-        "env": {},
-        "body_def": {
-            "__ast__": {
-                "nodes": [{ "kind": "var", "span": null, "payload": { "name": "x" } }]
-            }
-        }
-    });
-    let out = round_trip(with_def.clone());
-    assert_eq!(
-        out, with_def,
-        "an arrow with `body_def` round-trips unchanged"
-    );
-    assert_eq!(out["body_def"]["__ast__"]["nodes"][0]["kind"], json!("var"));
-}
-
-/// `body_def` is **derived** data (the same body, pre-extracted), so it is not
-/// part of an arrow's identity: equality and hashing ignore it (keeping the
-/// `Hash`/`Eq` contract), while serialization still carries it when present.
-#[test]
-fn body_def_is_derived_and_ignored_by_equality() {
+fn arrow_identity_is_its_serializable_data() {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -476,52 +414,43 @@ fn body_def_is_derived_and_ignored_by_equality() {
         h.finish()
     }
 
-    let none_val: TaggedValue = bare_arrow_json().into();
-    // Same arrow, built directly with `body_def: None` — equal and hashing
-    // identically with the decoded bare arrow.
-    let explicit: TaggedValue = TaggedValue::Arrow {
-        params: Rc::from(vec!["x".to_string()]),
-        rest: None,
-        body: 0,
-        env: Rc::new(FxHashMap::default()),
-        home: None,
-        array_pattern: false,
-        body_def: None,
-    };
-    assert_eq!(
-        none_val, explicit,
-        "`body_def: None` is the decoded default"
-    );
-    assert_eq!(hash_of(&none_val), hash_of(&explicit));
+    let a: TaggedValue = bare_arrow_json().into();
+    let a2: TaggedValue = bare_arrow_json().into();
+    assert_eq!(a, a2, "identical arrow data is equal");
+    assert_eq!(hash_of(&a), hash_of(&a2), "Hash agrees with Eq");
 
-    // With a definition present the *value* is still the same arrow: the field
-    // is derived, not identifying, so equality and hash must not change.
-    let with_def: TaggedValue = json!({
+    // Different body data → different arrow.
+    let other_body: TaggedValue = json!({
         "__arrow__": true,
         "params": ["x"],
-        "body": 0,
-        "env": {},
         "body_def": { "__ast__": { "nodes": [] } }
     })
     .into();
-    assert_eq!(
-        none_val, with_def,
-        "`body_def` is derived data and must not affect arrow identity",
-    );
-    assert_eq!(
-        hash_of(&none_val),
-        hash_of(&with_def),
-        "Hash must agree with Eq: `body_def` participates in neither",
+    assert_ne!(
+        a, other_body,
+        "arrows with different `body_def` are different values",
     );
 
-    // It is still serialized when present, though — the two encodings differ.
-    assert!(tagged_to_value(&none_val).get("body_def").is_none());
-    assert!(tagged_to_value(&with_def).get("body_def").is_some());
+    // A bound name is part of the identity.
+    let with_binds: TaggedValue = json!({
+        "__arrow__": true,
+        "params": ["x"],
+        "body_def": body_def_json(),
+        "binds": { "self_ref": 1 }
+    })
+    .into();
+    assert_ne!(
+        a, with_binds,
+        "`binds` participates in arrow identity",
+    );
+
+    // It is still serialized when present.
+    assert!(tagged_to_value(&with_binds).get("binds").is_some());
+    assert!(tagged_to_value(&a).get("binds").is_none());
 }
 
 // ---------------------------------------------------------------------------
-// 8. A round-tripped arrow is applicable without its minting frame (item 2
-//    step 2: the apply path prefers `body_def`).
+// 8. A round-tripped arrow is applicable without its minting runtime.
 // ---------------------------------------------------------------------------
 
 /// Build a canonical runtime with lex + Pratt parse + tree-walk eval.
@@ -555,13 +484,12 @@ fn eval_in(
 }
 
 /// An arrow that crossed a JSON boundary is still applicable: its body is
-/// carried by the value (`body_def`), not by the engine that minted it.
+/// carried by the value (`body_def`), not by the runtime that minted it.
 ///
 /// The control case is the point of the test: with `body_def` stripped the
 /// same transported value can no longer be applied, which proves the
-/// behaviour comes from the explicit definition rather than from the
-/// ambient arena (the two runtimes are separate instances with different
-/// arenas, and the minting arrow carries `home: None`).
+/// behaviour comes from the explicit definition rather than from any
+/// ambient arena (the two runtimes are separate instances).
 #[test]
 fn round_tripped_arrow_is_applicable_without_its_frame() {
     use std::collections::HashMap;
@@ -578,8 +506,8 @@ fn round_tripped_arrow_is_applicable_without_its_frame() {
     let transported: Value =
         serde_json::from_str(&minted.to_string()).expect("arrow JSON re-parses");
 
-    // 2. Apply it in runtime B — a *fresh* runtime whose AST arena and home
-    //    frames know nothing about the minting one.
+    // 2. Apply it in runtime B — a *fresh* runtime whose AST arena knows
+    //    nothing about the minting one.
     let b = canonical_runtime();
     let mut globals = HashMap::new();
     globals.insert("f".to_string(), transported.clone());
@@ -598,8 +526,8 @@ fn round_tripped_arrow_is_applicable_without_its_frame() {
         "transported application must agree with direct application",
     );
 
-    // 3. Control: without `body_def` the very same value is not applicable,
-    //    because its `body` index refers to an arena that no longer exists.
+    // 3. Control: without `body_def` the same value is not applicable —
+    //    the definition is gone entirely (there is no ambient `body` index).
     let mut stripped = transported.clone();
     stripped
         .as_object_mut()
@@ -616,10 +544,10 @@ fn round_tripped_arrow_is_applicable_without_its_frame() {
     match stripped_result {
         Err(_) => {}
         Ok(v) => assert_ne!(
-            v,
-            json!(42),
-            "without `body_def` the stale `body` index must not evaluate \
-             to the correct result — otherwise this test proves nothing",
+            as_number(&v),
+            42.0,
+            "without `body_def` the arrow must not evaluate to the correct \
+             result — otherwise this test proves nothing",
         ),
     }
 }
@@ -637,68 +565,94 @@ fn as_number(v: &Value) -> f64 {
 }
 
 // ---------------------------------------------------------------------------
-// 9. Arrow capture: filtered to names the body subtree can reference
-//    (ADR-0106 §6 — the reduction this section anticipated has landed).
+// 9. Referenced bindings are substituted into `body_def`, not captured.
 // ---------------------------------------------------------------------------
 //
-// A reduction was attempted and **reverted as unsound**: skipping the capture
-// when the body contains no `var` node. It broke
-// `fp_integration::fanout_eager_pair_from_source` with a stack overflow, because
-// engine-generated / desugared bodies read bindings through scheme ops
-// (`proj_env`, `lookup`, `extend_env`) that have no `var` node to detect — so
-// "no `var` ⇒ reads nothing" is false.
+// `handl_language::instantiate` replaces each serializable free variable in
+// the body with a literal node, so the arrow's data *contains* the values it
+// depends on. Only names that cannot be substituted — recursive-region
+// binders (kept free for the fixpoint pass) and non-serializable values
+// (`Resource`) — land in `binds`.
 //
-// The sound version that landed: `handl_language::subtree_name_candidates`
-// collects **every string** in the body subtree — not `var` nodes — which is a
-// conservative superset of the subtree's free names: every env read
-// (`proj_env`/`extend_env` `lit: $payload` schemes, assign targets, pattern
-// binders) spells the name as a literal string in the subtree, so the filter
-// can over-capture but never under-capture. Unreferenced bindings are no
-// longer captured — closing the exponential env-expansion blowup where each
-// closure captured all previously-defined siblings.
-//
-// These tests pin the *filtered* behaviour so a regression back to
-// unconditional capture (or an over-aggressive filter) fails loudly.
+// These tests pin the substituted/`binds` split so a regression back to
+// environment capture fails loudly.
 
-/// An arrow captures only the bindings its body subtree references.
+/// A serializable referenced binding is embedded in `body_def`, not bound.
 #[test]
-fn arrow_capture_is_filtered_to_referenced_names() {
+fn referenced_serializable_binding_is_substituted_into_body_def() {
     let rt = canonical_runtime();
     let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
 
-    // Body `1` reads nothing — `y` is no longer captured.
-    let no_refs = eval_in(&rt, "do { y :: 5; x ~> 1 }", &empty);
-    assert_eq!(no_refs["__arrow__"], json!(true), "an arrow is returned");
-    assert_eq!(
-        no_refs["env"],
-        json!({}),
-        "pin: unreferenced bindings are not captured: {no_refs}",
+    // Body `y` reads the binding — the value 5 must live inside the arrow's
+    // own data (body_def literal), and `binds` must not carry `y`.
+    let arrow = eval_in(&rt, "do { y := 5; x ~> y }", &empty);
+    assert_eq!(arrow["__arrow__"], json!(true), "an arrow is returned");
+    assert!(
+        arrow["body_def"].to_string().contains('5'),
+        "the captured value 5 is embedded in `body_def`: {arrow}",
+    );
+    assert!(
+        arrow
+            .get("binds")
+            .and_then(|b| b.as_object())
+            .is_none_or(|b| !b.contains_key("y")),
+        "a substituted binding must not appear in `binds`: {arrow}",
     );
 
-    // A body that *does* read the binding still captures it — and works.
-    let with_ref = eval_in(&rt, "do { y :: 5; x ~> y }", &empty);
-    assert!(
-        with_ref["env"].as_object().expect("env").contains_key("y"),
-        "an arrow that reads a binding captures it: {with_ref}",
+    // And it still applies correctly.
+    assert_eq!(
+        as_number(&eval_in(&rt, "do { y := 5; f := x ~> y; f(9) }", &empty)),
+        5.0,
     );
 }
 
-/// Soundness evidence for any future capture reduction: arrows still apply
-/// correctly in both the captured and uncaptured-in-principle shapes.
+/// An unreferenced binding contributes nothing to the arrow's data.
+#[test]
+fn unreferenced_binding_is_not_carried() {
+    let rt = canonical_runtime();
+    let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
+    let arrow = eval_in(&rt, "do { y := 5; x ~> 1 }", &empty);
+    assert_eq!(arrow["__arrow__"], json!(true), "an arrow is returned");
+    assert!(
+        arrow.get("binds").is_none()
+            || !arrow["binds"]
+                .as_object()
+                .expect("binds")
+                .contains_key("y"),
+        "unreferenced bindings are not carried: {arrow}",
+    );
+    assert!(
+        !arrow["body_def"].to_string().contains("\"lit\""),
+        "a constant body needs no substitution literals: {arrow}",
+    );
+}
+
+/// Soundness evidence: arrows still apply correctly in both the
+/// substituted and unreferenced-body shapes, and across nesting.
 #[test]
 fn arrow_application_is_correct_for_both_body_shapes() {
     let rt = canonical_runtime();
     let empty: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
     assert_eq!(
-        as_number(&eval_in(&rt, "do { y :: 5; f :: x ~> 1; f(9) }", &empty)),
+        as_number(&eval_in(&rt, "do { y := 5; f := x ~> 1; f(9) }", &empty)),
         1.0,
     );
     assert_eq!(
-        as_number(&eval_in(&rt, "do { y :: 5; f :: x ~> y; f(9) }", &empty)),
+        as_number(&eval_in(&rt, "do { y := 5; f := x ~> y; f(9) }", &empty)),
         5.0,
     );
     assert_eq!(
-        as_number(&eval_in(&rt, "do { f :: x ~> x + 1; f(41) }", &empty)),
+        as_number(&eval_in(&rt, "do { f := x ~> x + 1; f(41) }", &empty)),
+        42.0,
+    );
+    // Nested arrows: the inner body references the outer's parameter, which
+    // must be substituted at inner-mint time.
+    assert_eq!(
+        as_number(&eval_in(
+            &rt,
+            "do { add := a ~> (b ~> a + b); add(40)(2) }",
+            &empty
+        )),
         42.0,
     );
 }

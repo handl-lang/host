@@ -70,16 +70,17 @@ fn roundtrips_either() {
 
 #[test]
 fn roundtrips_arrow() {
-    let mut env = std::collections::HashMap::new();
-    env.insert("x".to_string(), ValueAbi::Number(Number::from(10)));
+    let mut binds = std::collections::HashMap::new();
+    binds.insert("x".to_string(), ValueAbi::Number(Number::from(10)));
     let arrow = Arrow {
         params: vec!["x".to_string(), "y".to_string()],
-        body: 42,
-        env,
+        body_def: Some(Box::new(ValueAbi::Object(
+            [("__ast__".to_string(), ValueAbi::Null)].into_iter().collect(),
+        ))),
+        binds,
         rest: Some("xs".to_string()),
-        home: Some(7),
         array_pattern: Some(false),
-        body_def: Some(99),
+        handlers: vec![ValueAbi::Null],
     };
     roundtrip(ValueAbi::Arrow(arrow));
 }
@@ -166,12 +167,11 @@ fn value_alias_points_to_value_abi() {
 
 #[test]
 fn value_abi_check_valid() {
-    let mut env = std::collections::HashMap::new();
-    env.insert("x".to_string(), ValueAbi::Number(Number::from(1)));
+    let mut binds = std::collections::HashMap::new();
+    binds.insert("x".to_string(), ValueAbi::Number(Number::from(1)));
     let arrow = Arrow {
         params: vec!["x".to_string()],
-        body: 42,
-        env,
+        binds,
         ..Arrow::default()
     };
     let values = vec![

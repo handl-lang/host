@@ -223,6 +223,51 @@ pub fn tested_term(case: &Case) -> TermData {
     }
 }
 
+/// Rewrite `__arrow__` fixture literals embedded in a term's JSON: the
+/// `"body": <probe-node index>` marker becomes a self-contained
+/// `body_def` — a one-node `__ast__` arena holding `nodes[idx]` — and the
+/// legacy `"env"` key is dropped (ADR-0106). Fixture bodies are always
+/// leaf `schemed` nodes, so no children need remapping; their eval
+/// schemes resolve against the ambient probe `Language` via `node.kind`.
+fn instantiate_arrow_fixtures(v: &mut Value, nodes: &[ProbeNode]) {
+    match v {
+        Value::Object(map) => {
+            if map.get("__arrow__").and_then(|b| b.as_bool()) == Some(true)
+                && map.contains_key("body")
+            {
+                if let Some(idx) = map.get("body").and_then(|b| b.as_u64()) {
+                    let node = &nodes[idx as usize];
+                    let mut arena = Ast::new();
+                    arena.push(AstNode::new(node.kind).with_payload(node.payload.clone()));
+                    map.remove("body");
+                    map.remove("env");
+                    map.insert(
+                        "body_def".to_string(),
+                        handl_language::ast_value(&arena),
+                    );
+                }
+            }
+            for (_, val) in map.iter_mut() {
+                instantiate_arrow_fixtures(val, nodes);
+            }
+        }
+        Value::Array(arr) => {
+            for val in arr.iter_mut() {
+                instantiate_arrow_fixtures(val, nodes);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The case's tested term with every `__arrow__` fixture literal
+/// instantiated to its `body_def` wire form (ADR-0106).
+fn tested_term_instantiated(case: &Case) -> TermData {
+    let mut td = tested_term(case);
+    instantiate_arrow_fixtures(&mut td.0, &case.nodes);
+    td
+}
+
 /// Build the probe `Language` + `Ast` for a case.
 ///
 /// The `Ast` holds `case.nodes` first, then the `probe` root last
@@ -238,6 +283,8 @@ pub fn build_probe(case: &Case) -> (Language, Ast) {
         ast.push(AstNode::new(n.kind).with_payload(n.payload.clone()));
         child_ids.push(json!(i));
         if let Some(s) = &n.scheme {
+            let mut s = s.clone();
+            instantiate_arrow_fixtures(&mut s.0, &case.nodes);
             lang.eval
                 .merge(EvalSchemeDef::new(
                     format!("e.probe.{i}"),
@@ -286,7 +333,7 @@ pub fn build_probe(case: &Case) -> (Language, Ast) {
         .merge(EvalSchemeDef::new(
             "e.probe",
             "probe",
-            tested_term(case)
+            tested_term_instantiated(case)
                 .to_term()
                 .expect("tested term must convert to Term"),
         ))
@@ -329,7 +376,7 @@ fn run_engine(engine: &dyn EvalEngine, lang: &Language, ast: &Ast) -> Outcome {
 
 /// Run the pure term interpreter under `catch_unwind`.
 fn run_term_interp(case: &Case) -> Outcome {
-    let term = tested_term(case)
+    let term = tested_term_instantiated(case)
         .to_term()
         .expect("tested term must convert to Term");
     // The `Seq{0, Arr(input), _}` wrapper supplies the input; the

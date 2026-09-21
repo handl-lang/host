@@ -364,7 +364,6 @@ use std::rc::Rc;
 
 use handl_language::{Ast, LangError, Source};
 use handl_platform::{EvalError, Function};
-use handl_plugin_engine_exec_tree_walk::register_home_frame;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 
 /// A small valid model source: a record with a `run` handler (identity) and a
@@ -400,47 +399,6 @@ fn build_parse_runtime() -> Result<Runtime, LangError> {
     Runtime::from_registry_with_globals(lang, &registry, &config, Some(globals), None)
 }
 
-/// True iff `value` contains an arrow (`{"__arrow__": true}`) that lacks a
-/// `__home__` frame id — i.e. an arrow minted by an eval whose AST the caller
-/// cannot route back to. Mirrors `plugin-lib-handl`'s private helper.
-fn contains_unhomed_arrow(value: &Value) -> bool {
-    match value {
-        Value::Array(a) => a.iter().any(contains_unhomed_arrow),
-        Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true) {
-                return o.get("__home__").and_then(|v| v.as_u64()).is_none()
-                    || o.values().any(contains_unhomed_arrow);
-            }
-            o.values().any(contains_unhomed_arrow)
-        }
-        _ => false,
-    }
-}
-
-/// Stamp every unhomed arrow inside `value` with `frame_id` (recursively,
-/// including arrows nested in a closure's captured `env`). Mirrors
-/// `plugin-lib-handl`'s private helper.
-fn stamp_home(value: &mut Value, frame_id: u64) {
-    match value {
-        Value::Array(a) => {
-            for v in a.iter_mut() {
-                stamp_home(v, frame_id);
-            }
-        }
-        Value::Object(o) => {
-            if o.get("__arrow__").and_then(|v| v.as_bool()) == Some(true)
-                && o.get("__home__").and_then(|v| v.as_u64()).is_none()
-            {
-                o.insert("__home__".to_string(), Value::from(frame_id));
-            }
-            for v in o.values_mut() {
-                stamp_home(v, frame_id);
-            }
-        }
-        _ => {}
-    }
-}
-
 /// Mock `ffi` host function: dispatches `ffi("fs", "read", [path])` against an
 /// in-memory file map. Returns the source string for a known path, or `Null`
 /// for an unknown path (mirroring a missing-file failure that `load_model`
@@ -468,8 +426,9 @@ impl Function for MockFfiFn {
 }
 
 /// Mock kernel `parse` primitive: evaluates a Handl source string into a
-/// value (source -> model value). Arrows in the result are stamped with a
-/// home frame so the parsed model is runnable from the caller's eval.
+/// value (source -> model value). Arrows in the result are self-contained
+/// (`body_def` + `binds`, ADR-0106) — no home-frame stamping is needed for
+/// the parsed model to be runnable from the caller's eval.
 struct MockParseFn;
 
 impl Function for MockParseFn {
@@ -487,22 +446,9 @@ impl Function for MockParseFn {
                 .parse(&toks)
                 .map_err(|e| EvalError::Other(e.to_string()))?,
         );
-        let result = runtime
+        runtime
             .eval_shared_with_globals(&ast, &StdHashMap::new())
-            .map_err(|e| EvalError::Other(e.to_string()))?;
-        if contains_unhomed_arrow(&result) {
-            let frame_id = register_home_frame(
-                Rc::clone(&ast),
-                Rc::new(runtime.lang().clone()),
-                runtime.modules().cloned(),
-                None,
-                runtime.import_resolver().cloned(),
-            );
-            let mut result = result;
-            stamp_home(&mut result, frame_id);
-            return Ok(result);
-        }
-        Ok(result)
+            .map_err(|e| EvalError::Other(e.to_string()))
     }
 }
 

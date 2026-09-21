@@ -124,23 +124,24 @@ pub enum ValueAbi {
     },
 }
 
-/// A function closure (arrow).
+/// A function closure (arrow) — self-contained serializable data
+/// (ADR-0106): no captured environment, no home frame.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Arrow {
     /// Parameter names.
     pub params: Vec<String>,
-    /// Arena index of the body node.
-    pub body: usize,
-    /// Captured environment.
-    pub env: HashMap<String, ValueAbi>,
+    /// The body as a `{"__ast__": <Ast>}` value — the substituted,
+    /// standalone arena the arrow evaluates against.
+    pub body_def: Option<Box<ValueAbi>>,
+    /// Residual explicit bindings (rec-region binders, non-serializable
+    /// captures) referenced by the body.
+    pub binds: HashMap<String, ValueAbi>,
     /// Optional rest parameter name.
     pub rest: Option<String>,
-    /// Optional home arena index.
-    pub home: Option<usize>,
     /// Optional array-pattern flag.
     pub array_pattern: Option<bool>,
-    /// Optional alternative body definition index.
-    pub body_def: Option<usize>,
+    /// Handlers carried by deep-handler attach (ADR-0076).
+    pub handlers: Vec<ValueAbi>,
 }
 
 impl ValueAbi {
@@ -192,7 +193,13 @@ impl ValueAbi {
             }
             ValueAbi::EitherLeft(v) | ValueAbi::EitherRight(v) => v.check(),
             ValueAbi::Arrow(arrow) => {
-                for value in arrow.env.values() {
+                if let Some(def) = &arrow.body_def {
+                    def.check()?;
+                }
+                for value in arrow.binds.values() {
+                    value.check()?;
+                }
+                for value in &arrow.handlers {
                     value.check()?;
                 }
                 Ok(())
@@ -283,37 +290,32 @@ impl ValueAbi {
                             .collect(),
                     ),
                 );
-                map.insert(
-                    "body".to_string(),
-                    JsonValue::Number(Number::from(arrow.body as u64)),
-                );
-                map.insert(
-                    "env".to_string(),
-                    JsonValue::Object(
-                        arrow
-                            .env
-                            .iter()
-                            .map(|(k, v)| (k.clone(), v.to_json()))
-                            .collect(),
-                    ),
-                );
+                if let Some(def) = &arrow.body_def {
+                    map.insert("body_def".to_string(), def.to_json());
+                }
+                if !arrow.binds.is_empty() {
+                    map.insert(
+                        "binds".to_string(),
+                        JsonValue::Object(
+                            arrow
+                                .binds
+                                .iter()
+                                .map(|(k, v)| (k.clone(), v.to_json()))
+                                .collect(),
+                        ),
+                    );
+                }
+                if !arrow.handlers.is_empty() {
+                    map.insert(
+                        "handlers".to_string(),
+                        JsonValue::Array(arrow.handlers.iter().map(ValueAbi::to_json).collect()),
+                    );
+                }
                 if let Some(rest) = &arrow.rest {
                     map.insert("rest".to_string(), JsonValue::String(rest.clone()));
                 }
-                if let Some(home) = arrow.home {
-                    map.insert(
-                        "home".to_string(),
-                        JsonValue::Number(Number::from(home as u64)),
-                    );
-                }
                 if let Some(array_pattern) = arrow.array_pattern {
                     map.insert("array_pattern".to_string(), JsonValue::Bool(array_pattern));
-                }
-                if let Some(body_def) = arrow.body_def {
-                    map.insert(
-                        "body_def".to_string(),
-                        JsonValue::Number(Number::from(body_def as u64)),
-                    );
                 }
                 JsonValue::Object(map)
             }
@@ -434,35 +436,22 @@ impl ValueAbi {
             params.push(s.to_string());
         }
 
-        let body = obj
-            .get("body")
-            .and_then(|v| v.as_u64())
-            .ok_or_else(|| CompileError::InvalidInput("arrow needs 'body' index".to_string()))?;
-        let body = usize::try_from(body).map_err(|_| {
-            CompileError::InvalidInput("arrow 'body' index is out of range".to_string())
-        })?;
+        let body_def = match obj.get("body_def") {
+            Some(v) => Some(Box::new(ValueAbi::from_json(v)?)),
+            None => None,
+        };
 
-        let env_json = obj
-            .get("env")
-            .and_then(|v| v.as_object())
-            .ok_or_else(|| CompileError::InvalidInput("arrow needs 'env' object".to_string()))?;
-        let mut env = HashMap::new();
-        if let Some(id) = env_json.get("__envref__").and_then(|v| v.as_u64()) {
-            // Env by reference (`{"__envref__": id}`): the compiler needs
-            // the actual bindings, so resolve the registry entry and
-            // convert each value through `TaggedValue` → JSON → ValueAbi.
-            let map = handl_value::env_ref_lookup(id).ok_or_else(|| {
-                CompileError::InvalidInput("arrow 'env' reference not found".to_string())
-            })?;
-            for (k, v) in map.iter() {
-                env.insert(
-                    k.to_string(),
-                    ValueAbi::from_json(&handl_value::tagged_to_value(v))?,
-                );
+        let mut binds = HashMap::new();
+        if let Some(binds_json) = obj.get("binds").and_then(|v| v.as_object()) {
+            for (k, v) in binds_json {
+                binds.insert(k.clone(), ValueAbi::from_json(v)?);
             }
-        } else {
-            for (k, v) in env_json {
-                env.insert(k.clone(), ValueAbi::from_json(v)?);
+        }
+
+        let mut handlers = Vec::new();
+        if let Some(handlers_json) = obj.get("handlers").and_then(|v| v.as_array()) {
+            for v in handlers_json {
+                handlers.push(ValueAbi::from_json(v)?);
             }
         }
 
@@ -478,18 +467,6 @@ impl ValueAbi {
             None
         };
 
-        let home =
-            if let Some(v) = obj.get("home") {
-                let n = v.as_u64().ok_or_else(|| {
-                    CompileError::InvalidInput("arrow 'home' must be a number".to_string())
-                })?;
-                Some(usize::try_from(n).map_err(|_| {
-                    CompileError::InvalidInput("arrow 'home' out of range".to_string())
-                })?)
-            } else {
-                None
-            };
-
         let array_pattern = if let Some(v) = obj.get("array_pattern") {
             Some(v.as_bool().ok_or_else(|| {
                 CompileError::InvalidInput("arrow 'array_pattern' must be a bool".to_string())
@@ -498,25 +475,13 @@ impl ValueAbi {
             None
         };
 
-        let body_def = if let Some(v) = obj.get("body_def") {
-            let n = v.as_u64().ok_or_else(|| {
-                CompileError::InvalidInput("arrow 'body_def' must be a number".to_string())
-            })?;
-            Some(usize::try_from(n).map_err(|_| {
-                CompileError::InvalidInput("arrow 'body_def' out of range".to_string())
-            })?)
-        } else {
-            None
-        };
-
         Ok(ValueAbi::Arrow(Arrow {
             params,
-            body,
-            env,
-            rest,
-            home,
-            array_pattern,
             body_def,
+            binds,
+            rest,
+            array_pattern,
+            handlers,
         }))
     }
 }
