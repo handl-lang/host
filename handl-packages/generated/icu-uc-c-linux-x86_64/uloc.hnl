@@ -1,7 +1,7 @@
 --- Generated adapter for icu-uc-c-linux-x86_64/uloc
 
 from "result" import { ok, err }
-from "../icu-uc/uloc" import { UlocGetLanguage78, UlocGetScript78, UlocGetCountry78, UlocGetVariant78, UlocGetName78, UlocGetAvailable78, UlocCountAvailable78, UlocForLanguageTag78, UlocToLanguageTag78 }
+from "../icu-uc/uloc" import { UlocGetLanguage78, UlocGetScript78, UlocGetCountry78, UlocGetVariant78, UlocGetName78, UlocCanonicalize78, UlocGetAvailable78, UlocCountAvailable78, UlocGetParent78, UlocForLanguageTag78, UlocToLanguageTag78 }
 
 export uloc_getLanguage_78: UlocGetLanguage78 := (locale_id, capacity, status) ~> do {
   r = ffi.call("libicuuc.so", "uloc_getLanguage_78", [locale_id, capacity, status], ["cstr", "out_ptr:64", "i32", "io_scalar:i32"], "i32", false)
@@ -28,6 +28,11 @@ export uloc_getName_78: UlocGetName78 := (locale_id, capacity, status) ~> do {
   ok(r)
 }
 
+export uloc_canonicalize_78: UlocCanonicalize78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_canonicalize_78", [locale_id, capacity, status], ["cstr", "out_ptr:128", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
+
 export uloc_getAvailable_78: UlocGetAvailable78 := (index) ~> do {
   r = ffi.call("libicuuc.so", "uloc_getAvailable_78", [index], ["i32"], "cstr", false)
   ok(r)
@@ -35,6 +40,11 @@ export uloc_getAvailable_78: UlocGetAvailable78 := (index) ~> do {
 
 export uloc_countAvailable_78: UlocCountAvailable78 := () ~> do {
   r = ffi.call("libicuuc.so", "uloc_countAvailable_78", [], [], "i32", false)
+  ok(r)
+}
+
+export uloc_getParent_78: UlocGetParent78 := (locale_id, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "uloc_getParent_78", [locale_id, capacity, status], ["cstr", "out_ptr:128", "i32", "io_scalar:i32"], "i32", false)
   ok(r)
 }
 

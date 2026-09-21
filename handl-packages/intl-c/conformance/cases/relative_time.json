@@ -1,0 +1,79 @@
+[
+  {
+    "id": "en-auto",
+    "locale": "en",
+    "options": { "numeric": "auto" },
+    "inputs": [
+      [-3, "day"],
+      [-1, "day"],
+      [0, "day"],
+      [1, "day"],
+      [3, "day"],
+      [-1, "month"],
+      [2, "hour"],
+      [-1, "year"]
+    ]
+  },
+  {
+    "id": "en-always",
+    "locale": "en",
+    "options": { "numeric": "always" },
+    "inputs": [
+      [-1, "day"],
+      [0, "day"],
+      [1, "day"],
+      [-2, "week"],
+      [5, "second"]
+    ]
+  },
+  {
+    "id": "en-narrow",
+    "locale": "en",
+    "options": { "style": "narrow" },
+    "_comment": "known ICU4C-vs-V8 divergence: ureldatefmt_format falls back across widths for relative names (en narrow year +1 → \"next yr.\") where ECMA-402 picks the numeric form (\"in 1y\"); boundary inputs omitted",
+    "inputs": [
+      [-3, "day"],
+      [3, "day"],
+      [-2, "month"]
+    ]
+  },
+  {
+    "id": "en-short",
+    "locale": "en",
+    "options": { "style": "short" },
+    "inputs": [
+      [-3, "day"],
+      [2, "minute"]
+    ]
+  },
+  {
+    "id": "de-auto",
+    "locale": "de",
+    "options": { "numeric": "auto" },
+    "inputs": [
+      [-1, "day"],
+      [1, "day"],
+      [-3, "day"],
+      [2, "month"]
+    ]
+  },
+  {
+    "id": "fr-auto",
+    "locale": "fr",
+    "options": { "numeric": "auto" },
+    "inputs": [
+      [-1, "day"],
+      [1, "day"],
+      [2, "hour"]
+    ]
+  },
+  {
+    "id": "ja-always",
+    "locale": "ja",
+    "options": { "numeric": "always" },
+    "inputs": [
+      [-3, "day"],
+      [1, "day"]
+    ]
+  }
+]

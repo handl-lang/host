@@ -113,6 +113,30 @@ export UlocGetName78Result := {
 --- ffi:
 export UlocGetName78: (String, Int, Int) ~[1]~> Result<UlocGetName78Result, Errno>
 
+--- Gets the full name for the specified locale.
+--- Note: This has the effect of 'canonicalizing' the string to
+--- a certain extent. Upper and lower case are set as needed,
+--- and if the components were in 'POSIX' format they are changed to
+--- ICU format.  It does NOT map aliased names in any way.
+--- See the top of this header file.
+--- localeID: the locale to get the full name with
+--- name: the full name for localeID
+--- nameCapacity: the size of the name buffer to store the
+--- full name with
+--- err: error information if retrieving the full name failed
+--- Returns: the actual buffer size needed for the full name.  If it's greater
+--- than nameCapacity, the returned full name will be truncated.
+--- @stable ICU 2.8
+export UlocCanonicalize78Result := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes],
+  vals: [Int]
+}
+
+--- ffi:
+export UlocCanonicalize78: (String, Int, Int) ~[1]~> Result<UlocCanonicalize78Result, Errno>
+
 --- Gets the specified locale from a list of available locales.
 --- This method corresponds to uloc_openAvailableByType called with the
 --- ULOC_AVAILABLE_DEFAULT type argument.
@@ -132,6 +156,26 @@ export UlocGetAvailable78: (Int) ~[1]~> Result<String, Errno>
 --- @stable ICU 2.0
 --- ffi: int32_t (void)
 export UlocCountAvailable78: () ~[1]~> Result<Int, Errno>
+
+--- Truncate the locale ID string to get the parent locale ID.
+--- Copies the part of the string before the last underscore.
+--- The parent locale ID will be an empty string if there is no
+--- underscore, or if there is only one underscore at localeID[0].
+--- localeID: Input locale ID string.
+--- parent: Output string buffer for the parent locale ID.
+--- parentCapacity: Size of the output buffer.
+--- err: A UErrorCode value.
+--- Returns: The length of the parent locale ID.
+--- @stable ICU 2.0
+export UlocGetParent78Result := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes],
+  vals: [Int]
+}
+
+--- ffi:
+export UlocGetParent78: (String, Int, Int) ~[1]~> Result<UlocGetParent78Result, Errno>
 
 --- Returns a locale ID for the specified BCP47 language tag string.
 --- If the specified language tag contains any ill-formed subtags,

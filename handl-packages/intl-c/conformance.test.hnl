@@ -1,59 +1,1617 @@
---- Conformance tests for `intl-c.format_number` — GENERATED FILE.
+--- Conformance tests for `intl-c` — GENERATED FILE.
 ---
---- Source cases: `conformance/cases/number_format.json`. Regenerate with:
+--- Source cases: `conformance/cases/*.json`. Regenerate with:
 ---   node conformance/generate.mjs
 ---
---- Expected values are produced by Node's `Intl.NumberFormat` (the same
---- oracle the retired `crate-ecma402-icu4x` harness used). Cases whose
---- options fall outside `intl-c`'s opts surface are skipped and listed
---- below; see `generate.mjs`.
+--- Expected values come from Node's `Intl` (ICU4C 78.x — the same role
+--- the retired `crate-ecma402-icu4x` harness's oracle played). Date cases
+--- pin timeZone: "UTC". Skipped cases (options outside `intl-c`'s opts
+--- surface, non-finite inputs) are listed at the bottom.
 
 from "./intl-c" import * as intl_c
 
-test_en_decimal_positive_0 := assert(if intl_c.available {
+-- V8 normalizes U+202F (NNBSP) and U+00A0 (NBSP) to ASCII space in Intl
+--- output; raw ICU4C emits them as-is. `conf_norm`/`conf_norm_parts` fold
+--- both sides onto the normalized form for string/part-list comparisons.
+conf_norm := (s) ~> str.replace(str.replace(s, char.from_code_point(8239), " "), char.from_code_point(160), " ")
+
+conf_norm_parts := (ps) ~> while { xs: ps, acc: [] } {
+  (xs, acc) ~> match xs {
+    []: { out: acc },
+    [h, ...t]: { state: { xs: t, acc: [...acc, { type: h.type, value: conf_norm(h.value) }] } }
+  }
+}
+
+-- number_format -----------------------------------------------
+
+test_number_format_en_decimal_positive_0 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(1234.56, "en", { style: "decimal" })).value
 } else {
   "1,234.56"
 }) = "1,234.56"
 
-test_en_decimal_positive_1 := assert(if intl_c.available {
+test_number_format_en_decimal_positive_1 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(1000000, "en", { style: "decimal" })).value
 } else {
   "1,000,000"
 }) = "1,000,000"
 
-test_en_decimal_positive_2 := assert(if intl_c.available {
+test_number_format_en_decimal_positive_2 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(0.001, "en", { style: "decimal" })).value
 } else {
   "0.001"
 }) = "0.001"
 
-test_en_decimal_negative_0 := assert(if intl_c.available {
+test_number_format_en_decimal_negative_0 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(-1234.56, "en", { style: "decimal" })).value
 } else {
   "-1,234.56"
 }) = "-1,234.56"
 
-test_de_decimal_0 := assert(if intl_c.available {
+test_number_format_de_decimal_0 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(1234.56, "de", { style: "decimal" })).value
 } else {
   "1.234,56"
 }) = "1.234,56"
 
-test_en_percent_0 := assert(if intl_c.available {
+test_number_format_en_percent_0 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(0.05, "en", { style: "percent" })).value
 } else {
   "5%"
 }) = "5%"
 
-test_en_percent_1 := assert(if intl_c.available {
+test_number_format_en_percent_1 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(1, "en", { style: "percent" })).value
 } else {
   "100%"
 }) = "100%"
 
-test_en_currency_usd_0 := assert(if intl_c.available {
+test_number_format_en_currency_usd_0 := assert(if intl_c.available {
   tag.untag(intl_c.format_number(1234.5, "en", { style: "currency", currency: "USD" })).value
 } else {
   "$1,234.50"
 }) = "$1,234.50"
+
+-- number_parts ------------------------------------------------
+
+test_number_parts_en_decimal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(1234.56, "en", { style: "decimal" })).value
+} else {
+  [{ type: "integer", value: "1" }, { type: "group", value: "," }, { type: "integer", value: "234" }, { type: "decimal", value: "." }, { type: "fraction", value: "56" }]
+}) = [{ type: "integer", value: "1" }, { type: "group", value: "," }, { type: "integer", value: "234" }, { type: "decimal", value: "." }, { type: "fraction", value: "56" }]
+
+test_number_parts_en_decimal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(-1234.56, "en", { style: "decimal" })).value
+} else {
+  [{ type: "minusSign", value: "-" }, { type: "integer", value: "1" }, { type: "group", value: "," }, { type: "integer", value: "234" }, { type: "decimal", value: "." }, { type: "fraction", value: "56" }]
+}) = [{ type: "minusSign", value: "-" }, { type: "integer", value: "1" }, { type: "group", value: "," }, { type: "integer", value: "234" }, { type: "decimal", value: "." }, { type: "fraction", value: "56" }]
+
+test_number_parts_en_decimal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(0.001, "en", { style: "decimal" })).value
+} else {
+  [{ type: "integer", value: "0" }, { type: "decimal", value: "." }, { type: "fraction", value: "001" }]
+}) = [{ type: "integer", value: "0" }, { type: "decimal", value: "." }, { type: "fraction", value: "001" }]
+
+test_number_parts_de_decimal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(1234.56, "de", { style: "decimal" })).value
+} else {
+  [{ type: "integer", value: "1" }, { type: "group", value: "." }, { type: "integer", value: "234" }, { type: "decimal", value: "," }, { type: "fraction", value: "56" }]
+}) = [{ type: "integer", value: "1" }, { type: "group", value: "." }, { type: "integer", value: "234" }, { type: "decimal", value: "," }, { type: "fraction", value: "56" }]
+
+test_number_parts_en_percent_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(0.05, "en", { style: "percent" })).value
+} else {
+  [{ type: "integer", value: "5" }, { type: "percentSign", value: "%" }]
+}) = [{ type: "integer", value: "5" }, { type: "percentSign", value: "%" }]
+
+test_number_parts_en_currency_usd_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(1234.5, "en", { style: "currency", currency: "USD" })).value
+} else {
+  [{ type: "currency", value: "$" }, { type: "integer", value: "1" }, { type: "group", value: "," }, { type: "integer", value: "234" }, { type: "decimal", value: "." }, { type: "fraction", value: "50" }]
+}) = [{ type: "currency", value: "$" }, { type: "integer", value: "1" }, { type: "group", value: "," }, { type: "integer", value: "234" }, { type: "decimal", value: "." }, { type: "fraction", value: "50" }]
+
+test_number_parts_en_currency_eur_de_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(1234.5, "de", { style: "currency", currency: "EUR" })).value
+} else {
+  [{ type: "integer", value: "1" }, { type: "group", value: "." }, { type: "integer", value: "234" }, { type: "decimal", value: "," }, { type: "fraction", value: "50" }, { type: "literal", value: " " }, { type: "currency", value: "€" }]
+}) = [{ type: "integer", value: "1" }, { type: "group", value: "." }, { type: "integer", value: "234" }, { type: "decimal", value: "," }, { type: "fraction", value: "50" }, { type: "literal", value: " " }, { type: "currency", value: "€" }]
+
+test_number_parts_en_no_grouping_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(12345.6, "en", { useGrouping: false })).value
+} else {
+  [{ type: "integer", value: "12345" }, { type: "decimal", value: "." }, { type: "fraction", value: "6" }]
+}) = [{ type: "integer", value: "12345" }, { type: "decimal", value: "." }, { type: "fraction", value: "6" }]
+
+test_number_parts_en_frac_digits_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(1.5, "en", { minimumFractionDigits: 3, maximumFractionDigits: 3 })).value
+} else {
+  [{ type: "integer", value: "1" }, { type: "decimal", value: "." }, { type: "fraction", value: "500" }]
+}) = [{ type: "integer", value: "1" }, { type: "decimal", value: "." }, { type: "fraction", value: "500" }]
+
+test_number_parts_en_scientific_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(12345, "en", { style: "scientific" })).value
+} else {
+  [{ type: "integer", value: "1" }, { type: "decimal", value: "." }, { type: "fraction", value: "235" }, { type: "exponentSeparator", value: "E" }, { type: "exponentInteger", value: "4" }]
+}) = [{ type: "integer", value: "1" }, { type: "decimal", value: "." }, { type: "fraction", value: "235" }, { type: "exponentSeparator", value: "E" }, { type: "exponentInteger", value: "4" }]
+
+test_number_parts_en_scientific_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_number_to_parts(0.0012, "en", { style: "scientific" })).value
+} else {
+  [{ type: "integer", value: "1" }, { type: "decimal", value: "." }, { type: "fraction", value: "2" }, { type: "exponentSeparator", value: "E" }, { type: "exponentMinusSign", value: "-" }, { type: "exponentInteger", value: "3" }]
+}) = [{ type: "integer", value: "1" }, { type: "decimal", value: "." }, { type: "fraction", value: "2" }, { type: "exponentSeparator", value: "E" }, { type: "exponentMinusSign", value: "-" }, { type: "exponentInteger", value: "3" }]
+
+-- collator ----------------------------------------------------
+
+test_collator_en_basic_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("a", "b", "en", null)).value
+} else {
+  -1
+}) = -1
+
+test_collator_en_basic_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("b", "a", "en", null)).value
+} else {
+  1
+}) = 1
+
+test_collator_en_basic_2 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("abc", "abc", "en", null)).value
+} else {
+  0
+}) = 0
+
+test_collator_en_basic_3 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("apple", "banana", "en", null)).value
+} else {
+  -1
+}) = -1
+
+test_collator_en_accent_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("é", "z", "en", null)).value
+} else {
+  -1
+}) = -1
+
+test_collator_en_accent_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("resume", "résumé", "en", null)).value
+} else {
+  -1
+}) = -1
+
+test_collator_en_sensitivity_base_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("é", "e", "en", { sensitivity: "base" })).value
+} else {
+  0
+}) = 0
+
+test_collator_en_sensitivity_base_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("A", "a", "en", { sensitivity: "base" })).value
+} else {
+  0
+}) = 0
+
+test_collator_en_sensitivity_base_2 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("abc", "ABC", "en", { sensitivity: "base" })).value
+} else {
+  0
+}) = 0
+
+test_collator_en_numeric_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("a2", "a10", "en", { numeric: true })).value
+} else {
+  -1
+}) = -1
+
+test_collator_en_numeric_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("x10y", "x9y", "en", { numeric: true })).value
+} else {
+  1
+}) = 1
+
+test_collator_en_numeric_off_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("a2", "a10", "en", { numeric: false })).value
+} else {
+  1
+}) = 1
+
+test_collator_en_case_first_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("A", "a", "en", { caseFirst: "upper" })).value
+} else {
+  -1
+}) = -1
+
+test_collator_en_case_first_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("B", "a", "en", { caseFirst: "upper" })).value
+} else {
+  1
+}) = 1
+
+test_collator_de_phonebook_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("ä", "ae", "de-u-co-phonebk", null)).value
+} else {
+  1
+}) = 1
+
+test_collator_de_phonebook_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("ö", "o", "de-u-co-phonebk", null)).value
+} else {
+  1
+}) = 1
+
+test_collator_sv_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("z", "ä", "sv", null)).value
+} else {
+  -1
+}) = -1
+
+test_collator_sv_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("v", "w", "sv", null)).value
+} else {
+  -1
+}) = -1
+
+test_collator_zh_0 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("中", "文", "zh", null)).value
+} else {
+  1
+}) = 1
+
+test_collator_zh_1 := assert(if intl_c.available {
+  tag.untag(intl_c.compare_strings("a", "中", "zh", null)).value
+} else {
+  1
+}) = 1
+
+-- plural ------------------------------------------------------
+
+test_plural_en_cardinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(0, "en", { type: "cardinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_cardinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "en", { type: "cardinal" })).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_en_cardinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(2, "en", { type: "cardinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_cardinal_3 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(5, "en", { type: "cardinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_cardinal_4 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1.5, "en", { type: "cardinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_cardinal_5 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(11, "en", { type: "cardinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_cardinal_6 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(101, "en", { type: "cardinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_ordinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "en", { type: "ordinal" })).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_en_ordinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(2, "en", { type: "ordinal" })).value
+} else {
+  "two"
+}) = "two"
+
+test_plural_en_ordinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(3, "en", { type: "ordinal" })).value
+} else {
+  "few"
+}) = "few"
+
+test_plural_en_ordinal_3 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(4, "en", { type: "ordinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_ordinal_4 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(11, "en", { type: "ordinal" })).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_en_ordinal_5 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(21, "en", { type: "ordinal" })).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_en_ordinal_6 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(102, "en", { type: "ordinal" })).value
+} else {
+  "two"
+}) = "two"
+
+test_plural_fr_cardinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(0, "fr", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_fr_cardinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "fr", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_fr_cardinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(2, "fr", null)).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_fr_cardinal_3 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1.5, "fr", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_ru_cardinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "ru", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_ru_cardinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(2, "ru", null)).value
+} else {
+  "few"
+}) = "few"
+
+test_plural_ru_cardinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(5, "ru", null)).value
+} else {
+  "many"
+}) = "many"
+
+test_plural_ru_cardinal_3 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(11, "ru", null)).value
+} else {
+  "many"
+}) = "many"
+
+test_plural_ru_cardinal_4 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(21, "ru", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_ru_cardinal_5 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1.5, "ru", null)).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_ar_cardinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(0, "ar", null)).value
+} else {
+  "zero"
+}) = "zero"
+
+test_plural_ar_cardinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "ar", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_ar_cardinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(2, "ar", null)).value
+} else {
+  "two"
+}) = "two"
+
+test_plural_ar_cardinal_3 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(3, "ar", null)).value
+} else {
+  "few"
+}) = "few"
+
+test_plural_ar_cardinal_4 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(11, "ar", null)).value
+} else {
+  "many"
+}) = "many"
+
+test_plural_ar_cardinal_5 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(100, "ar", null)).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_ja_cardinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(0, "ja", null)).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_ja_cardinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "ja", null)).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_ja_cardinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(5, "ja", null)).value
+} else {
+  "other"
+}) = "other"
+
+test_plural_pl_cardinal_0 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1, "pl", null)).value
+} else {
+  "one"
+}) = "one"
+
+test_plural_pl_cardinal_1 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(2, "pl", null)).value
+} else {
+  "few"
+}) = "few"
+
+test_plural_pl_cardinal_2 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(5, "pl", null)).value
+} else {
+  "many"
+}) = "many"
+
+test_plural_pl_cardinal_3 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(22, "pl", null)).value
+} else {
+  "few"
+}) = "few"
+
+test_plural_pl_cardinal_4 := assert(if intl_c.available {
+  tag.untag(intl_c.select_plural(1.5, "pl", null)).value
+} else {
+  "other"
+}) = "other"
+
+-- list --------------------------------------------------------
+
+test_list_en_conjunction_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a"], "en", { type: "conjunction" })).value
+} else {
+  "a"
+}) = "a"
+
+test_list_en_conjunction_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b"], "en", { type: "conjunction" })).value
+} else {
+  "a and b"
+}) = "a and b"
+
+test_list_en_conjunction_2 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b", "c"], "en", { type: "conjunction" })).value
+} else {
+  "a, b, and c"
+}) = "a, b, and c"
+
+test_list_en_conjunction_3 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["one", "two", "three", "four"], "en", { type: "conjunction" })).value
+} else {
+  "one, two, three, and four"
+}) = "one, two, three, and four"
+
+test_list_en_disjunction_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b"], "en", { type: "disjunction" })).value
+} else {
+  "a or b"
+}) = "a or b"
+
+test_list_en_disjunction_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b", "c"], "en", { type: "disjunction" })).value
+} else {
+  "a, b, or c"
+}) = "a, b, or c"
+
+test_list_en_unit_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["1 lb", "2 oz"], "en", { type: "unit" })).value
+} else {
+  "1 lb, 2 oz"
+}) = "1 lb, 2 oz"
+
+test_list_en_unit_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["5 ft", "10 in", "2 cm"], "en", { type: "unit" })).value
+} else {
+  "5 ft, 10 in, 2 cm"
+}) = "5 ft, 10 in, 2 cm"
+
+test_list_en_unit_narrow_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["1 lb", "2 oz"], "en", { type: "unit", style: "narrow" })).value
+} else {
+  "1 lb 2 oz"
+}) = "1 lb 2 oz"
+
+test_list_en_conj_short_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b", "c"], "en", { type: "conjunction", style: "short" })).value
+} else {
+  "a, b, & c"
+}) = "a, b, & c"
+
+test_list_de_conjunction_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b"], "de", { type: "conjunction" })).value
+} else {
+  "a und b"
+}) = "a und b"
+
+test_list_de_conjunction_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["a", "b", "c"], "de", { type: "conjunction" })).value
+} else {
+  "a, b und c"
+}) = "a, b und c"
+
+test_list_ja_conjunction_0 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["あ", "い"], "ja", { type: "conjunction" })).value
+} else {
+  "あ、い"
+}) = "あ、い"
+
+test_list_ja_conjunction_1 := assert(if intl_c.available {
+  tag.untag(intl_c.format_list(["あ", "い", "う"], "ja", { type: "conjunction" })).value
+} else {
+  "あ、い、う"
+}) = "あ、い、う"
+
+-- reltime -----------------------------------------------------
+
+test_reltime_en_auto_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-3, "day", "en", { numeric: "auto" })).value)
+} else {
+  "3 days ago"
+}) = "3 days ago"
+
+test_reltime_en_auto_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-1, "day", "en", { numeric: "auto" })).value)
+} else {
+  "yesterday"
+}) = "yesterday"
+
+test_reltime_en_auto_2 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(0, "day", "en", { numeric: "auto" })).value)
+} else {
+  "today"
+}) = "today"
+
+test_reltime_en_auto_3 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(1, "day", "en", { numeric: "auto" })).value)
+} else {
+  "tomorrow"
+}) = "tomorrow"
+
+test_reltime_en_auto_4 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(3, "day", "en", { numeric: "auto" })).value)
+} else {
+  "in 3 days"
+}) = "in 3 days"
+
+test_reltime_en_auto_5 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-1, "month", "en", { numeric: "auto" })).value)
+} else {
+  "last month"
+}) = "last month"
+
+test_reltime_en_auto_6 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(2, "hour", "en", { numeric: "auto" })).value)
+} else {
+  "in 2 hours"
+}) = "in 2 hours"
+
+test_reltime_en_auto_7 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-1, "year", "en", { numeric: "auto" })).value)
+} else {
+  "last year"
+}) = "last year"
+
+test_reltime_en_always_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-1, "day", "en", { numeric: "always" })).value)
+} else {
+  "1 day ago"
+}) = "1 day ago"
+
+test_reltime_en_always_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(0, "day", "en", { numeric: "always" })).value)
+} else {
+  "in 0 days"
+}) = "in 0 days"
+
+test_reltime_en_always_2 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(1, "day", "en", { numeric: "always" })).value)
+} else {
+  "in 1 day"
+}) = "in 1 day"
+
+test_reltime_en_always_3 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-2, "week", "en", { numeric: "always" })).value)
+} else {
+  "2 weeks ago"
+}) = "2 weeks ago"
+
+test_reltime_en_always_4 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(5, "second", "en", { numeric: "always" })).value)
+} else {
+  "in 5 seconds"
+}) = "in 5 seconds"
+
+test_reltime_en_narrow_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-3, "day", "en", { style: "narrow" })).value)
+} else {
+  "3d ago"
+}) = "3d ago"
+
+test_reltime_en_narrow_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(3, "day", "en", { style: "narrow" })).value)
+} else {
+  "in 3d"
+}) = "in 3d"
+
+test_reltime_en_narrow_2 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-2, "month", "en", { style: "narrow" })).value)
+} else {
+  "2mo ago"
+}) = "2mo ago"
+
+test_reltime_en_short_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-3, "day", "en", { style: "short" })).value)
+} else {
+  "3 days ago"
+}) = "3 days ago"
+
+test_reltime_en_short_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(2, "minute", "en", { style: "short" })).value)
+} else {
+  "in 2 min."
+}) = "in 2 min."
+
+test_reltime_de_auto_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-1, "day", "de", { numeric: "auto" })).value)
+} else {
+  "gestern"
+}) = "gestern"
+
+test_reltime_de_auto_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(1, "day", "de", { numeric: "auto" })).value)
+} else {
+  "morgen"
+}) = "morgen"
+
+test_reltime_de_auto_2 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-3, "day", "de", { numeric: "auto" })).value)
+} else {
+  "vor 3 Tagen"
+}) = "vor 3 Tagen"
+
+test_reltime_de_auto_3 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(2, "month", "de", { numeric: "auto" })).value)
+} else {
+  "in 2 Monaten"
+}) = "in 2 Monaten"
+
+test_reltime_fr_auto_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-1, "day", "fr", { numeric: "auto" })).value)
+} else {
+  "hier"
+}) = "hier"
+
+test_reltime_fr_auto_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(1, "day", "fr", { numeric: "auto" })).value)
+} else {
+  "demain"
+}) = "demain"
+
+test_reltime_fr_auto_2 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(2, "hour", "fr", { numeric: "auto" })).value)
+} else {
+  "dans 2 heures"
+}) = "dans 2 heures"
+
+test_reltime_ja_always_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(-3, "day", "ja", { numeric: "always" })).value)
+} else {
+  "3 日前"
+}) = "3 日前"
+
+test_reltime_ja_always_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_relative_time(1, "day", "ja", { numeric: "always" })).value)
+} else {
+  "1 日後"
+}) = "1 日後"
+
+-- date --------------------------------------------------------
+
+test_date_en_medium_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "en", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "May 8, 2024"
+}) = "May 8, 2024"
+
+test_date_en_medium_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date("2024-05-08", "en", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "May 8, 2024"
+}) = "May 8, 2024"
+
+test_date_en_medium_2 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(0, "en", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "Jan 1, 1970"
+}) = "Jan 1, 1970"
+
+test_date_en_full_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "en", { dateStyle: "full", timeZone: "UTC" })).value)
+} else {
+  "Wednesday, May 8, 2024"
+}) = "Wednesday, May 8, 2024"
+
+test_date_en_long_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "en", { dateStyle: "long", timeZone: "UTC" })).value)
+} else {
+  "May 8, 2024"
+}) = "May 8, 2024"
+
+test_date_en_short_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "en", { dateStyle: "short", timeZone: "UTC" })).value)
+} else {
+  "5/8/24"
+}) = "5/8/24"
+
+test_date_en_time_medium_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715177345000, "en", { timeStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "2:09:05 PM"
+}) = "2:09:05 PM"
+
+test_date_en_date_time_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715177345000, "en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })).value)
+} else {
+  "May 8, 2024, 2:09 PM"
+}) = "May 8, 2024, 2:09 PM"
+
+test_date_de_medium_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "de", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "08.05.2024"
+}) = "08.05.2024"
+
+test_date_de_full_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "de", { dateStyle: "full", timeZone: "UTC" })).value)
+} else {
+  "Mittwoch, 8. Mai 2024"
+}) = "Mittwoch, 8. Mai 2024"
+
+test_date_fr_long_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "fr", { dateStyle: "long", timeZone: "UTC" })).value)
+} else {
+  "8 mai 2024"
+}) = "8 mai 2024"
+
+test_date_ja_full_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date(1715126400000, "ja", { dateStyle: "full", timeZone: "UTC" })).value)
+} else {
+  "2024年5月8日水曜日"
+}) = "2024年5月8日水曜日"
+
+test_date_iso_input_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date("2000-12-31", "en", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "Dec 31, 2000"
+}) = "Dec 31, 2000"
+
+test_date_iso_input_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_date("1999-01-01T12:00:00Z", "en", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  "Jan 1, 1999"
+}) = "Jan 1, 1999"
+
+-- date_parts --------------------------------------------------
+
+test_date_parts_en_medium_0 := assert(if intl_c.available {
+  conf_norm_parts(tag.untag(intl_c.format_date_to_parts(1715126400000, "en", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  [{ type: "month", value: "May" }, { type: "literal", value: " " }, { type: "day", value: "8" }, { type: "literal", value: ", " }, { type: "year", value: "2024" }]
+}) = [{ type: "month", value: "May" }, { type: "literal", value: " " }, { type: "day", value: "8" }, { type: "literal", value: ", " }, { type: "year", value: "2024" }]
+
+test_date_parts_en_full_0 := assert(if intl_c.available {
+  conf_norm_parts(tag.untag(intl_c.format_date_to_parts(1715126400000, "en", { dateStyle: "full", timeZone: "UTC" })).value)
+} else {
+  [{ type: "weekday", value: "Wednesday" }, { type: "literal", value: ", " }, { type: "month", value: "May" }, { type: "literal", value: " " }, { type: "day", value: "8" }, { type: "literal", value: ", " }, { type: "year", value: "2024" }]
+}) = [{ type: "weekday", value: "Wednesday" }, { type: "literal", value: ", " }, { type: "month", value: "May" }, { type: "literal", value: " " }, { type: "day", value: "8" }, { type: "literal", value: ", " }, { type: "year", value: "2024" }]
+
+test_date_parts_en_time_medium_0 := assert(if intl_c.available {
+  conf_norm_parts(tag.untag(intl_c.format_date_to_parts(1715177345000, "en", { timeStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  [{ type: "hour", value: "2" }, { type: "literal", value: ":" }, { type: "minute", value: "09" }, { type: "literal", value: ":" }, { type: "second", value: "05" }, { type: "literal", value: " " }, { type: "dayPeriod", value: "PM" }]
+}) = [{ type: "hour", value: "2" }, { type: "literal", value: ":" }, { type: "minute", value: "09" }, { type: "literal", value: ":" }, { type: "second", value: "05" }, { type: "literal", value: " " }, { type: "dayPeriod", value: "PM" }]
+
+test_date_parts_en_date_time_0 := assert(if intl_c.available {
+  conf_norm_parts(tag.untag(intl_c.format_date_to_parts(1715177345000, "en", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })).value)
+} else {
+  [{ type: "month", value: "May" }, { type: "literal", value: " " }, { type: "day", value: "8" }, { type: "literal", value: ", " }, { type: "year", value: "2024" }, { type: "literal", value: ", " }, { type: "hour", value: "2" }, { type: "literal", value: ":" }, { type: "minute", value: "09" }, { type: "literal", value: " " }, { type: "dayPeriod", value: "PM" }]
+}) = [{ type: "month", value: "May" }, { type: "literal", value: " " }, { type: "day", value: "8" }, { type: "literal", value: ", " }, { type: "year", value: "2024" }, { type: "literal", value: ", " }, { type: "hour", value: "2" }, { type: "literal", value: ":" }, { type: "minute", value: "09" }, { type: "literal", value: " " }, { type: "dayPeriod", value: "PM" }]
+
+test_date_parts_de_medium_0 := assert(if intl_c.available {
+  conf_norm_parts(tag.untag(intl_c.format_date_to_parts(1715126400000, "de", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  [{ type: "day", value: "08" }, { type: "literal", value: "." }, { type: "month", value: "05" }, { type: "literal", value: "." }, { type: "year", value: "2024" }]
+}) = [{ type: "day", value: "08" }, { type: "literal", value: "." }, { type: "month", value: "05" }, { type: "literal", value: "." }, { type: "year", value: "2024" }]
+
+test_date_parts_ja_medium_0 := assert(if intl_c.available {
+  conf_norm_parts(tag.untag(intl_c.format_date_to_parts(1715126400000, "ja", { dateStyle: "medium", timeZone: "UTC" })).value)
+} else {
+  [{ type: "year", value: "2024" }, { type: "literal", value: "/" }, { type: "month", value: "05" }, { type: "literal", value: "/" }, { type: "day", value: "08" }]
+}) = [{ type: "year", value: "2024" }, { type: "literal", value: "/" }, { type: "month", value: "05" }, { type: "literal", value: "/" }, { type: "day", value: "08" }]
+
+-- duration ----------------------------------------------------
+
+test_duration_en_short_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ hours: 1, minutes: 46, seconds: 40 }, "en", { style: "short" })).value)
+} else {
+  "1 hr, 46 min, 40 sec"
+}) = "1 hr, 46 min, 40 sec"
+
+test_duration_en_short_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ days: 2, hours: 4 }, "en", { style: "short" })).value)
+} else {
+  "2 days, 4 hr"
+}) = "2 days, 4 hr"
+
+test_duration_en_long_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ days: 2, hours: 4 }, "en", { style: "long" })).value)
+} else {
+  "2 days, 4 hours"
+}) = "2 days, 4 hours"
+
+test_duration_en_long_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ minutes: 5 }, "en", { style: "long" })).value)
+} else {
+  "5 minutes"
+}) = "5 minutes"
+
+test_duration_en_narrow_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ days: 1, hours: 2 }, "en", { style: "narrow" })).value)
+} else {
+  "1d 2h"
+}) = "1d 2h"
+
+test_duration_en_default_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ hours: 1, minutes: 46, seconds: 40 }, "en", null)).value)
+} else {
+  "1 hr, 46 min, 40 sec"
+}) = "1 hr, 46 min, 40 sec"
+
+test_duration_en_digital_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ hours: 1, minutes: 2, seconds: 5 }, "en", { style: "digital" })).value)
+} else {
+  "1:02:05"
+}) = "1:02:05"
+
+test_duration_en_digital_1 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ minutes: 12, seconds: 0 }, "en", { style: "digital" })).value)
+} else {
+  "0:12:00"
+}) = "0:12:00"
+
+test_duration_en_digital_frac_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ seconds: 5, milliseconds: 25 }, "en", { style: "digital", fractionalDigits: 3 })).value)
+} else {
+  "0:00:05.025"
+}) = "0:00:05.025"
+
+test_duration_de_short_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ days: 2, hours: 4 }, "de", { style: "short" })).value)
+} else {
+  "2 Tg., 4 Std."
+}) = "2 Tg., 4 Std."
+
+test_duration_en_negative_0 := assert(if intl_c.available {
+  conf_norm(tag.untag(intl_c.format_duration({ hours: -2, minutes: -30 }, "en", { style: "short" })).value)
+} else {
+  "-2 hr, 30 min"
+}) = "-2 hr, 30 min"
+
+-- display -----------------------------------------------------
+
+test_display_en_language_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("de", "language", "en", null)).value
+} else {
+  "German"
+}) = "German"
+
+test_display_en_language_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("fr", "language", "en", null)).value
+} else {
+  "French"
+}) = "French"
+
+test_display_en_language_2 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("ja", "language", "en", null)).value
+} else {
+  "Japanese"
+}) = "Japanese"
+
+test_display_en_language_3 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("zh", "language", "en", null)).value
+} else {
+  "Chinese"
+}) = "Chinese"
+
+test_display_en_language_4 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("es-419", "language", "en", null)).value
+} else {
+  "Latin American Spanish"
+}) = "Latin American Spanish"
+
+test_display_de_language_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("en", "language", "de", null)).value
+} else {
+  "Englisch"
+}) = "Englisch"
+
+test_display_de_language_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("de", "language", "de", null)).value
+} else {
+  "Deutsch"
+}) = "Deutsch"
+
+test_display_de_language_2 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("fr", "language", "de", null)).value
+} else {
+  "Französisch"
+}) = "Französisch"
+
+test_display_en_region_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("US", "region", "en", null)).value
+} else {
+  "United States"
+}) = "United States"
+
+test_display_en_region_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("DE", "region", "en", null)).value
+} else {
+  "Germany"
+}) = "Germany"
+
+test_display_en_region_2 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("JP", "region", "en", null)).value
+} else {
+  "Japan"
+}) = "Japan"
+
+test_display_en_region_3 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("BR", "region", "en", null)).value
+} else {
+  "Brazil"
+}) = "Brazil"
+
+test_display_en_region_4 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("419", "region", "en", null)).value
+} else {
+  "Latin America"
+}) = "Latin America"
+
+test_display_fr_region_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("US", "region", "fr", null)).value
+} else {
+  "États-Unis"
+}) = "États-Unis"
+
+test_display_fr_region_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("FR", "region", "fr", null)).value
+} else {
+  "France"
+}) = "France"
+
+test_display_en_script_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("Latn", "script", "en", null)).value
+} else {
+  "Latin"
+}) = "Latin"
+
+test_display_en_script_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("Cyrl", "script", "en", null)).value
+} else {
+  "Cyrillic"
+}) = "Cyrillic"
+
+test_display_en_script_2 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("Hans", "script", "en", null)).value
+} else {
+  "Simplified"
+}) = "Simplified"
+
+test_display_en_script_3 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("Jpan", "script", "en", null)).value
+} else {
+  "Japanese"
+}) = "Japanese"
+
+test_display_en_currency_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("USD", "currency", "en", null)).value
+} else {
+  "US Dollar"
+}) = "US Dollar"
+
+test_display_en_currency_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("EUR", "currency", "en", null)).value
+} else {
+  "Euro"
+}) = "Euro"
+
+test_display_en_currency_2 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("JPY", "currency", "en", null)).value
+} else {
+  "Japanese Yen"
+}) = "Japanese Yen"
+
+test_display_en_calendar_0 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("gregory", "calendar", "en", null)).value
+} else {
+  "Gregorian Calendar"
+}) = "Gregorian Calendar"
+
+test_display_en_calendar_1 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("buddhist", "calendar", "en", null)).value
+} else {
+  "Buddhist Calendar"
+}) = "Buddhist Calendar"
+
+test_display_en_calendar_2 := assert(if intl_c.available {
+  tag.untag(intl_c.display_name("japanese", "calendar", "en", null)).value
+} else {
+  "Japanese Calendar"
+}) = "Japanese Calendar"
+
+-- segment -----------------------------------------------------
+
+test_segment_grapheme_en_0 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("Hello!", "grapheme", "en", null)).value
+} else {
+  [{ index: 0, segment: "H" }, { index: 1, segment: "e" }, { index: 2, segment: "l" }, { index: 3, segment: "l" }, { index: 4, segment: "o" }, { index: 5, segment: "!" }]
+}) = [{ index: 0, segment: "H" }, { index: 1, segment: "e" }, { index: 2, segment: "l" }, { index: 3, segment: "l" }, { index: 4, segment: "o" }, { index: 5, segment: "!" }]
+
+test_segment_grapheme_en_1 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("ab cd", "grapheme", "en", null)).value
+} else {
+  [{ index: 0, segment: "a" }, { index: 1, segment: "b" }, { index: 2, segment: " " }, { index: 3, segment: "c" }, { index: 4, segment: "d" }]
+}) = [{ index: 0, segment: "a" }, { index: 1, segment: "b" }, { index: 2, segment: " " }, { index: 3, segment: "c" }, { index: 4, segment: "d" }]
+
+test_segment_grapheme_en_2 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("café", "grapheme", "en", null)).value
+} else {
+  [{ index: 0, segment: "c" }, { index: 1, segment: "a" }, { index: 2, segment: "f" }, { index: 3, segment: "é" }]
+}) = [{ index: 0, segment: "c" }, { index: 1, segment: "a" }, { index: 2, segment: "f" }, { index: 3, segment: "é" }]
+
+test_segment_grapheme_combining_0 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("é", "grapheme", "en", null)).value
+} else {
+  [{ index: 0, segment: "é" }]
+}) = [{ index: 0, segment: "é" }]
+
+test_segment_grapheme_combining_1 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("áb", "grapheme", "en", null)).value
+} else {
+  [{ index: 0, segment: "á" }, { index: 2, segment: "b" }]
+}) = [{ index: 0, segment: "á" }, { index: 2, segment: "b" }]
+
+test_segment_word_en_0 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("a b", "word", "en", null)).value
+} else {
+  [{ index: 0, segment: "a", isWordLike: true }, { index: 1, segment: " ", isWordLike: false }, { index: 2, segment: "b", isWordLike: true }]
+}) = [{ index: 0, segment: "a", isWordLike: true }, { index: 1, segment: " ", isWordLike: false }, { index: 2, segment: "b", isWordLike: true }]
+
+test_segment_word_en_1 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("Hello, world!", "word", "en", null)).value
+} else {
+  [{ index: 0, segment: "Hello", isWordLike: true }, { index: 5, segment: ",", isWordLike: false }, { index: 6, segment: " ", isWordLike: false }, { index: 7, segment: "world", isWordLike: true }, { index: 12, segment: "!", isWordLike: false }]
+}) = [{ index: 0, segment: "Hello", isWordLike: true }, { index: 5, segment: ",", isWordLike: false }, { index: 6, segment: " ", isWordLike: false }, { index: 7, segment: "world", isWordLike: true }, { index: 12, segment: "!", isWordLike: false }]
+
+test_segment_word_en_2 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("it's 3.5 km", "word", "en", null)).value
+} else {
+  [{ index: 0, segment: "it's", isWordLike: true }, { index: 4, segment: " ", isWordLike: false }, { index: 5, segment: "3.5", isWordLike: true }, { index: 8, segment: " ", isWordLike: false }, { index: 9, segment: "km", isWordLike: true }]
+}) = [{ index: 0, segment: "it's", isWordLike: true }, { index: 4, segment: " ", isWordLike: false }, { index: 5, segment: "3.5", isWordLike: true }, { index: 8, segment: " ", isWordLike: false }, { index: 9, segment: "km", isWordLike: true }]
+
+test_segment_word_ja_0 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("こんにちは世界", "word", "ja", null)).value
+} else {
+  [{ index: 0, segment: "こんにちは", isWordLike: true }, { index: 5, segment: "世界", isWordLike: true }]
+}) = [{ index: 0, segment: "こんにちは", isWordLike: true }, { index: 5, segment: "世界", isWordLike: true }]
+
+test_segment_sentence_en_0 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("Hello. Bye.", "sentence", "en", null)).value
+} else {
+  [{ index: 0, segment: "Hello. " }, { index: 7, segment: "Bye." }]
+}) = [{ index: 0, segment: "Hello. " }, { index: 7, segment: "Bye." }]
+
+test_segment_sentence_en_1 := assert(if intl_c.available {
+  tag.untag(intl_c.segment("Hi there! How are you?", "sentence", "en", null)).value
+} else {
+  [{ index: 0, segment: "Hi there! " }, { index: 10, segment: "How are you?" }]
+}) = [{ index: 0, segment: "Hi there! " }, { index: 10, segment: "How are you?" }]
+
+-- locale ------------------------------------------------------
+
+test_locale_en_us_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US", null)).value.language
+} else {
+  "en"
+}) = "en"
+
+test_locale_en_us_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_en_us_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US", null)).value.region
+} else {
+  "US"
+}) = "US"
+
+test_locale_en_us_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US", null)).value.canonical
+} else {
+  "en-US"
+}) = "en-US"
+
+test_locale_en_us_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-GB", null)).value.language
+} else {
+  "en"
+}) = "en"
+
+test_locale_en_us_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-GB", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_en_us_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-GB", null)).value.region
+} else {
+  "GB"
+}) = "GB"
+
+test_locale_en_us_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-GB", null)).value.canonical
+} else {
+  "en-GB"
+}) = "en-GB"
+
+test_locale_en_us_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE", null)).value.language
+} else {
+  "de"
+}) = "de"
+
+test_locale_en_us_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_en_us_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE", null)).value.region
+} else {
+  "DE"
+}) = "DE"
+
+test_locale_en_us_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE", null)).value.canonical
+} else {
+  "de-DE"
+}) = "de-DE"
+
+test_locale_en_us_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("fr-FR", null)).value.language
+} else {
+  "fr"
+}) = "fr"
+
+test_locale_en_us_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("fr-FR", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_en_us_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("fr-FR", null)).value.region
+} else {
+  "FR"
+}) = "FR"
+
+test_locale_en_us_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("fr-FR", null)).value.canonical
+} else {
+  "fr-FR"
+}) = "fr-FR"
+
+test_locale_scripts_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hans-CN", null)).value.language
+} else {
+  "zh"
+}) = "zh"
+
+test_locale_scripts_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hans-CN", null)).value.script
+} else {
+  "Hans"
+}) = "Hans"
+
+test_locale_scripts_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hans-CN", null)).value.region
+} else {
+  "CN"
+}) = "CN"
+
+test_locale_scripts_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hans-CN", null)).value.canonical
+} else {
+  "zh-Hans-CN"
+}) = "zh-Hans-CN"
+
+test_locale_scripts_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("sr-Cyrl", null)).value.language
+} else {
+  "sr"
+}) = "sr"
+
+test_locale_scripts_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("sr-Cyrl", null)).value.script
+} else {
+  "Cyrl"
+}) = "Cyrl"
+
+test_locale_scripts_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("sr-Cyrl", null)).value.region
+} else {
+  ""
+}) = ""
+
+test_locale_scripts_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("sr-Cyrl", null)).value.canonical
+} else {
+  "sr-Cyrl"
+}) = "sr-Cyrl"
+
+test_locale_scripts_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hant-TW", null)).value.language
+} else {
+  "zh"
+}) = "zh"
+
+test_locale_scripts_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hant-TW", null)).value.script
+} else {
+  "Hant"
+}) = "Hant"
+
+test_locale_scripts_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hant-TW", null)).value.region
+} else {
+  "TW"
+}) = "TW"
+
+test_locale_scripts_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("zh-Hant-TW", null)).value.canonical
+} else {
+  "zh-Hant-TW"
+}) = "zh-Hant-TW"
+
+test_locale_subtags_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en", null)).value.language
+} else {
+  "en"
+}) = "en"
+
+test_locale_subtags_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en", null)).value.region
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en", null)).value.canonical
+} else {
+  "en"
+}) = "en"
+
+test_locale_subtags_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de", null)).value.language
+} else {
+  "de"
+}) = "de"
+
+test_locale_subtags_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de", null)).value.region
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de", null)).value.canonical
+} else {
+  "de"
+}) = "de"
+
+test_locale_subtags_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("ja", null)).value.language
+} else {
+  "ja"
+}) = "ja"
+
+test_locale_subtags_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("ja", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("ja", null)).value.region
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("ja", null)).value.canonical
+} else {
+  "ja"
+}) = "ja"
+
+test_locale_subtags_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("pt-BR", null)).value.language
+} else {
+  "pt"
+}) = "pt"
+
+test_locale_subtags_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("pt-BR", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("pt-BR", null)).value.region
+} else {
+  "BR"
+}) = "BR"
+
+test_locale_subtags_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("pt-BR", null)).value.canonical
+} else {
+  "pt-BR"
+}) = "pt-BR"
+
+test_locale_subtags_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("es-419", null)).value.language
+} else {
+  "es"
+}) = "es"
+
+test_locale_subtags_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("es-419", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_subtags_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("es-419", null)).value.region
+} else {
+  "419"
+}) = "419"
+
+test_locale_subtags_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("es-419", null)).value.canonical
+} else {
+  "es-419"
+}) = "es-419"
+
+test_locale_aliases_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("iw-IL", null)).value.language
+} else {
+  "he"
+}) = "he"
+
+test_locale_aliases_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("iw-IL", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_aliases_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("iw-IL", null)).value.region
+} else {
+  "IL"
+}) = "IL"
+
+test_locale_aliases_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("iw-IL", null)).value.canonical
+} else {
+  "he-IL"
+}) = "he-IL"
+
+test_locale_aliases_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE-u-co-phonebk", null)).value.language
+} else {
+  "de"
+}) = "de"
+
+test_locale_aliases_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE-u-co-phonebk", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_aliases_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE-u-co-phonebk", null)).value.region
+} else {
+  "DE"
+}) = "DE"
+
+test_locale_aliases_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("de-DE-u-co-phonebk", null)).value.canonical
+} else {
+  "de-DE-u-co-phonebk"
+}) = "de-DE-u-co-phonebk"
+
+test_locale_aliases_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US-u-ca-gregory", null)).value.language
+} else {
+  "en"
+}) = "en"
+
+test_locale_aliases_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US-u-ca-gregory", null)).value.script
+} else {
+  ""
+}) = ""
+
+test_locale_aliases_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US-u-ca-gregory", null)).value.region
+} else {
+  "US"
+}) = "US"
+
+test_locale_aliases_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("en-US-u-ca-gregory", null)).value.canonical
+} else {
+  "en-US-u-ca-gregory"
+}) = "en-US-u-ca-gregory"
+
+test_locale_aliases_0_language := assert(if intl_c.available {
+  tag.untag(intl_c.locale("cmn-Hans-CN", null)).value.language
+} else {
+  "zh"
+}) = "zh"
+
+test_locale_aliases_1_script := assert(if intl_c.available {
+  tag.untag(intl_c.locale("cmn-Hans-CN", null)).value.script
+} else {
+  "Hans"
+}) = "Hans"
+
+test_locale_aliases_2_region := assert(if intl_c.available {
+  tag.untag(intl_c.locale("cmn-Hans-CN", null)).value.region
+} else {
+  "CN"
+}) = "CN"
+
+test_locale_aliases_3_canonical := assert(if intl_c.available {
+  tag.untag(intl_c.locale("cmn-Hans-CN", null)).value.canonical
+} else {
+  "zh-Hans-CN"
+}) = "zh-Hans-CN"
+
+-- canonical ---------------------------------------------------
+
+test_canonical_single_0 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales("en-US")).value
+} else {
+  "en-US"
+}) = "en-US"
+
+test_canonical_single_1 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales("de-DE")).value
+} else {
+  "de-DE"
+}) = "de-DE"
+
+test_canonical_single_2 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales("zh-Hans-CN")).value
+} else {
+  "zh-Hans-CN"
+}) = "zh-Hans-CN"
+
+test_canonical_single_3 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales("iw-IL")).value
+} else {
+  "he-IL"
+}) = "he-IL"
+
+test_canonical_single_4 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales("en-US-u-ca-gregory")).value
+} else {
+  "en-US-u-ca-gregory"
+}) = "en-US-u-ca-gregory"
+
+test_canonical_lists_0 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales(["en-US", "de-DE"])).value
+} else {
+  ["en-US", "de-DE"]
+}) = ["en-US", "de-DE"]
+
+test_canonical_lists_1 := assert(if intl_c.available {
+  tag.untag(intl_c.get_canonical_locales(["zh-Hans-CN", "iw-IL", "fr"])).value
+} else {
+  ["zh-Hans-CN", "he-IL", "fr"]
+}) = ["zh-Hans-CN", "he-IL", "fr"]
+
+-- supported ---------------------------------------------------
+
+test_supported_basic_0 := assert(if intl_c.available {
+  tag.untag(intl_c.supported_locales_of(["en-US", "xx-YY"], null)).value
+} else {
+  ["en-US"]
+}) = ["en-US"]
+
+test_supported_basic_1 := assert(if intl_c.available {
+  tag.untag(intl_c.supported_locales_of(["en-US", "de-DE", "fr-FR"], null)).value
+} else {
+  ["en-US", "de-DE", "fr-FR"]
+}) = ["en-US", "de-DE", "fr-FR"]
+
+test_supported_basic_2 := assert(if intl_c.available {
+  tag.untag(intl_c.supported_locales_of(["xx-YY"], null)).value
+} else {
+  []
+}) = []
+
+test_supported_prefix_fallback_0 := assert(if intl_c.available {
+  tag.untag(intl_c.supported_locales_of(["en-GB", "en"], null)).value
+} else {
+  ["en-GB", "en"]
+}) = ["en-GB", "en"]
+
+test_supported_prefix_fallback_1 := assert(if intl_c.available {
+  tag.untag(intl_c.supported_locales_of(["pt-BR", "pt"], null)).value
+} else {
+  ["pt-BR", "pt"]
+}) = ["pt-BR", "pt"]

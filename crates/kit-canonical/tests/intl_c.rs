@@ -164,7 +164,7 @@ fn format_duration_seconds() {
         return;
     }
     let s = field("duration");
-    assert!(s.as_str().map_or(false, |s| !s.is_empty()), "{s}");
+    assert_eq!(s, Value::from("1 hr, 1 min, 1 sec"), "{s}");
 }
 
 #[test]

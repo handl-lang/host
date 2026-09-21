@@ -1,0 +1,44 @@
+[
+  {
+    "id": "en-language",
+    "locale": "en",
+    "options": { "type": "language" },
+    "inputs": ["de", "fr", "ja", "zh", "es-419"]
+  },
+  {
+    "id": "de-language",
+    "locale": "de",
+    "options": { "type": "language" },
+    "inputs": ["en", "de", "fr"]
+  },
+  {
+    "id": "en-region",
+    "locale": "en",
+    "options": { "type": "region" },
+    "inputs": ["US", "DE", "JP", "BR", "419"]
+  },
+  {
+    "id": "fr-region",
+    "locale": "fr",
+    "options": { "type": "region" },
+    "inputs": ["US", "FR"]
+  },
+  {
+    "id": "en-script",
+    "locale": "en",
+    "options": { "type": "script" },
+    "inputs": ["Latn", "Cyrl", "Hans", "Jpan"]
+  },
+  {
+    "id": "en-currency",
+    "locale": "en",
+    "options": { "type": "currency" },
+    "inputs": ["USD", "EUR", "JPY"]
+  },
+  {
+    "id": "en-calendar",
+    "locale": "en",
+    "options": { "type": "calendar" },
+    "inputs": ["gregory", "buddhist", "japanese"]
+  }
+]

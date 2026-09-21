@@ -46,6 +46,8 @@ headers:
         "uloc_forLanguageTag_78",
         "uloc_toLanguageTag_78",
         "uloc_canonicalForm_78",
+        "uloc_canonicalize_78",
+        "uloc_getParent_78",
         "uloc_countAvailable_78",
         "uloc_getAvailable_78",
       ]
@@ -62,7 +64,15 @@ headers:
         "uldn_keyValueDisplayName_78",
       ]
   ures.h:
-    include: ["ures_open_78", "ures_close_78", "ures_getByKey_78", "ures_getUTF8String_78"]
+    include:
+      [
+        "ures_open_78",
+        "ures_openDirect_78",
+        "ures_close_78",
+        "ures_getByKey_78",
+        "ures_getByKeyWithFallback_78",
+        "ures_getUTF8String_78",
+      ]
 
 symbols:
   # UBreakIterator* ubrk_open(UBreakIteratorType, const char *locale,
@@ -195,6 +205,25 @@ symbols:
     ret: Int
     descriptor: "i32"
 
+  # int32_t uloc_canonicalize(const char *localeID, char *name, int32_t
+  #   cap, UErrorCode *status). Unlike canonicalForm this consults the CLDR
+  #   alias table — deprecated codes fold to their replacements
+  #   ("iw" → "he", "cmn" → "zh"), matching ECMA-402's CanonicalizeLocaleList.
+  uloc_canonicalize_78:
+    args: ["cstr", "out_ptr:128", "i32", "io_scalar:i32"]
+    names: ["locale_id", "capacity", "status"]
+    ret: Int
+    descriptor: "i32"
+
+  # int32_t uloc_getParent(const char *localeID, char *parent, int32_t
+  #   cap, UErrorCode *status) — truncates the rightmost subtag
+  #   ("de-CH" → "de" → "").
+  uloc_getParent_78:
+    args: ["cstr", "out_ptr:128", "i32", "io_scalar:i32"]
+    names: ["locale_id", "capacity", "status"]
+    ret: Int
+    descriptor: "i32"
+
   # int32_t uloc_countAvailable(void)
   uloc_countAvailable_78:
     args: []
@@ -225,31 +254,31 @@ symbols:
   # int32_t uldn_*DisplayName(ldn, const char *code, UChar*, int32_t,
   #   UErrorCode*)
   uldn_localeDisplayName_78:
-    args: ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"]
+    args: ["handle", "cstr", "out_ptr:512", "i32", "io_scalar:i32"]
     names: ["ldn", "locale", "capacity", "status"]
     ret: Int
     descriptor: "i32"
 
   uldn_languageDisplayName_78:
-    args: ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"]
+    args: ["handle", "cstr", "out_ptr:512", "i32", "io_scalar:i32"]
     names: ["ldn", "lang", "capacity", "status"]
     ret: Int
     descriptor: "i32"
 
   uldn_scriptDisplayName_78:
-    args: ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"]
+    args: ["handle", "cstr", "out_ptr:512", "i32", "io_scalar:i32"]
     names: ["ldn", "script", "capacity", "status"]
     ret: Int
     descriptor: "i32"
 
   uldn_regionDisplayName_78:
-    args: ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"]
+    args: ["handle", "cstr", "out_ptr:512", "i32", "io_scalar:i32"]
     names: ["ldn", "region", "capacity", "status"]
     ret: Int
     descriptor: "i32"
 
   uldn_keyDisplayName_78:
-    args: ["handle", "cstr", "out_ptr:256", "i32", "io_scalar:i32"]
+    args: ["handle", "cstr", "out_ptr:512", "i32", "io_scalar:i32"]
     names: ["ldn", "key", "capacity", "status"]
     ret: Int
     descriptor: "i32"
@@ -257,7 +286,7 @@ symbols:
   # int32_t uldn_keyValueDisplayName(ldn, const char *key,
   #   const char *value, UChar*, int32_t, UErrorCode*)
   uldn_keyValueDisplayName_78:
-    args: ["handle", "cstr", "cstr", "out_ptr:256", "i32", "io_scalar:i32"]
+    args: ["handle", "cstr", "cstr", "out_ptr:512", "i32", "io_scalar:i32"]
     names: ["ldn", "key", "value", "capacity", "status"]
     ret: Int
     descriptor: "i32"
@@ -279,6 +308,27 @@ symbols:
   # UResourceBundle* ures_getByKey(parent, const char *key,
   #   UResourceBundle *fillIn, UErrorCode *status). `fill_in` = 0.
   ures_getByKey_78:
+    args: ["handle", "cstr", "ptr", "io_scalar:i32"]
+    names: ["res", "key", "fill_in", "status"]
+    ret: Int
+    descriptor: "handle"
+
+  # UResourceBundle* ures_openDirect(const char *packageName, const char
+  #   *locale, UErrorCode *status). Like ures_open but `locale` names a
+  #   resource in the package directly — no locale fallback chain — used
+  #   for locale-invariant data (supplementalMetadata alias tables).
+  ures_openDirect_78:
+    args: ["ptr", "cstr", "io_scalar:i32"]
+    names: ["package", "locale", "status"]
+    ret: Int
+    descriptor: "handle"
+
+  # UResourceBundle* ures_getByKeyWithFallback(parent, const char *key,
+  #   UResourceBundle *fillIn, UErrorCode *status). Like ures_getByKey but
+  #   missing keys fall back through the parent chain — trimmed locales
+  #   (e.g. de's listPattern tables, which only carry `2`/`end`) resolve
+  #   start/middle from the root bundle.
+  ures_getByKeyWithFallback_78:
     args: ["handle", "cstr", "ptr", "io_scalar:i32"]
     names: ["res", "key", "fill_in", "status"]
     ret: Int

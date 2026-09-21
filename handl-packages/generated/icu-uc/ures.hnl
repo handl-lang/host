@@ -37,6 +37,29 @@ export UresOpen78Result := {
 --- ffi:
 export UresOpen78: (Int, String, Int) ~[1]~> Result<UresOpen78Result, Errno>
 
+--- This function does not care what kind of localeID is passed in. It simply opens a bundle with
+--- that name. Fallback mechanism is disabled for the new bundle. If the requested bundle contains
+--- an %%ALIAS directive, the results are undefined.
+--- packageName: The packageName and locale together point to an ICU udata object,
+--- as defined by <code> udata_open( packageName, "res", locale, err) </code>
+--- or equivalent.  Typically, packageName will refer to a (.dat) file, or to
+--- a package registered with udata_setAppData(). Using a full file or directory
+--- pathname for packageName is deprecated. If NULL, ICU data will be used.
+--- locale: specifies the locale for which we want to open the resource
+--- if NULL, the default locale will be used. If strlen(locale) == 0
+--- root locale will be used.
+--- status: fills in the outgoing error code. Either U_ZERO_ERROR or U_MISSING_RESOURCE_ERROR
+--- Returns: a newly allocated resource bundle or NULL if it doesn't exist.
+--- See: ures_close
+--- @stable ICU 2.0
+export UresOpenDirect78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export UresOpenDirect78: (Int, String, Int) ~[1]~> Result<UresOpenDirect78Result, Errno>
+
 --- Close a resource bundle, all pointers returned from the various ures_getXXX calls
 --- on this particular bundle should be considered invalid henceforth.
 --- resourceBundle: a pointer to a resourceBundle struct. Can be NULL.

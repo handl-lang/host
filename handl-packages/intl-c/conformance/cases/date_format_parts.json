@@ -1,0 +1,38 @@
+[
+  {
+    "id": "en-medium",
+    "locale": "en",
+    "options": { "dateStyle": "medium" },
+    "inputs": [1715126400000]
+  },
+  {
+    "id": "en-full",
+    "locale": "en",
+    "options": { "dateStyle": "full" },
+    "inputs": [1715126400000]
+  },
+  {
+    "id": "en-time-medium",
+    "locale": "en",
+    "options": { "timeStyle": "medium" },
+    "inputs": [1715177345000]
+  },
+  {
+    "id": "en-date-time",
+    "locale": "en",
+    "options": { "dateStyle": "medium", "timeStyle": "short" },
+    "inputs": [1715177345000]
+  },
+  {
+    "id": "de-medium",
+    "locale": "de",
+    "options": { "dateStyle": "medium" },
+    "inputs": [1715126400000]
+  },
+  {
+    "id": "ja-medium",
+    "locale": "ja",
+    "options": { "dateStyle": "medium" },
+    "inputs": [1715126400000]
+  }
+]

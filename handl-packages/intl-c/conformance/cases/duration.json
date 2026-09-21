@@ -1,0 +1,56 @@
+[
+  {
+    "id": "en-short",
+    "locale": "en",
+    "options": { "style": "short" },
+    "inputs": [
+      { "hours": 1, "minutes": 46, "seconds": 40 },
+      { "days": 2, "hours": 4 }
+    ]
+  },
+  {
+    "id": "en-long",
+    "locale": "en",
+    "options": { "style": "long" },
+    "inputs": [{ "days": 2, "hours": 4 }, { "minutes": 5 }]
+  },
+  {
+    "id": "en-narrow",
+    "locale": "en",
+    "options": { "style": "narrow" },
+    "inputs": [{ "days": 1, "hours": 2 }]
+  },
+  {
+    "id": "en-default",
+    "locale": "en",
+    "options": {},
+    "inputs": [{ "hours": 1, "minutes": 46, "seconds": 40 }]
+  },
+  {
+    "id": "en-digital",
+    "locale": "en",
+    "options": { "style": "digital" },
+    "inputs": [
+      { "hours": 1, "minutes": 2, "seconds": 5 },
+      { "minutes": 12, "seconds": 0 }
+    ]
+  },
+  {
+    "id": "en-digital-frac",
+    "locale": "en",
+    "options": { "style": "digital", "fractionalDigits": 3 },
+    "inputs": [{ "seconds": 5, "milliseconds": 25 }]
+  },
+  {
+    "id": "de-short",
+    "locale": "de",
+    "options": { "style": "short" },
+    "inputs": [{ "days": 2, "hours": 4 }]
+  },
+  {
+    "id": "en-negative",
+    "locale": "en",
+    "options": { "style": "short" },
+    "inputs": [{ "hours": -2, "minutes": -30 }]
+  }
+]
