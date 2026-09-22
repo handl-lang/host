@@ -36,7 +36,17 @@ pub fn module_export_names(src: &str) -> Vec<String> {
     let src = strip_comment_lines(src);
     let op_names = collect_op_decl_names(&src);
     let src = strip_declaration_lines(&src);
-    let mut names = Vec::new();
+    // `exported` collects names from `export` declarations (including
+    // re-exports and `op` decls); `all` collects every top-level bound
+    // name. A module with no `export` declarations exports every
+    // top-level binding (see `transform_export_to_object`).
+    let mut exported: Vec<String> = Vec::new();
+    let mut all: Vec<String> = Vec::new();
+    let push_all = |all: &mut Vec<String>, name: String| {
+        if !all.iter().any(|n| *n == name) {
+            all.push(name);
+        }
+    };
     for line in src.lines() {
         let trimmed = line.trim_start();
         if is_top_import_line(line) {
@@ -45,31 +55,58 @@ pub fn module_export_names(src: &str) -> Vec<String> {
             // qualified name `"mod.a"`. Either way the declared names are
             // module exports.
             if let Some((_, reexports)) = from_export_to_import(line) {
-                names.extend(reexports.into_iter().map(|(name, _)| name));
+                exported.extend(reexports.iter().map(|(name, _)| name.clone()));
+                for (name, _) in reexports {
+                    push_all(&mut all, name);
+                }
             } else {
-                names.extend(
-                    host_import_bindings(line)
-                        .into_iter()
-                        .filter(|(_, _, exported)| *exported)
-                        .map(|(local, _, _)| local),
-                );
+                for (local, _, exp) in host_import_bindings(line) {
+                    if exp {
+                        exported.push(local.clone());
+                    }
+                    push_all(&mut all, local);
+                }
+                for local in import_bound_locals(line) {
+                    push_all(&mut all, local);
+                }
             }
             continue;
         }
-        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
-            let rest = &trimmed["export ".len()..];
-            if let Some((sep_pos, _)) = find_binding_sep(rest) {
-                names.push(strip_export_name(&rest[..sep_pos]));
+        if !line.starts_with(' ') && !line.starts_with('\t') {
+            if trimmed.starts_with("export ") {
+                let rest = &trimmed["export ".len()..];
+                if let Some((sep_pos, _)) = find_binding_sep(rest) {
+                    let name = strip_export_name(&rest[..sep_pos]);
+                    exported.push(name.clone());
+                    push_all(&mut all, name);
+                }
+            } else if let Some((sep_pos, _)) = find_binding_sep(trimmed) {
+                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                if is_valid_ident(&name) {
+                    push_all(&mut all, name);
+                }
             }
         }
     }
     for qualified in op_names {
         let local = qualified.rsplit('.').next().unwrap_or(&qualified);
-        if !local.is_empty() && is_valid_ident(local) && !names.iter().any(|n| n == local) {
-            names.push(local.to_string());
+        if !local.is_empty() && is_valid_ident(local) && !exported.iter().any(|n| n == local) {
+            exported.push(local.to_string());
+            push_all(&mut all, local.to_string());
         }
     }
-    names
+    if exported.is_empty() {
+        // A no-exports module whose last statement is a `do { … }` or
+        // record literal produces that value as the module record — merge
+        // its field keys so the seed covers them (extra seeds are
+        // harmless; missing ones break `hnl run`'s splice pre-check).
+        for key in trailing_record_keys(&src) {
+            push_all(&mut all, key);
+        }
+        all
+    } else {
+        exported
+    }
 }
 
 /// Collect the qualified names from `op "<name>" : ...` declaration lines
@@ -148,6 +185,15 @@ fn transform_export_to_object(
     // reference siblings — exported or not. The object literal then
     // projects the exported names (`{ name: name }`).
     let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
+    // Names bound by file-resolving `from "f" import a, b as c` /
+    // `import n from "f"` statements — bound at eval time by the import
+    // itself, so they join the no-exports record projection without a
+    // prelude line.
+    let mut import_bound: Vec<String> = Vec::new();
+    // Whether the module's last top-level statement is a binding. When it
+    // is not (e.g. a trailing `do { … }` or record literal) the body's own
+    // value is the module record and no name projection is appended.
+    let mut tail_is_binding = true;
     let mut current: Option<(String, Vec<String>, bool)> = None;
 
     // Finalize `current` into the ordered binding list.
@@ -170,6 +216,19 @@ fn transform_export_to_object(
                 if let Some((_, names)) = from_export_to_import(line) {
                     for (name, alias) in names {
                         bindings.push((name, vec![alias], true));
+                    }
+                } else {
+                    // `from "f" import a, b as c` binds locals in the
+                    // module's scope; a module with no `export` decls
+                    // exports every bound name, so collect them for the
+                    // record projection (they need no prelude line — the
+                    // import statement itself binds them).
+                    for local in import_bound_locals(line) {
+                        if is_valid_ident(&local)
+                            && !bindings.iter().any(|(n, _, _)| *n == local)
+                        {
+                            import_bound.push(local);
+                        }
                     }
                 }
             } else {
@@ -202,6 +261,7 @@ fn transform_export_to_object(
                     expr_lines.push(expr_start.to_string());
                 }
                 current = Some((name, expr_lines, true));
+                tail_is_binding = true;
             }
             continue;
         } else if !line.starts_with(' ') && !line.starts_with('\t') {
@@ -224,8 +284,16 @@ fn transform_export_to_object(
                         expr_lines.push(expr_start.to_string());
                     }
                     current = Some((name, expr_lines, false));
+                    tail_is_binding = true;
                     continue;
                 }
+            }
+            // A non-binding column-0 line that does not continue an
+            // in-flight binding means the module's last statement is a
+            // bare expression (`do { … }`, record literal, call) — its
+            // value is the module record, so no projection is appended.
+            if current.is_none() && !trimmed.is_empty() {
+                tail_is_binding = false;
             }
         }
         if let Some((_, lines, _)) = &mut current {
@@ -260,13 +328,57 @@ fn transform_export_to_object(
 
     let imports = collect_executable_import_lines(src, is_file_spec);
 
-    // If there are no exports at all, preserve the original script/test
-    // behavior: private bindings stay verbatim, decorative import
-    // declarations are dropped — but executable path imports
-    // (`import "f.hnl"`, `from "./f" import …`) are kept so nested imports
-    // still run (ADR-0096).
+    // No `export` declarations: the module record is *every* top-level
+    // bound name. The Pratt parser reads one statement per `parse` call,
+    // so the body must be a single `do { … }` — executable path imports
+    // (`import "f.hnl"`, `from "./f" import …`) hoisted first so their
+    // names scope over the body, the verbatim statements next (private
+    // bindings stay `x :: …`/`x := …`; host-module declarations lower to
+    // `name := "spec.name"` string bindings), then the record projecting
+    // every bound name.
     if !has_exports {
-        return drop_non_file_import_lines(src, is_file_spec);
+        let body = drop_all_import_lines(src, is_file_spec);
+        // The projection is appended only when the module's last top-level
+        // statement is a binding; a trailing `do { … }`/record literal is
+        // already the module's interface value.
+        let record = if tail_is_binding {
+            let mut seen = std::collections::HashSet::new();
+            let mut fields: Vec<String> = Vec::new();
+            let mut push_field = |name: &str, expr_lines: &[String]| {
+                if !seen.insert(name.to_string()) {
+                    return;
+                }
+                if is_bindable(name) {
+                    fields.push(format!("{name}: {name}"));
+                } else {
+                    fields.push(format!("\"{name}\": {}", expr_lines.join("\n").trim()));
+                }
+            };
+            for (name, expr_lines, _) in &bindings {
+                push_field(name, expr_lines);
+            }
+            for name in &import_bound {
+                if is_bindable(name) {
+                    push_field(name, &[]);
+                }
+            }
+            fields.join(", ")
+        } else {
+            String::new()
+        };
+        let mut out = String::from("do {\n");
+        for imp in &imports {
+            out.push_str(imp);
+            out.push('\n');
+        }
+        out.push_str(&body);
+        if !record.is_empty() {
+            out.push_str("\n{ ");
+            out.push_str(&record);
+            out.push_str(" }");
+        }
+        out.push_str("\n}");
+        return out;
     }
 
     // Build the body: every binding as a do-block assignment in source
@@ -508,17 +620,134 @@ fn collect_executable_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> boo
         .collect()
 }
 
-/// Drop top-level import declarations that do not resolve to a file.
-/// Executable path imports are kept so they still run at eval time;
+/// Split `s` at commas at bracket depth zero (strings respected).
+fn split_top_commas(s: &str) -> Vec<&str> {
+    let bytes = s.as_bytes();
+    let mut items = Vec::new();
+    let mut depth = 0i32;
+    let mut in_str: Option<u8> = None;
+    let mut start = 0usize;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+        } else {
+            match c {
+                b'"' | b'\'' => in_str = Some(c),
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b',' if depth == 0 => {
+                    items.push(&s[start..i]);
+                    start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    items.push(&s[start..]);
+    items
+}
+
+/// The field key of a `name : value` record entry — an identifier
+/// followed by a depth-zero `:` that is not `::`. `None` when the item
+/// is not a keyed field (a binding, an expression, a type annotation).
+fn record_field_key(item: &str) -> Option<String> {
+    let item = item.trim();
+    let bytes = item.as_bytes();
+    let mut depth = 0i32;
+    let mut in_str: Option<u8> = None;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+        } else {
+            match c {
+                b'"' | b'\'' => in_str = Some(c),
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b':' if depth == 0 => {
+                    if bytes.get(i + 1) == Some(&b':') {
+                        return None;
+                    }
+                    let key = item[..i].trim();
+                    return is_valid_ident(key).then(|| key.to_string());
+                }
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Field names of the last record literal in `text` — the value a
+/// trailing `do { … }` or bare `{ … }` produces. Walks the final
+/// balanced `{…}` group; when its depth-one entries are all `name : …`
+/// fields the keys are returned, otherwise the search recurses into the
+/// group's interior (the record may be the last expression inside a
+/// `do` block). Best-effort static extraction for name seeding.
+fn trailing_record_keys(text: &str) -> Vec<String> {
+    let mut text = text.trim_end();
+    loop {
+        if !text.ends_with('}') {
+            return Vec::new();
+        }
+        let bytes = text.as_bytes();
+        let mut depth = 0i32;
+        let mut open = None;
+        for i in (0..bytes.len()).rev() {
+            match bytes[i] {
+                b'}' => depth += 1,
+                b'{' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        open = Some(i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let Some(open) = open else { return Vec::new() };
+        let inner = text[open + 1..bytes.len() - 1].trim_end();
+        let items: Vec<&str> = split_top_commas(inner)
+            .into_iter()
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .collect();
+        if !items.is_empty() && items.iter().all(|item| record_field_key(item).is_some()) {
+            return items
+                .iter()
+                .filter_map(|item| record_field_key(item))
+                .collect();
+        }
+        text = inner;
+    }
+}
+
+/// Drop every top-level import line: file-resolving imports are hoisted
+/// into `imports` separately (see `collect_executable_import_lines`);
 /// host-module named imports lower to `name := "spec.name"` string
 /// bindings so bare names dispatch through the module chain.
-fn drop_non_file_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> String {
+fn drop_all_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> String {
     src.lines()
         .flat_map(|line| {
-            if !is_top_import_line(line)
-                || import_line_spec(line).map_or(false, |s| is_file_spec(&s))
-            {
+            if !is_top_import_line(line) {
                 return vec![line.to_string()];
+            }
+            if import_line_spec(line).map_or(false, |s| is_file_spec(&s)) {
+                return Vec::new();
             }
             host_import_bindings(line)
                 .into_iter()
@@ -528,6 +757,64 @@ fn drop_non_file_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) ->
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Local names bound by a file-resolving import statement:
+/// `from "<spec>" import a, b as c` → `[a, c]`, `* as m` → `[m]`,
+/// `import <name> [from "<spec>"]` → `[name]`. Bare splices
+/// (`import "<spec>"`, `from "<spec>" import *`) bind names that are not
+/// statically enumerable — they are skipped.
+fn import_bound_locals(line: &str) -> Vec<String> {
+    let trimmed = line.trim_start();
+    if let Some((_, rest)) =
+        extract_quoted_path(trimmed).filter(|_| trimmed.starts_with("from"))
+    {
+        let rest = rest.trim_start();
+        let Some(tail) = rest.strip_prefix("import") else {
+            return Vec::new();
+        };
+        if !tail.is_empty() && !tail.starts_with(' ') && !tail.starts_with('\t') {
+            return Vec::new();
+        }
+        let tail = tail.trim_start();
+        let inner = tail
+            .strip_prefix('{')
+            .and_then(|t| t.strip_suffix('}'))
+            .unwrap_or(tail);
+        return inner
+            .split(',')
+            .filter_map(|item| {
+                let item = item.trim();
+                if item.is_empty() {
+                    return None;
+                }
+                match item.split_once(" as ") {
+                    Some((_, alias)) => {
+                        let alias = alias.trim();
+                        (!alias.is_empty()).then(|| alias.to_string())
+                    }
+                    None => (item != "*").then(|| item.to_string()),
+                }
+            })
+            .collect();
+    }
+    if let Some(rest) = trimmed.strip_prefix("import") {
+        let rest = rest.trim_start();
+        if rest.starts_with('"') || rest.starts_with('\'') {
+            return Vec::new();
+        }
+        // `import <name>` or `import <name> from "<spec>"`.
+        let name = rest
+            .split_once("from")
+            .map(|(n, _)| n.trim())
+            .unwrap_or_else(|| rest.trim());
+        return if is_valid_ident(name) {
+            vec![name.to_string()]
+        } else {
+            Vec::new()
+        };
+    }
+    Vec::new()
 }
 
 /// Extract the quoted specifier from `import "<spec>"` or

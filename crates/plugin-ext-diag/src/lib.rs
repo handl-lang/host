@@ -379,7 +379,7 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
 
         // Statement separators at depth zero.
         if depth == 0 && (b == b'\n' || b == b';') {
-            if b == b';' || is_newline_boundary(bytes, last_sig, i) {
+            if b == b';' || is_newline_boundary(src, start, last_sig, i) {
                 push_chunk(src, &mut chunks, start, i);
                 i += 1;
                 start = i;
@@ -399,16 +399,23 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
     chunks
 }
 
-/// Is the `\n` at `bytes[i]` a real statement boundary? False when the
+/// Is the `\n` at byte `i` a real statement boundary? False when the
 /// pending statement is mid-expression (ends on an operator char) or the
 /// next line cannot begin a statement.
-fn is_newline_boundary(bytes: &[u8], last_sig: Option<u8>, i: usize) -> bool {
+fn is_newline_boundary(src: &str, start: usize, last_sig: Option<u8>, i: usize) -> bool {
+    let bytes = src.as_bytes();
     // No Handl statement ends with an operator or punctuation char —
     // postfix forms end in an identifier or a closer.
     const CANNOT_END: &[u8] = b"=,:;+-*/%<>!?&|~.@";
     if let Some(b) = last_sig {
         if CANNOT_END.contains(&b) {
-            return false;
+            // `from "<spec>" import *` / `import *` legitimately END in
+            // `*` — the star is the splice marker, not a pending binary
+            // operator. Without this the following statement merges into
+            // the import's trailing tokens.
+            if !(b == b'*' && is_import_chunk(&src[start..i])) {
+                return false;
+            }
         }
     }
     // Scan forward past whitespace and `--` comments to the next code byte.
@@ -431,6 +438,21 @@ fn is_newline_boundary(bytes: &[u8], last_sig: Option<u8>, i: usize) -> bool {
         Some(b) => !b"=,)]}.:;|&<>~*/%?".contains(b),
         None => true,
     }
+}
+
+/// Does `chunk` start a `from`/`import` declaration? Used to exempt the
+/// splice marker `import *` from the trailing-operator heuristic — a
+/// `*` ending an import statement is complete, not mid-expression.
+fn is_import_chunk(chunk: &str) -> bool {
+    let t = chunk.trim_start();
+    for kw in ["from", "import"] {
+        if let Some(rest) = t.strip_prefix(kw) {
+            if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Push a trimmed chunk from `src[start..end]` if it is non-empty and not a
@@ -797,6 +819,24 @@ mod tests {
         // `;` splits even mid-expression-adjacent shapes.
         let chunks = split_statements("x := 1; y := 2");
         assert_eq!(chunks.len(), 2);
+    }
+
+    #[test]
+    fn split_statements_import_star_splits_at_newline() {
+        // `from "spec" import *` ends in `*` — the splice marker, not a
+        // pending binary operator; the next line is a new statement.
+        let chunks =
+            split_statements("from \"pkg\" import *\nout := f(1)\nout");
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].text, "from \"pkg\" import *");
+        assert_eq!(chunks[1].text, "out := f(1)");
+        // A bare `import *` likewise.
+        let chunks = split_statements("import *\nx");
+        assert_eq!(chunks.len(), 2);
+        // But `a *\n b` in a non-import statement still merges.
+        let chunks = split_statements("x := a *\n  b\ny := 1");
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].text, "x := a *\n  b");
     }
 
     #[test]

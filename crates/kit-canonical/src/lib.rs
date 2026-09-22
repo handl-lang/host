@@ -1758,6 +1758,11 @@ pub struct Kit {
     /// A lazily-initialized Handl-authored typecheck engine, reused across
     /// `typecheck_handl` calls so the model is loaded once per `Kit`.
     handl_typecheck_engine: RefCell<Option<HandlTypecheckEngine>>,
+    /// A lazily-initialized model-enabled typecheck engine for
+    /// [`typecheck_handl_model`](Self::typecheck_handl_model) — separate
+    /// from the bootstrap-default engine so `hnl typecheck`/`hnl run`
+    /// keep the fast path.
+    handl_typecheck_model_engine: RefCell<Option<HandlTypecheckEngine>>,
     /// The `.hnl`-backed modules registered in the kit, tracked so a host
     /// can build [`HandlNativeLint`]/[`HandlNativeRewrite`] adapters from
     /// them (ADR-0097 / ADR-0094).
@@ -2162,6 +2167,7 @@ impl Kit {
             runtime,
             module_root,
             handl_typecheck_engine: RefCell::new(None),
+            handl_typecheck_model_engine: RefCell::new(None),
             handl_modules,
         })
     }
@@ -2377,7 +2383,17 @@ impl Kit {
     /// [`LangError::NotImplemented`] if the `"handl"` engine is not
     /// registered or the model failed to load.
     pub fn typecheck_handl(&self, input: &str) -> Result<Value, LangError> {
-        self.typecheck_handl_with_prelude(input, &std::collections::HashSet::new())
+        self.typecheck_handl_inner(input, &std::collections::HashSet::new(), false)
+    }
+
+    /// Like [`typecheck_handl`](Self::typecheck_handl) but forces the
+    /// interpreted `.hnl` typecheck model instead of deferring to the
+    /// Rust bootstrap checker. The model costs seconds even on tiny
+    /// ASTs — tests exercising ADR-0103 model semantics (ordered value
+    /// annotations, family membership) use this; `hnl typecheck` and
+    /// `hnl run` keep the bootstrap path.
+    pub fn typecheck_handl_model(&self, input: &str) -> Result<Value, LangError> {
+        self.typecheck_handl_inner(input, &std::collections::HashSet::new(), true)
     }
 
     /// Like [`typecheck_handl`](Self::typecheck_handl), but `extra_prelude`
@@ -2389,6 +2405,15 @@ impl Kit {
         &self,
         input: &str,
         extra_prelude: &std::collections::HashSet<String>,
+    ) -> Result<Value, LangError> {
+        self.typecheck_handl_inner(input, extra_prelude, false)
+    }
+
+    fn typecheck_handl_inner(
+        &self,
+        input: &str,
+        extra_prelude: &std::collections::HashSet<String>,
+        model: bool,
     ) -> Result<Value, LangError> {
         let mut prelude = canonical_wire_names();
         prelude.extend(extra_prelude.iter().cloned());
@@ -2413,8 +2438,13 @@ impl Kit {
         // Lazily initialize and reuse a single HandlTypecheckEngine so the
         // model is loaded once per Kit and the canonical Language is
         // marshaled at most once per engine (ADR-0105).
+        let cell = if model {
+            &self.handl_typecheck_model_engine
+        } else {
+            &self.handl_typecheck_engine
+        };
         {
-            let mut cell = self.handl_typecheck_engine.borrow_mut();
+            let mut cell = cell.borrow_mut();
             if cell.is_none() {
                 *cell = Some(
                     HandlTypecheckEngine::new(Box::new(
@@ -2423,12 +2453,12 @@ impl Kit {
                     .with_prelude(prelude.iter().cloned().collect())
                     // The interpreted .hnl model costs minutes even on
                     // trivial ASTs — the CLI gate takes the Rust bootstrap
-                    // checker instead. Re-enable for model work.
-                    .with_model_enabled(false),
+                    // checker instead; `typecheck_handl_model` opts in.
+                    .with_model_enabled(model),
                 );
             }
         }
-        let engine = self.handl_typecheck_engine.borrow();
+        let engine = cell.borrow();
         let engine = engine
             .as_ref()
             .ok_or_else(|| LangError::engine("handl engine missing"))?;

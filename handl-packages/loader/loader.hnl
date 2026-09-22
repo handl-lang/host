@@ -426,6 +426,68 @@ do {
     }
   }
 
+  -- ---------------------------------------------------------------------
+  -- import_bound_locals -- local names an import statement binds:
+  -- `from "p" import a, b as c` -> `[a, c]`, `* as m` -> `[m]`,
+  -- `import <name> [from "p"]` -> `[name]`.  Bare splices
+  -- (`import "p"`, `from "p" import *`) bind names that are not
+  -- statically enumerable — skipped.  Mirrors
+  -- `handl_runtime::module_prep::import_bound_locals`.
+  -- ---------------------------------------------------------------------
+
+  import_bound_locals :: line ~> do {
+    t :: trim_start(line)
+    if str.starts_with(t, "from") {
+      ep :: extract_quoted_path(t)
+      if ep == null { [] } else {
+        rest :: trim_start(ep.rest)
+        if !str.starts_with(rest, "import") { [] } else {
+          tail0 :: sdrop(rest, 6)
+          c0 :: if slen(tail0) == 0 { "" } else { atc(tail0, 0) }
+          if slen(tail0) > 0 && c0 != " " && c0 != tab { [] } else {
+            tail1 :: trim_start(tail0)
+            inner :: if str.starts_with(tail1, "{") && slen(tail1) > 1 && atc(tail1, slen(tail1) - 1) == "}" {
+              sdrop(stake(tail1, slen(tail1) - 1), 1)
+            } else {
+              tail1
+            }
+            while { xs: str.split(inner, ","), acc: [] } {
+              [xs, acc] ~> match xs {
+                []: { out: rev(acc) },
+                [h, ...t]: do {
+                  item :: trim(h)
+                  if slen(item) == 0 {
+                    { state: { xs: t, acc: acc } }
+                  } else {
+                    idx :: str.find(item, " as ")
+                    local :: if idx < 0 { item } else { trim(sdrop(item, idx + 4)) }
+                    if slen(local) == 0 || (idx < 0 && item == "*") {
+                      { state: { xs: t, acc: acc } }
+                    } else {
+                      { state: { xs: t, acc: [local, ...acc] } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      if str.starts_with(t, "import") {
+        rest :: trim_start(sdrop(t, 6))
+        q0 :: if slen(rest) == 0 { "" } else { atc(rest, 0) }
+        if q0 == dq || q0 == sq { [] } else {
+          idx :: str.find(rest, "from")
+          name :: if idx < 0 { trim(rest) } else { trim(stake(rest, idx)) }
+          if is_valid_ident(name) { [name] } else { [] }
+        }
+      } else {
+        []
+      }
+    }
+  }
+
   -- Scan lines, collecting `{name, expr}` entries.  `cur` is null or the
   -- current `{name, lines}` record under construction (lines reversed);
   -- `cur_priv` marks it as a private (non-exported) top-level binding.
@@ -445,14 +507,15 @@ do {
       null: coll,
       c: [{ name: c.name, expr: str.join(rev(c.lines), nl) }, ...coll]
     }
-    scan :: while { xs: str.lines(s), entries: [], priv: [], cur: null, cur_priv: false } {
-      [xs, entries, priv, cur, cur_priv] ~> match xs {
+    scan :: while { xs: str.lines(s), entries: [], priv: [], cur: null, cur_priv: false, tail: true } {
+      [xs, entries, priv, cur, cur_priv, tail] ~> match xs {
         []: { out: { entries: if cur_priv { entries } else { fin(entries, cur) },
-                     priv: if cur_priv { fin(priv, cur) } else { priv } } },
+                     priv: if cur_priv { fin(priv, cur) } else { priv },
+                     tail: tail } },
         [h, ...t]: if is_top_import_line(h) {
           fe :: from_export_to_import(h)
           if fe == null {
-            { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv } }
+            { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv, tail: tail } }
           } else {
             entries2 :: if cur_priv { entries } else { fin(entries, cur) }
             priv2 :: if cur_priv { fin(priv, cur) } else { priv }
@@ -462,7 +525,7 @@ do {
                 [p, ...pt]: { state: { ys: pt, acc: [{ name: p.name, expr: p.alias }, ...acc] } }
               }
             }
-            { state: { xs: t, entries: entries3, priv: priv2, cur: null, cur_priv: false } }
+            { state: { xs: t, entries: entries3, priv: priv2, cur: null, cur_priv: false, tail: tail } }
           }
         } else {
           if is_export_line(h) {
@@ -471,14 +534,14 @@ do {
             entries2 :: if cur_priv { entries } else { fin(entries, cur) }
             priv2 :: if cur_priv { fin(priv, cur) } else { priv }
             if sep == null {
-              { state: { xs: t, entries: entries2, priv: priv2, cur: null, cur_priv: false } }
+              { state: { xs: t, entries: entries2, priv: priv2, cur: null, cur_priv: false, tail: tail } }
             } else {
               type_only :: sep.len == 1 && atc(rest, sep.pos) == ":"
               expr0 :: if type_only { "null" } else { trim(sdrop(rest, sep.pos + sep.len)) }
               { state: { xs: t, entries: entries2, priv: priv2,
                          cur: { name: trim(strip_export_name(stake(rest, sep.pos))),
                                 lines: if slen(expr0) == 0 { [] } else { [expr0] } },
-                         cur_priv: false } }
+                         cur_priv: false, tail: true } }
             }
           } else {
             -- Column-0 line that is not an import or `export`: detect a
@@ -496,15 +559,20 @@ do {
               { state: { xs: t, entries: entries2, priv: priv2,
                          cur: { name: nm,
                                 lines: if slen(expr0) == 0 { [] } else { [expr0] } },
-                         cur_priv: true } }
+                         cur_priv: true, tail: true } }
             } else {
+              -- A non-binding column-0 line that does not continue an
+              -- in-flight binding means the module's last statement is a
+              -- bare expression (`do { … }`, record literal, call) — its
+              -- value is the module record, so no projection is appended.
               match cur {
-                null: { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv } },
+                null: { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv,
+                                 tail: if indented(h) || blank(h) { tail } else { false } } },
                 c: if blank(h) {
-                  { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv } }
+                  { state: { xs: t, entries: entries, priv: priv, cur: cur, cur_priv: cur_priv, tail: tail } }
                 } else {
                   { state: { xs: t, entries: entries, priv: priv,
-                             cur: { name: c.name, lines: [h, ...c.lines] }, cur_priv: cur_priv } }
+                             cur: { name: c.name, lines: [h, ...c.lines] }, cur_priv: cur_priv, tail: tail } }
                 }
               }
             }
@@ -522,10 +590,77 @@ do {
         [h, ...t]: { state: { xs: t, acc: acc + h.name + " := " + trim(h.expr) + ";" + nl } }
       }
     }
-    if list_len(imports) == 0 {
-      if list_len(entries) == 0 {
+    if list_len(entries) == 0 {
+      -- No `export` declarations: the module record is *every* top-level
+      -- bound name — private bindings plus the locals each hoisted
+      -- import statement binds. The body is wrapped in `do { … }`
+      -- (imports first, verbatim statements next, the record last) so
+      -- the whole module evaluates as one expression under the
+      -- single-statement parser — mirrors
+      -- `bootstrap::transform_export_to_object` and
+      -- `handl_runtime::module_prep`.
+      if list_len(imports) == 0 && list_len(privs) == 0 {
         s
-      } else if list_len(privs) == 0 {
+      } else {
+        -- The projection is appended only when the module's last top-level
+        -- statement is a binding; a trailing `do { … }`/record literal is
+        -- already the module's interface value.
+        fields :: if !scan.tail { "" } else do {
+          bound :: while { xs: str.lines(s), acc: [] } {
+            [xs, acc] ~> match xs {
+              []: { out: rev(acc) },
+              [h, ...t]: if is_top_import_line(h) {
+                ls :: import_bound_locals(h)
+                acc2 :: while { ys: ls, a2: acc } {
+                  [ys, a2] ~> match ys {
+                    []: { out: a2 },
+                    [lh, ...lt]: { state: { ys: lt, a2: [lh, ...a2] } }
+                  }
+                }
+                { state: { xs: t, acc: acc2 } }
+              } else {
+                { state: { xs: t, acc: acc } }
+              }
+            }
+          }
+          ordered :: do {
+            a1 :: while { xs: privs, acc: [] } {
+              [xs, acc] ~> match xs {
+                []: { out: acc },
+                [h, ...t]: { state: { xs: t, acc: [h.name, ...acc] } }
+              }
+            }
+            a2 :: while { xs: bound, acc: a1 } {
+              [xs, acc] ~> match xs {
+                []: { out: acc },
+                [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+              }
+            }
+            rev(a2)
+          }
+          fscan :: while { xs: ordered, acc: [], seen: [] } {
+            [xs, acc, seen] ~> match xs {
+              []: { out: rev(acc) },
+              [h, ...t]: if is_valid_ident(h) && !member(h, seen) {
+                { state: { xs: t, acc: [h + ": " + h, ...acc], seen: [h, ...seen] } }
+              } else {
+                { state: { xs: t, acc: acc, seen: seen } }
+              }
+            }
+          }
+          str.join(fscan, ", ")
+        }
+        imps :: while { xs: imports, acc: "" } {
+          [xs, acc] ~> match xs {
+            []: { out: acc },
+            [h, ...t]: { state: { xs: t, acc: acc + h + nl } }
+          }
+        }
+        tail :: if slen(fields) == 0 { "" } else { nl + "{ " + fields + " }" }
+        "do {" + nl + imps + drop_import_lines(s) + tail + nl + "}"
+      }
+    } else if list_len(imports) == 0 {
+      if list_len(privs) == 0 {
         emit_object(entries)
       } else {
         -- `(source).name` projections evaluate the source as a single
@@ -533,12 +668,7 @@ do {
         "do {" + nl + prelude + emit_object(entries) + nl + "}"
       }
     } else {
-      body :: if list_len(entries) == 0 {
-        drop_import_lines(s)
-      } else {
-        prelude + emit_object(entries)
-      }
-      "do {" + nl + str.join(imports, nl) + nl + body + nl + "}"
+      "do {" + nl + str.join(imports, nl) + nl + prelude + emit_object(entries) + nl + "}"
     }
   }
 

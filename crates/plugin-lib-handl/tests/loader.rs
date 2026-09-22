@@ -130,6 +130,54 @@ mod bootstrap {
             .join("\n")
     }
 
+    /// Names bound by a `from "spec" import a, b as c` / `import name`
+    /// statement — they join the no-exports record projection. Mirrors
+    /// `loader.hnl`'s `import_bound_locals`.
+    fn import_bound_locals(line: &str) -> Vec<String> {
+        let t = line.trim_start();
+        if t.starts_with("from") {
+            let Some((_, rest)) = extract_quoted_path(t) else {
+                return Vec::new();
+            };
+            let rest = rest.trim_start();
+            let Some(tail) = rest.strip_prefix("import") else {
+                return Vec::new();
+            };
+            if !tail.is_empty() && !tail.starts_with(' ') && !tail.starts_with('\t') {
+                return Vec::new();
+            }
+            let tail = tail.trim_start();
+            let inner = if tail.starts_with('{') && tail.ends_with('}') && tail.len() > 1 {
+                &tail[1..tail.len() - 1]
+            } else {
+                tail
+            };
+            inner
+                .split(',')
+                .map(str::trim)
+                .filter(|item| !item.is_empty() && *item != "*")
+                .map(|item| {
+                    item.find(" as ")
+                        .map(|i| item[i + 4..].trim().to_string())
+                        .unwrap_or_else(|| item.to_string())
+                })
+                .filter(|local| !local.is_empty())
+                .collect()
+        } else if let Some(rest) = t.strip_prefix("import") {
+            let rest = rest.trim_start();
+            if rest.starts_with('"') || rest.starts_with('\'') {
+                return Vec::new();
+            }
+            let name = rest
+                .find("from")
+                .map(|i| rest[..i].trim().to_string())
+                .unwrap_or_else(|| rest.trim().to_string());
+            if is_valid_ident(&name) { vec![name] } else { Vec::new() }
+        } else {
+            Vec::new()
+        }
+    }
+
     fn is_import_line(trimmed: &str) -> bool {
         if let Some(rest) = trimmed.strip_prefix("import") {
             if rest.is_empty()
@@ -168,6 +216,11 @@ mod bootstrap {
         let mut privates: Vec<(String, Vec<String>)> = Vec::new();
         let mut current: Option<(String, Vec<String>)> = None;
         let mut current_is_private: bool = false;
+        // Whether the module's last top-level statement is a binding. When
+        // it is not (a trailing `do { … }` or record literal) the body's
+        // own value is the module record and no name projection is
+        // appended — mirrors `loader.hnl`'s `tail` flag.
+        let mut tail_is_binding = true;
         macro_rules! finalize {
             () => {
                 if let Some(entry) = current.take() {
@@ -208,6 +261,7 @@ mod bootstrap {
                     }
                     current = Some((name, expr_lines));
                     current_is_private = false;
+                    tail_is_binding = true;
                 }
                 continue;
             } else if !line.starts_with(' ') && !line.starts_with('\t') {
@@ -228,8 +282,12 @@ mod bootstrap {
                         }
                         current = Some((name, expr_lines));
                         current_is_private = true;
+                        tail_is_binding = true;
                         continue;
                     }
+                }
+                if current.is_none() && !trimmed.is_empty() {
+                    tail_is_binding = false;
                 }
             }
             if let Some((_, ref mut lines)) = current {
@@ -250,28 +308,75 @@ mod bootstrap {
             prelude.push_str(";\n");
         }
 
-        let body = if entries.is_empty() {
+        if entries.is_empty() {
+            // No `export` declarations: the module record is *every*
+            // top-level bound name — private bindings plus the locals
+            // each hoisted import statement binds. The body is wrapped in
+            // `do { … }` (imports first, verbatim statements next, the
+            // record last) so the whole module evaluates as one
+            // expression under the single-statement parser — mirrors
+            // `loader.hnl` and `handl_runtime::module_prep`.
             if imports.is_empty() && privates.is_empty() {
                 return src.to_string();
             }
-            drop_import_lines(src)
-        } else {
-            let mut out = prelude;
-            out.push_str("{ ");
-            for (i, (name, expr_lines)) in entries.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
+            // The projection is appended only when the module's last
+            // top-level statement is a binding; a trailing `do { … }`/
+            // record literal is already the module's interface value.
+            let mut fields: Vec<String> = Vec::new();
+            if tail_is_binding {
+                let push_field = |fields: &mut Vec<String>, name: &str| {
+                    if is_valid_ident(name) && !fields.iter().any(|f| f == name) {
+                        fields.push(name.to_string());
+                    }
+                };
+                for (name, _) in &privates {
+                    push_field(&mut fields, name);
                 }
-                out.push_str(name);
-                out.push_str(": ");
-                out.push_str(expr_lines.join("\n").trim());
+                for line in src.lines() {
+                    if is_top_import_line(line) {
+                        for local in import_bound_locals(line) {
+                            push_field(&mut fields, &local);
+                        }
+                    }
+                }
             }
-            out.push_str(" }");
-            out
-        };
+            let mut out = String::from("do {\n");
+            for imp in &imports {
+                out.push_str(imp);
+                out.push('\n');
+            }
+            out.push_str(&drop_import_lines(src));
+            if !fields.is_empty() {
+                out.push('\n');
+                out.push_str("{ ");
+                out.push_str(
+                    &fields
+                        .iter()
+                        .map(|f| format!("{f}: {f}"))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
+                out.push_str(" }");
+            }
+            out.push('\n');
+            out.push('}');
+            return out;
+        }
+
+        let mut body = prelude;
+        body.push_str("{ ");
+        for (i, (name, expr_lines)) in entries.iter().enumerate() {
+            if i > 0 {
+                body.push_str(", ");
+            }
+            body.push_str(name);
+            body.push_str(": ");
+            body.push_str(expr_lines.join("\n").trim());
+        }
+        body.push_str(" }");
 
         if imports.is_empty() {
-            if privates.is_empty() || entries.is_empty() {
+            if privates.is_empty() {
                 body
             } else {
                 format!("do {{\n{}\n}}", body)
@@ -509,7 +614,8 @@ const CORPUS: &[&str] = &[
     // Private top-level bindings before, between, and after exports —
     // hoisted into the do-block so exported closures can see them.
     "helper :: x ~> x + 1\nconst := 3\nexport a :: x ~> helper(x)\nmiddle :: y ~> y * const\nexport b :: x ~> middle(x)",
-    // Private bindings with no exports at all — source preserved verbatim.
+    // Private bindings with no exports at all — wrapped in `do { … }` with
+    // a trailing record projecting every bound name.
     "helper :: x ~> x + 1\nother := helper(1)",
     // Private multi-line arrow between exports.
     "export a :: x ~> helper(x)\nhelper :: x ~> do {\n  y :: x + 1\n  y\n}\nexport b :: x ~> helper(x)",

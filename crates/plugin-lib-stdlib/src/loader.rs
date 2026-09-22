@@ -210,25 +210,61 @@ fn strip_declaration_lines(src: &str) -> String {
 }
 
 fn collect_export_names(src: &str) -> Vec<String> {
-    let mut names = Vec::new();
+    // `names` collects explicit `export` declarations; `all` collects
+    // every top-level bound name. A module with no `export` declarations
+    // exports every top-level binding (see `transform_export_to_object`).
+    let mut names: Vec<String> = Vec::new();
+    let mut all: Vec<String> = Vec::new();
+    let push_all = |all: &mut Vec<String>, name: String| {
+        if !all.iter().any(|n| *n == name) {
+            all.push(name);
+        }
+    };
     for line in src.lines() {
         let trimmed = line.trim_start();
         if is_top_import_line(line) {
             if let Some((_, reexports)) = from_export_to_import(line) {
+                for (name, _) in &reexports {
+                    names.push(name.clone());
+                }
                 for (name, _) in reexports {
-                    names.push(name);
+                    push_all(&mut all, name);
+                }
+            } else if import_line_spec(line).is_some() {
+                for local in import_bound_locals(line) {
+                    push_all(&mut all, local);
                 }
             }
             continue;
         }
-        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
-            let rest = &trimmed["export ".len()..];
-            if let Some((sep_pos, _)) = find_binding_sep(rest) {
-                names.push(strip_export_name(&rest[..sep_pos]));
+        if !line.starts_with(' ') && !line.starts_with('\t') {
+            if trimmed.starts_with("export ") {
+                let rest = &trimmed["export ".len()..];
+                if let Some((sep_pos, _)) = find_binding_sep(rest) {
+                    let name = strip_export_name(&rest[..sep_pos]);
+                    names.push(name.clone());
+                    push_all(&mut all, name);
+                }
+            } else if let Some((sep_pos, _)) = find_binding_sep(trimmed) {
+                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                if is_valid_ident(&name) {
+                    push_all(&mut all, name);
+                }
             }
         }
     }
-    names
+    if names.is_empty() {
+        // A no-exports module whose last statement is a `do { … }` or
+        // record literal produces that value as the module record —
+        // merge its field keys so the registered functions cover them
+        // (mirrors `handl_runtime::module_prep::module_export_names`).
+        for key in trailing_record_keys(&strip_comment_lines(&src)) {
+            push_all(&mut all, key);
+        }
+        all
+    } else {
+        names
+    }
 }
 
 fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
@@ -241,6 +277,11 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     let mut privates: Vec<(String, Vec<String>)> = Vec::new();
     let mut current: Option<(String, Vec<String>)> = None;
     let mut current_is_private: bool = false;
+    // Whether the module's last top-level statement is a binding. When it
+    // is not (a trailing `do { … }` or record literal) the body's own
+    // value is the module record and no name projection is appended —
+    // mirrors `handl_runtime::module_prep`.
+    let mut tail_is_binding = true;
 
     // Finalize `current` into the right collection.
     macro_rules! finalize {
@@ -284,6 +325,7 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
                 }
                 current = Some((name, expr_lines));
                 current_is_private = false;
+                tail_is_binding = true;
             }
             continue;
         } else if !line.starts_with(' ') && !line.starts_with('\t') {
@@ -307,8 +349,12 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
                     }
                     current = Some((name, expr_lines));
                     current_is_private = true;
+                    tail_is_binding = true;
                     continue;
                 }
+            }
+            if current.is_none() && !trimmed.is_empty() {
+                tail_is_binding = false;
             }
         }
         if let Some((_, lines)) = &mut current {
@@ -337,12 +383,57 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
 
     let imports = collect_executable_import_lines(src);
 
-    // If there are no exports at all, preserve the original script/test
-    // behavior: private bindings stay verbatim — but import lines with a
-    // quoted specifier are kept because `load_hnl_file` pre-registers each
-    // as a module dependency and private bindings may reference them.
+    // No `export` declarations: the module record is *every* top-level
+    // bound name — private bindings plus the locals each hoisted import
+    // statement binds. The body is wrapped in `do { … }` (imports first,
+    // verbatim statements next, the record last) so the whole module
+    // evaluates as one expression under the single-statement parser —
+    // mirrors `loader.hnl`'s `transform_export_to_object` and
+    // `handl_runtime::module_prep`.
     if entries.is_empty() {
-        return drop_non_executable_import_lines(src);
+        if imports.is_empty() && privates.is_empty() {
+            return src.to_string();
+        }
+        let stripped: String = src
+            .lines()
+            .filter(|line| !is_top_import_line(line))
+            .collect::<Vec<_>>()
+            .join("\n");
+        // The projection is appended only when the module's last top-level
+        // statement is a binding; a trailing `do { … }`/record literal is
+        // already the module's interface value.
+        let mut fields: Vec<String> = Vec::new();
+        if tail_is_binding {
+            let mut seen = std::collections::HashSet::new();
+            let mut push_field = |name: &str| {
+                if is_valid_ident(name) && seen.insert(name.to_string()) {
+                    fields.push(format!("{name}: {name}"));
+                }
+            };
+            for (name, _) in &privates {
+                push_field(name);
+            }
+            for line in src.lines() {
+                if is_top_import_line(line) && import_line_spec(line).is_some() {
+                    for local in import_bound_locals(line) {
+                        push_field(&local);
+                    }
+                }
+            }
+        }
+        let mut out = String::from("do {\n");
+        for imp in &imports {
+            out.push_str(imp);
+            out.push('\n');
+        }
+        out.push_str(&stripped);
+        if !fields.is_empty() {
+            out.push_str("\n{ ");
+            out.push_str(&fields.join(", "));
+            out.push_str(" }");
+        }
+        out.push_str("\n}");
+        return out;
     }
 
     // Build the body: private bindings as do-block assignments, then the
@@ -379,6 +470,120 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
         body
     } else {
         format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
+    }
+}
+
+/// Split `s` at commas at bracket depth zero (strings respected) —
+/// mirrors `handl_runtime::module_prep::split_top_commas`.
+fn split_top_commas(s: &str) -> Vec<&str> {
+    let bytes = s.as_bytes();
+    let mut items = Vec::new();
+    let mut depth = 0i32;
+    let mut in_str: Option<u8> = None;
+    let mut start = 0usize;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+        } else {
+            match c {
+                b'"' | b'\'' => in_str = Some(c),
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b',' if depth == 0 => {
+                    items.push(&s[start..i]);
+                    start = i + 1;
+                }
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    items.push(&s[start..]);
+    items
+}
+
+/// The field key of a `name : value` record entry — an identifier
+/// followed by a depth-zero `:` that is not `::`. Mirrors
+/// `handl_runtime::module_prep::record_field_key`.
+fn record_field_key(item: &str) -> Option<String> {
+    let item = item.trim();
+    let bytes = item.as_bytes();
+    let mut depth = 0i32;
+    let mut in_str: Option<u8> = None;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+        } else {
+            match c {
+                b'"' | b'\'' => in_str = Some(c),
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                b':' if depth == 0 => {
+                    if bytes.get(i + 1) == Some(&b':') {
+                        return None;
+                    }
+                    let key = item[..i].trim();
+                    return is_valid_ident(key).then(|| key.to_string());
+                }
+                _ => {}
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Field names of the last record literal in `text` — the value a
+/// trailing `do { … }` or bare `{ … }` produces. Mirrors
+/// `handl_runtime::module_prep::trailing_record_keys`.
+fn trailing_record_keys(text: &str) -> Vec<String> {
+    let mut text = text.trim_end();
+    loop {
+        if !text.ends_with('}') {
+            return Vec::new();
+        }
+        let bytes = text.as_bytes();
+        let mut depth = 0i32;
+        let mut open = None;
+        for i in (0..bytes.len()).rev() {
+            match bytes[i] {
+                b'}' => depth += 1,
+                b'{' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        open = Some(i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let Some(open) = open else { return Vec::new() };
+        let inner = text[open + 1..bytes.len() - 1].trim_end();
+        let items: Vec<&str> = split_top_commas(inner)
+            .into_iter()
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .collect();
+        if !items.is_empty() && items.iter().all(|item| record_field_key(item).is_some()) {
+            return items
+                .iter()
+                .filter_map(|item| record_field_key(item))
+                .collect();
+        }
+        text = inner;
     }
 }
 
@@ -485,13 +690,47 @@ fn collect_executable_import_lines(src: &str) -> Vec<String> {
         .collect()
 }
 
-/// Drop top-level import declarations that name no quoted specifier.
-/// Quoted-spec imports are kept so they still run at eval time.
-fn drop_non_executable_import_lines(src: &str) -> String {
-    src.lines()
-        .filter(|line| !is_top_import_line(line) || import_line_spec(line).is_some())
-        .collect::<Vec<_>>()
-        .join("\n")
+/// Local names bound by a quoted-spec import statement: `from "<spec>"
+/// import a, b as c` → `[a, c]`, `* as m` → `[m]`. Bare splices
+/// (`import "<spec>"`, `from "<spec>" import *`) bind names that are not
+/// statically enumerable — skipped. Mirrors
+/// `handl_runtime::module_prep::import_bound_locals`.
+fn import_bound_locals(line: &str) -> Vec<String> {
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with("from") {
+        return Vec::new();
+    }
+    let Some((_, rest)) = extract_quoted_path(trimmed) else {
+        return Vec::new();
+    };
+    let rest = rest.trim_start();
+    let Some(tail) = rest.strip_prefix("import") else {
+        return Vec::new();
+    };
+    if !tail.is_empty() && !tail.starts_with(' ') && !tail.starts_with('\t') {
+        return Vec::new();
+    }
+    let tail = tail.trim_start();
+    let inner = tail
+        .strip_prefix('{')
+        .and_then(|t| t.strip_suffix('}'))
+        .unwrap_or(tail);
+    inner
+        .split(',')
+        .filter_map(|item| {
+            let item = item.trim();
+            if item.is_empty() {
+                return None;
+            }
+            match item.split_once(" as ") {
+                Some((_, alias)) => {
+                    let alias = alias.trim();
+                    (!alias.is_empty()).then(|| alias.to_string())
+                }
+                None => (item != "*").then(|| item.to_string()),
+            }
+        })
+        .collect()
 }
 
 /// Extract the quoted specifier from `import "<spec>"` or

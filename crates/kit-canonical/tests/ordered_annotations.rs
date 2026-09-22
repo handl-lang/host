@@ -24,21 +24,24 @@ fn ordered_value_annotations() {
     let kit = kit();
 
     // Call annotation: `inc(4)` evaluates to `5` under the ordered env.
-    kit.typecheck_handl("do {\n  inc := (x) ~> x + 1\n  f : inc(4) := 5\n}")
+    // Ordered value annotations are model semantics (ADR-0103), so these
+    // go through `typecheck_handl_model` — the bootstrap checker that
+    // `typecheck_handl`/`hnl typecheck`/`hnl run` use only scopes wires.
+    kit.typecheck_handl_model("do {\n  inc := (x) ~> x + 1\n  f : inc(4) := 5\n}")
         .expect("f : inc(4) := 5 should check");
 
     // Composition annotation: `5 >>> inc` applies `inc` to `5` -> `6`.
-    kit.typecheck_handl("do {\n  inc := (x) ~> x + 1\n  x : 5 >>> inc := 6\n}")
+    kit.typecheck_handl_model("do {\n  inc := (x) ~> x + 1\n  x : 5 >>> inc := 6\n}")
         .expect("x : 5 >>> inc := 6 should check");
 
     // Arithmetic annotation over a bound value: `a + 2` -> `5`.
-    kit.typecheck_handl("do {\n  a := 3\n  f : a + 2 := 5\n}")
+    kit.typecheck_handl_model("do {\n  a := 3\n  f : a + 2 := 5\n}")
         .expect("f : a + 2 := 5 should check");
 
     // A failing annotation reports a mismatch and does NOT bind `f`, so
     // the later `g := f` surfaces an unbound-variable diagnostic.
     let err = kit
-        .typecheck_handl("do {\n  inc := (x) ~> x + 1\n  f : inc(4) := 6\n  g := f\n}")
+        .typecheck_handl_model("do {\n  inc := (x) ~> x + 1\n  f : inc(4) := 6\n  g := f\n}")
         .expect_err("f : inc(4) := 6 must fail");
     let msg = err.to_string();
     assert!(
@@ -52,7 +55,7 @@ fn ordered_value_annotations() {
 
     // A lone failing annotation still reports the mismatch.
     let err = kit
-        .typecheck_handl("do {\n  inc := (x) ~> x + 1\n  f : inc(4) := 6\n}")
+        .typecheck_handl_model("do {\n  inc := (x) ~> x + 1\n  f : inc(4) := 6\n}")
         .expect_err("f : inc(4) := 6 must fail");
     assert!(
         err.to_string().contains("mismatch") || err.to_string().contains("equal"),

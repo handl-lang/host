@@ -400,6 +400,65 @@ mod bootstrap {
         Some((path.to_string(), rest))
     }
 
+    /// Local names bound by an import statement: `from "<spec>" import
+    /// a, b as c` → `[a, c]`, `* as m` → `[m]`, `import <name> [from
+    /// "<spec>"]` → `[name]`. Bare splices (`import "<spec>"`, `from
+    /// "<spec>" import *`) bind names that are not statically enumerable
+    /// — skipped. Mirrors `handl_runtime::module_prep::import_bound_locals`.
+    fn import_bound_locals(line: &str) -> Vec<String> {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("from") {
+            let Some((_, rest)) = extract_quoted_path(trimmed) else {
+                return Vec::new();
+            };
+            let rest = rest.trim_start();
+            let Some(tail) = rest.strip_prefix("import") else {
+                return Vec::new();
+            };
+            if !tail.is_empty() && !tail.starts_with(' ') && !tail.starts_with('\t') {
+                return Vec::new();
+            }
+            let tail = tail.trim_start();
+            let inner = tail
+                .strip_prefix('{')
+                .and_then(|t| t.strip_suffix('}'))
+                .unwrap_or(tail);
+            return inner
+                .split(',')
+                .filter_map(|item| {
+                    let item = item.trim();
+                    if item.is_empty() {
+                        return None;
+                    }
+                    match item.split_once(" as ") {
+                        Some((_, alias)) => {
+                            let alias = alias.trim();
+                            (!alias.is_empty()).then(|| alias.to_string())
+                        }
+                        None => (item != "*").then(|| item.to_string()),
+                    }
+                })
+                .collect();
+        }
+        if let Some(rest) = trimmed.strip_prefix("import") {
+            let rest = rest.trim_start();
+            if rest.starts_with('"') || rest.starts_with('\'') {
+                return Vec::new();
+            }
+            // `import <name>` or `import <name> from "<spec>"`.
+            let name = rest
+                .split_once("from")
+                .map(|(n, _)| n.trim())
+                .unwrap_or_else(|| rest.trim());
+            return if is_valid_ident(name) {
+                vec![name.to_string()]
+            } else {
+                Vec::new()
+            };
+        }
+        Vec::new()
+    }
+
     /// `src` with top-level import statements removed (all other lines kept).
     fn drop_import_lines(src: &str) -> String {
         src.lines()
@@ -437,6 +496,11 @@ mod bootstrap {
         // names (`{ name: name }`) — mirrors `handl_runtime::module_prep`.
         let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
         let mut current: Option<(String, Vec<String>, bool)> = None;
+        // Whether the module's last top-level statement is a binding.
+        // When it is not (a trailing `do { … }` or record literal) the
+        // body's own value is the module record and no name projection
+        // is appended — mirrors `handl_runtime::module_prep`.
+        let mut tail_is_binding = true;
 
         // Finalize `current` into the ordered binding list.
         macro_rules! finalize {
@@ -480,6 +544,7 @@ mod bootstrap {
                         expr_lines.push(expr_start.to_string());
                     }
                     current = Some((name, expr_lines, true));
+                    tail_is_binding = true;
                 }
                 continue;
                 // If no separator found, skip (not a valid export binding).
@@ -504,8 +569,12 @@ mod bootstrap {
                             expr_lines.push(expr_start.to_string());
                         }
                         current = Some((name, expr_lines, false));
+                        tail_is_binding = true;
                         continue;
                     }
+                }
+                if current.is_none() && !trimmed.is_empty() {
+                    tail_is_binding = false;
                 }
             }
             if let Some((_, ref mut lines, _)) = current {
@@ -527,15 +596,52 @@ mod bootstrap {
             if imports.is_empty() && bindings.is_empty() {
                 return src.to_string();
             }
-            // Preserve bindings verbatim when there are no exports —
-            // the module is a script, not a record.
+            // No `export` declarations: the module record is *every*
+            // top-level bound name — private bindings plus the locals
+            // each hoisted import statement binds. The body is wrapped in
+            // `do { … }` (imports first, verbatim statements next, the
+            // record last) so the whole module evaluates as one
+            // expression under the single-statement parser — mirrors
+            // `loader.hnl` and `handl_runtime::module_prep`.
             let stripped = drop_import_lines(src);
-            if imports.is_empty() {
-                return stripped;
+            // The projection is appended only when the module's last
+            // top-level statement is a binding; a trailing `do { … }`/
+            // record literal is already the module's interface value.
+            let record = if tail_is_binding {
+                let mut seen = std::collections::HashSet::new();
+                let mut fields: Vec<String> = Vec::new();
+                let mut push_field = |name: &str| {
+                    if is_valid_ident(name) && seen.insert(name.to_string()) {
+                        fields.push(format!("{name}: {name}"));
+                    }
+                };
+                for (name, _, _) in &bindings {
+                    push_field(name);
+                }
+                for line in src.lines() {
+                    if is_top_import_line(line) {
+                        for local in import_bound_locals(line) {
+                            push_field(&local);
+                        }
+                    }
+                }
+                fields.join(", ")
+            } else {
+                String::new()
+            };
+            let mut out = String::from("do {\n");
+            for imp in &imports {
+                out.push_str(imp);
+                out.push('\n');
             }
-            // Imports still need to execute — wrap like the self-hosted
-            // loader does so they run ahead of the bare script body.
-            return format!("do {{\n{}\n{}\n}}", imports.join("\n"), stripped);
+            out.push_str(&stripped);
+            if !record.is_empty() {
+                out.push_str("\n{ ");
+                out.push_str(&record);
+                out.push_str(" }");
+            }
+            out.push_str("\n}");
+            return out;
         }
 
         // Private bindings hoist as `name := expr;` prelude assignments;
