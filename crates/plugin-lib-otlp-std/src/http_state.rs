@@ -249,6 +249,10 @@ fn scope() -> Value {
 }
 
 fn post_json(config: &OtlpConfig, url: &str, payload: &Value) -> OtlpResult<()> {
+    // Wire boundary: attribute values may embed serialized tagged values —
+    // reject process-local/dangling references before they reach the wire.
+    handl_value::check_portable(payload)
+        .map_err(|e| OtlpError::serialization(e.to_string()))?;
     let body =
         serde_json::to_string(payload).map_err(|e| OtlpError::serialization(e.to_string()))?;
     let mut builder = ureq::post(url);

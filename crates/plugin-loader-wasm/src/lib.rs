@@ -111,6 +111,10 @@ impl Plugin for SharedWasmPlugin {
         request: &CapabilityRequest,
         _ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
+        // The payload crosses into a wasm guest — a foreign consumer that
+        // cannot resolve process-local/dangling references.
+        handl_value::check_portable(&request.payload)
+            .map_err(|e| PlatformError::Plugin(format!("request payload is not portable: {e}")))?;
         let request_json = serde_json::to_string(request)
             .map_err(|e| PlatformError::Plugin(format!("failed to serialize request: {e}")))?;
 

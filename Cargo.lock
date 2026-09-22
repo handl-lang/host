@@ -1796,6 +1796,7 @@ dependencies = [
  "handl-plugin-lib-handl",
  "handl-plugin-lib-otlp",
  "handl-plugin-module",
+ "handl-value",
  "serde_json",
  "ureq",
 ]
@@ -1902,6 +1903,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-load",
+ "handl-value",
  "libloading",
  "serde",
  "serde_json",
@@ -1921,6 +1923,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-load",
+ "handl-value",
  "serde_json",
  "wasmi",
  "wat",
@@ -1932,6 +1935,7 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "handl-plugin-load",
+ "handl-value",
  "mockito",
  "serde_json",
  "ureq",

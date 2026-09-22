@@ -92,6 +92,8 @@ impl Function for YamlParse {
             .ok_or_else(|| EvalError::Other("yaml.parse expects a string".to_string()))?;
         let value: Value = serde_yaml::from_str(s)
             .map_err(|e| EvalError::Other(format!("yaml parse error: {e}")))?;
+        handl_value::check_portable(&value)
+            .map_err(|e| EvalError::Other(format!("yaml parse error: {e}")))?;
         Ok(value)
     }
 }
@@ -112,6 +114,8 @@ impl Function for YamlStringify {
                 args.len()
             )));
         }
+        handl_value::check_portable(&args[0])
+            .map_err(|e| EvalError::Other(format!("yaml stringify error: {e}")))?;
         let s = serde_yaml::to_string(&args[0])
             .map_err(|e| EvalError::Other(format!("yaml stringify error: {e}")))?;
         Ok(Value::String(s))

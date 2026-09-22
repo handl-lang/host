@@ -123,6 +123,10 @@ impl Plugin for SharedPlugin {
         request: &CapabilityRequest,
         _ctx: &mut PluginContext,
     ) -> Result<CapabilityResponse, PlatformError> {
+        // The payload crosses into a loaded dynamic library that only sees
+        // the JSON text — reject process-local/dangling references.
+        handl_value::check_portable(&request.payload)
+            .map_err(|e| PlatformError::Plugin(format!("request payload is not portable: {e}")))?;
         let request_json = serde_json::to_string(request)
             .map_err(|e| PlatformError::Plugin(format!("failed to serialize request: {e}")))?;
         let c_request = CString::new(request_json)

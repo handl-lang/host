@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 handl-plugin-load.workspace = true
 handl-platform.workspace = true
+handl-value = { path = "../handl-value" }
 serde_json.workspace = true
 wasmi = "0.31"
 wat = "1"

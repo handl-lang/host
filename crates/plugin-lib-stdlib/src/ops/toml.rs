@@ -92,6 +92,8 @@ impl Function for TomlParse {
             .ok_or_else(|| EvalError::Other("toml.parse expects a string".to_string()))?;
         let value: Value =
             toml::from_str(s).map_err(|e| EvalError::Other(format!("toml parse error: {e}")))?;
+        handl_value::check_portable(&value)
+            .map_err(|e| EvalError::Other(format!("toml parse error: {e}")))?;
         Ok(value)
     }
 }
@@ -112,6 +114,8 @@ impl Function for TomlStringify {
                 args.len()
             )));
         }
+        handl_value::check_portable(&args[0])
+            .map_err(|e| EvalError::Other(format!("toml stringify error: {e}")))?;
         let s = toml::to_string(&args[0])
             .map_err(|e| EvalError::Other(format!("toml stringify error: {e}")))?;
         Ok(Value::String(s))
