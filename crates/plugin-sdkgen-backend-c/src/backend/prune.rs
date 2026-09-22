@@ -1,4 +1,6 @@
-//! Post-pass: drop records/typedefs not referenced by emitted functions.
+//! Post-passes over the emitted module: drop records/typedefs not
+//! referenced by emitted functions, and repair `rec:` fields left
+//! pointing at records that were skipped or pruned.
 
 use handl_plugin_sdkgen::SdkgenModule;
 use std::collections::HashSet;
@@ -22,4 +24,23 @@ pub(crate) fn prune_unreferenced(module: &mut SdkgenModule) {
     }
     module.records.retain(|r| referenced.contains(&r.name));
     module.typedefs.retain(|t| referenced.contains(&t.name));
+}
+
+/// Degrade `rec:` field ports to `Handle` when the nested record is not
+/// among the emitted records (skipped by config, or pruned above — e.g.
+/// glibc's `__atomic_wide_counter` union, which has no standalone decl).
+/// A dangling port would emit a reference to a record that does not
+/// exist; the ABI stays right via the field's byte size, the same
+/// fallback `record_fields_descriptor` uses for unknown nested records.
+pub(crate) fn fix_dangling_rec_fields(module: &mut SdkgenModule) {
+    let emitted: HashSet<String> = module.records.iter().map(|r| r.name.clone()).collect();
+    for r in &mut module.records {
+        for f in &mut r.fields {
+            if let Some(rn) = f.descriptor.strip_prefix("rec:") {
+                if !emitted.contains(rn) {
+                    f.port = "Handle".into();
+                }
+            }
+        }
+    }
 }

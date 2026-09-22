@@ -11,13 +11,34 @@
 
 use clang_sys::*;
 use handl_plugin_sdkgen::EnumConst;
+use std::collections::HashMap;
 use std::ffi::{CString, c_char, c_int, c_ulong};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use crate::cx::{children_of_kind, cursor_name, first_child};
+use crate::cx::{children_of_kind, cursor_name, first_child, macro_doc};
 
 /// Prefix on probe enum constants that carry macro names.
 const PROBE_PREFIX: &str = "__hnl_sdkgen_";
+
+/// Collect each macro's doc from the main TU (the cursor's raw comment,
+/// else the source text around the `#define`). Returns the non-empty
+/// macro names in order plus a name → doc map: the probe TU holds
+/// synthesized `enum { … }` and has no comments of its own, so
+/// [`eval_macros`] results draw their docs from here.
+pub(crate) fn macro_docs(macros: &[CXCursor]) -> (Vec<String>, HashMap<String, Option<String>>) {
+    let mut files: HashMap<PathBuf, Vec<String>> = HashMap::new();
+    let mut docs = HashMap::new();
+    let mut names = Vec::new();
+    for &c in macros {
+        let name = cursor_name(c);
+        if name.is_empty() {
+            continue;
+        }
+        docs.insert(name.clone(), macro_doc(c, &mut files));
+        names.push(name);
+    }
+    (names, docs)
+}
 
 /// Evaluate `names` (object-like macros) to integer constants.
 /// `args` are the same clang args used for the main parse. Anything that

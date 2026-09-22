@@ -5,10 +5,12 @@
 //! error/fatal → [`crate::collect`] declaration cursors →
 //! [`crate::parse`] each into IR with config overrides →
 //! [`macro_probe`] evaluates `#define` constants → [`prune`] drops
-//! unreferenced types → `SdkgenModule`.
+//! unreferenced types and repairs dangling `rec:` fields →
+//! [`imports`] declares `types/c` imports → `SdkgenModule`.
 
 mod clang_args;
 mod diagnostics;
+mod imports;
 mod macro_probe;
 mod man;
 mod prune;
@@ -28,7 +30,7 @@ use handl_plugin_sdkgen::{DocSource, SdkgenBackend, SdkgenError, SdkgenModule, p
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CString, c_int, c_void};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::collect::{CursorData, collect_cursors, collect_enum};
 use crate::config::SdkgenConfig;
@@ -252,20 +254,7 @@ impl SdkgenBackend for CBackend {
             collect_enum(cursor, &mut module, &include, &exclude, &self.consts);
         }
 
-        // Macro constants are evaluated in a probe TU, which has no comment
-        // of its own — the doc comes from the main TU's macro cursors or,
-        // failing that, the source text around the `#define` itself.
-        let mut macro_files: HashMap<PathBuf, Vec<String>> = HashMap::new();
-        let mut macro_docs: HashMap<String, Option<String>> = HashMap::new();
-        let mut macro_names: Vec<String> = Vec::new();
-        for &c in &cursor_data.macros {
-            let name = cursor_name(c);
-            if name.is_empty() {
-                continue;
-            }
-            macro_docs.insert(name.clone(), crate::cx::macro_doc(c, &mut macro_files));
-            macro_names.push(name);
-        }
+        let (macro_names, macro_docs) = macro_probe::macro_docs(&cursor_data.macros);
         for mut c in macro_probe::eval_macros(index, &args, &macro_names, path) {
             if !module.enum_constants.iter().any(|e| e.name == c.name) {
                 c.doc = macro_docs.get(&c.name).cloned().flatten();
@@ -301,56 +290,8 @@ impl SdkgenBackend for CBackend {
         }
 
         prune::prune_unreferenced(&mut module);
-
-        // A `rec:` field whose nested record was skipped or pruned would
-        // emit a dangling port type (e.g. glibc's `__atomic_wide_counter`
-        // union, which has no standalone decl). Degrade its port to
-        // `Handle` — the ABI stays right via the field's byte size, the
-        // same fallback `record_fields_descriptor` uses for unknown
-        // nested records.
-        let emitted: std::collections::HashSet<String> =
-            module.records.iter().map(|r| r.name.clone()).collect();
-        for r in &mut module.records {
-            for f in &mut r.fields {
-                if let Some(rn) = f.descriptor.strip_prefix("rec:") {
-                    if !emitted.contains(rn) {
-                        f.port = "Handle".into();
-                    }
-                }
-            }
-        }
-
-        // Collect types/c aliases referenced by the surviving port types,
-        // grouped by submodule, so the emitter can render
-        // `from "types/c/<header>" import {...}` — declared on the module
-        // as data, keeping the emitter backend-agnostic.
-        let mut by_module: std::collections::BTreeMap<&str, std::collections::BTreeSet<String>> =
-            Default::default();
-        let mut note = |port: &str| {
-            if let Some(m) = crate::map::ctypes_module(port) {
-                by_module.entry(m).or_default().insert(port.to_string());
-            }
-        };
-        for f in &module.functions {
-            for a in &f.port_args {
-                note(&a.port);
-            }
-            note(&f.return_port);
-        }
-        for r in &module.records {
-            for fl in &r.fields {
-                note(&fl.port);
-            }
-        }
-        for t in &module.typedefs {
-            note(&t.port);
-        }
-        for (package, names) in by_module {
-            module.imports.push(handl_plugin_sdkgen::ModuleImport {
-                package: package.into(),
-                names: names.into_iter().collect(),
-            });
-        }
+        prune::fix_dangling_rec_fields(&mut module);
+        imports::collect_type_imports(&mut module);
 
         unsafe {
             clang_disposeTranslationUnit(tu);
