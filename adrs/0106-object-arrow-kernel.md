@@ -635,10 +635,16 @@ pins the parts that _are_ checkable through public APIs:
    stacks in favour of pure arrow-graph substitution remains open; the
    `MakeClosureFn`/`CallFn` host primitives were replaced by per-call
    `__arg_N` binding on the frame's globals.
-4. **(narrowed, still open)** The `Resource` leak is no longer hidden in an
-   `env`: resources sit in the explicit `binds` map and still serialize as
-   a finalizer-less pointer on round-trip. Closing the leak fully means
-   either an encode-time error or out-of-band opaque handles.
+4. **(addressed at the boundary)** The `Resource` leak is no longer hidden
+   in an `env`: resources sit in the explicit `binds` map and still encode
+   as a finalizer-less `{"__resource__": {"ptr": …}}` — but
+   `handl_value::check_portable` now rejects `__resource__` pointers (along
+   with `__envref__` markers and dangling `__bindsref__` references) in any
+   document that crosses a process/foreign boundary, so a leak can no
+   longer silently cross the wire. In-process tagged-value round-trips
+   remain self-contained. Fully portable resources would need an
+   out-of-band opaque-handle registry — a separate design, not required for
+   §6/§8 to hold.
 5. **Make `>>>` compose.** Surface `>>>` is currently _application_, not
    composition (`handl-kit-data-canonical/data/types.yaml:2158-2166`); the
    ADR-0106 §3 composed-arrow value does not exist yet, so "a composed arrow
@@ -850,10 +856,10 @@ passes.
 
 Two honest edges remain:
 
-- A `Resource` in `binds` still serializes as a finalizer-less pointer
-  (`{"__resource__": {"ptr": …}}`) — the same lossy round-trip as before,
-  but now as _explicit_ data rather than hidden state (TODO item 4's leak
-  is narrowed to a visible, documented shape).
+- A `Resource` in `binds` still encodes as `{"__resource__": {"ptr": …}}`,
+  but `check_portable` rejects such documents at process/foreign
+  boundaries — the leak is explicit data that cannot silently cross the
+  wire (TODO item 4).
 - The engines still run scope stacks internally as evaluation machinery;
   they no longer back arrow _values_ (TODO item 3's value-level goal is
   met; deleting the stacks themselves is orthogonal).

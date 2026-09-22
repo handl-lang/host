@@ -89,9 +89,9 @@ do {
   }
 
   --- Proof constructors (mirror Rust `Proof::ok`/`no`/`blocked`).
-  proof_ok :: reason ~> { verdict: "proven", reason: reason }
-  proof_no :: reason ~> { verdict: "disproved", reason: reason }
-  proof_blocked :: reason ~> { verdict: "blocked", reason: reason }
+  proof_ok :: reason ~> ({ verdict: "proven", reason: reason })
+  proof_no :: reason ~> ({ verdict: "disproved", reason: reason })
+  proof_blocked :: reason ~> ({ verdict: "blocked", reason: reason })
 
   --- merge_proofs: aggregate two proofs by worst verdict.
   --- disproved > blocked > proven (a single failure fails the module).
