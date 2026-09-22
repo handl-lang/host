@@ -1,7 +1,7 @@
 --- Smoke tests for the epoll `concurrent` backend: spawn/await,
 --- rendezvous channels, mutex+atomic, sleep, and a loopback TCP echo.
 
-from "./concurrent-epoll" import { run, tcp_listen, tcp_connect }
+from "./concurrent-epoll" import { run, tcp_listen, tcp_connect, tcp_close }
 from "bytes" import { utf8_encode, utf8_decode }
 
 -- ---------------------------------------------------------------
@@ -220,5 +220,10 @@ test_tcp_echo := assert utf8_decode(do {
     lfd: lfd,
     cinit: { phase: "wait", fd: c.fd, msg: utf8_encode("ping") }
   })
+  -- close the listener: in a whole-corpus `hnl test` run this process is
+  -- shared across test files, so a leaked listen socket would keep
+  -- 127.0.0.1:18347 bound (and silently swallow connections) for every
+  -- later test file — e.g. fetch-c's canned server fixture.
+  _ := tcp_close(lfd)
   r2.main.echoed
 }) := "ping"

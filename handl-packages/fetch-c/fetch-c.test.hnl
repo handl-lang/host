@@ -34,28 +34,35 @@ start_server := (_u) ~> do {
   wait_ready(null)
 }
 
+--- bound every transfer: a fixture that fails to bind leaves connections
+--- unanswered, and curl_easy_perform has no default timeout — without
+--- timeout_ms a wedged port parks the whole `hnl test` run in poll()
+--- forever instead of failing the test.
+base_init := { timeout_ms: 15000 }
+
 test_get := assert do {
   _ := start_server(null)
-  r := fetch("http://127.0.0.1:18347/", {})
+  r := fetch("http://127.0.0.1:18347/", base_init)
   r.status
 } := 200
 
 test_get_body := assert do {
   _ := wait_ready(null)
-  r := fetch("http://127.0.0.1:18347/", {})
+  r := fetch("http://127.0.0.1:18347/", base_init)
   r.body
 } := "{\"hello\":\"handl\"}"
 
 test_get_headers := assert do {
   _ := wait_ready(null)
-  r := fetch("http://127.0.0.1:18347/", {})
+  r := fetch("http://127.0.0.1:18347/", base_init)
   hash_map.get_or(r.headers, "x-test", "missing")
 } := "yes"
 
 test_post_echo := assert do {
   _ := wait_ready(null)
   r := fetch("http://127.0.0.1:18347/echo",
-    { method: "POST", body: "hndl", headers: { "Content-Type": "text/plain" } })
+    { method: "POST", body: "hndl", headers: { "Content-Type": "text/plain" },
+      timeout_ms: 15000 })
   r.body
 } := "{\"echo\":\"hndl\"}"
 
@@ -64,13 +71,15 @@ test_post_echo := assert do {
 fetch_pair := (s) ~> match s.phase {
   "a": {
     call: { name: "spawn", task: fetch_task,
-            init: { url: "http://127.0.0.1:18347/", init: {} } },
+            init: { url: "http://127.0.0.1:18347/",
+                    init: { timeout_ms: 120000 } } },
     state: { phase: "b" }
   },
   "b": {
     call: { name: "spawn", task: fetch_task,
             init: { url: "http://127.0.0.1:18347/echo",
-                    init: { method: "POST", body: "async" } } },
+                    init: { method: "POST", body: "async",
+                            timeout_ms: 120000 } } },
     state: { phase: "c", t1: s.result }
   },
   "c": {
@@ -91,6 +100,6 @@ test_fetch_async := assert do {
 } := "{\"echo\":\"async\"}|{\"hello\":\"handl\"}"
 
 test_done := assert do {
-  r := fetch("http://127.0.0.1:18347/done", {})
+  r := fetch("http://127.0.0.1:18347/done", base_init)
   r.status
 } := 200
