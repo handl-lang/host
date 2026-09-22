@@ -4,7 +4,7 @@ use clang_sys::*;
 
 use crate::cx::{cursor_name, record_name, type_spelling};
 use crate::map::pred::{is_char, is_len_like, is_size_t, is_void};
-use crate::map::scalar::{ctypes_port, map_arg_type};
+use crate::map::scalar::map_arg_type;
 
 /// The mapping decision for one C function argument.
 pub(crate) struct ArgInfo {
@@ -61,16 +61,7 @@ pub(crate) fn map_arg_with_peek(
     pointer_width: usize,
     variadic: bool,
 ) -> Result<ArgInfo, String> {
-    let original = type_spelling(ty);
     let canonical = unsafe { clang_getCanonicalType(ty) };
-
-    // size_t / ssize_t — pointer-width scalars carrying ctypes aliases.
-    if original == "size_t" || original == "ssize_t" {
-        let port =
-            ctypes_port(&original).unwrap_or(if original == "size_t" { "Nat" } else { "Int" });
-        let desc = if pointer_width == 32 { "i32" } else { "i64" };
-        return Ok(ArgInfo::scalar(port, desc));
-    }
 
     // A trailing size-typed or length-named argument is treated as the
     // length of the preceding pointer (the C `(ptr, len)` convention). For
