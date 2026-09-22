@@ -100,6 +100,26 @@ test_parse_req_head_post := assert(do {
   { method: p.method, host: http.header_get(p.headers, "host") }
 }) = { method: "POST", host: "h" }
 
+-- `Connection` is a comma token list (RFC 9110 7.3) -- `header_has_token`
+-- finds `upgrade` among siblings and is case-insensitive.
+test_header_has_token := assert(do {
+  p :: http.parse_req_head(http.upgrade_req(
+    { host: "h", port: 80, path: "/" }, "k"))
+  http.header_has_token(p.headers, "connection", "upgrade")
+}) = true
+
+test_header_has_token_list := assert(do {
+  p :: http.parse_req_head(
+    "GET / HTTP/1.1\r\nConnection: keep-alive, Upgrade\r\n\r\n")
+  http.header_has_token(p.headers, "Connection", "Upgrade")
+}) = true
+
+test_header_has_token_miss := assert(do {
+  p :: http.parse_req_head("GET / HTTP/1.1\r\nConnection: close\r\n\r\n")
+  { miss: http.header_has_token(p.headers, "connection", "upgrade"),
+    absent: http.header_has_token(p.headers, "x-nope", "upgrade") }
+}) = { miss: false, absent: false }
+
 test_head_end := assert http.head_end(bytes.utf8_encode("abc\r\n\r\nrest")) = 7
 
 test_head_end_none := assert http.head_end(bytes.utf8_encode("abc\r\n\rX")) = (0 - 1)

@@ -175,7 +175,46 @@ io_write_all := (conn, buf) ~> if conn.ssl == null {
 io_read_some := (fd, s) ~> if s == null {
   socket.recv(fd, 0)
 } else {
-  ssl.SSL_read(s)
+  ssl_read_some(s)
+}
+
+--- ssl_read_some -- `SSL_read` with proper error classification. The
+--- generated adapter maps any negative `ret` to `errno`, but OpenSSL
+--- failures are not errno -- `SSL_get_error(ssl, ret)` classifies:
+--- `ZERO_RETURN` is a clean peer close (surfaces as an empty read),
+--- `WANT_READ`/`WANT_WRITE` map to `EAGAIN`, `SYSCALL` maps to the real
+--- `errno` (or `ECONNRESET` when the transport died with errno unset),
+--- everything else is a protocol failure (`ECONNABORTED`).
+--- @param {s} - the SSL session handle
+--- @returns {Result<Bytes, Errno> - the bytes read, or the errno}
+ssl_read_some := (s) ~> do {
+  r = ffi.call("libssl.so.3", "SSL_read", [s], ["handle", "out_buf:65536"], "i32", false)
+  if r.ret > 0 {
+    ok(r.buf)
+  } else {
+    do {
+      code :: ssl.SSL_get_error(s, r.ret)
+      if tag.tag_of(code) == "err" {
+        code
+      } else {
+        do {
+          c :: tag.untag(code).value
+          if c == ssl.SSL_ERROR_ZERO_RETURN {
+            ok(bytes.from_list([]))
+          } else if c == ssl.SSL_ERROR_WANT_READ || c == ssl.SSL_ERROR_WANT_WRITE {
+            err(errno.EAGAIN)
+          } else if c == ssl.SSL_ERROR_SYSCALL {
+            do {
+              e :: ffi.errno()
+              err(if e == 0 { errno.ECONNRESET } else { e })
+            }
+          } else {
+            err(errno.ECONNABORTED)
+          }
+        }
+      }
+    }
+  }
 }
 
 --- read_head_io -- `read_head`'s accumulation loop, parameterized on
@@ -239,11 +278,11 @@ export AddrinfoDesc := "rec:{ai_flags:i32@0:4,ai_family:i32@4:4,ai_socktype:i32@
 --- @returns {Result<Bytes, Errno> - the sockaddr image, or EADDRNOTAVAIL}
 first_inet := (head) ~> do {
   while { p: head } {
-    (p) ~> if p == 0 {
+    (st) ~> if st.p == 0 {
       { out: err(errno.EADDRNOTAVAIL) }
     } else {
       do {
-        ai :: ffi.read(p, AddrinfoDesc)
+        ai :: ffi.read(st.p, AddrinfoDesc)
         if ai.ai_addr != 0 {
           { out: ok(ffi.read(ai.ai_addr,
                              "bytes:" + type.to_string(ai.ai_addrlen))) }

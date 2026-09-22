@@ -241,3 +241,20 @@ test_connect_wss_live := assert(do {
     }
   }
 }) = true
+
+-- `resolve` exercises the real `getaddrinfo` + `ffi.read` addrinfo walk
+-- for a hostname; "localhost" resolves on any live host.
+test_resolve_localhost := assert(do {
+  r :: conn.resolve("localhost", 8080)
+  if tag.tag_of(r) == "ok" {
+    do {
+      sa :: tag.untag(r).value
+      -- loopback sockaddr_in: sin_port 8080 BE, sin_addr 127.0.0.1
+      { len: bytes.len(sa), port_hi: bytes.at(sa, 2),
+        port_lo: bytes.at(sa, 3), a0: bytes.at(sa, 4),
+        a3: bytes.at(sa, 7) }
+    }
+  } else {
+    { len: 0, port_hi: 0, port_lo: 0, a0: 0, a3: 0 }
+  }
+}) = { len: 16, port_hi: 31, port_lo: 144, a0: 127, a3: 1 }

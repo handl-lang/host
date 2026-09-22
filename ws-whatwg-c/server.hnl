@@ -17,9 +17,9 @@
 --- does not yet surface. Plain `ws://` only, matching the client.
 --- Both arrows are `~[1]~>`; every libc failure propagates its `err`
 --- unchanged, and a request head that fails the upgrade validation
---- (non-`GET` method, no `Upgrade: websocket` header, no
---- `Sec-WebSocket-Key`) maps to `err(ECONNABORTED)` like a refused
---- client handshake.
+--- (non-`GET` method, no `Upgrade: websocket` header, `Connection`
+--- lacking an `upgrade` token, no `Sec-WebSocket-Key`) maps to
+--- `err(ECONNABORTED)` like a refused client handshake.
 ---
 --- Blocking model: `accept` parks the caller in `accept(2)` and a
 --- blocking head read -- the run-time is single-threaded, so a
@@ -101,11 +101,10 @@ export listen: (String, Int) ~[1]~> Result<Int, Errno> := (host, port) ~> do {
 --- @returns {Result<Conn, Errno> - the server conn, or the errno}
 --- @details The request head is validated as a WebSocket upgrade: a
 --- `GET` request line, an `Upgrade: websocket` header (value compared
---- case-insensitively), and a present `Sec-WebSocket-Key`. Anything
---- else maps to `err(ECONNABORTED)` like a refused client handshake
---- (`Connection: Upgrade` is not checked -- v1 trusts the rest of the
---- handshake shape). On any failure after `accept(2)` the peer fd is
---- closed before propagating.
+--- case-insensitively), a `Connection` token list containing `upgrade`,
+--- and a present `Sec-WebSocket-Key`. Anything else maps to
+--- `err(ECONNABORTED)` like a refused client handshake. On any failure
+--- after `accept(2)` the peer fd is closed before propagating.
 export accept: (Int) ~[1]~> Result<Conn, Errno> := (listen_fd) ~> do {
   a :: socket.accept(listen_fd)
   if tag.tag_of(a) == "err" {
@@ -124,9 +123,11 @@ export accept: (Int) ~[1]~> Result<Conn, Errno> := (listen_fd) ~> do {
           hr :: tag.untag(h).value
           p :: http.parse_req_head(hr.head)
           up :: http.header_get(p.headers, "upgrade")
+          conn_up :: http.header_has_token(p.headers, "connection", "upgrade")
           key :: http.header_get(p.headers, "sec-websocket-key")
           bad :: (p.method != "GET" ||
                   up == null || str.lower(up) != "websocket" ||
+                  conn_up == false ||
                   key == null)
           if bad {
             do {

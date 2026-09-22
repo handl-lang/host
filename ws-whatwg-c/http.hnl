@@ -264,6 +264,35 @@ export header_get := (headers, name) ~> while { xs: headers, want: str.lower(nam
   }
 }
 
+--- header_has_token -- whether a comma-list header (e.g. `Connection`)
+--- carries `token`, case-insensitively. RFC 9110 section 7.3 field lists:
+--- `Connection: keep-alive, Upgrade` must match `upgrade`.
+--- @param {headers} - the [{name, value}] list from parse_head
+--- @param {name} - the header name to find (any case)
+--- @param {token} - the list token to look for (any case)
+--- @returns {Bool}
+export header_has_token := (headers, name, token) ~> do {
+  v :: header_get(headers, name)
+  if v == null {
+    false
+  } else {
+    do {
+      want :: str.lower(token)
+      parts :: str.split(v, ",")
+      while { xs: parts, want: want } {
+        (xs, want) ~> match xs {
+          []: { out: false },
+          [h, ...t]: if str.lower(str.trim(h)) == want {
+            { out: true }
+          } else {
+            { state: { xs: t, want: want } }
+          }
+        }
+      }
+    }
+  }
+}
+
 --- head_end -- the index just past the first `"\r\n\r\n"` terminator
 --- in a byte buffer, or -1 while the head is still incomplete. Pure
 --- byte scan so the (possibly binary) frame bytes trailing the head are
