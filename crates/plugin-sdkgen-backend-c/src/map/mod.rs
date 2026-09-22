@@ -9,9 +9,9 @@
 //! The parse context is reduced to `pointer_width` so this module stays
 //! decoupled from [`crate::parse`].
 
-pub(crate) mod arg;
-pub(crate) mod pred;
-pub(crate) mod scalar;
+mod arg;
+mod pred;
+mod scalar;
 
 pub(crate) use arg::map_arg_with_peek;
 pub(crate) use scalar::{ctypes_module, map_arg_type, map_field_type, map_return_type};

@@ -10,9 +10,9 @@ use handl_plugin_sdkgen::Record;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-pub(crate) mod function;
-pub(crate) mod record;
-pub(crate) mod typedef;
+mod function;
+mod record;
+mod typedef;
 
 pub(crate) use function::parse_function;
 pub(crate) use record::parse_record;

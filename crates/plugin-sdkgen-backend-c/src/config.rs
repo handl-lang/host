@@ -213,7 +213,7 @@ impl SdkgenConfig {
 
 /// Whether a descriptor allocates a callee-filled out slot
 /// (`out_buf`/`out_ptr`/`io_buf`/`out_struct`).
-pub(crate) fn is_out_slot(d: &str) -> bool {
+fn is_out_slot(d: &str) -> bool {
     d.starts_with("out_buf:")
         || d.starts_with("out_ptr:")
         || d.starts_with("io_buf:")
