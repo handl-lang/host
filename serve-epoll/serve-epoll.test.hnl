@@ -1,0 +1,76 @@
+--- serve-epoll tests: the Handl HTTP server and the libcurl async
+--- client run as tasks in the same concurrent-epoll scheduler.
+
+from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
+from "../serve-epoll/serve-epoll" import { listener_task }
+from "../fetch-c/fetch-c" import { fetch_task }
+
+--- local aliases: task envs serialize `:=` bindings only.
+ltask := listener_task
+ftask := fetch_task
+
+--- plain-arrow handler: echoes method+path, marks a header.
+--- `~> {` parses as a block; wrap the record literal in `do`.
+handler := (req) ~> do {
+  { status: 200,
+    headers: { "x-served": "handl" },
+    body: "hi " + req.method + " " + req.path }
+}
+
+--- step-arrow handler (mode "task"): suspends on sleep before replying.
+slow_handler := (s) ~> match hash_map.get_or(s, "phase", "h") {
+  "h": { call: { name: "sleep", ms: 1 },
+         state: { phase: "r", req: s } },
+  "r": { out: { status: 201, body: "slow " + s.req.path } }
+}
+
+--- spawn the listener + a fetch_task, await the client, return its
+--- response. The listener never finishes; run() ends with the main
+--- task.
+main := (s) ~> match s.phase {
+  "a": {
+    call: { name: "spawn", task: ltask,
+            init: { phase: "accept", lfd: s.lfd,
+                    handler: s.handler, mode: s.mode } },
+    state: hash_map.merge(s, { phase: "b" })
+  },
+  "b": {
+    call: { name: "spawn", task: ftask,
+            init: { url: s.url, init: s.init } },
+    state: hash_map.merge(s, { phase: "c" })
+  },
+  "c": {
+    call: { name: "await", task: s.result },
+    state: hash_map.merge(s, { phase: "d" })
+  },
+  "d": { out: s.result }
+}
+
+serve_once := (handler, mode, url, init, port) ~> do {
+  lfd := tcp_listen({ host: "127.0.0.1", port: port })
+  r := run(main, { phase: "a", lfd: lfd, handler: handler,
+                   mode: mode, url: url, init: init })
+  r.main
+}
+
+test_serve_get := assert do {
+  r := serve_once(handler, "plain", "http://127.0.0.1:18349/hi", {}, 18349)
+  r.body
+} := "hi GET /hi"
+
+test_serve_headers := assert do {
+  r := serve_once(handler, "plain", "http://127.0.0.1:18350/x", {}, 18350)
+  hash_map.get_or(r.headers, "x-served", "missing")
+} := "handl"
+
+test_serve_post := assert do {
+  r := serve_once(handler, "plain", "http://127.0.0.1:18351/echo",
+    { method: "POST", body: "b1" }, 18351)
+  r.body
+} := "hi POST /echo"
+
+test_serve_task_handler := assert do {
+  r := serve_once(slow_handler, "task",
+    "http://127.0.0.1:18352/later", {}, 18352)
+  r.body + "|" + type.to_string(r.status)
+} := "slow /later|201"

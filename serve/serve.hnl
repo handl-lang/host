@@ -1,0 +1,21 @@
+--- serve -- run an HTTP server around a fetch-shaped handler arrow.
+---
+--- WinterCG/srvx-style surface: the handler is an arrow
+--- `Request ~> Response`, symmetric with the client `fetch`. Routing is
+--- Handl code inside the handler, not a registration API.
+---
+--- serve.serve       -- serve(handler, opts); blocks, one task per conn
+--- serve.serve_task  -- handler is a step-arrow (may suspend on ops)
+---
+--- Request  = { method, target, path, query, version, headers, body,
+---              body_bytes }
+--- Response = { status?, headers?, body? | body_bytes? }
+--- Options  = { port: Int, host?: "0.0.0.0" }
+cap "serve.serve"
+cap "serve.serve_task"
+
+op "serve.serve": Value -> Value
+  guarantee: True
+
+op "serve.serve_task": Value -> Value
+  guarantee: True

@@ -1,0 +1,124 @@
+--- serve-epoll -- `serve` backend on concurrent-epoll.
+---
+--- A listener task accepts on the listen fd; each connection is a
+--- spawned task that accumulates the request bytes, invokes the
+--- handler, writes the serialized response, and closes. HTTP/1.1,
+--- `connection: close` only -- no keep-alive or chunked bodies (v0).
+---
+--- Handlers:
+---   serve(handler, opts)      plain arrow `req ~> resp`, called inline
+---   serve_task(handler, opts) step-arrow handler, invoked via `enter`
+---                             so it may suspend on scheduler ops
+---
+--- Task arrows reach imported names through the local `:=` aliases
+--- below -- serialized task envs drop `import` bindings (runtime
+--- limitation, same as fetch-c). The same caveat applies to handler
+--- arrows passed in by callers.
+
+from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
+from "../http_rfc/http_rfc" import * as rfcm
+from "bytes" import * as bytes
+
+--- task arrows keep their `:=`-bound env when spawned/resumed, so the
+--- codec arrows (unregistered module fns) are aliased by name. `bytes.*`
+--- and other canonical `mod.fn` names resolve through the wire registry
+--- in every context and need no alias (runtime limitation workaround,
+--- same pattern as fetch-c).
+try_parse := rfcm.try_parse_request
+serialize_resp := rfcm.serialize_response
+
+MAX_REQ := 1048576
+
+--- serialize `resp` and send it; state continues at "sent" to finish
+--- any partial write.
+reply := (s, resp, head_only) ~> do {
+  buf := serialize_resp(resp, head_only)
+  { call: { name: "send", fd: s.fd, buf: buf },
+    state: hash_map.merge(s, { phase: "sent", out: buf, off: 0 }) }
+}
+
+--- dispatch to the handler per mode, then reply. Task-mode handlers
+--- get the parsed req as their init; plain handlers get a direct call.
+respond := (s, req) ~> do {
+  if s.mode == "task" {
+    { call: { name: "enter", arrow: s.handler, init: req },
+      state: hash_map.merge(s, { phase: "responded", req: req }) }
+  } else {
+    reply(s, s.handler(req), req.method == "HEAD")
+  }
+}
+
+conn_task := (s) ~> match s.phase {
+  "read": {
+    call: { name: "recv", fd: s.fd },
+    state: hash_map.merge(s, { phase: "got" })
+  },
+  "got": do {
+    if bytes.len(s.result) == 0 {
+      -- peer closed before/without a full request
+      { call: { name: "close", fd: s.fd },
+        state: hash_map.merge(s, { phase: "done" }) }
+    } else {
+      do {
+        acc := bytes.concat(s.buf, s.result)
+        parsed := try_parse(acc)
+        if bytes.len(acc) > MAX_REQ {
+          reply(s, { status: 431, body: "request too large" }, false)
+        } else if parsed == null {
+          { call: { name: "recv", fd: s.fd },
+            state: hash_map.merge(s, { phase: "got", buf: acc }) }
+        } else if parsed.req == null {
+          reply(s, { status: 400, body: "bad request" }, false)
+        } else {
+          respond(hash_map.merge(s, { buf: acc }), parsed.req)
+        }
+      }
+    }
+  },
+  "responded": reply(s, s.result, s.req.method == "HEAD"),
+  "sent": do {
+    n := s.off + s.result.sent
+    if n >= bytes.len(s.out) {
+      { call: { name: "close", fd: s.fd },
+        state: hash_map.merge(s, { phase: "done" }) }
+    } else {
+      { call: { name: "send", fd: s.fd,
+                buf: bytes.slice(s.out, n, bytes.len(s.out)) },
+        state: hash_map.merge(s, { phase: "sent", off: n }) }
+    }
+  },
+  "done": { out: null }
+}
+
+--- accept forever; spawn a conn_task per connection.
+export listener_task := (s) ~> match s.phase {
+  "accept": {
+    call: { name: "accept", fd: s.lfd },
+    state: hash_map.merge(s, { phase: "spawn_conn" })
+  },
+  "spawn_conn": {
+    call: { name: "spawn", task: conn_task,
+            init: { phase: "read", fd: s.result, buf: bytes.from_list([]),
+                    handler: s.handler, mode: s.mode } },
+    state: hash_map.merge(s, { phase: "accept" })
+  },
+  _: { out: null }
+}
+
+--- serve(handler, { port, host? }) -- listen and run the accept loop
+--- forever (blocks; this IS the process main loop).
+export serve := (handler, opts) ~> do {
+  lfd := tcp_listen({ host: hash_map.get_or(opts, "host", "0.0.0.0"),
+                      port: opts.port })
+  run(listener_task, { phase: "accept", lfd: lfd,
+                       handler: handler, mode: "plain" })
+}
+
+--- serve_task(handler, opts) -- handler is a step-arrow: it is
+--- `enter`ed per request and may suspend on any scheduler op.
+export serve_task := (handler, opts) ~> do {
+  lfd := tcp_listen({ host: hash_map.get_or(opts, "host", "0.0.0.0"),
+                      port: opts.port })
+  run(listener_task, { phase: "accept", lfd: lfd,
+                       handler: handler, mode: "task" })
+}
