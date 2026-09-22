@@ -26,6 +26,12 @@ impl Drop for Snippet {
 
 /// Parse `src` as a C file supplied entirely in memory.
 pub(crate) fn parse_snippet(src: &str) -> Snippet {
+    parse_snippet_for(src, &[])
+}
+
+/// Parse `src` with extra clang args (e.g. `&["-target", "i386-pc-linux-gnu"]`
+/// to pin a non-host ABI for width-sensitive tests).
+pub(crate) fn parse_snippet_for(src: &str, extra_args: &[&str]) -> Snippet {
     clang_sys::load().expect("libclang load");
     let index = unsafe { clang_createIndex(0, 0) };
     assert!(!index.is_null(), "createIndex failed");
@@ -33,6 +39,7 @@ pub(crate) fn parse_snippet(src: &str) -> Snippet {
     let name = CString::new("snippet.h").unwrap();
     let args: Vec<CString> = ["-x", "c", "-std=c11", "-fparse-all-comments"]
         .iter()
+        .chain(extra_args.iter())
         .map(|s| CString::new(*s).unwrap())
         .collect();
     let argp: Vec<*const std::ffi::c_char> = args.iter().map(|s| s.as_ptr()).collect();

@@ -96,14 +96,16 @@ pub(crate) fn map_arg_type(ty: CXType, pointer_width: usize) -> Result<(String, 
         }
         CXType_UChar | CXType_Char_U | CXType_UShort => Ok(("Nat".into(), "i32".into())),
         CXType_Int => Ok(("Int".into(), "i32".into())),
-        CXType_Long | CXType_LongLong => Ok(("Int".into(), "i64".into())),
-        CXType_UInt | CXType_ULong | CXType_ULongLong => {
-            // unsigned 32/64-bit; marshal as i32/i64
+        CXType_Long | CXType_LongLong | CXType_UInt | CXType_ULong | CXType_ULongLong => {
+            // `long`/`unsigned long` widths are target-variable (4 on
+            // LLP64/ILP32, 8 on LP64) — take the size from clang rather
+            // than assuming LP64. `int` is fixed 32-bit.
             let size = unsafe { clang_Type_getSizeOf(ty) };
+            let signed = matches!(ty.kind, CXType_Long | CXType_LongLong);
             if size == 4 {
-                Ok(("Nat".into(), "i32".into()))
+                Ok((if signed { "Int" } else { "Nat" }.into(), "i32".into()))
             } else {
-                Ok(("Nat".into(), "i64".into()))
+                Ok((if signed { "Int" } else { "Nat" }.into(), "i64".into()))
             }
         }
         CXType_Double => Ok(("Float".into(), "f64".into())),
@@ -137,8 +139,16 @@ pub(crate) fn map_field_type(ty: CXType, _size: usize) -> Result<(String, String
         CXType_UShort => Ok(("Nat".into(), "u16".into())),
         CXType_Int => Ok(("Int".into(), "i32".into())),
         CXType_UInt => Ok(("Nat".into(), "u32".into())),
-        CXType_Long | CXType_LongLong => Ok(("Int".into(), "i64".into())),
-        CXType_ULong | CXType_ULongLong => Ok(("Nat".into(), "u64".into())),
+        // Target-variable widths (`long`: 4 on LLP64/ILP32, 8 on LP64) —
+        // fields marshal at their real size, no arg-slot widening.
+        CXType_Long | CXType_LongLong | CXType_ULong | CXType_ULongLong => {
+            let size = unsafe { clang_Type_getSizeOf(ty) };
+            let signed = matches!(ty.kind, CXType_Long | CXType_LongLong);
+            Ok((
+                if signed { "Int" } else { "Nat" }.into(),
+                format!("{}{}", if signed { "i" } else { "u" }, size * 8),
+            ))
+        }
         CXType_Double => Ok(("Float".into(), "f64".into())),
         CXType_Enum => Ok(("Int".into(), "i32".into())),
         _ => Err(format!("unsupported field type: {}", type_spelling(ty))),

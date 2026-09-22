@@ -1,5 +1,5 @@
 use crate::map::scalar::{map_arg_type, map_field_type, map_return_type};
-use crate::testutil::parse_snippet;
+use crate::testutil::{parse_snippet, parse_snippet_for};
 
 const PRELUDE: &str = "typedef unsigned long size_t;\n";
 
@@ -101,6 +101,51 @@ fn field_type_table() {
         ("j", "Nat", "u64"),
         ("k", "Float", "f64"),
         ("l", "Size", "usize"),
+    ];
+    let fields = crate::cx::children_of_kind(rec, clang_sys::CXCursor_FieldDecl);
+    for (field, (name, port, desc)) in fields.iter().zip(expected.iter()) {
+        let ty = unsafe { clang_sys::clang_getCursorType(*field) };
+        let size = unsafe { clang_sys::clang_Type_getSizeOf(ty) };
+        let got = map_field_type(ty, size as usize).unwrap();
+        assert_eq!(got, (port.to_string(), desc.to_string()), "field {name}");
+    }
+}
+
+/// ILP32 (`i386-pc-linux-gnu`): `long` is 4 bytes. Widths must come from
+/// the parse target's `sizeof`, not a hardcoded LP64 assumption — this is
+/// what makes `--target` generation correct for `long`, `off_t`, `time_t`
+/// and every typedef resolving through them.
+#[test]
+fn ilp32_arg_widths() {
+    let sn = parse_snippet_for(
+        "typedef unsigned long size_t;\n\
+         typedef long off_t;\n\
+         int f(long x);\n\
+         int g(long long x);\n\
+         int h(size_t x);\n\
+         int k(off_t x);\n",
+        &["-target", "i386-pc-linux-gnu"],
+    );
+    assert_eq!(sn.pointer_width(), 32);
+    let desc = |f: &str, i: u32| map_arg_type(sn.fn_arg_type(f, i), sn.pointer_width()).unwrap();
+    assert_eq!(desc("f", 0), ("Int".into(), "i32".into()), "long arg");
+    assert_eq!(desc("g", 0), ("Int".into(), "i64".into()), "long long arg");
+    assert_eq!(desc("h", 0), ("Size".into(), "i32".into()), "size_t arg");
+    assert_eq!(desc("k", 0), ("Off".into(), "i32".into()), "off_t arg");
+}
+
+#[test]
+fn ilp32_field_widths() {
+    let sn = parse_snippet_for(
+        "struct s { long a; unsigned long b; long long c; unsigned long long d; };",
+        &["-target", "i386-pc-linux-gnu"],
+    );
+    let rec = sn.record_cursor("s");
+    let expected = [
+        ("a", "Int", "i32"),
+        ("b", "Nat", "u32"),
+        ("c", "Int", "i64"),
+        ("d", "Nat", "u64"),
     ];
     let fields = crate::cx::children_of_kind(rec, clang_sys::CXCursor_FieldDecl);
     for (field, (name, port, desc)) in fields.iter().zip(expected.iter()) {
