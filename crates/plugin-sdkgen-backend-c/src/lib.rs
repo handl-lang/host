@@ -3,7 +3,8 @@
 //! Pipeline, in module order:
 //! - [`backend`] — `CBackend`: libclang translation-unit setup and the
 //!   `SdkgenBackend::parse_header` driver (`clang_args` → TU →
-//!   `diagnostics` → collect → parse → `macro_probe` → `prune`).
+//!   `diagnostics` → collect → parse → `macro_probe` → `prune` →
+//!   `imports`), plus `apply_docs` doc layering (`docs`, `man`).
 //! - [`cx`] — thin safe wrappers over libclang (strings, locations,
 //!   visitor helpers).
 //! - [`collect`] — top-level declaration collection honoring `include`/`exclude`.

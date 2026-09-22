@@ -7,9 +7,12 @@
 //! [`macro_probe`] evaluates `#define` constants → [`prune`] drops
 //! unreferenced types and repairs dangling `rec:` fields →
 //! [`imports`] declares `types/c` imports → `SdkgenModule`.
+//! [`docs`] holds `CBackend::apply_docs`, the doc-layering pass the
+//! caller runs separately on the finished module.
 
 mod clang_args;
 mod diagnostics;
+mod docs;
 mod imports;
 mod macro_probe;
 mod man;
@@ -26,7 +29,7 @@ mod prune_test;
 
 use clang_sys::*;
 use glob::Pattern;
-use handl_plugin_sdkgen::{DocSource, SdkgenBackend, SdkgenError, SdkgenModule, pick_doc};
+use handl_plugin_sdkgen::{SdkgenBackend, SdkgenError, SdkgenModule};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CString, c_int, c_void};
@@ -36,6 +39,8 @@ use crate::collect::{CursorData, collect_cursors, collect_enum};
 use crate::config::SdkgenConfig;
 use crate::cx::cursor_name;
 use crate::parse::{ParseCtx, parse_function, parse_record, parse_typedef};
+
+pub use man::ManPageDocSource;
 
 /// C header parser using libclang.
 pub struct CBackend {
@@ -80,49 +85,7 @@ impl CBackend {
             consts,
         })
     }
-
-    /// Layer `.sdkgen.yaml` `docs:` overrides and an optional external
-    /// [`DocSource`] (e.g. [`crate::ManPageDocSource`]) over comments
-    /// captured from the header. Per slot: override > in-source comment
-    /// > external lookup. Keys are C symbol names; record fields use
-    /// `record.field`.
-    ///
-    /// When `external_docs` is not `false` (the default) and no `source`
-    /// is supplied, a [`ManPageDocSource`] is auto-created and consulted.
-    pub fn apply_docs(&self, module: &mut SdkgenModule, source: Option<&dyn DocSource>) {
-        let docs = &self.config.docs;
-        // Respect `external_docs: false` — skip external lookup entirely.
-        // Otherwise auto-create a man-page source if the caller gave none.
-        let fallback = if self.config.external_docs != Some(false) && source.is_none() {
-            Some(ManPageDocSource::new())
-        } else {
-            None
-        };
-        let src: Option<&dyn DocSource> = if self.config.external_docs == Some(false) {
-            None
-        } else {
-            source.or_else(|| fallback.as_ref().map(|s| s as &dyn DocSource))
-        };
-        for f in &mut module.functions {
-            pick_doc(&mut f.doc, docs, &[&f.name], src, Some(&f.name));
-        }
-        for r in &mut module.records {
-            pick_doc(&mut r.doc, docs, &[&r.name], src, Some(&r.name));
-            for f in &mut r.fields {
-                let key = format!("{}.{}", r.name, f.name);
-                pick_doc(&mut f.doc, docs, &[&key], None, None);
-            }
-        }
-        for t in &mut module.typedefs {
-            pick_doc(&mut t.doc, docs, &[&t.name], src, Some(&t.name));
-        }
-        for c in &mut module.enum_constants {
-            pick_doc(&mut c.doc, docs, &[&c.name], None, None);
-        }
-    }
 }
-
-pub use man::ManPageDocSource;
 
 impl SdkgenBackend for CBackend {
     fn parse_header(&self, path: &Path) -> Result<SdkgenModule, SdkgenError> {
