@@ -115,7 +115,7 @@ pub(crate) fn map_arg_type(ty: CXType, pointer_width: usize) -> Result<(String, 
 }
 
 /// Map a record field's C type to a `(port, descriptor)` pair.
-pub(crate) fn map_field_type(ty: CXType, _size: usize) -> Result<(String, String), String> {
+pub(crate) fn map_field_type(ty: CXType) -> Result<(String, String), String> {
     let spelling = type_spelling(ty);
     let alias = ctypes_port(&spelling);
     if spelling == "size_t" {
@@ -125,7 +125,7 @@ pub(crate) fn map_field_type(ty: CXType, _size: usize) -> Result<(String, String
         return Ok((alias.unwrap_or("Int").into(), "isize".into()));
     }
     if ty.kind == CXType_Typedef {
-        let (mut port, descriptor) = map_field_type(unsafe { clang_getCanonicalType(ty) }, _size)?;
+        let (mut port, descriptor) = map_field_type(unsafe { clang_getCanonicalType(ty) })?;
         if let Some(a) = alias {
             port = a.into();
         }

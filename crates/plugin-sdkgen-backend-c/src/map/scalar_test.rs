@@ -105,8 +105,7 @@ fn field_type_table() {
     let fields = crate::cx::children_of_kind(rec, clang_sys::CXCursor_FieldDecl);
     for (field, (name, port, desc)) in fields.iter().zip(expected.iter()) {
         let ty = unsafe { clang_sys::clang_getCursorType(*field) };
-        let size = unsafe { clang_sys::clang_Type_getSizeOf(ty) };
-        let got = map_field_type(ty, size as usize).unwrap();
+        let got = map_field_type(ty).unwrap();
         assert_eq!(got, (port.to_string(), desc.to_string()), "field {name}");
     }
 }
@@ -150,8 +149,7 @@ fn ilp32_field_widths() {
     let fields = crate::cx::children_of_kind(rec, clang_sys::CXCursor_FieldDecl);
     for (field, (name, port, desc)) in fields.iter().zip(expected.iter()) {
         let ty = unsafe { clang_sys::clang_getCursorType(*field) };
-        let size = unsafe { clang_sys::clang_Type_getSizeOf(ty) };
-        let got = map_field_type(ty, size as usize).unwrap();
+        let got = map_field_type(ty).unwrap();
         assert_eq!(got, (port.to_string(), desc.to_string()), "field {name}");
     }
 }
