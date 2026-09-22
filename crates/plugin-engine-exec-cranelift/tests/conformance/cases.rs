@@ -332,17 +332,11 @@ pub fn cases() -> Vec<Case> {
         cat,
         op("sub", vec![lit(10), lit(3), lit(2)]),
         None,
-        [
-            Expect::Val(json!(7)),
-            Expect::DivVal(json!(1)),
-            Expect::Val(json!(7)),
-            Expect::DivVal(json!(5)),
-        ],
-        "SUSPECTED DRIFT — three different n-ary conventions: \
-         tree-walk/cranelift take args[0]-args[1] via native_ops::bin_num \
-         (10-3=7); bytecode's typed `Sub` instruction pops the *last two* \
-         stack operands (3-2=1); term-interp folds all args left \
-         (10-3-2=5).",
+        all_ok(json!(5)),
+        "documented n-ary convention — left-fold `((10-3)-2)` = 5. \
+         `native_ops::bin_num` folds all args; bytecode emits the typed \
+         `Sub` instr only for exact arity 2 (n-ary falls through to the \
+         folding `NativeOp` path); term-interp folds natively.",
     ));
     out.push(case(
         "mul",
@@ -502,16 +496,10 @@ pub fn cases() -> Vec<Case> {
         cat,
         op("and", vec![lit(true), lit(true), lit(false)]),
         None,
-        [
-            Expect::Val(json!(true)),
-            Expect::DivVal(json!(false)),
-            Expect::Val(json!(true)),
-            Expect::DivVal(json!(false)),
-        ],
-        "three conventions: native_ops `and` reads args[0] && args[1] \
-         (true); bytecode `Arith(And)` pops the last two operands \
-         (true && false = false); term-interp folds all args (false). \
-         SUSPECTED DRIFT.",
+        all_ok(json!(false)),
+        "n-ary `and` = `all(truthy)` on every engine (left-fold \
+         convention). Bytecode emits `Arith(And)` only at exact arity 2; \
+         n-ary falls through to the folding `NativeOp` path.",
     ));
     out.push(case(
         "or",
@@ -526,16 +514,10 @@ pub fn cases() -> Vec<Case> {
         cat,
         op("or", vec![lit(false), lit(false), lit(true)]),
         None,
-        [
-            Expect::Val(json!(false)),
-            Expect::DivVal(json!(true)),
-            Expect::Val(json!(false)),
-            Expect::DivVal(json!(true)),
-        ],
-        "three conventions: native_ops `or` reads args[0] || args[1] \
-         (false); bytecode `Arith(Or)` pops the last two operands \
-         (false || true = true); term-interp folds all args (true). \
-         SUSPECTED DRIFT.",
+        all_ok(json!(true)),
+        "n-ary `or` = `any(truthy)` on every engine (left-fold \
+         convention). Bytecode emits `Arith(Or)` only at exact arity 2; \
+         n-ary falls through to the folding `NativeOp` path.",
     ));
 
     // ================= incoming plumbing / Seq axis-0 =================
@@ -643,11 +625,9 @@ pub fn cases() -> Vec<Case> {
         op("add", vec![lit(1), op("id", vec![])]),
         Some(json!(7)),
         all_ok(json!(8)),
-        "MASKED drift (bytecode): `id` in arg position 1 pops the `1` \
-         arg off the operand stack rather than reading `incoming` — the \
-         corrupting read is invisible only because `id(1)=1`; the real \
-         incoming `7` is then consumed by `add` itself. See \
-         `seq_inc_later_arg` for the unmasked variant.",
+        "`id` in arg position 1 reads the region's current incoming \
+         (`7`) via `PushIncoming` + `NativeOp` — `PushIncoming` pushes a \
+         copy so the earlier `1` arg stays on the stack for `add`.",
     ));
     out.push(case(
         "seq_inc_later_arg",
@@ -656,14 +636,13 @@ pub fn cases() -> Vec<Case> {
         Some(json!(7)),
         [
             Expect::Val(json!(2)),
-            Expect::DivVal(json!(-4)),
+            Expect::Val(json!(2)),
             Expect::Val(json!(2)),
             Expect::Unsupported,
         ],
-        "SUSPECTED BUG (bytecode): `inc` in arg position 1 pops the `10` \
-         arg (not the Seq predecessor `7`), then `sub` pops `7` and `11` \
-         → 7-11 = -4. tree-walk/cranelift evaluate `inc` against \
-         `incoming` → 10 - 8 = 2. term-interp has no `inc` op.",
+        "`inc` in arg position 1 reads the region's current incoming — \
+         the Seq predecessor `7` — via `PushIncoming` + `NativeOp` → \
+         10 - 8 = 2 on all engines. term-interp has no `inc` op.",
     ));
     out.push(case(
         "seq_first_incoming",
@@ -672,14 +651,13 @@ pub fn cases() -> Vec<Case> {
         Some(pairv(1, 99)),
         [
             Expect::Val(pairv(11, 99)),
-            Expect::DivErr("not a pair"),
+            Expect::Val(pairv(11, 99)),
             Expect::Val(pairv(11, 99)),
             Expect::Unsupported,
         ],
-        "SUSPECTED BUG (bytecode): `first` consumes `incoming` but is not \
-         in `op_uses_incoming` — `NativeOp` passes `current_incoming` \
-         (the program-level incoming, `None`) instead of the Seq \
-         predecessor's pair. term-interp lacks the `first` op.",
+        "`first` is not in `op_uses_incoming` — it receives incoming via \
+         the `current_incoming` register, which `SetIncoming` updates to \
+         the Seq predecessor's pair. term-interp lacks the `first` op.",
     ));
     out.push(case(
         "seq_app_incoming",
@@ -688,13 +666,12 @@ pub fn cases() -> Vec<Case> {
         Some(json!(41)),
         [
             Expect::Val(json!(51)),
-            Expect::DivErr("number"),
+            Expect::Val(json!(51)),
             Expect::Val(json!(51)),
             Expect::Unsupported,
         ],
-        "SUSPECTED BUG (bytecode): `app` gets `incoming=None` (not in \
-         `op_uses_incoming`), so the arrow is applied to `null` and its \
-         `x+10` body fails. tree-walk/clif apply it to 41 → 51.",
+        "`app` gets the Seq predecessor `41` via `current_incoming` on \
+         all engines → the `x+10` arrow yields 51.",
     ));
     out.push(case(
         "seq_sum_incoming",
@@ -703,12 +680,12 @@ pub fn cases() -> Vec<Case> {
         Some(eleft(5)),
         [
             Expect::Val(eleft(15)),
-            Expect::DivErr("not an either"),
+            Expect::Val(eleft(15)),
             Expect::Val(eleft(15)),
             Expect::Unsupported,
         ],
-        "SUSPECTED BUG (bytecode): same incoming-plumbing gap as \
-         `seq_first_incoming` — `sum` cannot see the Seq predecessor.",
+        "same incoming plumbing as `seq_first_incoming` — `sum` sees the \
+         Seq predecessor's `Either` on all engines.",
     ));
 
     // ================= products / sums =================
@@ -875,15 +852,10 @@ pub fn cases() -> Vec<Case> {
         cat,
         op("pair_tag", vec![]),
         Some(pairv(true, 7)),
-        [
-            Expect::Unsupported,
-            Expect::Unsupported,
-            Expect::Unsupported,
-            Expect::Val(eleft(7)),
-        ],
-        "inverse gap: `pair_tag` exists only in the term-interpreter's \
-         op table (used by the `if` lowering) — the engines never \
-         implement it.",
+        all_ok(eleft(7)),
+        "`pair_tag` (used by the `if` lowering) is implemented on all \
+         four — routes a pair's `snd` into an `Either` by its `fst` \
+         discriminant.",
     ));
 
     // ================= environment / structural =================
@@ -1168,32 +1140,19 @@ pub fn cases() -> Vec<Case> {
         cat,
         TermData::seq_axis(TermData::const_value(1), id_at(2), id_at(2)),
         Some(json!(7)),
-        [
-            Expect::Val(cell2v(7, 7, 7)),
-            Expect::DivErr("underflow"),
-            Expect::Val(cell2v(7, 7, 7)),
-            Expect::Val(cell2v(7, 7, 7)),
-        ],
-        "SUSPECTED BUG (bytecode): `Seq{axis:1}` lowers to \
-         `cell_comp_axis:2(axis, fst, snd)` and the `id` arg sub-programs \
-         corrupt the operand stack (each pops whatever the previous arg \
-         pushed) → `stack underflow on NativeOp`. tree-walk/clif/\
-         term-interp evaluate the operands against the Seq incoming `7` \
-         → `Cell2{7,7,7}`.",
+        all_ok(cell2v(7, 7, 7)),
+        "`Seq{axis:1}` lowers to `cell_comp_axis:2(axis, fst, snd)`; the \
+         `id` arg sub-programs read the incoming `7` via `PushIncoming` \
+         → `Cell2{7,7,7}` on all four.",
     ));
     out.push(case(
         "seq_axis2_dim3",
         cat,
         TermData::seq_axis(TermData::const_value(2), id_at(3), id_at(3)),
         Some(json!(7)),
-        [
-            Expect::Val(cellnv(3, cell2v(7, 7, 7), cell2v(7, 7, 7), cell2v(7, 7, 7))),
-            Expect::DivErr("underflow"),
-            Expect::Val(cellnv(3, cell2v(7, 7, 7), cell2v(7, 7, 7), cell2v(7, 7, 7))),
-            Expect::Val(cellnv(3, cell2v(7, 7, 7), cell2v(7, 7, 7), cell2v(7, 7, 7))),
-        ],
-        "SUSPECTED BUG (bytecode): same arg-position `id` stack \
-         corruption as `seq_axis1_dim2`, at declared dimension 3.",
+        all_ok(cellnv(3, cell2v(7, 7, 7), cell2v(7, 7, 7), cell2v(7, 7, 7))),
+        "same arg-position `id` incoming plumbing as `seq_axis1_dim2`, \
+         at declared dimension 3.",
     ));
     out.push(case(
         "cell_comp_axis_op",
@@ -1232,17 +1191,10 @@ pub fn cases() -> Vec<Case> {
         cat,
         op("compose", vec![]),
         Some(json!([5, {"axis": 0, "cell": 6}])),
-        [
-            Expect::Val(comp_5_6()),
-            Expect::DivErr("array"),
-            Expect::Val(comp_5_6()),
-            Expect::Val(comp_5_6()),
-        ],
-        "SUSPECTED BUG (bytecode): 0-arg `compose` needs `incoming` (the \
-         diagram) but is not in `op_uses_incoming` → gets \
-         `current_incoming` (`None`) → 'must be an array' error. Diagram \
-         `[5, {axis:0, cell:6}]` pastes `5 ∘₀ 6` → `Cell2` whose \
-         boundaries are the 1-cell composite `Arrow{5,6}`.",
+        all_ok(comp_5_6()),
+        "0-arg `compose` reads `incoming` (the diagram) via \
+         `current_incoming` — `[5, {axis:0, cell:6}]` pastes `5 ∘₀ 6` → \
+         `Cell2` whose boundaries are the 1-cell composite `Arrow{5,6}`.",
     ));
     out.push(case(
         "compose_args",

@@ -184,26 +184,38 @@ pub fn type_tag(v: &TaggedValue) -> &'static str {
 // Numeric helpers (moved from the 3 backend copies)
 // ===========================================================================
 
-/// Binary numeric op helper.
-pub fn bin_num<F>(args: &[TaggedValue], f: F) -> Result<TaggedValue, LangError>
+/// Binary numeric op helper. N-ary applications left-fold across all
+/// args (`sub(10,3,2)` = `(10-3)-2` = 5) — the documented n-ary
+/// convention shared with the term-interpreter.
+pub fn bin_num<F>(args: &[TaggedValue], mut f: F) -> Result<TaggedValue, LangError>
 where
-    F: FnOnce(Num, Num) -> Num,
+    F: FnMut(Num, Num) -> Num,
 {
-    let a = as_num(&args[0])?;
-    let b = as_num(&args[1])?;
-    Ok(num_value(f(a, b)))
+    let mut acc = as_num(&args[0])?;
+    for a in &args[1..] {
+        acc = f(acc, as_num(a)?);
+    }
+    Ok(num_value(acc))
 }
 
 /// Addition helper. Supports string concatenation when both operands are
 /// strings, and numeric addition when both operands are numbers. Any other
-/// combination of types is a type-mismatch error.
+/// combination of types is a type-mismatch error. N-ary applications
+/// left-fold pairwise (`add(1,2,3)` = `(1+2)+3` = 6) — the documented
+/// n-ary convention shared with the term-interpreter.
 ///
 /// This is the canonical `add` semantics — the bytecode `Arith`/`add`
 /// implementations that lacked string concatenation (and round-tripped
 /// ints through `f64`) were drift, now unified here.
 pub fn bin_add(args: &[TaggedValue]) -> Result<TaggedValue, LangError> {
-    let a = &args[0];
-    let b = &args[1];
+    let mut acc = args[0].clone();
+    for a in &args[1..] {
+        acc = bin_add_pair(&acc, a)?;
+    }
+    Ok(acc)
+}
+
+fn bin_add_pair(a: &TaggedValue, b: &TaggedValue) -> Result<TaggedValue, LangError> {
     match (a, b) {
         (TaggedValue::Str(s1), TaggedValue::Str(s2)) => {
             Ok(TaggedValue::Str(Rc::from(format!("{}{}", s1, s2))))
@@ -213,7 +225,7 @@ pub fn bin_add(args: &[TaggedValue]) -> Result<TaggedValue, LangError> {
             handl_value::tagged_to_value(a),
             handl_value::tagged_to_value(b)
         ))),
-        _ => bin_num(args, |x, y| x + y),
+        _ => bin_num(&[a.clone(), b.clone()], |x, y| x + y),
     }
 }
 
@@ -1309,20 +1321,26 @@ pub fn apply_native_op(
         "sub" => bin_num(args, |a, b| a - b).map(|v| (v, false)),
         "mul" => bin_num(args, |a, b| a * b).map(|v| (v, false)),
         "div" => {
-            let a = as_num(&args[0])?;
-            let b = as_num(&args[1])?;
-            if b.to_f64() == 0.0 {
-                return Err(LangError::engine("division by zero".to_string()));
+            let mut acc = as_num(&args[0])?;
+            for a in &args[1..] {
+                let b = as_num(a)?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::engine("division by zero".to_string()));
+                }
+                acc = acc / b;
             }
-            Ok((num_value(a / b), false))
+            Ok((num_value(acc), false))
         }
         "mod" => {
-            let a = as_num(&args[0])?;
-            let b = as_num(&args[1])?;
-            if b.to_f64() == 0.0 {
-                return Err(LangError::engine("modulo by zero".to_string()));
+            let mut acc = as_num(&args[0])?;
+            for a in &args[1..] {
+                let b = as_num(a)?;
+                if b.to_f64() == 0.0 {
+                    return Err(LangError::engine("modulo by zero".to_string()));
+                }
+                acc = acc % b;
             }
-            Ok((num_value(a % b), false))
+            Ok((num_value(acc), false))
         }
         "neg" => {
             let a = as_num(&args[0])?;
@@ -1436,11 +1454,11 @@ pub fn apply_native_op(
             false,
         )),
         "and" => Ok((
-            TaggedValue::Bool(is_truthy(&args[0]) && is_truthy(&args[1])),
+            TaggedValue::Bool(args.iter().all(is_truthy)),
             false,
         )),
         "or" => Ok((
-            TaggedValue::Bool(is_truthy(&args[0]) || is_truthy(&args[1])),
+            TaggedValue::Bool(args.iter().any(is_truthy)),
             false,
         )),
         // --- unary numeric helpers (arrow_iter / loop tests) ---------------
