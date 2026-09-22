@@ -91,6 +91,11 @@ impl Function for JsonParse {
             .ok_or_else(|| EvalError::Other("json.parse expects a string".to_string()))?;
         let value: Value = serde_json::from_str(s)
             .map_err(|e| EvalError::Other(format!("json parse error: {e}")))?;
+        // Reloaded documents must be self-contained: a persisted
+        // `__envref__`/dangling `__bindsref__`/`__resource__` decodes to a
+        // dropped env, an empty binds map, or a wild pointer — fail loudly.
+        handl_value::check_portable(&value)
+            .map_err(|e| EvalError::Other(format!("json parse error: {e}")))?;
         Ok(value)
     }
 }
@@ -111,6 +116,11 @@ impl Function for JsonStringify {
                 args.len()
             )));
         }
+        // Boundary check: the emitted string is opaque JSON that can be
+        // written to disk, sent over the network, or handed to a foreign
+        // consumer — it must carry no process-local/dangling references.
+        handl_value::check_portable(&args[0])
+            .map_err(|e| EvalError::Other(format!("json stringify error: {e}")))?;
         let s = serde_json::to_string(&args[0])
             .map_err(|e| EvalError::Other(format!("json stringify error: {e}")))?;
         Ok(Value::String(s))

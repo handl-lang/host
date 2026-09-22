@@ -85,6 +85,10 @@ impl Function for Serialize {
             .registry
             .get(&name)
             .ok_or_else(|| EvalError::Other(format!("unknown serializer: {name}")))?;
+        // Boundary check: the serialized string is portable output — it
+        // must carry no process-local/dangling references (`__envref__`,
+        // unresolved `__bindsref__`, `__resource__` pointers).
+        handl_value::check_portable(&args[0]).map_err(EvalError::Other)?;
         let output = serializer
             .serialize(&args[0])
             .map_err(|e| EvalError::Other(e.to_string()))?;
@@ -120,6 +124,10 @@ impl Function for Deserialize {
         let output = serializer
             .deserialize(&input)
             .map_err(|e| EvalError::Other(e.to_string()))?;
+        // A reloaded document carrying `__envref__`/dangling
+        // `__bindsref__`/`__resource__` markers would decode to a dropped
+        // env, empty binds, or a wild pointer — fail loudly instead.
+        handl_value::check_portable(&output).map_err(EvalError::Other)?;
         Ok(serde_json::Value::from(output))
     }
 }
