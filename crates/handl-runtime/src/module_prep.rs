@@ -28,6 +28,50 @@ pub fn prepare_module(
     transform_export_to_object(&src, is_file_spec, &op_names, is_bindable)
 }
 
+/// Collect the names a module source exports — the keys of the record
+/// [`prepare_module`] would produce — without preparing or evaluating it.
+/// Hosts use this to learn which names a spliced `import "<spec>"` /
+/// `from "<spec>" import *` binds (e.g. seeding a pre-run typecheck scope).
+pub fn module_export_names(src: &str) -> Vec<String> {
+    let src = strip_comment_lines(src);
+    let op_names = collect_op_decl_names(&src);
+    let src = strip_declaration_lines(&src);
+    let mut names = Vec::new();
+    for line in src.lines() {
+        let trimmed = line.trim_start();
+        if is_top_import_line(line) {
+            // `from "<spec>" export a, b` re-exports `a`/`b`; a
+            // `from "<host-mod>" export a` line exports `a` bound to the
+            // qualified name `"mod.a"`. Either way the declared names are
+            // module exports.
+            if let Some((_, reexports)) = from_export_to_import(line) {
+                names.extend(reexports.into_iter().map(|(name, _)| name));
+            } else {
+                names.extend(
+                    host_import_bindings(line)
+                        .into_iter()
+                        .filter(|(_, _, exported)| *exported)
+                        .map(|(local, _, _)| local),
+                );
+            }
+            continue;
+        }
+        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
+            let rest = &trimmed["export ".len()..];
+            if let Some((sep_pos, _)) = find_binding_sep(rest) {
+                names.push(strip_export_name(&rest[..sep_pos]));
+            }
+        }
+    }
+    for qualified in op_names {
+        let local = qualified.rsplit('.').next().unwrap_or(&qualified);
+        if !local.is_empty() && is_valid_ident(local) && !names.iter().any(|n| n == local) {
+            names.push(local.to_string());
+        }
+    }
+    names
+}
+
 /// Collect the qualified names from `op "<name>" : ...` declaration lines
 /// (e.g. `op "bytes.from_list"` → `bytes.from_list`).
 fn collect_op_decl_names(src: &str) -> Vec<String> {

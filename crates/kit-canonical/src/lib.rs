@@ -2377,6 +2377,21 @@ impl Kit {
     /// [`LangError::NotImplemented`] if the `"handl"` engine is not
     /// registered or the model failed to load.
     pub fn typecheck_handl(&self, input: &str) -> Result<Value, LangError> {
+        self.typecheck_handl_with_prelude(input, &std::collections::HashSet::new())
+    }
+
+    /// Like [`typecheck_handl`](Self::typecheck_handl), but `extra_prelude`
+    /// names are seeded into the bootstrap scope check alongside the
+    /// canonical wire names — `hnl run` uses this for the names a
+    /// file-resolving `import "<spec>"` / `from "<spec>" import *` splices
+    /// into scope at eval time, which the source-only checker cannot see.
+    pub fn typecheck_handl_with_prelude(
+        &self,
+        input: &str,
+        extra_prelude: &std::collections::HashSet<String>,
+    ) -> Result<Value, LangError> {
+        let mut prelude = canonical_wire_names();
+        prelude.extend(extra_prelude.iter().cloned());
         // The Pratt parser consumes one top-level expression per call, so
         // wrap the source in a `do { ... }` block (same convention as
         // `hnl run`). The model then sees a single `block` root whose
@@ -2405,7 +2420,7 @@ impl Kit {
                     HandlTypecheckEngine::new(Box::new(
                         handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
                     ))
-                    .with_prelude(canonical_wire_names())
+                    .with_prelude(prelude.iter().cloned().collect())
                     // The interpreted .hnl model costs minutes even on
                     // trivial ASTs — the CLI gate takes the Rust bootstrap
                     // checker instead. Re-enable for model work.
@@ -2427,7 +2442,7 @@ impl Kit {
                 let report = handl_plugin_engine_typecheck::check_module_with_prelude(
                     self.runtime.lang(),
                     input,
-                    &canonical_wire_names(),
+                    &prelude,
                 )
                 .map_err(|e| LangError::engine(e.to_string()))?;
                 if report
@@ -2465,7 +2480,7 @@ impl Kit {
         let report = handl_plugin_engine_typecheck::check_module_with_prelude(
             self.runtime.lang(),
             input,
-            &canonical_wire_names(),
+            &prelude,
         )
         .map_err(|e| LangError::engine(e.to_string()))?;
         if report
