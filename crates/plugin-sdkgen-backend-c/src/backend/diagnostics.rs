@@ -2,7 +2,8 @@
 
 use clang_sys::*;
 use handl_plugin_sdkgen::SdkgenError;
-use std::ffi::CStr;
+
+use crate::cx::cx_string;
 
 /// Collect libclang diagnostics of severity ≥ warning. Returns `Err` —
 /// with every message joined — when any error/fatal diagnostic exists.
@@ -23,13 +24,10 @@ pub(crate) fn check_tu(tu: CXTranslationUnit) -> Result<(), SdkgenError> {
                 CXDiagnostic_Fatal => "fatal",
                 _ => "note",
             };
-            let s = unsafe { clang_getDiagnosticSpelling(diag) };
-            let c = unsafe { clang_getCString(s) };
-            if !c.is_null() {
-                let msg = unsafe { CStr::from_ptr(c).to_string_lossy().into_owned() };
+            let msg = cx_string(unsafe { clang_getDiagnosticSpelling(diag) });
+            if !msg.is_empty() {
                 msgs.push(format!("[{sev_label}] {msg}"));
             }
-            unsafe { clang_disposeString(s) };
         }
         unsafe { clang_disposeDiagnostic(diag) };
     }
