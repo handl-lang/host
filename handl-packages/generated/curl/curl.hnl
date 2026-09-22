@@ -1,0 +1,46 @@
+--- Generated port for curl.curl
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+export CURLE_OK: Int
+export CURLOPT_WRITEDATA: Int
+export CURLOPT_URL: Int
+export CURLOPT_POSTFIELDS: Int
+export CURLOPT_USERAGENT: Int
+export CURLOPT_HTTPHEADER: Int
+export CURLOPT_HEADERDATA: Int
+export CURLOPT_CUSTOMREQUEST: Int
+export CURLOPT_NOBODY: Int
+export CURLOPT_FOLLOWLOCATION: Int
+export CURLOPT_POSTFIELDSIZE: Int
+export CURLOPT_NOSIGNAL: Int
+export CURLOPT_TIMEOUT_MS: Int
+export CURLOPT_COPYPOSTFIELDS: Int
+export CURLINFO_EFFECTIVE_URL: Int
+export CURLINFO_RESPONSE_CODE: Int
+
+--- create an easy handle
+--- ffi: CURL *(void)
+export CurlEasyInit: () ~[1]~> Result<Handle, Errno>
+
+--- perform a blocking network transfer
+--- ffi: CURLcode (CURL *)
+export CurlEasyPerform: (Int) ~[1]~> Result<Int, Errno>
+
+--- free an easy handle
+--- ffi: void (CURL *)
+export CurlEasyCleanup: (Int) ~[1]~> Result<(), Errno>
+
+--- return string describing error code
+--- ffi: const char *(CURLcode)
+export CurlEasyStrerror: (Int) ~[1]~> Result<String, Errno>
+
+--- add a string to an slist
+--- ffi:
+export CurlSlistAppend: (Int, String) ~[1]~> Result<Int, Errno>
+
+--- free an entire curl_slist list
+--- ffi: void (struct curl_slist *)
+export CurlSlistFreeAll: (Int) ~[1]~> Result<CurlSlistFreeAllResult, Errno>
