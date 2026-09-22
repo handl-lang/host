@@ -105,6 +105,18 @@ headers:
         "ECONNREFUSED",
       ]
     exclude: ["error_t"]
+  # stdio.h — FILE* plumbing for libcurl's default body/header writer:
+  # CURLOPT_WRITEDATA/HEADERDATA take a FILE* and libcurl's internal
+  # fwrite handles the callback-free path. tmpfile gives an anonymous
+  # "w+b" stream; after curl_easy_perform, rewind flushes the writer's
+  # stdio buffer and seeks to 0, fileno exposes the fd for the already
+  # bound `read`, and fclose releases it.
+  stdio.h:
+    include: ["tmpfile", "fileno", "rewind", "fclose", "fflush"]
+  # stdlib.h — system(3) for tests that need a throwaway background
+  # process (e.g. a canned local HTTP server).
+  stdlib.h:
+    include: ["system"]
 
 symbols:
   # long syscall(long sysno, ...) — bound for the memfd_create shape:
@@ -304,3 +316,23 @@ symbols:
   getsockopt:
     args: ["i32", "i32", "i32", "io_buf:16"]
     names: ["fd", "level", "optname"]
+
+  # FILE *tmpfile(void) — opaque stream pointer.
+  tmpfile:
+    args: []
+    ret: "ptr"
+  # int fileno(FILE*) — expose the fd so the bound `read` can drain it.
+  fileno:
+    args: ["ptr"]
+  # void rewind(FILE*) — flush pending writes + seek to 0.
+  rewind:
+    args: ["ptr"]
+  # int fclose/fflush(FILE*).
+  fclose:
+    args: ["ptr"]
+  fflush:
+    args: ["ptr"]
+
+  # int system(const char *) — cstr auto-maps.
+  system:
+    args: ["cstr"]

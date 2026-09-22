@@ -1,0 +1,64 @@
+# SDK generation config for libcurl — the C backend for `fetch-c`.
+#
+# Only the non-variadic easy-API surface is generated here. The variadic
+# calls (`curl_easy_setopt`, `curl_easy_getinfo`) are bound by hand in
+# fetch-c.hnl via direct `ffi.call` — the variadic tail is per-call-site,
+# exactly like `syscall`/`fcntl` in libc.sdkgen.yaml.
+library: libcurl.so.4
+
+headers:
+  # Spec input is curl-spec/curl.h (re-declares the easy.h functions —
+  # the collector only binds main-file decls). Key is the spec's stem.
+  curl.h:
+    include:
+      [
+        "curl_easy_init",
+        "curl_easy_perform",
+        "curl_easy_cleanup",
+        "curl_easy_strerror",
+        "curl_slist_append",
+        "curl_slist_free_all",
+        "CURLOPT_URL",
+        "CURLOPT_WRITEDATA",
+        "CURLOPT_HEADERDATA",
+        "CURLOPT_HTTPHEADER",
+        "CURLOPT_POSTFIELDS",
+        "CURLOPT_POSTFIELDSIZE",
+        "CURLOPT_COPYPOSTFIELDS",
+        "CURLOPT_CUSTOMREQUEST",
+        "CURLOPT_NOBODY",
+        "CURLOPT_FOLLOWLOCATION",
+        "CURLOPT_TIMEOUT_MS",
+        "CURLOPT_USERAGENT",
+        "CURLOPT_NOSIGNAL",
+        "CURLINFO_RESPONSE_CODE",
+        "CURLINFO_EFFECTIVE_URL",
+        "CURLE_OK",
+      ]
+
+symbols:
+  # Opaque handles map to `ptr`; CURLcode maps to `i32`.
+  # CURL *curl_easy_init(void)
+  curl_easy_init:
+    args: []
+    descriptor: "ptr"
+  # CURLcode curl_easy_perform(CURL*)
+  curl_easy_perform:
+    args: ["ptr"]
+    descriptor: "i32"
+  # void curl_easy_cleanup(CURL*)
+  curl_easy_cleanup:
+    args: ["ptr"]
+    descriptor: "void"
+  # const char *curl_easy_strerror(CURLcode)
+  curl_easy_strerror:
+    args: ["i32"]
+    descriptor: "cstr"
+  # struct curl_slist *curl_slist_append(struct curl_slist *, const char *)
+  curl_slist_append:
+    args: ["ptr", "cstr"]
+    descriptor: "ptr"
+  # void curl_slist_free_all(struct curl_slist *)
+  curl_slist_free_all:
+    args: ["ptr"]
+    descriptor: "void"

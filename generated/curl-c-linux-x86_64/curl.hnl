@@ -1,0 +1,55 @@
+--- Generated adapter for curl-c-linux-x86_64/curl
+
+from "result" import { ok, err }
+from "../curl/curl" import { CurlEasyInit, CurlEasyPerform, CurlEasyCleanup, CurlEasyStrerror, CurlSlistAppend, CurlSlistFreeAll }
+
+export CURLE_OK: Int := 0
+export CURLOPT_WRITEDATA: Int := 10001
+export CURLOPT_URL: Int := 10002
+export CURLOPT_POSTFIELDS: Int := 10015
+export CURLOPT_USERAGENT: Int := 10018
+export CURLOPT_HTTPHEADER: Int := 10023
+export CURLOPT_HEADERDATA: Int := 10029
+export CURLOPT_CUSTOMREQUEST: Int := 10036
+export CURLOPT_NOBODY: Int := 44
+export CURLOPT_FOLLOWLOCATION: Int := 52
+export CURLOPT_POSTFIELDSIZE: Int := 60
+export CURLOPT_NOSIGNAL: Int := 99
+export CURLOPT_TIMEOUT_MS: Int := 155
+export CURLOPT_COPYPOSTFIELDS: Int := 10165
+export CURLINFO_EFFECTIVE_URL: Int := 1048577
+export CURLINFO_RESPONSE_CODE: Int := 2097154
+
+export curl_easy_init: CurlEasyInit := () ~> do {
+  r = ffi.call("libcurl.so.4", "curl_easy_init", [], [], "ptr", false)
+  ok(r)
+}
+
+export curl_easy_perform: CurlEasyPerform := (curl) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_easy_perform", [curl], ["ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_easy_cleanup: CurlEasyCleanup := (curl) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_easy_cleanup", [curl], ["ptr"], "void", false)
+  ok(null)
+}
+
+export curl_easy_strerror: CurlEasyStrerror := (errornum) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_easy_strerror", [errornum], ["i32"], "cstr", false)
+  ok(r)
+}
+
+export curl_slist_append: CurlSlistAppend := (__arg_0, __arg_1) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_slist_append", [__arg_0, __arg_1], ["ptr", "cstr"], "ptr", false)
+  ok(r)
+}
+
+export curl_slist_free_all: CurlSlistFreeAll := (__arg_0) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_slist_free_all", [__arg_0], ["ptr"], "void", false)
+  ok(null)
+}

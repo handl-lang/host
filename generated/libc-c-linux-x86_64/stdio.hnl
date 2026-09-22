@@ -1,0 +1,41 @@
+--- Generated adapter for libc-c-linux-x86_64/stdio
+
+from "result" import { ok, err }
+from "../libc/stdio" import { Fclose, Tmpfile, Fflush, Rewind, Fileno }
+
+export fclose: Fclose := (__stream) ~> do {
+  r = ffi.call("libc.so.6", "fclose", [__stream], ["ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export tmpfile: Tmpfile := () ~> do {
+  r = ffi.call("libc.so.6", "tmpfile", [], [], "ptr", false)
+  ok(r)
+}
+
+export fflush: Fflush := (__stream) ~> do {
+  r = ffi.call("libc.so.6", "fflush", [__stream], ["ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export rewind: Rewind := (__stream) ~> do {
+  r = ffi.call("libc.so.6", "rewind", [__stream], ["ptr"], "void", false)
+  ok(null)
+}
+
+export fileno: Fileno := (__stream) ~> do {
+  r = ffi.call("libc.so.6", "fileno", [__stream], ["ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}

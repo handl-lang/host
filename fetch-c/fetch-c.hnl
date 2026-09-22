@@ -1,0 +1,211 @@
+--- fetch-c -- synchronous `fetch` backed by libcurl (sdkgen bindings).
+---
+--- v0 design: libcurl's default writer streams the response body into a
+--- tmpfile() via CURLOPT_WRITEDATA and the header block into a second
+--- tmpfile() via CURLOPT_HEADERDATA -- no C callback trampolines needed.
+--- After curl_easy_perform returns we rewind both streams and drain them
+--- with libc read(). The call blocks; curl_multi_poll + concurrent-epoll
+--- integration is the deferred async path.
+---
+--- fetch(url, init) where init (all fields optional):
+---   method      "GET" default; "HEAD" via NOBODY, others via CUSTOMREQUEST
+---   headers     { name: value } record, appended via curl_slist
+---   body        String, sent verbatim via COPYPOSTFIELDS (+ size)
+---   timeout_ms  Int
+---   follow      Bool, default true (FOLLOWLOCATION)
+---   user_agent  String
+--- returns { status: Int, headers: {...}, body: String, body_bytes: Bytes }
+--- and raises on transport failure (CURLE_*).
+
+from "../generated/curl-c-linux-x86_64/curl" import { curl_easy_init, curl_easy_perform, curl_easy_cleanup, curl_easy_strerror, curl_slist_append, curl_slist_free_all, CURLE_OK, CURLOPT_URL, CURLOPT_WRITEDATA, CURLOPT_HEADERDATA, CURLOPT_HTTPHEADER, CURLOPT_CUSTOMREQUEST, CURLOPT_NOBODY, CURLOPT_FOLLOWLOCATION, CURLOPT_TIMEOUT_MS, CURLOPT_USERAGENT, CURLOPT_NOSIGNAL, CURLOPT_COPYPOSTFIELDS, CURLOPT_POSTFIELDSIZE, CURLINFO_RESPONSE_CODE }
+from "../generated/libc-c-linux-x86_64/stdio" import { tmpfile, fileno, rewind, fclose }
+from "../generated/libc-c-linux-x86_64/unistd" import { read }
+from "str" import * as str
+from "bytes" import { utf8_decode, utf8_encode, concat, from_list, len }
+
+is_err := (r) ~> tag.tag_of(r) == "err"
+
+val_of := (r) ~> tag.untag(r).value
+
+unwrap := (r, what) ~> do {
+  if is_err(r) {
+    error.raise("fetch-c: " + what + " failed")
+  } else {
+    val_of(r)
+  }
+}
+
+--- curl_easy_setopt / curl_easy_getinfo are variadic: call ffi.call with
+--- a per-type fixed signature (SysV passes int/ptr varargs identically).
+
+setopt_str := (h, opt, v) ~> do {
+  ffi.call("libcurl.so.4", "curl_easy_setopt", [h, opt, v],
+    ["ptr", "i32", "cstr"], "i32", false)
+}
+
+setopt_ptr := (h, opt, v) ~> do {
+  ffi.call("libcurl.so.4", "curl_easy_setopt", [h, opt, v],
+    ["ptr", "i32", "ptr"], "i32", false)
+}
+
+setopt_long := (h, opt, v) ~> do {
+  ffi.call("libcurl.so.4", "curl_easy_setopt", [h, opt, v],
+    ["ptr", "i32", "i64"], "i32", false)
+}
+
+--- CURLINFO_RESPONSE_CODE writes a long into a cell we seed with 0;
+--- the value comes back in `vals`.
+getinfo_long := (h, info) ~> do {
+  ffi.call("libcurl.so.4", "curl_easy_getinfo", [h, info, 0],
+    ["ptr", "i32", "io_scalar:i64"], "i32", false)
+}
+
+check_setopt := (code, what) ~> do {
+  if code != CURLE_OK {
+    error.raise("fetch-c: curl_easy_setopt " + what + ": " +
+      val_of(curl_easy_strerror(code)))
+  } else {
+    null
+  }
+}
+
+--- drain a rewound FILE* into Bytes via fileno+read (64KiB chunks).
+read_all := (fd) ~> while { fd: fd, acc: from_list([]) } {
+  (fd, acc) ~> do {
+    r := read(fd)
+    if is_err(r) {
+      { out: acc }
+    } else if len(val_of(r)) == 0 {
+      { out: acc }
+    } else {
+      { state: { fd: fd, acc: concat(acc, val_of(r)) } }
+    }
+  }
+}
+
+--- last response block wins (redirects stack header blocks);
+--- status line resets the accumulator.
+parse_headers := (b) ~> while { lines: str.split(utf8_decode(b), "\r\n"), acc: {} } {
+  (lines, acc) ~> match lines {
+    []: { out: acc },
+    [h, ...t]: if str.starts_with(h, "HTTP/") {
+      { state: { lines: t, acc: {} } }
+    } else {
+      do {
+        i := str.find(h, ":")
+        if i > 0 {
+          { state: { lines: t, acc: hash_map.set(acc,
+              str.lower(str.trim(str.slice(h, 0, i))),
+              str.trim(str.slice(h, i + 1, str.length(h)))) } }
+        } else {
+          { state: { lines: t, acc: acc } }
+        }
+      }
+    }
+  }
+}
+
+set_method := (h, method) ~> do {
+  if method == "HEAD" {
+    check_setopt(setopt_long(h, CURLOPT_NOBODY, 1), "NOBODY")
+  } else if method != "GET" {
+    check_setopt(setopt_str(h, CURLOPT_CUSTOMREQUEST, method), "CUSTOMREQUEST")
+  } else {
+    null
+  }
+}
+
+set_body := (h, body) ~> do {
+  if body == null {
+    null
+  } else {
+    do {
+      _ := check_setopt(setopt_long(h, CURLOPT_POSTFIELDSIZE, len(utf8_encode(body))), "POSTFIELDSIZE")
+      check_setopt(setopt_str(h, CURLOPT_COPYPOSTFIELDS, body), "COPYPOSTFIELDS")
+    }
+  }
+}
+
+set_opt_str := (h, opt, v, what) ~> do {
+  if v == null {
+    null
+  } else {
+    check_setopt(setopt_str(h, opt, v), what)
+  }
+}
+
+set_opt_long := (h, opt, v, what) ~> do {
+  if v == null {
+    null
+  } else {
+    check_setopt(setopt_long(h, opt, v), what)
+  }
+}
+
+fold_headers := (ks, headers, slist) ~> do {
+  while { ks: ks, slist: slist } {
+    (ks, slist) ~> match ks {
+      []: { out: slist },
+      [k, ...t]: do {
+        line := k + ": " + hash_map.get_or(headers, k, "")
+        { state: { ks: t, slist: val_of(curl_slist_append(slist, line)) } }
+      }
+    }
+  }
+}
+
+build_slist := (init) ~> do {
+  headers := hash_map.get_or(init, "headers", {})
+  fold_headers(obj.keys(headers), headers, 0)
+}
+
+export fetch := (url, init) ~> do {
+  h := unwrap(curl_easy_init(), "curl_easy_init")
+  bodyf := unwrap(tmpfile(), "tmpfile(body)")
+  hdrf := unwrap(tmpfile(), "tmpfile(headers)")
+  _ := check_setopt(setopt_long(h, CURLOPT_NOSIGNAL, 1), "NOSIGNAL")
+  _ := check_setopt(setopt_str(h, CURLOPT_URL, url), "URL")
+  _ := check_setopt(setopt_ptr(h, CURLOPT_WRITEDATA, bodyf), "WRITEDATA")
+  _ := check_setopt(setopt_ptr(h, CURLOPT_HEADERDATA, hdrf), "HEADERDATA")
+  _ := set_method(h, hash_map.get_or(init, "method", "GET"))
+  _ := set_body(h, hash_map.get_or(init, "body", null))
+  _ := set_opt_str(h, CURLOPT_USERAGENT,
+      hash_map.get_or(init, "user_agent", null), "USERAGENT")
+  _ := set_opt_long(h, CURLOPT_TIMEOUT_MS,
+      hash_map.get_or(init, "timeout_ms", null), "TIMEOUT_MS")
+  _ := if hash_map.get_or(init, "follow", true) {
+    check_setopt(setopt_long(h, CURLOPT_FOLLOWLOCATION, 1), "FOLLOWLOCATION")
+  } else {
+    null
+  }
+  slist := build_slist(init)
+  _ := if slist != 0 {
+    check_setopt(setopt_ptr(h, CURLOPT_HTTPHEADER, slist), "HTTPHEADER")
+  } else {
+    null
+  }
+  rc := val_of(curl_easy_perform(h))
+  status := if rc == CURLE_OK {
+    do {
+      r := getinfo_long(h, CURLINFO_RESPONSE_CODE)
+      r.vals[0]
+    }
+  } else {
+    0
+  }
+  _ := rewind(bodyf)
+  _ := rewind(hdrf)
+  body := read_all(unwrap(fileno(bodyf), "fileno"))
+  hdrraw := read_all(unwrap(fileno(hdrf), "fileno"))
+  _ := fclose(bodyf)
+  _ := fclose(hdrf)
+  _ := if slist != 0 { curl_slist_free_all(slist) } else { null }
+  _ := curl_easy_cleanup(h)
+  if rc != CURLE_OK {
+    error.raise("fetch-c: curl_easy_perform: " +
+      val_of(curl_easy_strerror(rc)))
+  } else {
+    { status: status, headers: parse_headers(hdrraw),
+      body: utf8_decode(body), body_bytes: body }
+  }
+}

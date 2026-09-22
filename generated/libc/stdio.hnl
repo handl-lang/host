@@ -1,0 +1,31 @@
+--- Generated port for libc.stdio
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+--- Close STREAM.
+--- This function is a possible cancellation point and therefore not
+--- marked with __THROW.
+--- ffi: int (FILE *)
+export Fclose: (Int) ~[1]~> Result<Int, Errno>
+
+--- create a temporary file
+--- ffi:
+export Tmpfile: () ~[1]~> Result<ptr, Errno>
+
+--- Flush STREAM, or all streams if STREAM is NULL.
+--- This function is a possible cancellation point and therefore not
+--- marked with __THROW.
+--- ffi: int (FILE *)
+export Fflush: (Int) ~[1]~> Result<Int, Errno>
+
+--- Rewind to the beginning of STREAM.
+--- This function is a possible cancellation point and therefore not
+--- marked with __THROW.
+--- ffi: void (FILE *)
+export Rewind: (Int) ~[1]~> Result<(), Errno>
+
+--- Return the system file descriptor for STREAM.
+--- ffi: int (FILE *)
+export Fileno: (Int) ~[1]~> Result<Int, Errno>
