@@ -298,7 +298,7 @@ pub(crate) fn resolve_shim(
 
     // Fast path: stub already compiled.
     {
-        let cache = shim_cache().lock().unwrap();
+        let cache = crate::lock_cache(shim_cache());
         if let Some(shim) = cache.get(&key) {
             return Ok(Arc::clone(shim));
         }
@@ -309,7 +309,7 @@ pub(crate) fn resolve_shim(
     // the cache insert just overwrites.
     let shim = Arc::new(CraneliftShim::compile(ret, &key.args)?);
 
-    let mut cache = shim_cache().lock().unwrap();
+    let mut cache = crate::lock_cache(shim_cache());
     Ok(Arc::clone(
         cache.entry(key).or_insert_with(|| Arc::clone(&shim)),
     ))

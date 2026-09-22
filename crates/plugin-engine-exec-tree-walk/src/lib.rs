@@ -190,22 +190,105 @@ impl EvalFrame {
     /// the previous values — the same save/restore discipline as
     /// [`EvalEngine::eval`], so nested `ctx.try_call_value` /
     /// `TreeWalkCallable` calls inside the body see the innermost frame.
+    ///
+    /// Restoration is panic-safe: a [`TlRestoreGuard`] restores the previous
+    /// thread-locals on drop, so an unwinding panic cannot leave this frame's
+    /// language/modules/globals installed for whatever runs next on the
+    /// thread (e.g. a test-runner worker that catches panics and reuses the
+    /// thread for a subsequent job).
     pub fn enter<T>(&self, f: impl FnOnce() -> T) -> T {
-        let prev_lang = CURRENT_LANG
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&self.lang))));
-        let prev_modules =
-            CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.modules.clone()));
-        let prev_globals =
-            CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), self.globals.clone()));
-        let prev_import_resolver = CURRENT_IMPORT_RESOLVER
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), self.import_resolver.clone()));
+        let _guard = TlRestoreGuard::install(
+            Some(Rc::clone(&self.lang)),
+            self.modules.clone(),
+            self.globals.clone(),
+            self.import_resolver.clone(),
+        );
+        f()
+    }
+}
 
-        let out = f();
-        CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
-        CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
-        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
-        CURRENT_IMPORT_RESOLVER.with(|c| *c.borrow_mut() = prev_import_resolver);
-        out
+/// RAII guard that restores saved eval thread-locals on drop — including
+/// during panic unwinding, where a plain save/restore-after-call sequence
+/// would skip restoration and leak the inner frame's context into the next
+/// evaluation on the same thread.
+struct TlRestoreGuard {
+    lang: Option<Rc<Language>>,
+    modules: Option<Rc<dyn ModuleLookup>>,
+    globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+    import_resolver: Option<Rc<dyn ImportResolver>>,
+}
+
+impl TlRestoreGuard {
+    /// Swap the frame's values into the thread-locals, returning a guard that
+    /// restores the displaced values on drop.
+    fn install(
+        lang: Option<Rc<Language>>,
+        modules: Option<Rc<dyn ModuleLookup>>,
+        globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+        import_resolver: Option<Rc<dyn ImportResolver>>,
+    ) -> Self {
+        let prev_lang = CURRENT_LANG.with(|c| std::mem::replace(&mut *c.borrow_mut(), lang));
+        let prev_modules = CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), modules));
+        let prev_globals = CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), globals));
+        let prev_import_resolver =
+            CURRENT_IMPORT_RESOLVER.with(|c| std::mem::replace(&mut *c.borrow_mut(), import_resolver));
+        Self {
+            lang: prev_lang,
+            modules: prev_modules,
+            globals: prev_globals,
+            import_resolver: prev_import_resolver,
+        }
+    }
+
+    /// Replace the installed globals value. The value saved at `install` is
+    /// still the one restored on drop.
+    fn set_globals(&self, globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>) {
+        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = globals);
+    }
+}
+
+impl Drop for TlRestoreGuard {
+    fn drop(&mut self) {
+        CURRENT_LANG.with(|c| *c.borrow_mut() = self.lang.take());
+        CURRENT_MODULES.with(|c| *c.borrow_mut() = self.modules.take());
+        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = self.globals.take());
+        CURRENT_IMPORT_RESOLVER.with(|c| *c.borrow_mut() = self.import_resolver.take());
+    }
+}
+
+/// RAII guard for [`TreeWalkEngine::handler_stack`] pushes: pops the pushed
+/// handlers on drop — including during panic unwinding, so a panicking
+/// handled body cannot leave a foreign handler installed on the engine for
+/// the next eval that reuses it (e.g. a test-runner worker's next job).
+struct HandlerStackGuard<'a> {
+    stack: &'a RefCell<Vec<TaggedValue>>,
+    count: usize,
+}
+
+impl<'a> HandlerStackGuard<'a> {
+    /// Push `handlers` onto `stack`, returning a guard that pops them on drop.
+    fn push(
+        stack: &'a RefCell<Vec<TaggedValue>>,
+        handlers: impl IntoIterator<Item = TaggedValue>,
+    ) -> Self {
+        let mut count = 0;
+        {
+            let mut s = stack.borrow_mut();
+            for h in handlers {
+                s.push(h);
+                count += 1;
+            }
+        }
+        Self { stack, count }
+    }
+}
+
+impl Drop for HandlerStackGuard<'_> {
+    fn drop(&mut self) {
+        let mut s = self.stack.borrow_mut();
+        for _ in 0..self.count {
+            s.pop();
+        }
     }
 }
 
@@ -1243,9 +1326,10 @@ impl TreeWalkEngine {
                 ) {
                     Ok(handler_val) => {
                         let _ = target; // retained for diagnostics
-                        self.handler_stack
-                            .borrow_mut()
-                            .push(handler_val.clone());
+                        let _guard = HandlerStackGuard::push(
+                            &self.handler_stack,
+                            [handler_val.clone()],
+                        );
                         let result = self.eval_inner_td(
                             &body,
                             ast,
@@ -1255,7 +1339,6 @@ impl TreeWalkEngine {
                             current_node,
                             incoming,
                         );
-                        self.handler_stack.borrow_mut().pop();
                         // Deep handler: when the body produces an
                         // applicable value (an `arr <op>` dispatch object
                         // or a closure), the handler travels with it and
@@ -2677,21 +2760,11 @@ impl TreeWalkEngine {
                 Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
                 _ => Vec::new(),
             };
-            {
-                let mut stack = self.handler_stack.borrow_mut();
-                for h in &carried {
-                    stack.push(h.clone());
-                }
-            }
+            let _guard =
+                HandlerStackGuard::push(&self.handler_stack, carried.iter().cloned());
             let incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
             let dispatch_result =
                 self.arr_dispatch(op, &incoming, ast, node_ref, lang, env, current_node);
-            {
-                let mut stack = self.handler_stack.borrow_mut();
-                for _ in 0..carried.len() {
-                    stack.pop();
-                }
-            }
             let (val, pushed) = dispatch_result?;
             if pushed {
                 env.pop_scope();
@@ -2968,19 +3041,9 @@ impl TreeWalkEngine {
                 TaggedValue::Arr(Rc::from(rest_args.to_vec())),
             );
         }
-        {
-            let mut stack = self.handler_stack.borrow_mut();
-            for h in handlers {
-                stack.push(h.clone());
-            }
-        }
+        let _guard =
+            HandlerStackGuard::push(&self.handler_stack, handlers.iter().cloned());
         let result = self.eval_node_inner(&def_ast, body_ref, lang, &mut arrow_env);
-        {
-            let mut stack = self.handler_stack.borrow_mut();
-            for _ in 0..handlers.len() {
-                stack.pop();
-            }
-        }
         result
     }
 
@@ -3608,13 +3671,12 @@ impl Model for ValueModel {
                     .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let handler = self.run(&impl_term, incoming.clone(), ctx)?;
                 ctx.push_handler(handler.clone());
-                self.0
-                    .handler_stack
-                    .borrow_mut()
-                    .push(TaggedValue::from(handler));
+                let _guard = HandlerStackGuard::push(
+                    &self.0.handler_stack,
+                    [TaggedValue::from(handler)],
+                );
                 let result = self.run(&body_term, incoming, ctx);
                 ctx.pop_handler();
-                self.0.handler_stack.borrow_mut().pop();
                 result
             }
             // `Term::Op`: dimension-typed dispatch (ADR-0120 Phase 3) —
@@ -7253,5 +7315,89 @@ mod arrow_arena_cache_tests {
             let ast = cached_def_arena(d).expect("still resolvable after a clear");
             assert_eq!(ast.len(), 1);
         }
+    }
+
+    /// A panic inside `EvalFrame::enter`'s callback must still restore the
+    /// eval thread-locals. The test scheduler catches panics at the job
+    /// boundary and reuses the worker thread — without panic-safe restore,
+    /// the next job on that worker would see the panicked frame's
+    /// language/modules/globals.
+    #[test]
+    fn eval_frame_enter_restores_thread_locals_on_panic() {
+        // Baseline: no eval context installed on this thread.
+        assert!(CURRENT_LANG.with(|c| c.borrow().is_none()));
+        assert!(CURRENT_MODULES.with(|c| c.borrow().is_none()));
+        assert!(CURRENT_GLOBALS.with(|c| c.borrow().is_none()));
+        assert!(CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().is_none()));
+
+        let frame = EvalFrame {
+            lang: Rc::new(Language::new()),
+            modules: None,
+            globals: None,
+            import_resolver: None,
+        };
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            frame.enter::<()>(|| {
+                // Inside the frame the language is installed.
+                assert!(CURRENT_LANG.with(|c| c.borrow().is_some()));
+                panic!("simulated eval panic");
+            });
+        }));
+        assert!(result.is_err(), "the panic must propagate to the caller");
+
+        // The guard restored every thread-local during unwinding.
+        assert!(
+            CURRENT_LANG.with(|c| c.borrow().is_none()),
+            "CURRENT_LANG leaked the panicked frame's language",
+        );
+        assert!(
+            CURRENT_MODULES.with(|c| c.borrow().is_none()),
+            "CURRENT_MODULES leaked the panicked frame's modules",
+        );
+        assert!(
+            CURRENT_GLOBALS.with(|c| c.borrow().is_none()),
+            "CURRENT_GLOBALS leaked the panicked frame's globals",
+        );
+        assert!(
+            CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().is_none()),
+            "CURRENT_IMPORT_RESOLVER leaked the panicked frame's resolver",
+        );
+    }
+
+    /// Nested frames restore to the *outer* frame's values, not to `None`,
+    /// even when the inner callback panics.
+    #[test]
+    fn eval_frame_enter_restores_outer_frame_on_inner_panic() {
+        let outer = EvalFrame {
+            lang: Rc::new(Language::new()),
+            modules: None,
+            globals: None,
+            import_resolver: None,
+        };
+        let mut inner = outer.clone();
+        // Distinguish inner from outer: give the inner frame globals.
+        let mut globals = FxHashMap::default();
+        globals.insert(Rc::from("inner"), TaggedValue::Null);
+        inner.globals = Some(Rc::new(globals));
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            outer.enter::<()>(|| {
+                let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    inner.enter::<()>(|| {
+                        assert!(CURRENT_GLOBALS.with(|c| c.borrow().is_some()));
+                        panic!("inner panic");
+                    });
+                }));
+                assert!(r.is_err());
+                // After the inner panic, the outer frame's context (globals
+                // absent) is what remains installed — not the inner frame's.
+                assert!(
+                    CURRENT_GLOBALS.with(|c| c.borrow().is_none()),
+                    "inner frame's globals leaked after its panic",
+                );
+            });
+        }));
+        assert!(result.is_ok());
+        assert!(CURRENT_LANG.with(|c| c.borrow().is_none()));
     }
 }

@@ -97,9 +97,19 @@ fn symbol_cache() -> &'static Mutex<HashMap<(String, String), SymbolPtr>> {
     SYMBOL_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Lock a cache mutex, recovering the guard when a previous holder panicked.
+/// The caches only ever hold fully-inserted entries — a panic mid-operation
+/// can at worst drop an in-flight insert, never corrupt the map — so the
+/// poisoned state is safe to reuse. Without this, one panicking worker would
+/// poison the process-wide cache and fail every subsequent FFI call on all
+/// threads.
+pub(crate) fn lock_cache<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// Resolve a library by name, opening it once and caching the handle.
 fn resolve_library(name: &str) -> Result<(), EvalError> {
-    let mut cache = library_cache().lock().unwrap();
+    let mut cache = lock_cache(library_cache());
     if cache.contains_key(name) {
         return Ok(());
     }
@@ -134,7 +144,7 @@ fn resolve_symbol(library: &str, symbol: &str) -> Result<*mut c_void, EvalError>
 
     // Fast path: symbol already cached.
     {
-        let cache = symbol_cache().lock().unwrap();
+        let cache = lock_cache(symbol_cache());
         if let Some(&SymbolPtr(ptr)) = cache.get(&key) {
             return Ok(ptr);
         }
@@ -145,7 +155,7 @@ fn resolve_symbol(library: &str, symbol: &str) -> Result<*mut c_void, EvalError>
 
     // Look up the symbol and extract the raw pointer.
     let ptr = {
-        let cache = library_cache().lock().unwrap();
+        let cache = lock_cache(library_cache());
         let lib = cache
             .get(library)
             .ok_or_else(|| EvalError::Other(format!("library not loaded: {library}")))?;
@@ -156,7 +166,7 @@ fn resolve_symbol(library: &str, symbol: &str) -> Result<*mut c_void, EvalError>
     };
 
     // Cache and return.
-    let mut cache = symbol_cache().lock().unwrap();
+    let mut cache = lock_cache(symbol_cache());
     cache.insert(key, SymbolPtr(ptr));
     Ok(ptr)
 }
