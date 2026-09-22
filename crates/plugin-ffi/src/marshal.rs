@@ -183,9 +183,16 @@ pub(crate) fn marshal_arg(
             Ok(CArg::Float(n))
         }
         "cstr" => {
-            let s = value
-                .as_str()
-                .ok_or_else(|| EvalError::TypeMismatch("expected string for cstr".to_string()))?;
+            let s = value.as_str().ok_or_else(|| {
+                EvalError::TypeMismatch(format!(
+                    "expected string for cstr, got {}",
+                    &serde_json::to_string(value)
+                        .unwrap_or_default()
+                        .chars()
+                        .take(120)
+                        .collect::<String>()
+                ))
+            })?;
             let c = CString::new(s)
                 .map_err(|_| EvalError::TypeMismatch("embedded NUL byte in cstr".to_string()))?;
             let ptr = c.as_ptr();

@@ -1,0 +1,194 @@
+--- http_rfc -- HTTP/1.1 wire codec in pure Handl.
+---
+--- `try_parse_request(buf)` decodes a request head + fixed body from
+--- accumulated Bytes, returning `{ req, consumed }`, `{ req: null }`
+--- for a malformed head, or `null` when more bytes are needed.
+--- `serialize_response(resp, head_only)` renders a response record to
+--- wire Bytes with Content-Length and `connection: close` (no
+--- keep-alive / chunked yet -- v0).
+---
+--- Request shape (fetch-style):
+---   { method, target, path, query, version, headers, body, body_bytes }
+--- Response shape (what handlers return):
+---   { status: Int?, headers: {..}?, body: String? , body_bytes: Bytes? }
+
+--- canonical-name aliases: `str.split`-style calls resolve through the
+--- registered wire names (`str.*`, `bytes.*`, `char.*`) in every eval
+--- context, so no env capture is needed for them.
+from "str" import * as str
+from "bytes" import * as bytes
+from "char" import * as char
+
+--- (while, not recursion: self-recursive arrows lose their own
+--- binding when a task env is serialized -- runtime limitation)
+export alen := (xs) ~> while { xs: xs, n: 0 } {
+  (xs, n) ~> match xs {
+    []: { out: n },
+    [_, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
+
+--- nat_of -- digit string to Int, -1 when any char is not a digit
+--- (mirrors ws-whatwg-c/http.hnl).
+export nat_of := (s) ~> do {
+  n := str.length(s)
+  while { i: 0, acc: 0, bad: false } {
+    (i, acc, bad) ~> if i >= n {
+      { out: if bad { -1 } else { acc } }
+    } else {
+      do {
+        c := char.code_point_at(s, i)
+        if c >= 48 && c <= 57 {
+          { state: { i: i + 1, acc: acc * 10 + c - 48, bad: bad } }
+        } else {
+          { state: { i: i + 1, acc: acc, bad: true } }
+        }
+      }
+    }
+  }
+}
+
+--- index of the "\r\n\r\n" head/body separator, or -1
+export find_head_end := (b) ~> do {
+  n := bytes.len(b)
+  while { i: 0, hit: -1 } {
+    (st) ~> if st.hit >= 0 || st.i + 3 >= n {
+      { out: st.hit }
+    } else {
+      do {
+        c := bytes.at(b, st.i) == 13 && bytes.at(b, st.i + 1) == 10 &&
+          bytes.at(b, st.i + 2) == 13 && bytes.at(b, st.i + 3) == 10
+        { state: { i: st.i + 1, hit: if c { st.i } else { -1 } } }
+      }
+    }
+  }
+}
+
+--- one "Name: value" header line into the accumulator
+export fold_header := (acc, line) ~> do {
+  i := str.find(line, ":")
+  if i > 0 {
+    hash_map.set(acc,
+      str.lower(str.trim(str.slice(line, 0, i))),
+      str.trim(str.slice(line, i + 1, str.length(line))))
+  } else {
+    acc
+  }
+}
+
+--- split "path?query" on the first '?'
+export split_target := (t) ~> do {
+  i := str.find(t, "?")
+  if i < 0 {
+    { path: t, query: "" }
+  } else {
+    { path: str.slice(t, 0, i), query: str.slice(t, i + 1, str.length(t)) }
+  }
+}
+
+--- parse the head block into { method, target, version, headers }
+export parse_head := (text) ~> do {
+  lines := str.split(text, "\r\n")
+  match lines {
+    []: null,
+    [reqline, ...rest]: do {
+      parts := str.split(reqline, " ")
+      hs := while { xs: rest, acc: {} } {
+        (xs, acc) ~> match xs {
+          []: { out: acc },
+          [l, ...t]: { state: { xs: t, acc: fold_header(acc, l) } }
+        }
+      }
+      if alen(parts) >= 3 {
+        { method: parts[0], target: parts[1],
+          version: parts[alen(parts) - 1], headers: hs }
+      } else {
+        null
+      }
+    }
+  }
+}
+
+--- try to decode a full request from accumulated bytes. Returns
+--- { req, consumed }, { req: null, consumed } for a bad head, or null
+--- when the buffer needs more data.
+export try_parse_request := (buf) ~> do {
+  e := find_head_end(buf)
+  if e < 0 {
+    null
+  } else {
+    do {
+      head := parse_head(bytes.utf8_decode(bytes.slice(buf, 0, e)))
+      if head == null {
+        { req: null, consumed: e + 4 }
+      } else {
+        do {
+          cl := nat_of(hash_map.get_or(head.headers, "content-length", "0"))
+          clen := if cl < 0 { 0 } else { cl }
+          need := e + 4 + clen
+          if bytes.len(buf) < need {
+            null
+          } else {
+            do {
+              body := bytes.slice(buf, e + 4, need)
+              pq := split_target(head.target)
+              { req: {
+                  method: head.method, target: head.target,
+                  path: pq.path, query: pq.query, version: head.version,
+                  headers: head.headers,
+                  body: bytes.utf8_decode(body), body_bytes: body },
+                consumed: need }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+export reason := (code) ~> match code {
+  200: "OK", 201: "Created", 202: "Accepted", 204: "No Content",
+  301: "Moved Permanently", 302: "Found", 304: "Not Modified",
+  400: "Bad Request", 401: "Unauthorized", 403: "Forbidden",
+  404: "Not Found", 405: "Method Not Allowed", 408: "Request Timeout",
+  413: "Payload Too Large", 431: "Request Header Fields Too Large",
+  500: "Internal Server Error", 501: "Not Implemented",
+  503: "Service Unavailable", _: "Unknown"
+}
+
+export fold_hdrs := (ks, hs, acc) ~> while { ks: ks, acc: acc } {
+  (ks, acc) ~> match ks {
+    []: { out: acc },
+    [k, ...t]: { state: { ks: t,
+      acc: acc + k + ": " + hash_map.get_or(hs, k, "") + "\r\n" } }
+  }
+}
+
+--- render { status?, headers?, body?|body_bytes? } to wire bytes.
+--- Always emits Content-Length and `connection: close`; `head_only`
+--- drops the body for HEAD responses.
+export serialize_response := (resp, head_only) ~> do {
+  status := hash_map.get_or(resp, "status", 200)
+  bb := hash_map.get_or(resp, "body_bytes", null)
+  bodyb := if bb != null {
+    bb
+  } else {
+    bytes.utf8_encode(hash_map.get_or(resp, "body", ""))
+  }
+  hs := hash_map.get_or(resp, "headers", {})
+  hs2 := if hash_map.has(hs, "content-type") {
+    hs
+  } else {
+    hash_map.set(hs, "content-type", "text/plain; charset=utf-8")
+  }
+  hs3 := hash_map.set(hs2, "content-length",
+    type.to_string(bytes.len(bodyb)))
+  hs4 := hash_map.set(hs3, "connection", "close")
+  head := "HTTP/1.1 " + type.to_string(status) + " " + reason(status) +
+    "\r\n" + fold_hdrs(obj.keys(hs4), hs4, "") + "\r\n"
+  if head_only {
+    bytes.utf8_encode(head)
+  } else {
+    bytes.concat(bytes.utf8_encode(head), bodyb)
+  }
+}

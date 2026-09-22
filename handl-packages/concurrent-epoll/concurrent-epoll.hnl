@@ -998,9 +998,11 @@ final := (s) ~> ({
   results: s.results
 })
 
---- run tasks to completion: drain the runq; when it empties fire due
---- timers; when nothing can wake the parked tasks that's a deadlock;
---- otherwise block in epoll_wait.
+--- run tasks until the main task (id 1) completes: drain the runq;
+--- when it empties fire due timers; when nothing can wake the parked
+--- tasks that's a deadlock; otherwise block in epoll_wait. Spawned
+--- daemon tasks (e.g. an accept loop) may still be live when main
+--- finishes -- run abandons them.
 export run := (task, init) ~> do {
   fin := while new_sched(task, init) {
     (s) ~> do {
@@ -1010,7 +1012,8 @@ export run := (task, init) ~> do {
         s1 := fire_timers(s)
         if alen(s1.runq) > 0 {
           { state: s1 }
-        } else if ais_empty(s1.live) {
+        } else if ais_empty(s1.live)
+            || find_where(s1.results, (r) ~> r.id == 1) != null {
           { out: s1 }
         } else if ais_empty(s1.fdw) && ais_empty(s1.timers)
             && ais_empty(s1.mwait) {
@@ -1023,7 +1026,8 @@ export run := (task, init) ~> do {
   }
   _ := if fin.epfd == null { null } else { close(fin.epfd) }
   _ := if fin.multi == null { null } else { curl_multi_cleanup(fin.multi) }
-  if ais_empty(fin.live) {
+  if ais_empty(fin.live)
+      || find_where(fin.results, (r) ~> r.id == 1) != null {
     final(fin)
   } else {
     { deadlock: fin.live }
