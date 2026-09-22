@@ -313,11 +313,21 @@ pub struct StatementChunk {
 /// comment inside or trailing a statement is left in the chunk text — the
 /// lexer strips it at parse time. This is what keeps a `--` line inside a
 /// `{ ... }` block from truncating the in-progress statement.
+///
+/// Newlines are whitespace to the grammar, so a depth-0 `\n` is only a
+/// *candidate* boundary: it is not a split point when the pending chunk
+/// ends mid-expression (last significant char is an operator — no Handl
+/// statement ends with one) or when the following line cannot begin a
+/// statement (starts with `=`, a closer, an infix operator, …). `;` is
+/// always a hard separator.
 pub fn split_statements(src: &str) -> Vec<StatementChunk> {
     let bytes = src.as_bytes();
     let mut chunks = Vec::new();
     let mut start = 0usize;
     let mut depth: i32 = 0;
+    // Last significant byte of the pending chunk — every code byte outside
+    // strings and comments.
+    let mut last_sig: Option<u8> = None;
     let mut i = 0usize;
 
     while i < bytes.len() {
@@ -339,6 +349,7 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
                     _ => i += 1,
                 }
             }
+            last_sig = Some(b'"');
             continue;
         }
 
@@ -354,6 +365,7 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
             }
             if src[start..comment_start].trim().is_empty() {
                 start = i;
+                last_sig = None;
             }
             continue;
         }
@@ -367,18 +379,58 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
 
         // Statement separators at depth zero.
         if depth == 0 && (b == b'\n' || b == b';') {
-            push_chunk(src, &mut chunks, start, i);
-            i += 1;
-            start = i;
-            continue;
+            if b == b';' || is_newline_boundary(bytes, last_sig, i) {
+                push_chunk(src, &mut chunks, start, i);
+                i += 1;
+                start = i;
+                last_sig = None;
+                continue;
+            }
         }
 
+        if !b.is_ascii_whitespace() {
+            last_sig = Some(b);
+        }
         i += 1;
     }
 
     // Trailing chunk.
     push_chunk(src, &mut chunks, start, src.len());
     chunks
+}
+
+/// Is the `\n` at `bytes[i]` a real statement boundary? False when the
+/// pending statement is mid-expression (ends on an operator char) or the
+/// next line cannot begin a statement.
+fn is_newline_boundary(bytes: &[u8], last_sig: Option<u8>, i: usize) -> bool {
+    // No Handl statement ends with an operator or punctuation char —
+    // postfix forms end in an identifier or a closer.
+    const CANNOT_END: &[u8] = b"=,:;+-*/%<>!?&|~.@";
+    if let Some(b) = last_sig {
+        if CANNOT_END.contains(&b) {
+            return false;
+        }
+    }
+    // Scan forward past whitespace and `--` comments to the next code byte.
+    let mut j = i + 1;
+    loop {
+        while j < bytes.len() && matches!(bytes[j], b' ' | b'\t' | b'\r' | b'\n') {
+            j += 1;
+        }
+        if j + 1 < bytes.len() && bytes[j] == b'-' && bytes[j + 1] == b'-' {
+            while j < bytes.len() && bytes[j] != b'\n' {
+                j += 1;
+            }
+            continue;
+        }
+        break;
+    }
+    match bytes.get(j) {
+        // No Handl statement begins with these; unary `-`/`+`/`!` and open
+        // brackets are excluded since they legitimately start expressions.
+        Some(b) => !b"=,)]}.:;|&<>~*/%?".contains(b),
+        None => true,
+    }
 }
 
 /// Push a trimmed chunk from `src[start..end]` if it is non-empty and not a
@@ -712,6 +764,48 @@ mod tests {
         };
         let out = apply_fixes_to_fixpoint(src, compute, 5).unwrap();
         assert_eq!(out, "bbb");
+    }
+
+    #[test]
+    fn split_statements_continues_on_trailing_operator() {
+        // `x := 1 +\n  2` — the newline is mid-expression; one chunk.
+        // Trailing whitespace after the operator must not mask it.
+        let chunks = split_statements("x := 1 +  \n  2\ny := 3");
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].text, "x := 1 +  \n  2");
+        assert_eq!(chunks[1].text, "y := 3");
+    }
+
+    #[test]
+    fn split_statements_continues_on_impossible_lead() {
+        // `assert(..)\n= expect` — `=` cannot begin a statement; one chunk.
+        let chunks = split_statements("t := assert(1 == 1)\n  = true\nu := 2");
+        assert_eq!(chunks.len(), 2);
+        assert_eq!(chunks[0].text, "t := assert(1 == 1)\n  = true");
+        assert_eq!(chunks[1].text, "u := 2");
+    }
+
+    #[test]
+    fn split_statements_still_splits_plain_lines() {
+        // Both sides plausible statements — the newline splits.
+        let chunks = split_statements("x := 1\ny := f(x)\nz");
+        assert_eq!(chunks.len(), 3);
+    }
+
+    #[test]
+    fn split_statements_semicolon_stays_hard() {
+        // `;` splits even mid-expression-adjacent shapes.
+        let chunks = split_statements("x := 1; y := 2");
+        assert_eq!(chunks.len(), 2);
+    }
+
+    #[test]
+    fn split_statements_boundary_comment_before_continuation() {
+        // Comment line between the statement head and a `=`-led
+        // continuation still merges.
+        let chunks = split_statements("t := assert(1 == 1)\n-- expect\n  = true");
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].text, "t := assert(1 == 1)\n-- expect\n  = true");
     }
 
     #[cfg(feature = "lang-span")]
