@@ -1,7 +1,8 @@
 --- fetch-c tests: libcurl backend against a local canned HTTP server
 --- (test_server.py — serves exactly one GET and one POST then exits).
 
-from "./fetch-c" import { fetch }
+from "./fetch-c" import { fetch, fetch_task }
+from "../concurrent-epoll/concurrent-epoll" import { run }
 from "../generated/libc-c-linux-x86_64/stdlib" import { system }
 
 is_err := (r) ~> tag.tag_of(r) == "err"
@@ -57,6 +58,37 @@ test_post_echo := assert do {
     { method: "POST", body: "hndl", headers: { "Content-Type": "text/plain" } })
   r.body
 } := "{\"echo\":\"hndl\"}"
+
+--- async: two fetch_task transfers parked on the shared CURLM + epoll,
+--- spawned and awaited like any other task.
+fetch_pair := (s) ~> match s.phase {
+  "a": {
+    call: { name: "spawn", task: fetch_task,
+            init: { url: "http://127.0.0.1:18347/", init: {} } },
+    state: { phase: "b" }
+  },
+  "b": {
+    call: { name: "spawn", task: fetch_task,
+            init: { url: "http://127.0.0.1:18347/echo",
+                    init: { method: "POST", body: "async" } } },
+    state: { phase: "c", t1: s.result }
+  },
+  "c": {
+    call: { name: "await", task: s.t1 },
+    state: { phase: "d", t2: s.result }
+  },
+  "d": {
+    call: { name: "await", task: s.t2 },
+    state: { phase: "e", r1: s.result }
+  },
+  "e": { out: s.result.body + "|" + s.r1.body }
+}
+
+test_fetch_async := assert do {
+  _ := wait_ready(null)
+  r := run(fetch_pair, { phase: "a" })
+  r.main
+} := "{\"echo\":\"async\"}|{\"hello\":\"handl\"}"
 
 test_done := assert do {
   r := fetch("http://127.0.0.1:18347/done", {})
