@@ -223,6 +223,15 @@ impl ImportResolver for SharedImportResolver {
     ) -> Result<handl_language::Value, handl_language::LangError> {
         self.0.resolve_import(path)
     }
+
+    /// Forward the tagged fast path so a wrapped tagged-cache resolver
+    /// (e.g. `ModuleLoader`) keeps its `Rc`-sharing behavior.
+    fn resolve_import_tagged(
+        &self,
+        path: &str,
+    ) -> Result<Rc<handl_value::TaggedValue>, handl_language::LangError> {
+        self.0.resolve_import_tagged(path)
+    }
 }
 
 // ---------------------------------------------------------------------------

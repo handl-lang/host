@@ -3195,8 +3195,28 @@ impl TreeWalkEngine {
         ast_rc: Rc<Ast>,
         call_args: &[(String, Value)],
     ) -> Result<Value, LangError> {
+        self.eval_ast_rc_tagged(lang, ast_rc, call_args)
+            .map(|v| tagged_to_value(&v))
+    }
+
+    /// The [`TaggedValue`] core of
+    /// [`eval_ast_rc_with_args`](Self::eval_ast_rc_with_args): identical
+    /// setup, but returns the root's tagged value directly instead of
+    /// materializing it into `serde_json::Value`.
+    ///
+    /// This is the engine's [`EvalEngine::eval_tagged`] implementation:
+    /// the module loader uses it to cache the *tagged* module record, so
+    /// `Rc`-shared substructure (arrow `binds` maps shared across a `rec`
+    /// region) survives instead of being expanded into a JSON tree on the
+    /// way into the cache.
+    fn eval_ast_rc_tagged(
+        &self,
+        lang: &Language,
+        ast_rc: Rc<Ast>,
+        call_args: &[(String, Value)],
+    ) -> Result<TaggedValue, LangError> {
         if ast_rc.is_empty() {
-            return Ok(Value::Null);
+            return Ok(TaggedValue::Null);
         }
         // Set thread-locals so host functions can call arrow-values via
         // ctx.try_call_value (see TreeWalkCallable below). Save the previous
@@ -3205,15 +3225,16 @@ impl TreeWalkEngine {
         // `char.*` runs a nested `Runtime::run` → `eval`) restores them on
         // return instead of clobbering the outer runtime's state.
         let lang_rc = Rc::new(lang.clone());
-        let modules_rc = self.modules.clone();
-        let import_resolver_rc = self.import_resolver.clone();
-
-        let prev_lang = CURRENT_LANG
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&lang_rc))));
-        let prev_modules =
-            CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), modules_rc));
-        let prev_import_resolver = CURRENT_IMPORT_RESOLVER
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), import_resolver_rc));
+        // Install the eval thread-locals behind a guard so a panic unwinding
+        // out of `eval_node_inner` still restores them — a skipped restore
+        // would leak this eval's language/modules/globals into whatever runs
+        // next on this thread (e.g. a test-runner worker's next job).
+        let tl_guard = TlRestoreGuard::install(
+            Some(Rc::clone(&lang_rc)),
+            self.modules.clone(),
+            None,
+            self.import_resolver.clone(),
+        );
         let mut env = ScopeStack::new();
         // Build the merged globals map: host-provided globals (e.g. `self`)
         // plus the per-call argument bindings (`__arg_0`, …). Both live in the
@@ -3236,16 +3257,13 @@ impl TreeWalkEngine {
             map
         });
         env.set_globals(Rc::clone(&globals_rc));
-        let prev_globals = CURRENT_GLOBALS
-            .with(|c| std::mem::replace(&mut *c.borrow_mut(), Some(Rc::clone(&globals_rc))));
+        tl_guard.set_globals(Some(Rc::clone(&globals_rc)));
         // The root is the last node in the arena (Pratt convention).
         let root_ref = AstRef::new(ast_rc.len() - 1);
-        let result = self.eval_node(&ast_rc, root_ref, &lang_rc, &mut env);
-        // Restore the previous thread-locals (None for a non-nested eval).
-        CURRENT_LANG.with(|c| *c.borrow_mut() = prev_lang);
-        CURRENT_MODULES.with(|c| *c.borrow_mut() = prev_modules);
-        CURRENT_GLOBALS.with(|c| *c.borrow_mut() = prev_globals);
-        CURRENT_IMPORT_RESOLVER.with(|c| *c.borrow_mut() = prev_import_resolver);
+        let result = self.eval_node_inner(&ast_rc, root_ref, &lang_rc, &mut env);
+        // The guard restores the previous thread-locals on drop — normally
+        // here, or during panic unwinding out of `eval_node_inner`.
+        drop(tl_guard);
         result
     }
 }
@@ -3253,6 +3271,15 @@ impl TreeWalkEngine {
 impl EvalEngine for TreeWalkEngine {
     fn eval(&self, lang: &Language, req: &EvalRequest) -> Result<Value, LangError> {
         self.eval_ast_rc(lang, Rc::new(req.ast.clone()))
+    }
+
+    /// Tagged counterpart of [`eval`](Self::eval): the engine's internal
+    /// representation is already [`TaggedValue`], so this skips the
+    /// `serde_json::Value` materialization entirely — the module loader's
+    /// cache then stores the shared-`Rc` value graph rather than a JSON
+    /// expansion of it.
+    fn eval_tagged(&self, lang: &Language, req: &EvalRequest) -> Result<TaggedValue, LangError> {
+        self.eval_ast_rc_tagged(lang, Rc::new(req.ast.clone()), &[])
     }
 
     /// `Rc`-carrying entry point (e.g. `plugin-lib-handl`'s per-thread

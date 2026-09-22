@@ -2096,9 +2096,18 @@ pub fn apply_native_op(
             let resolver = ctx.import_resolver().ok_or_else(|| {
                 LangError::engine("import: no import resolver configured".to_string())
             })?;
+            // The tagged path hands back the resolver's cached record as a
+            // shared `Rc` — named-projected exports are `Rc`-cheap clones
+            // into the importer's scope rather than deep `Value`
+            // reconstructions per import (see
+            // `ImportResolver::resolve_import_tagged`).
             let bindings = resolver
-                .resolve_import(&path)
+                .resolve_import_tagged(&path)
                 .map_err(|e| LangError::engine(format!("import \"{}\": {}", path, e)))?;
+            let export_field = |name: &str| match &*bindings {
+                TaggedValue::Obj(map) => map.get(name).cloned(),
+                _ => None,
+            };
             if let Some(arr) = names_val.as_ref().and_then(|v| v.as_array()) {
                 for item in arr {
                     let (imported, local) = match item {
@@ -2123,42 +2132,31 @@ pub fn apply_native_op(
                             "import: cannot use '*' inside a braced import list".to_string(),
                         ));
                     }
-                    let exported = match &bindings {
-                        Value::Object(map) => map.get(imported).cloned(),
-                        _ => None,
-                    };
-                    let value = exported.ok_or_else(|| {
+                    let value = export_field(imported).ok_or_else(|| {
                         LangError::engine(format!(
                             "import \"{}\": module has no export `{}`",
                             path, imported
                         ))
                     })?;
-                    ctx.env_define(local, TaggedValue::from(value));
+                    ctx.env_define(local, value);
                 }
             } else if let Some(imported) = names_val
                 .as_ref()
                 .and_then(|v| v.as_str())
                 .filter(|n| *n != "*")
             {
-                let exported = match &bindings {
-                    Value::Object(map) => map.get(imported).cloned(),
-                    _ => None,
-                };
-                let value = exported.ok_or_else(|| {
+                let value = export_field(imported).ok_or_else(|| {
                     LangError::engine(format!(
                         "import \"{}\": module has no export `{}`",
                         path, imported
                     ))
                 })?;
-                ctx.env_define(
-                    alias.as_deref().unwrap_or(imported),
-                    TaggedValue::from(value),
-                );
+                ctx.env_define(alias.as_deref().unwrap_or(imported), value);
             } else if let Some(alias) = alias {
-                ctx.env_define(&alias, TaggedValue::from(bindings.clone()));
-            } else if let Value::Object(map) = &bindings {
-                for (name, val) in map {
-                    ctx.env_define(name, TaggedValue::from(val.clone()));
+                ctx.env_define(&alias, (*bindings).clone());
+            } else if let TaggedValue::Obj(map) = &*bindings {
+                for (name, val) in map.iter() {
+                    ctx.env_define(&**name, val.clone());
                 }
             }
             // `import` is a statement; it produces no value.

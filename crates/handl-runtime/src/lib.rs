@@ -82,7 +82,9 @@ use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 /// `handl-plugin-engine-typecheck` (ADR-0054).
 pub use handl_plugin_engine_typecheck::TypecheckResult;
 use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
+use handl_value::{TaggedValue, tagged_to_value};
 use plugin_engine::term_interpreter::interpret_with_handlers;
+use rustc_hash::FxHashMap;
 
 // ---------------------------------------------------------------------------
 // Compiled-handle / artifact / compile-engine traits (ADR-0047 §3)
@@ -1363,6 +1365,13 @@ impl ImportResolver for Runtime {
         })?;
         resolver.resolve_import(path)
     }
+
+    fn resolve_import_tagged(&self, path: &str) -> Result<Rc<TaggedValue>, LangError> {
+        let resolver = self.import_resolver.as_ref().ok_or_else(|| {
+            LangError::engine("import: no import resolver configured for this runtime")
+        })?;
+        resolver.resolve_import_tagged(path)
+    }
 }
 
 /// A self-contained module loader for `import "path"` statements
@@ -1412,9 +1421,28 @@ pub struct ModuleLoader {
     /// import paths inside it.
     dir_stack: RefCell<Vec<PathBuf>>,
     /// Cache of evaluated module bindings, keyed by canonical path.
-    cache: RefCell<HashMap<String, Value>>,
+    cache: RefCell<HashMap<String, Rc<CachedModule>>>,
     /// Paths currently being loaded (cycle detection).
     loading: RefCell<HashSet<String>>,
+}
+
+/// A cached evaluated module: the exported bindings record in tagged form
+/// plus the module's post-desugar AST (retained so the `Value`-returning
+/// [`ModuleLoader::load_module`] can still run
+/// [`EvalEngine::seal_module_value`] at extraction time).
+///
+/// The bindings are stored as a shared [`TaggedValue`] rather than a
+/// `serde_json::Value`: the tagged record keeps `Rc`-shared substructure
+/// (arrow `binds` maps shared across a `rec` region, per ADR-0106) intact,
+/// so the cache retains one copy of the module's value graph. The old
+/// `Value` cache pinned a *fully expanded* JSON tree per module — shared
+/// binds were duplicated at every arrow — which dominated resident memory
+/// on multi-file test runs (`hnl test <dir>`).
+struct CachedModule {
+    /// The module's export record (`TaggedValue::Obj` in practice).
+    bindings: Rc<TaggedValue>,
+    /// The module's post-desugar AST, kept for `seal_module_value`.
+    ast: Rc<Ast>,
 }
 
 impl ModuleLoader {
@@ -1563,13 +1591,57 @@ impl ModuleLoader {
         Ok(resolved)
     }
 
-    /// Load (or return cached) module bindings for `path`.
+    /// Load (or return cached) module bindings for `path` as a
+    /// [`Value::Object`].
+    ///
+    /// The cache holds the tagged record; the `Value` is materialized (and
+    /// sealed, via [`EvalEngine::seal_module_value`]) per call. Engines
+    /// consuming [`TaggedValue`] directly should use
+    /// [`load_module_tagged`](Self::load_module_tagged) — or the
+    /// [`ImportResolver::resolve_import_tagged`] impl — which returns the
+    /// shared record with no `Value` expansion at all.
     ///
     /// # Errors
     ///
     /// Returns [`LangError`] if the file is missing/unreadable, lex/parse/
     /// eval fails, or a circular import is detected.
     pub fn load_module(&self, path: &str) -> Result<Value, LangError> {
+        let module = self.load_module_cached(path)?;
+        // Seal the exported bindings for the cross-boundary handoff.
+        // ADR-0106: arrow values are self-contained (`body_def` carries the
+        // body arena), so sealing is identity — kept for engines that want
+        // to intercept module-value handoff (see
+        // `EvalEngine::seal_module_value`).
+        let engine_rc = self.eval_engine.borrow().clone().ok_or_else(|| {
+            LangError::engine(format!(
+                "import \"{}\": module loader has no eval engine configured",
+                path
+            ))
+        })?;
+        engine_rc
+            .seal_module_value(&module.ast, &self.lang, tagged_to_value(&module.bindings))
+            .map_err(|e| LangError::engine(format!("import \"{}\": seal error: {}", path, e)))
+    }
+
+    /// Load (or return cached) module bindings for `path` as the shared
+    /// tagged record — an `Rc` clone of the cache entry, so repeated
+    /// imports of the same module are O(1) and keep `Rc`-shared
+    /// substructure (arrow `binds` DAGs) intact.
+    ///
+    /// `seal_module_value` is a `Value`-boundary hook and is bypassed here;
+    /// ADR-0106 arrow values are self-contained so no stamping is needed
+    /// (all current `seal_module_value` impls are identity).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] as [`load_module`](Self::load_module).
+    pub fn load_module_tagged(&self, path: &str) -> Result<Rc<TaggedValue>, LangError> {
+        Ok(Rc::clone(&self.load_module_cached(path)?.bindings))
+    }
+
+    /// Resolve `path`, consult the cache/cycle detector, and load the module
+    /// if needed. Returns the shared cache entry.
+    fn load_module_cached(&self, path: &str) -> Result<Rc<CachedModule>, LangError> {
         let resolved = self.resolve_path(path)?;
 
         // Cache hit — return the previously evaluated bindings.
@@ -1591,18 +1663,22 @@ impl ModuleLoader {
         // and must not trip the cycle detector).
         let result = self.load_module_uncached(&resolved, path);
         self.loading.borrow_mut().remove(&resolved);
-        let bindings = result?;
+        let module = Rc::new(result?);
 
         // Cache the result.
-        self.cache.borrow_mut().insert(resolved, bindings.clone());
-        Ok(bindings)
+        self.cache.borrow_mut().insert(resolved, Rc::clone(&module));
+        Ok(module)
     }
 
     /// Read, parse, desugar, and evaluate the module at the already-resolved
-    /// path `resolved`, returning its collected top-level bindings.
+    /// path `resolved`, returning its collected top-level bindings and AST.
     /// `display_path` is the path as written in the `import` statement, used
     /// in error messages.
-    fn load_module_uncached(&self, resolved: &str, display_path: &str) -> Result<Value, LangError> {
+    fn load_module_uncached(
+        &self,
+        resolved: &str,
+        display_path: &str,
+    ) -> Result<CachedModule, LangError> {
         // Read the module source.
         let src = std::fs::read_to_string(resolved).map_err(|e| {
             LangError::engine(format!(
@@ -1694,7 +1770,12 @@ impl ModuleLoader {
         })?;
         let value = {
             let req = EvalRequest::new(ast.clone());
-            engine_rc.eval(&self.lang, &req).map_err(|e| {
+            // `eval_tagged` keeps the module's value graph in tagged form:
+            // engines whose internal representation is `TaggedValue` (the
+            // tree-walk engine) return it directly — `Rc`-shared arrow
+            // `binds` maps survive instead of being expanded into a
+            // `serde_json::Value` tree that the cache would pin.
+            engine_rc.eval_tagged(&self.lang, &req).map_err(|e| {
                 LangError::engine(format!(
                     "import \"{}\" ({}): eval error: {}",
                     display_path, resolved, e
@@ -1702,22 +1783,13 @@ impl ModuleLoader {
             })?
         };
 
-        // Collect the module's top-level bindings into a Value::Object.
-        let bindings = collect_module_bindings(self.lang.as_ref(), &ast, value);
+        // Collect the module's top-level bindings into a tagged record.
+        let bindings = collect_module_bindings_tagged(self.lang.as_ref(), &ast, value);
 
-        // Seal the exported bindings for the cross-boundary handoff.
-        // ADR-0106: arrow values are self-contained (`body_def` carries the
-        // body arena), so sealing is identity — kept for engines that want
-        // to intercept module-value handoff (see
-        // `EvalEngine::seal_module_value`).
-        engine_rc
-            .seal_module_value(&ast, &self.lang, bindings)
-            .map_err(|e| {
-                LangError::engine(format!(
-                    "import \"{}\" ({}): seal error: {}",
-                    display_path, resolved, e
-                ))
-            })
+        Ok(CachedModule {
+            bindings: Rc::new(bindings),
+            ast: Rc::new(ast),
+        })
     }
 
     /// Remove module-declaration header lines that name a *host module*
@@ -1893,9 +1965,16 @@ impl ImportResolver for ModuleLoader {
     fn resolve_import(&self, path: &str) -> Result<Value, LangError> {
         self.load_module(path)
     }
+
+    /// Tagged fast path: hands out the cached record as an `Rc` clone — no
+    /// `serde_json::Value` expansion per import.
+    fn resolve_import_tagged(&self, path: &str) -> Result<Rc<TaggedValue>, LangError> {
+        self.load_module_tagged(path)
+    }
 }
 
-/// Collect a module's top-level bindings into a [`Value::Object`].
+/// Collect a module's top-level bindings into a tagged export record
+/// (`TaggedValue::Obj`).
 ///
 /// The Pratt parser currently parses one top-level statement per `parse`
 /// call, so a module AST has a single root node. This extracts the binding
@@ -1909,31 +1988,30 @@ impl ImportResolver for ModuleLoader {
 ///   for effect only).
 ///
 /// The value is the result of evaluating the whole module AST (the root),
-/// which for an `assign` is its right-hand side.
-fn collect_module_bindings(lang: &Language, ast: &Ast, value: Value) -> Value {
-    use serde_json::Map;
+/// which for an `assign` is its right-hand side. Object-returning modules
+/// (`do { ...; { a: 1, b: 2 } }`) are their own export table, supporting
+/// braced named imports like `from "m" import { a, b }`.
+fn collect_module_bindings_tagged(lang: &Language, ast: &Ast, value: TaggedValue) -> TaggedValue {
+    let empty = || TaggedValue::Obj(Rc::new(FxHashMap::default()));
     if ast.is_empty() {
-        return Value::Object(Map::new());
+        return empty();
     }
     let root_idx = ast.len() - 1;
     let root = match ast.at(AstRef::new(root_idx)) {
         Ok(n) => n,
-        Err(_) => return Value::Object(Map::new()),
+        Err(_) => return empty(),
     };
     if let Some(name) = lang.binding_target(ast, root) {
-        let mut map = Map::new();
-        map.insert(name, value);
-        return Value::Object(map);
+        let mut map = FxHashMap::default();
+        map.insert(Rc::from(name.as_str()), value);
+        return TaggedValue::Obj(Rc::new(map));
     }
-    // Object-returning modules (e.g. `do { ...; { a: 1, b: 2 } }`) are their
-    // own export table, supporting braced named imports like
-    // `from "m" import { a, b }`.
-    if let Value::Object(map) = value {
+    if let TaggedValue::Obj(map) = &value {
         if !map.is_empty() {
-            return Value::Object(map);
+            return value;
         }
     }
-    Value::Object(Map::new())
+    empty()
 }
 
 #[cfg(test)]

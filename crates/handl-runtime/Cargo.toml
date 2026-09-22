@@ -16,6 +16,7 @@ handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
 handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+rustc-hash = "2"
 
 [dev-dependencies]
 serde_json = { workspace = true }
@@ -30,4 +31,3 @@ handl-kit-canonical = { path = "../kit-canonical" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-tag = { path = "../plugin-lib-tag" }
-rustc-hash = "2"

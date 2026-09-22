@@ -23,6 +23,7 @@ pub mod pattern_match;
 use std::rc::Rc;
 
 use handl_language::{Ast, LangError, Language, Value};
+use handl_value::TaggedValue;
 
 /// The eval operation marker.
 ///
@@ -155,6 +156,30 @@ pub trait EvalEngine {
         engine.eval_shared(lang, ast)
     }
 
+    /// Evaluate `req.ast` into the engine's internal [`TaggedValue`] form,
+    /// skipping the `serde_json::Value` materialization that
+    /// [`eval`](Self::eval) performs at the boundary.
+    ///
+    /// Consumers that only *hold* the result (the module loader's cache) or
+    /// re-import it into a tagged-value engine (the `import` op) use this
+    /// path: the returned value keeps `Rc`-shared substructure — notably
+    /// arrow `binds` maps shared across a `rec` region — intact instead of
+    /// expanding it into a JSON tree. That keeps a cached module record
+    /// proportional to its eval-time footprint rather than its serialized
+    /// size.
+    ///
+    /// Default: [`eval`](Self::eval) + [`TaggedValue::from`]. This is
+    /// correct for every engine; engines whose internal representation is
+    /// already [`TaggedValue`] (the tree-walk engine) override it to skip
+    /// the `Value` round-trip entirely.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on failure, as [`eval`](Self::eval) does.
+    fn eval_tagged(&self, lang: &Language, req: &EvalRequest) -> Result<TaggedValue, LangError> {
+        self.eval(lang, req).map(TaggedValue::from)
+    }
+
     /// Seal a module's exported bindings before they cross into the
     /// importer's scope (Phase 9.5 `import "path"`).
     ///
@@ -204,6 +229,29 @@ pub trait ImportResolver {
     /// Returns [`LangError`] if the module cannot be found, read, parsed,
     /// or evaluated (including circular-import detection).
     fn resolve_import(&self, path: &str) -> Result<Value, LangError>;
+
+    /// Tagged counterpart of [`resolve_import`](Self::resolve_import):
+    /// returns the module's bindings as a shared [`TaggedValue`] (normally
+    /// a [`TaggedValue::Obj`] record).
+    ///
+    /// Consumers that splice the record into a [`TaggedValue`]-based
+    /// environment (the `import` op) use this path: a resolver backed by a
+    /// tagged cache can hand out an `Rc` clone, so repeated imports of the
+    /// same module are O(1) and never materialize a `serde_json::Value`
+    /// tree.
+    ///
+    /// Default: [`resolve_import`](Self::resolve_import) +
+    /// [`TaggedValue::from`] — a deep reconstruction, correct but without
+    /// the sharing. Resolvers that cache [`TaggedValue`] records natively
+    /// (the runtime's `ModuleLoader`) override it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] as [`resolve_import`](Self::resolve_import).
+    fn resolve_import_tagged(&self, path: &str) -> Result<Rc<TaggedValue>, LangError> {
+        self.resolve_import(path)
+            .map(|v| Rc::new(TaggedValue::from(v)))
+    }
 }
 
 #[cfg(test)]
