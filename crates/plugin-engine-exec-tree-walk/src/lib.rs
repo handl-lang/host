@@ -3881,16 +3881,24 @@ struct TwCtx<'e, 'a> {
 /// `match`/`handle` orchestration itself lives in
 /// `native_ops::match_shell` behind [`NativeOpCtx::try_pattern`].
 impl PatternMatchCtx for TwCtx<'_, '_> {
-    fn define_binding(&mut self, name: &str, value: Value) {
-        self.env.define(name, TaggedValue::from(value));
+    fn define_binding(&mut self, name: &str, value: TaggedValue) {
+        self.env.define(name, value);
     }
 
-    fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<Value, LangError> {
-        self.engine.eval_node(ast, node_ref, self.lang, self.env)
+    fn eval_pattern_node(
+        &mut self,
+        ast: &Ast,
+        node_ref: AstRef,
+    ) -> Result<TaggedValue, LangError> {
+        self.engine
+            .eval_node_inner(ast, node_ref, self.lang, self.env)
     }
 
-    fn global_value(&self, name: &str) -> Option<Value> {
-        self.engine.globals.get(name).cloned()
+    fn global_value(&self, name: &str) -> Option<TaggedValue> {
+        self.engine
+            .globals
+            .get(name)
+            .map(|v| TaggedValue::from(v.clone()))
     }
 
     fn lang(&self) -> Option<&Language> {
@@ -3970,9 +3978,9 @@ impl NativeOpCtx for TwCtx<'_, '_> {
     }
 
     fn try_pattern(&mut self, pattern: AstRef, scrutinee: &TaggedValue) -> Result<bool, LangError> {
-        // `try_pattern` works on `serde_json::Value`; bindings land back
-        // in `self.env` via `PatternMatchCtx::define_binding`.
-        pattern_match::try_pattern(self.ast, pattern, &tagged_to_value(scrutinee), self)
+        // `try_pattern` works on `TaggedValue` directly — no scrutinee
+        // serialization (arrow `body_def`/`binds` make that exponential).
+        pattern_match::try_pattern(self.ast, pattern, scrutinee, self)
     }
 
     fn node_kind_at(&mut self, r: AstRef) -> Option<String> {

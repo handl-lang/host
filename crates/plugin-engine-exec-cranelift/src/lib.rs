@@ -608,17 +608,23 @@ impl EvalCtx {
 /// pointer cache). The `ast` parameter from the trait is the same AST
 /// pointed to by `ctx.ast`.
 impl PatternMatchCtx for EvalCtx {
-    fn define_binding(&mut self, name: &str, value: Value) {
-        self.env.define(name, TaggedValue::from(value));
+    fn define_binding(&mut self, name: &str, value: TaggedValue) {
+        self.env.define(name, value);
     }
 
-    fn eval_pattern_node(&mut self, _ast: &Ast, node_ref: AstRef) -> Result<Value, LangError> {
-        let val = eval_child_node(self, node_ref.index())?;
-        Ok(tagged_to_value(&val))
+    fn eval_pattern_node(
+        &mut self,
+        _ast: &Ast,
+        node_ref: AstRef,
+    ) -> Result<TaggedValue, LangError> {
+        eval_child_node(self, node_ref.index())
     }
 
-    fn global_value(&self, name: &str) -> Option<Value> {
-        self.env.globals.get(name).map(tagged_to_value)
+    fn global_value(&self, name: &str) -> Option<TaggedValue> {
+        self.env
+            .globals
+            .get(name)
+            .map(|v| TaggedValue::from(v.clone()))
     }
 
     fn lang(&self) -> Option<&Language> {
@@ -2516,11 +2522,11 @@ impl NativeOpCtx for ClCtx<'_> {
 
     fn try_pattern(&mut self, pattern: AstRef, scrutinee: &TaggedValue) -> Result<bool, LangError> {
         // `EvalCtx` itself is the `PatternMatchCtx` (ADR-0061);
-        // `try_pattern` works on `serde_json::Value` and binds into
+        // `try_pattern` works on `TaggedValue` directly and binds into
         // `self.ctx.env` via `define_binding`. `ctx.ast` is a valid
         // pointer for the duration of evaluation.
         let ast = unsafe { &*self.ctx.ast };
-        pattern_match::try_pattern(ast, pattern, &tagged_to_value(scrutinee), self.ctx)
+        pattern_match::try_pattern(ast, pattern, scrutinee, self.ctx)
     }
 
     fn node_kind_at(&mut self, r: AstRef) -> Option<String> {

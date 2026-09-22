@@ -22,7 +22,10 @@
 //! lives here, eliminating the 3x duplication across tree-walk, bytecode,
 //! and cranelift engines.
 
-use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
+use handl_language::{Ast, AstNode, AstRef, LangError, Language};
+use handl_value::TaggedValue;
+use rustc_hash::FxHashMap;
+use std::rc::Rc;
 
 /// Engine-specific context for pattern matching (ADR-0061).
 ///
@@ -30,24 +33,33 @@ use handl_language::{Ast, AstNode, AstRef, LangError, Language, Value};
 /// binding a name in the scope stack and evaluating a pattern AST node as
 /// a runtime value. Each engine implements this trait and passes `&mut
 /// self` to [`try_pattern`].
+///
+/// The scrutinee and bound values are [`TaggedValue`]s, not serialized
+/// `serde_json::Value`s: serializing a scrutinee that contains arrows
+/// deep-copies every `body_def` and transitively every `binds` entry —
+/// exponential on the sibling-arrow graphs `eval_rec` produces.
 pub trait PatternMatchCtx {
     /// Bind `name` to `value` in the current (innermost) scope.
     ///
     /// Used by binder patterns (`var` node with a name) and rest patterns
     /// (`...rest` capturing remaining elements/keys). The caller is
     /// responsible for push/pop scope around the match attempt.
-    fn define_binding(&mut self, name: &str, value: Value);
+    fn define_binding(&mut self, name: &str, value: TaggedValue);
 
     /// Evaluate a pattern AST node as a runtime value.
     ///
     /// Used by literal patterns: the pattern node is evaluated as a value
-    /// and compared by equality (`==`) to the scrutinee. Also used by
-    /// object patterns to evaluate computed keys.
+    /// and compared by equality ([`handl_value::eq`]) to the scrutinee.
+    /// Also used by object patterns to evaluate computed keys.
     ///
     /// # Errors
     ///
     /// Returns [`LangError`] on evaluation failure.
-    fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<Value, LangError>;
+    fn eval_pattern_node(
+        &mut self,
+        ast: &Ast,
+        node_ref: AstRef,
+    ) -> Result<TaggedValue, LangError>;
 
     /// Resolve an ambient global binding by name (the engine's `globals`
     /// map — e.g. `true`/`false` seeded from `Language::globals`).
@@ -57,7 +69,7 @@ pub trait PatternMatchCtx {
     /// "yes" }`). Only globals participate — a `var` bound in an ordinary
     /// scope still binds (binders shadow). The default returns `None`:
     /// engines without ambient globals keep bind-everything semantics.
-    fn global_value(&self, _name: &str) -> Option<Value> {
+    fn global_value(&self, _name: &str) -> Option<TaggedValue> {
         None
     }
 
@@ -130,7 +142,7 @@ fn is_wildcard_name(name: &str) -> bool {
 pub fn try_pattern(
     ast: &Ast,
     pattern_ref: AstRef,
-    scrut: &Value,
+    scrut: &TaggedValue,
     ctx: &mut impl PatternMatchCtx,
 ) -> Result<bool, LangError> {
     let pattern_node = ast.at(pattern_ref)?;
@@ -147,7 +159,7 @@ pub fn try_pattern(
             // seeded from `Language::globals`) matches by equality rather
             // than binding.
             if let Some(global) = ctx.global_value(name) {
-                return Ok(global == *scrut);
+                return Ok(handl_value::eq(&global, scrut));
             }
             // Binder — always matches, binds name → scrutinee.
             ctx.define_binding(name, scrut.clone());
@@ -171,7 +183,7 @@ pub fn try_pattern(
     }
     // Literal pattern — evaluate and compare by equality.
     let pat_val = ctx.eval_pattern_node(ast, pattern_ref)?;
-    Ok(pat_val == *scrut)
+    Ok(handl_value::eq(&pat_val, scrut))
 }
 
 /// Extract the binder name from a `rest` pattern node (`...name`).
@@ -223,7 +235,7 @@ fn rest_binder_name(
 fn try_array_pattern(
     ast: &Ast,
     pattern_ref: AstRef,
-    scrut: &Value,
+    scrut: &TaggedValue,
     ctx: &mut impl PatternMatchCtx,
 ) -> Result<bool, LangError> {
     let pattern_node = ast.at(pattern_ref)?;
@@ -234,9 +246,9 @@ fn try_array_pattern(
         .ok_or_else(|| {
             LangError::engine_node("array pattern: missing children".to_string(), &pattern_node)
         })?;
-    let scrut_arr = match scrut.as_array() {
-        Some(a) => a,
-        None => return Ok(false),
+    let scrut_arr = match scrut {
+        TaggedValue::Arr(a) => a,
+        _ => return Ok(false),
     };
 
     // Separate positional patterns from the optional rest pattern.
@@ -278,8 +290,8 @@ fn try_array_pattern(
     // Bind remaining elements to the rest binder.
     if let Some(ridx) = rest_idx {
         if let Some(name) = rest_binder_name(ast, ctx.lang(), AstRef::new(ridx))? {
-            let rest_vals: Vec<Value> = scrut_arr[n..].to_vec();
-            ctx.define_binding(&name, Value::Array(rest_vals));
+            let rest_vals: Vec<TaggedValue> = scrut_arr[n..].to_vec();
+            ctx.define_binding(&name, TaggedValue::Arr(Rc::from(rest_vals)));
         }
     }
 
@@ -295,7 +307,7 @@ fn try_array_pattern(
 fn try_object_pattern(
     ast: &Ast,
     pattern_ref: AstRef,
-    scrut: &Value,
+    scrut: &TaggedValue,
     ctx: &mut impl PatternMatchCtx,
 ) -> Result<bool, LangError> {
     let pattern_node = ast.at(pattern_ref)?;
@@ -309,9 +321,9 @@ fn try_object_pattern(
                 &pattern_node,
             )
         })?;
-    let scrut_obj = match scrut.as_object() {
-        Some(o) => o,
-        None => return Ok(false),
+    let scrut_obj = match scrut {
+        TaggedValue::Obj(o) => o,
+        _ => return Ok(false),
     };
 
     // Separate entries from the optional rest pattern.
@@ -372,7 +384,7 @@ fn try_object_pattern(
     // Match each entry against the corresponding field.
     let mut matched_keys: Vec<String> = Vec::new();
     for (key, val_idx) in &entries {
-        match scrut_obj.get(key) {
+        match scrut_obj.get(key.as_str()) {
             Some(scrut_val) => {
                 matched_keys.push(key.clone());
                 if !try_pattern(ast, AstRef::new(*val_idx), scrut_val, ctx)? {
@@ -386,12 +398,12 @@ fn try_object_pattern(
     // Bind remaining keys to the rest binder.
     if let Some(ridx) = rest_idx {
         if let Some(name) = rest_binder_name(ast, ctx.lang(), AstRef::new(ridx))? {
-            let rest_obj: serde_json::Map<String, Value> = scrut_obj
+            let rest_obj: FxHashMap<Rc<str>, TaggedValue> = scrut_obj
                 .iter()
-                .filter(|(k, _)| !matched_keys.contains(k))
-                .map(|(k, v)| (k.clone(), v.clone()))
+                .filter(|(k, _)| !matched_keys.iter().any(|m| m.as_str() == k.as_ref()))
+                .map(|(k, v)| (Rc::clone(k), v.clone()))
                 .collect();
-            ctx.define_binding(&name, Value::Object(rest_obj));
+            ctx.define_binding(&name, TaggedValue::Obj(Rc::new(rest_obj)));
         }
     }
 
@@ -412,7 +424,7 @@ fn try_object_pattern(
 fn try_tag_pattern(
     ast: &Ast,
     pattern_ref: AstRef,
-    scrut: &Value,
+    scrut: &TaggedValue,
     ctx: &mut impl PatternMatchCtx,
 ) -> Result<bool, LangError> {
     let pattern_node = ast.at(pattern_ref)?;
@@ -439,9 +451,9 @@ fn try_tag_pattern(
         )
     })?;
     // Check scrutinee is a tagged value with matching tag name.
-    let scrut_obj = match scrut.as_object() {
-        Some(o) => o,
-        None => return Ok(false),
+    let scrut_obj = match scrut {
+        TaggedValue::Obj(o) => o,
+        _ => return Ok(false),
     };
     let scrut_tag = scrut_obj.get("__tag__").and_then(|v| v.as_str());
     match scrut_tag {
@@ -450,9 +462,9 @@ fn try_tag_pattern(
     }
     // Collect payload fields (excluding __tag__), sorted alphabetically
     // for deterministic positional binding.
-    let mut payload_fields: Vec<(&String, &Value)> = scrut_obj
+    let mut payload_fields: Vec<(&Rc<str>, &TaggedValue)> = scrut_obj
         .iter()
-        .filter(|(k, _)| k.as_str() != "__tag__")
+        .filter(|(k, _)| k.as_ref() != "__tag__")
         .collect();
     payload_fields.sort_by(|a, b| a.0.cmp(b.0));
     // Collect binder nodes (the `args` role onward; index 1 on canonical
