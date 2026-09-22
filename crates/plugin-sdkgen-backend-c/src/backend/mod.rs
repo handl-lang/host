@@ -25,6 +25,8 @@ mod diagnostics_test;
 #[cfg(test)]
 mod macro_probe_test;
 #[cfg(test)]
+mod man_test;
+#[cfg(test)]
 mod prune_test;
 
 use clang_sys::*;
