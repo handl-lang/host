@@ -20,6 +20,8 @@ export CURLOPT_TIMEOUT_MS: Int
 export CURLOPT_COPYPOSTFIELDS: Int
 export CURLINFO_EFFECTIVE_URL: Int
 export CURLINFO_RESPONSE_CODE: Int
+export CURLM_OK: Int
+export CURLMSG_DONE: Int
 
 --- create an easy handle
 --- ffi: CURL *(void)
@@ -44,3 +46,62 @@ export CurlSlistAppend: (Int, String) ~[1]~> Result<Int, Errno>
 --- free an entire curl_slist list
 --- ffi: void (struct curl_slist *)
 export CurlSlistFreeAll: (Int) ~[1]~> Result<CurlSlistFreeAllResult, Errno>
+
+--- multi API — driven by concurrent-epoll via fdset->epoll sync (no
+--- socket callbacks: FFI cannot marshal C->handl trampolines).
+--- ffi: CURLM *(void)
+export CurlMultiInit: () ~[1]~> Result<Handle, Errno>
+
+--- add an easy handle to a multi session
+--- ffi: CURLMcode (CURLM *, CURL *)
+export CurlMultiAddHandle: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- remove an easy handle from a multi session
+--- ffi: CURLMcode (CURLM *, CURL *)
+export CurlMultiRemoveHandle: (Int, Int) ~[1]~> Result<Int, Errno>
+
+--- run all transfers until it would block
+export CurlMultiPerformResult := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export CurlMultiPerform: (Int, Int) ~[1]~> Result<CurlMultiPerformResult, Errno>
+
+--- extract file descriptor information from a multi handle
+export CurlMultiFdsetResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes],
+  vals: [Int]
+}
+
+--- ffi:
+export CurlMultiFdset: (Int, Int) ~[1]~> Result<CurlMultiFdsetResult, Errno>
+
+--- how long to wait for action before proceeding
+export CurlMultiTimeoutResult := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export CurlMultiTimeout: (Int, Int) ~[1]~> Result<CurlMultiTimeoutResult, Errno>
+
+--- read multi stack information
+export CurlMultiInfoReadResult := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export CurlMultiInfoRead: (Int, Int) ~[1]~> Result<CurlMultiInfoReadResult, Errno>
+
+--- close down a multi session
+--- ffi: CURLMcode (CURLM *)
+export CurlMultiCleanup: (Int) ~[1]~> Result<Int, Errno>
+
+--- return string describing error code
+--- ffi: const char *(CURLMcode)
+export CurlMultiStrerror: (Int) ~[1]~> Result<String, Errno>

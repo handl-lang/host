@@ -1,0 +1,27 @@
+--- fetch-js -- `fetch` over the generated WebIDL bindings.
+---
+--- Browser/JS-host counterpart of fetch-c: the heavy lifting is the
+--- sdkgen-generated adapter (generated/fetch-webidl-browser), which
+--- marshals through the host-injected `js.call`. This package is the
+--- thin, stable surface on top of it.
+---
+--- v0 limitation: JS `fetch()` returns a Promise, and the `js` contract
+--- has no promise/await bridge yet, so `fetch` returns the raw Promise
+--- object (`{ promise }`). Resolving it — and calling `Response`
+--- methods like `text()`/`json()`, which are also async — needs the JS
+--- host to provide an await op; see `js.call` in js/js.hnl.
+
+from "../generated/fetch-webidl-browser/WindowOrWorkerGlobalScope" import { window_or_worker_global_scope_fetch }
+
+--- Start a fetch. `input` is a URL string or Request object; `init`
+--- follows the WebIDL RequestInit shape (method, headers, body, ...).
+--- Returns `{ ok: { promise } }` or `{ err: JsError }` — the result tag
+--- of the generated adapter, unwrapped one level.
+export fetch := (input, init) ~> do {
+  r := window_or_worker_global_scope_fetch(input, init)
+  if tag.tag_of(r) == "err" {
+    r
+  } else {
+    { ok: { promise: tag.untag(r).value } }
+  }
+}

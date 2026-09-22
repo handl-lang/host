@@ -34,6 +34,17 @@ headers:
         "CURLINFO_RESPONSE_CODE",
         "CURLINFO_EFFECTIVE_URL",
         "CURLE_OK",
+        "curl_multi_init",
+        "curl_multi_add_handle",
+        "curl_multi_remove_handle",
+        "curl_multi_perform",
+        "curl_multi_fdset",
+        "curl_multi_timeout",
+        "curl_multi_info_read",
+        "curl_multi_cleanup",
+        "curl_multi_strerror",
+        "CURLM_OK",
+        "CURLMSG_DONE",
       ]
 
 symbols:
@@ -62,3 +73,41 @@ symbols:
   curl_slist_free_all:
     args: ["ptr"]
     descriptor: "void"
+
+  # multi API — CURLM* is opaque, CURLMcode maps to `i32`.
+  # CURLM *curl_multi_init(void)
+  curl_multi_init:
+    args: []
+    descriptor: "ptr"
+  # CURLMcode curl_multi_add_handle / remove_handle(CURLM*, CURL*)
+  curl_multi_add_handle:
+    args: ["ptr", "ptr"]
+    descriptor: "i32"
+  curl_multi_remove_handle:
+    args: ["ptr", "ptr"]
+    descriptor: "i32"
+  # CURLMcode curl_multi_perform(CURLM*, int *running)
+  curl_multi_perform:
+    args: ["ptr", "io_scalar:i32"]
+    descriptor: "i32"
+  # CURLMcode curl_multi_fdset(CURLM*, fd_set *r, *w, *x, int *max_fd)
+  # fd_set is FD_SETSIZE bits = 128 bytes on linux x86_64.
+  curl_multi_fdset:
+    args: ["ptr", "out_ptr:128", "out_ptr:128", "out_ptr:128", "io_scalar:i32"]
+    descriptor: "i32"
+  # CURLMcode curl_multi_timeout(CURLM*, long *ms)
+  curl_multi_timeout:
+    args: ["ptr", "io_scalar:i64"]
+    descriptor: "i32"
+  # CURLMsg *curl_multi_info_read(CURLM*, int *msgs_in_queue)
+  curl_multi_info_read:
+    args: ["ptr", "io_scalar:i32"]
+    descriptor: "ptr"
+  # CURLMcode curl_multi_cleanup(CURLM*)
+  curl_multi_cleanup:
+    args: ["ptr"]
+    descriptor: "i32"
+  # const char *curl_multi_strerror(CURLMcode)
+  curl_multi_strerror:
+    args: ["i32"]
+    descriptor: "cstr"

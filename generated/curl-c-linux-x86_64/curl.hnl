@@ -1,7 +1,7 @@
 --- Generated adapter for curl-c-linux-x86_64/curl
 
 from "result" import { ok, err }
-from "../curl/curl" import { CurlEasyInit, CurlEasyPerform, CurlEasyCleanup, CurlEasyStrerror, CurlSlistAppend, CurlSlistFreeAll }
+from "../curl/curl" import { CurlEasyInit, CurlEasyPerform, CurlEasyCleanup, CurlEasyStrerror, CurlSlistAppend, CurlSlistFreeAll, CurlMultiInit, CurlMultiAddHandle, CurlMultiRemoveHandle, CurlMultiPerform, CurlMultiFdset, CurlMultiTimeout, CurlMultiInfoRead, CurlMultiCleanup, CurlMultiStrerror }
 
 export CURLE_OK: Int := 0
 export CURLOPT_WRITEDATA: Int := 10001
@@ -19,6 +19,8 @@ export CURLOPT_TIMEOUT_MS: Int := 155
 export CURLOPT_COPYPOSTFIELDS: Int := 10165
 export CURLINFO_EFFECTIVE_URL: Int := 1048577
 export CURLINFO_RESPONSE_CODE: Int := 2097154
+export CURLM_OK: Int := 0
+export CURLMSG_DONE: Int := 1
 
 export curl_easy_init: CurlEasyInit := () ~> do {
   r = ffi.call("libcurl.so.4", "curl_easy_init", [], [], "ptr", false)
@@ -52,4 +54,77 @@ export curl_slist_append: CurlSlistAppend := (__arg_0, __arg_1) ~> do {
 export curl_slist_free_all: CurlSlistFreeAll := (__arg_0) ~> do {
   r = ffi.call("libcurl.so.4", "curl_slist_free_all", [__arg_0], ["ptr"], "void", false)
   ok(null)
+}
+
+export curl_multi_init: CurlMultiInit := () ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_init", [], [], "ptr", false)
+  ok(r)
+}
+
+export curl_multi_add_handle: CurlMultiAddHandle := (multi, easy) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_add_handle", [multi, easy], ["ptr", "ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_remove_handle: CurlMultiRemoveHandle := (multi, easy) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_remove_handle", [multi, easy], ["ptr", "ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_perform: CurlMultiPerform := (__arg_0, __arg_1) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_perform", [__arg_0, __arg_1], ["ptr", "io_scalar:i32"], "i32", false)
+  if r.ret < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_fdset: CurlMultiFdset := (__arg_0, __arg_4) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_fdset", [__arg_0, __arg_4], ["ptr", "out_ptr:128", "out_ptr:128", "out_ptr:128", "io_scalar:i32"], "i32", false)
+  if r.ret < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_timeout: CurlMultiTimeout := (__arg_0, __arg_1) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_timeout", [__arg_0, __arg_1], ["ptr", "io_scalar:i64"], "i32", false)
+  if r.ret < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_info_read: CurlMultiInfoRead := (__arg_0, __arg_1) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_info_read", [__arg_0, __arg_1], ["ptr", "io_scalar:i32"], "ptr", false)
+  if r.ret < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_cleanup: CurlMultiCleanup := (multi) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_cleanup", [multi], ["ptr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export curl_multi_strerror: CurlMultiStrerror := (code) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_multi_strerror", [code], ["i32"], "cstr", false)
+  ok(r)
 }
