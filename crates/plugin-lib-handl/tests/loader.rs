@@ -63,9 +63,13 @@ mod bootstrap {
         src.lines()
             .filter(|line| is_top_import_line(line))
             .map(|line| {
-                from_export_to_import(line)
+                let line = from_export_to_import(line)
                     .map(|(import_line, _)| import_line)
-                    .unwrap_or_else(|| line.to_string())
+                    .unwrap_or_else(|| line.to_string());
+                // Inside a `do {}` block, `import <names>` trailing-tokens
+                // parsing does not stop at the newline — terminate each
+                // import with `;` so the following statement can't merge in.
+                format!("{};", line)
             })
             .collect()
     }

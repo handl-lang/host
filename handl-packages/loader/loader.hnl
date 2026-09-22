@@ -381,7 +381,11 @@ do {
         []: { out: rev(acc) },
         [h, ...t]: if is_top_import_line(h) {
           fe :: from_export_to_import(h)
-          { state: { xs: t, acc: [if fe == null { h } else { fe.line }, ...acc] } }
+          -- Inside a `do {}` block, `import <names>` trailing-tokens parsing
+          -- does not stop at the newline — terminate each import with `;`
+          -- so the following statement can't merge in.
+          ln :: if fe == null { h } else { fe.line }
+          { state: { xs: t, acc: [ln + ";", ...acc] } }
         } else {
           { state: { xs: t, acc: acc } }
         }
