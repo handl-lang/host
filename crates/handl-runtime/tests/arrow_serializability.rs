@@ -265,6 +265,125 @@ fn binds_resource_round_trips_lossily() {
 }
 
 // ---------------------------------------------------------------------------
+// 4b. Shared `binds` maps serialize as document-local refs (DAG bound).
+// ---------------------------------------------------------------------------
+
+/// Two arrows sharing one `binds` map (the rec-region/sibling-arrows DAG
+/// shape) serialize the map once: the first occurrence is inline with a
+/// `__binds_id__` marker, the second is `{"__bindsref__": <id>}`. Decode
+/// restores the shared `Rc` identity, and re-encoding is stable — the
+/// document stays bounded instead of expanding the DAG per occurrence.
+#[test]
+fn shared_binds_dedup_as_doc_local_refs() {
+    let shared: Rc<FxHashMap<Rc<str>, TaggedValue>> = {
+        let mut m = FxHashMap::default();
+        m.insert(Rc::from("k"), TaggedValue::Int(41));
+        Rc::new(m)
+    };
+    let mk_arrow = |binds: &Rc<FxHashMap<Rc<str>, TaggedValue>>| TaggedValue::Arrow {
+        params: Rc::from(vec!["x".to_string()]),
+        rest: None,
+        array_pattern: false,
+        body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
+        binds: Rc::clone(binds),
+        handlers: Rc::from(Vec::<TaggedValue>::new()),
+    };
+    let pair = TaggedValue::Arr(Rc::from(vec![mk_arrow(&shared), mk_arrow(&shared)]));
+
+    let encoded = tagged_to_value(&pair);
+    let b0 = &encoded[0]["binds"];
+    let id = b0
+        .get("__binds_id__")
+        .and_then(|v| v.as_u64())
+        .expect("first occurrence emits the map with a __binds_id__ marker");
+    assert_eq!(b0["k"], json!(41), "the definition carries the entries");
+    assert_eq!(
+        encoded[1]["binds"],
+        json!({"__bindsref__": id}),
+        "the second occurrence is a document-local ref",
+    );
+
+    // Decode: both arrows' binds resolve to the *same* Rc map — shared
+    // identity round-trips, not just content equality.
+    let decoded: TaggedValue = encoded.into();
+    fn binds_of(v: &TaggedValue) -> &Rc<FxHashMap<Rc<str>, TaggedValue>> {
+        match v {
+            TaggedValue::Arrow { binds, .. } => binds,
+            other => panic!("not an arrow: {other:?}"),
+        }
+    }
+    let TaggedValue::Arr(items) = &decoded else {
+        panic!("decoded value is not an array");
+    };
+    let (a, b) = (binds_of(&items[0]), binds_of(&items[1]));
+    assert!(
+        Rc::ptr_eq(a, b),
+        "both refs resolve to the same shared binds map"
+    );
+    assert_eq!(a.get("k"), Some(&TaggedValue::Int(41)));
+
+    // Re-encode is a fixpoint: the shared map dedups again.
+    let re_encoded = tagged_to_value(&decoded);
+    assert!(
+        re_encoded[1]["binds"].get("__bindsref__").is_some(),
+        "re-encoded doc keeps the ref form",
+    );
+}
+
+/// An arrow stored *inside* a shared binds map (the actual DAG shape a
+/// rec region produces) serializes bounded: the inner arrow's shared
+/// binds ref terminates the descent instead of expanding it.
+#[test]
+fn binds_dag_serializes_bounded() {
+    // inner's binds is shared; outer's binds embeds inner plus a scalar.
+    let inner_binds: Rc<FxHashMap<Rc<str>, TaggedValue>> = {
+        let mut m = FxHashMap::default();
+        m.insert(Rc::from("seed"), TaggedValue::Int(7));
+        Rc::new(m)
+    };
+    let inner = TaggedValue::Arrow {
+        params: Rc::from(vec!["y".to_string()]),
+        rest: None,
+        array_pattern: false,
+        body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
+        binds: Rc::clone(&inner_binds),
+        handlers: Rc::from(Vec::<TaggedValue>::new()),
+    };
+    let mut outer_map: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+    outer_map.insert(Rc::from("inner"), inner);
+    let outer = TaggedValue::Arrow {
+        params: Rc::from(vec!["x".to_string()]),
+        rest: None,
+        array_pattern: false,
+        body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
+        binds: Rc::new(outer_map),
+        handlers: Rc::from(Vec::<TaggedValue>::new()),
+    };
+
+    let encoded = tagged_to_value(&outer);
+    // outer's binds is unshared → inline; inner's binds is shared (the
+    // `inner_binds` handle above) → `__binds_id__` def inline.
+    let inner_binds_json = &encoded["binds"]["inner"]["binds"];
+    assert!(
+        inner_binds_json.get("__binds_id__").is_some(),
+        "nested shared binds emit a definition marker: {inner_binds_json}"
+    );
+    // Decode preserves the content.
+    let decoded: TaggedValue = encoded.into();
+    let TaggedValue::Arrow { binds, .. } = &decoded else {
+        panic!("decoded outer is not an arrow")
+    };
+    let TaggedValue::Arrow {
+        binds: inner_decoded,
+        ..
+    } = binds.get("inner").expect("inner arrow present")
+    else {
+        panic!("inner binds entry is not an arrow")
+    };
+    assert_eq!(inner_decoded.get("seed"), Some(&TaggedValue::Int(7)));
+}
+
+// ---------------------------------------------------------------------------
 // 5. Composed arrow (`a >>> b`) has no hidden state beyond its components.
 // ---------------------------------------------------------------------------
 
