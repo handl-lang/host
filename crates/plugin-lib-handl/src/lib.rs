@@ -1283,6 +1283,17 @@ static NEXT_MODULE_ID: AtomicUsize = AtomicUsize::new(0);
 type RuntimeBuilder = Arc<dyn Fn() -> Result<Runtime, handl_language::LangError> + Send + Sync>;
 
 thread_local! {
+    /// Per-thread cache of the canonical `Language`, shared by every
+    /// lazily-built [`HandlModule`] runtime. The assembled kit is identical
+    /// for all of them — only the engine registry, dependency modules and
+    /// globals differ — and re-assembling it per module made the first
+    /// `str.*`/`char.*` call (which pulls in `str-handl`'s per-arrow
+    /// modules) cost a full assembly each, minutes of CPU in total.
+    static CANONICAL_LANG: RefCell<Option<handl_language::Language>> =
+        const { RefCell::new(None) };
+}
+
+thread_local! {
     /// Per-thread cache of runtimes, keyed by module ID. Each thread
     /// independently builds and caches a `Runtime` for each [`HandlModule`]
     /// on first use. This is necessary because the tree-walk engine stores
@@ -1348,8 +1359,15 @@ fn build_runtime(
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
     global_lookup: Option<Arc<dyn ModuleLookup + Send + Sync>>,
 ) -> Result<Runtime, handl_language::LangError> {
-    let kit = handl_kit_data_canonical::assemble()?;
-    let lang = kit.lang().clone();
+    let lang = match CANONICAL_LANG.with(|cell| cell.borrow().clone()) {
+        Some(lang) => lang,
+        None => {
+            let kit = handl_kit_data_canonical::assemble()?;
+            let lang = kit.lang().clone();
+            CANONICAL_LANG.with(|cell| *cell.borrow_mut() = Some(lang.clone()));
+            lang
+        }
+    };
     let config = RuntimeConfig::new()
         .with_lex("data")
         .with_parse("pratt")
