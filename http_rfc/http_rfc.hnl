@@ -4,8 +4,9 @@
 --- accumulated Bytes, returning `{ req, consumed }`, `{ req: null }`
 --- for a malformed head, or `null` when more bytes are needed.
 --- `serialize_response(resp, head_only)` renders a response record to
---- wire Bytes with Content-Length and `connection: close` (no
---- keep-alive / chunked yet -- v0).
+--- wire Bytes with Content-Length; `connection` defaults to `close`
+--- unless resp.headers sets it. Chunked request bodies are decoded
+--- (`Transfer-Encoding: chunked`); chunked responses are not emitted.
 ---
 --- Request shape (fetch-style):
 ---   { method, target, path, query, version, headers, body, body_bytes }
@@ -48,10 +49,10 @@ export nat_of := (s) ~> do {
   }
 }
 
---- index of the "\r\n\r\n" head/body separator, or -1
-export find_head_end := (b) ~> do {
+--- index of the "\r\n\r\n" head/body separator at/after `p`, or -1
+find_head_end_from := (b, p) ~> do {
   n := bytes.len(b)
-  while { i: 0, hit: -1 } {
+  while { i: p, hit: -1 } {
     (st) ~> if st.hit >= 0 || st.i + 3 >= n {
       { out: st.hit }
     } else {
@@ -59,6 +60,108 @@ export find_head_end := (b) ~> do {
         c := bytes.at(b, st.i) == 13 && bytes.at(b, st.i + 1) == 10 &&
           bytes.at(b, st.i + 2) == 13 && bytes.at(b, st.i + 3) == 10
         { state: { i: st.i + 1, hit: if c { st.i } else { -1 } } }
+      }
+    }
+  }
+}
+
+export find_head_end := (b) ~> find_head_end_from(b, 0)
+
+--- index of the next "\r\n" at/after `p`, or -1
+find_crlf := (b, p) ~> do {
+  n := bytes.len(b)
+  while { i: p, hit: -1 } {
+    (st) ~> if st.hit >= 0 || st.i + 1 >= n {
+      { out: st.hit }
+    } else {
+      { state: { i: st.i + 1,
+        hit: if bytes.at(b, st.i) == 13 && bytes.at(b, st.i + 1) == 10 {
+          st.i } else { -1 } } }
+    }
+  }
+}
+
+--- hex digit value, -1 when not a hex char
+hexval := (c) ~> do {
+  if c >= 48 && c <= 57 {
+    c - 48
+  } else if c >= 65 && c <= 70 {
+    c - 55
+  } else if c >= 97 && c <= 102 {
+    c - 87
+  } else {
+    -1
+  }
+}
+
+--- hex chunk-size line to Int (extensions after ';' ignored), -1 on
+--- any non-hex digit
+hex_of := (s) ~> do {
+  semi := str.find(s, ";")
+  t := str.trim(if semi < 0 { s } else { str.slice(s, 0, semi) })
+  n := str.length(t)
+  while { i: 0, acc: 0, bad: false } {
+    (i, acc, bad) ~> if i >= n {
+      { out: if bad { -1 } else { acc } }
+    } else {
+      do {
+        v := hexval(char.code_point_at(t, i))
+        { state: { i: i + 1,
+          acc: if v < 0 { acc } else { acc * 16 + v },
+          bad: bad || v < 0 } }
+      }
+    }
+  }
+}
+
+--- decode a chunked body starting at `p`. Returns { body, end } (end =
+--- one past the terminating CRLF), { bad: true } on a malformed
+--- stream, or null when the buffer needs more bytes. Trailers are
+--- skipped: the stream ends at the first "\r\n\r\n" after the 0-size
+--- chunk line.
+export try_decode_chunked := (buf, p) ~> do {
+  n := bytes.len(buf)
+  while { i: p, acc: bytes.from_list([]) } {
+    (st) ~> do {
+      j := find_crlf(buf, st.i)
+      if j < 0 {
+        { out: null }
+      } else {
+        do {
+          cl := hex_of(bytes.utf8_decode(bytes.slice(buf, st.i, j - st.i)))
+          if cl < 0 {
+            { out: { bad: true } }
+          } else if cl == 0 {
+            do {
+              e := find_head_end_from(buf, st.i)
+              if e < 0 {
+                { out: null }
+              } else {
+                { out: { body: st.acc, end: e + 4 } }
+              }
+            }
+          } else {
+            do {
+              dstart := j + 2
+              dend := dstart + cl
+              if dend + 2 > n {
+                { out: null }
+              } else {
+                do {
+                  ok := bytes.at(buf, dend) == 13 &&
+                    bytes.at(buf, dend + 1) == 10
+                  if ok {
+                    { state: { i: dend + 2,
+                      acc: bytes.concat(st.acc,
+                        bytes.slice(buf, dstart, cl)) } }
+                  } else {
+                    { out: { bad: true } }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -123,21 +226,48 @@ export try_parse_request := (buf) ~> do {
         { req: null, consumed: e + 4 }
       } else {
         do {
-          cl := nat_of(hash_map.get_or(head.headers, "content-length", "0"))
-          clen := if cl < 0 { 0 } else { cl }
-          need := e + 4 + clen
-          if bytes.len(buf) < need {
-            null
+          te := str.lower(hash_map.get_or(head.headers,
+            "transfer-encoding", ""))
+          if str.find(te, "chunked") >= 0 {
+            do {
+              r := try_decode_chunked(buf, e + 4)
+              if r == null {
+                null
+              } else if hash_map.get_or(r, "bad", false) {
+                { req: null, consumed: e + 4 }
+              } else {
+                do {
+                  pq := split_target(head.target)
+                  { req: {
+                      method: head.method, target: head.target,
+                      path: pq.path, query: pq.query,
+                      version: head.version, headers: head.headers,
+                      body: bytes.utf8_decode(r.body),
+                      body_bytes: r.body },
+                    consumed: r.end }
+                }
+              }
+            }
           } else {
             do {
-              body := bytes.slice(buf, e + 4, need)
-              pq := split_target(head.target)
-              { req: {
-                  method: head.method, target: head.target,
-                  path: pq.path, query: pq.query, version: head.version,
-                  headers: head.headers,
-                  body: bytes.utf8_decode(body), body_bytes: body },
-                consumed: need }
+              cl := nat_of(hash_map.get_or(head.headers,
+                "content-length", "0"))
+              clen := if cl < 0 { 0 } else { cl }
+              need := e + 4 + clen
+              if bytes.len(buf) < need {
+                null
+              } else {
+                do {
+                  body := bytes.slice(buf, e + 4, clen)
+                  pq := split_target(head.target)
+                  { req: {
+                      method: head.method, target: head.target,
+                      path: pq.path, query: pq.query,
+                      version: head.version, headers: head.headers,
+                      body: bytes.utf8_decode(body), body_bytes: body },
+                    consumed: need }
+                }
+              }
             }
           }
         }
@@ -183,7 +313,8 @@ export serialize_response := (resp, head_only) ~> do {
   }
   hs3 := hash_map.set(hs2, "content-length",
     type.to_string(bytes.len(bodyb)))
-  hs4 := hash_map.set(hs3, "connection", "close")
+  hs4 := hash_map.set(hs3, "connection",
+    hash_map.get_or(hs3, "connection", "close"))
   head := "HTTP/1.1 " + type.to_string(status) + " " + reason(status) +
     "\r\n" + fold_hdrs(obj.keys(hs4), hs4, "") + "\r\n"
   if head_only {
