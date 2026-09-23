@@ -32,6 +32,18 @@ from "../generated/libc-c-linux-x86_64/errno" import { EAGAIN, EWOULDBLOCK, EINP
 from "../generated/libc-c-linux-x86_64/time" import { clock_gettime, CLOCK_MONOTONIC }
 from "../generated/libc-c-linux-x86_64/inet" import { inet_pton }
 from "math" import * as math
+from "../tls-libssl/tls-libssl" import * as tlsp
+
+--- local aliases: a task arrow's serialized env keeps ` := ` bindings
+--- but drops `import` bindings, so the TLS steps must be reached
+--- through a local binding (same workaround as fetch-c/serve-epoll).
+tls_step := tlsp.handshake_step
+
+tls_read_step := tlsp.read_step
+
+tls_write_step := tlsp.write_step
+
+tls_close_ssl := tlsp.close
 
 -- ---------------------------------------------------------------
 -- small utilities
@@ -231,9 +243,35 @@ export tcp_close := (fd) ~> close(fd)
 -- fd waiters
 -- ---------------------------------------------------------------
 
+--- one TLS attempt. Returns { ready, value } | { want: "read"|"write" }
+--- | { err: SSL_ERROR_* }. The `want` direction comes from
+--- SSL_get_error, so the caller parks on the matching epoll event.
+tls_attempt := (req) ~> do {
+  r := match req.name {
+    "tls_accept": tls_step(req.ssl, true),
+    "tls_connect": tls_step(req.ssl, false),
+    "tls_recv": tls_read_step(req.ssl),
+    "tls_send": tls_write_step(req.ssl, req.buf),
+    _: { err: -1 }
+  }
+  if hash_map.has(r, "want") {
+    { want: r.want }
+  } else if hash_map.get_or(r, "done", false) {
+    { ready: true, value: null }
+  } else if hash_map.has(r, "data") {
+    { ready: true, value: r.data }
+  } else if hash_map.get_or(r, "eof", false) {
+    { ready: true, value: from_list([]) }
+  } else if hash_map.has(r, "sent") {
+    { ready: true, value: { sent: r.sent } }
+  } else {
+    { err: hash_map.get_or(r, "err", -1) }
+  }
+}
+
 --- one syscall attempt for an fd request. Returns { ready, value } |
 --- { again: true } | { err: errno }.
-fd_attempt := (req) ~> do {
+raw_attempt := (req) ~> do {
   r := match req.name {
     "recv": recv(req.fd, 0),
     "send": send(req.fd, req.buf, MSG_NOSIGNAL),
@@ -257,6 +295,15 @@ fd_attempt := (req) ~> do {
       { ready: true, value: v }
     }
   }
+}
+
+--- one attempt for any fd request: TLS ops report a wait direction,
+--- plain socket ops report `{ again }`.
+fd_attempt := (req) ~> if req.name == "tls_accept" || req.name == "tls_connect"
+    || req.name == "tls_recv" || req.name == "tls_send" {
+  tls_attempt(req)
+} else {
+  raw_attempt(req)
 }
 
 --- create the epoll instance on first fd interest; CPU-only workloads
@@ -287,6 +334,19 @@ park_fd := (s, e, req, st, events) ~> do {
     id: e.id, arrow: e.arrow, fd: req.fd, events: events,
     req: req, state: st, stack: e.stack, token: e.token
   }])
+}
+
+--- drive a TLS op: resume on completion, park on the direction
+--- SSL_get_error asked for, resume with { err } on hard failure.
+tls_try := (s, e, req, st) ~> do {
+  r := tls_attempt(req)
+  if hash_map.get_or(r, "ready", false) {
+    resume(s, e, st, r.value)
+  } else if hash_map.has(r, "want") {
+    park_fd(s, e, req, st, if r.want == "read" { EPOLLIN } else { EPOLLOUT })
+  } else {
+    resume(s, e, st, { err: r.err })
+  }
 }
 
 --- try the op once; park on `events` readiness when the fd isn't ready
@@ -322,6 +382,19 @@ wake_fd := (s, w) ~> do {
       resume(s1, w, w.state, r.value)
     } else if hash_map.get_or(r, "again", false) {
       s
+    } else if hash_map.has(r, "want") {
+      -- TLS asked for the other direction: re-park on it (level
+      -- triggered, so the interest stays until the op resolves).
+      ev := if r.want == "read" { EPOLLIN } else { EPOLLOUT }
+      if ev == w.events {
+        s
+      } else {
+        -- re-register for the other direction (epoll_ctl ADD on a live
+        -- registration would fail with EEXIST)
+        _ := drop_interest(s, w.fd)
+        s1 := hash_map.set(s, "fdw", drop_where(s.fdw, (x) ~> x.id == w.id))
+        park_fd(s1, w, w.req, w.state, ev)
+      }
     } else {
       _ := drop_interest(s, w.fd)
       s1 := hash_map.set(s, "fdw", drop_where(s.fdw, (x) ~> x.id == w.id))
@@ -748,6 +821,18 @@ perform := (s, e, req, st) ~> match req.name {
   "accept": try_fd(s, e, req, st, EPOLLIN),
   "connect_wait": park_fd(s, e, req, st, EPOLLOUT),
   "curl_perform": park_multi(s, e, req, st),
+  "tls_accept": tls_try(s, e, req, st),
+  "tls_connect": tls_try(s, e, req, st),
+  "tls_recv": tls_try(s, e, req, st),
+  "tls_send": tls_try(s, e, req, st),
+  "tls_close": do {
+    _ := drop_interest(s, req.fd)
+    _ := tls_close_ssl(req.ssl)
+    _ := close(req.fd)
+    s1 := hash_map.set(s, "fdw",
+      drop_where(s.fdw, (w) ~> w.fd == req.fd))
+    resume(s1, e, st, null)
+  },
   "close": do {
     _ := drop_interest(s, req.fd)
     _ := close(req.fd)
