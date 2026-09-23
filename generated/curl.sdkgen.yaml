@@ -35,6 +35,7 @@ headers:
         "CURLOPT_SSL_VERIFYHOST",
         "CURLINFO_RESPONSE_CODE",
         "CURLINFO_EFFECTIVE_URL",
+        "CURLINFO_ACTIVESOCKET",
         "CURLE_OK",
         "curl_multi_init",
         "curl_multi_add_handle",
@@ -45,8 +46,19 @@ headers:
         "curl_multi_info_read",
         "curl_multi_cleanup",
         "curl_multi_strerror",
+        "curl_ws_send",
+        "curl_ws_recv",
         "CURLM_OK",
         "CURLMSG_DONE",
+        "CURLOPT_CONNECT_ONLY",
+        "CURLOPT_WS_OPTIONS",
+        "CURLWS_TEXT",
+        "CURLWS_BINARY",
+        "CURLWS_CONT",
+        "CURLWS_PING",
+        "CURLWS_PONG",
+        "CURLWS_CLOSE",
+        "CURLWS_RAW_MODE",
       ]
 
 symbols:
@@ -113,3 +125,23 @@ symbols:
   curl_multi_strerror:
     args: ["i32"]
     descriptor: "cstr"
+
+  # WebSocket API — client only (libcurl has no WS server). The frame
+  # struct is read through `ffi.read` from the meta pointer curl_ws_recv
+  # hands back, so no `curl_ws_frame` binding is needed.
+  # CURLcode curl_ws_send(CURL*, const void *buf, size_t n, size_t *sent,
+  #                       curl_off_t fragsize, unsigned int flags)
+  curl_ws_send:
+    args: ["ptr", "in_buf", "io_scalar:usize", "i64", "i32"]
+    descriptor: "i32"
+    # CURLcode signals failure with a positive value (CURLE_OK is 0), so
+    # the POSIX `ret < 0` guard would swallow every error.
+    guard: false
+  # CURLcode curl_ws_recv(CURL*, void *buf, size_t n, size_t *recv,
+  #                       const struct curl_ws_frame **metap)
+  # 65536 is the receive window; `io_scalar:usize` is the received byte
+  # count, `out_ptr:8` the meta pointer.
+  curl_ws_recv:
+    args: ["ptr", "out_buf:65536", "io_scalar:usize", "out_ptr:8"]
+    descriptor: "i32"
+    guard: false
