@@ -9,11 +9,6 @@ from "../ws-c/ws-c" import { prepare, active_socket, close }
 from "bytes" import * as bytes
 from "../generated/libc-c-linux-x86_64/stdlib" import { system }
 
---- local aliases: task envs serialize ` := ` bindings only.
-prep := prepare
-
-sock := active_socket
-
 CURLWS_TEXT := 1
 
 CERT := "/tmp/serve-epoll-test-cert.pem"
@@ -27,11 +22,6 @@ gen_cert := (_u) ~> do {
     "-subj /CN=localhost >/dev/null 2>&1")
   system("test -f " + CERT)
 }
-
---- local aliases: task envs serialize ` := ` bindings only.
-ltask := listener_task
-
-ftask := fetch_task
 
 --- plain-arrow handler: echoes method+path, marks a header.
 --- `~> {` parses as a block; wrap the record literal in `do`.
@@ -69,12 +59,12 @@ ws_echo := (req, msg) ~> do { "echo:" + msg.text }
 --- WebSocket client task (libcurl ws API driven by the scheduler).
 ws_client := (s) ~> match s.phase {
   "open": do {
-    h := prep(s.url, {})
+    h := prepare(s.url, {})
     { call: { name: "ws_open", h: h },
       state: hash_map.merge(s, { phase: "conn", h: h }) }
   },
   "conn": do {
-    fd := sock(s.h)
+    fd := active_socket(s.h)
     { call: { name: "ws_send", h: s.h, fd: fd,
               buf: bytes.utf8_encode(s.msg), flags: CURLWS_TEXT },
       state: hash_map.merge(s, { phase: "sent", fd: fd }) }
@@ -94,7 +84,7 @@ ws_client := (s) ~> match s.phase {
 --- supervisor: WS listener + WS client, one scheduler.
 main_ws := (s) ~> match s.phase {
   "a": {
-    call: { name: "spawn", task: ltask, init: listener_init(s) },
+    call: { name: "spawn", task: listener_task, init: listener_init(s) },
     state: hash_map.merge(s, { phase: "b" })
   },
   "b": {
@@ -111,11 +101,11 @@ main_ws := (s) ~> match s.phase {
 
 main := (s) ~> match s.phase {
   "a": {
-    call: { name: "spawn", task: ltask, init: listener_init(s) },
+    call: { name: "spawn", task: listener_task, init: listener_init(s) },
     state: hash_map.merge(s, { phase: "b" })
   },
   "b": {
-    call: { name: "spawn", task: ftask,
+    call: { name: "spawn", task: fetch_task,
             init: { url: s.url, init: s.init } },
     state: hash_map.merge(s, { phase: "c" })
   },
@@ -130,11 +120,11 @@ main := (s) ~> match s.phase {
 --- connection, so the second request lands on the same conn_task.
 main2 := (s) ~> match s.phase {
   "a": {
-    call: { name: "spawn", task: ltask, init: listener_init(s) },
+    call: { name: "spawn", task: listener_task, init: listener_init(s) },
     state: hash_map.merge(s, { phase: "b" })
   },
   "b": {
-    call: { name: "spawn", task: ftask,
+    call: { name: "spawn", task: fetch_task,
             init: { url: s.url, init: s.init } },
     state: hash_map.merge(s, { phase: "c" })
   },
@@ -143,7 +133,7 @@ main2 := (s) ~> match s.phase {
     state: hash_map.merge(s, { phase: "d" })
   },
   "d": {
-    call: { name: "spawn", task: ftask,
+    call: { name: "spawn", task: fetch_task,
             init: { url: s.url2, init: s.init } },
     state: hash_map.merge(s, { phase: "e", r1: s.result })
   },

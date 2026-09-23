@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Canned RFC 6455 echo server for the ws-c tests (stdlib only).
 
-One connection at a time: complete the upgrade, then echo every text and
-binary frame back (unmasked, as a server must), answer pings with pongs,
-and close on a close frame or when the peer goes away. Serves until it
-is killed, so a single fixture backs several tests.
+Complete the upgrade, then echo every text and binary frame back
+(unmasked, as a server must), answer pings with pongs, and close on a
+close frame or when the peer goes away. Each connection is served in its
+own thread -- a peer that goes quiet must not block the next test's
+connection (the gate runs several test files at once and a wedged
+connection is otherwise indistinguishable from a hang).
 
+Serves until it is killed, so a single fixture backs several tests.
 Writes /tmp/ws-c-test-ready once it is listening; the handl test polls
-for it instead of sleeping.
+for it instead of sleeping. If the port is already held (a fixture left
+over from an earlier run) this instance exits quietly and the caller
+talks to that one.
 """
 
 import base64
@@ -15,6 +20,7 @@ import hashlib
 import socket
 import struct
 import sys
+import threading
 
 GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 PORT = 18360
@@ -57,7 +63,14 @@ def read_frame(conn):
 
 
 def send_frame(conn, op, payload):
-    conn.sendall(bytes([0x80 | op]) + bytes([len(payload)]) + payload)
+    n = len(payload)
+    if n <= 125:
+        header = bytes([0x80 | op, n])
+    elif n <= 0xFFFF:
+        header = bytes([0x80 | op, 126]) + struct.pack(">H", n)
+    else:
+        header = bytes([0x80 | op, 127]) + struct.pack(">Q", n)
+    conn.sendall(header + payload)
 
 
 def handshake(conn):
@@ -102,21 +115,28 @@ def serve_conn(conn):
             send_frame(conn, op, payload)
 
 
+def serve_thread(conn):
+    try:
+        serve_conn(conn)
+    except (OSError, ConnectionError):
+        pass
+    finally:
+        conn.close()
+
+
 def main():
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(("127.0.0.1", PORT))
-    srv.listen(4)
+    try:
+        srv.bind(("127.0.0.1", PORT))
+    except OSError:
+        return
+    srv.listen(8)
     with open(READY, "w") as f:
         f.write("ready")
     while True:
         conn, _ = srv.accept()
-        try:
-            serve_conn(conn)
-        except (OSError, ConnectionError):
-            pass
-        finally:
-            conn.close()
+        threading.Thread(target=serve_thread, args=(conn,), daemon=True).start()
 
 
 if __name__ == "__main__":

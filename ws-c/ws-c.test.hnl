@@ -7,25 +7,19 @@ from "../concurrent-epoll/concurrent-epoll" import { run }
 from "../generated/libc-c-linux-x86_64/stdlib" import { system }
 from "bytes" import * as bytes
 
---- local aliases: a task env serializes ` := ` bindings only.
-prep := prepare
-
-sock := active_socket
-
-bye := close
-
 CURLWS_TEXT := 1
 
 is_err := (r) ~> tag.tag_of(r) == "err"
 
 val_of := (r) ~> tag.untag(r).value
 
---- poll for the server's readiness sentinel.
+--- poll for the server's readiness sentinel. The budget is generous
+--- (30s) because the gate runs several test files at once.
 wait_ready := (_u) ~> do {
   while { n: 0 } {
     (st) ~> do {
       r := system("test -f /tmp/ws-c-test-ready")
-      if st.n > 100 {
+      if st.n > 300 {
         { out: false }
       } else if is_err(r) {
         { state: { n: st.n + 1 } }
@@ -50,12 +44,12 @@ start_server := (_u) ~> do {
 --- connection fd whenever curl reports CURLE_AGAIN.
 main := (s) ~> match s.phase {
   "open": do {
-    h := prep(s.url, {})
+    h := prepare(s.url, {})
     { call: { name: "ws_open", h: h },
       state: hash_map.merge(s, { phase: "conn", h: h }) }
   },
   "conn": do {
-    fd := sock(s.h)
+    fd := active_socket(s.h)
     { call: { name: "ws_send", h: s.h, fd: fd,
               buf: bytes.utf8_encode(s.msg), flags: CURLWS_TEXT },
       state: hash_map.merge(s, { phase: "sent", fd: fd }) }
