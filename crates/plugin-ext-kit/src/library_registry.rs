@@ -46,6 +46,10 @@ pub fn populate(reg: &mut LibraryRegistry) {
         handl_plugin_lib_stdlib::library("intl_c")
             .unwrap_or_else(|| panic!("unknown stdlib package 'intl_c'"))
     });
+    reg.register("unicode_c", || {
+        handl_plugin_lib_stdlib::library("unicode_c")
+            .unwrap_or_else(|| panic!("unknown stdlib package 'unicode_c'"))
+    });
     reg.register("kv-hashmap", || {
         Box::new(handl_plugin_lib_kv_hashmap::LibraryPlugin::new()) as LibraryPlugin
     });
@@ -58,9 +62,6 @@ pub fn populate(reg: &mut LibraryRegistry) {
     reg.register("archive-tar", || {
         handl_plugin_lib_stdlib::library("archive-tar")
             .unwrap_or_else(|| panic!("unknown stdlib package 'archive-tar'"))
-    });
-    reg.register("http-client-std", || {
-        Box::new(handl_plugin_lib_http_client_std::LibraryPlugin::new()) as LibraryPlugin
     });
     reg.register("otlp-std", || {
         Box::new(handl_plugin_lib_otlp_std::LibraryPlugin::new()) as LibraryPlugin

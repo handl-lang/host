@@ -29,7 +29,6 @@ handl-plugin-lib-handl = { workspace = true }
 handl-plugin-lib-crypto = { workspace = true }
 handl-plugin-lib-char-native = { workspace = true }
 handl-plugin-ffi = { workspace = true }
-handl-plugin-lib-unicode-native = { workspace = true }
 handl-plugin-lib-tag = { workspace = true }
 handl-plugin-module = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

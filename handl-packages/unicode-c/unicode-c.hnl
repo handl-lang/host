@@ -1,0 +1,529 @@
+--- unicode-c -- `unicode` contract backend over the system ICU4C library.
+---
+--- Implements the `unicode.*` surface declared in
+--- `handl-packages/unicode/unicode.hnl` on the host's `libicuuc` via the
+--- sdkgen-generated bindings in
+--- `handl-packages/generated/icu-uc-c-linux-x86_64/` (produced by
+--- `generated/icu-uc.sdkgen.yaml`; regenerate on ICU major-version bumps --
+--- symbol names carry the `urename.h` suffix, e.g. `unorm2_normalize_78`).
+---
+--- Coverage (full, table-backed -- no coarse fallbacks):
+---
+--- - `graphemes`/`grapheme_count` -- UAX #29 via `ubrk_*` (UBRK_CHARACTER),
+---   so emoji ZWJ sequences, regional-indicator pairs, and CRLF count as
+---   one cluster each;
+--- - `nfc`/`nfd` -- UAX #15 via `unorm2_*`;
+--- - `casefold` -- full CaseFolding.txt via `u_strFoldCase`;
+--- - `is_valid_identifier`/`is_xid_start`/`is_xid_continue` -- UAX #31 via
+---   `u_hasBinaryProperty` (UCHAR_XID_START/XID_CONTINUE);
+--- - `width` -- UAX #11 via `u_getIntPropertyValue` (EAST_ASIAN_WIDTH) with
+---   `u_charType` folding combining/format/control categories to 0;
+--- - `code_points`/`from_code_points`/`is_ascii`/`code_point_at` -- `char.*`
+---   interop, exact without ICU (the pure-handl `unicode-handl` subset);
+--- - `decode` -- UTF-8 `[byte_offset, code_point]` pairs, pure handl over
+---   `bytes.*`.
+---
+--- Public fields return plain contract values (`String`/`Int`/`Bool`/`List`)
+--- and raise via `error.raise` when the host lacks ICU or a status code
+--- reports failure -- the native `unicode` module's raise-on-failure
+--- semantics, so callers see no shape change.
+---
+--- The handwritten layer keeps what generation cannot express:
+---
+--- - sonames probed bare, then `.<major>` 99..50 via `ffi.load`, and the ICU
+---   symbol-version suffix discovered by probing `u_getVersion_N` (drives
+---   the `available`/`icu_version` exports);
+--- - strings marshal as little-endian UTF-16 (`UChar`) byte buffers, with
+---   unit-count (not byte-count) lengths;
+--- - `UErrorCode*` status words ride `io_scalar:i32` readbacks -- generated
+---   bindings report `ok {ret, buf, vals}` and this layer interprets
+---   `vals[last]`;
+--- - `unorm2_normalize`/`u_strFoldCase` write through `out_ptr:65536` and
+---   the layer slices `ret * 2` bytes (fixed-cap readback; a `ret` past the
+---   capacity surfaces as U_BUFFER_OVERFLOW_ERROR and raises).
+
+-- `ffi`, `char`, `type`, `tag`, `error`, `math` are not package-table
+-- modules: they resolve through the host module chain, so their members are
+-- reached by qualified call (`ffi.call`, `char.chars`, ...) with no import
+-- line -- the same way `intl-c` reaches `tag.*`/`error.*`.
+
+from "result" import { ok, err }
+from "bytes" import * as bytes
+
+-- sdkgen-generated ICU4C adapters (libicuuc).
+from "../generated/icu-uc-c-linux-x86_64/ubrk" import * as ubrk
+from "../generated/icu-uc-c-linux-x86_64/unorm2" import * as unorm2
+from "../generated/icu-uc-c-linux-x86_64/ustring" import * as ustring
+from "../generated/icu-uc-c-linux-x86_64/uchar" import * as uchar
+
+-- ffi result probing ---------------------------------------------------------
+
+-- `ffi.load`/`ffi.sym` return `{__tag__: "ok"}` / `{__tag__: "err", ...}`.
+is_ok := (r) ~> if r == null { false } else { r.__tag__ == "ok" }
+
+try_load := (name) ~> if is_ok(ffi.load(name)) { name } else { null }
+
+-- `stem` is e.g. "libicuuc.so"; probe the bare soname, then `stem.<major>`.
+find_lib := (stem) ~> do {
+  hit = try_load(stem)
+  if hit != null { hit } else {
+    while { v: 99, found: null } {
+      (v, found) ~> if found != null || v < 50 {
+        { out: found }
+      } else {
+        { state: { v: v - 1, found: try_load(stem + "." + type.to_string(v)) } }
+      }
+    }
+  }
+}
+
+-- ICU renames exported symbols with the library major (`u_charType_78`).
+-- Probe `u_getVersion_N` to discover N.
+find_version := (lib) ~> while { v: 99, found: 0 } {
+  (v, found) ~> if found > 0 || v < 50 {
+    { out: found }
+  } else {
+    { state: { v: v - 1, found: if is_ok(ffi.sym(lib, "u_getVersion_" + type.to_string(v))) { v } else { 0 } } }
+  }
+}
+
+-- NOTE: every call into this module re-evaluates these privates; `ffi.load`
+-- / `ffi.sym` hits are cached in the runtime so re-probing is cheap.
+uc := find_lib("libicuuc.so")
+
+icu_ver := if uc == null { 0 } else { find_version(uc) }
+
+avail := uc != null && icu_ver > 0
+
+-- UTF-16 codec ---------------------------------------------------------------
+
+-- UTF-8 decode over integer bytes: continuation bytes contribute 6 bits.
+-- `bytes.to_list` yields real ints; `math.shl`/`bit_*` keep them ints --
+-- `char.code_point` returns floats which the FFI byte marshal rejects.
+u8_cp1 := (b, t) ~> match t {
+  [b1, ...t1]: { cp: math.bit_or(math.shl(math.bit_and(b, 31), 6), math.bit_and(b1, 63)), rest: t1 },
+  _: { cp: 65533, rest: t }
+}
+
+u8_cp2 := (b, t) ~> match t {
+  [b1, b2, ...t2]: {
+    cp: math.bit_or(math.bit_or(math.shl(math.bit_and(b, 15), 12), math.shl(math.bit_and(b1, 63), 6)), math.bit_and(b2, 63)),
+    rest: t2
+  },
+  _: { cp: 65533, rest: [] }
+}
+
+u8_cp3 := (b, t) ~> match t {
+  [b1, b2, b3, ...t3]: {
+    cp: math.bit_or(math.bit_or(math.shl(math.bit_and(b, 7), 18), math.shl(math.bit_and(b1, 63), 12)), math.bit_or(math.shl(math.bit_and(b2, 63), 6), math.bit_and(b3, 63))),
+    rest: t3
+  },
+  _: { cp: 65533, rest: [] }
+}
+
+-- LE bytes of a UTF-16 unit pair (lead surrogate first). NOTE: the list
+-- literal must be the arrow body itself -- a line-leading `[...]` after a
+-- binding parses as *indexing* that binding (`lo[...]`), not a new list.
+u16_le_bytes := (hi, lo) ~> [math.bit_and(hi, 255), math.shr(hi, 8), math.bit_and(lo, 255), math.shr(lo, 8)]
+
+-- cp >= 0x10000 -> surrogate pair. Returns LE bytes, lead surrogate first.
+enc_pair := (u) ~> u16_le_bytes(55296 + math.shr(u, 10), 56320 + math.bit_and(u, 1023))
+
+enc_cp := (cp) ~> if cp < 65536 {
+  [math.bit_and(cp, 255), math.shr(cp, 8)]
+} else {
+  enc_pair(cp - 65536)
+}
+
+-- one UTF-8 step: decode the head byte's class and append its LE u16 bytes
+u8_step := (b, t, acc) ~> if b < 128 {
+  { state: { bs: t, acc: [...acc, ...enc_cp(b)] } }
+} else if b < 224 {
+  s = u8_cp1(b, t)
+  { state: { bs: s.rest, acc: [...acc, ...enc_cp(s.cp)] } }
+} else if b < 240 {
+  s = u8_cp2(b, t)
+  { state: { bs: s.rest, acc: [...acc, ...enc_cp(s.cp)] } }
+} else {
+  s = u8_cp3(b, t)
+  { state: { bs: s.rest, acc: [...acc, ...enc_cp(s.cp)] } }
+}
+
+list_len := (xs) ~> while { xs: xs, n: 0 } {
+  (xs, n) ~> match xs {
+    []: { out: n },
+    [_, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
+
+-- string -> { bytes: Bytes, len: <u16 unit count> }
+utf16_enc := (s) ~> while { bs: bytes.to_list(bytes.utf8_encode(s)), acc: [] } {
+  (bs, acc) ~> match bs {
+    []: { out: { bytes: bytes.from_list(acc), len: math.shr(list_len(acc), 1) } },
+    [b, ...t]: u8_step(b, t, acc)
+  }
+}
+
+-- LE byte list -> u16 unit list
+to_units := (bs) ~> while { bs: bs, acc: [] } {
+  (bs, acc) ~> match bs {
+    []: { out: acc },
+    [lo]: { out: [...acc, lo] },
+    [lo, hi, ...t]: { state: { bs: t, acc: [...acc, lo + hi * 256] } }
+  }
+}
+
+-- combine a lead surrogate `hi` with the next unit of `us`; `n`/`acc` are
+-- the decode loop's remaining-unit budget and char accumulator
+dec_rest := (hi, us, n, acc) ~> match us {
+  []: { out: char.from_chars(acc) },
+  [lo, ...t]: { state: { us: t, n: n - 2, acc: [...acc, char.from_code_point(65536 + (hi - 55296) * 1024 + lo - 56320)] } }
+}
+
+-- one decode step: BMP unit, or a surrogate pair consuming two units
+dec_step := (u, t, n, acc) ~> if u >= 55296 && u < 56320 {
+  dec_rest(u, t, n, acc)
+} else {
+  { state: { us: t, n: n - 1, acc: [...acc, char.from_code_point(u)] } }
+}
+
+-- decode only the first `n` of unit list `us` (ICU reports the written
+-- length in `ret`; `out_ptr` returns the whole capacity)
+utf16_dec := (us, n) ~> while { us: us, n: n, acc: [] } {
+  (us, n, acc) ~> match us {
+    []: { out: char.from_chars(acc) },
+    [u, ...t]: if n <= 0 {
+      { out: char.from_chars(acc) }
+    } else {
+      dec_step(u, t, n, acc)
+    }
+  }
+}
+
+-- shared helpers ---------------------------------------------------------------
+
+-- Generated bindings return `Result<payload, Errno>`; payloads carry the
+-- raw `{ret, buf, vals}` record. `vals[last]` is the `UErrorCode` for
+-- status-tail functions (0 = OK, <0 = warning, >0 = failure).
+payload := (r) ~> if tag.tag_of(r) == "err" { null } else { tag.untag(r).value }
+
+take := (xs, n) ~> while { xs: xs, n: n, acc: [] } {
+  (xs, n, acc) ~> if n <= 0 { { out: acc } } else {
+    match xs {
+      []: { out: acc },
+      [h, ...t]: { state: { xs: t, n: n - 1, acc: [...acc, h] } }
+    }
+  }
+}
+
+drop := (xs, n) ~> while { xs: xs, n: n } {
+  (xs, n) ~> if n <= 0 { { out: xs } } else {
+    match xs {
+      []: { out: xs },
+      [_, ...t]: { state: { xs: t, n: n - 1 } }
+    }
+  }
+}
+
+at := (xs, i) ~> match drop(xs, i) {
+  [h, ..._]: h,
+  _: null
+}
+
+-- `v` unless null -> `d`
+nz := (v, d) ~> if v == null { d } else { v }
+
+-- unwrap a `{ret, buf, vals}` result into `ok v` / `err "<what> failed..."`
+statused := (r, what) ~> do {
+  v = payload(r)
+  if type.of(v) != "object" {
+    err(what)
+  } else {
+    vs = nz(v.vals, [])
+    st = nz(at(vs, list_len(vs) - 1), 0)
+    if st > 0 {
+      err(what + " code " + type.to_string(st))
+    } else {
+      ok(v)
+    }
+  }
+}
+
+-- unwrap a statused payload to its plain value, raising on failure --
+-- the public boundary of this module
+or_raise := (r) ~> if tag.tag_of(r) == "err" { error.raise(tag.untag(r).value) } else { tag.untag(r).value }
+
+-- unit slice [i, j) of a UTF-16 unit list
+uslice := (us, i, j) ~> take(drop(us, i), j - i)
+
+-- LE bytes of an out_ptr buffer, trimmed to `n` units, decoded to a string
+rd16 := (buf, n) ~> utf16_dec(to_units(bytes.to_list(bytes.slice(buf, 0, n * 2))), n)
+
+map_list := (xs, f) ~> while { xs: xs, acc: [] } {
+  (xs, acc) ~> match xs {
+    []: { out: acc },
+    [h, ...t]: { state: { xs: t, acc: [...acc, f(h)] } }
+  }
+}
+
+all_of := (xs, p) ~> while { xs: xs, hit: true } {
+  (xs, hit) ~> if hit {
+    match xs {
+      []: { out: true },
+      [h, ...t]: { state: { xs: t, hit: p(h) } }
+    }
+  } else {
+    { out: false }
+  }
+}
+
+-- out_ptr readback capacity (UTF-16 units) -- matches the sdkgen
+-- `out_ptr:65536` descriptors on `unorm2_normalize_78` / `u_strFoldCase_78`.
+out_cap_units := 32768
+
+-- UTF-8 decode: [byte_offset, code_point] pairs --------------------------------
+
+dec_step_u8 := (b, t, off, acc) ~> do {
+  d = if b < 128 { { cp: b, rest: t } } else if b < 224 { u8_cp1(b, t) } else if b < 240 { u8_cp2(b, t) } else { u8_cp3(b, t) }
+  used = (list_len(t) + 1) - list_len(d.rest)
+  { state: { bs: d.rest, off: off + used, acc: [...acc, [off, d.cp]] } }
+}
+
+decode_impl := (s) ~> while { bs: bytes.to_list(bytes.utf8_encode(s)), off: 0, acc: [] } {
+  (bs, off, acc) ~> match bs {
+    []: { out: acc },
+    [b, ...t]: dec_step_u8(b, t, off, acc)
+  }
+}
+
+-- code-point interop (char-level; exact without ICU) ---------------------------
+
+-- NOTE: built from the UTF-8 decode pairs rather than `char.code_point`,
+-- which yields *floats* in the tagged value model — the contract promises
+-- `List Int`, and the byte-decode path produces real integers. (`decode_impl`
+-- must be bound before this: a forward reference inside an arrow body is a
+-- call-time lookup, not a closure capture, so it would miss.)
+code_points_impl := (s) ~> map_list(decode_impl(s), p ~> at(p, 1))
+
+-- Same float-avoidance as `code_points_impl`: `char.code_point_at` also
+-- yields a float. `i` indexes *scalar values* (not bytes); past the end the
+-- result is null, matching the retired native op.
+code_point_at_impl := (s, i) ~> at(map_list(decode_impl(s), p ~> at(p, 1)), i)
+
+from_code_points_impl := (xs) ~> char.from_chars(map_list(xs, c ~> char.from_code_point(c)))
+
+is_ascii_impl := (s) ~> all_of(char.chars(s), c ~> char.code_point(c) < 128)
+
+-- identifier categories (UAX #31) ---------------------------------------------
+
+xid_cp := (cp, which) ~> do {
+  v = payload(uchar.u_hasBinaryProperty_78(cp, which))
+  if v == null { false } else { math.bit_and(v, 255) != 0 }
+}
+
+-- Handl/Rust identifiers allow a leading `_` on top of XID_Start
+-- (`plugin-lib-unicode`'s `is_identifier_start`), so `_a` is a valid
+-- identifier even though `_` is not in the XID_Start property itself.
+is_start_cp := (cp) ~> cp == 95 || xid_cp(cp, uchar.UCHAR_XID_START)
+
+is_xid_start_impl := (s) ~> match char.chars(s) {
+  []: false,
+  [h, ..._]: is_start_cp(char.code_point(h))
+}
+
+is_xid_continue_impl := (s) ~> match char.chars(s) {
+  []: false,
+  [h, ..._]: xid_cp(char.code_point(h), uchar.UCHAR_XID_CONTINUE)
+}
+
+is_valid_identifier_impl := (s) ~> match char.chars(s) {
+  []: false,
+  [h, ...t]: is_start_cp(char.code_point(h)) && all_of(t, c ~> xid_cp(char.code_point(c), uchar.UCHAR_XID_CONTINUE))
+}
+
+-- grapheme clusters (UAX #29) --------------------------------------------------
+
+-- ubrk_open borrows the text pointer for the iterator's lifetime, so the
+-- UTF-16 buffer must stay valid until ubrk_close -- an `in_ptr` arg buffer
+-- is freed when ffi.call returns. malloc + memcpy the text, free after close.
+libc_malloc := (n) ~> ffi.call("libc.so.6", "malloc", [n], ["i64"], "ptr", false)
+
+libc_free := (p) ~> ffi.call("libc.so.6", "free", [p], ["ptr"], "void", false)
+
+libc_memcpy := (dst, src, n) ~> ffi.call("libc.so.6", "memcpy", [dst, src, n], ["ptr", "in_ptr", "i64"], "ptr", false)
+
+-- boundary calls return a bare integer (no out-slots in the descriptor)
+brk_int := (r) ~> do {
+  v = payload(r)
+  if v == null { -1 } else { v }
+}
+
+graphemes_impl := (s) ~> do {
+  e = utf16_enc(s)
+  nb = e.len * 2
+  p = libc_malloc(nb)
+  if p == 0 { err("malloc failed") } else { do {
+    _m = libc_memcpy(p, e.bytes, nb)
+    r = statused(ubrk.ubrk_open_78(0, "", p, e.len, 0), "ubrk_open")
+    if tag.tag_of(r) == "err" {
+      _f = libc_free(p)
+      r
+    } else {
+      bi = tag.untag(r).value.ret
+      units = to_units(bytes.to_list(e.bytes))
+      segs = while { pos: brk_int(ubrk.ubrk_first_78(bi)), acc: [] } {
+        (pos, acc) ~> if pos < 0 { { out: acc } } else { do {
+          nx = brk_int(ubrk.ubrk_next_78(bi))
+          if nx < 0 {
+            { out: acc }
+          } else {
+            seg = utf16_dec(uslice(units, pos, nx), nx - pos)
+            { state: { pos: nx, acc: [...acc, seg] } }
+          }
+        } }
+      }
+      _c = ubrk.ubrk_close_78(bi)
+      _f = libc_free(p)
+      ok(segs)
+    }
+  } }
+}
+
+grapheme_count_impl := (s) ~> do {
+  r = graphemes_impl(s)
+  if tag.tag_of(r) == "err" { r } else { ok(list_len(tag.untag(r).value)) }
+}
+
+-- display width (UAX #11) ------------------------------------------------------
+
+-- zero-width categories: Mn, Me, Zl, Zp, Cc, Cf (combining marks, line/
+-- paragraph separators, control and format chars)
+zero_width_cat := (t) ~> t == uchar.U_NON_SPACING_MARK || t == uchar.U_ENCLOSING_MARK || t == uchar.U_LINE_SEPARATOR || t == uchar.U_PARAGRAPH_SEPARATOR || t == uchar.U_CONTROL_CHAR || t == uchar.U_FORMAT_CHAR
+
+w_cp := (cp) ~> do {
+  t = payload(uchar.u_charType_78(cp))
+  if t == null {
+    1
+  } else {
+    cat = math.bit_and(t, 255)
+    if zero_width_cat(cat) {
+      0
+    } else {
+      ea = payload(uchar.u_getIntPropertyValue_78(cp, uchar.UCHAR_EAST_ASIAN_WIDTH))
+      if ea == null {
+        1
+      } else {
+        if ea == uchar.U_EA_FULLWIDTH || ea == uchar.U_EA_WIDE { 2 } else { 1 }
+      }
+    }
+  }
+}
+
+width_impl := (s) ~> do {
+  xs = map_list(char.chars(s), c ~> w_cp(char.code_point(c)))
+  while { xs: xs, acc: 0 } {
+    (xs, acc) ~> match xs {
+      []: { out: acc },
+      [h, ...t]: { state: { xs: t, acc: acc + h } }
+    }
+  }
+}
+
+-- case folding (CaseFolding.txt) -----------------------------------------------
+
+casefold_impl := (s) ~> do {
+  e = utf16_enc(s)
+  r = statused(ustring.u_strFoldCase_78(out_cap_units, e.bytes, e.len, 0, 0), "u_strFoldCase")
+  if tag.tag_of(r) == "err" {
+    r
+  } else {
+    v = tag.untag(r).value
+    if v.ret > out_cap_units {
+      err("u_strFoldCase output exceeds " + type.to_string(out_cap_units) + " units")
+    } else {
+      ok(rd16(v.buf, v.ret))
+    }
+  }
+}
+
+-- normalization (UAX #15) ------------------------------------------------------
+
+norm_impl := (get_inst, s, what) ~> do {
+  r0 = statused(get_inst(0), what)
+  if tag.tag_of(r0) == "err" {
+    r0
+  } else {
+    inst = tag.untag(r0).value.ret
+    e = utf16_enc(s)
+    r = statused(unorm2.unorm2_normalize_78(inst, e.bytes, e.len, out_cap_units, 0), what)
+    if tag.tag_of(r) == "err" {
+      r
+    } else {
+      v = tag.untag(r).value
+      if v.ret > out_cap_units {
+        err(what + " output exceeds " + type.to_string(out_cap_units) + " units")
+      } else {
+        ok(rd16(v.buf, v.ret))
+      }
+    }
+  }
+}
+
+nfc_impl := (s) ~> norm_impl(unorm2.unorm2_getNFCInstance_78, s, "unorm2_getNFCInstance")
+
+nfd_impl := (s) ~> norm_impl(unorm2.unorm2_getNFDInstance_78, s, "unorm2_getNFDInstance")
+
+-- public surface ---------------------------------------------------------------
+
+-- NOTE: exports are intentionally untyped (`export f := ...`, not
+-- `export f: T := ...`). The `hnl test` file-loader treats an export's type
+-- annotation as a callee (`Type(value)`), which fails for imported arrow
+-- types -- a module_prep limitation shared by all `*-c` packages.
+
+--- Whether the host `libicuuc` was found and its symbol suffix resolved.
+export available := avail
+
+--- The detected ICU major version (0 when unavailable).
+export icu_version := icu_ver
+
+--- Code points of `s` (exact; needs no ICU).
+export code_points := s ~> code_points_impl(s)
+
+--- Inverse of `code_points` (exact; needs no ICU).
+export from_code_points := xs ~> from_code_points_impl(xs)
+
+--- Whether every scalar of `s` is ASCII (exact; needs no ICU).
+export is_ascii := s ~> is_ascii_impl(s)
+
+--- Code point at index `i`, or null past the end (exact; needs no ICU).
+export code_point_at := (s, i) ~> code_point_at_impl(s, i)
+
+--- UTF-8 `[byte_offset, code_point]` pairs (pure handl; needs no ICU).
+export decode := s ~> decode_impl(s)
+
+--- Whether `s` is a valid Unicode identifier (UAX #31).
+export is_valid_identifier := s ~> is_valid_identifier_impl(s)
+
+--- Whether the first scalar of `s` is XID_Start.
+export is_xid_start := s ~> is_xid_start_impl(s)
+
+--- Whether the first scalar of `s` is XID_Continue.
+export is_xid_continue := s ~> is_xid_continue_impl(s)
+
+--- Grapheme clusters of `s` (UAX #29, UBRK_CHARACTER).
+export graphemes := s ~> if avail { or_raise(graphemes_impl(s)) } else { error.raise("icu-unavailable") }
+
+--- Number of grapheme clusters in `s`.
+export grapheme_count := s ~> if avail { or_raise(grapheme_count_impl(s)) } else { error.raise("icu-unavailable") }
+
+--- Terminal display width of `s` (UAX #11).
+export width := s ~> if avail { width_impl(s) } else { error.raise("icu-unavailable") }
+
+--- Full case fold of `s` (CaseFolding.txt).
+export casefold := s ~> if avail { or_raise(casefold_impl(s)) } else { error.raise("icu-unavailable") }
+
+--- NFC-normalized `s` (UAX #15).
+export nfc := s ~> if avail { or_raise(nfc_impl(s)) } else { error.raise("icu-unavailable") }
+
+--- NFD-normalized `s` (UAX #15).
+export nfd := s ~> if avail { or_raise(nfd_impl(s)) } else { error.raise("icu-unavailable") }

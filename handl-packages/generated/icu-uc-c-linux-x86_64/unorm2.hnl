@@ -1,0 +1,19 @@
+--- Generated adapter for icu-uc-c-linux-x86_64/unorm2
+
+from "result" import { ok, err }
+from "../icu-uc/unorm2" import { Unorm2GetNfcInstance78, Unorm2GetNfdInstance78, Unorm2Normalize78 }
+
+export unorm2_getNFCInstance_78: Unorm2GetNfcInstance78 := (status) ~> do {
+  r = ffi.call("libicuuc.so", "unorm2_getNFCInstance_78", [status], ["io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export unorm2_getNFDInstance_78: Unorm2GetNfdInstance78 := (status) ~> do {
+  r = ffi.call("libicuuc.so", "unorm2_getNFDInstance_78", [status], ["io_scalar:i32"], "handle", false)
+  ok(r)
+}
+
+export unorm2_normalize_78: Unorm2Normalize78 := (norm2, src, src_length, capacity, status) ~> do {
+  r = ffi.call("libicuuc.so", "unorm2_normalize_78", [norm2, src, src_length, capacity, status], ["handle", "in_ptr", "i32", "out_ptr:65536", "i32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}

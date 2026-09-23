@@ -47,7 +47,6 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_lib_tag::TypeRegistry;
-use handl_plugin_lib_unicode_native::UnicodeModule;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::vm_primitives::SymModule;
@@ -248,7 +247,10 @@ impl ModuleResolver for StdlibResolver {
                 build_str_handl_module,
             ))),
             "char" => Some(Arc::new(CharModule)),
-            "unicode" => Some(Arc::new(UnicodeModule)),
+            // `unicode` (ICU4X-backed `plugin-lib-unicode-native`) is
+            // retired: the `unicode` contract is now served by the
+            // `unicode_c` package (ICU4C over `ffi`) / `unicode_handl`
+            // (pure-handl fallback), both registered from the module table.
             "transform" => Some(Arc::new(TransformModule::new())),
             "comb" => Some(Arc::new(CombModule::new())),
             "ffi" => Some(coerce_handl(get_handl_module("ffi", build_ffi_module))),
@@ -576,13 +578,34 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
         if want("char") {
             stdlib_registry.register(CharModule);
         }
-        if want("unicode") {
-            // Eager init — `UnicodeModule::function()` lazy-builds the
-            // backing `HandlModule` through a `OnceLock`, which re-entrant
-            // `modules.lookup` probes (nested eval during `analyze_source`)
-            // would deadlock. Build it now, under `with_loader_disabled`.
-            UnicodeModule::prewarm();
-            stdlib_registry.register(UnicodeModule);
+        // `unicode_c` — the `unicode` contract backend over system ICU4C via
+        // `ffi` (`ubrk_*` grapheme segmentation, `unorm2_*` NFC/NFD,
+        // `u_strFoldCase`, `u_hasBinaryProperty` XID checks, display width).
+        // Built with the stdlib resolver so `ffi`/`char`/`type`/`tag`/
+        // `error`/`math` resolve through the kit chain, and so its
+        // `../generated/icu-uc-c-linux-x86_64/*` path imports normalize onto
+        // the table adapter modules. Replaces the retired ICU4X-backed
+        // `plugin-lib-unicode-native` `unicode` module.
+        if want("unicode_c") {
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "unicode_c",
+                || stdlib::module_with("unicode_c", Arc::new(StdlibResolver)).expect("unicode_c"),
+            );
+        }
+        // `unicode_handl` — the pure-handl fallback implementation of the
+        // same contract (coarse graphemes/width/casefold, no nfc/nfd).
+        if want("unicode_handl") {
+            register_handl(
+                &mut stdlib_registry,
+                &mut handl_modules,
+                "unicode_handl",
+                || {
+                    stdlib::module_with("unicode_handl", Arc::new(StdlibResolver))
+                        .expect("unicode_handl")
+                },
+            );
         }
         if want("bool") {
             register_handl(&mut stdlib_registry, &mut handl_modules, "bool", || {

@@ -289,6 +289,16 @@ test_segment_word := assert(if intl_c.available {
   false
 }) = false
 
+-- astral (non-BMP) input exercises the surrogate-pair UTF-16 encode path
+test_segment_astral := assert(if intl_c.available {
+  do {
+    s = tag.untag(intl_c.segment("a😀b", "grapheme", "en", null)).value
+    match s { [_, m, _]: m.segment, _: "?" }
+  }
+} else {
+  "😀"
+}) = "😀"
+
 -- locale utilities ------------------------------------------------------------------------
 
 test_locale_language := assert(if intl_c.available {

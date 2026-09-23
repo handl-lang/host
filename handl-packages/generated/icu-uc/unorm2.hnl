@@ -1,0 +1,63 @@
+--- Generated port for icu-uc.unorm2
+--- ffi target: x86_64-unknown-linux-gnu
+
+from "ffi" import { Errno }
+from "result" import { Result }
+
+--- Returns a UNormalizer2 instance for Unicode NFC normalization.
+--- Same as unorm2_getInstance(NULL, "nfc", UNORM2_COMPOSE, pErrorCode).
+--- Returns an unmodifiable singleton instance. Do not delete it.
+--- pErrorCode: Standard ICU error code. Its input value must
+--- pass the U_SUCCESS() test, or else the function returns
+--- immediately. Check for U_FAILURE() on output or use with
+--- function chaining. (See User Guide for details.)
+--- Returns: the requested Normalizer2, if successful
+--- @stable ICU 49
+export Unorm2GetNfcInstance78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export Unorm2GetNfcInstance78: (Int) ~[1]~> Result<Unorm2GetNfcInstance78Result, Errno>
+
+--- Returns a UNormalizer2 instance for Unicode NFD normalization.
+--- Same as unorm2_getInstance(NULL, "nfc", UNORM2_DECOMPOSE, pErrorCode).
+--- Returns an unmodifiable singleton instance. Do not delete it.
+--- pErrorCode: Standard ICU error code. Its input value must
+--- pass the U_SUCCESS() test, or else the function returns
+--- immediately. Check for U_FAILURE() on output or use with
+--- function chaining. (See User Guide for details.)
+--- Returns: the requested Normalizer2, if successful
+--- @stable ICU 49
+export Unorm2GetNfdInstance78Result := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export Unorm2GetNfdInstance78: (Int) ~[1]~> Result<Unorm2GetNfdInstance78Result, Errno>
+
+--- Writes the normalized form of the source string to the destination string
+--- (replacing its contents) and returns the length of the destination string.
+--- The source and destination strings must be different buffers.
+--- norm2: UNormalizer2 instance
+--- src: source string
+--- length: length of the source string, or -1 if NUL-terminated
+--- dest: destination string; its contents is replaced with normalized src
+--- capacity: number of UChars that can be written to dest
+--- pErrorCode: Standard ICU error code. Its input value must
+--- pass the U_SUCCESS() test, or else the function returns
+--- immediately. Check for U_FAILURE() on output or use with
+--- function chaining. (See User Guide for details.)
+--- Returns: dest
+--- @stable ICU 4.4
+export Unorm2Normalize78Result := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes],
+  vals: [Int]
+}
+
+--- ffi:
+export Unorm2Normalize78: (Handle, Bytes, Int, Int, Int) ~[1]~> Result<Unorm2Normalize78Result, Errno>

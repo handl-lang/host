@@ -127,12 +127,14 @@ u8_cp3 := (b, t) ~> match t {
   _: { cp: 65533, rest: [] }
 }
 
+-- LE bytes of a UTF-16 unit pair (lead surrogate first). NOTE: the list
+-- literal must be the arrow body itself -- a line-leading `[...]` after a
+-- binding parses as *indexing* that binding (`lo[...]`), not a new list,
+-- which broke astral (non-BMP) input on the encode path.
+u16_le_bytes := (hi, lo) ~> [math.bit_and(hi, 255), math.shr(hi, 8), math.bit_and(lo, 255), math.shr(lo, 8)]
+
 -- cp >= 0x10000 -> surrogate pair. Returns LE bytes, lead surrogate first.
-enc_pair := (u) ~> do {
-  hi = 55296 + math.shr(u, 10)
-  lo = 56320 + math.bit_and(u, 1023)
-  [math.bit_and(hi, 255), math.shr(hi, 8), math.bit_and(lo, 255), math.shr(lo, 8)]
-}
+enc_pair := (u) ~> u16_le_bytes(55296 + math.shr(u, 10), 56320 + math.bit_and(u, 1023))
 
 enc_cp := (cp) ~> if cp < 65536 {
   [math.bit_and(cp, 255), math.shr(cp, 8)]

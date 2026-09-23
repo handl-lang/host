@@ -2,7 +2,10 @@
 #
 # Covers the `ubrk_*` (break iteration), `uloc_*` (locale id utilities),
 # `uldn_*` (locale display names), and `ures_*` (resource bundles — used
-# for CLDR `listPattern` data) surface used by `handl-packages/intl-c`.
+# for CLDR `listPattern` data) surface used by `handl-packages/intl-c`,
+# plus the `unorm2_*` (UAX #15 normalization), `u_strFoldCase` (full case
+# folding), and `u_*Property*`/`u_charType` (Unicode character data)
+# surface used by `handl-packages/unicode-c`.
 # ICU renames every public symbol through `unicode/urename.h`, so all
 # names below carry the host's version suffix — regenerate when the
 # system ICU major version changes.
@@ -73,6 +76,33 @@ headers:
         "ures_getByKeyWithFallback_78",
         "ures_getUTF8String_78",
         "ures_getLocaleByType_78",
+      ]
+  unorm2.h:
+    include:
+      [
+        "unorm2_getNFCInstance_78",
+        "unorm2_getNFDInstance_78",
+        "unorm2_normalize_78",
+      ]
+  ustring.h:
+    include: ["u_strFoldCase_78"]
+  uchar.h:
+    include:
+      [
+        "u_hasBinaryProperty_78",
+        "u_getIntPropertyValue_78",
+        "u_charType_78",
+        "UCHAR_XID_START",
+        "UCHAR_XID_CONTINUE",
+        "UCHAR_EAST_ASIAN_WIDTH",
+        "U_EA_FULLWIDTH",
+        "U_EA_WIDE",
+        "U_NON_SPACING_MARK",
+        "U_ENCLOSING_MARK",
+        "U_CONTROL_CHAR",
+        "U_FORMAT_CHAR",
+        "U_LINE_SEPARATOR",
+        "U_PARAGRAPH_SEPARATOR",
       ]
 
 symbols:
@@ -351,3 +381,64 @@ symbols:
     names: ["res", "length", "force_copy", "status"]
     ret: String
     descriptor: "cstr"
+
+  # const UNormalizer2* unorm2_getNFCInstance(UErrorCode*) —
+  # process-global shared instances; the returned pointer must NOT be freed.
+  unorm2_getNFCInstance_78:
+    args: ["io_scalar:i32"]
+    names: ["status"]
+    ret: Int
+    descriptor: "handle"
+
+  unorm2_getNFDInstance_78:
+    args: ["io_scalar:i32"]
+    names: ["status"]
+    ret: Int
+    descriptor: "handle"
+
+  # int32_t unorm2_normalize(norm2, const UChar *src, int32_t length,
+  #   UChar *dest, int32_t capacity, UErrorCode*). `out_ptr:65536` is the
+  #   full-buffer readback form: the caller passes the matching `capacity`
+  #   (in UTF-16 units), ICU writes `ret` units, and the semantic layer
+  #   slices `ret * 2` bytes off `buf`. A `ret` above the capacity means
+  #   U_BUFFER_OVERFLOW_ERROR (15) and the layer raises — 65536 bytes
+  #   (32768 units) covers every text-level string this contract sees.
+  unorm2_normalize_78:
+    args: ["handle", "in_ptr", "i32", "out_ptr:65536", "i32", "io_scalar:i32"]
+    names: ["norm2", "src", "src_length", "capacity", "status"]
+    ret: Int
+    descriptor: "i32"
+
+  # int32_t u_strFoldCase(UChar *dest, int32_t destCapacity,
+  #   const UChar *src, int32_t srcLength, uint32_t options, UErrorCode*).
+  # Same `out_ptr` readback shape as unorm2_normalize — options is
+  # U_FOLD_CASE_DEFAULT (0) or U_FOLD_CASE_EXCLUDE_SPECIAL_I (1).
+  u_strFoldCase_78:
+    args: ["out_ptr:65536", "i32", "in_ptr", "i32", "u32", "io_scalar:i32"]
+    names: ["capacity", "src", "src_length", "options", "status"]
+    ret: Int
+    descriptor: "i32"
+
+  # UBool u_hasBinaryProperty(UChar32 c, UProperty which) — UCHAR_XID_START/
+  # UCHAR_XID_CONTINUE for UAX #31 identifier checks. Callers mask & 0xff.
+  u_hasBinaryProperty_78:
+    args: ["i32", "i32"]
+    names: ["c", "which"]
+    ret: Int
+    descriptor: "i32"
+
+  # int32_t u_getIntPropertyValue(UChar32 c, UProperty which) — used with
+  # UCHAR_EAST_ASIAN_WIDTH (U_EA_* values) for UAX #11 display width.
+  u_getIntPropertyValue_78:
+    args: ["i32", "i32"]
+    names: ["c", "which"]
+    ret: Int
+    descriptor: "i32"
+
+  # int8_t u_charType(UChar32 c) — UCharCategory; combining/format/control
+  # categories fold to display width 0. Callers mask & 0xff.
+  u_charType_78:
+    args: ["i32"]
+    names: ["c"]
+    ret: Int
+    descriptor: "i32"

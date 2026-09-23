@@ -1,0 +1,9 @@
+--- Generated adapter for icu-uc-c-linux-x86_64/ustring
+
+from "result" import { ok, err }
+from "../icu-uc/ustring" import { UStrFoldCase78 }
+
+export u_strFoldCase_78: UStrFoldCase78 := (capacity, src, src_length, options, status) ~> do {
+  r = ffi.call("libicuuc.so", "u_strFoldCase_78", [capacity, src, src_length, options, status], ["out_ptr:65536", "i32", "in_ptr", "i32", "u32", "io_scalar:i32"], "i32", false)
+  ok(r)
+}
