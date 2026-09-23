@@ -1,491 +1,876 @@
 export default [
   {
-    text: "Platform",
-    collapsed: false,
-    link: "/reference/host-concepts",
-    items: [
+    "text": "Archive Tar",
+    "collapsed": false,
+    "link": "/reference/lib-archive-tar",
+    "items": [
       {
-        text: "Host concepts",
-        link: "/reference/host-concepts",
-      },
-    ],
+        "text": "Tar",
+        "link": "/reference/lib-archive-tar-tar"
+      }
+    ]
   },
   {
-    text: "Archive",
-    collapsed: false,
-    link: "/reference/lib-archive",
-    items: [
+    "text": "Base64",
+    "collapsed": false,
+    "link": "/reference/lib-base64",
+    "items": [
       {
-        text: "Archive Tar",
-        link: "/reference/lib-archive-tar",
-      },
-    ],
+        "text": "Base64",
+        "link": "/reference/lib-base64-base64"
+      }
+    ]
   },
   {
-    text: "Collections",
-    collapsed: false,
-    link: "/reference/lib-collections",
-    items: [
+    "text": "Bytes",
+    "collapsed": false,
+    "link": "/reference/lib-bytes",
+    "items": [
       {
-        text: "Array",
-        link: "/reference/lib-collections-array",
-      },
-      {
-        text: "Deque",
-        link: "/reference/lib-collections-deque",
-      },
-      {
-        text: "Hash Map",
-        link: "/reference/lib-collections-hash_map",
-      },
-      {
-        text: "Hash Set",
-        link: "/reference/lib-collections-hash_set",
-      },
-      {
-        text: "List",
-        link: "/reference/lib-collections-list",
-      },
-      {
-        text: "Queue",
-        link: "/reference/lib-collections-queue",
-      },
-      {
-        text: "Stack",
-        link: "/reference/lib-collections-stack",
-      },
-      {
-        text: "Vec",
-        link: "/reference/lib-collections-vec",
-      },
-    ],
+        "text": "Bytes",
+        "link": "/reference/lib-bytes-bytes"
+      }
+    ]
   },
   {
-    text: "Compress",
-    collapsed: false,
-    link: "/reference/lib-compress",
-    items: [
+    "text": "Char",
+    "collapsed": false,
+    "link": "/reference/lib-char",
+    "items": [
       {
-        text: "Compress Gzip",
-        link: "/reference/lib-compress-gzip",
-      },
-    ],
+        "text": "Char",
+        "link": "/reference/lib-char-char"
+      }
+    ]
   },
   {
-    text: "Concurrent",
-    collapsed: false,
-    link: "/reference/lib-concurrent",
-    items: [
+    "text": "Char Native",
+    "collapsed": false,
+    "link": "/reference/lib-char-native",
+    "items": [
       {
-        text: "Concurrent",
-        link: "/reference/lib-concurrent-concurrent",
-      },
-    ],
+        "text": "Char",
+        "link": "/reference/lib-char-native-char"
+      }
+    ]
   },
   {
-    text: "Crypto",
-    collapsed: false,
-    link: "/reference/lib-crypto",
-    items: [
+    "text": "Cmp",
+    "collapsed": false,
+    "link": "/reference/lib-cmp",
+    "items": [
       {
-        text: "Crypto",
-        link: "/reference/lib-crypto-crypto",
-      },
-    ],
+        "text": "Cmp",
+        "link": "/reference/lib-cmp-cmp"
+      }
+    ]
   },
   {
-    text: "DateTime",
-    collapsed: false,
-    link: "/reference/lib-datetime",
-    items: [
+    "text": "Collections",
+    "collapsed": false,
+    "link": "/reference/lib-collections",
+    "items": [
       {
-        text: "Datetime",
-        link: "/reference/lib-datetime-datetime",
-      },
-    ],
+        "text": "Hash Set",
+        "link": "/reference/lib-collections-hash_set"
+      }
+    ]
   },
   {
-    text: "Encoding",
-    collapsed: false,
-    link: "/reference/lib-encoding",
-    items: [
+    "text": "Comb",
+    "collapsed": false,
+    "link": "/reference/lib-comb",
+    "items": [
       {
-        text: "Base64",
-        link: "/reference/lib-base64",
-      },
-      {
-        text: "Hex",
-        link: "/reference/lib-hex",
-      },
-    ],
+        "text": "Comb",
+        "link": "/reference/lib-comb-comb"
+      }
+    ]
   },
   {
-    text: "Intl",
-    collapsed: false,
-    link: "/reference/lib-intl",
-    items: [
+    "text": "Command",
+    "collapsed": false,
+    "link": "/reference/lib-command",
+    "items": [
       {
-        text: "Intl",
-        link: "/reference/lib-intl-intl",
-      },
-    ],
+        "text": "Command",
+        "link": "/reference/lib-command-command"
+      }
+    ]
   },
   {
-    text: "IP",
-    collapsed: false,
-    link: "/reference/lib-ip",
-    items: [
+    "text": "Compress",
+    "collapsed": false,
+    "link": "/reference/lib-compress",
+    "items": [
       {
-        text: "Cidr",
-        link: "/reference/lib-ip-cidr",
-      },
-      {
-        text: "Ip",
-        link: "/reference/lib-ip-ip",
-      },
-      {
-        text: "Socket",
-        link: "/reference/lib-ip-socket",
-      },
-    ],
+        "text": "Compress",
+        "link": "/reference/lib-compress-compress"
+      }
+    ]
   },
   {
-    text: "Json",
-    collapsed: false,
-    link: "/reference/lib-json",
-    items: [
+    "text": "Compress Gzip C",
+    "collapsed": false,
+    "link": "/reference/lib-compress-gzip-c",
+    "items": [
       {
-        text: "Json",
-        link: "/reference/lib-json-json",
-      },
-    ],
+        "text": "Compress Gzip C",
+        "link": "/reference/lib-compress-gzip-c-compress-gzip-c"
+      }
+    ]
   },
   {
-    text: "KV",
-    collapsed: false,
-    link: "/reference/lib-kv",
-    items: [
+    "text": "Compress Zlib C",
+    "collapsed": false,
+    "link": "/reference/lib-compress-zlib-c",
+    "items": [
       {
-        text: "Kv Hashmap",
-        link: "/reference/lib-kv-hashmap",
-      },
-      {
-        text: "Kv",
-        link: "/reference/lib-kv-kv",
-      },
-    ],
+        "text": "Compress Zlib C",
+        "link": "/reference/lib-compress-zlib-c-compress-zlib-c"
+      }
+    ]
   },
   {
-    text: "OS",
-    collapsed: false,
-    link: "/reference/lib-os",
-    items: [
+    "text": "Concurrent",
+    "collapsed": false,
+    "link": "/reference/lib-concurrent",
+    "items": [
       {
-        text: "Os Std",
-        link: "/reference/lib-os-std",
-      },
-      {
-        text: "Cmd",
-        link: "/reference/lib-os-cmd",
-      },
-      {
-        text: "Env",
-        link: "/reference/lib-os-env",
-      },
-      {
-        text: "Fs",
-        link: "/reference/lib-os-fs",
-      },
-      {
-        text: "Path",
-        link: "/reference/lib-os-path",
-      },
-      {
-        text: "Process",
-        link: "/reference/lib-os-process",
-      },
-      {
-        text: "Sig",
-        link: "/reference/lib-os-sig",
-      },
-      {
-        text: "Socket",
-        link: "/reference/lib-os-socket",
-      },
-      {
-        text: "Time",
-        link: "/reference/lib-os-time",
-      },
-      {
-        text: "Tmp",
-        link: "/reference/lib-os-tmp",
-      },
-    ],
+        "text": "Concurrent",
+        "link": "/reference/lib-concurrent-concurrent"
+      }
+    ]
   },
   {
-    text: "OTLP",
-    collapsed: false,
-    link: "/reference/lib-otlp",
-    items: [
+    "text": "Concurrent Epoll",
+    "collapsed": false,
+    "link": "/reference/lib-concurrent-epoll",
+    "items": [
       {
-        text: "Otlp Std",
-        link: "/reference/lib-otlp-std",
-      },
-      {
-        text: "Otlp",
-        link: "/reference/lib-otlp-otlp",
-      },
-    ],
+        "text": "Concurrent Epoll",
+        "link": "/reference/lib-concurrent-epoll-concurrent-epoll"
+      }
+    ]
   },
   {
-    text: "Parse",
-    collapsed: false,
-    link: "/reference/lib-parse",
-    items: [],
+    "text": "Crypto",
+    "collapsed": false,
+    "link": "/reference/lib-crypto",
+    "items": [
+      {
+        "text": "Crypto",
+        "link": "/reference/lib-crypto-crypto"
+      }
+    ]
   },
   {
-    text: "Random",
-    collapsed: false,
-    link: "/reference/lib-rand",
-    items: [
+    "text": "Dedent",
+    "collapsed": false,
+    "link": "/reference/lib-dedent",
+    "items": [
       {
-        text: "Rand",
-        link: "/reference/lib-rand-rand",
-      },
-    ],
+        "text": "Dedent",
+        "link": "/reference/lib-dedent-dedent"
+      }
+    ]
   },
   {
-    text: "Serialize",
-    collapsed: false,
-    link: "/reference/lib-serialize",
-    items: [],
+    "text": "Encoding",
+    "collapsed": false,
+    "link": "/reference/lib-encoding",
+    "items": [
+      {
+        "text": "Encoding",
+        "link": "/reference/lib-encoding-encoding"
+      }
+    ]
   },
   {
-    text: "Stats",
-    collapsed: false,
-    link: "/reference/lib-stats",
-    items: [
+    "text": "Error",
+    "collapsed": false,
+    "link": "/reference/lib-error",
+    "items": [
       {
-        text: "Stats",
-        link: "/reference/lib-stats-stats",
-      },
-    ],
+        "text": "Error",
+        "link": "/reference/lib-error-error"
+      }
+    ]
   },
   {
-    text: "Test",
-    collapsed: false,
-    link: "/reference/lib-test",
-    items: [
+    "text": "Event",
+    "collapsed": false,
+    "link": "/reference/lib-event",
+    "items": [
       {
-        text: "Assert",
-        link: "/reference/lib-test-assert",
-      },
-      {
-        text: "Benchmark",
-        link: "/reference/lib-test-benchmark",
-      },
-      {
-        text: "Fuzz",
-        link: "/reference/lib-test-fuzz",
-      },
-      {
-        text: "Property",
-        link: "/reference/lib-test-property",
-      },
-      {
-        text: "Snapshot",
-        link: "/reference/lib-test-snapshot",
-      },
-      {
-        text: "Test",
-        link: "/reference/lib-test-test",
-      },
-    ],
+        "text": "Event",
+        "link": "/reference/lib-event-event"
+      }
+    ]
   },
   {
-    text: "TLS",
-    collapsed: false,
-    link: "/reference/lib-tls",
-    items: [
+    "text": "Fetch C",
+    "collapsed": false,
+    "link": "/reference/lib-fetch-c",
+    "items": [
       {
-        text: "Tls Native",
-        link: "/reference/lib-tls-native",
-      },
-      {
-        text: "TLS",
-        link: "/reference/lib-tls-tls",
-      },
-    ],
+        "text": "Fetch C",
+        "link": "/reference/lib-fetch-c-fetch-c"
+      }
+    ]
   },
   {
-    text: "Toml",
-    collapsed: false,
-    link: "/reference/lib-toml",
-    items: [
+    "text": "Fetch Js",
+    "collapsed": false,
+    "link": "/reference/lib-fetch-js",
+    "items": [
       {
-        text: "Toml",
-        link: "/reference/lib-toml-toml",
-      },
-    ],
+        "text": "Fetch Js",
+        "link": "/reference/lib-fetch-js-fetch-js"
+      }
+    ]
   },
   {
-    text: "URL",
-    collapsed: false,
-    link: "/reference/lib-url-rfc",
-    items: [
+    "text": "Ffi",
+    "collapsed": false,
+    "link": "/reference/lib-ffi",
+    "items": [
       {
-        text: "Url Rfc",
-        link: "/reference/lib-url-rfc-url_rfc",
-      },
-    ],
+        "text": "Ffi",
+        "link": "/reference/lib-ffi-ffi"
+      }
+    ]
   },
   {
-    text: "Url Whatwg",
-    collapsed: false,
-    link: "/reference/lib-url-whatwg",
-    items: [
+    "text": "Hex",
+    "collapsed": false,
+    "link": "/reference/lib-hex",
+    "items": [
       {
-        text: "Url Whatwg",
-        link: "/reference/lib-url-whatwg-url_whatwg",
-      },
-    ],
+        "text": "Hex",
+        "link": "/reference/lib-hex-hex"
+      }
+    ]
   },
   {
-    text: "Utils",
-    collapsed: false,
-    link: "/reference/lib-utils",
-    items: [
+    "text": "Http Rfc",
+    "collapsed": false,
+    "link": "/reference/lib-http-rfc",
+    "items": [
       {
-        text: "Array",
-        link: "/reference/lib-utils-array",
-      },
-      {
-        text: "Bool",
-        link: "/reference/lib-utils-bool",
-      },
-      {
-        text: "Cmp",
-        link: "/reference/lib-utils-cmp",
-      },
-      {
-        text: "Encoding",
-        link: "/reference/lib-utils-encoding",
-      },
-      {
-        text: "Fn",
-        link: "/reference/lib-utils-fn",
-      },
-      {
-        text: "Math",
-        link: "/reference/lib-utils-math",
-      },
-      {
-        text: "Mood",
-        link: "/reference/lib-utils-mood",
-      },
-      {
-        text: "Obj",
-        link: "/reference/lib-utils-obj",
-      },
-      {
-        text: "Option",
-        link: "/reference/lib-utils-option",
-      },
-      {
-        text: "Parse",
-        link: "/reference/lib-utils-parse",
-      },
-      {
-        text: "Result",
-        link: "/reference/lib-utils-result",
-      },
-      {
-        text: "Serialize",
-        link: "/reference/lib-utils-serialize",
-      },
-      {
-        text: "Set",
-        link: "/reference/lib-utils-set",
-      },
-      {
-        text: "Str",
-        link: "/reference/lib-utils-str",
-      },
-      {
-        text: "Type",
-        link: "/reference/lib-utils-type",
-      },
-    ],
+        "text": "Http Rfc",
+        "link": "/reference/lib-http-rfc-http_rfc"
+      }
+    ]
   },
   {
-    text: "WebSocket (RFC 6455)",
-    collapsed: false,
-    link: "/reference/lib-ws-rfc-memory",
-    items: [
+    "text": "Intl",
+    "collapsed": false,
+    "link": "/reference/lib-intl",
+    "items": [
       {
-        text: "Frame",
-        link: "/reference/lib-ws-rfc-memory-frame",
-      },
-      {
-        text: "Message",
-        link: "/reference/lib-ws-rfc-memory-message",
-      },
-      {
-        text: "Websocket Rfc",
-        link: "/reference/lib-ws-rfc-memory-ws_rfc",
-      },
-    ],
+        "text": "Intl",
+        "link": "/reference/lib-intl-intl"
+      }
+    ]
   },
   {
-    text: "WebSocket (RFC 6455)",
-    collapsed: false,
-    link: "/reference/lib-ws-rfc-native",
-    items: [
+    "text": "Intl C",
+    "collapsed": false,
+    "link": "/reference/lib-intl-c",
+    "items": [
       {
-        text: "Frame",
-        link: "/reference/lib-ws-rfc-native-frame",
-      },
-      {
-        text: "Message",
-        link: "/reference/lib-ws-rfc-native-message",
-      },
-      {
-        text: "Ws Rfc Native",
-        link: "/reference/lib-ws-rfc-native-ws_rfc_native",
-      },
-    ],
+        "text": "Intl C",
+        "link": "/reference/lib-intl-c-intl-c"
+      }
+    ]
   },
   {
-    text: "Ws Whatwg Native",
-    collapsed: false,
-    link: "/reference/lib-ws-whatwg-native",
-    items: [
+    "text": "Ip",
+    "collapsed": false,
+    "link": "/reference/lib-ip",
+    "items": [
       {
-        text: "Ws Whatwg Native",
-        link: "/reference/lib-ws-whatwg-native-ws_whatwg_native",
+        "text": "Ip",
+        "link": "/reference/lib-ip-ip"
       },
-    ],
+      {
+        "text": "Ip.cidr",
+        "link": "/reference/lib-ip-ip.cidr"
+      },
+      {
+        "text": "Ip.socket",
+        "link": "/reference/lib-ip-ip.socket"
+      }
+    ]
   },
   {
-    text: "Ws Whatwg Wasm",
-    collapsed: false,
-    link: "/reference/lib-ws-whatwg-wasm",
-    items: [
+    "text": "Js",
+    "collapsed": false,
+    "link": "/reference/lib-js",
+    "items": [
       {
-        text: "Ws Whatwg Wasm",
-        link: "/reference/lib-ws-whatwg-wasm-ws_whatwg_wasm",
-      },
-    ],
+        "text": "Js",
+        "link": "/reference/lib-js-js"
+      }
+    ]
   },
   {
-    text: "Yaml",
-    collapsed: false,
-    link: "/reference/lib-yaml",
-    items: [
+    "text": "Kv Hashmap",
+    "collapsed": false,
+    "link": "/reference/lib-kv-hashmap",
+    "items": [
       {
-        text: "Yaml",
-        link: "/reference/lib-yaml-yaml",
-      },
-    ],
+        "text": "Kv",
+        "link": "/reference/lib-kv-hashmap-kv"
+      }
+    ]
   },
+  {
+    "text": "Math",
+    "collapsed": false,
+    "link": "/reference/lib-math",
+    "items": [
+      {
+        "text": "Math",
+        "link": "/reference/lib-math-math"
+      }
+    ]
+  },
+  {
+    "text": "Math C",
+    "collapsed": false,
+    "link": "/reference/lib-math-c",
+    "items": [
+      {
+        "text": "Math C",
+        "link": "/reference/lib-math-c-math-c"
+      }
+    ]
+  },
+  {
+    "text": "Math Handl",
+    "collapsed": false,
+    "link": "/reference/lib-math-handl",
+    "items": [
+      {
+        "text": "Math Handl",
+        "link": "/reference/lib-math-handl-math-handl"
+      }
+    ]
+  },
+  {
+    "text": "Noise",
+    "collapsed": false,
+    "link": "/reference/lib-noise",
+    "items": [
+      {
+        "text": "Noise",
+        "link": "/reference/lib-noise-noise"
+      }
+    ]
+  },
+  {
+    "text": "Obj",
+    "collapsed": false,
+    "link": "/reference/lib-obj",
+    "items": [
+      {
+        "text": "Obj",
+        "link": "/reference/lib-obj-obj"
+      }
+    ]
+  },
+  {
+    "text": "Option",
+    "collapsed": false,
+    "link": "/reference/lib-option",
+    "items": [
+      {
+        "text": "Option",
+        "link": "/reference/lib-option-option"
+      }
+    ]
+  },
+  {
+    "text": "Os C",
+    "collapsed": false,
+    "link": "/reference/lib-os-c",
+    "items": [
+      {
+        "text": "Env",
+        "link": "/reference/lib-os-c-env"
+      },
+      {
+        "text": "Path",
+        "link": "/reference/lib-os-c-path"
+      },
+      {
+        "text": "Time",
+        "link": "/reference/lib-os-c-time"
+      }
+    ]
+  },
+  {
+    "text": "Os Stub",
+    "collapsed": false,
+    "link": "/reference/lib-os-stub",
+    "items": [
+      {
+        "text": "Env",
+        "link": "/reference/lib-os-stub-env"
+      },
+      {
+        "text": "Path",
+        "link": "/reference/lib-os-stub-path"
+      },
+      {
+        "text": "Time",
+        "link": "/reference/lib-os-stub-time"
+      }
+    ]
+  },
+  {
+    "text": "Otlp",
+    "collapsed": false,
+    "link": "/reference/lib-otlp",
+    "items": [
+      {
+        "text": "Otlp",
+        "link": "/reference/lib-otlp-otlp"
+      }
+    ]
+  },
+  {
+    "text": "Otlp Std",
+    "collapsed": false,
+    "link": "/reference/lib-otlp-std",
+    "items": [
+      {
+        "text": "Otlp",
+        "link": "/reference/lib-otlp-std-otlp"
+      }
+    ]
+  },
+  {
+    "text": "Perlin",
+    "collapsed": false,
+    "link": "/reference/lib-perlin",
+    "items": [
+      {
+        "text": "Perlin",
+        "link": "/reference/lib-perlin-perlin"
+      }
+    ]
+  },
+  {
+    "text": "Prim",
+    "collapsed": false,
+    "link": "/reference/lib-prim",
+    "items": [
+      {
+        "text": "Prim",
+        "link": "/reference/lib-prim-prim"
+      }
+    ]
+  },
+  {
+    "text": "Query",
+    "collapsed": false,
+    "link": "/reference/lib-query",
+    "items": [
+      {
+        "text": "Query",
+        "link": "/reference/lib-query-query"
+      }
+    ]
+  },
+  {
+    "text": "Rand",
+    "collapsed": false,
+    "link": "/reference/lib-rand",
+    "items": [
+      {
+        "text": "Rand",
+        "link": "/reference/lib-rand-rand"
+      }
+    ]
+  },
+  {
+    "text": "Rand C",
+    "collapsed": false,
+    "link": "/reference/lib-rand-c",
+    "items": [
+      {
+        "text": "Entropy",
+        "link": "/reference/lib-rand-c-entropy"
+      }
+    ]
+  },
+  {
+    "text": "Result",
+    "collapsed": false,
+    "link": "/reference/lib-result",
+    "items": [
+      {
+        "text": "Result",
+        "link": "/reference/lib-result-result"
+      }
+    ]
+  },
+  {
+    "text": "Serve",
+    "collapsed": false,
+    "link": "/reference/lib-serve",
+    "items": [
+      {
+        "text": "Serve",
+        "link": "/reference/lib-serve-serve"
+      }
+    ]
+  },
+  {
+    "text": "Serve Epoll",
+    "collapsed": false,
+    "link": "/reference/lib-serve-epoll",
+    "items": [
+      {
+        "text": "Serve Epoll",
+        "link": "/reference/lib-serve-epoll-serve-epoll"
+      }
+    ]
+  },
+  {
+    "text": "Simplex",
+    "collapsed": false,
+    "link": "/reference/lib-simplex",
+    "items": [
+      {
+        "text": "Simplex",
+        "link": "/reference/lib-simplex-simplex"
+      }
+    ]
+  },
+  {
+    "text": "Stats",
+    "collapsed": false,
+    "link": "/reference/lib-stats",
+    "items": [
+      {
+        "text": "Stats",
+        "link": "/reference/lib-stats-stats"
+      }
+    ]
+  },
+  {
+    "text": "Str",
+    "collapsed": false,
+    "link": "/reference/lib-str",
+    "items": [
+      {
+        "text": "Str",
+        "link": "/reference/lib-str-str"
+      }
+    ]
+  },
+  {
+    "text": "Str Handl",
+    "collapsed": false,
+    "link": "/reference/lib-str-handl",
+    "items": [
+      {
+        "text": "Str Handl",
+        "link": "/reference/lib-str-handl-str-handl"
+      }
+    ]
+  },
+  {
+    "text": "Tag",
+    "collapsed": false,
+    "link": "/reference/lib-tag",
+    "items": [
+      {
+        "text": "Tag",
+        "link": "/reference/lib-tag-tag"
+      }
+    ]
+  },
+  {
+    "text": "Test",
+    "collapsed": false,
+    "link": "/reference/lib-test",
+    "items": [
+      {
+        "text": "Assert",
+        "link": "/reference/lib-test-assert"
+      },
+      {
+        "text": "Benchmark",
+        "link": "/reference/lib-test-benchmark"
+      },
+      {
+        "text": "Fuzz",
+        "link": "/reference/lib-test-fuzz"
+      },
+      {
+        "text": "Property",
+        "link": "/reference/lib-test-property"
+      },
+      {
+        "text": "Snapshot",
+        "link": "/reference/lib-test-snapshot"
+      },
+      {
+        "text": "Test",
+        "link": "/reference/lib-test-test"
+      }
+    ]
+  },
+  {
+    "text": "Time",
+    "collapsed": false,
+    "link": "/reference/lib-time",
+    "items": [
+      {
+        "text": "Time",
+        "link": "/reference/lib-time-time"
+      }
+    ]
+  },
+  {
+    "text": "Time C",
+    "collapsed": false,
+    "link": "/reference/lib-time-c",
+    "items": [
+      {
+        "text": "Clock Gettime",
+        "link": "/reference/lib-time-c-clock_gettime"
+      },
+      {
+        "text": "Time C",
+        "link": "/reference/lib-time-c-time-c"
+      }
+    ]
+  },
+  {
+    "text": "Time Stub",
+    "collapsed": false,
+    "link": "/reference/lib-time-stub",
+    "items": [
+      {
+        "text": "Time Stub",
+        "link": "/reference/lib-time-stub-time-stub"
+      }
+    ]
+  },
+  {
+    "text": "Tls",
+    "collapsed": false,
+    "link": "/reference/lib-tls",
+    "items": [
+      {
+        "text": "Tls",
+        "link": "/reference/lib-tls-tls"
+      }
+    ]
+  },
+  {
+    "text": "Tls Libssl",
+    "collapsed": false,
+    "link": "/reference/lib-tls-libssl",
+    "items": [
+      {
+        "text": "Tls Libssl",
+        "link": "/reference/lib-tls-libssl-tls-libssl"
+      }
+    ]
+  },
+  {
+    "text": "Transform",
+    "collapsed": false,
+    "link": "/reference/lib-transform",
+    "items": [
+      {
+        "text": "Transform",
+        "link": "/reference/lib-transform-transform"
+      }
+    ]
+  },
+  {
+    "text": "Type",
+    "collapsed": false,
+    "link": "/reference/lib-type",
+    "items": [
+      {
+        "text": "Dependent",
+        "link": "/reference/lib-type-dependent"
+      },
+      {
+        "text": "Type",
+        "link": "/reference/lib-type-type"
+      }
+    ]
+  },
+  {
+    "text": "Unicode",
+    "collapsed": false,
+    "link": "/reference/lib-unicode",
+    "items": [
+      {
+        "text": "Unicode",
+        "link": "/reference/lib-unicode-unicode"
+      }
+    ]
+  },
+  {
+    "text": "Unicode C",
+    "collapsed": false,
+    "link": "/reference/lib-unicode-c",
+    "items": [
+      {
+        "text": "Unicode C",
+        "link": "/reference/lib-unicode-c-unicode-c"
+      }
+    ]
+  },
+  {
+    "text": "Url Rfc",
+    "collapsed": false,
+    "link": "/reference/lib-url-rfc",
+    "items": [
+      {
+        "text": "Url Rfc",
+        "link": "/reference/lib-url-rfc-url_rfc"
+      }
+    ]
+  },
+  {
+    "text": "Url Whatwg",
+    "collapsed": false,
+    "link": "/reference/lib-url-whatwg",
+    "items": [
+      {
+        "text": "Url Whatwg",
+        "link": "/reference/lib-url-whatwg-url_whatwg"
+      }
+    ]
+  },
+  {
+    "text": "Utils",
+    "collapsed": false,
+    "link": "/reference/lib-utils",
+    "items": [
+      {
+        "text": "Combinators",
+        "link": "/reference/lib-utils-combinators"
+      },
+      {
+        "text": "Encoding",
+        "link": "/reference/lib-utils-encoding"
+      },
+      {
+        "text": "Math",
+        "link": "/reference/lib-utils-math"
+      },
+      {
+        "text": "Mood",
+        "link": "/reference/lib-utils-mood"
+      },
+      {
+        "text": "Parse",
+        "link": "/reference/lib-utils-parse"
+      },
+      {
+        "text": "Serialize",
+        "link": "/reference/lib-utils-serialize"
+      },
+      {
+        "text": "Str",
+        "link": "/reference/lib-utils-str"
+      },
+      {
+        "text": "Typeof",
+        "link": "/reference/lib-utils-typeof"
+      }
+    ]
+  },
+  {
+    "text": "Uuid",
+    "collapsed": false,
+    "link": "/reference/lib-uuid",
+    "items": [
+      {
+        "text": "Uuid",
+        "link": "/reference/lib-uuid-uuid"
+      }
+    ]
+  },
+  {
+    "text": "Ws C",
+    "collapsed": false,
+    "link": "/reference/lib-ws-c",
+    "items": [
+      {
+        "text": "Ws C",
+        "link": "/reference/lib-ws-c-ws-c"
+      }
+    ]
+  },
+  {
+    "text": "Ws Whatwg C",
+    "collapsed": false,
+    "link": "/reference/lib-ws-whatwg-c",
+    "items": [
+      {
+        "text": "Conn",
+        "link": "/reference/lib-ws-whatwg-c-conn"
+      },
+      {
+        "text": "Curl Client",
+        "link": "/reference/lib-ws-whatwg-c-curl_client"
+      },
+      {
+        "text": "Http",
+        "link": "/reference/lib-ws-whatwg-c-http"
+      },
+      {
+        "text": "Ws Whatwg C",
+        "link": "/reference/lib-ws-whatwg-c-ws-whatwg-c"
+      },
+      {
+        "text": "Poll",
+        "link": "/reference/lib-ws-whatwg-c-poll"
+      },
+      {
+        "text": "Server",
+        "link": "/reference/lib-ws-whatwg-c-server"
+      },
+      {
+        "text": "Sockaddr",
+        "link": "/reference/lib-ws-whatwg-c-sockaddr"
+      }
+    ]
+  },
+  {
+    "text": "Ws Frame",
+    "collapsed": false,
+    "link": "/reference/lib-ws-frame",
+    "items": [
+      {
+        "text": "Ws Frame",
+        "link": "/reference/lib-ws-frame-ws_frame"
+      }
+    ]
+  },
+  {
+    "text": "Ws Frame Handl",
+    "collapsed": false,
+    "link": "/reference/lib-ws-frame-handl",
+    "items": [
+      {
+        "text": "Frame",
+        "link": "/reference/lib-ws-frame-handl-frame"
+      }
+    ]
+  }
 ];
