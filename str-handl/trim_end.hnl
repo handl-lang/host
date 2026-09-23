@@ -1,8 +1,6 @@
 --- `str.trim_end` — part of `str-handl`, the pure-Handl `str` implementation over `char`.
 
 from "char" import * as char
-from "./internal/rev.hnl" import rev
-from "./internal/drop_while.hnl" import drop_while
 
 --- Removes trailing whitespace.
 ---
@@ -12,6 +10,19 @@ from "./internal/drop_while.hnl" import drop_while
 --- `str.trim_end("  hi  ")`
 --- -- => "  hi"
 ---
+--- @details Scans back from the end for the last non-whitespace char index
+--- and takes one `char.slice`. The previous form reversed the char list,
+--- dropped the prefix, and reversed again — quadratic per element.
 export trim_end := (s) ~> do {
-  char.from_chars(rev(drop_while(rev(char.chars(s)), c ~> char.is_whitespace(c))))
+  n :: char.length(s)
+  j :: while { s: s, j: n } {
+    (st) ~> if st.j <= 0 {
+      { out: 0 }
+    } else if char.is_whitespace(char.at(st.s, st.j - 1)) {
+      { state: { s: st.s, j: st.j - 1 } }
+    } else {
+      { out: st.j }
+    }
+  }
+  char.slice(s, 0, j)
 }
