@@ -33,10 +33,6 @@ from "str" import * as str
 --- Dropping the two rfcm bindings below also makes `frame_decode`
 --- unresolvable, so they stay: the env a task carries is sensitive to the
 --- binding set, not just to the binding used.
-try_parse := rfcm.try_parse_request
-
-serialize_resp := rfcm.serialize_response
-
 frame_encode := encode
 
 frame_decode := decode
@@ -203,7 +199,7 @@ reply := (s, resp, head_only) ~> do {
   hs := hash_map.get_or(resp, "headers", {})
   resp2 := hash_map.merge(resp, { headers: hash_map.set(hs,
     "connection", if ka { "keep-alive" } else { "close" }) })
-  buf := serialize_resp(resp2, head_only)
+  buf := rfcm.serialize_response(resp2, head_only)
   { call: send_call(s, buf),
     state: hash_map.merge(s, { phase: "sent", out: buf, off: 0 }) }
 }
@@ -250,7 +246,7 @@ conn_task := (s) ~> match s.phase {
     }
   },
   "parse": do {
-    parsed := try_parse(s.buf)
+    parsed := rfcm.try_parse_request(s.buf)
     if bytes.len(s.buf) > MAX_REQ {
       reply(hash_map.merge(s, { ka: false }),
         { status: 431, body: "request too large" }, false)
