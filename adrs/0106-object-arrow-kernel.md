@@ -642,9 +642,22 @@ pins the parts that _are_ checkable through public APIs:
    with `__envref__` markers and dangling `__bindsref__` references) in any
    document that crosses a process/foreign boundary, so a leak can no
    longer silently cross the wire. In-process tagged-value round-trips
-   remain self-contained. Fully portable resources would need an
-   out-of-band opaque-handle registry — a separate design, not required for
-   §6/§8 to hold.
+   remain self-contained. Portability is deliberately **not** achieved by
+   making `Resource` a serializable value: a resource is a capability (a
+   machine pointer plus finalizer), not data. The design direction is
+   instead to model resource access as effect operations — an arrow
+   performs `op`s (`zlib.write`, `zlib.close`, …) and a `handle`
+   installation owns the concrete handles. What crosses a boundary is then
+   ordinary data (op names, arguments, integer handle-ids); the live
+   handle table lives in the *handler's dynamic state*, which is runtime
+   machinery and is allowed to be non-portable — unlike values.
+   Ownership/finalization moves off the value's `dropped` flag (whose
+   independent per-copy flags can alias a freed pointer) into explicit
+   handler state, so `close` is an op and aliasing is a handler logic bug
+   rather than a memory-safety hole. `check_portable` rejecting
+   `__resource__` stays correct permanently — a bare pointer should never
+   be a wire value. `ForeignResource` remains the substrate-internal FFI
+   representation.
 5. **Make `>>>` compose.** Surface `>>>` is currently _application_, not
    composition (`handl-kit-data-canonical/data/types.yaml:2158-2166`); the
    ADR-0106 §3 composed-arrow value does not exist yet, so "a composed arrow
