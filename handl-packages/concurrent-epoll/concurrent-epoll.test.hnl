@@ -212,18 +212,20 @@ tcp_main := (s) ~> match s.phase {
   "done": { out: { echoed: s.got } }
 }
 
+--- port 18390: every test file in the gate picks its own fixed port, and
+--- the gate runs files in parallel — 18347 here collided with fetch-c's
+--- canned server fixture and made both flake.
 test_tcp_echo := assert utf8_decode(do {
-  lfd := tcp_listen({ host: "127.0.0.1", port: 18347 })
-  c := tcp_connect({ host: "127.0.0.1", port: 18347 })
+  lfd := tcp_listen({ host: "127.0.0.1", port: 18390 })
+  c := tcp_connect({ host: "127.0.0.1", port: 18390 })
   r2 := run(tcp_main, {
     phase: "spawn_l",
     lfd: lfd,
     cinit: { phase: "wait", fd: c.fd, msg: utf8_encode("ping") }
   })
   -- close the listener: in a whole-corpus `hnl test` run this process is
-  -- shared across test files, so a leaked listen socket would keep
-  -- 127.0.0.1:18347 bound (and silently swallow connections) for every
-  -- later test file — e.g. fetch-c's canned server fixture.
+  -- shared across test files, so a leaked listen socket would keep the
+  -- port bound (and silently swallow connections) for later files.
   _ := tcp_close(lfd)
   r2.main.echoed
 }) := "ping"

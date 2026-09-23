@@ -9,12 +9,14 @@ is_err := (r) ~> tag.tag_of(r) == "err"
 
 val_of := (r) ~> tag.untag(r).value
 
---- poll for the server's readiness sentinel via system("test -f")
+--- poll for the server's readiness sentinel via system("test -f"). The
+--- budget is generous (30s) because the gate runs several test files at
+--- once and a loaded machine can take a while to get python up.
 wait_ready := (_u) ~> do {
   while { n: 0 } {
     (st) ~> do {
       r := system("test -f /tmp/fetch-c-test-ready")
-      if st.n > 50 {
+      if st.n > 300 {
         { out: false }
       } else if is_err(r) {
         { state: { n: st.n + 1 } }

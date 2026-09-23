@@ -144,6 +144,78 @@ else
   echo "FAIL: test"
 fi
 
+# ---------------------------------------------------------------------------
+# Arrow-dialect packages
+#
+# The dialect detector above excludes `~>`/`~[n]~>` files from the canonical
+# phases, which left the whole server/client stack (concurrent-epoll,
+# serve-epoll, http_rfc, fetch-c, ws-c, tls-libssl, ...) outside CI. These
+# packages get their own typecheck + test pass. The list is curated: add a
+# package here when it joins the maintained stack (the detector cannot yet
+# tell an arrow implementation from a signature-only file).
+# ---------------------------------------------------------------------------
+ARROW_PACKAGES=(
+  handl-packages/concurrent
+  handl-packages/concurrent-epoll
+  handl-packages/serve
+  handl-packages/serve-epoll
+  handl-packages/http_rfc
+  handl-packages/tls-libssl
+  handl-packages/ws-c
+  handl-packages/fetch-c
+  handl-packages/ws_frame-handl
+)
+
+arrow_sources=()
+arrow_tests=()
+for pkg in "${ARROW_PACKAGES[@]}"; do
+  [ -d "$pkg" ] || continue
+  while IFS= read -r -d '' f; do
+    case "$f" in
+      *.test.hnl) arrow_tests+=("$f") ;;
+      *) arrow_sources+=("$f") ;;
+    esac
+  done < <(find "$pkg" -name '*.hnl' -print0 | sort -z)
+done
+
+echo
+echo "== arrow packages: ${#arrow_sources[@]} sources, ${#arrow_tests[@]} test files =="
+
+echo
+echo "== hnl typecheck (arrow, jobs: $JOBS, batch: $BATCH_SIZE) =="
+arrow_tc=0
+if [ "${#arrow_sources[@]}" -gt 0 ]; then
+  if ! printf '%s\n' "${arrow_sources[@]}" "${arrow_tests[@]}" \
+      | xargs -P "$JOBS" -n "$BATCH_SIZE" "$HNL" typecheck; then
+    arrow_tc=1
+    status=1
+  fi
+fi
+if [ "$arrow_tc" -eq 0 ]; then
+  echo "PASS: typecheck (arrow)"
+else
+  echo "FAIL: typecheck (arrow)"
+fi
+
+echo
+echo "== hnl test (arrow, jobs: $JOBS, per-file, in-file: 1) =="
+arrow_test=0
+if [ "${#arrow_tests[@]}" -gt 0 ]; then
+  # `--jobs 1` inside each file: several of these suites share one fixture
+  # process and port (fetch-c's canned server even shuts down on GET /done),
+  # so running the cases of a file concurrently makes them fight over it.
+  # Files still run in parallel with each other.
+  if ! printf '%s\n' "${arrow_tests[@]}" | xargs -P "$JOBS" -n 1 "$HNL" test --jobs 1; then
+    arrow_test=1
+    status=1
+  fi
+fi
+if [ "$arrow_test" -eq 0 ]; then
+  echo "PASS: test (arrow)"
+else
+  echo "FAIL: test (arrow)"
+fi
+
 echo
 if [ "$status" -eq 0 ]; then
   echo "All dogfood gate phases passed."
@@ -152,3 +224,4 @@ else
 fi
 
 exit "$status"
+

@@ -24,8 +24,6 @@
 
 from "../generated/curl-c-linux-x86_64/curl" import * as curlm
 
-cm := curlm
-
 CONNECT_ONLY_WS := 2
 
 CURLE_OK := 0
@@ -71,17 +69,17 @@ has_bit := (flags, bit) ~> do { flags % (bit * 2) >= bit }
 
 --- opcode class from `curl_ws_frame.flags`.
 frame_op := (flags) ~> do {
-  if has_bit(flags, cm.CURLWS_CLOSE) {
+  if has_bit(flags, curlm.CURLWS_CLOSE) {
     "close"
-  } else if has_bit(flags, cm.CURLWS_PING) {
+  } else if has_bit(flags, curlm.CURLWS_PING) {
     "ping"
-  } else if has_bit(flags, cm.CURLWS_PONG) {
+  } else if has_bit(flags, curlm.CURLWS_PONG) {
     "pong"
-  } else if has_bit(flags, cm.CURLWS_TEXT) {
+  } else if has_bit(flags, curlm.CURLWS_TEXT) {
     "text"
-  } else if has_bit(flags, cm.CURLWS_BINARY) {
+  } else if has_bit(flags, curlm.CURLWS_BINARY) {
     "binary"
-  } else if has_bit(flags, cm.CURLWS_CONT) {
+  } else if has_bit(flags, curlm.CURLWS_CONT) {
     "cont"
   } else {
     "unknown"
@@ -106,14 +104,14 @@ meta_flags := (p) ~> if p == 0 {
 --- prepare(url, init) -> easy handle in WebSocket mode.
 --- init: { insecure?: Bool } -- skip TLS peer/host verification.
 export prepare := (url, init) ~> do {
-  h := val_of(cm.curl_easy_init())
-  _ := setopt_str(h, cm.CURLOPT_URL, url)
-  _ := setopt_long(h, cm.CURLOPT_CONNECT_ONLY, CONNECT_ONLY_WS)
-  _ := setopt_long(h, cm.CURLOPT_NOSIGNAL, 1)
+  h := val_of(curlm.curl_easy_init())
+  _ := setopt_str(h, curlm.CURLOPT_URL, url)
+  _ := setopt_long(h, curlm.CURLOPT_CONNECT_ONLY, CONNECT_ONLY_WS)
+  _ := setopt_long(h, curlm.CURLOPT_NOSIGNAL, 1)
   _ := if hash_map.get_or(init, "insecure", false) {
     do {
-      _ := setopt_long(h, cm.CURLOPT_SSL_VERIFYPEER, 0)
-      setopt_long(h, cm.CURLOPT_SSL_VERIFYHOST, 0)
+      _ := setopt_long(h, curlm.CURLOPT_SSL_VERIFYPEER, 0)
+      setopt_long(h, curlm.CURLOPT_SSL_VERIFYHOST, 0)
     }
   } else {
     null
@@ -125,14 +123,14 @@ export prepare := (url, init) ~> do {
 --- the scheduler parks on.
 export active_socket := (h) ~> do {
   r := ffi.call("libcurl.so.4", "curl_easy_getinfo",
-    [h, cm.CURLINFO_ACTIVESOCKET, 0], ["ptr", "i32", "io_scalar:i32"],
+    [h, curlm.CURLINFO_ACTIVESOCKET, 0], ["ptr", "i32", "io_scalar:i32"],
     "i32", false)
   head(r.vals)
 }
 
 --- one non-blocking frame read. `again` = no complete frame buffered.
 export recv_step := (h) ~> do {
-  r := val_of(cm.curl_ws_recv(h, 0))
+  r := val_of(curlm.curl_ws_recv(h, 0))
   if r.ret == curle_again {
     { again: true }
   } else if r.ret != CURLE_OK {
@@ -150,7 +148,7 @@ export recv_step := (h) ~> do {
 --- one non-blocking frame write. `flags` is `CURLWS_TEXT`/`CURLWS_BINARY`/
 --- `CURLWS_CLOSE`/...; `again` = the socket is not writable yet.
 export send_step := (h, buf, flags) ~> do {
-  r := val_of(cm.curl_ws_send(h, buf, 0, 0, flags))
+  r := val_of(curlm.curl_ws_send(h, buf, 0, 0, flags))
   if r.ret == curle_again {
     { again: true }
   } else if r.ret != CURLE_OK {
@@ -162,14 +160,14 @@ export send_step := (h, buf, flags) ~> do {
 
 --- send a text frame.
 export send_text := (h, s) ~> do {
-  send_step(h, bytes.utf8_encode(s), cm.CURLWS_TEXT)
+  send_step(h, bytes.utf8_encode(s), curlm.CURLWS_TEXT)
 }
 
 --- send a binary frame.
-export send_binary := (h, b) ~> do { send_step(h, b, cm.CURLWS_BINARY) }
+export send_binary := (h, b) ~> do { send_step(h, b, curlm.CURLWS_BINARY) }
 
 --- close frame (best effort) then release the handle.
 export close := (h) ~> do {
-  _ := cm.curl_ws_send(h, bytes.from_list([]), 0, 0, cm.CURLWS_CLOSE)
-  cm.curl_easy_cleanup(h)
+  _ := curlm.curl_ws_send(h, bytes.from_list([]), 0, 0, curlm.CURLWS_CLOSE)
+  curlm.curl_easy_cleanup(h)
 }

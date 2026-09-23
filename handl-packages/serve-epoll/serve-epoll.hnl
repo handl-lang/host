@@ -26,19 +26,23 @@ from "../ws-whatwg-c/http" import { accept_key }
 from "bytes" import * as bytes
 from "str" import * as str
 
---- task arrows keep their ` := `-bound env when spawned/resumed, so the
---- codec arrows (unregistered module fns) are aliased by name. `bytes.*`
---- and other canonical `mod.fn` names resolve through the wire registry
---- in every context and need no alias (runtime limitation workaround,
---- same pattern as fetch-c).
+--- ` := ` value bindings for the codec arrows. This module reaches them
+--- through an `enter`ed task, where a bare `encode`/`decode` resolves to
+--- the same-named wire instead of this import (the collision recurses --
+--- stack overflow) and the module-record form does not resolve at all.
+--- Dropping the two rfcm bindings below also makes `frame_decode`
+--- unresolvable, so they stay: the env a task carries is sensitive to the
+--- binding set, not just to the binding used.
 try_parse := rfcm.try_parse_request
 
 serialize_resp := rfcm.serialize_response
 
+frame_encode := encode
+
+frame_decode := decode
+
 --- exported so callers can build a shared SSL_CTX for `opts.tls`.
 export tls_ctx_server := tlsp.ctx_server
-
-tls_wrap_server := tlsp.wrap_server
 
 MAX_REQ := 1048576
 
@@ -62,14 +66,6 @@ close_call := (s) ~> if hash_map.get_or(s, "tls", false) {
   { name: "close", fd: s.fd }
 }
 
---- local aliases for the frame codec + handshake helper (task envs keep
---- ` := ` bindings, not `import` bindings).
-frame_encode := encode
-
-frame_decode := decode
-
-ws_accept_key := accept_key
-
 -- ---------------------------------------------------------------
 -- WebSocket upgrade (RFC 6455, server half)
 -- ---------------------------------------------------------------
@@ -87,7 +83,7 @@ ws_101 := (key) ~> (
   "HTTP/1.1 101 Switching Protocols\r\n" +
   "Upgrade: websocket\r\n" +
   "Connection: Upgrade\r\n" +
-  "Sec-WebSocket-Accept: " + ws_accept_key(key) + "\r\n" +
+  "Sec-WebSocket-Accept: " + accept_key(key) + "\r\n" +
   "\r\n"
 )
 
@@ -320,7 +316,7 @@ export listener_task := (s) ~> match s.phase {
   "spawn_conn": do {
     fd := s.result
     init := if hash_map.get_or(s, "tls", false) {
-      { phase: "tls", fd: fd, ssl: tls_wrap_server(s.ctx, fd), tls: true,
+      { phase: "tls", fd: fd, ssl: tlsp.wrap_server(s.ctx, fd), tls: true,
         buf: bytes.from_list([]), handler: s.handler, mode: s.mode }
     } else {
       { phase: "read", fd: fd, tls: false,

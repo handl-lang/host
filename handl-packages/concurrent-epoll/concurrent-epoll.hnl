@@ -35,23 +35,6 @@ from "math" import * as math
 from "../tls-libssl/tls-libssl" import * as tlsp
 from "../ws-c/ws-c" import * as wsc
 
---- local aliases: a task arrow's serialized env keeps ` := ` bindings
---- but drops `import` bindings, so the TLS/WebSocket steps must be
---- reached through a local binding (same workaround as fetch-c).
-tls_step := tlsp.handshake_step
-
-tls_read_step := tlsp.read_step
-
-tls_write_step := tlsp.write_step
-
-tls_close_ssl := tlsp.close
-
-ws_recv_step := wsc.recv_step
-
-ws_send_step := wsc.send_step
-
-ws_close_conn := wsc.close
-
 -- ---------------------------------------------------------------
 -- small utilities
 -- ---------------------------------------------------------------
@@ -255,10 +238,10 @@ export tcp_close := (fd) ~> close(fd)
 --- SSL_get_error, so the caller parks on the matching epoll event.
 tls_attempt := (req) ~> do {
   r := match req.name {
-    "tls_accept": tls_step(req.ssl, true),
-    "tls_connect": tls_step(req.ssl, false),
-    "tls_recv": tls_read_step(req.ssl),
-    "tls_send": tls_write_step(req.ssl, req.buf),
+    "tls_accept": tlsp.handshake_step(req.ssl, true),
+    "tls_connect": tlsp.handshake_step(req.ssl, false),
+    "tls_recv": tlsp.read_step(req.ssl),
+    "tls_send": tlsp.write_step(req.ssl, req.buf),
     _: { err: -1 }
   }
   if hash_map.has(r, "want") {
@@ -281,8 +264,8 @@ tls_attempt := (req) ~> do {
 --- become readable/writable -- the caller parks on it like any fd op.
 ws_attempt := (req) ~> do {
   r := match req.name {
-    "ws_recv": ws_recv_step(req.h),
-    "ws_send": ws_send_step(req.h, req.buf, req.flags),
+    "ws_recv": wsc.recv_step(req.h),
+    "ws_send": wsc.send_step(req.h, req.buf, req.flags),
     _: { err: -1 }
   }
   if hash_map.get_or(r, "again", false) {
@@ -875,7 +858,7 @@ perform := (s, e, req, st) ~> match req.name {
   "tls_send": tls_try(s, e, req, st),
   "tls_close": do {
     _ := drop_interest(s, req.fd)
-    _ := tls_close_ssl(req.ssl)
+    _ := tlsp.close(req.ssl)
     _ := close(req.fd)
     s1 := hash_map.set(s, "fdw",
       drop_where(s.fdw, (w) ~> w.fd == req.fd))
@@ -885,7 +868,7 @@ perform := (s, e, req, st) ~> match req.name {
   "ws_send": try_fd(s, e, req, st, EPOLLOUT),
   "ws_close": do {
     _ := drop_interest(s, req.fd)
-    _ := ws_close_conn(req.h)
+    _ := wsc.close(req.h)
     s1 := hash_map.set(s, "fdw",
       drop_where(s.fdw, (w) ~> w.fd == req.fd))
     resume(s1, e, st, null)

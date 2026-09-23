@@ -1,13 +1,19 @@
 """Canned HTTP fixture for fetch-c.test.hnl.
 
-Serves 127.0.0.1:18347 until it gets GET /done (or a 10-minute deadline):
+Serves 127.0.0.1:18347 until it gets GET /done:
   GET  /       -> 200 JSON {"hello":"handl"} with X-Test header
   POST /echo   -> 200 JSON echoing the request body
   GET  /done   -> 200 and shutdown
+
+No lifetime cap: the gate runs several test files at once and a loaded
+machine can take minutes to get through module load, so a deadline that
+looks generous on an idle box can still expire mid-suite. If the port is
+already held (a fixture left over from an earlier run) this instance
+exits quietly and the caller talks to that one.
 """
 
 import os
-import time
+import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 PORT = 18347
@@ -40,12 +46,14 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    srv = HTTPServer(("127.0.0.1", PORT), H)
+    try:
+        srv = HTTPServer(("127.0.0.1", PORT), H)
+    except OSError:
+        sys.exit(0)
     srv.timeout = 30
-    deadline = time.time() + 600
     open("/tmp/fetch-c-test-ready", "w").write("1")
     try:
-        while not done and time.time() < deadline:
+        while not done:
             srv.handle_request()
     finally:
         try:

@@ -30,19 +30,6 @@ from "../generated/libc-c-linux-x86_64/unistd" import * as unistdm
 from "str" import * as strm
 from "bytes" import * as bytesm
 
---- local aliases: a task arrow's serialized env keeps ` := ` bindings
---- but drops `import` bindings, so the step-arrow path must reach
---- imported names through a local binding (runtime limitation).
-cm := curlm
-
-fiom := stdiom
-
-iom := unistdm
-
-sm := strm
-
-bm := bytesm
-
 is_err := (r) ~> tag.tag_of(r) == "err"
 
 val_of := (r) ~> tag.untag(r).value
@@ -73,7 +60,7 @@ setopt_long := (h, opt, v) ~> do {
     ["ptr", "i32", "i64"], "i32", false)
 }
 
---- cm.CURLINFO_RESPONSE_CODE writes a long into a cell we seed with 0;
+--- CURLINFO_RESPONSE_CODE writes a long into a cell we seed with 0;
 --- the value comes back in `vals`.
 getinfo_long := (h, info) ~> do {
   ffi.call("libcurl.so.4", "curl_easy_getinfo", [h, info, 0],
@@ -81,42 +68,42 @@ getinfo_long := (h, info) ~> do {
 }
 
 check_setopt := (code, what) ~> do {
-  if code != cm.CURLE_OK {
+  if code != curlm.CURLE_OK {
     error.raise("fetch-c: curl_easy_setopt " + what + ": " +
-      val_of(cm.curl_easy_strerror(code)))
+      val_of(curlm.curl_easy_strerror(code)))
   } else {
     null
   }
 }
 
 --- drain a rewound FILE* into Bytes via fileno+read (64KiB chunks).
-read_all := (fd) ~> while { fd: fd, acc: bm.from_list([]) } {
+read_all := (fd) ~> while { fd: fd, acc: bytesm.from_list([]) } {
   (fd, acc) ~> do {
-    r := iom.read(fd)
+    r := unistdm.read(fd)
     if is_err(r) {
       { out: acc }
-    } else if bm.len(val_of(r)) == 0 {
+    } else if bytesm.len(val_of(r)) == 0 {
       { out: acc }
     } else {
-      { state: { fd: fd, acc: bm.concat(acc, val_of(r)) } }
+      { state: { fd: fd, acc: bytesm.concat(acc, val_of(r)) } }
     }
   }
 }
 
 --- last response block wins (redirects stack header blocks);
 --- status line resets the accumulator.
-parse_headers := (b) ~> while { lines: sm.split(bm.utf8_decode(b), "\r\n"), acc: {} } {
+parse_headers := (b) ~> while { lines: strm.split(bytesm.utf8_decode(b), "\r\n"), acc: {} } {
   (lines, acc) ~> match lines {
     []: { out: acc },
-    [h, ...t]: if sm.starts_with(h, "HTTP/") {
+    [h, ...t]: if strm.starts_with(h, "HTTP/") {
       { state: { lines: t, acc: {} } }
     } else {
       do {
-        i := sm.find(h, ":")
+        i := strm.find(h, ":")
         if i > 0 {
           { state: { lines: t, acc: hash_map.set(acc,
-              sm.lower(sm.trim(sm.slice(h, 0, i))),
-              sm.trim(sm.slice(h, i + 1, sm.length(h)))) } }
+              strm.lower(strm.trim(strm.slice(h, 0, i))),
+              strm.trim(strm.slice(h, i + 1, strm.length(h)))) } }
         } else {
           { state: { lines: t, acc: acc } }
         }
@@ -127,9 +114,9 @@ parse_headers := (b) ~> while { lines: sm.split(bm.utf8_decode(b), "\r\n"), acc:
 
 set_method := (h, method) ~> do {
   if method == "HEAD" {
-    check_setopt(setopt_long(h, cm.CURLOPT_NOBODY, 1), "NOBODY")
+    check_setopt(setopt_long(h, curlm.CURLOPT_NOBODY, 1), "NOBODY")
   } else if method != "GET" {
-    check_setopt(setopt_str(h, cm.CURLOPT_CUSTOMREQUEST, method), "CUSTOMREQUEST")
+    check_setopt(setopt_str(h, curlm.CURLOPT_CUSTOMREQUEST, method), "CUSTOMREQUEST")
   } else {
     null
   }
@@ -140,8 +127,8 @@ set_body := (h, body) ~> do {
     null
   } else {
     do {
-      _ := check_setopt(setopt_long(h, cm.CURLOPT_POSTFIELDSIZE, bm.len(bm.utf8_encode(body))), "POSTFIELDSIZE")
-      check_setopt(setopt_str(h, cm.CURLOPT_COPYPOSTFIELDS, body), "COPYPOSTFIELDS")
+      _ := check_setopt(setopt_long(h, curlm.CURLOPT_POSTFIELDSIZE, bytesm.len(bytesm.utf8_encode(body))), "POSTFIELDSIZE")
+      check_setopt(setopt_str(h, curlm.CURLOPT_COPYPOSTFIELDS, body), "COPYPOSTFIELDS")
     }
   }
 }
@@ -168,7 +155,7 @@ fold_headers := (ks, headers, slist) ~> do {
       []: { out: slist },
       [k, ...t]: do {
         line := k + ": " + hash_map.get_or(headers, k, "")
-        { state: { ks: t, slist: val_of(cm.curl_slist_append(slist, line)) } }
+        { state: { ks: t, slist: val_of(curlm.curl_slist_append(slist, line)) } }
       }
     }
   }
@@ -183,37 +170,37 @@ build_slist := (init) ~> do {
 --- Returns { easy, bodyf, hdrf, slist } — ownership passes to
 --- finish_request (or the caller on raise).
 build_request := (url, init) ~> do {
-  h := unwrap(cm.curl_easy_init(), "curl_easy_init")
-  bodyf := unwrap(fiom.tmpfile(), "tmpfile(body)")
-  hdrf := unwrap(fiom.tmpfile(), "tmpfile(headers)")
-  _ := check_setopt(setopt_long(h, cm.CURLOPT_NOSIGNAL, 1), "NOSIGNAL")
-  _ := check_setopt(setopt_str(h, cm.CURLOPT_URL, url), "URL")
-  _ := check_setopt(setopt_ptr(h, cm.CURLOPT_WRITEDATA, bodyf), "WRITEDATA")
-  _ := check_setopt(setopt_ptr(h, cm.CURLOPT_HEADERDATA, hdrf), "HEADERDATA")
+  h := unwrap(curlm.curl_easy_init(), "curl_easy_init")
+  bodyf := unwrap(stdiom.tmpfile(), "tmpfile(body)")
+  hdrf := unwrap(stdiom.tmpfile(), "tmpfile(headers)")
+  _ := check_setopt(setopt_long(h, curlm.CURLOPT_NOSIGNAL, 1), "NOSIGNAL")
+  _ := check_setopt(setopt_str(h, curlm.CURLOPT_URL, url), "URL")
+  _ := check_setopt(setopt_ptr(h, curlm.CURLOPT_WRITEDATA, bodyf), "WRITEDATA")
+  _ := check_setopt(setopt_ptr(h, curlm.CURLOPT_HEADERDATA, hdrf), "HEADERDATA")
   _ := set_method(h, hash_map.get_or(init, "method", "GET"))
   _ := set_body(h, hash_map.get_or(init, "body", null))
-  _ := set_opt_str(h, cm.CURLOPT_USERAGENT,
+  _ := set_opt_str(h, curlm.CURLOPT_USERAGENT,
       hash_map.get_or(init, "user_agent", null), "USERAGENT")
-  _ := set_opt_long(h, cm.CURLOPT_TIMEOUT_MS,
+  _ := set_opt_long(h, curlm.CURLOPT_TIMEOUT_MS,
       hash_map.get_or(init, "timeout_ms", null), "TIMEOUT_MS")
   _ := if hash_map.get_or(init, "insecure", false) {
     do {
-      _ := check_setopt(setopt_long(h, cm.CURLOPT_SSL_VERIFYPEER, 0),
+      _ := check_setopt(setopt_long(h, curlm.CURLOPT_SSL_VERIFYPEER, 0),
         "SSL_VERIFYPEER")
-      check_setopt(setopt_long(h, cm.CURLOPT_SSL_VERIFYHOST, 0),
+      check_setopt(setopt_long(h, curlm.CURLOPT_SSL_VERIFYHOST, 0),
         "SSL_VERIFYHOST")
     }
   } else {
     null
   }
   _ := if hash_map.get_or(init, "follow", true) {
-    check_setopt(setopt_long(h, cm.CURLOPT_FOLLOWLOCATION, 1), "FOLLOWLOCATION")
+    check_setopt(setopt_long(h, curlm.CURLOPT_FOLLOWLOCATION, 1), "FOLLOWLOCATION")
   } else {
     null
   }
   slist := build_slist(init)
   _ := if slist != 0 {
-    check_setopt(setopt_ptr(h, cm.CURLOPT_HTTPHEADER, slist), "HTTPHEADER")
+    check_setopt(setopt_ptr(h, curlm.CURLOPT_HTTPHEADER, slist), "HTTPHEADER")
   } else {
     null
   }
@@ -224,34 +211,34 @@ build_request := (url, init) ~> do {
 --- CURLcode): read status, drain both tmpfiles, release every resource,
 --- then raise on transport error or return the response record.
 finish_request := (r, rc) ~> do {
-  status := if rc == cm.CURLE_OK {
+  status := if rc == curlm.CURLE_OK {
     do {
-      g := getinfo_long(r.easy, cm.CURLINFO_RESPONSE_CODE)
+      g := getinfo_long(r.easy, curlm.CURLINFO_RESPONSE_CODE)
       g.vals[0]
     }
   } else {
     0
   }
-  _ := fiom.rewind(r.bodyf)
-  _ := fiom.rewind(r.hdrf)
-  body := read_all(unwrap(fiom.fileno(r.bodyf), "fileno"))
-  hdrraw := read_all(unwrap(fiom.fileno(r.hdrf), "fileno"))
-  _ := fiom.fclose(r.bodyf)
-  _ := fiom.fclose(r.hdrf)
-  _ := if r.slist != 0 { cm.curl_slist_free_all(r.slist) } else { null }
-  _ := cm.curl_easy_cleanup(r.easy)
-  if rc != cm.CURLE_OK {
+  _ := stdiom.rewind(r.bodyf)
+  _ := stdiom.rewind(r.hdrf)
+  body := read_all(unwrap(stdiom.fileno(r.bodyf), "fileno"))
+  hdrraw := read_all(unwrap(stdiom.fileno(r.hdrf), "fileno"))
+  _ := stdiom.fclose(r.bodyf)
+  _ := stdiom.fclose(r.hdrf)
+  _ := if r.slist != 0 { curlm.curl_slist_free_all(r.slist) } else { null }
+  _ := curlm.curl_easy_cleanup(r.easy)
+  if rc != curlm.CURLE_OK {
     error.raise("fetch-c: curl_easy_perform: " +
-      val_of(cm.curl_easy_strerror(rc)))
+      val_of(curlm.curl_easy_strerror(rc)))
   } else {
     { status: status, headers: parse_headers(hdrraw),
-      body: bm.utf8_decode(body), body_bytes: body }
+      body: bytesm.utf8_decode(body), body_bytes: body }
   }
 }
 
 export fetch := (url, init) ~> do {
   r := build_request(url, init)
-  finish_request(r, val_of(cm.curl_easy_perform(r.easy)))
+  finish_request(r, val_of(curlm.curl_easy_perform(r.easy)))
 }
 
 --- step-arrow task form for concurrent-epoll:
