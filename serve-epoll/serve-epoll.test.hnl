@@ -5,8 +5,16 @@ from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
 from "../serve-epoll/serve-epoll" import { listener_task, tls_ctx_server }
 from "../fetch-c/fetch-c" import { fetch_task }
 from "../http_rfc/http_rfc" import * as rfc
+from "../ws-c/ws-c" import { prepare, active_socket, close }
 from "bytes" import * as bytes
 from "../generated/libc-c-linux-x86_64/stdlib" import { system }
+
+--- local aliases: task envs serialize ` := ` bindings only.
+prep := prepare
+
+sock := active_socket
+
+CURLWS_TEXT := 1
 
 CERT := "/tmp/serve-epoll-test-cert.pem"
 
@@ -43,12 +51,63 @@ slow_handler := (s) ~> match hash_map.get_or(s, "phase", "h") {
 --- spawn the listener + a fetch_task, await the client, return its
 --- response. The listener never finishes; run() ends with the main
 --- task.
---- listener init: tls/ctx are optional (absent -> plain listener).
-listener_init := (s) ~> ({
-  phase: "accept", lfd: s.lfd, handler: s.handler, mode: s.mode,
-  tls: hash_map.get_or(s, "tls", false),
-  ctx: hash_map.get_or(s, "ctx", 0)
-})
+--- listener init: tls/ctx/on_ws are optional (absent -> plain listener).
+listener_init := (s) ~> do {
+  base := { phase: "accept", lfd: s.lfd, handler: s.handler, mode: s.mode,
+    tls: hash_map.get_or(s, "tls", false),
+    ctx: hash_map.get_or(s, "ctx", 0) }
+  if hash_map.has(s, "on_ws") {
+    hash_map.merge(base, { on_ws: s.on_ws })
+  } else {
+    base
+  }
+}
+
+--- WebSocket handler: echo the message back with a prefix.
+ws_echo := (req, msg) ~> do { "echo:" + msg.text }
+
+--- WebSocket client task (libcurl ws API driven by the scheduler).
+ws_client := (s) ~> match s.phase {
+  "open": do {
+    h := prep(s.url, {})
+    { call: { name: "ws_open", h: h },
+      state: hash_map.merge(s, { phase: "conn", h: h }) }
+  },
+  "conn": do {
+    fd := sock(s.h)
+    { call: { name: "ws_send", h: s.h, fd: fd,
+              buf: bytes.utf8_encode(s.msg), flags: CURLWS_TEXT },
+      state: hash_map.merge(s, { phase: "sent", fd: fd }) }
+  },
+  "sent": {
+    call: { name: "ws_recv", h: s.h, fd: s.fd },
+    state: hash_map.merge(s, { phase: "got" })
+  },
+  "got": do {
+    frame := s.result
+    { call: { name: "ws_close", h: s.h, fd: s.fd },
+      state: hash_map.merge(s, { phase: "closed", frame: frame }) }
+  },
+  "closed": { out: s.frame }
+}
+
+--- supervisor: WS listener + WS client, one scheduler.
+main_ws := (s) ~> match s.phase {
+  "a": {
+    call: { name: "spawn", task: ltask, init: listener_init(s) },
+    state: hash_map.merge(s, { phase: "b" })
+  },
+  "b": {
+    call: { name: "spawn", task: ws_client,
+            init: { phase: "open", url: s.url, msg: s.msg } },
+    state: hash_map.merge(s, { phase: "c" })
+  },
+  "c": {
+    call: { name: "await", task: s.result },
+    state: hash_map.merge(s, { phase: "d" })
+  },
+  "d": { out: s.result }
+}
 
 main := (s) ~> match s.phase {
   "a": {
@@ -158,6 +217,17 @@ test_serve_tls := assert do {
     url: "https://127.0.0.1:18355/tls", init: { insecure: true } })
   r.main.body
 } := "hi GET /tls"
+
+--- WebSocket: the listener upgrades the request and runs the frame loop
+--- while a libcurl ws client task talks to it on the same scheduler.
+test_serve_ws_echo := assert do {
+  lfd := tcp_listen({ host: "127.0.0.1", port: 18356 })
+  r := run(main_ws, { phase: "a", lfd: lfd, handler: handler,
+    mode: "plain", on_ws: ws_echo,
+    url: "ws://127.0.0.1:18356/ws", msg: "hi" })
+  f := r.main
+  f.op + "|" + bytes.utf8_decode(f.payload)
+} := "text|echo:hi"
 
 --- chunked request bodies decode (chunk extensions ignored).
 test_chunked_parse := assert do {

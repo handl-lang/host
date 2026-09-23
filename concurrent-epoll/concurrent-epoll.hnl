@@ -354,11 +354,19 @@ drop_interest := (s, fd) ~> do {
   }
 }
 
---- park the task on `fd` readiness (`events` = EPOLLIN/EPOLLOUT)
+--- park the task on `fd` readiness (`events` = EPOLLIN/EPOLLOUT). A
+--- re-registration (the fd is already in the set, e.g. a curl-owned
+--- socket being handed to a ws waiter) updates the interest with
+--- EPOLL_CTL_MOD instead of failing with EEXIST.
 park_fd := (s, e, req, st, events) ~> do {
   s1 := ensure_epfd(s)
-  _ := unwrap(epoll_ctl(s1.epfd, EPOLL_CTL_ADD, req.fd,
-    { events: events, data: e.id }), "epoll_ctl")
+  ev := { events: events, data: e.id }
+  rc := epoll_ctl(s1.epfd, EPOLL_CTL_MOD, req.fd, ev)
+  _ := if is_err(rc) {
+    unwrap(epoll_ctl(s1.epfd, EPOLL_CTL_ADD, req.fd, ev), "epoll_ctl")
+  } else {
+    rc
+  }
   hash_map.set(s1, "fdw", [...s1.fdw, {
     id: e.id, arrow: e.arrow, fd: req.fd, events: events,
     req: req, state: st, stack: e.stack, token: e.token
@@ -523,7 +531,13 @@ drain_multi := (s) ~> while { s: s, go: true } {
         msg := ffi.read(val_of(r).ret,
           "rec:{msg:i32,easy_handle:ptr,result:i32}")
         w := find_where(s.mwait, (x) ~> x.easy == msg.easy_handle)
-        _ := curl_multi_remove_handle(s.multi, msg.easy_handle)
+        -- a `keep` handle (a WebSocket connection, CONNECT_ONLY) must
+        -- stay in the multi: removing it would drop the connection.
+        _ := if w == null || hash_map.get_or(w, "keep", false) {
+          0
+        } else {
+          curl_multi_remove_handle(s.multi, msg.easy_handle)
+        }
         s1 := hash_map.set(s, "mwait",
           drop_where(s.mwait, (x) ~> x.easy == msg.easy_handle))
         s2 := if w == null {
@@ -570,7 +584,8 @@ park_multi := (s, e, req, st) ~> do {
   } else {
     s2 := hash_map.set(s1, "mwait", [...s1.mwait, {
       easy: req.easy, id: e.id, arrow: e.arrow,
-      state: st, stack: e.stack, token: e.token
+      state: st, stack: e.stack, token: e.token,
+      keep: hash_map.get_or(req, "keep", false)
     }])
     multi_drive(s2)
   }
@@ -850,6 +865,10 @@ perform := (s, e, req, st) ~> match req.name {
   "accept": try_fd(s, e, req, st, EPOLLIN),
   "connect_wait": park_fd(s, e, req, st, EPOLLOUT),
   "curl_perform": park_multi(s, e, req, st),
+  -- WebSocket upgrade: drive the CONNECT_ONLY handle through the multi
+  -- and leave it there (keep) so the connection survives completion.
+  "ws_open": park_multi(s, e,
+    { name: "curl_perform", easy: req.h, keep: true }, st),
   "tls_accept": tls_try(s, e, req, st),
   "tls_connect": tls_try(s, e, req, st),
   "tls_recv": tls_try(s, e, req, st),

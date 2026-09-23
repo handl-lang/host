@@ -9,7 +9,9 @@ from "bytes" import * as bytes
 
 --- local aliases: a task env serializes ` := ` bindings only.
 prep := prepare
+
 sock := active_socket
+
 bye := close
 
 CURLWS_TEXT := 1
@@ -43,13 +45,13 @@ start_server := (_u) ~> do {
   wait_ready(null)
 }
 
---- open -> upgrade (curl_perform) -> send text -> recv echo -> close.
+--- open -> upgrade (`ws_open`) -> send text -> recv echo -> close.
 --- Every socket step is a scheduler op; the client parks on the
 --- connection fd whenever curl reports CURLE_AGAIN.
 main := (s) ~> match s.phase {
   "open": do {
     h := prep(s.url, {})
-    { call: { name: "curl_perform", easy: h },
+    { call: { name: "ws_open", h: h },
       state: hash_map.merge(s, { phase: "conn", h: h }) }
   },
   "conn": do {

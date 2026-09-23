@@ -27,6 +27,7 @@ from "../generated/curl-c-linux-x86_64/curl" import * as curlm
 cm := curlm
 
 CONNECT_ONLY_WS := 2
+
 CURLE_OK := 0
 
 --- CURLE_AGAIN -- no complete frame yet (or the send buffer is full).
@@ -44,17 +45,29 @@ head := (xs) ~> match xs {
   [h, ...t]: h
 }
 
+--- decode a little-endian u64 at byte offset `o`
+u32le := (buf, o) ~> do {
+  bytes.at(buf, o) + bytes.at(buf, o + 1) * 256 +
+  bytes.at(buf, o + 2) * 65536 + bytes.at(buf, o + 3) * 16777216
+}
+
+u64le := (buf, o) ~> do { u32le(buf, o) + u32le(buf, o + 4) * 4294967296 }
+
 --- curl_easy_setopt is variadic: per-type fixed signatures via ffi.call
 --- (same convention as fetch-c).
-setopt_str := (h, opt, v) ~> ffi.call("libcurl.so.4", "curl_easy_setopt",
-  [h, opt, v], ["ptr", "i32", "cstr"], "i32", false)
+setopt_str := (h, opt, v) ~> do {
+  ffi.call("libcurl.so.4", "curl_easy_setopt",
+    [h, opt, v], ["ptr", "i32", "cstr"], "i32", false)
+}
 
-setopt_long := (h, opt, v) ~> ffi.call("libcurl.so.4", "curl_easy_setopt",
-  [h, opt, v], ["ptr", "i32", "i64"], "i32", false)
+setopt_long := (h, opt, v) ~> do {
+  ffi.call("libcurl.so.4", "curl_easy_setopt",
+    [h, opt, v], ["ptr", "i32", "i64"], "i32", false)
+}
 
 --- whether a single power-of-two flag is set (`flags mod 2*bit` lands in
 --- `[0, 2*bit)`, so the bit is set exactly when the remainder reaches it).
-has_bit := (flags, bit) ~> flags % (bit * 2) >= bit
+has_bit := (flags, bit) ~> do { flags % (bit * 2) >= bit }
 
 --- opcode class from `curl_ws_frame.flags`.
 frame_op := (flags) ~> do {
@@ -75,8 +88,15 @@ frame_op := (flags) ~> do {
   }
 }
 
---- frame metadata flags from curl's `curl_ws_frame` pointer (0 when curl
---- reported none).
+--- the `curl_ws_frame` pointer curl wrote: the second out-slot, holding
+--- the 8 raw pointer bytes (`outs` is [buffer, meta] in descriptor
+--- order), or 0 when curl reported no metadata.
+meta_ptr := (outs) ~> match outs {
+  [_, p, ...t]: u64le(p, 0),
+  _: 0
+}
+
+--- frame metadata flags from that pointer (0 when curl reported none).
 meta_flags := (p) ~> if p == 0 {
   0
 } else {
@@ -120,7 +140,7 @@ export recv_step := (h) ~> do {
   } else {
     do {
       n := head(r.vals)
-      flags := meta_flags(head(r.outs))
+      flags := meta_flags(meta_ptr(r.outs))
       { frame: { op: frame_op(flags),
                  payload: bytes.slice(r.buf, 0, n), flags: flags } }
     }
@@ -141,10 +161,12 @@ export send_step := (h, buf, flags) ~> do {
 }
 
 --- send a text frame.
-export send_text := (h, s) ~> send_step(h, bytes.utf8_encode(s), cm.CURLWS_TEXT)
+export send_text := (h, s) ~> do {
+  send_step(h, bytes.utf8_encode(s), cm.CURLWS_TEXT)
+}
 
 --- send a binary frame.
-export send_binary := (h, b) ~> send_step(h, b, cm.CURLWS_BINARY)
+export send_binary := (h, b) ~> do { send_step(h, b, cm.CURLWS_BINARY) }
 
 --- close frame (best effort) then release the handle.
 export close := (h) ~> do {
