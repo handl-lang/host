@@ -1,7 +1,7 @@
 --- Generated adapter for curl-c-linux-x86_64/curl
 
 from "result" import { ok, err }
-from "../curl/curl" import { CurlEasyInit, CurlEasyPerform, CurlEasyCleanup, CurlEasyStrerror, CurlSlistAppend, CurlSlistFreeAll, CurlMultiInit, CurlMultiAddHandle, CurlMultiRemoveHandle, CurlMultiPerform, CurlMultiFdset, CurlMultiTimeout, CurlMultiInfoRead, CurlMultiCleanup, CurlMultiStrerror }
+from "../curl/curl" import { CurlEasyInit, CurlEasyPerform, CurlEasyCleanup, CurlEasyStrerror, CurlSlistAppend, CurlSlistFreeAll, CurlMultiInit, CurlMultiAddHandle, CurlMultiRemoveHandle, CurlMultiPerform, CurlMultiFdset, CurlMultiTimeout, CurlMultiInfoRead, CurlMultiCleanup, CurlWsSend, CurlWsRecv, CurlMultiStrerror }
 
 export CURLE_OK: Int := 0
 export CURLOPT_WRITEDATA: Int := 10001
@@ -17,12 +17,22 @@ export CURLOPT_POSTFIELDSIZE: Int := 60
 export CURLOPT_SSL_VERIFYPEER: Int := 64
 export CURLOPT_SSL_VERIFYHOST: Int := 81
 export CURLOPT_NOSIGNAL: Int := 99
+export CURLOPT_CONNECT_ONLY: Int := 141
 export CURLOPT_TIMEOUT_MS: Int := 155
 export CURLOPT_COPYPOSTFIELDS: Int := 10165
+export CURLOPT_WS_OPTIONS: Int := 320
 export CURLINFO_EFFECTIVE_URL: Int := 1048577
 export CURLINFO_RESPONSE_CODE: Int := 2097154
+export CURLINFO_ACTIVESOCKET: Int := 5242924
 export CURLM_OK: Int := 0
 export CURLMSG_DONE: Int := 1
+export CURLWS_TEXT: Int := 1
+export CURLWS_BINARY: Int := 2
+export CURLWS_CONT: Int := 4
+export CURLWS_CLOSE: Int := 8
+export CURLWS_PING: Int := 16
+export CURLWS_PONG: Int := 64
+export CURLWS_RAW_MODE: Int := 1
 
 export curl_easy_init: CurlEasyInit := () ~> do {
   r = ffi.call("libcurl.so.4", "curl_easy_init", [], [], "ptr", false)
@@ -124,6 +134,16 @@ export curl_multi_cleanup: CurlMultiCleanup := (multi) ~> do {
   } else {
     ok(r)
   }
+}
+
+export curl_ws_send: CurlWsSend := (__arg_0, __arg_1, __arg_3, __arg_4, __arg_5) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_ws_send", [__arg_0, __arg_1, __arg_3, __arg_4, __arg_5], ["ptr", "in_buf", "io_scalar:usize", "i64", "i32"], "i32", false)
+  ok(r)
+}
+
+export curl_ws_recv: CurlWsRecv := (__arg_0, __arg_3) ~> do {
+  r = ffi.call("libcurl.so.4", "curl_ws_recv", [__arg_0, __arg_3], ["ptr", "out_buf:65536", "io_scalar:usize", "out_ptr:8"], "i32", false)
+  ok(r)
 }
 
 export curl_multi_strerror: CurlMultiStrerror := (code) ~> do {

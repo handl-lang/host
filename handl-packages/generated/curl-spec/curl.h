@@ -38,4 +38,16 @@ CURLMcode curl_multi_fdset(CURLM *multi, fd_set *read_fd_set,
 CURLMcode curl_multi_timeout(CURLM *multi, long *timeout_ms);
 CURLMsg *curl_multi_info_read(CURLM *multi, int *msgs_in_queue);
 CURLMcode curl_multi_cleanup(CURLM *multi);
+
+/* WebSocket API (curl >= 7.86, client side only — libcurl has no WS
+ * server). After curl_easy_perform with CURLOPT_CONNECT_ONLY=2 the
+ * handle speaks RFC 6455: curl_ws_send/curl_ws_recv move frames, and
+ * curl_ws_meta describes the frame just received. Masking, ping/pong,
+ * close handshakes and (optionally) permessage-deflate are curl's. */
+CURLcode curl_ws_send(CURL *curl, const void *buffer, size_t buflen,
+                      size_t *sent, curl_off_t fragsize,
+                      unsigned int flags);
+CURLcode curl_ws_recv(CURL *curl, void *buffer, size_t buflen,
+                      size_t *recv, const struct curl_ws_frame **metap);
+const struct curl_ws_frame *curl_ws_meta(CURL *curl);
 const char *curl_multi_strerror(CURLMcode code);

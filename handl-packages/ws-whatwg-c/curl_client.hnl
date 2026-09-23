@@ -1,0 +1,218 @@
+--- ws-whatwg-c/curl_client -- a WebSocket client on libcurl's ws API.
+---
+--- @details
+--- libcurl (>= 7.86, built with WebSocket support) does the whole
+--- transport: DNS, TCP, TLS with SNI plus chain/hostname verification
+--- against the default CA store, proxies, the RFC 6455 upgrade
+--- handshake, masking, ping/pong and close handshakes. After
+--- `curl_easy_perform` with `CURLOPT_CONNECT_ONLY = 2` the handle
+--- speaks frames through `curl_ws_send`/`curl_ws_recv`, and
+--- `curl_ws_meta`'s struct (read with `ffi.read`) says what arrived.
+---
+--- This is the client only -- libcurl has no WebSocket server, so
+--- `server.hnl` keeps its libc/libssl implementation.
+---
+--- Error convention: CURLcode signals failure with a *positive* value
+--- (`CURLE_OK` is 0), so these arrows put the CURLcode in the `Errno`
+--- position rather than an errno. `CURLE_*`/`CURLWS_*` come from the
+--- generated curl adapter.
+---
+--- Blocking: `curl_ws_recv` blocks on a connect-only handle; for a
+--- cooperative loop use `curl_multi_*` (see `fetch-c`) or
+--- `poll.wait_readable` on the handle's socket.
+
+from "bytes" import * as bytes
+from "result" import { Result, ok, err }
+from "ffi" import { Errno }
+from "ffi" import * as ffi
+from "../generated/curl-c-linux-x86_64/curl" import * as curl
+from "./poll" import * as poll
+
+--- A curl-backed WebSocket connection: the easy handle.
+export CurlConn := { h: Int }
+
+--- One received frame: the opcode class curl reports, the payload, and
+--- the raw `curl_ws_frame.flags` (so callers can see CURLWS_CONT /
+--- CURLWS_CLOSE etc. themselves).
+export Frame := { op: String, payload: Bytes, flags: Int }
+
+--- `struct curl_ws_frame` layout on x86_64 — `ffi.read`'s descriptor.
+--- `curl_ws_recv` hands back a pointer to curl's own frame struct.
+export WsFrameDesc := "rec:{age:i32@0:4,flags:i32@4:4,offset:i64@8:8,bytesleft:i64@16:8,len:u64@24:8}"
+
+--- The value `CURLOPT_CONNECT_ONLY` takes to mean "WebSocket mode".
+connect_only_ws := 2
+
+--- CURLE_OK.
+curl_ok := 0
+
+--- CURLE_AGAIN -- `curl_ws_recv` found no complete frame yet. The
+--- handle is non-blocking after `curl_easy_perform`, so this is the
+--- normal "nothing to read" result, not an error.
+export curle_again := 81
+
+--- setopt_str -- `curl_easy_setopt(handle, option, const char *)`. The
+--- variadic tail is per-call-site, so it goes through `ffi.call`
+--- directly (same convention as `fetch-c`).
+setopt_str := (h, opt, v) ~> ffi.call(
+  "libcurl.so.4", "curl_easy_setopt", [h, opt, v],
+  ["ptr", "i32", "cstr"], "i32", true)
+
+--- setopt_long -- `curl_easy_setopt(handle, option, long)`.
+setopt_long := (h, opt, v) ~> ffi.call(
+  "libcurl.so.4", "curl_easy_setopt", [h, opt, v],
+  ["ptr", "i32", "i64"], "i32", true)
+
+--- list_head -- the first element of a list, or 0.
+list_head := (xs) ~> match xs {
+  []: 0,
+  [h, ...t]: h
+}
+
+--- meta_flags -- `curl_ws_frame.flags` from the meta pointer
+--- `curl_ws_recv` wrote (0 when curl reported no frame metadata).
+meta_flags := (meta_ptr) ~> if meta_ptr == 0 {
+  0
+} else {
+  ffi.read(meta_ptr, WsFrameDesc).flags
+}
+
+--- has_bit -- whether `bit` (a single power-of-two flag) is set in
+--- `flags`. Pure arithmetic: `flags mod 2*bit` lands in `[0, 2*bit)`,
+--- so the bit is set exactly when that remainder reaches `bit`.
+has_bit := (flags, bit) ~> flags % (bit * 2) >= bit
+
+--- frame_op -- the opcode class from `curl_ws_frame.flags`.
+--- `CURLWS_TEXT`/`CURLWS_BINARY` mark the first frame of a message;
+--- `CURLWS_CONT` marks a continuation of the previous one.
+frame_op := (flags) ~> if has_bit(flags, curl.CURLWS_CLOSE) {
+  "close"
+} else if has_bit(flags, curl.CURLWS_PING) {
+  "ping"
+} else if has_bit(flags, curl.CURLWS_PONG) {
+  "pong"
+} else if has_bit(flags, curl.CURLWS_TEXT) {
+  "text"
+} else if has_bit(flags, curl.CURLWS_BINARY) {
+  "binary"
+} else if has_bit(flags, curl.CURLWS_CONT) {
+  "cont"
+} else {
+  "unknown"
+}
+
+--- connect -- open `ws://`/`wss://` and complete the upgrade handshake.
+--- @param {url} - the `ws://` or `wss://` URL (curl needs the scheme)
+--- @returns {Result<CurlConn, Errno> - the conn, or a CURLcode}
+--- @details `curl_easy_perform` drives the handshake and returns once
+--- the connection is upgraded (that is what `CONNECT_ONLY` means for
+--- `ws`/`wss`); TLS verification, SNI, proxies and redirects are
+--- curl's. The handle is cleaned up on any failure.
+export connect: (String) ~[1]~> Result<CurlConn, Errno> := (url) ~> do {
+  h :: curl.curl_easy_init()
+  if h == 0 {
+    err(1)
+  } else {
+    do {
+      u :: setopt_str(h, curl.CURLOPT_URL, url)
+      c :: setopt_long(h, curl.CURLOPT_CONNECT_ONLY, connect_only_ws)
+      p :: curl.curl_easy_perform(h)
+      if u != curl_ok || c != curl_ok || p != curl_ok {
+        do {
+          dropped :: curl.curl_easy_cleanup(h)
+          err(p)
+        }
+      } else {
+        ok({ h: h })
+      }
+    }
+  }
+}
+
+--- send_bytes -- one frame with `flags`. `sent` is the payload byte
+--- count curl confirms.
+send_bytes := (c, b, flags) ~> do {
+  r :: curl.curl_ws_send(c.h, b, 0, 0, flags)
+  if r.ret != curl_ok {
+    err(r.ret)
+  } else {
+    ok(list_head(r.vals))
+  }
+}
+
+--- send_text -- one `CURLWS_TEXT` frame.
+export send_text: (CurlConn, String) ~[1]~> Result<Int, Errno> := (c, s) ~>
+  send_bytes(c, bytes.utf8_encode(s), curl.CURLWS_TEXT)
+
+--- send_binary -- one `CURLWS_BINARY` frame.
+export send_binary: (CurlConn, Bytes) ~[1]~> Result<Int, Errno> := (c, b) ~>
+  send_bytes(c, b, curl.CURLWS_BINARY)
+
+--- recv_frame -- the next frame curl delivers.
+--- @param {c} - the conn
+--- @returns {Result<Frame, Errno> - the frame, or a CURLcode}
+--- @details curl owns ping/pong and close handling, so a `close` frame
+--- surfaces only when the peer's close was already handled; `CURLWS_CONT`
+--- frames are the continuation pieces of a fragmented message. The
+--- handle is left non-blocking, so **`err(curle_again)` is not a
+--- failure** -- it means no data yet; use `recv_wait` (or retry).
+export recv_frame: (CurlConn) ~[1]~> Result<Frame, Errno> := (c) ~> do {
+  r :: curl.curl_ws_recv(c.h, 0)
+  if r.ret != curl_ok {
+    err(r.ret)
+  } else {
+    do {
+      n :: list_head(r.vals)
+      flags :: meta_flags(list_head(r.outs))
+      ok({ op: frame_op(flags), payload: bytes.slice(r.buf, 0, n), flags: flags })
+    }
+  }
+}
+
+--- active_socket -- the fd curl is using for `c`
+--- (`CURLINFO_ACTIVESOCKET`), for `poll.wait_readable` and friends.
+export active_socket: (CurlConn) ~[1]~> Result<Int, Errno> := (c) ~> do {
+  r :: ffi.call(
+    "libcurl.so.4", "curl_easy_getinfo",
+    [c.h, curl.CURLINFO_ACTIVESOCKET],
+    ["ptr", "i32", "io_scalar:i32"], "i32", true)
+  if r.ret != curl_ok {
+    err(r.ret)
+  } else {
+    ok(list_head(r.vals))
+  }
+}
+
+--- recv_wait -- `recv_frame` after waiting up to `timeout_ms` for the
+--- socket to become readable (`poll.wait_readable`). A wait that times
+--- out maps to `err(curle_again)`, the same "nothing yet" code
+--- `recv_frame` returns, so callers can loop on one condition.
+--- @param {c} - the conn
+--- @param {timeout_ms} - the readiness wait (`-1` blocks, `0` polls)
+--- @returns {Result<Frame, Errno> - the frame, or a CURLcode}
+export recv_wait: (CurlConn, Int) ~[1]~> Result<Frame, Errno> := (c, timeout_ms) ~> do {
+  s :: active_socket(c)
+  if tag.tag_of(s) == "err" {
+    s
+  } else {
+    do {
+      ready :: poll.wait_readable([tag.untag(s).value], timeout_ms)
+      if tag.tag_of(ready) == "err" {
+        err(curle_again)
+      } else if list_head(tag.untag(ready).value) == 0 {
+        err(curle_again)
+      } else {
+        recv_frame(c)
+      }
+    }
+  }
+}
+
+--- close -- send a `CURLWS_CLOSE` frame (best effort) and release the
+--- handle. The close frame's failure is not reported: the connection is
+--- going away either way.
+export close: (CurlConn) ~[1]~> Result<Int, Errno> := (c) ~> do {
+  bye :: curl.curl_ws_send(c.h, bytes.from_list([]), 0, 0, curl.CURLWS_CLOSE)
+  dropped :: curl.curl_easy_cleanup(c.h)
+  ok(0)
+}

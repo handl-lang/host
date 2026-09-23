@@ -18,12 +18,25 @@ export CURLOPT_POSTFIELDSIZE: Int
 export CURLOPT_SSL_VERIFYPEER: Int
 export CURLOPT_SSL_VERIFYHOST: Int
 export CURLOPT_NOSIGNAL: Int
+export CURLOPT_CONNECT_ONLY: Int
 export CURLOPT_TIMEOUT_MS: Int
 export CURLOPT_COPYPOSTFIELDS: Int
+export CURLOPT_WS_OPTIONS: Int
 export CURLINFO_EFFECTIVE_URL: Int
 export CURLINFO_RESPONSE_CODE: Int
+export CURLINFO_ACTIVESOCKET: Int
 export CURLM_OK: Int
 export CURLMSG_DONE: Int
+--- flag bits
+export CURLWS_TEXT: Int
+export CURLWS_BINARY: Int
+export CURLWS_CONT: Int
+export CURLWS_CLOSE: Int
+export CURLWS_PING: Int
+--- flags for curl_ws_send()
+export CURLWS_PONG: Int
+--- bits for the CURLOPT_WS_OPTIONS bitmask:
+export CURLWS_RAW_MODE: Int
 
 --- create an easy handle
 --- ffi: CURL *(void)
@@ -103,6 +116,30 @@ export CurlMultiInfoRead: (Int, Int) ~[1]~> Result<CurlMultiInfoReadResult, Errn
 --- close down a multi session
 --- ffi: CURLMcode (CURLM *)
 export CurlMultiCleanup: (Int) ~[1]~> Result<Int, Errno>
+
+--- WebSocket API (curl >= 7.86, client side only — libcurl has no WS
+--- server). After curl_easy_perform with CURLOPT_CONNECT_ONLY=2 the
+--- handle speaks RFC 6455: curl_ws_send/curl_ws_recv move frames, and
+--- curl_ws_meta describes the frame just received. Masking, ping/pong,
+--- close handshakes and (optionally) permessage-deflate are curl's.
+export CurlWsSendResult := {
+  ret: Int,
+  vals: [Int]
+}
+
+--- ffi:
+export CurlWsSend: (Int, Bytes, Int, Int, Int) ~[1]~> Result<CurlWsSendResult, Errno>
+
+--- receive WebSocket data
+export CurlWsRecvResult := {
+  ret: Int,
+  buf: Bytes,
+  outs: [Bytes],
+  vals: [Int]
+}
+
+--- ffi:
+export CurlWsRecv: (Int, Int) ~[1]~> Result<CurlWsRecvResult, Errno>
 
 --- return string describing error code
 --- ffi: const char *(CURLMcode)
