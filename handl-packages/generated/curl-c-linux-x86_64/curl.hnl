@@ -142,7 +142,7 @@ export curl_ws_send: CurlWsSend := (__arg_0, __arg_1, __arg_3, __arg_4, __arg_5)
 }
 
 export curl_ws_recv: CurlWsRecv := (__arg_0, __arg_3) ~> do {
-  r = ffi.call("libcurl.so.4", "curl_ws_recv", [__arg_0, __arg_3], ["ptr", "out_buf:65536", "io_scalar:usize", "out_ptr:8"], "i32", false)
+  r = ffi.call("libcurl.so.4", "curl_ws_recv", [__arg_0, __arg_3], ["ptr", "io_buf:65536", "io_scalar:usize", "out_ptr:8"], "i32", false)
   ok(r)
 }
 

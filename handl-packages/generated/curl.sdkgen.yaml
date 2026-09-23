@@ -141,7 +141,15 @@ symbols:
   #                       const struct curl_ws_frame **metap)
   # 65536 is the receive window; `io_scalar:usize` is the received byte
   # count, `out_ptr:8` the meta pointer.
+  #
+  # `io_buf`, not `out_buf`: an `out_buf` slot is trimmed to the *return*
+  # byte count, and curl_ws_recv returns a CURLcode (0 on success), so the
+  # payload would be trimmed to nothing. `io_buf` keeps the whole window
+  # and the frame length comes from `recv` (the `io_scalar` cell) -- slice
+  # the buffer by it. The `size_t *` io_buf passes as the length argument
+  # is harmless here: curl only writes `n` bytes and reports the count in
+  # its own out-param.
   curl_ws_recv:
-    args: ["ptr", "out_buf:65536", "io_scalar:usize", "out_ptr:8"]
+    args: ["ptr", "io_buf:65536", "io_scalar:usize", "out_ptr:8"]
     descriptor: "i32"
     guard: false

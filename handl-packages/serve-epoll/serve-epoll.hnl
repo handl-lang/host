@@ -20,6 +20,9 @@
 from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
 from "../http_rfc/http_rfc" import * as rfcm
 from "../tls-libssl/tls-libssl" import * as tlsp
+from "../ws_frame" import { OpText, OpBinary, OpClose, OpPing, OpPong }
+from "../ws_frame-handl/frame" import { encode, decode }
+from "../ws-whatwg-c/http" import { accept_key }
 from "bytes" import * as bytes
 from "str" import * as str
 
@@ -57,6 +60,137 @@ close_call := (s) ~> if hash_map.get_or(s, "tls", false) {
   { name: "tls_close", ssl: s.ssl, fd: s.fd }
 } else {
   { name: "close", fd: s.fd }
+}
+
+--- local aliases for the frame codec + handshake helper (task envs keep
+--- ` := ` bindings, not `import` bindings).
+frame_encode := encode
+
+frame_decode := decode
+
+ws_accept_key := accept_key
+
+-- ---------------------------------------------------------------
+-- WebSocket upgrade (RFC 6455, server half)
+-- ---------------------------------------------------------------
+
+--- is the parsed request a WebSocket upgrade?
+is_ws_upgrade := (req) ~> do {
+  h := req.headers
+  str.lower(hash_map.get_or(h, "upgrade", "")) == "websocket"
+    && str.find(str.lower(hash_map.get_or(h, "connection", "")), "upgrade") >= 0
+    && hash_map.has(h, "sec-websocket-key")
+}
+
+--- the raw 101 head for a client nonce (no body, no content-length).
+ws_101 := (key) ~> (
+  "HTTP/1.1 101 Switching Protocols\r\n" +
+  "Upgrade: websocket\r\n" +
+  "Connection: Upgrade\r\n" +
+  "Sec-WebSocket-Accept: " + ws_accept_key(key) + "\r\n" +
+  "\r\n"
+)
+
+--- send a raw wire head (the upgrade response is not a `resp` record;
+--- the socket ops take Bytes, so the head is encoded here).
+reply_raw := (s, wire) ~> do {
+  buf := bytes.utf8_encode(wire)
+  { call: send_call(s, buf),
+    state: hash_map.merge(s, { phase: "sent", out: buf, off: 0 }) }
+}
+
+--- the message a frame carries: both projections of the payload, so a
+--- handler can take whichever it wants.
+ws_msg := (f) ~> ({
+  op: if f.op == OpBinary { "binary" } else { "text" },
+  text: bytes.utf8_decode(f.payload),
+  bytes: f.payload
+})
+
+--- frame for a handler reply (server frames are never masked).
+ws_reply_frame := (reply) ~> if type.of(reply) == "bytes" {
+  frame_encode({ fin: 1, op: OpBinary, payload: reply,
+                 mask_key: bytes.from_list([]) })
+} else {
+  frame_encode({ fin: 1, op: OpText,
+                 payload: bytes.utf8_encode(type.to_string(reply)),
+                 mask_key: bytes.from_list([]) })
+}
+
+--- one control frame (close/pong), unmasked. (`opcode`, not `op` --
+--- `op` is a reserved word in parameter position.)
+ws_ctrl_frame := (opcode, payload) ~> do {
+  frame_encode({ fin: 1, op: opcode, payload: payload,
+                 mask_key: bytes.from_list([]) })
+}
+
+--- frame loop for one upgraded connection. The handler is a plain arrow
+--- `(req, msg) ~> reply`; a null reply sends nothing (e.g. a ping the
+--- caller only wanted to observe).
+--- state: { fd, buf, handler, req, tls, ssl, out, off }
+ws_conn_task := (s) ~> match s.phase {
+  "read": {
+    call: read_call(s),
+    state: hash_map.merge(s, { phase: "got" })
+  },
+  "got": do {
+    if bytes.len(s.result) == 0 {
+      -- peer went away
+      { call: close_call(s), state: hash_map.merge(s, { phase: "done" }) }
+    } else {
+      { state: hash_map.merge(s, { phase: "frames",
+        buf: bytes.concat(s.buf, s.result) }) }
+    }
+  },
+  "frames": do {
+    d := frame_decode(s.buf)
+    if tag.tag_of(d) == "None" {
+      -- incomplete frame: read more
+      { call: read_call(s), state: hash_map.merge(s, { phase: "got" }) }
+    } else {
+      do {
+        f := d.value.frame
+        rest := d.value.rest
+        if f.op == OpClose {
+          { call: send_call(s, ws_ctrl_frame(OpClose, bytes.from_list([]))),
+            state: hash_map.merge(s, { phase: "closing" }) }
+        } else if f.op == OpPing {
+          { call: send_call(s, ws_ctrl_frame(OpPong, f.payload)),
+            state: hash_map.merge(s, { phase: "sent", buf: rest }) }
+        } else if f.op == OpPong {
+          { state: hash_map.merge(s, { phase: "frames", buf: rest }) }
+        } else {
+          do {
+            reply := s.handler(s.req, ws_msg(f))
+            if reply == null {
+              { state: hash_map.merge(s, { phase: "frames", buf: rest }) }
+            } else {
+              do {
+                out := ws_reply_frame(reply)
+                { call: send_call(s, out),
+                  state: hash_map.merge(s, { phase: "sent", buf: rest,
+                    out: out, off: 0 }) }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "sent": do {
+    n := s.off + s.result.sent
+    if n >= bytes.len(s.out) {
+      { state: hash_map.merge(s, { phase: "frames" }) }
+    } else {
+      { call: send_call(s, bytes.slice(s.out, n, bytes.len(s.out) - n)),
+        state: hash_map.merge(s, { phase: "sent", off: n }) }
+    }
+  },
+  "closing": {
+    call: close_call(s),
+    state: hash_map.merge(s, { phase: "done" })
+  },
+  "done": { out: null }
 }
 
 --- keep-alive decision: HTTP/1.1 persists unless `connection: close`;
@@ -130,6 +264,13 @@ conn_task := (s) ~> match s.phase {
     } else if parsed.req == null {
       reply(hash_map.merge(s, { ka: false }),
         { status: 400, body: "bad request" }, false)
+    } else if hash_map.has(s, "on_ws") && is_ws_upgrade(parsed.req) {
+      -- upgrade: answer 101, then hand the connection to the frame loop
+      reply_raw(hash_map.merge(s, {
+          buf: bytes.slice(s.buf, parsed.consumed,
+            bytes.len(s.buf) - parsed.consumed),
+          ws_req: parsed.req, ka: false }),
+        ws_101(hash_map.get_or(parsed.req.headers, "sec-websocket-key", "")))
     } else {
       respond(hash_map.merge(s, {
           buf: bytes.slice(s.buf, parsed.consumed,
@@ -141,7 +282,15 @@ conn_task := (s) ~> match s.phase {
   "responded": reply(s, s.result, s.req.method == "HEAD"),
   "sent": do {
     n := s.off + s.result.sent
-    if n >= bytes.len(s.out) {
+    if n >= bytes.len(s.out) && hash_map.has(s, "ws_req") {
+      -- the 101 is out: run the WebSocket frame loop on this connection
+      { call: { name: "enter", arrow: ws_conn_task,
+                init: { phase: "frames", fd: s.fd, buf: s.buf,
+                        handler: s.on_ws, req: s.ws_req,
+                        tls: hash_map.get_or(s, "tls", false),
+                        ssl: hash_map.get_or(s, "ssl", null) } },
+        state: hash_map.merge(s, { phase: "done" }) }
+    } else if n >= bytes.len(s.out) {
       if hash_map.get_or(s, "ka", false) {
         if bytes.len(s.buf) > 0 {
           -- pipelined bytes already buffered: parse without recv
@@ -177,18 +326,25 @@ export listener_task := (s) ~> match s.phase {
       { phase: "read", fd: fd, tls: false,
         buf: bytes.from_list([]), handler: s.handler, mode: s.mode }
     }
-    { call: { name: "spawn", task: conn_task, init: init },
+    -- `on_ws` is only present when the server accepts WebSocket upgrades
+    { call: { name: "spawn", task: conn_task,
+              init: if hash_map.has(s, "on_ws") {
+                hash_map.merge(init, { on_ws: s.on_ws })
+              } else {
+                init
+              } },
       state: hash_map.merge(s, { phase: "accept" }) }
   },
   _: { out: null }
 }
 
 --- listener init shared by serve/serve_task: `opts.tls` = { cert, key }
---- switches every accepted connection to TLS.
+--- switches every accepted connection to TLS, `opts.on_ws` enables the
+--- WebSocket upgrade (`(req, msg) ~> reply`).
 listen_init := (handler, mode, opts) ~> do {
   lfd := tcp_listen({ host: hash_map.get_or(opts, "host", "0.0.0.0"),
                       port: opts.port })
-  if hash_map.has(opts, "tls") {
+  base := if hash_map.has(opts, "tls") {
     do {
       t := opts.tls
       { phase: "accept", lfd: lfd, handler: handler, mode: mode,
@@ -197,6 +353,11 @@ listen_init := (handler, mode, opts) ~> do {
   } else {
     { phase: "accept", lfd: lfd, handler: handler, mode: mode,
       tls: false, ctx: 0 }
+  }
+  if hash_map.has(opts, "on_ws") {
+    hash_map.merge(base, { on_ws: opts.on_ws })
+  } else {
+    base
   }
 }
 
