@@ -164,6 +164,8 @@ ARROW_PACKAGES=(
   handl-packages/ws-c
   handl-packages/fetch-c
   handl-packages/ws_frame-handl
+  # handshake helpers (accept_key) that serve-epoll imports
+  handl-packages/ws-whatwg-c
   # runnable app examples (arrow dialect: they import the stack above)
   examples/http
 )
