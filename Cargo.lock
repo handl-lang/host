@@ -1478,7 +1478,6 @@ dependencies = [
  "handl-plugin-lib-kv-hashmap",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-stdlib",
- "handl-plugin-lib-unicode",
  "handl-plugin-module",
  "serde_json",
 ]
@@ -1795,17 +1794,6 @@ dependencies = [
  "handl-plugin-lib-handl",
  "handl-plugin-module",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lib-unicode"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
- "serde_json",
- "unicode-ident",
 ]
 
 [[package]]
