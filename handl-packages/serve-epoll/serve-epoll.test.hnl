@@ -4,9 +4,12 @@
 from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
 from "../serve-epoll/serve-epoll" import { listener_task }
 from "../fetch-c/fetch-c" import { fetch_task }
+from "../http_rfc/http_rfc" import * as rfc
+from "bytes" import * as bytes
 
---- local aliases: task envs serialize `:=` bindings only.
+--- local aliases: task envs serialize ` := ` bindings only.
 ltask := listener_task
+
 ftask := fetch_task
 
 --- plain-arrow handler: echoes method+path, marks a header.
@@ -46,6 +49,36 @@ main := (s) ~> match s.phase {
   "d": { out: s.result }
 }
 
+--- two sequential fetches: curl's CURLM pool reuses the keep-alive
+--- connection, so the second request lands on the same conn_task.
+main2 := (s) ~> match s.phase {
+  "a": {
+    call: { name: "spawn", task: ltask,
+            init: { phase: "accept", lfd: s.lfd,
+                    handler: s.handler, mode: s.mode } },
+    state: hash_map.merge(s, { phase: "b" })
+  },
+  "b": {
+    call: { name: "spawn", task: ftask,
+            init: { url: s.url, init: s.init } },
+    state: hash_map.merge(s, { phase: "c" })
+  },
+  "c": {
+    call: { name: "await", task: s.result },
+    state: hash_map.merge(s, { phase: "d" })
+  },
+  "d": {
+    call: { name: "spawn", task: ftask,
+            init: { url: s.url2, init: s.init } },
+    state: hash_map.merge(s, { phase: "e", r1: s.result })
+  },
+  "e": {
+    call: { name: "await", task: s.result },
+    state: hash_map.merge(s, { phase: "f" })
+  },
+  "f": { out: { r1: s.r1, r2: s.result } }
+}
+
 serve_once := (handler, mode, url, init, port) ~> do {
   lfd := tcp_listen({ host: "127.0.0.1", port: port })
   r := run(main, { phase: "a", lfd: lfd, handler: handler,
@@ -74,3 +107,43 @@ test_serve_task_handler := assert do {
     "http://127.0.0.1:18352/later", {}, 18352)
   r.body + "|" + type.to_string(r.status)
 } := "slow /later|201"
+
+--- keep-alive: the server advertises it and a second request on the
+--- reused connection succeeds.
+test_serve_keepalive := assert do {
+  lfd := tcp_listen({ host: "127.0.0.1", port: 18353 })
+  r := run(main2, { phase: "a", lfd: lfd, handler: handler,
+    mode: "plain", url: "http://127.0.0.1:18353/one",
+    url2: "http://127.0.0.1:18353/two", init: {} })
+  m := r.main
+  hash_map.get_or(m.r1.headers, "connection", "?") + "|" + m.r2.body
+} := "keep-alive|hi GET /two"
+
+--- the handler sees the exact request body (Content-Length path).
+test_serve_body_echo := assert do {
+  lfd := tcp_listen({ host: "127.0.0.1", port: 18354 })
+  r := run(main, { phase: "a", lfd: lfd,
+    handler: (req) ~> do {
+      { status: 200,
+        body: req.body + "|" + type.to_string(bytes.len(req.body_bytes)) }
+    },
+    mode: "plain", url: "http://127.0.0.1:18354/echo",
+    init: { method: "POST", body: "b1" } })
+  r.main.body
+} := "b1|2"
+
+--- chunked request bodies decode (chunk extensions ignored).
+test_chunked_parse := assert do {
+  buf := bytes.utf8_encode(
+    "POST /c HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n" +
+    "4\r\nWiki\r\n5;ext=x\r\npedia\r\n0\r\n\r\n")
+  r := rfc.try_parse_request(buf)
+  r.req.body + "|" + type.to_string(r.consumed == bytes.len(buf))
+} := "Wikipedia|true"
+
+--- an incomplete chunk stream asks for more bytes.
+test_chunked_partial := assert do {
+  buf := bytes.utf8_encode(
+    "POST /c HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWi")
+  type.to_string(rfc.try_parse_request(buf) == null)
+} := "true"
