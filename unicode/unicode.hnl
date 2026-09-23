@@ -7,20 +7,22 @@
 --- (UAX #11, East Asian Width).
 ---
 --- This is the abstraction contract: every `unicode` backend
---- (`unicode-handl`, `unicode-native` on ICU/`unicode-*` crates,
---- `unicode-js` on `Intl`/`String.prototype`) must satisfy these laws.
---- Names are *semantic*, not implementation-specific -- never
---- `nfc_icu4x` or `graphemes_utf16`.
+--- (`unicode-c` on system ICU4C via `ffi`, a future `unicode-js` on
+--- `Intl`/`String.prototype`, ...) must satisfy these laws. Names are
+--- *semantic*, not implementation-specific -- never `nfc_icu4x` or
+--- `graphemes_utf16`.
 ---
 --- Because the algorithms need Unicode tables, backends differ in
---- *coverage*, not in *meaning*: `unicode-handl` provides the subset that
---- can be computed from `char.*` atoms alone -- code-point interop, ASCII
---- checks, and code-point-fallback `graphemes`/`grapheme_count`/`width`/
---- `casefold` (documented as coarse: correct for ASCII and single-scalar
---- text, conservative for cluster/decomposable text). Normalization
---- (`nfc`/`nfd`) is *backend-required*: `unicode-handl` deliberately does
---- not provide it, so a pure-handl `unicode.nfc` call fails rather than
---- silently returning un-normalized text.
+--- *coverage*, not in *meaning*. The canonical backend is
+--- `handl-packages/unicode-c`, which splits by need: code-point interop
+--- (`code_points`, `from_code_points`, `is_ascii`, `code_point_at`) and
+--- `decode` are pure handl and exact on any host, while the
+--- table-dependent ops (`graphemes`/`grapheme_count`, `width`,
+--- `casefold`, `nfc`/`nfd`, the XID predicates) call the host's ICU4C.
+--- Where the host lacks ICU those ops *raise* rather than approximating:
+--- a coarse fallback (`grapheme` = code point, `width` = code-point
+--- count) is silently wrong off ASCII, so this contract prefers a loud
+--- failure to plausible-looking wrong data.
 ---
 --- Text is `String`; code points are `Int` scalar values; grapheme and
 --- code-point lists are `List String`/`List Int`. Indices are grapheme
@@ -75,7 +77,8 @@ axiom unicode.decode : String -> List Int
 --
 -- XID_Start/XID_Continue and identifier validity need the DerivedCore
 -- properties table -- not computable from `char.*` atoms. Provided by
--- `unicode-native` (`plugin-lib-unicode`) / `unicode-js`.
+-- `unicode-c` (ICU4C `u_hasBinaryProperty`) / `unicode-js` (regex
+-- `\p{ID_Start}` / `\p{ID_Continue}`).
 
 axiom unicode.is_valid_identifier : String -> Bool
 -- LAW: output <=> input is a valid Unicode identifier (UAX #31:
@@ -95,12 +98,12 @@ axiom unicode.is_xid_continue : String -> Bool
 -- ---------------------------------------------------------------------------
 --
 -- A grapheme cluster is a user-perceived "character": base + combining
--- marks, emoji sequences, CRLF, regional-indicator pairs. The contract is
--- semantic (clusters), so a code-point fallback is *conservatively
--- correct* for ASCII/single-scalar text but under-segments real cluster
--- text -- `unicode-handl` implements it as `char.chars` (each scalar is a
--- grapheme), documented as a fallback; `unicode-native`/`unicode-js`
--- implement the full UAX #29 segmentation.
+-- marks, emoji sequences, CRLF, regional-indicator pairs. A code-point
+-- fallback would be *conservatively correct* for ASCII/single-scalar text
+-- but silently under-segments real cluster text (a ZWJ family emoji is one
+-- cluster, not five), so this contract requires the real segmentation
+-- rather than a fallback: `unicode-c` calls ICU4C's `ubrk_*` (UAX #29);
+-- `unicode-js` would use `Intl.Segmenter`.
 
 axiom unicode.graphemes : String -> List String
 -- LAW: concat(graphemes(input)) = input  (covering)
@@ -145,9 +148,10 @@ axiom unicode.casefold : String -> String
 --
 -- Canonical composition/decomposition require the normalization tables.
 -- These are declared in the contract but are *not* implementable in pure
--- handl over `char.*`: `unicode-handl` intentionally omits them so that a
--- pure-handl call fails loudly rather than silently returning
--- un-normalized text. Provided by `unicode-native`/`unicode-js`.
+-- handl over `char.*`, so a backend must supply them: `unicode-c` calls
+-- ICU4C's `unorm2_*`, and on a host without ICU the call fails loudly
+-- rather than silently returning un-normalized text. `unicode-js` would
+-- use `String.prototype.normalize`.
 
 axiom unicode.nfc : String -> String
 -- LAW: IsNormalized(output, NFC) && nfc(nfc(s)) = nfc(s) (idempotent)
