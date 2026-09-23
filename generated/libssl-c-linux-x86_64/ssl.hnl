@@ -1,9 +1,10 @@
 --- Generated adapter for libssl-c-linux-x86_64/ssl
 
 from "result" import { ok, err }
-from "../libssl/ssl" import { SslCtxNew, SslCtxFree, SslSetFd, SslSetVerify, SslNew, SslSet1Host, SslFree, SslConnect, SslRead, SslWrite, SslCtrl, SslGetError, TlsClientMethod, SslShutdown, SslCtxSetDefaultVerifyPaths, SslGetVerifyResult, OpensslInitSsl }
+from "../libssl/ssl" import { SslCtxNew, SslCtxFree, SslSetFd, SslSetVerify, SslCtxUsePrivateKeyFile, SslCtxUseCertificateChainFile, SslCtxCheckPrivateKey, SslNew, SslSet1Host, SslFree, SslAccept, SslConnect, SslRead, SslWrite, SslCtrl, SslGetError, TlsServerMethod, TlsClientMethod, SslShutdown, SslCtxSetDefaultVerifyPaths, SslGetVerifyResult, OpensslInitSsl }
 
 export X509_V_OK: Int := 0
+export SSL_FILETYPE_PEM: Int := 1
 export TLSEXT_NAMETYPE_host_name: Int := 0
 export SSL_VERIFY_PEER: Int := 1
 export SSL_ERROR_NONE: Int := 0
@@ -45,6 +46,33 @@ export SSL_set_verify: SslSetVerify := (__arg_0, __arg_1, __arg_2) ~> do {
   ok(null)
 }
 
+export SSL_CTX_use_PrivateKey_file: SslCtxUsePrivateKeyFile := (ctx, file, type_) ~> do {
+  r = ffi.call("libssl.so.3", "SSL_CTX_use_PrivateKey_file", [ctx, file, type_], ["handle", "cstr", "i32"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export SSL_CTX_use_certificate_chain_file: SslCtxUseCertificateChainFile := (ctx, file) ~> do {
+  r = ffi.call("libssl.so.3", "SSL_CTX_use_certificate_chain_file", [ctx, file], ["handle", "cstr"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
+export SSL_CTX_check_private_key: SslCtxCheckPrivateKey := (ctx) ~> do {
+  r = ffi.call("libssl.so.3", "SSL_CTX_check_private_key", [ctx], ["handle"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
+}
+
 export SSL_new: SslNew := (__arg_0) ~> do {
   r = ffi.call("libssl.so.3", "SSL_new", [__arg_0], ["handle"], "handle", false)
   ok(r)
@@ -62,6 +90,15 @@ export SSL_set1_host: SslSet1Host := (s, host) ~> do {
 export SSL_free: SslFree := (ssl) ~> do {
   r = ffi.call("libssl.so.3", "SSL_free", [ssl], ["handle"], "void", false)
   ok(null)
+}
+
+export SSL_accept: SslAccept := (ssl) ~> do {
+  r = ffi.call("libssl.so.3", "SSL_accept", [ssl], ["handle"], "i32", false)
+  if r < 0 {
+    err(ffi.errno())
+  } else {
+    ok(r)
+  }
 }
 
 export SSL_connect: SslConnect := (ssl) ~> do {
@@ -107,6 +144,11 @@ export SSL_get_error: SslGetError := (s, ret_code) ~> do {
   } else {
     ok(r)
   }
+}
+
+export TLS_server_method: TlsServerMethod := () ~> do {
+  r = ffi.call("libssl.so.3", "TLS_server_method", [], [], "handle", false)
+  ok(r)
 }
 
 export TLS_client_method: TlsClientMethod := () ~> do {

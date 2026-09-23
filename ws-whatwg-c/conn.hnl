@@ -159,7 +159,7 @@ ssl_write_all := (s, buf) ~> do {
 --- @param {conn} - the connection (reads `.fd` and `.ssl`)
 --- @param {buf} - the Bytes to write
 --- @returns {Result<Int, Errno> - total sent, or the write errno}
-io_write_all := (conn, buf) ~> if conn.ssl == null {
+export io_write_all: (Conn, Bytes) ~[1]~> Result<Int, Errno> := (conn, buf) ~> if conn.ssl == null {
   write_all(conn.fd, buf)
 } else {
   ssl_write_all(conn.ssl, buf)
@@ -219,11 +219,12 @@ ssl_read_some := (s) ~> do {
 
 --- read_head_io -- `read_head`'s accumulation loop, parameterized on
 --- the TLS session (or null) so the same head scan serves plain and
---- `wss` conns.
+--- `wss` conns. Exported for `server.accept_tls`, which reads the
+--- upgrade request inside the freshly accepted TLS channel.
 --- @param {fd} - the socket fd
 --- @param {s} - the SSL session handle, or null
 --- @returns {Result<HeadOut, Errno> - the head, or the read errno}
-read_head_io := (fd, s) ~> do {
+export read_head_io: (Int, Value) ~[1]~> Result<HeadOut, Errno> := (fd, s) ~> do {
   while { fd: fd, s: s, acc: bytes.from_list([]) } {
     (fd, s, acc) ~> do {
       r :: io_read_some(fd, s)
@@ -732,7 +733,13 @@ export close: (Conn) ~[1]~> Result<Int, Errno> := (conn) ~> do {
     do {
       sd :: ssl.SSL_shutdown(conn.ssl)
       f1 :: ssl.SSL_free(conn.ssl)
-      f2 :: ssl.SSL_CTX_free(conn.ssl_ctx)
+      -- `ssl_ctx` is null on accepted server conns (the listener owns
+      -- the shared ctx); client conns carry their own.
+      f2 :: if conn.ssl_ctx == null {
+        ok(null)
+      } else {
+        ssl.SSL_CTX_free(conn.ssl_ctx)
+      }
       if tag.tag_of(sd) == "err" {
         sd
       } else if tag.tag_of(f1) == "err" {

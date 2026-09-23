@@ -15,7 +15,8 @@
 --- Scope: `ws://` and `wss://` URLs (TLS via the generated
 --- `libssl-c-linux-x86_64/ssl.hnl` adapter), IPv4-literal hosts with
 --- `getaddrinfo` DNS fallback, a blocking `listen`/`accept` server
---- half in `server.hnl`. `wss://` sends SNI and verifies the peer
+--- half in `server.hnl` (plain) plus `listen_tls`/`accept_tls` for
+--- `wss` serving. `wss://` sends SNI and verifies the peer
 --- certificate chain and hostname against the default CA store
 --- (`SSL_CERT_FILE`/`SSL_CERT_DIR` honoured). No IPv6, no redirects,
 --- no permessage-deflate.
@@ -33,10 +34,18 @@ from "bytes" import { Bytes }
 --- session handle for `wss://` conns (null on plain `ws://`), and
 --- `ssl_ctx` the `SSL_CTX` it was created from -- the context must
 --- outlive the session, so both ride on the conn for `close` to free
---- in order. `server` marks the `accept`ed half of a server
---- connection: server sends are unmasked (RFC 6455 section 5.1 --
---- clients mask, servers must not).
+--- in order. Accepted server conns carry `ssl_ctx: null` instead:
+--- their session comes from the listener's shared `SSL_CTX`, which
+--- `close_listener` owns. `server` marks the `accept`ed half of a
+--- server connection: server sends are unmasked (RFC 6455 section
+--- 5.1 -- clients mask, servers must not).
 export Conn := { fd: Int, rbuf: Bytes, ssl: Value, ssl_ctx: Value, server: Bool }
+
+--- A `wss` listener (`server.listen_tls`): the bound listen fd plus
+--- the shared server `SSL_CTX` each accepted session is created from.
+--- The listener owns the ctx -- `server.close_listener` releases both;
+--- accepted conns carry `ssl_ctx: null`.
+export Listener := { fd: Int, ssl_ctx: Value }
 
 --- A packed socket address as a record (what `sockaddr_out` returns).
 export Sockaddr := { port: Int, ip: String }
