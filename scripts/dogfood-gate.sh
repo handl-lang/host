@@ -164,6 +164,8 @@ ARROW_PACKAGES=(
   handl-packages/ws-c
   handl-packages/fetch-c
   handl-packages/ws_frame-handl
+  # runnable app examples (arrow dialect: they import the stack above)
+  examples/http
 )
 
 arrow_sources=()
