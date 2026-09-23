@@ -542,6 +542,57 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &["available", "icu_version"],
         registry: None,
     },
+    // ── unicode_c — the `unicode` contract implemented over the system
+    // ICU4C common library via `ffi` (`ubrk_*` UAX #29 grapheme
+    // segmentation, `unorm2_*` NFC/NFD, `u_strFoldCase`, `u_hasBinaryProperty`
+    // XID checks, EAST_ASIAN_WIDTH display width, UTF-16 marshalling,
+    // UErrorCode readbacks). Pure-handl module; `available`/`icu_version`
+    // report probe results so callers can gate on host ICU presence.
+    ModuleSpec {
+        name: "unicode_c",
+        hnl: include_str!("../../../handl-packages/unicode-c/unicode-c.hnl"),
+        funcs: &[
+            "code_points",
+            "from_code_points",
+            "is_ascii",
+            "code_point_at",
+            "decode",
+            "is_valid_identifier",
+            "is_xid_start",
+            "is_xid_continue",
+            "graphemes",
+            "grapheme_count",
+            "width",
+            "casefold",
+            "nfc",
+            "nfd",
+        ],
+        ops: &[],
+        values: &["available", "icu_version"],
+        registry: None,
+    },
+    // ── unicode_handl — the pure-handl fallback for the `unicode` contract ─
+    // Coarse by construction (`char.*`-only): code-point-fallback
+    // `graphemes`/`grapheme_count`/`width`/`casefold`, no `nfc`/`nfd`.
+    // Kept as a reachable package for hosts without ICU — `unicode_c` is
+    // the full table-backed backend.
+    ModuleSpec {
+        name: "unicode_handl",
+        hnl: include_str!("../../../handl-packages/unicode-handl/unicode-handl.hnl"),
+        funcs: &[
+            "code_points",
+            "from_code_points",
+            "is_ascii",
+            "code_point_at",
+            "graphemes",
+            "grapheme_count",
+            "width",
+            "casefold",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
     // ── icu_c_* — sdkgen-generated ICU4C adapter modules (i18n) ────────
     // Table-only modules: `intl_c` reaches them via
     // `from "../generated/icu-c-linux-x86_64/<mod>" import * as <mod>`,
@@ -740,6 +791,51 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
+    // ── icu_uc_* — Unicode-data adapters used by `unicode_c` ───────────
+    ModuleSpec {
+        name: "unorm2",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/unorm2.hnl"),
+        funcs: &[
+            "unorm2_getNFCInstance_78",
+            "unorm2_getNFDInstance_78",
+            "unorm2_normalize_78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ustring",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/ustring.hnl"),
+        funcs: &["u_strFoldCase_78"],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uchar",
+        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/uchar.hnl"),
+        funcs: &[
+            "u_charType_78",
+            "u_getIntPropertyValue_78",
+            "u_hasBinaryProperty_78",
+        ],
+        ops: &[],
+        values: &[
+            "UCHAR_EAST_ASIAN_WIDTH",
+            "UCHAR_XID_CONTINUE",
+            "UCHAR_XID_START",
+            "U_CONTROL_CHAR",
+            "U_ENCLOSING_MARK",
+            "U_EA_FULLWIDTH",
+            "U_EA_WIDE",
+            "U_FORMAT_CHAR",
+            "U_LINE_SEPARATOR",
+            "U_NON_SPACING_MARK",
+            "U_PARAGRAPH_SEPARATOR",
+        ],
+        registry: None,
+    },
 ];
 /// former `UtilsLibraryPlugin::contribute` module list).
 const UTILS_MODULES: &[&str] = &[
@@ -918,6 +1014,17 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.intl-c",
         plugin_name: "lib-intl-c",
         hnl: include_str!("../../../handl-packages/intl/intl.hnl"),
+        modules: &[],
+    },
+    // ── unicode_c — `unicode` contract backend over system ICU4C via `ffi` ─
+    // The package's capability surface is the `unicode` contract itself; the
+    // `unicode_c` module is the implementation. Mirrors the `intl`/`intl_c`
+    // contract/impl split.
+    PackageSpec {
+        lib_name: "unicode_c",
+        plugin_id: "lib.unicode-c",
+        plugin_name: "lib-unicode-c",
+        hnl: include_str!("../../../handl-packages/unicode/unicode.hnl"),
         modules: &[],
     },
 ];
