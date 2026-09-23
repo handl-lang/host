@@ -2,10 +2,23 @@
 --- client run as tasks in the same concurrent-epoll scheduler.
 
 from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
-from "../serve-epoll/serve-epoll" import { listener_task }
+from "../serve-epoll/serve-epoll" import { listener_task, tls_ctx_server }
 from "../fetch-c/fetch-c" import { fetch_task }
 from "../http_rfc/http_rfc" import * as rfc
 from "bytes" import * as bytes
+from "../generated/libc-c-linux-x86_64/stdlib" import { system }
+
+CERT := "/tmp/serve-epoll-test-cert.pem"
+
+KEY := "/tmp/serve-epoll-test-key.pem"
+
+--- self-signed cert for the TLS test (idempotent).
+gen_cert := (_u) ~> do {
+  _ := system("test -f " + CERT + " || openssl req -x509 -newkey rsa:2048 " +
+    "-nodes -keyout " + KEY + " -out " + CERT + " -days 2 " +
+    "-subj /CN=localhost >/dev/null 2>&1")
+  system("test -f " + CERT)
+}
 
 --- local aliases: task envs serialize ` := ` bindings only.
 ltask := listener_task
@@ -30,11 +43,16 @@ slow_handler := (s) ~> match hash_map.get_or(s, "phase", "h") {
 --- spawn the listener + a fetch_task, await the client, return its
 --- response. The listener never finishes; run() ends with the main
 --- task.
+--- listener init: tls/ctx are optional (absent -> plain listener).
+listener_init := (s) ~> ({
+  phase: "accept", lfd: s.lfd, handler: s.handler, mode: s.mode,
+  tls: hash_map.get_or(s, "tls", false),
+  ctx: hash_map.get_or(s, "ctx", 0)
+})
+
 main := (s) ~> match s.phase {
   "a": {
-    call: { name: "spawn", task: ltask,
-            init: { phase: "accept", lfd: s.lfd,
-                    handler: s.handler, mode: s.mode } },
+    call: { name: "spawn", task: ltask, init: listener_init(s) },
     state: hash_map.merge(s, { phase: "b" })
   },
   "b": {
@@ -53,9 +71,7 @@ main := (s) ~> match s.phase {
 --- connection, so the second request lands on the same conn_task.
 main2 := (s) ~> match s.phase {
   "a": {
-    call: { name: "spawn", task: ltask,
-            init: { phase: "accept", lfd: s.lfd,
-                    handler: s.handler, mode: s.mode } },
+    call: { name: "spawn", task: ltask, init: listener_init(s) },
     state: hash_map.merge(s, { phase: "b" })
   },
   "b": {
@@ -131,6 +147,17 @@ test_serve_body_echo := assert do {
     init: { method: "POST", body: "b1" } })
   r.main.body
 } := "b1|2"
+
+--- TLS: the listener wraps each connection in libssl (driven by the
+--- scheduler's tls_* ops) and a curl client fetches over https.
+test_serve_tls := assert do {
+  _ := gen_cert(null)
+  lfd := tcp_listen({ host: "127.0.0.1", port: 18355 })
+  r := run(main, { phase: "a", lfd: lfd, handler: handler, mode: "plain",
+    tls: true, ctx: tls_ctx_server(CERT, KEY),
+    url: "https://127.0.0.1:18355/tls", init: { insecure: true } })
+  r.main.body
+} := "hi GET /tls"
 
 --- chunked request bodies decode (chunk extensions ignored).
 test_chunked_parse := assert do {

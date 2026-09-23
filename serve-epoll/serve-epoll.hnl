@@ -4,7 +4,8 @@
 --- spawned task that accumulates the request bytes, invokes the
 --- handler, writes the serialized response, and loops while the peer
 --- keeps the connection alive. HTTP/1.1 keep-alive, pipelined requests,
---- and chunked request bodies; no chunked responses or TLS (v0).
+--- chunked request bodies, and optional TLS (`opts.tls` = { cert, key },
+--- driven by the scheduler's tls_* ops); no chunked responses (v0).
 ---
 --- Handlers:
 ---   serve(handler, opts)      plain arrow `req ~> resp`, called inline
@@ -18,6 +19,7 @@
 
 from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
 from "../http_rfc/http_rfc" import * as rfcm
+from "../tls-libssl/tls-libssl" import * as tlsp
 from "bytes" import * as bytes
 from "str" import * as str
 
@@ -30,7 +32,32 @@ try_parse := rfcm.try_parse_request
 
 serialize_resp := rfcm.serialize_response
 
+--- exported so callers can build a shared SSL_CTX for `opts.tls`.
+export tls_ctx_server := tlsp.ctx_server
+
+tls_wrap_server := tlsp.wrap_server
+
 MAX_REQ := 1048576
+
+--- per-connection op selection: TLS connections use the scheduler's
+--- tls_* ops, plain ones the socket ops.
+read_call := (s) ~> if hash_map.get_or(s, "tls", false) {
+  { name: "tls_recv", ssl: s.ssl, fd: s.fd }
+} else {
+  { name: "recv", fd: s.fd }
+}
+
+send_call := (s, buf) ~> if hash_map.get_or(s, "tls", false) {
+  { name: "tls_send", ssl: s.ssl, fd: s.fd, buf: buf }
+} else {
+  { name: "send", fd: s.fd, buf: buf }
+}
+
+close_call := (s) ~> if hash_map.get_or(s, "tls", false) {
+  { name: "tls_close", ssl: s.ssl, fd: s.fd }
+} else {
+  { name: "close", fd: s.fd }
+}
 
 --- keep-alive decision: HTTP/1.1 persists unless `connection: close`;
 --- HTTP/1.0 closes unless `connection: keep-alive`.
@@ -47,7 +74,7 @@ reply := (s, resp, head_only) ~> do {
   resp2 := hash_map.merge(resp, { headers: hash_map.set(hs,
     "connection", if ka { "keep-alive" } else { "close" }) })
   buf := serialize_resp(resp2, head_only)
-  { call: { name: "send", fd: s.fd, buf: buf },
+  { call: send_call(s, buf),
     state: hash_map.merge(s, { phase: "sent", out: buf, off: 0 }) }
 }
 
@@ -66,14 +93,26 @@ respond := (s, req) ~> do {
 --- and loops while keep-alive holds. Bytes past `consumed` stay in
 --- s.buf so pipelined requests parse without another recv.
 conn_task := (s) ~> match s.phase {
+  "tls": {
+    call: { name: "tls_accept", ssl: s.ssl, fd: s.fd },
+    state: hash_map.merge(s, { phase: "hs" })
+  },
+  "hs": do {
+    if s.result == null {
+      { call: read_call(s), state: hash_map.merge(s, { phase: "got" }) }
+    } else {
+      -- handshake failed: drop the connection
+      { call: close_call(s), state: hash_map.merge(s, { phase: "done" }) }
+    }
+  },
   "read": {
-    call: { name: "recv", fd: s.fd },
+    call: read_call(s),
     state: hash_map.merge(s, { phase: "got" })
   },
   "got": do {
     if bytes.len(s.result) == 0 {
       -- peer closed before/without a full request
-      { call: { name: "close", fd: s.fd },
+      { call: close_call(s),
         state: hash_map.merge(s, { phase: "done" }) }
     } else {
       { state: hash_map.merge(s, { phase: "parse",
@@ -86,7 +125,7 @@ conn_task := (s) ~> match s.phase {
       reply(hash_map.merge(s, { ka: false }),
         { status: 431, body: "request too large" }, false)
     } else if parsed == null {
-      { call: { name: "recv", fd: s.fd },
+      { call: read_call(s),
         state: hash_map.merge(s, { phase: "got" }) }
     } else if parsed.req == null {
       reply(hash_map.merge(s, { ka: false }),
@@ -108,16 +147,15 @@ conn_task := (s) ~> match s.phase {
           -- pipelined bytes already buffered: parse without recv
           { state: hash_map.merge(s, { phase: "parse" }) }
         } else {
-          { call: { name: "recv", fd: s.fd },
+          { call: read_call(s),
             state: hash_map.merge(s, { phase: "got" }) }
         }
       } else {
-        { call: { name: "close", fd: s.fd },
+        { call: close_call(s),
           state: hash_map.merge(s, { phase: "done" }) }
       }
     } else {
-      { call: { name: "send", fd: s.fd,
-                buf: bytes.slice(s.out, n, bytes.len(s.out) - n) },
+      { call: send_call(s, bytes.slice(s.out, n, bytes.len(s.out) - n)),
         state: hash_map.merge(s, { phase: "sent", off: n }) }
     }
   },
@@ -130,29 +168,46 @@ export listener_task := (s) ~> match s.phase {
     call: { name: "accept", fd: s.lfd },
     state: hash_map.merge(s, { phase: "spawn_conn" })
   },
-  "spawn_conn": {
-    call: { name: "spawn", task: conn_task,
-            init: { phase: "read", fd: s.result, buf: bytes.from_list([]),
-                    handler: s.handler, mode: s.mode } },
-    state: hash_map.merge(s, { phase: "accept" })
+  "spawn_conn": do {
+    fd := s.result
+    init := if hash_map.get_or(s, "tls", false) {
+      { phase: "tls", fd: fd, ssl: tls_wrap_server(s.ctx, fd), tls: true,
+        buf: bytes.from_list([]), handler: s.handler, mode: s.mode }
+    } else {
+      { phase: "read", fd: fd, tls: false,
+        buf: bytes.from_list([]), handler: s.handler, mode: s.mode }
+    }
+    { call: { name: "spawn", task: conn_task, init: init },
+      state: hash_map.merge(s, { phase: "accept" }) }
   },
   _: { out: null }
 }
 
---- serve(handler, { port, host? }) -- listen and run the accept loop
---- forever (blocks; this IS the process main loop).
-export serve := (handler, opts) ~> do {
+--- listener init shared by serve/serve_task: `opts.tls` = { cert, key }
+--- switches every accepted connection to TLS.
+listen_init := (handler, mode, opts) ~> do {
   lfd := tcp_listen({ host: hash_map.get_or(opts, "host", "0.0.0.0"),
                       port: opts.port })
-  run(listener_task, { phase: "accept", lfd: lfd,
-                       handler: handler, mode: "plain" })
+  if hash_map.has(opts, "tls") {
+    do {
+      t := opts.tls
+      { phase: "accept", lfd: lfd, handler: handler, mode: mode,
+        tls: true, ctx: tls_ctx_server(t.cert, t.key) }
+    }
+  } else {
+    { phase: "accept", lfd: lfd, handler: handler, mode: mode,
+      tls: false, ctx: 0 }
+  }
+}
+
+--- serve(handler, { port, host?, tls?: { cert, key } }) -- listen and
+--- run the accept loop forever (blocks; this IS the process main loop).
+export serve := (handler, opts) ~> do {
+  run(listener_task, listen_init(handler, "plain", opts))
 }
 
 --- serve_task(handler, opts) -- handler is a step-arrow: it is
 --- `enter`ed per request and may suspend on any scheduler op.
 export serve_task := (handler, opts) ~> do {
-  lfd := tcp_listen({ host: hash_map.get_or(opts, "host", "0.0.0.0"),
-                      port: opts.port })
-  run(listener_task, { phase: "accept", lfd: lfd,
-                       handler: handler, mode: "task" })
+  run(listener_task, listen_init(handler, "task", opts))
 }

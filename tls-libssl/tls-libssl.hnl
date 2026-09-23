@@ -1,0 +1,190 @@
+--- tls-libssl -- nonblocking TLS primitives over libssl, scheduler-agnostic.
+---
+--- Every call is a *step*: it performs one nonblocking attempt and
+--- reports what the caller must wait for, so a scheduler can park the
+--- task on the socket and retry. Nothing here blocks or loops.
+---
+---   handshake_step(ssl, is_server) -> { done } | { want: "read"|"write" } | { err }
+---   read_step(ssl)                 -> { data: Bytes } | { eof } | { want: .. } | { err }
+---   write_step(ssl, buf)           -> { sent: Int } | { want: .. } | { err }
+---
+--- Handles are plain integers (`SSL*`/`SSL_CTX*` addresses) so they can
+--- be stored in serialized scheduler state. The raw libssl entry points
+--- are called through `ffi.call` rather than the generated adapters
+--- because `SSL_get_error` needs the untouched return value, and the
+--- adapters collapse it into ok/err.
+---
+---   ctx_server(cert, key)          -> SSL_CTX*
+---   ctx_client()                   -> SSL_CTX*
+---   wrap_server(ctx, fd)           -> SSL*      (no handshake yet)
+---   wrap_client(ctx, fd, host)     -> SSL*      (SNI + hostname check)
+---   free(ssl) / ctx_free(ctx)
+---
+--- `close(ssl)` shuts the session down and frees it.
+
+LIB := "libssl.so.3"
+
+--- SSL_ERROR_* from ssl.h (stable ABI values).
+WANT_READ := 2
+
+WANT_WRITE := 3
+
+ZERO_RETURN := 6
+
+SSL_FILETYPE_PEM := 1
+--- SSL_CTRL_SET_TLSEXT_HOSTNAME / TLSEXT_NAMENUM_host_name
+CTRL_SNI := 55
+
+SNI_HOST := 0
+
+call := (sym, args, descs, ret) ~> ffi.call(LIB, sym, args, descs, ret, false)
+
+--- SSL_CTX_new(TLS_server_method()) with cert chain + key loaded.
+export ctx_server := (cert, key) ~> do {
+  m := call("TLS_server_method", [], [], "i64")
+  ctx := call("SSL_CTX_new", [m], ["ptr"], "i64")
+  if ctx == 0 {
+    error.raise("tls: SSL_CTX_new failed")
+  } else {
+    do {
+      rc := call("SSL_CTX_use_certificate_chain_file", [ctx, cert],
+        ["ptr", "cstr"], "i32")
+      rk := call("SSL_CTX_use_PrivateKey_file", [ctx, key, SSL_FILETYPE_PEM],
+        ["ptr", "cstr", "i32"], "i32")
+      ck := call("SSL_CTX_check_private_key", [ctx], ["ptr"], "i32")
+      if rc != 1 || rk != 1 || ck != 1 {
+        _ := call("SSL_CTX_free", [ctx], ["ptr"], "void")
+        error.raise("tls: bad certificate or key (" + cert + ")")
+      } else {
+        ctx
+      }
+    }
+  }
+}
+
+--- SSL_CTX_new(TLS_client_method()) with default CA paths.
+export ctx_client := (_u) ~> do {
+  m := call("TLS_client_method", [], [], "i64")
+  ctx := call("SSL_CTX_new", [m], ["ptr"], "i64")
+  if ctx == 0 {
+    error.raise("tls: SSL_CTX_new failed")
+  } else {
+    _ := call("SSL_CTX_set_default_verify_paths", [ctx], ["ptr"], "i32")
+    ctx
+  }
+}
+
+--- SSL_new + SSL_set_fd; no handshake driven yet.
+export wrap_server := (ctx, fd) ~> do {
+  ssl := call("SSL_new", [ctx], ["ptr"], "i64")
+  if ssl == 0 {
+    error.raise("tls: SSL_new failed")
+  } else {
+    do {
+      r := call("SSL_set_fd", [ssl, fd], ["ptr", "i32"], "i32")
+      if r != 1 {
+        _ := call("SSL_free", [ssl], ["ptr"], "void")
+        error.raise("tls: SSL_set_fd failed")
+      } else {
+        ssl
+      }
+    }
+  }
+}
+
+--- client wrap: fd + SNI + peer hostname verification.
+export wrap_client := (ctx, fd, host) ~> do {
+  ssl := call("SSL_new", [ctx], ["ptr"], "i64")
+  if ssl == 0 {
+    error.raise("tls: SSL_new failed")
+  } else {
+    do {
+      _ := call("SSL_set_fd", [ssl, fd], ["ptr", "i32"], "i32")
+      _ := call("SSL_ctrl", [ssl, CTRL_SNI, SNI_HOST, host],
+        ["ptr", "i32", "i64", "cstr"], "i64")
+      _ := call("SSL_set1_host", [ssl, host], ["ptr", "cstr"], "i32")
+      ssl
+    }
+  }
+}
+
+--- map an SSL_get_error code to the wait it asks for, or null.
+want_of := (code) ~> do {
+  if code == WANT_READ {
+    "read"
+  } else if code == WANT_WRITE {
+    "write"
+  } else {
+    null
+  }
+}
+
+--- one nonblocking SSL_accept / SSL_connect attempt.
+export handshake_step := (ssl, is_server) ~> do {
+  r := if is_server {
+    call("SSL_accept", [ssl], ["ptr"], "i32")
+  } else {
+    call("SSL_connect", [ssl], ["ptr"], "i32")
+  }
+  if r == 1 {
+    { done: true }
+  } else {
+    do {
+      e := call("SSL_get_error", [ssl, r], ["ptr", "i32"], "i32")
+      w := want_of(e)
+      if w != null {
+        { want: w }
+      } else {
+        { err: e }
+      }
+    }
+  }
+}
+
+--- one nonblocking SSL_read attempt (64KiB window).
+export read_step := (ssl) ~> do {
+  r := ffi.call(LIB, "SSL_read", [ssl], ["ptr", "out_buf:65536"], "i32", false)
+  if r.ret > 0 {
+    { data: r.buf }
+  } else {
+    do {
+      e := call("SSL_get_error", [ssl, r.ret], ["ptr", "i32"], "i32")
+      w := want_of(e)
+      if w != null {
+        { want: w }
+      } else if e == ZERO_RETURN || r.ret == 0 {
+        { eof: true }
+      } else {
+        { err: e }
+      }
+    }
+  }
+}
+
+--- one nonblocking SSL_write attempt.
+export write_step := (ssl, buf) ~> do {
+  n := call("SSL_write", [ssl, buf], ["ptr", "in_buf"], "i32")
+  if n > 0 {
+    { sent: n }
+  } else {
+    do {
+      e := call("SSL_get_error", [ssl, n], ["ptr", "i32"], "i32")
+      w := want_of(e)
+      if w != null {
+        { want: w }
+      } else {
+        { err: e }
+      }
+    }
+  }
+}
+
+--- SSL_shutdown + SSL_free.
+export close := (ssl) ~> do {
+  _ := call("SSL_shutdown", [ssl], ["ptr"], "i32")
+  call("SSL_free", [ssl], ["ptr"], "void")
+}
+
+export free := (ssl) ~> call("SSL_free", [ssl], ["ptr"], "void")
+
+export ctx_free := (ctx) ~> call("SSL_CTX_free", [ctx], ["ptr"], "void")
