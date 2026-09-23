@@ -809,6 +809,16 @@ fn lower_block(
         return Ok(Term::const_value(Value::Null));
     }
 
+    // `prefix` accumulates mid-block non-binding statements as an
+    // input-preserving effect sequence: each step is
+    // `Seq(product(stmt, id), proj_child 1)` — `stmt` runs against the
+    // block's input (its effects and errors happen), the pair keeps the
+    // input, and `proj_child 1` restores it for the next statement.
+    // Statements whose ops the `Term` interpreter does not implement
+    // (`import`, `assert`, host ops) lower fine but fail at interpret
+    // time, where `Runtime::eval` falls back to the AST eval engine —
+    // the same end result as declining here, without log noise.
+    let mut prefix: Option<Term> = None;
     let mut last = None;
     let count = statements.len();
     for (i, &idx) in statements.iter().enumerate() {
@@ -818,29 +828,33 @@ fn lower_block(
             // value, not null.
             Some(term) if i + 1 == count => last = Some(term),
             Some(_) => {}
-            // Non-binding statements carry effects the pure term cannot
-            // sequence — `stmt.import` runs its `env_define`s only when
-            // the `import` op evaluates, `assert(...)` raises only when
-            // it runs. Lowering-then-discarding them would silently skip
-            // the effect (`import m; 1` used to evaluate to `1` without
-            // loading anything). Decline so the runtime falls back to the
-            // AST eval engine, which evaluates them in order.
             None if i + 1 == count => last = Some(lower_node(ast, lang, idx, &env, params)?),
             None => {
-                return Err(format!(
-                    "block statement {} is not a binding; its effects cannot be \
-                     sequenced in the pure arrow calculus (falling back to AST eval)",
-                    idx
-                ));
+                let stmt = lower_node(ast, lang, idx, &env, params)?;
+                let step = Term::seq(
+                    Term::op_native(
+                        "product",
+                        vec![stmt, Term::op_native("id", vec![])],
+                    ),
+                    Term::op_native_lit("proj_child", vec![], 1),
+                );
+                prefix = Some(match prefix {
+                    Some(p) => Term::seq(p, step),
+                    None => step,
+                });
             }
         }
     }
 
-    last.ok_or_else(|| {
+    let last = last.ok_or_else(|| {
         format!(
             "block at {} produced no result expression",
             node_index(node)
         )
+    })?;
+    Ok(match prefix {
+        Some(p) => Term::seq(p, last),
+        None => last,
     })
 }
 
