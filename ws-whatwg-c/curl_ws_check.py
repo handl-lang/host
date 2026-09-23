@@ -4,7 +4,7 @@
 Drives libcurl exactly as the generated `CurlWsSend`/`CurlWsRecv`
 adapters would (same descriptor expansion), against a minimal RFC 6455
 echo server, and prints the frame metadata offsets so `WsFrameDesc` in
-`curl_client.hnl` can be checked against the real struct.
+`ws-c.hnl` can be checked against the real struct.
 
 Run: python3 handl-packages/ws-whatwg-c/curl_ws_check.py
 """
@@ -60,7 +60,7 @@ def ws_server(sock, ready):
 
 
 class CurlWsFrame(ctypes.Structure):
-    """Must match `WsFrameDesc` in curl_client.hnl."""
+    """Must match `WS_FRAME_DESC` in ws-c.hnl."""
 
     _layout_ = "ms"
     _pack_ = 1
