@@ -206,13 +206,50 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             }
         }
         "python" => {
-            if target.is_some() || include.is_some() || exclude.is_some() || config_path.is_some() {
-                eprintln!(
-                    "sdkgen: --target/--include/--exclude/--config are only supported for `sdkgen c`/`sdkgen webidl`"
-                );
-                return 2;
-            }
-            if let Err(e) = generate_python(&header, output_path) {
+            // A C header goes through the C backend and the Python
+            // emitter — a faithful ctypes projection of the same C ABI
+            // the Handl port/adapter pair exposes. A `.yaml`/`.json`
+            // spec takes the older spec-driven path (an embedded
+            // CPython interpreter over an env-var side channel).
+            let is_header = !matches!(
+                header.extension().and_then(|e| e.to_str()),
+                Some("yaml") | Some("yml") | Some("json")
+            );
+            if is_header {
+                let config = match config_path {
+                    Some(p) => match SdkgenConfig::load(Path::new(&p)) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            eprintln!("sdkgen: {e}");
+                            return 1;
+                        }
+                    },
+                    None => SdkgenConfig::default(),
+                };
+                let backend = match CBackend::new(target, config, include, exclude) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        eprintln!("sdkgen: {e}");
+                        return 1;
+                    }
+                };
+                let mut module = match backend.parse_header(&header) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        eprintln!("sdkgen: {e}");
+                        return 1;
+                    }
+                };
+                module.source = source_url.clone();
+                for d in &module.diagnostics {
+                    eprintln!("sdkgen: diagnostic: {d}");
+                }
+                let emitter = handl_plugin_sdkgen_emitter_python::PythonEmitter::new();
+                if let Err(e) = emitter.emit(&module, output_path) {
+                    eprintln!("sdkgen: {e}");
+                    return 1;
+                }
+            } else if let Err(e) = generate_python(&header, output_path) {
                 eprintln!("sdkgen: {e}");
                 return 1;
             }

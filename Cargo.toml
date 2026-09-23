@@ -108,6 +108,7 @@ members = [
   "crates/plugin-sdkgen-backend-c",
   "crates/plugin-sdkgen-backend-webidl",
   "crates/plugin-sdkgen-emitter-file",
+  "crates/plugin-sdkgen-emitter-python",
   "crates/plugin-ext-sdkgen",
 ]
 resolver = "3"

@@ -8,6 +8,7 @@ handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
 handl-plugin-sdkgen-backend-c = { path = "../plugin-sdkgen-backend-c" }
 handl-plugin-sdkgen-backend-webidl = { path = "../plugin-sdkgen-backend-webidl" }
 handl-plugin-sdkgen-emitter-file = { path = "../plugin-sdkgen-emitter-file" }
+handl-plugin-sdkgen-emitter-python = { path = "../plugin-sdkgen-emitter-python" }
 handl-plugin-lib-http-client = { path = "../plugin-lib-http-client" }
 handl-plugin-lib-http-client-std = { path = "../plugin-lib-http-client-std" }
 serde = { workspace = true, features = ["derive"] }
