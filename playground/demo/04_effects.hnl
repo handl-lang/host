@@ -7,7 +7,7 @@
 -- metaproofs (N=5). `g` is a pattern variable; `N` is a dimension
 -- variable.
 
-from "http_client_std" import * as http
+from "../../handl-packages/fetch-c/fetch-c" import * as fetchc
 from "fs" import { read_file }
 from "json_lib" import { parse, serialize }
 
@@ -24,7 +24,7 @@ file_value := { slideshow: { title: "Sample Slide Show" } }
 file_round_trip_placeholder := "{\"slideshow\":{\"title\":\"Sample Slide Show\"}}"
 
 -- 1-cell implementations, gated so the demo stays offline-safe.
-http_get_real := (u) ~> serialize(http.get(u))
+http_get_real := (u) ~> serialize(fetchc.fetch(u, {}))
 http_disabled := (u) ~> "HTTP disabled (set use_http := true)"
 HttpGet := (u) ~> (if use_http { http_get_real } else { http_disabled })(u)
 

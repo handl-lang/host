@@ -54,26 +54,6 @@ reference:
     description: ""
     include:
       - crate: handl-lib-hex
-  - title: HTTP Client
-    slug: lib-http-client
-    description: HTTP client types and stubs.
-    include:
-      - crate: handl-lib-http-client
-  - title: Http Client Std
-    slug: lib-http-client-std
-    description: ""
-    include:
-      - crate: handl-lib-http-client-std
-  - title: HTTP Server
-    slug: lib-http-server
-    description: HTTP server framework and types.
-    include:
-      - crate: handl-lib-http-server
-  - title: Http Server Std
-    slug: lib-http-server-std
-    description: ""
-    include:
-      - crate: handl-lib-http-server-std
   - title: Intl
     slug: lib-intl
     description: Internationalization and locale support.

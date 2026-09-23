@@ -16,6 +16,8 @@ from "./sockaddr" import * as sockaddr
 from "bytes" import * as bytes
 from "../generated/libc-c-linux-x86_64/socket" import * as socket
 from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
+from "../generated/libc-c-linux-x86_64/stdlib" import { system }
+from "ffi" import * as ffi
 
 --- bound_port -- the kernel-assigned port of a `listen(..., 0)` fd,
 --- read back through `getsockname` + the pure `sockaddr_out` unpack.
@@ -75,3 +77,90 @@ test_accept_loopback := assert(do {
     got_pong: tag.untag(r2).value.msg }
 }) = { accept_tag: "ok", status: 101, accept_ok: true,
        server_flag: true, got_ping: "ping", got_pong: "pong" }
+
+-- tls_server_ctx with unreadable cert/key paths fails the ctx build
+-- (cert loader returns != 1 -> ECONNABORTED) before any socket is
+-- made -- no libssl crash, no fd leak, just `err`.
+test_tls_server_ctx_bad_paths := assert(do {
+  c :: server.tls_server_ctx(
+    "/tmp/wss-serve-test-missing-cert.pem",
+    "/tmp/wss-serve-test-missing-key.pem")
+  { tag: tag.tag_of(c) }
+}) = { tag: "err" }
+
+-- listen_tls propagates the same ctx-build failure.
+test_listen_tls_bad_cert := assert(do {
+  l :: server.listen_tls(
+    "127.0.0.1", 0,
+    "/tmp/wss-serve-test-missing-cert.pem",
+    "/tmp/wss-serve-test-missing-key.pem")
+  { tag: tag.tag_of(l) }
+}) = { tag: "err" }
+
+-- wss serve loopback: a real self-signed cert is minted with the
+-- openssl CLI (system(3), same convention as fetch-c's canned
+-- server). Cert/key paths come from WSS_SERVE_CERT/WSS_SERVE_KEY when
+-- set; otherwise generated under /tmp when openssl is on PATH;
+-- skipped otherwise. A full TLS handshake can't run single-threaded
+-- (client SSL_connect and server SSL_accept each block for the
+-- other), so accept_tls is exercised against a raw TCP peer that
+-- sends garbage and closes -- SSL_accept fails fast and the session
+-- teardown path runs.
+cert_path := "/tmp/wss-serve-test-cert.pem"
+
+key_path := "/tmp/wss-serve-test-key.pem"
+
+ensure_cert := (_u) ~> do {
+  ec :: ffi.call("libc.so.6", "getenv", ["WSS_SERVE_CERT"], ["cstr"], "cstr", false)
+  ek :: ffi.call("libc.so.6", "getenv", ["WSS_SERVE_KEY"], ["cstr"], "cstr", false)
+  if ec != null && ek != null {
+    { cert: ec, key: ek }
+  } else {
+    do {
+      v :: system("command -v openssl >/dev/null 2>&1")
+      if tag.tag_of(v) == "err" || tag.untag(v).value != 0 {
+        null
+      } else {
+        do {
+          g :: system(
+            "openssl req -x509 -newkey rsa:2048 -nodes -days 1 " +
+            "-subj /CN=localhost -keyout " + key_path + " -out " + cert_path +
+            " 2>/dev/null")
+          if tag.tag_of(g) == "err" || tag.untag(g).value != 0 {
+            null
+          } else {
+            { cert: cert_path, key: key_path }
+          }
+        }
+      }
+    }
+  }
+}
+
+test_serve_wss_live := assert(do {
+  ck :: ensure_cert(null)
+  if ck == null {
+    true
+  } else {
+    do {
+      l :: server.listen_tls("127.0.0.1", 0, ck.cert, ck.key)
+      if tag.tag_of(l) == "err" {
+        false
+      } else {
+        do {
+          ln :: tag.untag(l).value
+          port :: bound_port(ln.fd)
+          cs :: tag.untag(socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)).value
+          cc :: socket.connect(cs, sockaddr.sockaddr_in(port, "127.0.0.1"))
+          w :: conn.write_all(cs, bytes.utf8_encode("not a tls record\r\n"))
+          c0 :: unistd.close(cs)
+          sc :: server.accept_tls(ln)
+          cl :: server.close_listener(ln)
+          okp :: (port > 0 && tag.tag_of(sc) == "err" &&
+                  tag.tag_of(cl) == "ok")
+          okp
+        }
+      }
+    }
+  }
+}) = true

@@ -3,10 +3,10 @@
 -- We start with the simplest thing: a JSON-over-HTTP pipeline.
 -- No rules, no proofs, no effects. Just a 1-cell program.
 
-from "http_client_std" import * as http
+from "../../handl-packages/fetch-c/fetch-c" import * as fetchc
 from "json_lib" import { parse, serialize }
 
-fetch := (u) ~> http.get(u)
+fetch := (u) ~> fetchc.fetch(u, {})
 
 -- 1-cell: fetch a JSON string, serialize it, parse it back.
 -- Notice the redundancy: serialize >>> parse does nothing useful here.

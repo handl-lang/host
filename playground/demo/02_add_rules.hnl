@@ -4,10 +4,10 @@
 -- A 2-cell is both a rewrite rule and a proof. `hnl run` now
 -- transforms the 1-cell before executing it.
 
-from "http_client_std" import * as http
+from "../../handl-packages/fetch-c/fetch-c" import * as fetchc
 from "json_lib" import { parse, serialize }
 
-fetch := (u) ~> http.get(u)
+fetch := (u) ~> fetchc.fetch(u, {})
 
 id := x ~> x
 

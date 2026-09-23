@@ -1,8 +1,6 @@
 //! `hnl sdkgen` CLI extension (ADR-0107).
 
-use handl_plugin_lib_http_client::{HttpClient, HttpMethod, HttpRequest};
-use handl_plugin_lib_http_client_std::StdHttpClient;
-use handl_plugin_sdkgen::{Emitter, SdkgenBackend};
+use handl_plugin_sdkgen::{http_get, Emitter, SdkgenBackend};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use handl_plugin_sdkgen_backend_webidl::{MdnDocSource, WebIdlBackend, WebIdlConfig};
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
@@ -276,20 +274,12 @@ fn fetch_spec(url: &str, dir: &Path) -> Result<PathBuf, String> {
         .unwrap_or("spec")
         .to_string();
 
-    let req = HttpRequest::new(HttpMethod::Get, url).with_timeout(30_000);
-    let resp = StdHttpClient
-        .request(&req)
-        .map_err(|e| format!("failed to fetch {url}: {e}"))?;
-    if !(200..300).contains(&resp.status) {
-        return Err(format!(
-            "failed to fetch {url}: HTTP {} {}",
-            resp.status, resp.status_text
-        ));
-    }
+    let body =
+        http_get(url, 30_000).map_err(|e| format!("failed to fetch {url}: {e}"))?;
 
     std::fs::create_dir_all(dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
     let path = dir.join(basename);
-    std::fs::write(&path, &resp.body)
+    std::fs::write(&path, &body)
         .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
     Ok(path)
 }

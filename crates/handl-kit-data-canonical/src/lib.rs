@@ -768,7 +768,7 @@ mod tests {
         let server = kit_module_names("server").unwrap();
         assert_eq!(server.first().unwrap(), "module-runtime");
         assert_eq!(server.last().unwrap(), "otlp-std");
-        assert_eq!(server.len(), 14);
+        assert_eq!(server.len(), 13);
     }
 
     #[test]

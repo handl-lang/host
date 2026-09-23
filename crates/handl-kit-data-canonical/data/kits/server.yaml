@@ -1,5 +1,4 @@
 # The server kit: everything in `config` plus the server-only modules.
 extends: config
 modules:
-  - http-client-std
   - otlp-std

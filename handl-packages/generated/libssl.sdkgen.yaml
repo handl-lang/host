@@ -3,6 +3,8 @@
 # handshake, read/write, shutdown, teardown, and certificate
 # verification (default CA paths, `SSL_set1_host`
 # hostname matching, `SSL_get_verify_result`, `SSL_ctrl` for SNI).
+# Server surface: `TLS_server_method`, `SSL_accept`, and the ctx-level
+# certificate/key loaders a listener configures once for all accepts.
 # Opaque SSL*/SSL_CTX* pointers are `handle` descriptors.
 library: libssl.so.3
 
@@ -14,6 +16,7 @@ headers:
         "SSL_new",
         "SSL_set_fd",
         "SSL_connect",
+        "SSL_accept",
         "SSL_read",
         "SSL_write",
         "SSL_shutdown",
@@ -21,8 +24,12 @@ headers:
         "SSL_CTX_free",
         "SSL_get_error",
         "TLS_client_method",
+        "TLS_server_method",
         "OPENSSL_init_ssl",
         "SSL_CTX_set_default_verify_paths",
+        "SSL_CTX_use_certificate_chain_file",
+        "SSL_CTX_use_PrivateKey_file",
+        "SSL_CTX_check_private_key",
         "SSL_set_verify",
         "SSL_set1_host",
         "SSL_get_verify_result",
@@ -36,13 +43,15 @@ headers:
 # Constants from headers pulled in by ssl.h's include closure:
 # X509_V_OK (x509_vfy.h) is the `SSL_get_verify_result` success word;
 # SSL_CTRL_SET_TLSEXT_HOSTNAME + TLSEXT_NAMETYPE_host_name (tls1.h) are
-# the `SSL_ctrl` pair `SSL_set_tlsext_host_name` expands to for SNI.
+# the `SSL_ctrl` pair `SSL_set_tlsext_host_name` expands to for SNI;
+# SSL_FILETYPE_PEM selects the PEM parser for the key loader.
 constants:
   [
     "X509_V_OK",
     "SSL_VERIFY_PEER",
     "SSL_CTRL_SET_TLSEXT_HOSTNAME",
     "TLSEXT_NAMETYPE_host_name",
+    "SSL_FILETYPE_PEM",
     "SSL_ERROR_*",
   ]
 
@@ -52,6 +61,32 @@ symbols:
   TLS_client_method:
     args: []
     ret: "Handle"
+
+  # const SSL_METHOD *TLS_server_method(void) — the server-side method.
+  TLS_server_method:
+    args: []
+    ret: "Handle"
+
+  # int SSL_accept(SSL *ssl) — server-side TLS handshake (1 = ok,
+  # <=0 = error; SSL_get_error classifies).
+  SSL_accept:
+    args: ["handle"]
+
+  # int SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx,
+  #   const char *file) — load a PEM cert chain into the ctx; 1 = ok.
+  SSL_CTX_use_certificate_chain_file:
+    args: ["handle", "cstr"]
+
+  # int SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file,
+  #   int type) — load the PEM private key (type = SSL_FILETYPE_PEM);
+  # 1 = ok.
+  SSL_CTX_use_PrivateKey_file:
+    args: ["handle", "cstr", "i32"]
+
+  # int SSL_CTX_check_private_key(const SSL_CTX *ctx) — cert/key
+  # consistency check; 1 = ok.
+  SSL_CTX_check_private_key:
+    args: ["handle"]
 
   # SSL_CTX *SSL_CTX_new(const SSL_METHOD *meth) — new context.
   SSL_CTX_new:

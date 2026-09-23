@@ -120,36 +120,6 @@ export default [
     ],
   },
   {
-    text: "HTTP Client",
-    collapsed: false,
-    link: "/reference/lib-http-client",
-    items: [
-      {
-        text: "Http Client Std",
-        link: "/reference/lib-http-client-std",
-      },
-      {
-        text: "Http",
-        link: "/reference/lib-http-client-http",
-      },
-    ],
-  },
-  {
-    text: "HTTP Server",
-    collapsed: false,
-    link: "/reference/lib-http-server",
-    items: [
-      {
-        text: "Http Server Std",
-        link: "/reference/lib-http-server-std",
-      },
-      {
-        text: "Http Server",
-        link: "/reference/lib-http-server-http_server",
-      },
-    ],
-  },
-  {
     text: "Intl",
     collapsed: false,
     link: "/reference/lib-intl",

@@ -2,9 +2,7 @@
 //! viewer, and the man7.org mirror.
 
 use flate2::read::GzDecoder;
-use handl_plugin_lib_http_client::{HttpClient, HttpMethod, HttpRequest};
-use handl_plugin_lib_http_client_std::StdHttpClient;
-use handl_plugin_sdkgen::DocSource;
+use handl_plugin_sdkgen::{http_get, DocSource};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Read;
@@ -18,14 +16,12 @@ use std::path::{Path, PathBuf};
 /// functions) are searched; the NAME-section description is extracted
 /// and cached per symbol.
 pub struct ManPageDocSource {
-    client: StdHttpClient,
     cache: RefCell<HashMap<String, Option<String>>>,
 }
 
 impl ManPageDocSource {
     pub fn new() -> Self {
         Self {
-            client: StdHttpClient,
             cache: RefCell::new(HashMap::new()),
         }
     }
@@ -55,12 +51,8 @@ impl ManPageDocSource {
     /// the NAME-section description out of the HTML.
     fn man7_doc(&self, key: &str, section: &str) -> Option<String> {
         let url = format!("https://man7.org/linux/man-pages/man{section}/{key}.{section}.html");
-        let req = HttpRequest::new(HttpMethod::Get, &url).with_timeout(10_000);
-        let resp = self.client.request(&req).ok()?;
-        if resp.status != 200 {
-            return None;
-        }
-        extract_html_name(&resp.body, key)
+        let body = http_get(&url, 10_000).ok()?;
+        extract_html_name(&body, key)
     }
 }
 

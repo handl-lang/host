@@ -158,6 +158,19 @@ pub fn pick_doc(
     }
 }
 
+/// Blocking HTTP GET with a timeout, used by [`DocSource`] impls that
+/// fetch docs over the network and by `hnl sdkgen --from-url` spec
+/// fetching. Returns the response body on a 2xx status; `Err` carries
+/// `HTTP <status>` for non-2xx responses or the transport error message.
+pub fn http_get(url: &str, timeout_ms: u64) -> Result<String, String> {
+    let req = ureq::get(url).timeout(std::time::Duration::from_millis(timeout_ms));
+    match req.call() {
+        Ok(resp) => resp.into_string().map_err(|e| e.to_string()),
+        Err(ureq::Error::Status(code, _)) => Err(format!("HTTP {code}")),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Backend-specific parser from a foreign API description to [`SdkgenModule`].
 pub trait SdkgenBackend {
     fn parse_header(&self, path: &Path) -> Result<SdkgenModule, SdkgenError>;

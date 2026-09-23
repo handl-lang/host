@@ -1,8 +1,6 @@
 //! MDN web-docs doc source for the WebIDL backend.
 
-use handl_plugin_lib_http_client::{HttpClient, HttpMethod, HttpRequest};
-use handl_plugin_lib_http_client_std::StdHttpClient;
-use handl_plugin_sdkgen::DocSource;
+use handl_plugin_sdkgen::{http_get, DocSource};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -13,7 +11,6 @@ use std::path::PathBuf;
 /// Returns `None` on network errors, non-200 responses, or missing
 /// content.
 pub struct MdnDocSource {
-    client: StdHttpClient,
     cache: RefCell<HashMap<String, Option<String>>>,
     cache_path: Option<PathBuf>,
 }
@@ -21,7 +18,6 @@ pub struct MdnDocSource {
 impl MdnDocSource {
     pub fn new() -> Self {
         Self {
-            client: StdHttpClient,
             cache: RefCell::new(HashMap::new()),
             cache_path: None,
         }
@@ -37,7 +33,6 @@ impl MdnDocSource {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default();
         Self {
-            client: StdHttpClient,
             cache: RefCell::new(cache),
             cache_path: Some(path),
         }
@@ -46,14 +41,10 @@ impl MdnDocSource {
     fn lookup_uncached(&self, key: &str) -> Option<String> {
         for path in mdn_paths(key) {
             let url = format!("https://developer.mozilla.org/en-US/docs/Web/API/{path}/index.json");
-            let req = HttpRequest::new(HttpMethod::Get, &url).with_timeout(10_000);
-            let Ok(resp) = self.client.request(&req) else {
+            let Ok(body) = http_get(&url, 10_000) else {
                 continue;
             };
-            if resp.status != 200 {
-                continue;
-            }
-            let Ok(json) = serde_json::from_str::<serde_json::Value>(&resp.body) else {
+            let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) else {
                 continue;
             };
             // The MDN index.json holds `doc.summary` as the short description.

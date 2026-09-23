@@ -2,7 +2,7 @@
 --
 -- No explicit FFI here; `fs` and `json_lib` packages hide the OS helpers.
 
-from "http_client_std" import * as http
+from "../handl-packages/fetch-c/fetch-c" import * as fetchc
 from "fs" import { read_file }
 from "json_lib" import { parse, serialize }
 
@@ -26,7 +26,7 @@ local_json := {
 }
 
 -- Real HTTP 1-cell.
-fetch := (url) ~> http.get(url)
+fetch := (url) ~> fetchc.fetch(url, {})
 
 -- `round_trip` is the real 1-cell pipeline; it is not executed here so the
 -- demo stays offline-safe.  Set `use_http := true` and call `round_trip(url)`
@@ -69,5 +69,5 @@ json_round_trip := serialize(file_parsed)
     parsed_file: file_parsed,
     round_trip: json_round_trip
   },
-  note: "http.get is live when use_http is true; parse/serialize come from handl-packages/json_lib; read_file comes from handl-packages/fs."
+  note: "fetchc.fetch is live when use_http is true; parse/serialize come from handl-packages/json_lib; read_file comes from handl-packages/fs."
 }

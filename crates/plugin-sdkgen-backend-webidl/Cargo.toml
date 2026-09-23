@@ -6,8 +6,6 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
-handl-plugin-lib-http-client = { path = "../plugin-lib-http-client" }
-handl-plugin-lib-http-client-std = { path = "../plugin-lib-http-client-std" }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }
 serde_json = { workspace = true }

@@ -5,11 +5,11 @@
 -- `~[N]~>` and `>>>` syntax; the runtime and typechecker do not care which
 -- "level" you call it.
 
-from "http_client_std" import * as http
+from "../handl-packages/fetch-c/fetch-c" import * as fetchc
 from "json_lib" import { parse, serialize }
 
 -- 1-cell: the real JSON-over-HTTP pipeline we want to optimize.
-fetch := (url) ~> http.get(url)
+fetch := (url) ~> fetchc.fetch(url, {})
 
 pipeline := fetch >>> serialize >>> parse
 

@@ -12,5 +12,3 @@ glob = { workspace = true }
 heck = { workspace = true }
 target-lexicon = { workspace = true }
 flate2 = "1.1"
-handl-plugin-lib-http-client = { path = "../plugin-lib-http-client" }
-handl-plugin-lib-http-client-std = { path = "../plugin-lib-http-client-std" }

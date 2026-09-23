@@ -7,7 +7,7 @@
 -- wired in, but HTTP, JSON, and filesystem IO are gated so `hnl run` is
 -- safe offline.
 
-from "http_client_std" import * as http
+from "../handl-packages/fetch-c/fetch-c" import * as fetchc
 from "fs" import { read_file }
 from "json_lib" import { parse, serialize }
 
@@ -29,7 +29,7 @@ file_round_trip_placeholder := "{\"slideshow\":{\"title\":\"Sample Slide Show\"}
 -- 1-cell implementations of the declared ops, backed by real packages.
 -- These are the arrows the 2-cell laws compare.
 -- All are gated so the demo stays offline-safe by default.
-http_get_real := url ~> serialize(http.get(url))
+http_get_real := url ~> serialize(fetchc.fetch(url, {}))
 http_disabled := url ~> "HTTP disabled (set use_http := true)"
 HttpGet := url ~> (if use_http { http_get_real } else { http_disabled })(url)
 JsonParse := s ~> if use_json { parse(s) } else { file_value }
