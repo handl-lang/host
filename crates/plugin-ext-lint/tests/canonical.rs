@@ -213,6 +213,39 @@ fn naming_convention_fix() {
 }
 
 // ---------------------------------------------------------------------------
+// record-as-block
+// ---------------------------------------------------------------------------
+
+#[test]
+fn record_as_block_fires() {
+    // `{ a: 1, b: 2 }` in block position parses each entry as a bare
+    // `type-annot` statement, so the block yields the last field's value.
+    let src = "-- doc\nmain = if true { a: 1, b: 2 } else { c: 3 }\n";
+    let diags = lint_source(src).unwrap();
+    assert_eq!(
+        for_rule(&diags, "record-as-block").len(),
+        2,
+        "expected one warning per misparsed block, got {:?}",
+        diags
+    );
+}
+
+#[test]
+fn record_as_block_clean_wrapped() {
+    // The `do { { ... } }` form parses the literal as an `object`.
+    let src = "-- doc\nmain = do { { a: 1, b: 2 } }\n";
+    let diags = lint_source(src).unwrap();
+    assert!(for_rule(&diags, "record-as-block").is_empty());
+}
+
+#[test]
+fn record_as_block_clean_annotation() {
+    // A real annotation nests `type-annot` under an `assign`.
+    let src = "-- doc\nmain = do {\n  y: Int := 1\n  y\n}\n";
+    let diags = lint_source(src).unwrap();
+    assert!(for_rule(&diags, "record-as-block").is_empty());
+}
+
 // simplify-paren
 // ---------------------------------------------------------------------------
 

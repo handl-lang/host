@@ -305,6 +305,9 @@ fn validate_condition(
                 }
             }
         }
+        TransformCondition::AnyChildKind { kind: _ } => {
+            // Any child may satisfy the kind — nothing positional to check.
+        }
         TransformCondition::PayloadEq { path: _, value: _ } => {
             // Payload paths are engine-defined; the abstraction crate cannot
             // validate them statically.

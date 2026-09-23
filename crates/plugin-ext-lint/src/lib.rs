@@ -21,6 +21,7 @@
 //! | `missing-module-doc` | Info | no | `!Native "source.missing-module-doc"` |
 //! | `fmt` | Warning | yes | `!Native "source.fmt"` (registered here) |
 //! | `simplify-paren` | Warning | yes | `!Match` + `!Unwrap` fix (ADR-0097) |
+//! | `record-as-block` | Warning | no | `!Match` + `!AnyChildKind` on `block` |
 //!
 //! The `scope.*` / `naming-convention` / `source.missing-module-doc` natives
 //! ship in [`canonical_lint_natives`]; `source.fmt` is registered by

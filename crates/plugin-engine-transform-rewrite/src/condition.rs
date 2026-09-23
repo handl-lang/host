@@ -29,6 +29,19 @@ pub fn matches_condition(
                 None => false,
             }
         }
+        TransformCondition::AnyChildKind { kind } => node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .map(|arr| {
+                arr.iter().any(|v| {
+                    v.as_u64()
+                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
+                        .map(|child| child.kind == *kind)
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false),
         TransformCondition::PayloadEq { path, value } => payload_at(&node.payload, path)
             .map(|v| payload_eq(lang, node, v, value))
             .unwrap_or(false),

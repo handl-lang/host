@@ -386,6 +386,28 @@ fn condition_kind_at_positional() {
 }
 
 #[test]
+fn condition_any_child_kind() {
+    let mut lang = test_lang();
+    add_rule(
+        &mut lang,
+        rule_with_when(TransformCondition::AnyChildKind {
+            kind: "lit".into(),
+        }),
+    );
+    let mut ast = Ast::new();
+    ast.push(leaf("lit", json!(1)));
+    ast.push(leaf("var", json!("x")));
+    ast.push(node("a", &[0, 1])); // has a `lit` child at a non-zero index
+    ast.push(node("a", &[1])); // no `lit` child
+    ast.push(node("a", &[])); // no children at all
+    let out = RewriteEngine::new()
+        .run_pass(&lang, &ast, root(&ast), "p")
+        .unwrap();
+    // Only the `a` holding a `lit` anywhere among its children rewrote.
+    assert_eq!(out.stats.rewritten, 1);
+}
+
+#[test]
 fn condition_kind_at_role() {
     let mut lang = test_lang();
     add_rule(

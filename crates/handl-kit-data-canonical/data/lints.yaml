@@ -125,3 +125,18 @@
   severity: warning
   message: "file is not in canonical format"
   check: !Native "source.fmt"
+
+# `record-as-block` — a `{ ... }` written in a block position (most often an
+# arrow body, `(x) ~> { a: 1, b: 2 }`) parses each entry as a bare
+# `type-annot` statement instead of a record field, so the block evaluates to
+# the *last field's value* — `"b"` in the example, silently not the record.
+# Wrap the record literal in a `do` block: `(x) ~> do { { a: 1, b: 2 } }`.
+# A `block` only ever holds a bare `type-annot` child through this misparse:
+# a real annotation (`y: Int := 1`) nests it under an `assign`.
+- id: lint.record-as-block
+  name: record-as-block
+  severity: warning
+  message: "`{ ... }` in block position parses as type annotations, not a record; wrap it in `do { { ... } }`"
+  check: !Match
+    node_kind: block
+    when: !AnyChildKind { kind: type-annot }
