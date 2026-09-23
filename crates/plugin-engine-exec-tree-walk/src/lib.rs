@@ -428,6 +428,25 @@ impl ScopeStack {
             .or_else(|| self.globals.get(name))
     }
 
+    /// The names this arrow's residual `binds` carry, sorted and capped.
+    ///
+    /// A named binding here is sugar the elaborator resolved by name; when
+    /// a call cannot find its callee, this is what the arrow actually
+    /// brought with it — so a name that *should* be present but is not is
+    /// a capture gap rather than a typo. Used only to explain such a
+    /// failure (see `call_host`).
+    pub fn captured_names(&self) -> Vec<String> {
+        const CAP: usize = 40;
+        let mut names: Vec<String> = self
+            .captured
+            .as_ref()
+            .map(|c| c.keys().map(|k| k.to_string()).collect())
+            .unwrap_or_default();
+        names.sort();
+        names.truncate(CAP);
+        names
+    }
+
     /// Define a variable in the current (innermost) scope.
     pub fn define(&mut self, name: &str, value: TaggedValue) {
         // INFALLIBLE: the scope stack is initialized with one frame in
@@ -2416,8 +2435,21 @@ impl TreeWalkEngine {
                     )
                 })?;
                 let func = modules.lookup(callee).ok_or_else(|| {
+                    // A callee resolved by name is sugar; when it is missing,
+                    // say what this arrow actually brought with it. A name
+                    // that should be here but is not is a capture gap, not a
+                    // typo -- see `ScopeStack::captured_names`.
+                    let carried = env.captured_names();
+                    let hint = if carried.is_empty() {
+                        String::new()
+                    } else {
+                        format!(
+                            " (this arrow carries binds: {}; a name missing from that list did not survive into it)",
+                            carried.join(", ")
+                        )
+                    };
                     LangError::engine_node(
-                        format!("call_host: function '{}' not found", callee),
+                        format!("call_host: function '{}' not found{}", callee, hint),
                         current_node,
                     )
                 })?;
