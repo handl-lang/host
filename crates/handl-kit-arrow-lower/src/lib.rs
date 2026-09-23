@@ -1268,14 +1268,22 @@ fn lower_object(
         let key_node = ast
             .get(AstRef::new(key_idx))
             .ok_or_else(|| format!("entry key {} out of bounds", key_idx))?;
-        let key = if key_node.kind == "var" || key_node.kind == "string" {
-            key_node
+        // A bare key parses as `var`; a *quoted* key parses as a `value`
+        // holding the string (the `string` kind is the contract-dialect
+        // spelling). Both are literals and lower; a computed key (any
+        // other kind, e.g. a numeric `value`) is declined.
+        let key = match key_node.kind.as_str() {
+            "var" | "string" => key_node
                 .payload
                 .as_str()
                 .ok_or_else(|| format!("entry key at {} is not a string", key_idx))?
-                .to_string()
-        } else {
-            return Err(format!("object entry key at {} is not a literal", key_idx));
+                .to_string(),
+            "value" => key_node
+                .payload
+                .as_str()
+                .ok_or_else(|| format!("object entry key at {} is not a literal", key_idx))?
+                .to_string(),
+            _ => return Err(format!("object entry key at {} is not a literal", key_idx)),
         };
 
         let value_idx = child_at_role_or_pos(entry, lang, "value", 1)
