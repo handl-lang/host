@@ -250,7 +250,7 @@ def write_module_page(out: Path, module: str, entries: list[dict]) -> None:
         elif e['sig']:
             # `[f, args]` / `s` are parameter patterns; `A -> B` / `A ~[n]~> B`
             # are type signatures.
-            if '->' in e['sig']:
+            if '->' in e['sig'] or '~>' in e['sig']:
                 md.append(f'**Signature:** `{esc(e["full"])} : {esc(e["sig"])}`')
             else:
                 md.append(f'**Signature:** `{esc(e["full"])}({esc(e["sig"])})`')
