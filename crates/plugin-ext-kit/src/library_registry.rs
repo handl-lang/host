@@ -53,9 +53,6 @@ pub fn populate(reg: &mut LibraryRegistry) {
     reg.register("kv-hashmap", || {
         Box::new(handl_plugin_lib_kv_hashmap::LibraryPlugin::new()) as LibraryPlugin
     });
-    reg.register("unicode", || {
-        Box::new(handl_plugin_lib_unicode::LibraryPlugin::new()) as LibraryPlugin
-    });
     reg.register("ip", || {
         Box::new(handl_plugin_lib_stdlib::ops::ip::LibraryPlugin::new()) as LibraryPlugin
     });

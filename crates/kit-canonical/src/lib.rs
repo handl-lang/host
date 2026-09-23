@@ -158,14 +158,17 @@ const ASSERT_FUNCS: &[&str] = &["equal", "not_equal", "true", "false", "contains
 /// [`HandlModule`], resolving `char` through [`StdlibResolver`].
 
 // ---------------------------------------------------------------------------
-// unicode-native module (Rust/ICU4X backend with unicode-handl fallback)
+// unicode_c module (the `unicode` contract over ICU4C via `ffi`)
 // ---------------------------------------------------------------------------
 //
-// The native `unicode` implementation lives in `handl-plugin-lib-unicode-native`.
-// It is composed with the pure-Handl `unicode-handl` record: native `op`s win,
-// and the handl record supplies fallback behavior for anything not implemented
-// natively. `char.*` calls inside `unicode-handl.hnl` are resolved by the
-// built-in `CharModule` dependency.
+// The `unicode` contract is served by `handl-packages/unicode-c` — a
+// pure-handl module whose table-dependent ops call the system ICU4C common
+// library through the generic FFI surface (`ubrk_*` grapheme segmentation,
+// `unorm2_*` NFC/NFD, `u_strFoldCase`, `u_hasBinaryProperty` XID checks,
+// East Asian Width). Its code-point/decode ops are pure handl and need no
+// ICU, so those keep working on hosts without it; the table-backed ops
+// raise `icu-unavailable` there. It replaces the ICU4X-backed
+// `plugin-lib-unicode-native` and the coarse `unicode-handl` fallback.
 
 // ---------------------------------------------------------------------------
 // Shared module cache
@@ -594,19 +597,6 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
                 || stdlib::module_with("unicode_c", Arc::new(StdlibResolver)).expect("unicode_c"),
             );
         }
-        // `unicode_handl` — the pure-handl fallback implementation of the
-        // same contract (coarse graphemes/width/casefold, no nfc/nfd).
-        if want("unicode_handl") {
-            register_handl(
-                &mut stdlib_registry,
-                &mut handl_modules,
-                "unicode_handl",
-                || {
-                    stdlib::module_with("unicode_handl", Arc::new(StdlibResolver))
-                        .expect("unicode_handl")
-                },
-            );
-        }
         if want("bool") {
             register_handl(&mut stdlib_registry, &mut handl_modules, "bool", || {
                 stdlib::module("bool").expect("bool")
@@ -881,10 +871,18 @@ fn build_stdlib_registry(modules: Option<&std::collections::HashSet<String>>) ->
 /// cannot depend on this crate (dep cycle), so the name set lives here
 /// where the wiring lives.
 pub fn canonical_wire_names() -> std::collections::HashSet<String> {
+    let exe = exe_identity();
     if let Some(path) = wire_prelude_cache_path() {
         if let Ok(text) = fs::read_to_string(&path) {
-            if let Ok(arr) = serde_json::from_str::<Vec<String>>(&text) {
-                return arr.into_iter().collect();
+            if let Ok(cached) = serde_json::from_str::<WirePreludeCache>(&text) {
+                // The name set is a pure function of the compiled-in module
+                // table and the embedded YAML — i.e. of *this binary*. Serving
+                // a file written by a different build (or a different binary
+                // sharing `target/debug/`, e.g. a test runner) would report
+                // wires that no longer exist and miss new ones.
+                if cached.exe == exe.0 && cached.exe_len == exe.1 && cached.exe_mtime_ns == exe.2 {
+                    return cached.names.into_iter().collect();
+                }
             }
         }
     }
@@ -954,15 +952,52 @@ pub fn canonical_wire_names() -> std::collections::HashSet<String> {
     if let Some(path) = wire_prelude_cache_path() {
         if let Ok(parent) = path.parent().ok_or(()) {
             let _ = fs::create_dir_all(parent);
-            let arr: Vec<&str> = names.iter().map(String::as_str).collect();
+            let mut sorted: Vec<String> = names.iter().cloned().collect();
+            sorted.sort_unstable();
+            let cache = WirePreludeCache {
+                exe: exe.0,
+                exe_len: exe.1,
+                exe_mtime_ns: exe.2,
+                names: sorted,
+            };
             let _ = fs::write(
                 &path,
-                serde_json::to_string_pretty(&arr).unwrap_or_default(),
+                serde_json::to_string_pretty(&cache).unwrap_or_default(),
             );
         }
     }
 
     names
+}
+
+/// On-disk form of the wire-name set: the names plus the identity of the
+/// executable that computed them (see [`canonical_wire_names`]). A file in
+/// the previous bare-`Vec<String>` form fails to deserialize and is simply
+/// recomputed.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct WirePreludeCache {
+    exe: String,
+    exe_len: u64,
+    exe_mtime_ns: u128,
+    names: Vec<String>,
+}
+
+/// `(path, length, mtime-nanos)` of the running executable — the identity
+/// that decides whether a cached wire-name set still describes this binary.
+fn exe_identity() -> (String, u64, u128) {
+    let Ok(path) = std::env::current_exe() else {
+        return (String::new(), 0, 0);
+    };
+    let Ok(meta) = fs::metadata(&path) else {
+        return (path.display().to_string(), 0, 0);
+    };
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    (path.display().to_string(), meta.len(), mtime)
 }
 
 fn wire_prelude_cache_path() -> Option<PathBuf> {

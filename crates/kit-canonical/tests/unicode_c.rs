@@ -81,15 +81,18 @@ fn icu_available() -> bool {
     field("available") == Value::Bool(true)
 }
 
-/// The kit registers `unicode_c` (the ICU4C backend) and `unicode_handl`
-/// (the pure-handl fallback) as wire names — the check the typechecker's
-/// unbound-wire scope uses.
+/// The kit registers `unicode_c` (the ICU4C backend) as a wire name — the
+/// check the typechecker's unbound-wire scope uses. The retired `unicode`
+/// module name must be gone: the contract package is not the module name.
 #[test]
 fn unicode_modules_are_wired() {
     let names = canonical_wire_names();
     assert!(names.contains("unicode_c"), "unicode_c not wired");
-    assert!(names.contains("unicode_handl"), "unicode_handl not wired");
     assert!(names.contains("graphemes"), "unicode_c fields not wired");
+    assert!(
+        !names.contains("unicode_handl"),
+        "unicode_handl must be retired"
+    );
 }
 
 #[test]

@@ -140,11 +140,6 @@ reference:
     description: ""
     include:
       - crate: handl-lib-toml
-  - title: Unicode
-    slug: lib-unicode
-    description: Unicode identifier and decode utilities.
-    include:
-      - crate: handl-lib-unicode
   - title: URL
     slug: lib-url-rfc
     description: URL parsing and serialization (RFC 3986 and WHATWG).

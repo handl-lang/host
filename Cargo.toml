@@ -46,7 +46,6 @@ members = [
   "crates/plugin-lib-scheduler",
   "crates/plugin-lib-stdlib",
   "crates/plugin-lib-tag",
-  "crates/plugin-lib-unicode",
   "crates/plugin-applier",
   "crates/platform",
   "crates/plugin-diag-expression",
@@ -178,7 +177,6 @@ handl-plugin-applier-default = { path = "crates/plugin-applier-default" }
 handl-plugin-lib-serialize = { path = "crates/plugin-lib-serialize" }
 handl-plugin-lib-scheduler = { path = "crates/plugin-lib-scheduler" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
-handl-plugin-lib-unicode = { path = "crates/plugin-lib-unicode" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-diag-expression = { path = "crates/plugin-diag-expression" }
 handl-plugin-lsp = { path = "crates/plugin-lsp" }

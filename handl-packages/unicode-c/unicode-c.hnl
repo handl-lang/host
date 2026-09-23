@@ -18,8 +18,8 @@
 ---   `u_hasBinaryProperty` (UCHAR_XID_START/XID_CONTINUE);
 --- - `width` -- UAX #11 via `u_getIntPropertyValue` (EAST_ASIAN_WIDTH) with
 ---   `u_charType` folding combining/format/control categories to 0;
---- - `code_points`/`from_code_points`/`is_ascii`/`code_point_at` -- `char.*`
----   interop, exact without ICU (the pure-handl `unicode-handl` subset);
+--- - `code_points`/`from_code_points`/`is_ascii`/`code_point_at` -- pure
+---   handl interop, exact without ICU;
 --- - `decode` -- UTF-8 `[byte_offset, code_point]` pairs, pure handl over
 ---   `bytes.*`.
 ---

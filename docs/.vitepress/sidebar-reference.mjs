@@ -329,17 +329,6 @@ export default [
     ],
   },
   {
-    text: "Unicode",
-    collapsed: false,
-    link: "/reference/lib-unicode",
-    items: [
-      {
-        text: "Unicode",
-        link: "/reference/lib-unicode-unicode",
-      },
-    ],
-  },
-  {
     text: "URL",
     collapsed: false,
     link: "/reference/lib-url-rfc",

@@ -571,28 +571,6 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &["available", "icu_version"],
         registry: None,
     },
-    // ── unicode_handl — the pure-handl fallback for the `unicode` contract ─
-    // Coarse by construction (`char.*`-only): code-point-fallback
-    // `graphemes`/`grapheme_count`/`width`/`casefold`, no `nfc`/`nfd`.
-    // Kept as a reachable package for hosts without ICU — `unicode_c` is
-    // the full table-backed backend.
-    ModuleSpec {
-        name: "unicode_handl",
-        hnl: include_str!("../../../handl-packages/unicode-handl/unicode-handl.hnl"),
-        funcs: &[
-            "code_points",
-            "from_code_points",
-            "is_ascii",
-            "code_point_at",
-            "graphemes",
-            "grapheme_count",
-            "width",
-            "casefold",
-        ],
-        ops: &[],
-        values: &[],
-        registry: None,
-    },
     // ── icu_c_* — sdkgen-generated ICU4C adapter modules (i18n) ────────
     // Table-only modules: `intl_c` reaches them via
     // `from "../generated/icu-c-linux-x86_64/<mod>" import * as <mod>`,
