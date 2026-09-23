@@ -1301,6 +1301,16 @@ thread_local! {
     /// `Send`.
     static RUNTIME_CACHE: RefCell<HashMap<usize, std::rc::Rc<Runtime>>> = RefCell::new(HashMap::new());
 
+    /// Per-thread cache of evaluated module records (one per module) — the
+    /// `__mod` the applied form projects its function from.
+    static MODULE_VALUE_CACHE: RefCell<HashMap<usize, serde_json::Value>> =
+        RefCell::new(HashMap::new());
+
+    /// Per-thread cache of parsed `(module source)` ASTs, evaluated once
+    /// into `MODULE_VALUE_CACHE`.
+    static MODULE_SRC_AST_CACHE: RefCell<HashMap<usize, Rc<handl_language::Ast>>> =
+        RefCell::new(HashMap::new());
+
     /// Per-thread cache of parsed applied-form ASTs.
     ///
     /// [`HandlFunction::call`] evaluates the applied expression
@@ -1562,14 +1572,43 @@ impl Function for HandlFunction {
         // and the `RefCell` borrow released *before* eval so re-entrant
         // nested calls never hold the borrow; eval only reads the AST, so
         // sharing is sound.
+        // The module record is arg-independent, so it is evaluated once per
+        // (thread, module) and the applied form projects from it —
+        // `__mod.func(__arg_0, …)` instead of `(module source).func(…)`,
+        // which re-evaluated the whole module on every call. That cost was
+        // ~0.33ms of the ~1.15ms fixed per-call overhead (measured with
+        // `examples/loader_bench.rs`).
+        let mod_val = MODULE_VALUE_CACHE.with(|c| c.borrow().get(&module_id).cloned());
+        let mod_val = match mod_val {
+            Some(v) => v,
+            None => {
+                let src_ast = MODULE_SRC_AST_CACHE.with(|cache| cache.borrow().get(&module_id).cloned());
+                let src_ast = match src_ast {
+                    Some(a) => a,
+                    None => {
+                        let source = format!("({})", self.source);
+                        let toks = runtime.lex(&Source::new(&source)).map_err(errf)?;
+                        let parsed = Rc::new(runtime.parse(&toks).map_err(errf)?);
+                        MODULE_SRC_AST_CACHE.with(|cache| {
+                            cache.borrow_mut().insert(module_id, Rc::clone(&parsed));
+                        });
+                        parsed
+                    }
+                };
+                let v = runtime
+                    .eval_shared_with_call_args(&src_ast, &[])
+                    .map_err(errf)?;
+                MODULE_VALUE_CACHE.with(|c| c.borrow_mut().insert(module_id, v.clone()));
+                v
+            }
+        };
         let ast_key = (module_id, func_name.clone(), args.len());
         let ast = AST_CACHE.with(|cache| cache.borrow().get(&ast_key).cloned());
         let ast = match ast {
             Some(ast) => ast,
             None => {
                 let source = format!(
-                    "({}).{}({})",
-                    self.source,
+                    "__mod.{}({})",
                     self.func_name,
                     arg_names.join(", ")
                 );
@@ -1579,6 +1618,10 @@ impl Function for HandlFunction {
                 parsed
             }
         };
+        let mut call_args = vec![("__mod".to_string(), mod_val)];
+        for (i, arg) in args.iter().enumerate() {
+            call_args.push((format!("__arg_{i}"), arg.clone()));
+        }
         // Arrows in the result are self-contained (`body_def` + `binds`,
         // ADR-0106) — no home-frame registration needed.
         runtime
