@@ -33,10 +33,11 @@ from "../generated/libc-c-linux-x86_64/time" import { clock_gettime, CLOCK_MONOT
 from "../generated/libc-c-linux-x86_64/inet" import { inet_pton }
 from "math" import * as math
 from "../tls-libssl/tls-libssl" import * as tlsp
+from "../ws-c/ws-c" import * as wsc
 
 --- local aliases: a task arrow's serialized env keeps ` := ` bindings
---- but drops `import` bindings, so the TLS steps must be reached
---- through a local binding (same workaround as fetch-c/serve-epoll).
+--- but drops `import` bindings, so the TLS/WebSocket steps must be
+--- reached through a local binding (same workaround as fetch-c).
 tls_step := tlsp.handshake_step
 
 tls_read_step := tlsp.read_step
@@ -44,6 +45,12 @@ tls_read_step := tlsp.read_step
 tls_write_step := tlsp.write_step
 
 tls_close_ssl := tlsp.close
+
+ws_recv_step := wsc.recv_step
+
+ws_send_step := wsc.send_step
+
+ws_close_conn := wsc.close
 
 -- ---------------------------------------------------------------
 -- small utilities
@@ -269,6 +276,26 @@ tls_attempt := (req) ~> do {
   }
 }
 
+--- one WebSocket attempt. Returns { ready, value } | { again: true } |
+--- { err: CURLcode }. `again` (CURLE_AGAIN) means the socket needs to
+--- become readable/writable -- the caller parks on it like any fd op.
+ws_attempt := (req) ~> do {
+  r := match req.name {
+    "ws_recv": ws_recv_step(req.h),
+    "ws_send": ws_send_step(req.h, req.buf, req.flags),
+    _: { err: -1 }
+  }
+  if hash_map.get_or(r, "again", false) {
+    { again: true }
+  } else if hash_map.has(r, "frame") {
+    { ready: true, value: r.frame }
+  } else if hash_map.has(r, "sent") {
+    { ready: true, value: { sent: r.sent } }
+  } else {
+    { err: hash_map.get_or(r, "err", -1) }
+  }
+}
+
 --- one syscall attempt for an fd request. Returns { ready, value } |
 --- { again: true } | { err: errno }.
 raw_attempt := (req) ~> do {
@@ -298,10 +325,12 @@ raw_attempt := (req) ~> do {
 }
 
 --- one attempt for any fd request: TLS ops report a wait direction,
---- plain socket ops report `{ again }`.
+--- WebSocket ops and plain socket ops report `{ again }`.
 fd_attempt := (req) ~> if req.name == "tls_accept" || req.name == "tls_connect"
     || req.name == "tls_recv" || req.name == "tls_send" {
   tls_attempt(req)
+} else if req.name == "ws_recv" || req.name == "ws_send" {
+  ws_attempt(req)
 } else {
   raw_attempt(req)
 }
@@ -829,6 +858,15 @@ perform := (s, e, req, st) ~> match req.name {
     _ := drop_interest(s, req.fd)
     _ := tls_close_ssl(req.ssl)
     _ := close(req.fd)
+    s1 := hash_map.set(s, "fdw",
+      drop_where(s.fdw, (w) ~> w.fd == req.fd))
+    resume(s1, e, st, null)
+  },
+  "ws_recv": try_fd(s, e, req, st, EPOLLIN),
+  "ws_send": try_fd(s, e, req, st, EPOLLOUT),
+  "ws_close": do {
+    _ := drop_interest(s, req.fd)
+    _ := ws_close_conn(req.h)
     s1 := hash_map.set(s, "fdw",
       drop_where(s.fdw, (w) ~> w.fd == req.fd))
     resume(s1, e, st, null)
