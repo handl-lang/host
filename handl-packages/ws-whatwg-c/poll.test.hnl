@@ -1,0 +1,82 @@
+from "./poll" import * as poll
+from "bytes" import * as bytes
+from "result" import { ok, err }
+from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
+
+--- u32le -- the little-endian u32 at `off` (pipe(2) writes the two fds
+--- as consecutive i32s into its 8-byte buffer).
+u32le := (buf, off) ~> do {
+  b0 :: bytes.at(buf, off)
+  b1 :: bytes.at(buf, off + 1)
+  b2 :: bytes.at(buf, off + 2)
+  b3 :: bytes.at(buf, off + 3)
+  b0 + b1 * 256 + b2 * 65536 + b3 * 16777216
+}
+
+--- make_pipe -- the (read_fd, write_fd) pair of a fresh pipe(2).
+make_pipe := () ~> do {
+  p :: unistd.pipe()
+  if tag.tag_of(p) == "err" {
+    error.raise("poll.test: pipe failed")
+  } else {
+    do {
+      buf :: tag.untag(p).value.buf
+      { r: u32le(buf, 0), w: u32le(buf, 4) }
+    }
+  }
+}
+
+test_wait_readable_empty_is_immediate := assert(do {
+  r :: poll.wait_readable([], 0)
+  tag.untag(r).value
+}) = []
+
+test_wait_readable_timeout_returns_no_fds := assert(do {
+  p :: make_pipe()
+  r :: poll.wait_readable([p.r], 0)
+  dropped :: unistd.close(p.r)
+  dropped2 :: unistd.close(p.w)
+  tag.untag(r).value == []
+}) = true
+
+test_wait_readable_reports_written_pipe := assert(do {
+  p :: make_pipe()
+  w :: unistd.write(p.w, bytes.from_list([7]))
+  r :: poll.wait_readable([p.r], 1000)
+  dropped :: unistd.close(p.r)
+  dropped2 :: unistd.close(p.w)
+  tag.untag(r).value == [p.r]
+}) = true
+
+test_wait_readable_reports_only_ready := assert(do {
+  p1 :: make_pipe()
+  p2 :: make_pipe()
+  w :: unistd.write(p2.w, bytes.from_list([1]))
+  r :: poll.wait_readable([p1.r, p2.r], 1000)
+  dropped :: unistd.close(p1.r)
+  dropped2 :: unistd.close(p1.w)
+  dropped3 :: unistd.close(p2.r)
+  dropped4 :: unistd.close(p2.w)
+  tag.untag(r).value == [p2.r]
+}) = true
+
+test_wait_readable_reports_both_when_both_ready := assert(do {
+  p1 :: make_pipe()
+  p2 :: make_pipe()
+  w1 :: unistd.write(p1.w, bytes.from_list([1]))
+  w2 :: unistd.write(p2.w, bytes.from_list([2]))
+  r :: poll.wait_readable([p1.r, p2.r], 1000)
+  dropped :: unistd.close(p1.r)
+  dropped2 :: unistd.close(p1.w)
+  dropped3 :: unistd.close(p2.r)
+  dropped4 :: unistd.close(p2.w)
+  tag.untag(r).value == [p1.r, p2.r]
+}) = true
+
+test_wait_readable_closed_write_end_reports_eof := assert(do {
+  p :: make_pipe()
+  dropped :: unistd.close(p.w)
+  r :: poll.wait_readable([p.r], 1000)
+  dropped2 :: unistd.close(p.r)
+  tag.untag(r).value == [p.r]
+}) = true

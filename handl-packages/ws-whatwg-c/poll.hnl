@@ -1,0 +1,134 @@
+--- ws-whatwg-c/poll -- epoll-backed multi-fd readiness: one wait over
+--- many connections, for a server that would otherwise park in a
+--- blocking read on a single peer.
+---
+--- @details
+--- `wait_readable` creates a throwaway `epoll(7)` instance, arms each
+--- fd level-triggered with `EPOLLIN`, waits up to `timeout_ms`
+--- (`-1` blocks forever, `0` polls), and returns the fds that became
+--- readable. Each fd is stored in its `epoll_event.data`, so the ready
+--- set needs no fd-to-index bookkeeping. The instance is closed inside
+--- the call -- this is a per-wait helper, not a persistent
+--- registration set.
+---
+--- `max_wait_fds` bounds one wait: the generated `epoll_wait` adapter
+--- allocates a fixed 32-event buffer. A larger fd list is a
+--- programmer error and raises rather than silently truncating the
+--- ready set.
+---
+--- The wait itself is `~[1]~>`; the event-buffer decoding is pure.
+
+from "bytes" import * as bytes
+from "result" import { Result, ok, err }
+from "ffi" import { Errno }
+from "../generated/libc-c-linux-x86_64/epoll" import * as epoll
+from "../generated/libc-c-linux-x86_64/unistd" import * as unistd
+
+--- The generated `epoll_wait` adapter's event buffer holds 32 events.
+export max_wait_fds := 32
+
+--- One packed `struct epoll_event` on x86_64: `events` u32 at 0 and
+--- `data` u64 at 4 (the struct is `__attribute__((packed))`, 12 bytes).
+event_size := 12
+
+--- list_len -- element count of a list (internal).
+list_len := (xs) ~> while { xs: xs, n: 0 } {
+  (xs, n) ~> match xs {
+    []: { out: n },
+    [h, ...t]: { state: { xs: t, n: n + 1 } }
+  }
+}
+
+--- rev -- reverse a list (internal).
+rev := (xs) ~> while { xs: xs, acc: [] } {
+  (xs, acc) ~> match xs {
+    []: { out: acc },
+    [h, ...t]: { state: { xs: t, acc: [h, ...acc] } }
+  }
+}
+
+--- u64le -- the little-endian u64 at `off`. The `data` field carries
+--- an fd, so the high half is always zero; only four bytes are read.
+u64le := (buf, off) ~> do {
+  b0 :: bytes.at(buf, off)
+  b1 :: bytes.at(buf, off + 1)
+  b2 :: bytes.at(buf, off + 2)
+  b3 :: bytes.at(buf, off + 3)
+  b0 + b1 * 256 + b2 * 65536 + b3 * 16777216
+}
+
+--- ready_fds -- the `data` field of the first `n` events in `buf`.
+ready_fds := (buf, n) ~> rev(while { i: 0, acc: [] } {
+  (i, acc) ~> if i >= n {
+    { out: acc }
+  } else {
+    { state: { i: i + 1, acc: [u64le(buf, i * event_size + 4), ...acc] } }
+  }
+})
+
+--- arm_all -- `EPOLL_CTL_ADD` every fd with `EPOLLIN`, tagging its
+--- `data` with the fd; stops at the first failure.
+arm_all := (ep, fds) ~> while { xs: fds } {
+  (st) ~> match st.xs {
+    []: { out: ok(0) },
+    [h, ...t]: do {
+      r :: epoll.epoll_ctl(ep, epoll.EPOLL_CTL_ADD, h,
+                           { events: epoll.EPOLLIN, data: h })
+      if tag.tag_of(r) == "err" {
+        { out: r }
+      } else {
+        { state: { xs: t } }
+      }
+    }
+  }
+}
+
+--- wait_readable -- the fds in `fds` that became readable within
+--- `timeout_ms` (`-1` waits indefinitely, `0` polls).
+--- @param {fds} - the fds to watch; at most `max_wait_fds`
+--- @param {timeout_ms} - the `epoll_wait` timeout in milliseconds
+--- @returns {Result<List(Int), Errno> - the ready fds, or the errno}
+--- @details An empty `fds` returns immediately without a syscall. The
+--- ready list is a subset of `fds` (empty on timeout) -- callers
+--- re-arm per wait. An arming failure closes the epoll instance
+--- before propagating; an oversized `fds` raises.
+export wait_readable: (List(Int), Int) ~[1]~> Result<List(Int), Errno> := (fds, timeout_ms) ~> do {
+  n :: list_len(fds)
+  if n == 0 {
+    ok([])
+  } else if n > max_wait_fds {
+    error.raise("ws-whatwg-c: wait_readable takes at most " +
+                type.to_string(max_wait_fds) + " fds")
+  } else {
+    do {
+      c :: epoll.epoll_create1(epoll.EPOLL_CLOEXEC)
+      if tag.tag_of(c) == "err" {
+        c
+      } else {
+        do {
+          ep :: tag.untag(c).value
+          a :: arm_all(ep, fds)
+          if tag.tag_of(a) == "err" {
+            do {
+              dropped :: unistd.close(ep)
+              a
+            }
+          } else {
+            do {
+              w :: epoll.epoll_wait(ep, n, timeout_ms)
+              dropped :: unistd.close(ep)
+              if tag.tag_of(w) == "err" {
+                w
+              } else {
+                do {
+                  wr :: tag.untag(w).value
+                  ok(ready_fds(wr.buf, wr.ret))
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
