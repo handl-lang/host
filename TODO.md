@@ -46,11 +46,16 @@ remains unchanged.
   (`split_statements`, `detect_dialect`, `check_module_with_prelude`,
   `canonical_wire_names`).
 
-## High priority — engine genericity and known issues
+## Engine genericity and known issues
 
 See `AGENTS.md` § "Known issues" for the source of truth. These are the
 residual hard-codings that break the "language as data" invariant and the
 current failing/warning tests.
+
+**Status: no open failing or warning items.** The engine-genericity debt is
+closed except for the sites listed below, which are blocked on adding new
+`Language` vocabulary (a language-design decision, not a sweep); the design
+write-up lives in `project/tasks/0081-remaining-kind-dispatch.md`.
 
 - [~] Engine-genericity debt: the *structural-token* residuals in
       `plugin-engine-parse-pratt` (block opener, dimension bracket, block
@@ -71,8 +76,15 @@ current failing/warning tests.
       Closing those needs a new `Language` field (e.g. `binding_kind` /
       `arrow_kind` / `pattern_role: tag`) — a language-design decision, not
       a sweep fix.
-- [ ] `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
-      (internal `let`/`stmt.let` kinds — no `let` surface syntax)
+- [x] `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
+      (internal `let`/`stmt.let` kinds — no `let` surface syntax) —
+      **closed**: no `let`/`stmt.let` reference remains anywhere in the crate,
+      and the whole `handl-defining-handl` suite is green (verified:
+      `bootstrap_self` 5/5, `bootstrap` 2/2, `bootstrap_host_fn` 2/2, plus the
+      parity suites; `bootstrap_proc`'s single case is `#\[ignore\]`d for the
+      removed `|>`/`~>` surface syntax, not `let`). The entry was stale — the
+      `let` removal (ADR-0079) and the corpus rewrite to `block`+`assign`
+      already fixed it.
 - [x] `plugin-engine-parse-pratt` unused import warning (`PayloadTokenSpec`) —
       **closed**: the symbol was already gone when the structural-token pass
       touched the crate; no warning is emitted. (Was stale.)
