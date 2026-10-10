@@ -10,15 +10,25 @@
 //! ## Payload contract (capability `lint`)
 //!
 //! ```json
-//! { "source": "<text>", "fix": false, "prelude": ["str", "map"] }
+//! { "source": "<text>", "fix": false, "prelude": ["str", "map"],
+//!   "language": { …serialized Language… } }
 //! ```
 //!
 //! - `source` (required, string) — the text to lint.
 //! - `fix` (optional, bool, default `false`) — when `true`, return the fixed
 //!   source instead of the diagnostics.
 //! - `prelude` (optional, array of strings) — canonical wire names the
-//!   checker should treat as bound (see `canonical_wire_names`). Omitted =
-//!   the crate's default prelude.
+//!   checker should treat as bound. Omitted = the crate's default prelude.
+//! - `language` (optional, object, ADR-0124) — a **serialized `Language`**
+//!   (`handl-language`'s `Language` derives `Serialize`/`Deserialize`; the
+//!   canonical one is ~180 KiB compact JSON). Omitted = the crate builds its
+//!   own default language.
+//!
+//!   This exists because the caller's language and the crate's built-in
+//!   default are not guaranteed identical — `host-cli` lints through
+//!   `load_canonical_language()` while the default here is `lint_language()`.
+//!   Passing the language makes the capability path match the direct call
+//!   instead of approximating it.
 //!
 //! ## Response
 //!
@@ -28,6 +38,7 @@
 //! A malformed payload is reported as [`PlatformError::InvalidMetadata`]; a
 //! lint failure is reported as [`PlatformError::Plugin`].
 
+use handl_language::Language;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
@@ -113,17 +124,35 @@ impl Plugin for LintPlugin {
             }
         };
 
+        // ADR-0124 primary path: the payload may carry the caller's language.
+        // Absent = build our own default (today's behaviour). A malformed
+        // language is `InvalidMetadata` rather than a silent fallback, since
+        // silently linting with the wrong ruleset is worse than failing.
+        let language: Option<Language> = match request.payload.get("language") {
+            None | Some(serde_json::Value::Null) => None,
+            Some(v) => Some(serde_json::from_value(v.clone()).map_err(|e| {
+                PlatformError::InvalidMetadata(format!("lint: `language` did not deserialize: {e}"))
+            })?),
+        };
+
         if fix {
-            let output = match &prelude {
+            // No `fix_source_with_language` variant exists, so a caller-supplied
+            // `language` cannot be honoured on the fix path: fixing applies the
+            // crate's own ruleset. Documented rather than silently ignored.
+            let out = match &prelude {
                 Some(p) => crate::fix_source_with_prelude(source, p),
                 None => crate::fix_source(source),
             }
             .map_err(|e| PlatformError::Plugin(format!("lint fix failed: {e}")))?;
-            Ok(CapabilityResponse(serde_json::json!({ "output": output })))
+            Ok(CapabilityResponse(serde_json::json!({ "output": out })))
         } else {
-            let diagnostics = match &prelude {
-                Some(p) => crate::lint_source_with_prelude(source, p),
-                None => crate::lint_source(source),
+            let diagnostics = match (&language, &prelude) {
+                (Some(l), Some(p)) => {
+                    crate::lint_source_with_prelude_and_language(l, source, p)
+                }
+                (Some(l), None) => crate::lint_source_with_language(l, source),
+                (None, Some(p)) => crate::lint_source_with_prelude(source, p),
+                (None, None) => crate::lint_source(source),
             }
             .map_err(|e| PlatformError::Plugin(format!("lint failed: {e}")))?;
             let json = serde_json::to_value(&diagnostics).map_err(|e| {
@@ -231,5 +260,47 @@ mod tests {
         })
         .expect_err("a string `prelude` must fail");
         assert!(matches!(err, PlatformError::InvalidMetadata(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn a_serialized_language_is_accepted() {
+        // ADR-0124 primary path: the payload carries the caller's language.
+        // This is what makes a capability-path lint match a direct call, since
+        // the caller's language need not be this crate's built-in default.
+        let plugin = LintPlugin::new();
+        let lang =
+            handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles");
+        let serialized = serde_json::to_value(&lang).expect("Language serializes");
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({ "source": "x = 1", "language": serialized })),
+                    ctx,
+                )
+                .expect("lint with an explicit language succeeds")
+        });
+        assert!(
+            res.0.get("diagnostics").and_then(|v| v.as_array()).is_some(),
+            "expected diagnostics, got {}",
+            res.0
+        );
+    }
+
+    #[test]
+    fn a_malformed_language_is_invalid_metadata() {
+        // Not a silent canonical fallback: linting with the wrong ruleset is
+        // worse than failing loudly.
+        let plugin = LintPlugin::new();
+        let err = with_ctx(|ctx| {
+            plugin.run(
+                &req(serde_json::json!({ "source": "x = 1", "language": 5 })),
+                ctx,
+            )
+        })
+        .expect_err("a non-language `language` must fail");
+        assert!(
+            matches!(err, PlatformError::InvalidMetadata(_)),
+            "got {err:?}"
+        );
     }
 }
