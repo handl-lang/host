@@ -18,6 +18,8 @@ members = [
   "crates/plugin-ext-lsp",
   "crates/plugin-ext-plugin",
   "crates/plugin-ext-refinement",
+  "crates/plugin-ext-test",
+  "crates/plugin-ext-typecheck",
   "crates/plugin-ffi",
   "crates/host-cli",
   "crates/host-lsp",
@@ -149,6 +151,8 @@ handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
 handl-plugin-ext-lsp = { path = "crates/plugin-ext-lsp" }
 handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "crates/plugin-ext-refinement" }
+handl-plugin-ext-test = { path = "crates/plugin-ext-test" }
+handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }

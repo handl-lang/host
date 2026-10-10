@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-ext-test"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { path = "../platform" }
+handl-plugin-engine-test = { path = "../plugin-engine-test" }
+handl-plugin-lib-scheduler = { path = "../plugin-lib-scheduler" }
+serde_json = { workspace = true }

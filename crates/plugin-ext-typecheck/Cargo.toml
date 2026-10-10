@@ -1,0 +1,10 @@
+[package]
+name = "handl-plugin-ext-typecheck"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-platform = { path = "../platform" }
+handl-kit-canonical = { path = "../kit-canonical" }
+handl-language = { path = "../handl-language" }
+serde_json = { workspace = true }

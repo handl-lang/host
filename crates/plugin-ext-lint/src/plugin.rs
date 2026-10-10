@@ -32,11 +32,16 @@
 //!
 //! ## Response
 //!
-//! - `fix: false` → `{ "diagnostics": [ <Diagnostic>, ... ] }`
-//! - `fix: true`  → `{ "output": "<fixed text>" }`
+//! Discriminated by `status`, matching the `fmt` capability, so no case is
+//! inferred from a missing field:
 //!
-//! A malformed payload is reported as [`PlatformError::InvalidMetadata`]; a
-//! lint failure is reported as [`PlatformError::Plugin`].
+//! - `{ "status": "diagnostics", "diagnostics": [ <Diagnostic>, ... ] }`
+//! - `{ "status": "fixed", "output": "<fixed text>" }`
+//! - `{ "status": "error", "message": "<why>" }` — could not lint or fix.
+//!
+//! Only a malformed *request* is a [`PlatformError`] (bad payload, wrong
+//! capability, un-deserializable `language`); a parse failure is a successful
+//! response carrying an error status.
 
 use handl_language::Language;
 use handl_platform::{
@@ -99,9 +104,13 @@ impl Plugin for LintPlugin {
         if request.capability.as_str() != LINT_CAPABILITY {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
-        let source = request.payload.get("source").and_then(|v| v.as_str()).ok_or_else(|| {
-            PlatformError::InvalidMetadata("lint: missing string field `source`".into())
-        })?;
+        let source = request
+            .payload
+            .get("source")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| {
+                PlatformError::InvalidMetadata("lint: missing string field `source`".into())
+            })?;
         let fix = request
             .payload
             .get("fix")
@@ -120,7 +129,7 @@ impl Plugin for LintPlugin {
             Some(_) => {
                 return Err(PlatformError::InvalidMetadata(
                     "lint: `prelude` must be an array of strings".into(),
-                ))
+                ));
             }
         };
 
@@ -139,26 +148,42 @@ impl Plugin for LintPlugin {
             // No `fix_source_with_language` variant exists, so a caller-supplied
             // `language` cannot be honoured on the fix path: fixing applies the
             // crate's own ruleset. Documented rather than silently ignored.
-            let out = match &prelude {
+            match match &prelude {
                 Some(p) => crate::fix_source_with_prelude(source, p),
                 None => crate::fix_source(source),
+            } {
+                Ok(output) => Ok(CapabilityResponse(
+                    serde_json::json!({ "status": "fixed", "output": output }),
+                )),
+                Err(e) => Ok(CapabilityResponse(serde_json::json!({
+                    "status": "error",
+                    "message": format!("{e}"),
+                }))),
             }
-            .map_err(|e| PlatformError::Plugin(format!("lint fix failed: {e}")))?;
-            Ok(CapabilityResponse(serde_json::json!({ "output": out })))
         } else {
-            let diagnostics = match (&language, &prelude) {
-                (Some(l), Some(p)) => {
-                    crate::lint_source_with_prelude_and_language(l, source, p)
-                }
+            match match (&language, &prelude) {
+                (Some(l), Some(p)) => crate::lint_source_with_prelude_and_language(l, source, p),
                 (Some(l), None) => crate::lint_source_with_language(l, source),
                 (None, Some(p)) => crate::lint_source_with_prelude(source, p),
                 (None, None) => crate::lint_source(source),
+            } {
+                Ok(diagnostics) => {
+                    let json = serde_json::to_value(&diagnostics).map_err(|e| {
+                        PlatformError::Plugin(format!("lint: diagnostics not serializable: {e}"))
+                    })?;
+                    Ok(CapabilityResponse(serde_json::json!({
+                        "status": "diagnostics",
+                        "diagnostics": json,
+                    })))
+                }
+                // Like `fmt`, a parse failure is a *response*, not a
+                // `PlatformError`, so a caller can distinguish "lint found
+                // problems" from "could not lint" without string-matching.
+                Err(e) => Ok(CapabilityResponse(serde_json::json!({
+                    "status": "error",
+                    "message": format!("{e}"),
+                }))),
             }
-            .map_err(|e| PlatformError::Plugin(format!("lint failed: {e}")))?;
-            let json = serde_json::to_value(&diagnostics).map_err(|e| {
-                PlatformError::Plugin(format!("lint: diagnostics not serializable: {e}"))
-            })?;
-            Ok(CapabilityResponse(serde_json::json!({ "diagnostics": json })))
         }
     }
 }
@@ -203,8 +228,15 @@ mod tests {
                 .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
                 .expect("lint succeeds")
         });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("diagnostics")
+        );
         assert!(
-            res.0.get("diagnostics").and_then(|v| v.as_array()).is_some(),
+            res.0
+                .get("diagnostics")
+                .and_then(|v| v.as_array())
+                .is_some(),
             "lint must answer with a `diagnostics` array, got {}",
             res.0
         );
@@ -215,9 +247,13 @@ mod tests {
         let plugin = LintPlugin::new();
         let res = with_ctx(|ctx| {
             plugin
-                .run(&req(serde_json::json!({"source": "x = 1", "fix": true})), ctx)
+                .run(
+                    &req(serde_json::json!({"source": "x = 1", "fix": true})),
+                    ctx,
+                )
                 .expect("lint fix succeeds")
         });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("fixed"));
         assert!(
             res.0.get("output").and_then(|v| v.as_str()).is_some(),
             "fix=true must answer with `output`, got {}",
@@ -246,7 +282,10 @@ mod tests {
         let plugin = LintPlugin::new();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({})), ctx))
             .expect_err("a payload without `source` must fail");
-        assert!(matches!(err, PlatformError::InvalidMetadata(_)), "got {err:?}");
+        assert!(
+            matches!(err, PlatformError::InvalidMetadata(_)),
+            "got {err:?}"
+        );
     }
 
     #[test]
@@ -259,7 +298,10 @@ mod tests {
             )
         })
         .expect_err("a string `prelude` must fail");
-        assert!(matches!(err, PlatformError::InvalidMetadata(_)), "got {err:?}");
+        assert!(
+            matches!(err, PlatformError::InvalidMetadata(_)),
+            "got {err:?}"
+        );
     }
 
     #[test]
@@ -280,7 +322,10 @@ mod tests {
                 .expect("lint with an explicit language succeeds")
         });
         assert!(
-            res.0.get("diagnostics").and_then(|v| v.as_array()).is_some(),
+            res.0
+                .get("diagnostics")
+                .and_then(|v| v.as_array())
+                .is_some(),
             "expected diagnostics, got {}",
             res.0
         );

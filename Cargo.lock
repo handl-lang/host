@@ -826,7 +826,6 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
- "handl-plugin-engine-test",
  "handl-plugin-engine-transform",
  "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
@@ -837,7 +836,8 @@ dependencies = [
  "handl-plugin-ext-lint",
  "handl-plugin-ext-refinement",
  "handl-plugin-ext-sdkgen",
- "handl-plugin-lib-scheduler",
+ "handl-plugin-ext-test",
+ "handl-plugin-ext-typecheck",
  "handl-runtime",
  "handl-value",
  "serde_json",
@@ -1570,6 +1570,26 @@ dependencies = [
  "handl-plugin-sdkgen-emitter-python",
  "serde",
  "serde_yaml",
+]
+
+[[package]]
+name = "handl-plugin-ext-test"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-engine-test",
+ "handl-plugin-lib-scheduler",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-typecheck"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-canonical",
+ "handl-language",
+ "handl-platform",
+ "serde_json",
 ]
 
 [[package]]
