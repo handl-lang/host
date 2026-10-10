@@ -185,12 +185,13 @@ fn run_test(request: &CapabilityRequest) -> Result<CapabilityResponse, PlatformE
 
     let report = engine::run_with_config(&plan, &mut config);
 
-    if use_cache {
-        if let Some(cache) = config.cache.as_ref() {
-            if let Err(e) = cache.save(std::path::Path::new(CACHE_PATH)) {
-                warnings.push(format!("failed to save cache at {CACHE_PATH}: {e}"));
-            }
-        }
+    // Save the cache only if one was loaded and the run produced a cache to
+    // persist (ADR-0089). `cache` is only set when the caller asked for it.
+    if use_cache
+        && let Some(cache) = config.cache.as_ref()
+        && let Err(e) = cache.save(std::path::Path::new(CACHE_PATH))
+    {
+        warnings.push(format!("failed to save cache at {CACHE_PATH}: {e}"));
     }
 
     let summary = engine::summarize(&report);
