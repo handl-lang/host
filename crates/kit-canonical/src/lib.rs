@@ -1168,7 +1168,12 @@ const FFI_FUNCS: &[&str] = &[
     "Errno", "Handle", "call", "bind", "errno", "load", "read", "sym",
 ];
 const FFI_OPS: &[&str] = &[
-    "ffi.call", "ffi.bind", "ffi.errno", "ffi.load", "ffi.read", "ffi.sym",
+    "ffi.call",
+    "ffi.bind",
+    "ffi.errno",
+    "ffi.load",
+    "ffi.read",
+    "ffi.sym",
 ];
 
 fn ffi_op_registry() -> OpRegistry {

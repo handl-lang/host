@@ -43,11 +43,11 @@ pub use handl_language::Language;
 pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
 
 pub mod plugin;
-pub use plugin::{FmtPlugin, FMT_CAPABILITY};
 pub use handl_plugin_engine_fmt::{
     CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule,
     TokenCat, TokenFormatter, canonical_post_process, classify_token, needs_space,
 };
+pub use plugin::{FMT_CAPABILITY, FmtPlugin};
 
 use handl_language::{Ast, AstRef, LangError};
 use handl_plugin_engine_lex_pattern::lex;

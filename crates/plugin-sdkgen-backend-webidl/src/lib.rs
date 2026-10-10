@@ -194,7 +194,10 @@ impl SdkgenBackend for WebIdlBackend {
                         }
                     }
                 }
-                Err(e) => diags.push(format!("failed to read include spec {}: {e}", inc.display())),
+                Err(e) => diags.push(format!(
+                    "failed to read include spec {}: {e}",
+                    inc.display()
+                )),
             }
         }
         // Graft supplementary-spec `includes` onto supplementary interfaces so
@@ -208,9 +211,8 @@ impl SdkgenBackend for WebIdlBackend {
                 continue;
             };
             for m in members {
-                let dup = member_name(m).is_some_and(|n| {
-                    target_members.iter().any(|t| member_name(t) == Some(n))
-                });
+                let dup = member_name(m)
+                    .is_some_and(|n| target_members.iter().any(|t| member_name(t) == Some(n)));
                 if !dup {
                     target_members.push(m.clone());
                 }
@@ -237,18 +239,18 @@ impl SdkgenBackend for WebIdlBackend {
                     );
                 }
             }
-            let Some(target_members) =
-                by_key
-                    .get_mut(&(target.clone(), "interface"))
-                    .and_then(AstDef::members_mut)
+            let Some(target_members) = by_key
+                .get_mut(&(target.clone(), "interface"))
+                .and_then(AstDef::members_mut)
             else {
-                diags.push(format!("includes: {target} is not an interface in this spec"));
+                diags.push(format!(
+                    "includes: {target} is not an interface in this spec"
+                ));
                 continue;
             };
             for m in members {
-                let dup = member_name(m).is_some_and(|n| {
-                    target_members.iter().any(|t| member_name(t) == Some(n))
-                });
+                let dup = member_name(m)
+                    .is_some_and(|n| target_members.iter().any(|t| member_name(t) == Some(n)));
                 if !dup {
                     target_members.push(m.clone());
                 }

@@ -224,9 +224,7 @@ fn transform_export_to_object(
                     // record projection (they need no prelude line — the
                     // import statement itself binds them).
                     for local in import_bound_locals(line) {
-                        if is_valid_ident(&local)
-                            && !bindings.iter().any(|(n, _, _)| *n == local)
-                        {
+                        if is_valid_ident(&local) && !bindings.iter().any(|(n, _, _)| *n == local) {
                             import_bound.push(local);
                         }
                     }
@@ -311,17 +309,11 @@ fn transform_export_to_object(
     // callable when it is imported as a file.
     for qualified in op_names {
         let local = qualified.rsplit('.').next().unwrap_or(qualified);
-        if local.is_empty()
-            || !is_valid_ident(local)
-            || bindings.iter().any(|(n, _, _)| n == local)
+        if local.is_empty() || !is_valid_ident(local) || bindings.iter().any(|(n, _, _)| n == local)
         {
             continue;
         }
-        bindings.push((
-            local.to_string(),
-            vec![format!("\"{qualified}\"")],
-            true,
-        ));
+        bindings.push((local.to_string(), vec![format!("\"{qualified}\"")], true));
     }
 
     let has_exports = bindings.iter().any(|(_, _, exported)| *exported);
@@ -501,8 +493,7 @@ fn from_export_to_import(line: &str) -> Option<(String, Vec<(String, String)>)> 
 /// which is exactly what `list := "list"` would bind anyway.
 pub fn host_import_bindings(line: &str) -> Vec<(String, String, bool)> {
     let trimmed = line.trim_start();
-    if let Some((spec, rest)) =
-        extract_quoted_path(trimmed).filter(|_| trimmed.starts_with("from"))
+    if let Some((spec, rest)) = extract_quoted_path(trimmed).filter(|_| trimmed.starts_with("from"))
     {
         if !is_module_name_spec(&spec) {
             return Vec::new();
@@ -518,7 +509,11 @@ pub fn host_import_bindings(line: &str) -> Vec<(String, String, bool)> {
             }
             _ => return Vec::new(),
         };
-        let tail = tail.strip_prefix('{').and_then(|t| t.strip_suffix('}')).map(str::to_string).unwrap_or_else(|| tail.to_string());
+        let tail = tail
+            .strip_prefix('{')
+            .and_then(|t| t.strip_suffix('}'))
+            .map(str::to_string)
+            .unwrap_or_else(|| tail.to_string());
         tail.split(',')
             .filter_map(|item| {
                 let item = item.trim();
@@ -534,7 +529,11 @@ pub fn host_import_bindings(line: &str) -> Vec<(String, String, bool)> {
                     return (local != "*")
                         .then(|| (local.to_string(), format!("\"{spec}\""), exported));
                 }
-                Some((local.to_string(), format!("\"{spec}.{imported}\""), exported))
+                Some((
+                    local.to_string(),
+                    format!("\"{spec}.{imported}\""),
+                    exported,
+                ))
             })
             .collect()
     } else if let Some(rest) = trimmed.strip_prefix("import") {
@@ -578,10 +577,7 @@ pub fn host_import_bindings(line: &str) -> Vec<(String, String, bool)> {
 /// `"math/add"`, `"x.hnl"`) that fail file resolution are decorative —
 /// not dispatchable module names.
 fn is_module_name_spec(spec: &str) -> bool {
-    !spec.is_empty()
-        && !spec.starts_with('.')
-        && !spec.contains('/')
-        && !spec.ends_with(".hnl")
+    !spec.is_empty() && !spec.starts_with('.') && !spec.contains('/') && !spec.ends_with(".hnl")
 }
 
 /// Extract the first quoted path in a `from` line and the text that follows it.
@@ -766,9 +762,7 @@ fn drop_all_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> Stri
 /// statically enumerable — they are skipped.
 fn import_bound_locals(line: &str) -> Vec<String> {
     let trimmed = line.trim_start();
-    if let Some((_, rest)) =
-        extract_quoted_path(trimmed).filter(|_| trimmed.starts_with("from"))
-    {
+    if let Some((_, rest)) = extract_quoted_path(trimmed).filter(|_| trimmed.starts_with("from")) {
         let rest = rest.trim_start();
         let Some(tail) = rest.strip_prefix("import") else {
             return Vec::new();

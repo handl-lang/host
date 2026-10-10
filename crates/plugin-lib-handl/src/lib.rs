@@ -1261,8 +1261,6 @@ pub fn escape_handl_string(s: &str) -> String {
     out
 }
 
-
-
 // ---------------------------------------------------------------------------
 // Per-thread runtime cache
 // ---------------------------------------------------------------------------
@@ -1582,7 +1580,8 @@ impl Function for HandlFunction {
         let mod_val = match mod_val {
             Some(v) => v,
             None => {
-                let src_ast = MODULE_SRC_AST_CACHE.with(|cache| cache.borrow().get(&module_id).cloned());
+                let src_ast =
+                    MODULE_SRC_AST_CACHE.with(|cache| cache.borrow().get(&module_id).cloned());
                 let src_ast = match src_ast {
                     Some(a) => a,
                     None => {
@@ -1607,11 +1606,7 @@ impl Function for HandlFunction {
         let ast = match ast {
             Some(ast) => ast,
             None => {
-                let source = format!(
-                    "__mod.{}({})",
-                    self.func_name,
-                    arg_names.join(", ")
-                );
+                let source = format!("__mod.{}({})", self.func_name, arg_names.join(", "));
                 let toks = runtime.lex(&Source::new(&source)).map_err(errf)?;
                 let parsed = Rc::new(runtime.parse(&toks).map_err(errf)?);
                 AST_CACHE.with(|cache| cache.borrow_mut().insert(ast_key, Rc::clone(&parsed)));
@@ -2176,73 +2171,317 @@ pub const STR_HANDL_FUNCS: &[&str] = &[
 /// (plus `char`). [`STR_HANDL_HNL`] is the aggregator index on top.
 pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     // -- internal/ generic list helpers (no `char`) -------------------------
-    ("rev", include_str!("../../../handl-packages/str-handl/internal/rev.hnl"), &["rev"]),
-    ("len", include_str!("../../../handl-packages/str-handl/internal/len.hnl"), &["len"]),
-    ("head", include_str!("../../../handl-packages/str-handl/internal/head.hnl"), &["head"]),
-    ("drop", include_str!("../../../handl-packages/str-handl/internal/drop.hnl"), &["drop"]),
-    ("member", include_str!("../../../handl-packages/str-handl/internal/member.hnl"), &["member"]),
-    ("prefix_match", include_str!("../../../handl-packages/str-handl/internal/prefix_match.hnl"), &["prefix_match"]),
-    ("take", include_str!("../../../handl-packages/str-handl/internal/take.hnl"), &["take"]),
-    ("append", include_str!("../../../handl-packages/str-handl/internal/append.hnl"), &["append"]),
-    ("last", include_str!("../../../handl-packages/str-handl/internal/last.hnl"), &["last"]),
-    ("find_idx", include_str!("../../../handl-packages/str-handl/internal/find_idx.hnl"), &["find_idx"]),
+    (
+        "rev",
+        include_str!("../../../handl-packages/str-handl/internal/rev.hnl"),
+        &["rev"],
+    ),
+    (
+        "len",
+        include_str!("../../../handl-packages/str-handl/internal/len.hnl"),
+        &["len"],
+    ),
+    (
+        "head",
+        include_str!("../../../handl-packages/str-handl/internal/head.hnl"),
+        &["head"],
+    ),
+    (
+        "drop",
+        include_str!("../../../handl-packages/str-handl/internal/drop.hnl"),
+        &["drop"],
+    ),
+    (
+        "member",
+        include_str!("../../../handl-packages/str-handl/internal/member.hnl"),
+        &["member"],
+    ),
+    (
+        "prefix_match",
+        include_str!("../../../handl-packages/str-handl/internal/prefix_match.hnl"),
+        &["prefix_match"],
+    ),
+    (
+        "take",
+        include_str!("../../../handl-packages/str-handl/internal/take.hnl"),
+        &["take"],
+    ),
+    (
+        "append",
+        include_str!("../../../handl-packages/str-handl/internal/append.hnl"),
+        &["append"],
+    ),
+    (
+        "last",
+        include_str!("../../../handl-packages/str-handl/internal/last.hnl"),
+        &["last"],
+    ),
+    (
+        "find_idx",
+        include_str!("../../../handl-packages/str-handl/internal/find_idx.hnl"),
+        &["find_idx"],
+    ),
     // -- internal/ string helpers (over `char`) -----------------------------
-    ("capitalize_first", include_str!("../../../handl-packages/str-handl/internal/capitalize_first.hnl"), &["capitalize_first"]),
-    ("pad_to", include_str!("../../../handl-packages/str-handl/internal/pad_to.hnl"), &["pad_to"]),
+    (
+        "capitalize_first",
+        include_str!("../../../handl-packages/str-handl/internal/capitalize_first.hnl"),
+        &["capitalize_first"],
+    ),
+    (
+        "pad_to",
+        include_str!("../../../handl-packages/str-handl/internal/pad_to.hnl"),
+        &["pad_to"],
+    ),
     // -- internal/ callback-invoking helpers --------------------------------
     // `map`/`all`/`drop_while` evaluate caller-supplied arrows, whose
     // `char.*`/helper calls resolve in THESE modules' runtimes — they must
     // come after every other internal row (see `STR_HANDL_CALLBACK_SCOPE`).
-    ("map", include_str!("../../../handl-packages/str-handl/internal/map.hnl"), &["map"]),
-    ("all", include_str!("../../../handl-packages/str-handl/internal/all.hnl"), &["all"]),
-    ("drop_while", include_str!("../../../handl-packages/str-handl/internal/drop_while.hnl"), &["drop_while"]),
-    ("split_words", include_str!("../../../handl-packages/str-handl/internal/split_words.hnl"), &["split_words"]),
+    (
+        "map",
+        include_str!("../../../handl-packages/str-handl/internal/map.hnl"),
+        &["map"],
+    ),
+    (
+        "all",
+        include_str!("../../../handl-packages/str-handl/internal/all.hnl"),
+        &["all"],
+    ),
+    (
+        "drop_while",
+        include_str!("../../../handl-packages/str-handl/internal/drop_while.hnl"),
+        &["drop_while"],
+    ),
+    (
+        "split_words",
+        include_str!("../../../handl-packages/str-handl/internal/split_words.hnl"),
+        &["split_words"],
+    ),
     // -- `str` contract arrows (one file per arrow) -------------------------
-    ("join", include_str!("../../../handl-packages/str-handl/join.hnl"), &["join"]),
-    ("concat", include_str!("../../../handl-packages/str-handl/concat.hnl"), &["concat"]),
-    ("is_empty", include_str!("../../../handl-packages/str-handl/is_empty.hnl"), &["is_empty"]),
-    ("equals", include_str!("../../../handl-packages/str-handl/equals.hnl"), &["equals"]),
-    ("repeat", include_str!("../../../handl-packages/str-handl/repeat.hnl"), &["repeat"]),
-    ("upper", include_str!("../../../handl-packages/str-handl/upper.hnl"), &["upper"]),
-    ("lower", include_str!("../../../handl-packages/str-handl/lower.hnl"), &["lower"]),
-    ("trim", include_str!("../../../handl-packages/str-handl/trim.hnl"), &["trim"]),
-    ("trim_start", include_str!("../../../handl-packages/str-handl/trim_start.hnl"), &["trim_start"]),
-    ("trim_end", include_str!("../../../handl-packages/str-handl/trim_end.hnl"), &["trim_end"]),
-    ("trim_matches", include_str!("../../../handl-packages/str-handl/trim_matches.hnl"), &["trim_matches"]),
-    ("reverse", include_str!("../../../handl-packages/str-handl/reverse.hnl"), &["reverse"]),
-    ("length", include_str!("../../../handl-packages/str-handl/length.hnl"), &["length"]),
-    ("char_at", include_str!("../../../handl-packages/str-handl/char_at.hnl"), &["char_at"]),
-    ("slice", include_str!("../../../handl-packages/str-handl/slice.hnl"), &["slice"]),
-    ("split_at", include_str!("../../../handl-packages/str-handl/split_at.hnl"), &["split_at"]),
-    ("is_alpha", include_str!("../../../handl-packages/str-handl/is_alpha.hnl"), &["is_alpha"]),
-    ("is_numeric", include_str!("../../../handl-packages/str-handl/is_numeric.hnl"), &["is_numeric"]),
-    ("is_alphanumeric", include_str!("../../../handl-packages/str-handl/is_alphanumeric.hnl"), &["is_alphanumeric"]),
-    ("capitalize", include_str!("../../../handl-packages/str-handl/capitalize.hnl"), &["capitalize"]),
-    ("title_case", include_str!("../../../handl-packages/str-handl/title_case.hnl"), &["title_case"]),
-    ("snake_case", include_str!("../../../handl-packages/str-handl/snake_case.hnl"), &["snake_case"]),
-    ("camel_case", include_str!("../../../handl-packages/str-handl/camel_case.hnl"), &["camel_case"]),
-    ("pascal_case", include_str!("../../../handl-packages/str-handl/pascal_case.hnl"), &["pascal_case"]),
-    ("kebab_case", include_str!("../../../handl-packages/str-handl/kebab_case.hnl"), &["kebab_case"]),
-    ("contains", include_str!("../../../handl-packages/str-handl/contains.hnl"), &["contains"]),
-    ("starts_with", include_str!("../../../handl-packages/str-handl/starts_with.hnl"), &["starts_with"]),
-    ("ends_with", include_str!("../../../handl-packages/str-handl/ends_with.hnl"), &["ends_with"]),
-    ("count", include_str!("../../../handl-packages/str-handl/count.hnl"), &["count"]),
-    ("find", include_str!("../../../handl-packages/str-handl/find.hnl"), &["find"]),
-    ("rfind", include_str!("../../../handl-packages/str-handl/rfind.hnl"), &["rfind"]),
-    ("levenshtein", include_str!("../../../handl-packages/str-handl/levenshtein.hnl"), &["levenshtein"]),
-    ("similarity", include_str!("../../../handl-packages/str-handl/similarity.hnl"), &["similarity"]),
-    ("split", include_str!("../../../handl-packages/str-handl/split.hnl"), &["split"]),
-    ("replace", include_str!("../../../handl-packages/str-handl/replace.hnl"), &["replace"]),
-    ("replace_first", include_str!("../../../handl-packages/str-handl/replace_first.hnl"), &["replace_first"]),
-    ("pad_left", include_str!("../../../handl-packages/str-handl/pad_left.hnl"), &["pad_left"]),
-    ("pad_right", include_str!("../../../handl-packages/str-handl/pad_right.hnl"), &["pad_right"]),
-    ("strip_prefix", include_str!("../../../handl-packages/str-handl/strip_prefix.hnl"), &["strip_prefix"]),
-    ("strip_suffix", include_str!("../../../handl-packages/str-handl/strip_suffix.hnl"), &["strip_suffix"]),
-    ("lines", include_str!("../../../handl-packages/str-handl/lines.hnl"), &["lines"]),
-    ("split_whitespace", include_str!("../../../handl-packages/str-handl/split_whitespace.hnl"), &["split_whitespace"]),
-    ("truncate", include_str!("../../../handl-packages/str-handl/truncate.hnl"), &["truncate"]),
-    ("slugify", include_str!("../../../handl-packages/str-handl/slugify.hnl"), &["slugify"]),
-    ("word_wrap", include_str!("../../../handl-packages/str-handl/word_wrap.hnl"), &["word_wrap"]),
+    (
+        "join",
+        include_str!("../../../handl-packages/str-handl/join.hnl"),
+        &["join"],
+    ),
+    (
+        "concat",
+        include_str!("../../../handl-packages/str-handl/concat.hnl"),
+        &["concat"],
+    ),
+    (
+        "is_empty",
+        include_str!("../../../handl-packages/str-handl/is_empty.hnl"),
+        &["is_empty"],
+    ),
+    (
+        "equals",
+        include_str!("../../../handl-packages/str-handl/equals.hnl"),
+        &["equals"],
+    ),
+    (
+        "repeat",
+        include_str!("../../../handl-packages/str-handl/repeat.hnl"),
+        &["repeat"],
+    ),
+    (
+        "upper",
+        include_str!("../../../handl-packages/str-handl/upper.hnl"),
+        &["upper"],
+    ),
+    (
+        "lower",
+        include_str!("../../../handl-packages/str-handl/lower.hnl"),
+        &["lower"],
+    ),
+    (
+        "trim",
+        include_str!("../../../handl-packages/str-handl/trim.hnl"),
+        &["trim"],
+    ),
+    (
+        "trim_start",
+        include_str!("../../../handl-packages/str-handl/trim_start.hnl"),
+        &["trim_start"],
+    ),
+    (
+        "trim_end",
+        include_str!("../../../handl-packages/str-handl/trim_end.hnl"),
+        &["trim_end"],
+    ),
+    (
+        "trim_matches",
+        include_str!("../../../handl-packages/str-handl/trim_matches.hnl"),
+        &["trim_matches"],
+    ),
+    (
+        "reverse",
+        include_str!("../../../handl-packages/str-handl/reverse.hnl"),
+        &["reverse"],
+    ),
+    (
+        "length",
+        include_str!("../../../handl-packages/str-handl/length.hnl"),
+        &["length"],
+    ),
+    (
+        "char_at",
+        include_str!("../../../handl-packages/str-handl/char_at.hnl"),
+        &["char_at"],
+    ),
+    (
+        "slice",
+        include_str!("../../../handl-packages/str-handl/slice.hnl"),
+        &["slice"],
+    ),
+    (
+        "split_at",
+        include_str!("../../../handl-packages/str-handl/split_at.hnl"),
+        &["split_at"],
+    ),
+    (
+        "is_alpha",
+        include_str!("../../../handl-packages/str-handl/is_alpha.hnl"),
+        &["is_alpha"],
+    ),
+    (
+        "is_numeric",
+        include_str!("../../../handl-packages/str-handl/is_numeric.hnl"),
+        &["is_numeric"],
+    ),
+    (
+        "is_alphanumeric",
+        include_str!("../../../handl-packages/str-handl/is_alphanumeric.hnl"),
+        &["is_alphanumeric"],
+    ),
+    (
+        "capitalize",
+        include_str!("../../../handl-packages/str-handl/capitalize.hnl"),
+        &["capitalize"],
+    ),
+    (
+        "title_case",
+        include_str!("../../../handl-packages/str-handl/title_case.hnl"),
+        &["title_case"],
+    ),
+    (
+        "snake_case",
+        include_str!("../../../handl-packages/str-handl/snake_case.hnl"),
+        &["snake_case"],
+    ),
+    (
+        "camel_case",
+        include_str!("../../../handl-packages/str-handl/camel_case.hnl"),
+        &["camel_case"],
+    ),
+    (
+        "pascal_case",
+        include_str!("../../../handl-packages/str-handl/pascal_case.hnl"),
+        &["pascal_case"],
+    ),
+    (
+        "kebab_case",
+        include_str!("../../../handl-packages/str-handl/kebab_case.hnl"),
+        &["kebab_case"],
+    ),
+    (
+        "contains",
+        include_str!("../../../handl-packages/str-handl/contains.hnl"),
+        &["contains"],
+    ),
+    (
+        "starts_with",
+        include_str!("../../../handl-packages/str-handl/starts_with.hnl"),
+        &["starts_with"],
+    ),
+    (
+        "ends_with",
+        include_str!("../../../handl-packages/str-handl/ends_with.hnl"),
+        &["ends_with"],
+    ),
+    (
+        "count",
+        include_str!("../../../handl-packages/str-handl/count.hnl"),
+        &["count"],
+    ),
+    (
+        "find",
+        include_str!("../../../handl-packages/str-handl/find.hnl"),
+        &["find"],
+    ),
+    (
+        "rfind",
+        include_str!("../../../handl-packages/str-handl/rfind.hnl"),
+        &["rfind"],
+    ),
+    (
+        "levenshtein",
+        include_str!("../../../handl-packages/str-handl/levenshtein.hnl"),
+        &["levenshtein"],
+    ),
+    (
+        "similarity",
+        include_str!("../../../handl-packages/str-handl/similarity.hnl"),
+        &["similarity"],
+    ),
+    (
+        "split",
+        include_str!("../../../handl-packages/str-handl/split.hnl"),
+        &["split"],
+    ),
+    (
+        "replace",
+        include_str!("../../../handl-packages/str-handl/replace.hnl"),
+        &["replace"],
+    ),
+    (
+        "replace_first",
+        include_str!("../../../handl-packages/str-handl/replace_first.hnl"),
+        &["replace_first"],
+    ),
+    (
+        "pad_left",
+        include_str!("../../../handl-packages/str-handl/pad_left.hnl"),
+        &["pad_left"],
+    ),
+    (
+        "pad_right",
+        include_str!("../../../handl-packages/str-handl/pad_right.hnl"),
+        &["pad_right"],
+    ),
+    (
+        "strip_prefix",
+        include_str!("../../../handl-packages/str-handl/strip_prefix.hnl"),
+        &["strip_prefix"],
+    ),
+    (
+        "strip_suffix",
+        include_str!("../../../handl-packages/str-handl/strip_suffix.hnl"),
+        &["strip_suffix"],
+    ),
+    (
+        "lines",
+        include_str!("../../../handl-packages/str-handl/lines.hnl"),
+        &["lines"],
+    ),
+    (
+        "split_whitespace",
+        include_str!("../../../handl-packages/str-handl/split_whitespace.hnl"),
+        &["split_whitespace"],
+    ),
+    (
+        "truncate",
+        include_str!("../../../handl-packages/str-handl/truncate.hnl"),
+        &["truncate"],
+    ),
+    (
+        "slugify",
+        include_str!("../../../handl-packages/str-handl/slugify.hnl"),
+        &["slugify"],
+    ),
+    (
+        "word_wrap",
+        include_str!("../../../handl-packages/str-handl/word_wrap.hnl"),
+        &["word_wrap"],
+    ),
 ];
 
 /// Internal helpers that invoke caller-supplied arrows (`f`/`p`).
@@ -2299,7 +2538,10 @@ fn str_handl_import_specs(src: &str) -> Vec<String> {
 fn str_handl_modules(
     resolver: &dyn ModuleResolver,
     eval_name: &'static str,
-) -> (HashMap<String, Arc<dyn handl_platform::Module + Send + Sync>>, HandlModule) {
+) -> (
+    HashMap<String, Arc<dyn handl_platform::Module + Send + Sync>>,
+    HandlModule,
+) {
     let mut siblings: HashMap<String, Arc<dyn handl_platform::Module + Send + Sync>> =
         HashMap::new();
     for &(name, src, funcs) in STR_HANDL_SOURCES {
@@ -2310,9 +2552,7 @@ fn str_handl_modules(
                 .get(dep_name)
                 .cloned()
                 .or_else(|| resolver.resolve(dep_name))
-                .unwrap_or_else(|| {
-                    panic!("str-handl: unresolved import '{spec}' in {name}.hnl")
-                });
+                .unwrap_or_else(|| panic!("str-handl: unresolved import '{spec}' in {name}.hnl"));
             module = module.with_dependency_arc(dep);
         }
         // Callback-invoking helpers additionally depend on every internal

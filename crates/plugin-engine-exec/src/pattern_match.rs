@@ -55,11 +55,7 @@ pub trait PatternMatchCtx {
     /// # Errors
     ///
     /// Returns [`LangError`] on evaluation failure.
-    fn eval_pattern_node(
-        &mut self,
-        ast: &Ast,
-        node_ref: AstRef,
-    ) -> Result<TaggedValue, LangError>;
+    fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<TaggedValue, LangError>;
 
     /// Resolve an ambient global binding by name (the engine's `globals`
     /// map — e.g. `true`/`false` seeded from `Language::globals`).

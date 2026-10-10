@@ -5,8 +5,8 @@
 //! `CanonicalLexer::lex_iter`, which the data-driven `LexerEngine` no longer
 //! exposes — the batch path is the only surface.)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use handl_bench::{canonical_lang, SAMPLE};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use handl_bench::{SAMPLE, canonical_lang};
 use handl_language::Source;
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;

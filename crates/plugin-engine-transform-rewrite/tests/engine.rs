@@ -390,9 +390,7 @@ fn condition_any_child_kind() {
     let mut lang = test_lang();
     add_rule(
         &mut lang,
-        rule_with_when(TransformCondition::AnyChildKind {
-            kind: "lit".into(),
-        }),
+        rule_with_when(TransformCondition::AnyChildKind { kind: "lit".into() }),
     );
     let mut ast = Ast::new();
     ast.push(leaf("lit", json!(1)));

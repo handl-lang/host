@@ -111,9 +111,7 @@ fn yaml_ops_via_op_registry() {
 fn yaml_legacy_name_op() {
     let registry = yaml_op_registry();
     let mut ctx = EvalContext::new();
-    let name_func = registry
-        .get("yaml.yaml")
-        .expect("yaml op should exist");
+    let name_func = registry.get("yaml.yaml").expect("yaml op should exist");
     let result = name_func.call(&[], &mut ctx).unwrap();
     assert_eq!(result, json!({"type": "serializer", "name": "yaml"}));
 }

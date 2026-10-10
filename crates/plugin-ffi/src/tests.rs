@@ -1208,7 +1208,11 @@ fn in_ptr_real_call_memcmp() {
     let func = FfiOpFunction::new(
         "libc.so.6",
         "memcmp",
-        vec!["in_ptr".to_string(), "in_ptr".to_string(), "i64".to_string()],
+        vec![
+            "in_ptr".to_string(),
+            "in_ptr".to_string(),
+            "i64".to_string(),
+        ],
         "i32",
         false,
     );
@@ -1284,7 +1288,10 @@ fn ffi_read_bytes_and_arr() {
         .expect("ffi.read bytes");
     assert_eq!(b["__bytes__"], json!([0xde, 0xad, 0xbe, 0xef]));
     let a = FfiRead
-        .call(&[json!(WORDS.as_ptr() as i64), json!("arr:3:u16")], &mut ctx)
+        .call(
+            &[json!(WORDS.as_ptr() as i64), json!("arr:3:u16")],
+            &mut ctx,
+        )
         .expect("ffi.read arr");
     assert_eq!(a, json!([1, 2, 0x8000]));
 }
@@ -1340,7 +1347,10 @@ fn ffi_read_cstr_and_resource_form() {
     // `{"__resource__": {"ptr": N}}` handles are accepted like numbers.
     let r = FfiRead
         .call(
-            &[json!({"__resource__": {"ptr": S.as_ptr() as i64}}), json!("cstr")],
+            &[
+                json!({"__resource__": {"ptr": S.as_ptr() as i64}}),
+                json!("cstr"),
+            ],
             &mut ctx,
         )
         .expect("ffi.read resource");

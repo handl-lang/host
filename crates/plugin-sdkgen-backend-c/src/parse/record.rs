@@ -61,8 +61,8 @@ fn parse_field(cursor: CXCursor) -> Result<Field, String> {
             if esz <= 0 {
                 return Err(format!("field {name} has unknown element size"));
             }
-            let (_, edesc) = map_field_type(elem)
-                .map_err(|e| format!("field {name}: array element: {e}"))?;
+            let (_, edesc) =
+                map_field_type(elem).map_err(|e| format!("field {name}: array element: {e}"))?;
             let port = if esz == 1 { "Bytes" } else { "[Int]" };
             (port.to_string(), format!("arr:{n}:{edesc}"), 0)
         }

@@ -343,17 +343,13 @@ fn import_preamble(src: &str, module: &Path) -> String {
         if let Some(path) = resolved {
             // Splice the absolute path back into the statement text.
             let abs = path.to_string_lossy();
-            let rewritten = chunk.text.replacen(
-                &format!("\"{spec}\""),
-                &format!("\"{abs}\""),
-                1,
-            );
+            let rewritten = chunk
+                .text
+                .replacen(&format!("\"{spec}\""), &format!("\"{abs}\""), 1);
             let rewritten = if rewritten == chunk.text {
-                chunk.text.replacen(
-                    &format!("'{spec}'"),
-                    &format!("\"{abs}\""),
-                    1,
-                )
+                chunk
+                    .text
+                    .replacen(&format!("'{spec}'"), &format!("\"{abs}\""), 1)
             } else {
                 rewritten
             };
@@ -368,9 +364,7 @@ fn import_preamble(src: &str, module: &Path) -> String {
             // `local := "spec.name"` string binding so bare names
             // dispatch through `call_host` exactly like the ambient
             // dotted form `spec.name(...)`.
-            for (local, expr, _) in
-                handl_runtime::module_prep::host_import_bindings(trimmed)
-            {
+            for (local, expr, _) in handl_runtime::module_prep::host_import_bindings(trimmed) {
                 preamble.push_str(&format!("{local} := {expr};\n"));
             }
         }
@@ -417,11 +411,7 @@ fn resolve_spec_to_file(spec: &str, base: &Path) -> Option<PathBuf> {
             return Some(with_ext);
         }
     }
-    if joined.is_file() {
-        Some(joined)
-    } else {
-        None
-    }
+    if joined.is_file() { Some(joined) } else { None }
 }
 
 /// Extract tags declared in `-- tags: ...` doc-comment lines immediately
@@ -658,8 +648,7 @@ fn discover_tests_in_module(
             Ok(n) => n,
             Err(_) => continue,
         };
-        let mut is_test = test_decl_roles(lang, &root.kind).is_some()
-            || root.kind.contains("test");
+        let mut is_test = test_decl_roles(lang, &root.kind).is_some() || root.kind.contains("test");
         if !is_test {
             let (target_idx, _value_idx) = binding_roles(lang, &root.kind);
             if let Some(ti) = target_idx {
@@ -1077,8 +1066,7 @@ fn pred_module() -> &'static HandlModule {
     // `OnceLock` and deadlock (bootstrap path is pure text work).
     PRED_MODULE.get_or_init(|| {
         handl_kit_canonical::handl_module::with_loader_disabled(|| {
-            HandlModule::new("pred", PRED_HNL, PRED_FUNCS)
-                .with_dependency_arc(Arc::new(CharModule))
+            HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_dependency_arc(Arc::new(CharModule))
         })
     })
 }

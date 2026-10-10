@@ -1862,7 +1862,9 @@ impl ModuleLoader {
             .lex(&self.lang, &LexerRequest::new(Source::new(name)))
             .map(|toks| {
                 toks.as_slice().len() == 1
-                    && self.lang.token_in_category(&toks.as_slice()[0].kind, "identifier")
+                    && self
+                        .lang
+                        .token_in_category(&toks.as_slice()[0].kind, "identifier")
             })
             .unwrap_or(false)
     }

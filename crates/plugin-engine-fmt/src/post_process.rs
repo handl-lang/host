@@ -335,9 +335,7 @@ fn find_type_param_close(chars: &[char], from: usize) -> Option<usize> {
                 // Validate the content before this ` >`. Parens must balance
                 // so `(A > B)` inside the list can't close the bracket early.
                 let content: String = chars[from..i].iter().collect();
-                if balanced_parens(&content)
-                    && content.trim().chars().all(is_type_param_char)
-                {
+                if balanced_parens(&content) && content.trim().chars().all(is_type_param_char) {
                     return Some(i);
                 }
             }

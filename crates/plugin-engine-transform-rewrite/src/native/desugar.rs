@@ -510,7 +510,10 @@ fn parse_constructor_arg(
                     .child_role_index(&arg_node.kind, "subject")
                     .ok()
                     .flatten();
-                let annot_role = lang.child_role_index(&arg_node.kind, "annot").ok().flatten();
+                let annot_role = lang
+                    .child_role_index(&arg_node.kind, "annot")
+                    .ok()
+                    .flatten();
                 let subject_idx = ta_arr
                     .get(subject_role.unwrap_or(0))
                     .and_then(|v| v.as_u64())

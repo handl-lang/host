@@ -1449,18 +1449,14 @@ pub fn apply_native_op(
         // `Bool`s while the `Choice` arm returns the RHS value.
         "truthy" => Ok((
             TaggedValue::Bool(is_truthy(
-                &incoming.or_else(|| args.first().cloned()).unwrap_or(TaggedValue::Null),
+                &incoming
+                    .or_else(|| args.first().cloned())
+                    .unwrap_or(TaggedValue::Null),
             )),
             false,
         )),
-        "and" => Ok((
-            TaggedValue::Bool(args.iter().all(is_truthy)),
-            false,
-        )),
-        "or" => Ok((
-            TaggedValue::Bool(args.iter().any(is_truthy)),
-            false,
-        )),
+        "and" => Ok((TaggedValue::Bool(args.iter().all(is_truthy)), false)),
+        "or" => Ok((TaggedValue::Bool(args.iter().any(is_truthy)), false)),
         // --- unary numeric helpers (arrow_iter / loop tests) ---------------
         "is_pos" => {
             let v = incoming.unwrap_or(TaggedValue::Null);

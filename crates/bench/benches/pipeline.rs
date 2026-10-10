@@ -10,7 +10,7 @@
 //! `DriverPipeline`/`Session`, which no longer exists; `Kit` is the supported
 //! end-to-end seam now.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use handl_bench::{EVAL_SAMPLE, SAMPLE};
 use handl_kit_canonical::Kit;
 

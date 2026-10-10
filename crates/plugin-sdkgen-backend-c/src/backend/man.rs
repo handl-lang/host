@@ -2,7 +2,7 @@
 //! viewer, and the man7.org mirror.
 
 use flate2::read::GzDecoder;
-use handl_plugin_sdkgen::{http_get, DocSource};
+use handl_plugin_sdkgen::{DocSource, http_get};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::io::Read;
@@ -287,4 +287,3 @@ fn strip_html(s: &str) -> String {
         .replace("&quot;", "\"")
         .replace("&amp;", "&")
 }
-

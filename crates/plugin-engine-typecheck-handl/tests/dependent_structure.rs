@@ -716,7 +716,11 @@ fn absurd_rejects_reachable_arm() {
 
     let exact = parse_block(
         &lang,
-        &[vec, "v0 : Vec(0, Bool) = VNil", "bad : Bool = match v0 { VNil: absurd }"],
+        &[
+            vec,
+            "v0 : Vec(0, Bool) = VNil",
+            "bad : Bool = match v0 { VNil: absurd }",
+        ],
     );
     let result = typecheck(&lang, exact);
     assert!(

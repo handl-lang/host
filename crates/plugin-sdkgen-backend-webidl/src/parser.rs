@@ -365,7 +365,10 @@ pub enum AstDef {
         doc: Option<String>,
     },
     /// `Target includes Mixin;` — the includer gains the mixin's members.
-    Includes { target: String, mixin: String },
+    Includes {
+        target: String,
+        mixin: String,
+    },
     Skip(String),
 }
 

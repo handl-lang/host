@@ -96,7 +96,9 @@ impl Plugin for FmtPlugin {
             .payload
             .get("source")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| PlatformError::InvalidMetadata("fmt: missing string field `source`".into()))?;
+            .ok_or_else(|| {
+                PlatformError::InvalidMetadata("fmt: missing string field `source`".into())
+            })?;
         let check = request
             .payload
             .get("check")
@@ -105,10 +107,12 @@ impl Plugin for FmtPlugin {
 
         if check {
             match crate::check_source(source) {
-                Ok(true) => Ok(CapabilityResponse(serde_json::json!({ "status": "canonical" }))),
-                Ok(false) => {
-                    Ok(CapabilityResponse(serde_json::json!({ "status": "not-canonical" })))
-                }
+                Ok(true) => Ok(CapabilityResponse(
+                    serde_json::json!({ "status": "canonical" }),
+                )),
+                Ok(false) => Ok(CapabilityResponse(
+                    serde_json::json!({ "status": "not-canonical" }),
+                )),
                 // A parse failure is reported *in the response*, not as a
                 // `PlatformError`: the caller needs the structured diagnostic
                 // (span included) to render the same message it would have
@@ -176,7 +180,10 @@ mod tests {
         let plugin = FmtPlugin::new();
         let res = with_ctx(|ctx| {
             plugin
-                .run(&req(serde_json::json!({"source": "x = 1", "check": true})), ctx)
+                .run(
+                    &req(serde_json::json!({"source": "x = 1", "check": true})),
+                    ctx,
+                )
                 .expect("fmt check succeeds")
         });
         let status = res.0.get("status").and_then(|v| v.as_str());
@@ -228,7 +235,10 @@ mod tests {
                 .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
                 .expect("fmt succeeds")
         });
-        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("formatted"));
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("formatted")
+        );
         assert!(
             res.0.get("output").and_then(|v| v.as_str()).is_some(),
             "formatted must carry `output`, got {}",

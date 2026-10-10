@@ -29,11 +29,12 @@ fn callee_bindings_do_not_leak_into_caller() {
         let r = m
             .function("f")
             .unwrap()
-            .call(
-                &[serde_json::json!(["a", "b"])],
-                &mut EvalContext::new(),
-            )
+            .call(&[serde_json::json!(["a", "b"])], &mut EvalContext::new())
             .unwrap();
-        assert_eq!(r, serde_json::json!(["b"]), "{eng}: caller's `t` was shadowed by the callee's");
+        assert_eq!(
+            r,
+            serde_json::json!(["b"]),
+            "{eng}: caller's `t` was shadowed by the callee's"
+        );
     }
 }

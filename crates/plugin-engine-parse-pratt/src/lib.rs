@@ -3617,7 +3617,11 @@ mod tests {
             )
             .unwrap();
         lang.tokens
-            .merge(TokenKindDef::new("tk.sep").with_label(",").with_category("punctuation"))
+            .merge(
+                TokenKindDef::new("tk.sep")
+                    .with_label(",")
+                    .with_category("punctuation"),
+            )
             .unwrap();
         lang.tokens
             .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
@@ -3630,7 +3634,11 @@ mod tests {
             )
             .unwrap();
         lang.tokens
-            .merge(TokenKindDef::new("tk.kw").with_label("then").with_category("keyword"))
+            .merge(
+                TokenKindDef::new("tk.kw")
+                    .with_label("then")
+                    .with_category("keyword"),
+            )
             .unwrap();
 
         // `then <ident> { <expr> }` — the arm body is a block child at index 1.

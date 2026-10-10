@@ -381,9 +381,9 @@ pub(crate) fn marshal_call_args(
             res.c_args.push(CArg::Int(ptr));
             res.c_args.push(CArg::Int(len));
         } else if desc == "in_ptr" {
-            let value = args
-                .get(arg_idx)
-                .ok_or_else(|| EvalError::TypeMismatch("missing argument for in_ptr".to_string()))?;
+            let value = args.get(arg_idx).ok_or_else(|| {
+                EvalError::TypeMismatch("missing argument for in_ptr".to_string())
+            })?;
             arg_idx += 1;
             let bytes = json_to_bytes(value)?;
             let ptr = bytes.as_ptr() as i64;
@@ -1251,9 +1251,7 @@ pub(crate) fn descriptor_consumes_handl_arg(desc: &str) -> bool {
 pub(crate) fn return_kind(descriptor: &str) -> Result<CRetKind, EvalError> {
     match descriptor {
         "i32" => Ok(CRetKind::Int32),
-        "i64" | "u8" | "u16" | "u32" | "u64" | "ptr" | "cstr" | "handle" => {
-            Ok(CRetKind::Int64)
-        }
+        "i64" | "u8" | "u16" | "u32" | "u64" | "ptr" | "cstr" | "handle" => Ok(CRetKind::Int64),
         "f64" => Ok(CRetKind::Float),
         "void" => Ok(CRetKind::Void),
         other => Err(EvalError::TypeMismatch(format!(

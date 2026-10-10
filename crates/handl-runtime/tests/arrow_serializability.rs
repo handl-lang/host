@@ -558,10 +558,7 @@ fn arrow_identity_is_its_serializable_data() {
         "binds": { "self_ref": 1 }
     })
     .into();
-    assert_ne!(
-        a, with_binds,
-        "`binds` participates in arrow identity",
-    );
+    assert_ne!(a, with_binds, "`binds` participates in arrow identity",);
 
     // It is still serialized when present.
     assert!(tagged_to_value(&with_binds).get("binds").is_some());
@@ -734,10 +731,7 @@ fn unreferenced_binding_is_not_carried() {
     assert_eq!(arrow["__arrow__"], json!(true), "an arrow is returned");
     assert!(
         arrow.get("binds").is_none()
-            || !arrow["binds"]
-                .as_object()
-                .expect("binds")
-                .contains_key("y"),
+            || !arrow["binds"].as_object().expect("binds").contains_key("y"),
         "unreferenced bindings are not carried: {arrow}",
     );
     assert!(

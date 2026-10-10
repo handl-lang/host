@@ -241,10 +241,7 @@ fn instantiate_arrow_fixtures(v: &mut Value, nodes: &[ProbeNode]) {
                     arena.push(AstNode::new(node.kind).with_payload(node.payload.clone()));
                     map.remove("body");
                     map.remove("env");
-                    map.insert(
-                        "body_def".to_string(),
-                        handl_language::ast_value(&arena),
-                    );
+                    map.insert("body_def".to_string(), handl_language::ast_value(&arena));
                 }
             }
             for (_, val) in map.iter_mut() {

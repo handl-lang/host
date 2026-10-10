@@ -109,9 +109,7 @@ fn toml_ops_via_op_registry() {
 fn toml_legacy_name_op() {
     let registry = toml_op_registry();
     let mut ctx = EvalContext::new();
-    let name_func = registry
-        .get("toml.toml")
-        .expect("toml op should exist");
+    let name_func = registry.get("toml.toml").expect("toml op should exist");
     let result = name_func.call(&[], &mut ctx).unwrap();
     assert_eq!(result, json!({"type": "serializer", "name": "toml"}));
 }

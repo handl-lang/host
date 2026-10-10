@@ -106,7 +106,8 @@ fn emit_per_record(
     let mut types = module.clone();
     types.records = Vec::new();
     types.functions = loose;
-    if !types.typedefs.is_empty() || !types.enum_constants.is_empty() || !types.functions.is_empty() {
+    if !types.typedefs.is_empty() || !types.enum_constants.is_empty() || !types.functions.is_empty()
+    {
         write(&types, "types")?;
     }
     Ok(())
@@ -602,9 +603,9 @@ fn is_numeric_descriptor(d: &str) -> bool {
 /// list and the call-args list.
 const HANDL_KEYWORDS: &[&str] = &[
     "absurd", "app", "arr", "as", "axiom", "data", "do", "else", "export", "first", "for", "from",
-    "grade", "grades", "handle", "if", "id2", "impl", "import", "in", "infer", "law", "left", "let",
-    "match", "op", "rec", "return", "rewrite", "right", "second", "sort", "then", "trait", "type",
-    "where", "while", "with",
+    "grade", "grades", "handle", "if", "id2", "impl", "import", "in", "infer", "law", "left",
+    "let", "match", "op", "rec", "return", "rewrite", "right", "second", "sort", "then", "trait",
+    "type", "where", "while", "with",
 ];
 
 fn safe_ident(name: &str) -> String {

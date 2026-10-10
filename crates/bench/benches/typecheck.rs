@@ -10,8 +10,8 @@
 //! workaround documented in `AGENTS.md`) — the bench supplies the canonical
 //! language, which is exactly what a host does.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use handl_bench::{canonical_lang, SAMPLE};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use handl_bench::{SAMPLE, canonical_lang};
 
 fn bench_typecheck(c: &mut Criterion) {
     let lang = canonical_lang();

@@ -75,7 +75,9 @@ fn roundtrips_arrow() {
     let arrow = Arrow {
         params: vec!["x".to_string(), "y".to_string()],
         body_def: Some(Box::new(ValueAbi::Object(
-            [("__ast__".to_string(), ValueAbi::Null)].into_iter().collect(),
+            [("__ast__".to_string(), ValueAbi::Null)]
+                .into_iter()
+                .collect(),
         ))),
         binds,
         rest: Some("xs".to_string()),

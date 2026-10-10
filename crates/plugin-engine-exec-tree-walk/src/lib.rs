@@ -228,10 +228,12 @@ impl TlRestoreGuard {
         import_resolver: Option<Rc<dyn ImportResolver>>,
     ) -> Self {
         let prev_lang = CURRENT_LANG.with(|c| std::mem::replace(&mut *c.borrow_mut(), lang));
-        let prev_modules = CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), modules));
-        let prev_globals = CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), globals));
-        let prev_import_resolver =
-            CURRENT_IMPORT_RESOLVER.with(|c| std::mem::replace(&mut *c.borrow_mut(), import_resolver));
+        let prev_modules =
+            CURRENT_MODULES.with(|c| std::mem::replace(&mut *c.borrow_mut(), modules));
+        let prev_globals =
+            CURRENT_GLOBALS.with(|c| std::mem::replace(&mut *c.borrow_mut(), globals));
+        let prev_import_resolver = CURRENT_IMPORT_RESOLVER
+            .with(|c| std::mem::replace(&mut *c.borrow_mut(), import_resolver));
         Self {
             lang: prev_lang,
             modules: prev_modules,
@@ -1345,10 +1347,8 @@ impl TreeWalkEngine {
                 ) {
                     Ok(handler_val) => {
                         let _ = target; // retained for diagnostics
-                        let _guard = HandlerStackGuard::push(
-                            &self.handler_stack,
-                            [handler_val.clone()],
-                        );
+                        let _guard =
+                            HandlerStackGuard::push(&self.handler_stack, [handler_val.clone()]);
                         let result = self.eval_inner_td(
                             &body,
                             ast,
@@ -2802,8 +2802,7 @@ impl TreeWalkEngine {
                 Some(TaggedValue::Arr(hs)) => hs.iter().cloned().collect(),
                 _ => Vec::new(),
             };
-            let _guard =
-                HandlerStackGuard::push(&self.handler_stack, carried.iter().cloned());
+            let _guard = HandlerStackGuard::push(&self.handler_stack, carried.iter().cloned());
             let incoming = args.first().cloned().unwrap_or(TaggedValue::Null);
             let dispatch_result =
                 self.arr_dispatch(op, &incoming, ast, node_ref, lang, env, current_node);
@@ -2826,27 +2825,12 @@ impl TreeWalkEngine {
             // dispatches through `call_host_fn`.
             if map.get("__tag__").and_then(|t| t.as_str()) == Some("Arrow") {
                 if let (Some(first), Some(second)) = (map.get("first"), map.get("second")) {
-                    let mid = self.apply_app(
-                        first,
-                        args,
-                        ast,
-                        lang,
-                        env,
-                        node_ref,
-                        current_node,
-                    )?;
+                    let mid =
+                        self.apply_app(first, args, ast, lang, env, node_ref, current_node)?;
                     if let Some(name) = second.as_str() {
                         return self.call_host_fn(name, &[mid], current_node);
                     }
-                    return self.apply_app(
-                        second,
-                        &[mid],
-                        ast,
-                        lang,
-                        env,
-                        node_ref,
-                        current_node,
-                    );
+                    return self.apply_app(second, &[mid], ast, lang, env, node_ref, current_node);
                 }
             }
             if let Some(term_val) = map.get("__term__") {
@@ -3083,8 +3067,7 @@ impl TreeWalkEngine {
                 TaggedValue::Arr(Rc::from(rest_args.to_vec())),
             );
         }
-        let _guard =
-            HandlerStackGuard::push(&self.handler_stack, handlers.iter().cloned());
+        let _guard = HandlerStackGuard::push(&self.handler_stack, handlers.iter().cloned());
         let result = self.eval_node_inner(&def_ast, body_ref, lang, &mut arrow_env);
         result
     }
@@ -3740,10 +3723,8 @@ impl Model for ValueModel {
                     .map_err(|_| plugin_engine::LangError::NotImplemented)?;
                 let handler = self.run(&impl_term, incoming.clone(), ctx)?;
                 ctx.push_handler(handler.clone());
-                let _guard = HandlerStackGuard::push(
-                    &self.0.handler_stack,
-                    [TaggedValue::from(handler)],
-                );
+                let _guard =
+                    HandlerStackGuard::push(&self.0.handler_stack, [TaggedValue::from(handler)]);
                 let result = self.run(&body_term, incoming, ctx);
                 ctx.pop_handler();
                 result
@@ -3953,8 +3934,7 @@ impl ValueCallable for TreeWalkCallable {
         }
         engine.import_resolver = CURRENT_IMPORT_RESOLVER.with(|c| c.borrow().clone());
 
-        let tagged_args: Vec<TaggedValue> =
-            args.iter().cloned().map(TaggedValue::from).collect();
+        let tagged_args: Vec<TaggedValue> = args.iter().cloned().map(TaggedValue::from).collect();
         // Boundary callers pass positional args; array-pattern arrows take
         // a single array argument (the App convention), so pack here. A
         // single argument is already the packed form — pass it through.
@@ -3982,7 +3962,15 @@ impl ValueCallable for TreeWalkCallable {
             env.set_globals(g);
         }
         engine
-            .apply_app(&tagged, &tagged_args, &scratch, &lang, &mut env, call_ref, &call_node)
+            .apply_app(
+                &tagged,
+                &tagged_args,
+                &scratch,
+                &lang,
+                &mut env,
+                call_ref,
+                &call_node,
+            )
             .map(|v| tagged_to_value(&v))
             .map_err(|e| handl_platform::EvalError::Other(e.to_string()))
     }
@@ -4016,11 +4004,7 @@ impl PatternMatchCtx for TwCtx<'_, '_> {
         self.env.define(name, value);
     }
 
-    fn eval_pattern_node(
-        &mut self,
-        ast: &Ast,
-        node_ref: AstRef,
-    ) -> Result<TaggedValue, LangError> {
+    fn eval_pattern_node(&mut self, ast: &Ast, node_ref: AstRef) -> Result<TaggedValue, LangError> {
         self.engine
             .eval_node_inner(ast, node_ref, self.lang, self.env)
     }
@@ -4276,10 +4260,7 @@ fn attach_carried_handler(val: TaggedValue, handler: &TaggedValue) -> TaggedValu
                 _ => Vec::new(),
             };
             handlers.push(handler.clone());
-            inner.insert(
-                Rc::from("handlers"),
-                TaggedValue::Arr(Rc::from(handlers)),
-            );
+            inner.insert(Rc::from("handlers"), TaggedValue::Arr(Rc::from(handlers)));
             map.insert(Rc::from(ARR_DISPATCH_TAG), TaggedValue::Obj(Rc::new(inner)));
             TaggedValue::Obj(Rc::new(map))
         }
@@ -4409,9 +4390,7 @@ fn role_child_arena(lang: &Language, node: &AstNode, role: &str) -> Option<usize
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handl_language::{
-        AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Term,
-    };
+    use handl_language::{AstNode, AstShapeDef, ChildRoleSpec, EvalSchemeDef, Language, Term};
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_engine_exec::EvalRequest;
     use handl_plugin_engine_exec::native_ops::Num;

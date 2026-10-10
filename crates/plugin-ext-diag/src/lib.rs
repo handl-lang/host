@@ -825,8 +825,7 @@ mod tests {
     fn split_statements_import_star_splits_at_newline() {
         // `from "spec" import *` ends in `*` — the splice marker, not a
         // pending binary operator; the next line is a new statement.
-        let chunks =
-            split_statements("from \"pkg\" import *\nout := f(1)\nout");
+        let chunks = split_statements("from \"pkg\" import *\nout := f(1)\nout");
         assert_eq!(chunks.len(), 3);
         assert_eq!(chunks[0].text, "from \"pkg\" import *");
         assert_eq!(chunks[1].text, "out := f(1)");

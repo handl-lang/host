@@ -1,6 +1,6 @@
 //! `hnl sdkgen` CLI extension (ADR-0107).
 
-use handl_plugin_sdkgen::{http_get, Emitter, SdkgenBackend};
+use handl_plugin_sdkgen::{Emitter, SdkgenBackend, http_get};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use handl_plugin_sdkgen_backend_webidl::{MdnDocSource, WebIdlBackend, WebIdlConfig};
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
@@ -168,11 +168,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             };
             let mut backend = WebIdlBackend::new(target);
             // `includes:` paths are relative to the config file's dir.
-            if let Some(cfg_dir) = config_path
-                .as_deref()
-                .map(Path::new)
-                .and_then(Path::parent)
-            {
+            if let Some(cfg_dir) = config_path.as_deref().map(Path::new).and_then(Path::parent) {
                 for inc in &config.includes {
                     backend.add_include_spec(cfg_dir.join(inc));
                 }
@@ -274,13 +270,11 @@ fn fetch_spec(url: &str, dir: &Path) -> Result<PathBuf, String> {
         .unwrap_or("spec")
         .to_string();
 
-    let body =
-        http_get(url, 30_000).map_err(|e| format!("failed to fetch {url}: {e}"))?;
+    let body = http_get(url, 30_000).map_err(|e| format!("failed to fetch {url}: {e}"))?;
 
     std::fs::create_dir_all(dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
     let path = dir.join(basename);
-    std::fs::write(&path, &body)
-        .map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    std::fs::write(&path, &body).map_err(|e| format!("failed to write {}: {e}", path.display()))?;
     Ok(path)
 }
 

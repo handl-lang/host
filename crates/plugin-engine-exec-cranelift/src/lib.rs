@@ -1691,7 +1691,9 @@ unsafe fn apply_value_treewalk(
         Ok(n) => n.clone(),
         Err(e) => return ctx.set_error(e),
     };
-    match engine.apply_app(&callee, &arg_vals, &scratch, lang, &mut env, call_ref, &call_node) {
+    match engine.apply_app(
+        &callee, &arg_vals, &scratch, lang, &mut env, call_ref, &call_node,
+    ) {
         Ok(v) => unsafe { box_value(v) },
         Err(e) => ctx.set_error(e),
     }

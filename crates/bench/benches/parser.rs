@@ -3,8 +3,8 @@
 //! Measures the canonical Pratt parser on a representative expression, both
 //! tokens-only (isolating parse cost) and lex+parse (the full front end).
 
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use handl_bench::{canonical_lang, SAMPLE};
+use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
+use handl_bench::{SAMPLE, canonical_lang};
 use handl_language::Source;
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;

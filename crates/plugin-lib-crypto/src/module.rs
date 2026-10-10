@@ -51,9 +51,7 @@ fn crypto_module() -> &'static HandlModule {
     // otherwise run `loader.analyze` — a nested eval whose `call_host`
     // misses probe `modules.lookup`, which can re-enter this `OnceLock`
     // and deadlock. The bootstrap path is pure text transformation.
-    CRYPTO_MODULE.get_or_init(|| {
-        handl_plugin_lib_handl::with_loader_disabled(build_crypto_module)
-    })
+    CRYPTO_MODULE.get_or_init(|| handl_plugin_lib_handl::with_loader_disabled(build_crypto_module))
 }
 
 /// The `crypto` module — hashing functions.

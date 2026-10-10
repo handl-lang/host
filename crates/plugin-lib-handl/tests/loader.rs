@@ -172,7 +172,11 @@ mod bootstrap {
                 .find("from")
                 .map(|i| rest[..i].trim().to_string())
                 .unwrap_or_else(|| rest.trim().to_string());
-            if is_valid_ident(&name) { vec![name] } else { Vec::new() }
+            if is_valid_ident(&name) {
+                vec![name]
+            } else {
+                Vec::new()
+            }
         } else {
             Vec::new()
         }
@@ -248,8 +252,7 @@ mod bootstrap {
                 let rest = &trimmed["export ".len()..];
                 if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
                     let name = strip_export_name(&rest[..sep_pos]);
-                    let is_type_only =
-                        sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                    let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
                     let expr_start = if is_type_only {
                         "null"
                     } else {

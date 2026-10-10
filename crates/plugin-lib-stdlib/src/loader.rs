@@ -372,10 +372,7 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     // callable when it is imported as a file.
     for qualified in op_names {
         let local = qualified.rsplit('.').next().unwrap_or(qualified);
-        if local.is_empty()
-            || !is_valid_ident(local)
-            || entries.iter().any(|(n, _)| n == local)
-        {
+        if local.is_empty() || !is_valid_ident(local) || entries.iter().any(|(n, _)| n == local) {
             continue;
         }
         entries.push((local.to_string(), vec![format!("\"{qualified}\"")]));

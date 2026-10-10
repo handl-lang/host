@@ -1,6 +1,6 @@
 //! MDN web-docs doc source for the WebIDL backend.
 
-use handl_plugin_sdkgen::{http_get, DocSource};
+use handl_plugin_sdkgen::{DocSource, http_get};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;

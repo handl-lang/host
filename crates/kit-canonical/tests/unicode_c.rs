@@ -102,7 +102,10 @@ fn unicode_c_available_is_bool() {
 
 #[test]
 fn code_point_interop() {
-    assert_eq!(field("code_points"), serde_json::json!([104, 233, 108, 108, 111]));
+    assert_eq!(
+        field("code_points"),
+        serde_json::json!([104, 233, 108, 108, 111])
+    );
     assert_eq!(field("from_code_points"), Value::from("hé"));
     assert_eq!(field("is_ascii_yes"), Value::Bool(true));
     assert_eq!(field("is_ascii_no"), Value::Bool(false));
@@ -111,8 +114,14 @@ fn code_point_interop() {
 
 #[test]
 fn decode_pairs_with_byte_offsets() {
-    assert_eq!(field("decode_ascii"), serde_json::json!([[0, 97], [1, 233]]));
-    assert_eq!(field("decode_astral"), serde_json::json!([[0, 128512], [4, 120]]));
+    assert_eq!(
+        field("decode_ascii"),
+        serde_json::json!([[0, 97], [1, 233]])
+    );
+    assert_eq!(
+        field("decode_astral"),
+        serde_json::json!([[0, 128512], [4, 120]])
+    );
 }
 
 #[test]

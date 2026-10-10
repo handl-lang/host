@@ -440,7 +440,12 @@ fn instantiate_scheme(
                 // Phase 2), evaluated against the same incoming as `fst`.
                 axis: Box::new(instantiate_scheme(axis, input_faithful, either_input, ctx)?),
                 fst: Box::new(instantiate_scheme(fst, input_faithful, either_input, ctx)?),
-                snd: Box::new(instantiate_scheme(snd, snd_faithful, snd_either_input, ctx)?),
+                snd: Box::new(instantiate_scheme(
+                    snd,
+                    snd_faithful,
+                    snd_either_input,
+                    ctx,
+                )?),
             })
         }
         Term::First { inner } => Ok(Term::First {
@@ -457,7 +462,12 @@ fn instantiate_scheme(
             body: Box::new(instantiate_scheme(body, false, false, ctx)?),
         }),
         Term::App { callee, args } => Ok(Term::App {
-            callee: Box::new(instantiate_scheme(callee, input_faithful, either_input, ctx)?),
+            callee: Box::new(instantiate_scheme(
+                callee,
+                input_faithful,
+                either_input,
+                ctx,
+            )?),
             args: args
                 .iter()
                 .map(|a| instantiate_scheme(a, input_faithful, either_input, ctx))
@@ -512,7 +522,12 @@ fn instantiate_scheme(
             cell: Box::new(instantiate_scheme(cell, input_faithful, either_input, ctx)?),
         }),
         Term::RecordProj { record, field } => Ok(Term::RecordProj {
-            record: Box::new(instantiate_scheme(record, input_faithful, either_input, ctx)?),
+            record: Box::new(instantiate_scheme(
+                record,
+                input_faithful,
+                either_input,
+                ctx,
+            )?),
             field: field.clone(),
         }),
         Term::RecordWith {
@@ -520,13 +535,28 @@ fn instantiate_scheme(
             field,
             value,
         } => Ok(Term::RecordWith {
-            record: Box::new(instantiate_scheme(record, input_faithful, either_input, ctx)?),
+            record: Box::new(instantiate_scheme(
+                record,
+                input_faithful,
+                either_input,
+                ctx,
+            )?),
             field: field.clone(),
-            value: Box::new(instantiate_scheme(value, input_faithful, either_input, ctx)?),
+            value: Box::new(instantiate_scheme(
+                value,
+                input_faithful,
+                either_input,
+                ctx,
+            )?),
         }),
         Term::Tag { tag, value } => Ok(Term::Tag {
             tag: tag.clone(),
-            value: Box::new(instantiate_scheme(value, input_faithful, either_input, ctx)?),
+            value: Box::new(instantiate_scheme(
+                value,
+                input_faithful,
+                either_input,
+                ctx,
+            )?),
         }),
         Term::Cobind { grade, body } => Ok(Term::Cobind {
             // The grade is a label/dimension position, like `Op.dim`.
@@ -636,7 +666,13 @@ fn instantiate_op(
                 .skip(1)
                 .map(|&i| lower_node(ctx.ast, ctx.lang, i, ctx.env, ctx.params))
                 .collect::<Result<Vec<_>, _>>()?;
-            lift_to_dim(Term::op_native("array", terms), dim, input_faithful, either_input, ctx)
+            lift_to_dim(
+                Term::op_native("array", terms),
+                dim,
+                input_faithful,
+                either_input,
+                ctx,
+            )
         }
         _ => {
             let dim = instantiate_dim(dim, input_faithful, either_input, ctx)?;
@@ -832,10 +868,7 @@ fn lower_block(
             None => {
                 let stmt = lower_node(ast, lang, idx, &env, params)?;
                 let step = Term::seq(
-                    Term::op_native(
-                        "product",
-                        vec![stmt, Term::op_native("id", vec![])],
-                    ),
+                    Term::op_native("product", vec![stmt, Term::op_native("id", vec![])]),
                     Term::op_native_lit("proj_child", vec![], 1),
                 );
                 prefix = Some(match prefix {

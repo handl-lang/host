@@ -374,8 +374,14 @@ fn array_basics() {
     let m = array_module();
     let a = arr(&[n(1.0), n(2.0), n(3.0)]);
     assert_eq!(call(m.as_ref(), "len", &[a.clone()]), n(3.0));
-    assert_eq!(call(m.as_ref(), "is_empty", &[a.clone()]), serde_json::json!(false));
-    assert_eq!(call(m.as_ref(), "is_empty", &[arr(&[])]), serde_json::json!(true));
+    assert_eq!(
+        call(m.as_ref(), "is_empty", &[a.clone()]),
+        serde_json::json!(false)
+    );
+    assert_eq!(
+        call(m.as_ref(), "is_empty", &[arr(&[])]),
+        serde_json::json!(true)
+    );
     assert_eq!(
         call(m.as_ref(), "reverse", &[a.clone()]),
         arr(&[n(3.0), n(2.0), n(1.0)])
@@ -397,9 +403,18 @@ fn array_basics() {
     assert_eq!(call(m.as_ref(), "first", &[a.clone()]), n(1.0));
     assert_eq!(call(m.as_ref(), "last", &[a.clone()]), n(3.0));
     assert_eq!(call(m.as_ref(), "at", &[a.clone(), n(1.0)]), n(2.0));
-    assert_eq!(call(m.as_ref(), "at", &[a.clone(), n(9.0)]), serde_json::Value::Null);
-    assert_eq!(call(m.as_ref(), "first", &[arr(&[])]), serde_json::Value::Null);
-    assert_eq!(call(m.as_ref(), "last", &[arr(&[])]), serde_json::Value::Null);
+    assert_eq!(
+        call(m.as_ref(), "at", &[a.clone(), n(9.0)]),
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        call(m.as_ref(), "first", &[arr(&[])]),
+        serde_json::Value::Null
+    );
+    assert_eq!(
+        call(m.as_ref(), "last", &[arr(&[])]),
+        serde_json::Value::Null
+    );
 }
 
 #[test]
@@ -411,9 +426,15 @@ fn array_push_pop_shift_slice() {
         call_op("array.push", &[a.clone(), n(4.0), n(5.0)]),
         arr(&[n(1.0), n(2.0), n(3.0), n(4.0), n(5.0)])
     );
-    assert_eq!(call(m.as_ref(), "pop", &[a.clone()]), arr(&[n(1.0), n(2.0)]));
+    assert_eq!(
+        call(m.as_ref(), "pop", &[a.clone()]),
+        arr(&[n(1.0), n(2.0)])
+    );
     assert_eq!(call(m.as_ref(), "pop", &[arr(&[])]), arr(&[]));
-    assert_eq!(call(m.as_ref(), "shift", &[a.clone()]), arr(&[n(2.0), n(3.0)]));
+    assert_eq!(
+        call(m.as_ref(), "shift", &[a.clone()]),
+        arr(&[n(2.0), n(3.0)])
+    );
     assert_eq!(call(m.as_ref(), "shift", &[arr(&[])]), arr(&[]));
     assert_eq!(
         call(m.as_ref(), "prepend", &[a.clone(), n(0.0)]),
@@ -520,7 +541,11 @@ fn array_dedupe_compact_transpose_insert_remove() {
     let m = array_module();
     // `dedupe` removes only *consecutive* duplicates.
     assert_eq!(
-        call(m.as_ref(), "dedupe", &[arr(&[n(1.0), n(1.0), n(2.0), n(1.0)])]),
+        call(
+            m.as_ref(),
+            "dedupe",
+            &[arr(&[n(1.0), n(1.0), n(2.0), n(1.0)])]
+        ),
         arr(&[n(1.0), n(2.0), n(1.0)])
     );
     assert_eq!(
@@ -540,11 +565,19 @@ fn array_dedupe_compact_transpose_insert_remove() {
         arr(&[arr(&[n(1.0), n(3.0)]), arr(&[n(2.0), n(4.0)])])
     );
     assert_eq!(
-        call(m.as_ref(), "insert_at", &[arr(&[n(1.0), n(3.0)]), n(1.0), n(2.0)]),
+        call(
+            m.as_ref(),
+            "insert_at",
+            &[arr(&[n(1.0), n(3.0)]), n(1.0), n(2.0)]
+        ),
         arr(&[n(1.0), n(2.0), n(3.0)])
     );
     assert_eq!(
-        call(m.as_ref(), "remove_at", &[arr(&[n(1.0), n(2.0), n(3.0)]), n(1.0)]),
+        call(
+            m.as_ref(),
+            "remove_at",
+            &[arr(&[n(1.0), n(2.0), n(3.0)]), n(1.0)]
+        ),
         arr(&[n(1.0), n(3.0)])
     );
     assert_eq!(
@@ -557,7 +590,11 @@ fn array_dedupe_compact_transpose_insert_remove() {
 fn array_intersperse_intercalate_pluck() {
     let m = array_module();
     assert_eq!(
-        call(m.as_ref(), "intersperse", &[arr(&[n(1.0), n(2.0), n(3.0)]), n(0.0)]),
+        call(
+            m.as_ref(),
+            "intersperse",
+            &[arr(&[n(1.0), n(2.0), n(3.0)]), n(0.0)]
+        ),
         arr(&[n(1.0), n(0.0), n(2.0), n(0.0), n(3.0)])
     );
     assert_eq!(
@@ -586,8 +623,7 @@ fn array_intersperse_intercalate_pluck() {
 
 #[test]
 fn array_arrow_ops_registered() {
-    let registry =
-        handl_plugin_lib_stdlib::ops::collections::collections_op_registry();
+    let registry = handl_plugin_lib_stdlib::ops::collections::collections_op_registry();
     for name in [
         "take_while",
         "drop_while",
