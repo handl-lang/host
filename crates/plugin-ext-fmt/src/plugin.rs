@@ -19,12 +19,19 @@
 //!
 //! ## Response
 //!
-//! - `check: true`  → `{ "ok": <bool> }` — `ok` is `true` when the input is
-//!   already canonically formatted (`check_source`).
-//! - `check: false` → `{ "output": "<formatted text>" }`.
+//! A single `status` discriminates the outcome, so no case is inferred from
+//! the *absence* of a field:
 //!
-//! A malformed payload is reported as [`PlatformError::InvalidMetadata`]; a
-//! formatting failure is reported as [`PlatformError::Plugin`].
+//! - `{ "status": "canonical" }` — `check: true`, input already canonical.
+//! - `{ "status": "not-canonical" }` — `check: true`, input differs.
+//! - `{ "status": "formatted", "output": "<text>" }` — `check: false`.
+//! - `{ "status": "error", "diagnostic": { … } }` — could not parse/format.
+//!   The structured diagnostic is returned rather than an error string so a
+//!   caller can render exactly what `format_error_to_diagnostic` would have.
+//!
+//! Only a malformed *request* is a [`PlatformError`] (bad payload, wrong
+//! capability); a formatting failure is a successful response carrying a
+//! diagnostic.
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
@@ -97,13 +104,37 @@ impl Plugin for FmtPlugin {
             .unwrap_or(false);
 
         if check {
-            let ok = crate::check_source(source)
-                .map_err(|e| PlatformError::Plugin(format!("fmt check failed: {e}")))?;
-            Ok(CapabilityResponse(serde_json::json!({ "ok": ok })))
+            match crate::check_source(source) {
+                Ok(true) => Ok(CapabilityResponse(serde_json::json!({ "status": "canonical" }))),
+                Ok(false) => {
+                    Ok(CapabilityResponse(serde_json::json!({ "status": "not-canonical" })))
+                }
+                // A parse failure is reported *in the response*, not as a
+                // `PlatformError`: the caller needs the structured diagnostic
+                // (span included) to render the same message it would have
+                // produced calling the crate directly. Flattening it into an
+                // error string would be a real regression in output quality.
+                Err(err) => {
+                    let diag = crate::format_error_to_diagnostic(&err, source);
+                    Ok(CapabilityResponse(serde_json::json!({
+                        "status": "error",
+                        "diagnostic": diag,
+                    })))
+                }
+            }
         } else {
-            let output = crate::format_source(source)
-                .map_err(|e| PlatformError::Plugin(format!("fmt failed: {e}")))?;
-            Ok(CapabilityResponse(serde_json::json!({ "output": output })))
+            match crate::format_source(source) {
+                Ok(output) => Ok(CapabilityResponse(
+                    serde_json::json!({ "status": "formatted", "output": output }),
+                )),
+                Err(err) => {
+                    let diag = crate::format_error_to_diagnostic(&err, source);
+                    Ok(CapabilityResponse(serde_json::json!({
+                        "status": "error",
+                        "diagnostic": diag,
+                    })))
+                }
+            }
         }
     }
 }
@@ -148,10 +179,44 @@ mod tests {
                 .run(&req(serde_json::json!({"source": "x = 1", "check": true})), ctx)
                 .expect("fmt check succeeds")
         });
+        let status = res.0.get("status").and_then(|v| v.as_str());
         assert!(
-            res.0.get("ok").and_then(|v| v.as_bool()).is_some(),
-            "check=true must answer with a bool `ok`, got {}",
+            matches!(status, Some("canonical" | "not-canonical")),
+            "check must answer canonical/not-canonical, got {}",
             res.0
+        );
+    }
+
+    #[test]
+    fn a_parse_error_carries_a_structured_diagnostic() {
+        // Candidates malformed in different ways. The assertion is that *at
+        // least one* produces the error shape, so the test does not depend on
+        // exactly which inputs today's parser rejects — writing it against a
+        // single guessed input failed twice (the formatter happily formatted
+        // both `"x = "` and `"x = (1"`).
+        let plugin = FmtPlugin::new();
+        let candidates = ["x = (1", ")", "\"unterminated", "@@@", "~[", "x = = 1"];
+        let mut saw_error = false;
+        for src in candidates {
+            let res = with_ctx(|ctx| {
+                plugin
+                    .run(&req(serde_json::json!({ "source": src })), ctx)
+                    .expect("a parse failure is a response, not a PlatformError")
+            });
+            if res.0.get("status").and_then(|v| v.as_str()) != Some("error") {
+                continue;
+            }
+            let diag = res.0.get("diagnostic").expect("diagnostic present");
+            // The span must survive the JSON round-trip, otherwise the reroute
+            // would regress error rendering versus the direct call.
+            let parsed: Result<handl_plugin_ext_diag::Diagnostic, _> =
+                serde_json::from_value(diag.clone());
+            assert!(parsed.is_ok(), "diagnostic must deserialize: {diag}");
+            saw_error = true;
+        }
+        assert!(
+            saw_error,
+            "no candidate produced a parse error, so the error path is untested"
         );
     }
 
@@ -163,9 +228,10 @@ mod tests {
                 .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
                 .expect("fmt succeeds")
         });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("formatted"));
         assert!(
             res.0.get("output").and_then(|v| v.as_str()).is_some(),
-            "check=false must answer with `output`, got {}",
+            "formatted must carry `output`, got {}",
             res.0
         );
     }
