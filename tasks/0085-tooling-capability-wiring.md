@@ -1,93 +1,63 @@
 # ADR-0085..0094 follow-up: routing the tooling through capability contracts
 
-Status: **scoped, not started.** This is TODO.md's "High priority — bootstrap
-tooling integration" item:
+Status: **done for `fmt` / `lint` / `typecheck` / `test`.** Every step below
+except the "third parties" part of step 1's motivation is implemented and
+verified:
 
-> Wire `plugin-ext-fmt` / `plugin-ext-lint` / `plugin-engine-typecheck` /
-> `plugin-engine-test` through the existing `plugin-ext-*` capability
-> contracts so `host-lsp`, `host-cli`, and third parties can reuse them
+| Step | State |
+| --- | --- |
+| 1. Create a capability plugin per tool | `FmtPlugin`, `LintPlugin`, `TypecheckPlugin`, `TestPlugin` all exist |
+| 2. Decide the payload schema | Done — all four are `{source, …}`; `lint` carries `language` (ADR-0124) plus `prelude`, `typecheck`/`test` carry `prelude`/`paths` |
+| 3. Register them | Done — `host-cli`'s `tooling_host()` registers all four |
+| 4. Reroute `host-cli` | Done — `fmt_one`, `lint_one`, `typecheck_one`, and `test_command` all dispatch through the host |
+| 5. Plugin + CLI tests | Done — plugin-level tests per tool; CLI smoke-verified per subcommand |
 
-## Finding: the plugins do not exist yet
+The free functions remain the implementation; each plugin is a thin adapter.
 
-The item reads like a wiring task. It is not. Investigation shows:
+### Deviations from the plan above
 
-**1. The tooling surfaces are free functions, not plugins.** None of
-`plugin-ext-fmt`, `plugin-ext-lint`, `plugin-ext-eval`, `plugin-ext-build`,
-`plugin-ext-compile` declares a `Plugin` or `Behavior` impl:
+- **`TypecheckPlugin` / `TestPlugin` carry no `language` payload.** The plan
+  assumed every tool needed the language in the payload. `typecheck` and
+  `test` do not: they obtain their language from the single canonical
+  assembly path (`Kit::new`), so there is no caller-vs-plugin divergence to
+  close. Only `lint` had the hazard (`host-cli` used
+  `load_canonical_language()`, the plugin's default was `lint_language()`),
+  which is why ADR-0124's payload landed there. See `plugin-ext-typecheck`'s
+  crate docs.
+- **`fmt` response gained a structured diagnostic.** The reroute returns a
+  rendered diagnostic (span included) rather than a flattened error string,
+  so `hnl fmt` output is unchanged.
+- **`lint` response is `status`-discriminated** (`diagnostics` / `fixed` /
+  `error`), matching `fmt`, instead of inferring the case from which field is
+  present.
+- **`test` splits policy from mechanism.** The CLI keeps default-path
+  resolution, flag validation, output stream, and exit code; the plugin does
+  discovery + execution + report rendering (the engine's report types are not
+  `Serialize`, so the rendered report is returned as text). The ADR-0089
+  on-disk cache stays in the plugin, since it belongs to the runner.
 
-```console
-$ for c in plugin-ext-fmt plugin-ext-lint plugin-ext-eval plugin-ext-build plugin-ext-compile; do
-    grep -c 'impl Behavior for\|pub struct .*Plugin' crates/$c/src/lib.rs; done
-0
-0
-0
-0
-0
-```
+## Original planning notes (kept for context)
 
-They export `format_source` / `check_source` / `lint_source_with_prelude` /
-`fix_source_with_prelude` and so on.
-
-**2. `host-cli` therefore calls them directly**, bypassing the capability
-layer even though it already links the host:
+Both `fmt`/`lint` and `typecheck`/`test` were, before this work, free
+functions — `host-cli` called them directly, bypassing the capability layer
+even though it already linked the host:
 
 ```rust
 use handl_platform::{CapabilityRequest, DefaultHost, PlatformError};
-use handl_plugin_ext_cli::BasicCli;
 // ...but then:
 match handl_plugin_ext_fmt::check_source(src) { ... }
 handl_plugin_ext_lint::lint_source_with_prelude_and_language(lang, src, prelude)
 ```
 
-**3. The dispatch seam that *would* carry them already exists.**
-`BasicCli::run` takes a `CapabilityRequest` with a `{command, args}` payload,
-resolves the target plugin from `ctx.plugins` by capability id, and delegates:
+Pre-reroute history, for reference: the tooling surfaces had no `Plugin`
+impls (`grep -c 'impl Behavior for\|pub struct .*Plugin'` returned 0 for each)
+and `host-cli` called `format_source` / `lint_source_with_prelude` directly.
+The dispatch seam already existed — `BasicCli::run` resolves a plugin from
+`ctx.plugins` by capability id — so the work was to add the plugins to
+resolve *to*, then reroute the subcommands.
 
-```rust
-let command_id = CapabilityId::from(command);
-let plugin = ctx.plugins.resolve(&command_id)?;
-plugin.run(&CapabilityRequest { capability: command_id, payload }, ctx)
-```
-
-So the intended shape is `{command: "fmt", args: [...]}` → resolve `fmt` →
-run. What is missing is the plugins to resolve *to*.
-
-## Work required
-
-1. **Create a capability plugin per tool** — `FmtPlugin`, `LintPlugin`,
-   `TypecheckPlugin`, `TestPlugin` — each `impl Behavior` with
-   `capabilities()`, `metadata()`, and a `run()` that unpacks
-   `{args, ...}` from the payload and calls the existing free function.
-   The free functions stay as the implementation; the plugin is a thin
-   adapter, so this is additive and low-risk per plugin.
-2. **Decide the payload schema** for each — `fmt` needs `{path?, source,
-   check, write}`, `lint` needs `{source, fix, prelude, language?}`,
-   `typecheck` needs `{source, kit}`. Note `plugin-ext-lint` already has a
-   `*_with_language` variant, i.e. the language/kit is an input; the payload
-   must carry it (or the plugin must resolve it).
-3. **Register them** in the host/registry that `host-cli` builds, so
-   `ctx.plugins.resolve(&CapabilityId::from("fmt"))` succeeds.
-4. **Refactor `host-cli`'s subcommand bodies** to build a
-   `CapabilityRequest` and dispatch through the host instead of calling the
-   free functions. Keep the free functions as the fallback seam.
-5. **Tests** — a plugin-level test per tool, plus a CLI-level test proving
-   `hnl fmt` and `hnl lint` produce identical output on a known input before
-   and after the rerouting.
-
-## Why this is not done here
-
-Steps 4 and 5 touch `host-cli/src/main.rs` (2000+ lines) and the primary
-user-facing binary. Doing them half-way risks breaking `hnl` for every user,
-and the environment available for this session could not support iterative
-verification (see below). Steps 1–3 are the safe, additive subset and are
-the natural first PR; step 4 should follow once the plugins exist and are
-individually tested.
-
-## Environment note (why verification was constrained)
-
-The workspace debug target is ~8.5 GB and the volume was at 100% (2 MB free)
-for most of the session; the full `cargo test --workspace` build cannot fit
-and had to be abandoned in favour of per-crate runs. Builds also serialize on
-a global `flock` held by the `cargo` wrapper in `~/.local/bin`, so unrelated
-projects contend. Verification should be redone on an uncontended box before
-merging step 4.
+Step 5's "identical output before and after" check was done by hand rather
+than as a committed test: `hnl fmt`, `hnl lint`, `hnl typecheck`, and
+`hnl test` (human + `--json`, `--list`, `--filter`, `--tag`, `--cache`, and a
+failing module's exit code) were run against known inputs on both sides of
+each reroute.
