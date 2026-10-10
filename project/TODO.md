@@ -35,11 +35,16 @@ remains unchanged.
 
 - [x] Rewrite the temporary `plugin-engine-test::framework` Rust handls as
       pure-handl `assert.hnl`/`property.hnl`/etc. (per ADR-0092 target layout)
-- [~] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` CI gate for
-  `handl-packages/` and `examples/` (workflow + script added; currently
-  informational/continue-on-error because the gate is not green: fmt 1/172
-  canonical, lint 139/172 files with diagnostics, typecheck 141/172 files
-  with diagnostics, test 42 pass but 32 scanned modules have parse errors)
+- [x] `hnl fmt --check && hnl lint && hnl typecheck && hnl test` CI gate for
+  `handl-packages/` and `examples/` (workflow + script added). **The gate is
+  GREEN and blocking**: `continue-on-error` removed from
+  `.github/workflows/dogfood-gate.yml`, script in `scripts/dogfood-gate.sh`.
+  Over the 177-file corpus: fmt 0 failures, lint 0 errors (residual
+  `missing-module-doc`/`naming-convention` info+warnings only), typecheck 0
+  errors, test 43/43 pass, 0 parse-error files. See `AGENTS.md`
+  § "Dogfood gate status — GREEN" for the infrastructure that made it green
+  (`split_statements`, `detect_dialect`, `check_module_with_prelude`,
+  `canonical_wire_names`).
 
 ## High priority — engine genericity and known issues
 
@@ -47,7 +52,7 @@ See `AGENTS.md` § "Known issues" for the source of truth. These are the
 residual hard-codings that break the "language as data" invariant and the
 current failing/warning tests.
 
-- [ ] Engine-genericity debt: the *structural-token* residuals in
+- [~] Engine-genericity debt: the *structural-token* residuals in
       `plugin-engine-parse-pratt` (block opener, dimension bracket, block
       separators, keyword-as-identifier), the positional `field-access`/
       `type-annot` reads in `plugin-engine-transform-rewrite`'s
@@ -68,7 +73,9 @@ current failing/warning tests.
       a sweep fix.
 - [ ] `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
       (internal `let`/`stmt.let` kinds — no `let` surface syntax)
-- [ ] `plugin-engine-parse-pratt` unused import warning (`PayloadTokenSpec`)
+- [x] `plugin-engine-parse-pratt` unused import warning (`PayloadTokenSpec`) —
+      **closed**: the symbol was already gone when the structural-token pass
+      touched the crate; no warning is emitted. (Was stale.)
 
 ## High priority — bootstrap tooling integration (ADR-0085..0094)
 
@@ -87,8 +94,15 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 - [ ] 100% coverage gate for the tooling plugin crates in CI;
       `cargo test --workspace` green
 - [ ] Update the README crate map to reflect the improved tooling set
-- [ ] `plugin-engine-test`: emit `SuiteStarted`/`SuiteFinished` and add
-      structured `expected`/`actual`/`diff` to `TestOutcome`
+- [x] `plugin-engine-test`: emit `SuiteStarted`/`SuiteFinished` and add
+      structured `expected`/`actual`/`diff` to `TestOutcome`. **Landed** (ADR-0089):
+      suites bracket each module; `FailureDetail` carries
+      `expected`/`actual`/`diff` from both the engine `assert` path
+      (`TestAssertHandler` thread-local) and the pure-handl `assert.*` helpers'
+      `err` payload; both `HumanReporter` and `JsonReporter` render them
+      (human `== <module> ==` headers, json `suites` array). See `AGENTS.md`
+      § "ADR-0089 prerequisite (done)". Note `diff` is still only produced by
+      the engine `assert` path — the `.hnl` helpers don't emit one yet.
 
 ## Unblocking — test/perf infrastructure
 

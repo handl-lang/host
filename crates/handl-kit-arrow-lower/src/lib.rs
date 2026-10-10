@@ -1244,6 +1244,7 @@ fn lower_object(
             let value = entry
                 .get("value")
                 .ok_or_else(|| format!("object entry at {} missing value", node_index(node)))?;
+            reject_reserved_object_key(key, node)?;
             keys.push(Value::String(key.to_string()));
             values.push(Term::const_value(value.clone()));
         }
@@ -1290,6 +1291,7 @@ fn lower_object(
             .ok_or_else(|| format!("entry at {} missing value child", entry_idx))?;
         let value = lower_node(ast, lang, value_idx, env, params)?;
 
+        reject_reserved_object_key(&key, node)?;
         keys.push(Value::String(key));
         values.push(value);
     }
@@ -1301,6 +1303,28 @@ fn lower_object(
         source: handl_language::ArrSource::Native,
         lit: Some(Value::Array(keys)),
     })
+}
+
+/// Reject a reserved host-sentinel key (`__tag__`, `__registry__`, …) in an
+/// object literal (ADR-0055 §"Negative — A reserved key", ADR-0054).
+///
+/// The evaluator's `object`/`record` ops enforce this at construction time so
+/// a user object literal cannot forge a tagged value. The `Term` lowering
+/// path builds records itself, so it must apply the same guard — otherwise a
+/// lowered program would bypass the invariant that the AST engines enforce.
+///
+/// Returning `Err` declines the lowering; the caller then falls back to the
+/// bound AST eval engine, whose own `object` guard reports the reserved-key
+/// error to the user.
+fn reject_reserved_object_key(key: &str, node: &AstNode) -> Result<(), String> {
+    if handl_language::is_reserved_value_key(key) {
+        return Err(format!(
+            "object: key '{}' is reserved (node {})",
+            key,
+            node_index(node)
+        ));
+    }
+    Ok(())
 }
 
 fn lower_op(

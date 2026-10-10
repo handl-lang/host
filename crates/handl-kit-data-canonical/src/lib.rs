@@ -710,6 +710,7 @@ mod tests {
                 "lib.crypto",
                 "lib.datetime",
                 "lib.intl-c",
+                "lib.unicode-c",
                 "lib.kv",
             ]
         );
@@ -724,7 +725,7 @@ mod tests {
     #[test]
     fn assemble_config_kit_merges_caps_via_extends() {
         // `extends` resolves through the registry: the `config` manifest
-        // (extends `canonical`) assembles the canonical language plus its 13
+        // (extends `canonical`) assembles the canonical language plus its 14
         // authored `lib.*` capabilities, and inherits the parent's runtime
         // selection (its manifest declares no `runtime:`).
         let reg = registry();
@@ -735,7 +736,7 @@ mod tests {
         assert!(lang.grammar.len() > 0);
         assert!(lang.eval.len() > 0);
         let canonical_caps = assemble().unwrap().lang().caps.len();
-        assert_eq!(lang.caps.len(), canonical_caps + 13);
+        assert_eq!(lang.caps.len(), canonical_caps + 14);
         for id in [
             "lib.math",
             "lib.str",
@@ -794,7 +795,7 @@ mod tests {
     #[test]
     fn load_kit_config_carries_caps() {
         let config = load_kit("config").unwrap();
-        assert_eq!(config.caps.len(), 13);
+        assert_eq!(config.caps.len(), 14);
         for id in &[
             "lib.math",
             "lib.str",
@@ -808,6 +809,7 @@ mod tests {
             "lib.crypto",
             "lib.datetime",
             "lib.intl-c",
+            "lib.unicode-c",
             "lib.kv",
         ] {
             assert!(
@@ -822,8 +824,8 @@ mod tests {
     fn assemble_config_extends_canonical_caps() {
         let kit = DataKit::assemble(&load_kit("config").unwrap(), &registry()).unwrap();
         let lang = kit.lang();
-        // Canonical contributes 3 foundation caps; config adds 13 pure-library caps.
-        assert_eq!(lang.caps.len(), 16);
+        // Canonical contributes 3 foundation caps; config adds 14 pure-library caps.
+        assert_eq!(lang.caps.len(), 17);
         assert!(lang.caps.get_by_id("lex").is_some());
         assert!(lang.caps.get_by_id("parse").is_some());
         for id in &[
@@ -839,6 +841,7 @@ mod tests {
             "lib.crypto",
             "lib.datetime",
             "lib.intl-c",
+            "lib.unicode-c",
             "lib.kv",
         ] {
             assert!(lang.caps.get_by_id(id).is_some(), "missing cap {}", id);

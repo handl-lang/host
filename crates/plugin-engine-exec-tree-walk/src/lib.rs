@@ -2712,6 +2712,16 @@ impl TreeWalkEngine {
                             current_node,
                         )
                     })?;
+                    // Reserved host sentinels are unforgeable by user object
+                    // literals (ADR-0055 §"Negative — A reserved key"; ADR-0054).
+                    // The AST `object` op enforces this; the `record` op must
+                    // too, since lowered arrow code reaches it directly.
+                    if handl_language::is_reserved_value_key(key) {
+                        return Err(LangError::engine_node(
+                            format!("record: key '{}' is reserved", key),
+                            current_node,
+                        ));
+                    }
                     map.insert(key.to_string(), tagged_to_value(&args[i + 1]));
                 }
                 Ok((TaggedValue::from(Value::Object(map)), false))

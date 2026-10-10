@@ -174,6 +174,41 @@ export`). A spec that does **not** resolve to a file (bare host-module
   tail (no cursor-exhaustion check); `hnl run`/the test runner strip the
   line.
 
+### Reserved value keys (ADR-0055) — every object-construction path must guard
+
+`__tag__` / `__registry__` / `__language__` / `__ast__` / `__arrow__` /
+`__compiled__` are **reserved**: only host primitives (`tag_value`,
+`tag.construct`, the type registry, `language_value`, `ast_value`, the
+`closure` op, `compiled_value`) may mint them, so a user object literal
+cannot forge a tagged value. `handl_language::is_reserved_value_key` is the
+predicate; the constant list lives in `handl-language/src/lib.rs`.
+
+There is more than one place an object literal is built, and **each must
+apply the guard**. The paths:
+
+| Path | Guard |
+| --- | --- |
+| AST `object` op (`plugin-engine-exec/src/native_ops.rs`) | ✅ both the `entries`-payload and `children` branches |
+| bytecode static-key fast path (`plugin-engine-exec-bytecode/src/compile.rs`) | ✅ |
+| tree-walk `record` op (`plugin-engine-exec-tree-walk/src/lib.rs`, v2 native ops) | ✅ |
+| **Term lowering** (`handl-kit-arrow-lower/src/lib.rs` `lower_object`) | ✅ declines the lowering |
+
+The Term path is the subtle one and was the source of a real bug (the
+`user_object_literal_cannot_forge_tag_key` test in
+`kit-canonical/tests/tagged_values.rs` failed for a long time because of
+it). `Runtime::eval` tries `lower_ast` → `interpret_with_handlers` **first**
+and returns that value on success, so a lowered program never reaches the
+AST engine's `object` op. `lower_object` therefore builds the record itself
+via `Term::Op{name:"record"}`, and `plugin-engine/src/term_interpreter.rs`'s
+`record` op has no access to `handl_language` (`handl-language` depends on
+`plugin-engine`, so the dep would cycle). The fix is for `lower_object` to
+*decline* a reserved key: lowering fails, `Runtime::eval` falls back to the
+bound AST engine, and that engine's `object` guard reports the error.
+
+**When adding a new object/record-construction path, guard it.** Prefer
+declining the lowering (letting the AST engine produce the diagnostic) over
+duplicating the predicate where `handl_language` is unreachable.
+
 ### Known issues
 
 - `let` is **fully removed** from the language (completes ADR-0079):
