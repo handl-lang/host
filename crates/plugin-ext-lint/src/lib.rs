@@ -32,6 +32,9 @@
 pub use handl_language::Language;
 pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
 
+pub mod plugin;
+pub use plugin::{LintPlugin, LINT_CAPABILITY};
+
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
