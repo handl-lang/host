@@ -750,12 +750,14 @@ name = "handl-bench"
 version = "0.1.0"
 dependencies = [
  "criterion",
+ "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
  "handl-plugin-engine-lex",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-typecheck",
 ]
 
 [[package]]

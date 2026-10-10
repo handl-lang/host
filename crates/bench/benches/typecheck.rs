@@ -1,0 +1,27 @@
+//! Typechecker benchmarks.
+//!
+//! Measures `plugin-engine-typecheck::check_module` directly, so a regression
+//! is attributable to the checker rather than to parse or eval. This is the
+//! `typecheck` bench the pre-refactor suite had; it targeted
+//! `handl-typecheck-{core,infer,schema-json}`, all of which are gone, so it is
+//! a re-target onto the current entry point rather than a revert.
+//!
+//! `check_module` takes the `Language` from its caller (the cyclic-dependency
+//! workaround documented in `AGENTS.md`) — the bench supplies the canonical
+//! language, which is exactly what a host does.
+
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use handl_bench::{canonical_lang, SAMPLE};
+
+fn bench_typecheck(c: &mut Criterion) {
+    let lang = canonical_lang();
+    c.bench_function("typecheck/check_module", |b| {
+        b.iter(|| {
+            handl_plugin_engine_typecheck::check_module(&lang, black_box(SAMPLE))
+                .expect("sample typechecks")
+        });
+    });
+}
+
+criterion_group!(typecheck_benches, bench_typecheck);
+criterion_main!(typecheck_benches);

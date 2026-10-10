@@ -22,6 +22,15 @@ use handl_language::Language;
 pub const SAMPLE: &str =
     r#"qux.handle.nested.call(123.456, -2.5, "hello", [1, 2, 3], { a: true, b: null })"#;
 
+/// A self-contained, **evaluable** module for the pipeline bench.
+///
+/// [`SAMPLE`] deliberately leaves its callee unbound so it exercises parsing
+/// without needing a runtime; evaluating it fails with
+/// `function 'qux…' not found`. Evaluation needs every name bound, so this
+/// binds the function first — the same construct
+/// `kit-canonical/benches/perf.rs` uses, which is known to evaluate.
+pub const EVAL_SAMPLE: &str = "f = x ~> x; 1 |> f";
+
 /// The canonical language, assembled from the embedded YAML fragments.
 pub fn canonical_lang() -> Language {
     handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles")
