@@ -5,6 +5,7 @@ edition = "2024"
 
 [workspace]
 members = [
+  "crates/bench",
   "crates/plugin-ext-build",
   "crates/plugin-ext-cli",
   "crates/plugin-ext-diag",

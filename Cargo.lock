@@ -746,6 +746,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-bench"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-plugin-engine-lex",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+]
+
+[[package]]
 name = "handl-defining-handl"
 version = "0.1.0"
 dependencies = [

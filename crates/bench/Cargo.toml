@@ -1,0 +1,30 @@
+[package]
+name = "handl-bench"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+handl-kit-data-canonical = { workspace = true }
+handl-language = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", default-features = false, features = [
+  "plotters",
+  "cargo_bench_support",
+] }
+handl-plugin-engine-lex = { workspace = true }
+handl-plugin-engine-lex-pattern = { workspace = true }
+handl-plugin-engine-parse = { workspace = true }
+handl-plugin-engine-parse-pratt = { workspace = true }
+
+[lib]
+bench = false
+
+[[bench]]
+name = "lexer"
+harness = false
+
+[[bench]]
+name = "parser"
+harness = false
