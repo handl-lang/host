@@ -96,9 +96,20 @@ Phase 1 crates are now `plugin-ext-diag`, `plugin-ext-fmt`, `plugin-ext-lint`,
 and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 `typecheck` (not `check`), `test`, `run`, `eval`, `transform`, `gen-grammar`.
 
-- [ ] Wire `plugin-ext-fmt` / `plugin-ext-lint` / `plugin-engine-typecheck` /
+- [~] Wire `plugin-ext-fmt` / `plugin-ext-lint` / `plugin-engine-typecheck` /
       `plugin-engine-test` through the existing `plugin-ext-*` capability
-      contracts so `host-lsp`, `host-cli`, and third parties can reuse them
+      contracts so `host-lsp`, `host-cli`, and third parties can reuse them.
+      **Scoped, not started** — see
+      `project/tasks/0085-tooling-capability-wiring.md`. The item reads like
+      wiring; it is not. None of `plugin-ext-{fmt,lint,eval,build,compile}`
+      declares a `Plugin`/`Behavior` at all (they are free-function modules),
+      so the plugins must be **created** first. `host-cli` already links
+      `DefaultHost` + `BasicCli` but calls the free functions directly.
+      Steps 1–3 (add a thin adapter `Plugin` per tool, decide its payload
+      schema, register it) are additive and are the natural first PR;
+      step 4 (reroute `host-cli`'s subcommand bodies) touches the primary
+      user-facing binary and should follow once the plugins are individually
+      tested.
 - [ ] Bring the linter / typechecker rule engines onto the generic
       `plugin-engine-*` machinery where applicable
 - [ ] Replace any pre-arrow tooling duplicates with the improved
