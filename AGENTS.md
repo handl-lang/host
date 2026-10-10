@@ -25,6 +25,36 @@ memory-hungry — under parallel load the OOM killer can SIGKILL one (symptom:
 binary alone single-threaded before treating it as a real failure; a
 `bootstrap_self` case that looked broken this way passed 5/5 on its own.
 
+### Prefer nextest for the full suite
+
+`cargo-nextest` is installed and is much faster end-to-end (~71 min for the
+whole workspace vs ~2 h under `cargo test`), because it schedules at
+test-and-binary granularity and reuses the same artifacts when the profile
+env is identical:
+
+```bash
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
+  cargo nextest run --workspace -j 2
+```
+
+**Memory is the constraint, and `-j` is not what it looks like.** In nextest
+`--test-threads` is an **alias** for `-j`, so passing both is an error, and
+`-j N` means *N tests running at once across all binaries* — not N binaries.
+On an 11 GB box: `-j 2` peaks around 5 GB used and is safe; **`-j 8` OOMs the
+machine** (heavy cases such as the cranelift JIT and `standalone_bootstrap`
+use multiple GB each). Do not raise `-j` on a small machine to save time —
+it costs a reboot.
+
+Two suites dominate wall clock and will look stalled while `-j 2` blocks on
+them: `plugin-engine-exec-cranelift::standalone_bootstrap` (2 tests, ~15 min
+each — they compile the corpus to native and run it) and `kit-canonical`'s
+`fp_integration`/`intl_c`/`noise_c`/`rand_c` (~40-80 s per test). Check
+`ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
+
+Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
+(12 flagged slow). Note nextest does not run doctests — `cargo test --doc
+--workspace` is the separate check for those.
+
 ## Bootstrap Tooling (ADRs 0085-0091)
 
 The canonical toolchain is implemented in Rust on the generic plugin substrate.
