@@ -9,6 +9,22 @@ cargo test -p <crate-name>           # single crate
 cargo build -p handl-host-cli        # build the hnl binary
 ```
 
+`cargo test --workspace` is **green**: 357 suites / 4,298 tests passed,
+203 ignored, 0 failures. On a disk-constrained machine the debug target
+(~8.5 GB with default debuginfo) does not fit, so run it as
+
+```bash
+CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
+  cargo test --workspace -j 2 --no-fail-fast -- --test-threads=2
+```
+
+`debug=0` cuts artifact size enough to fit and does not change outcomes;
+`--no-fail-fast` is needed for a sweep. Individual test *binaries* are still
+memory-hungry — under parallel load the OOM killer can SIGKILL one (symptom:
+"signal: 9, SIGKILL: kill" instead of an assertion failure). Re-run that
+binary alone single-threaded before treating it as a real failure; a
+`bootstrap_self` case that looked broken this way passed 5/5 on its own.
+
 ## Bootstrap Tooling (ADRs 0085-0091)
 
 The canonical toolchain is implemented in Rust on the generic plugin substrate.
