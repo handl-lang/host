@@ -679,7 +679,9 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unumberformatter",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/unumberformatter.hnl"),
+        hnl: include_str!(
+            "../../../handl-packages/generated/icu-c-linux-x86_64/unumberformatter.hnl"
+        ),
         funcs: &[
             "unumf_close_78",
             "unumf_formatDouble_78",
@@ -691,7 +693,9 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uformattednumber",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/uformattednumber.hnl"),
+        hnl: include_str!(
+            "../../../handl-packages/generated/icu-c-linux-x86_64/uformattednumber.hnl"
+        ),
         funcs: &[
             "unumf_closeResult_78",
             "unumf_openResult_78",
@@ -1280,11 +1284,10 @@ pub fn module_ref(name: &str) -> Option<&'static HandlModule> {
     // `with_loader_disabled`: `HandlModule::new`'s `analyze_source` would
     // otherwise run `loader.analyze` — a nested eval that can re-enter
     // this cache (miss → build → analyze → …) — unbounded recursion.
-    let built: &'static HandlModule = Box::leak(Box::new(
-        handl_plugin_lib_handl::with_loader_disabled(|| {
-            module(name).expect("module_spec checked above")
-        }),
-    ));
+    let built: &'static HandlModule =
+        Box::leak(Box::new(handl_plugin_lib_handl::with_loader_disabled(
+            || module(name).expect("module_spec checked above"),
+        )));
     let mut cache = module_cache().lock().ok()?;
     Some(*cache.entry(name.to_string()).or_insert(built))
 }
