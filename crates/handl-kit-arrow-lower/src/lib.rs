@@ -911,7 +911,33 @@ fn bind_stmt(
     let child = ast
         .get(AstRef::new(idx))
         .ok_or_else(|| format!("block child {} out of bounds", idx))?;
-    if child.kind == "assign" {
+    // Binding dispatch is face-driven (ADR-0123): `binding` names the family.
+    // The *layout* is then distinguished by the declared child roles, which is
+    // where `assign` and `bind` actually differ — `assign` has `target`/`value`
+    // roles; `bind` carries `payload.name` and one child. Reusing the role
+    // metadata (rather than adding a second face) is what makes a language
+    // that renames `assign` to `set` lower unchanged.
+    //
+    // `is_binding` keeps the canonical kind fallback for face-less shapes, so
+    // a hand-built test language that declares no `faces` behaves as before.
+    let is_binding = |kind: &str| -> bool {
+        if lang.declares_faces(kind) {
+            lang.shape_has_face(kind, "binding")
+        } else {
+            kind == "assign" || kind == "bind"
+        }
+    };
+    // A binding whose shape declares a `target` role uses the assign layout.
+    // Role-less shapes (hand-built test languages that declare no `children`)
+    // fall back to the canonical `assign` kind for the layout, exactly as
+    // `is_binding` falls back for the face.
+    let is_assign_layout = lang
+        .child_role_index(&child.kind, "target")
+        .ok()
+        .flatten()
+        .is_some()
+        || (!lang.declares_faces(&child.kind) && child.kind == "assign");
+    if is_binding(&child.kind) && is_assign_layout {
         let target_idx = child_at_role_or_pos(child, lang, "target", 0)
             .ok_or_else(|| format!("assign at {} missing target child", idx))?;
         let target = ast
@@ -934,7 +960,7 @@ fn bind_stmt(
         env.insert(name.clone(), entry.clone());
         local.insert(name);
         Ok(Some(entry.term))
-    } else if child.kind == "bind" {
+    } else if is_binding(&child.kind) {
         let name = child
             .payload
             .get("name")

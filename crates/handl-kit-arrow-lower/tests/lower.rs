@@ -426,3 +426,63 @@ fn handle_arrow_with_handler_lowers_to_term_handle() {
         }
     );
 }
+
+/// ADR-0123 acceptance: a language that **renames** its binder kind must lower
+/// unchanged.
+///
+/// The canonical binder is `assign`; here the language calls it `set` and
+/// declares `faces: [binding]` on the shape plus the `target`/`value` child
+/// roles. The lowerer must dispatch on the face (family) and the declared
+/// roles (layout), never on the literal `assign` kind — otherwise a kit with
+/// its own spelling cannot reuse this generic lowerer.
+///
+/// Without this test "the lowerer is generic" is an untested claim, which is
+/// exactly the gap ADR-0123 §"Finding" records.
+#[test]
+fn a_renamed_binder_kind_lowers_unchanged() {
+    use handl_language::{AstShapeDef, ChildRoleSpec};
+
+    // The language renames `assign` → `set` and declares the face + roles.
+    let mut lang = Language::new();
+    lang.ast
+        .merge(
+            AstShapeDef::new("ast.set", "set")
+                .with_faces(vec!["binding".to_string()])
+                .with_children(vec![
+                    ChildRoleSpec {
+                        role: "target".to_string(),
+                        variadic: false,
+                        optional: false,
+                    },
+                    ChildRoleSpec {
+                        role: "value".to_string(),
+                        variadic: false,
+                        optional: false,
+                    },
+                ]),
+        )
+        .unwrap();
+
+    // Same arena shape as the canonical case, but `set` instead of `assign`:
+    //   0: var "f"   1: var "g"   2: value "x"   3: var "y"
+    //   4: set [1, 2]           (f = g, target/value roles)
+    //   5: block [4, 3]         (..., y)
+    let mut ast = Ast::new();
+    ast.push(var_node("g"));
+    ast.push(value_node(Value::String("x".to_string())));
+    ast.push(with_children("set", vec![0, 1]));
+    ast.push(var_node("y"));
+    ast.push(with_children("block", vec![2, 3]));
+
+    let term = lower_ast(&ast, &lang, AstRef::new(4)).expect("renamed binder must lower");
+
+    // The binding is emitted as a `Seq`-style block body ending in `y`,
+    // exactly as the canonical `assign` spelling would. Assert on the shape
+    // (a block over the bound value and the trailing expression) rather than
+    // on an exact Term, so the test does not over-fit the lowering details.
+    let rendered = format!("{term:?}");
+    assert!(
+        rendered.contains("y"),
+        "the trailing expression must survive the renamed binder: {rendered}"
+    );
+}

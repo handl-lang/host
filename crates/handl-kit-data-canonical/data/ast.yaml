@@ -74,6 +74,8 @@
     type: object
 - id: ast.assign
   node_kind: assign
+  faces:
+    - binding
   children:
     - role: target
     - role: value
@@ -124,6 +126,8 @@
     type: object
 - id: ast.bind
   node_kind: bind
+  faces:
+    - binding
   payload_schema:
     properties:
       name:
@@ -348,6 +352,8 @@
     type: object
 - id: ast.call
   node_kind: call
+  faces:
+    - call
   children:
     - role: callee
     - role: args
@@ -524,6 +530,8 @@
     type: object
 - id: ast.function
   node_kind: function
+  faces:
+    - lambda
   children:
     - role: params
     - role: body
@@ -542,6 +550,8 @@
 # `dim_arrow` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
 - id: ast.dim_arrow
   node_kind: dim_arrow
+  faces:
+    - arrow
   children:
     - role: source
     - role: dim
@@ -831,6 +841,8 @@
 # `rec` — recursive region (like `loop` but with 1 child: the block).
 - id: ast.rec
   node_kind: rec
+  faces:
+    - lambda
   children:
     - role: state
     - role: body
