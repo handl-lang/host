@@ -1,0 +1,14 @@
+[package]
+name = "handl-ext-tests"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dev-dependencies]
+handl-platform = { workspace = true }
+handl-plugin-ext-kit = { workspace = true }
+handl-plugin-ext-plugin = { workspace = true }
+serde_json = { workspace = true }
+
+[lib]
+bench = false

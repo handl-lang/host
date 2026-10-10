@@ -794,6 +794,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-ext-tests"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-ext-kit",
+ "handl-plugin-ext-plugin",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-host-cli"
 version = "0.1.0"
 dependencies = [
