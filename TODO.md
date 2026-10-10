@@ -47,9 +47,25 @@ See `AGENTS.md` § "Known issues" for the source of truth. These are the
 residual hard-codings that break the "language as data" invariant and the
 current failing/warning tests.
 
-- [ ] Engine-genericity debt: close remaining `kind ==` / positional-child
-      hits across `plugin-engine-parse-pratt`, `plugin-engine-transform-rewrite`,
-      `host-lsp`, and `plugin-ext-refinement`
+- [ ] Engine-genericity debt: the *structural-token* residuals in
+      `plugin-engine-parse-pratt` (block opener, dimension bracket, block
+      separators, keyword-as-identifier), the positional `field-access`/
+      `type-annot` reads in `plugin-engine-transform-rewrite`'s
+      `desugar.data`, the `token.identifier` probes in `handl-runtime`, and
+      the duplicated `kind: export` lookups in `plugin-lsp` are **closed** —
+      they resolve through `Language` token data (`token_kind_for_label` /
+      `token_in_category` / `token_pair`) and `child_role_index`, with
+      canonical fallbacks. See `AGENTS.md` §"Engine-genericity residual
+      audit" (a2) for the full per-site list.
+      What remains is blocked on **missing vocabulary**, not effort:
+      `plugin-ext-refinement/src/arrow_parser.rs` is documented bootstrap
+      (the arrow combinator vocabulary is calculus-kernel syntax), and
+      `handl-kit-arrow-lower` (`assign`/`bind`/`op`/`function`/`rec`/
+      `var`/`call`) + `host-cli/transform_categorical.rs` (`dim_arrow`/
+      `stmt.import`/`var`/`value`) name specific canonical constructs.
+      Closing those needs a new `Language` field (e.g. `binding_kind` /
+      `arrow_kind` / `pattern_role: tag`) — a language-design decision, not
+      a sweep fix.
 - [ ] `handl-defining-handl` cranelift bootstrap test fails on `let` bindings
       (internal `let`/`stmt.let` kinds — no `let` surface syntax)
 - [ ] `plugin-engine-parse-pratt` unused import warning (`PayloadTokenSpec`)
