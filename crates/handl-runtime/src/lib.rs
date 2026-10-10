@@ -1701,21 +1701,14 @@ impl ModuleLoader {
         // record and type-only exports like `export Clock<T>: Grade` are
         // safe to run.
         // `is_bindable` — a name can be a `:=` binding target iff it lexes
-        // as a lone `token.identifier`; keyword names (`first`, `export`,
-        // …) lex as `token.keyword.*` and can only appear as quoted record
-        // keys. Resolved data-driven through this module's own language.
+        // as a lone identifier token; keyword names (`first`, `export`, …)
+        // lex as keyword-category tokens and can only appear as quoted
+        // record keys. Resolved data-driven through this module's own
+        // language (see [`Self::is_bindable_name`]).
         let src = module_prep::prepare_module(
             &src,
             &|spec: &str| self.spec_resolves_to_file(spec, resolved),
-            &|name: &str| {
-                self.lex_engine
-                    .lex(&self.lang, &LexerRequest::new(Source::new(name)))
-                    .map(|toks| {
-                        toks.as_slice().len() == 1
-                            && toks.as_slice()[0].kind == "token.identifier"
-                    })
-                    .unwrap_or(false)
-            },
+            &|name: &str| self.is_bindable_name(name),
         );
         let source = Source::new(&src);
         let toks = {
@@ -1868,7 +1861,8 @@ impl ModuleLoader {
         self.lex_engine
             .lex(&self.lang, &LexerRequest::new(Source::new(name)))
             .map(|toks| {
-                toks.as_slice().len() == 1 && toks.as_slice()[0].kind == "token.identifier"
+                toks.as_slice().len() == 1
+                    && self.lang.token_in_category(&toks.as_slice()[0].kind, "identifier")
             })
             .unwrap_or(false)
     }

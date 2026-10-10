@@ -134,6 +134,54 @@ impl PrattEngine {
         lang.grammar.get_by_identity(&key)
     }
 
+    // ---------------------------------------------------------------------
+    // Structural token resolution (ADR-0081)
+    //
+    // The parser is a fixed interpreter of grammar *data*, but a handful of
+    // productions are structural rather than declarable in a grammar row:
+    // which token opens a block child, which closes a dimension bracket, and
+    // which tokens separate elements inside a block. These are resolved
+    // through `Language` token data — by surface `label` and by declared
+    // `category` — so a language that spells or names its brackets
+    // differently still parses correctly. Each helper falls back to the
+    // canonical kind when the language declares no matching token data
+    // (third-party kits, hand-built test languages).
+    // ---------------------------------------------------------------------
+
+    /// Resolve the token kind whose declared surface `label` is `label`,
+    /// falling back to `fallback` when the language declares no such token.
+    ///
+    /// This is the data-driven replacement for `t.kind == "token.lbrace"`:
+    /// the canonical kit resolves `"{"` → `token.lbrace`, while a language
+    /// that opens blocks with a different glyph answers with its own kind.
+    fn kind_for_label<'l>(lang: &'l Language, label: &str, fallback: &'l str) -> &'l str {
+        lang.token_kind_for_label(label).unwrap_or(fallback)
+    }
+
+    /// Whether `kind` is the token whose declared surface label is `label`.
+    fn kind_is_label(lang: &Language, kind: &str, label: &str, fallback: &str) -> bool {
+        kind == Self::kind_for_label(lang, label, fallback)
+    }
+
+    /// The kind of the bracket that closes `kind`, via the declared
+    /// [`TokenKindDef::pair`](handl_language::TokenKindDef::pair) — falling
+    /// back to `fallback` for a kind that declares no pair.
+    fn closing_kind<'l>(lang: &'l Language, kind: &str, fallback: &'l str) -> &'l str {
+        lang.token_pair(kind).unwrap_or(fallback)
+    }
+
+    /// Whether `kind` is declared with token `category` (e.g.
+    /// `"open-bracket"`).
+    fn kind_in_category(lang: &Language, kind: &str, category: &str) -> bool {
+        lang.token_in_category(kind, category)
+    }
+
+    /// Whether `kind` is the language's keyword category (replacing
+    /// `kind.starts_with("token.keyword.")`).
+    fn is_keyword_kind(lang: &Language, kind: &str) -> bool {
+        Self::kind_in_category(lang, kind, "keyword")
+    }
+
     /// Push an [`AstNode`] with an optional source span onto the arena.
     fn push_spanned(&self, kind: impl Into<String>, payload: Value, span: Option<Span>) -> AstRef {
         let mut node = AstNode::new(kind).with_payload(payload);
@@ -184,7 +232,7 @@ impl PrattEngine {
     ///    ([`Self::dimension_closes`]).
     ///
     /// Anything else is left to the comparison rule.
-    fn dimension_applies(&self, cursor: &Cursor<'_>, left: AstRef) -> bool {
+    fn dimension_applies(&self, lang: &Language, cursor: &Cursor<'_>, left: AstRef) -> bool {
         let lt = match cursor.peek() {
             Some(t) => t,
             None => return false,
@@ -218,36 +266,43 @@ impl PrattEngine {
             _ => return false,
         }
         // (3) the bracket actually closes.
-        Self::dimension_closes(cursor.tokens, lt_idx.unwrap_or(cursor.pos))
+        Self::dimension_closes(lang, cursor.tokens, lt_idx.unwrap_or(cursor.pos))
     }
 
     /// Whether a `>` closes the dimension opened by the `<` at `pos`, at
     /// balanced depth.
     ///
-    /// Depth tracks nested brackets (`<`, `(`, `[`, `{`). A flow operator
-    /// (`>>>`) or an unmatched closer at depth 0 means the `<` was the
-    /// comparison operator, so the bracket does not close.
-    fn dimension_closes(tokens: &[Token], pos: usize) -> bool {
+    /// Depth tracks nested brackets, resolved through token *data*: any kind
+    /// in the `open-bracket` category opens, and the `>` (or any unmatched
+    /// `close-bracket`) at depth 0 decides. A flow operator (`>>>`) at depth 0
+    /// means the `<` was the comparison operator, so the bracket does not
+    /// close.
+    fn dimension_closes(lang: &Language, tokens: &[Token], pos: usize) -> bool {
+        // `<` opens the dimension bracket itself, so it nests even though the
+        // canonical kit classifies it as an `operator` (it is also the
+        // comparison operator). Every other opener is resolved by category.
+        let lt_kind = Self::kind_for_label(lang, "<", "token.lt");
+        let gt_kind = Self::kind_for_label(lang, ">", "token.gt");
+        let flow_kind = Self::kind_for_label(lang, ">>>", "token.flow");
         let mut depth: i64 = 0;
         for t in tokens.iter().skip(pos + 1) {
-            match t.kind.as_str() {
-                "token.lt" | "token.lparen" | "token.lbracket" | "token.lbrace" => depth += 1,
-                "token.gt" => {
-                    if depth == 0 {
-                        return true;
-                    }
-                    depth -= 1;
+            let kind = t.kind.as_str();
+            if kind == lt_kind || Self::kind_in_category(lang, kind, "open-bracket") {
+                depth += 1;
+            } else if kind == gt_kind {
+                if depth == 0 {
+                    return true;
                 }
-                "token.rparen" | "token.rbracket" | "token.rbrace" => {
-                    if depth == 0 {
-                        return false;
-                    }
-                    depth -= 1;
+                depth -= 1;
+            } else if Self::kind_in_category(lang, kind, "close-bracket") {
+                if depth == 0 {
+                    return false;
                 }
+                depth -= 1;
+            } else if kind == flow_kind && depth == 0 {
                 // `a >>> b` at the top level is the flow operator, not a
                 // dimension payload.
-                "token.flow" if depth == 0 => return false,
-                _ => {}
+                return false;
             }
         }
         false
@@ -266,14 +321,16 @@ impl PrattEngine {
         cursor: &mut Cursor<'_>,
         left: AstRef,
     ) -> Result<AstRef, LangError> {
-        let lt = cursor.advance()?; // `token.lt`
-        let arg_rbp = Self::lookup_row(lang, "token.gt", GrammarPosition::Infix)
+        let lt = cursor.advance()?; // `<`
+        let gt_kind = Self::kind_for_label(lang, ">", "token.gt");
+        let comma_kind = Self::kind_for_label(lang, ",", "token.comma");
+        let arg_rbp = Self::lookup_row(lang, gt_kind, GrammarPosition::Infix)
             .and_then(|r| r.binding_power.map(|(l, _)| l.saturating_add(1)))
             .unwrap_or(51);
         let mut children: Vec<usize> = vec![left.index()];
         loop {
             match cursor.peek().map(|t| t.kind.as_str()) {
-                Some("token.gt") => {
+                Some(k) if k == gt_kind => {
                     if children.len() == 1 {
                         return Err(LangError::engine_at(
                             "dimension: empty bracket (`f<>`) — expected at least one argument"
@@ -296,10 +353,10 @@ impl PrattEngine {
             let arg = self.expression_inner(lang, cursor, arg_rbp)?;
             children.push(arg.index());
             match cursor.peek().map(|t| t.kind.as_str()) {
-                Some("token.comma") => {
+                Some(k) if k == comma_kind => {
                     cursor.advance()?;
                 }
-                Some("token.gt") => break,
+                Some(k) if k == gt_kind => break,
                 other => {
                     return Err(LangError::engine_at(
                         format!(
@@ -312,7 +369,7 @@ impl PrattEngine {
                 }
             }
         }
-        let _gt = cursor.advance()?; // `token.gt`
+        let _gt = cursor.advance()?; // `>`
         let mut payload_fields: serde_json::Map<String, Value> = serde_json::Map::new();
         payload_fields.insert(
             "children".to_string(),
@@ -590,12 +647,13 @@ impl PrattEngine {
                 let child = if shape.block_children.contains(&i)
                     && cursor
                         .peek()
-                        .map(|t| t.kind.as_str() == "token.lbrace")
+                        .map(|t| Self::kind_is_label(lang, &t.kind, "{", "token.lbrace"))
                         .unwrap_or(false)
                 {
+                    let block_open = Self::kind_for_label(lang, "{", "token.lbrace");
                     let block_delim = DelimitedShape {
-                        open: "token.lbrace".into(),
-                        close: "token.rbrace".into(),
+                        open: block_open.into(),
+                        close: Self::closing_kind(lang, block_open, "token.rbrace").into(),
                         separator: None,
                         container_kind: "block".into(),
                         pair: None,
@@ -716,7 +774,9 @@ impl PrattEngine {
             // must be written *adjacent* to a name-like target and must close
             // at balanced depth before the expression ends. Anything else
             // falls through to the comparison rule below.
-            if next.kind == "token.lt" && self.dimension_applies(cursor, left) {
+            if Self::kind_is_label(lang, &next.kind, "<", "token.lt")
+                && self.dimension_applies(lang, cursor, left)
+            {
                 left = self.parse_dimension(lang, cursor, left)?;
                 continue;
             }
@@ -765,23 +825,27 @@ impl PrattEngine {
             // closing delimiter is a different token, so we handle `~` here:
             // parse the grade expression, consume `~>`, parse the right side,
             // and build a `graded_arrow` node directly.
-            if next.kind == "token.tilde" || infix_row.id == "grammar.graded_arrow.infix" {
+            if Self::kind_is_label(lang, &next.kind, "~", "token.tilde")
+                || infix_row.id == "grammar.graded_arrow.infix"
+            {
                 let op_tok = cursor.advance()?;
                 // Canonical bracketed grade: `~[` … `]~>`. An empty grade list
                 // (`~[]~>`) is a graded arrow with no grade — reject it rather
                 // than mint a grade-less arrow.
                 let bracketed = cursor
                     .peek()
-                    .map(|t| t.kind.as_str() == "token.lbracket")
+                    .map(|t| Self::kind_is_label(lang, &t.kind, "[", "token.lbracket"))
                     .unwrap_or(false);
                 let empty_bracket = bracketed
                     && cursor
                         .peek_index()
                         .and_then(|i| {
+                            let bracket_close =
+                                Self::closing_kind(lang, "token.lbracket", "token.rbracket");
                             let mut j = i + 1;
                             while let Some(t) = cursor.tokens.get(j) {
                                 if !cursor.ignorable(&t.kind) {
-                                    return Some(t.kind.as_str() == "token.rbracket");
+                                    return Some(t.kind.as_str() == bracket_close);
                                 }
                                 j += 1;
                             }
@@ -851,12 +915,13 @@ impl PrattEngine {
                 let child = if shape.block_children.contains(&child_idx)
                     && cursor
                         .peek()
-                        .map(|t| t.kind.as_str() == "token.lbrace")
+                        .map(|t| Self::kind_is_label(lang, &t.kind, "{", "token.lbrace"))
                         .unwrap_or(false)
                 {
+                    let block_open = Self::kind_for_label(lang, "{", "token.lbrace");
                     let block_delim = DelimitedShape {
-                        open: "token.lbrace".into(),
-                        close: "token.rbrace".into(),
+                        open: block_open.into(),
+                        close: Self::closing_kind(lang, block_open, "token.rbrace").into(),
                         separator: None,
                         container_kind: "block".into(),
                         pair: None,
@@ -991,8 +1056,11 @@ impl PrattEngine {
                             // with keywords (e.g. the `first`/`sort`/`type`
                             // keyword tokens double as module names, as in
                             // `from "first" import * as first`). A keyword
-                            // token therefore satisfies an `identifier` step.
-                            || (k == "token.identifier" && t.kind.starts_with("token.keyword."))
+                            // token therefore satisfies an `identifier` step —
+                            // resolved through the language's `keyword` token
+                            // category rather than a `token.keyword.` prefix.
+                            || (Self::kind_is_label(lang, k, "identifier", "token.identifier")
+                                && Self::is_keyword_kind(lang, &t.kind))
                     })
                 })
                 .unwrap_or(false);
@@ -1436,13 +1504,15 @@ impl PrattEngine {
                     ));
                 }
                 Some(_) if delim.separator.is_none() => {
+                    // A separator-free block still tolerates the canonical
+                    // element separators (`,` / `;`) between elements and
+                    // before the close, resolved by surface label so a
+                    // language that spells them differently still parses.
+                    let comma_kind = Self::kind_for_label(lang, ",", "token.comma");
+                    let semi_kind = Self::kind_for_label(lang, ";", "token.semicolon");
                     if cursor
                         .peek()
-                        .map(|t| {
-                            t.kind.as_str() == "token.comma"
-                                || t.kind.as_str() == "token.arrow.comma"
-                                || t.kind.as_str() == "token.semicolon"
-                        })
+                        .map(|t| t.kind.as_str() == comma_kind || t.kind.as_str() == semi_kind)
                         .unwrap_or(false)
                     {
                         let _ = cursor.advance()?;
@@ -3513,5 +3583,106 @@ mod tests {
             let children = root.payload.get("children").unwrap().as_array().unwrap();
             assert_eq!(children.len(), n, "child count for {}", expected);
         }
+    }
+
+    // -----------------------------------------------------------------
+    // ADR-0081 genericity: structural token resolution (Phase 1)
+    //
+    // The pratt engine resolves structural tokens (the block opener, the
+    // dimension bracket, element separators, keyword-vs-identifier) through
+    // `Language` token data — by surface `label` and declared `category` —
+    // rather than by hardcoded canonical kind ids. These tests pin that a
+    // language which *spells* those tokens differently still parses.
+    // -----------------------------------------------------------------
+
+    /// A `match`-like language whose structural tokens carry
+    /// canonical-style `label`/`category` data under non-canonical ids, so
+    /// the only thing shared with the canonical kit is the surface glyph.
+    fn relabeled_block_lang() -> Language {
+        let mut lang = Language::new();
+        lang.tokens
+            .merge(
+                TokenKindDef::new("tk.open")
+                    .with_label("{")
+                    .with_category("open-bracket")
+                    .with_pair("tk.close"),
+            )
+            .unwrap();
+        lang.tokens
+            .merge(
+                TokenKindDef::new("tk.close")
+                    .with_label("}")
+                    .with_category("close-bracket")
+                    .with_pair("tk.open"),
+            )
+            .unwrap();
+        lang.tokens
+            .merge(TokenKindDef::new("tk.sep").with_label(",").with_category("punctuation"))
+            .unwrap();
+        lang.tokens
+            .merge(TokenKindDef::new("token.number").with_literal(LiteralKind::Number))
+            .unwrap();
+        lang.tokens
+            .merge(
+                TokenKindDef::new("tk.ident")
+                    .with_label("identifier")
+                    .with_category("identifier"),
+            )
+            .unwrap();
+        lang.tokens
+            .merge(TokenKindDef::new("tk.kw").with_label("then").with_category("keyword"))
+            .unwrap();
+
+        // `then <ident> { <expr> }` — the arm body is a block child at index 1.
+        let mut do_shape = AstShapeRef::new("do", 2);
+        do_shape.block_children = vec![1];
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.do",
+                "tk.kw",
+                GrammarPosition::Prefix,
+                do_shape,
+            ))
+            .unwrap();
+        // The name child is a plain atom.
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.name",
+                "tk.ident",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("var", 0),
+            ))
+            .unwrap();
+        lang.grammar
+            .merge(GrammarRow::new(
+                "g.num",
+                "token.number",
+                GrammarPosition::Prefix,
+                AstShapeRef::new("lit", 0),
+            ))
+            .unwrap();
+        lang
+    }
+
+    #[test]
+    fn block_child_resolves_through_token_label() {
+        // The block opener is `tk.open`, not `token.lbrace`. The engine finds
+        // the block because the glyph `{` resolves to `tk.open`.
+        let engine = PrattEngine::new();
+        let lang = relabeled_block_lang();
+        let req = ParserRequest::new(Tokens(vec![
+            tok("tk.kw", "then"),
+            tok("tk.ident", "x"),
+            tok("tk.open", "{"),
+            tok("token.number", "7"),
+            tok("tk.close", "}"),
+        ]));
+        let ast = engine.parse(&lang, &req).unwrap();
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "do");
+        let children = root.payload["children"].as_array().unwrap();
+        assert_eq!(children.len(), 2, "name + block body");
+        let body_idx = children[1].as_u64().unwrap() as usize;
+        assert_eq!(ast.nodes()[body_idx].kind, "block");
     }
 }

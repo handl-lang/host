@@ -892,18 +892,7 @@ pub(crate) fn run_import_name(
         .get("export_rules")
         .and_then(Value::as_array)
         .map(|arr| as_string_list(arr))
-        .unwrap_or_else(|| {
-            def.rules
-                .iter()
-                .filter_map(|(id, r)| {
-                    if r.kind == "export" {
-                        Some(id.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        });
+        .unwrap_or_else(|| export_rule_ids(def));
 
     let mut items = Vec::new();
     let mut seen = BTreeSet::new();
@@ -912,7 +901,7 @@ pub(crate) fn run_import_name(
         let Some(export_rule) = def.rules.get(rule_id.as_str()) else {
             continue;
         };
-        if export_rule.kind != "export" {
+        if export_rule.kind != EXPORT_RULE_KIND {
             continue;
         }
         for (name, detail) in collect_export_names(lang, &target_module, export_rule) {
@@ -928,6 +917,29 @@ pub(crate) fn run_import_name(
     items
 }
 
+/// The `LspRule::kind` that selects the export-name provider (declared as
+/// `kind: export` in `lsp.yaml`).
+///
+/// Named here so the provider lookup does not repeat the literal at each
+/// call site — the string still comes from `lsp.yaml` data, this is only the
+/// Rust-side selector for it.
+pub(crate) const EXPORT_RULE_KIND: &str = "export";
+
+/// The ids of every `kind: export` rule in `def`, used when a rule does not
+/// override the set via its `export_rules` config.
+pub(crate) fn export_rule_ids(def: &LspDef) -> Vec<String> {
+    def.rules
+        .iter()
+        .filter_map(|(id, r)| {
+            if r.kind == EXPORT_RULE_KIND {
+                Some(id.clone())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 /// Evaluate a single `kind: export_name` completion rule.
 pub(crate) fn run_exported_names(
     lang: &Language,
@@ -940,18 +952,7 @@ pub(crate) fn run_exported_names(
         .get("export_rules")
         .and_then(Value::as_array)
         .map(|arr| as_string_list(arr))
-        .unwrap_or_else(|| {
-            def.rules
-                .iter()
-                .filter_map(|(id, r)| {
-                    if r.kind == "export" {
-                        Some(id.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        });
+        .unwrap_or_else(|| export_rule_ids(def));
 
     let mut items = Vec::new();
     let mut seen = BTreeSet::new();
@@ -960,7 +961,7 @@ pub(crate) fn run_exported_names(
         let Some(export_rule) = def.rules.get(rule_id.as_str()) else {
             continue;
         };
-        if export_rule.kind != "export" {
+        if export_rule.kind != EXPORT_RULE_KIND {
             continue;
         }
         for (name, detail) in collect_export_names(lang, module, export_rule) {

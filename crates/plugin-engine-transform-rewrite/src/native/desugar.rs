@@ -300,14 +300,24 @@ fn parse_type_param(lang: &Language, node: &AstNode, ast: &Ast) -> Option<(Strin
         .flatten()
         .is_some();
     if has_subject && has_annot {
-        // `type-annot(subject, annot)`
+        // `type-annot(subject, annot)` — roles first, positional fallback.
         let children = node.payload.get("children").and_then(|c| c.as_array())?;
-        let name_idx = children.first()?.as_u64()? as usize;
+        let subject_slot = lang
+            .child_role_index(&node.kind, "subject")
+            .ok()
+            .flatten()
+            .unwrap_or(0);
+        let annot_slot = lang
+            .child_role_index(&node.kind, "annot")
+            .ok()
+            .flatten()
+            .unwrap_or(1);
+        let name_idx = children.get(subject_slot)?.as_u64()? as usize;
         let name_node = ast.get(AstRef::new(name_idx))?;
         let name = name_node.payload.as_str()?.to_string();
-        let type_idx = children.get(1)?.as_u64()? as usize;
+        let type_idx = children.get(annot_slot)?.as_u64()? as usize;
         let type_node = ast.get(AstRef::new(type_idx))?;
-        let typ = node_to_type_string(ast, type_node);
+        let typ = node_to_type_string(lang, ast, type_node);
         Some((name, typ))
     } else if let Some(name) = node.payload.as_str() {
         // bare `var`
@@ -347,11 +357,20 @@ fn collect_constructors(
             let children = node.payload.get("children").and_then(|c| c.as_array());
             if let Some(ta_arr) = children {
                 if ta_arr.len() >= 2 {
-                    let cons_idx = ta_arr[0].as_u64().map(|v| v as usize);
-                    let result_idx = ta_arr[1].as_u64().map(|v| v as usize);
+                    // Roles first, positional fallback (ADR-0081).
+                    let cons_role = lang.child_role_index(&node.kind, "subject").ok().flatten();
+                    let result_role = lang.child_role_index(&node.kind, "annot").ok().flatten();
+                    let cons_idx = ta_arr
+                        .get(cons_role.unwrap_or(0))
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as usize);
+                    let result_idx = ta_arr
+                        .get(result_role.unwrap_or(1))
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as usize);
                     let result_indices = result_idx
                         .and_then(|idx| ast.get(AstRef::new(idx)))
-                        .map(|n| extract_result_indices_from_type(n, ast, params.len()))
+                        .map(|n| extract_result_indices_from_type(lang, n, ast, params.len()))
                         .unwrap_or_else(|| vec![None; params.len()]);
                     if let Some(cons_idx) = cons_idx {
                         if let Some(cons_node) = ast.get(AstRef::new(cons_idx)) {
@@ -380,6 +399,7 @@ fn collect_constructors(
 /// - `call(var("Name"), e0, e1, ...)` -> `Some(node_to_type_string(ei))` for
 ///   each argument, padded with `None` up to `expected`.
 fn extract_result_indices_from_type(
+    lang: &Language,
     node: &AstNode,
     ast: &Ast,
     expected: usize,
@@ -394,7 +414,7 @@ fn extract_result_indices_from_type(
                     .map(|v| {
                         v.as_u64()
                             .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                            .map(|n| node_to_type_string(ast, n))
+                            .map(|n| node_to_type_string(lang, ast, n))
                             .filter(|s| !s.is_empty())
                             .map(Some)
                             .unwrap_or(None)
@@ -485,8 +505,20 @@ fn parse_constructor_arg(
         let ta_children = arg_node.payload.get("children").and_then(|c| c.as_array());
         if let Some(ta_arr) = ta_children {
             if ta_arr.len() >= 2 {
-                let subject_idx = ta_arr[0].as_u64().map(|v| v as usize);
-                let annot_idx = ta_arr[1].as_u64().map(|v| v as usize);
+                // Roles first, positional fallback (ADR-0081).
+                let subject_role = lang
+                    .child_role_index(&arg_node.kind, "subject")
+                    .ok()
+                    .flatten();
+                let annot_role = lang.child_role_index(&arg_node.kind, "annot").ok().flatten();
+                let subject_idx = ta_arr
+                    .get(subject_role.unwrap_or(0))
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize);
+                let annot_idx = ta_arr
+                    .get(annot_role.unwrap_or(1))
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize);
                 let name = subject_idx
                     .and_then(|idx| ast.get(AstRef::new(idx)))
                     .and_then(|n| n.payload.as_str())
@@ -494,13 +526,13 @@ fn parse_constructor_arg(
                     .to_string();
                 let typ = annot_idx
                     .and_then(|idx| ast.get(AstRef::new(idx)))
-                    .map(|n| node_to_type_string(ast, n))
+                    .map(|n| node_to_type_string(lang, ast, n))
                     .unwrap_or_else(|| "_".to_string());
                 return (name, typ);
             }
         }
     }
-    let typ = node_to_type_string(ast, arg_node);
+    let typ = node_to_type_string(lang, ast, arg_node);
     let name = if typ.is_empty() {
         format!("_{}", position - 1)
     } else {
@@ -520,7 +552,37 @@ fn derive_arg_name_from_type(type_str: &str) -> String {
 }
 
 /// Reconstruct a source-like string for a type/index expression AST node.
-fn node_to_type_string(ast: &Ast, node: &AstNode) -> String {
+///
+/// Child positions are resolved through [`Language::child_role_index`]
+/// (ADR-0081) with a positional fallback, so a language that declares its
+/// `field-access`/`type-annot` roles in a different order still reconstructs
+/// correctly.
+fn node_to_type_string(lang: &Language, ast: &Ast, node: &AstNode) -> String {
+    /// Resolve the child at named `role`, falling back to positional `pos`
+    /// when the kind declares no such role.
+    fn child_at(lang: &Language, node: &AstNode, role: &str, pos: usize) -> Option<usize> {
+        let declared = lang.child_role_index(&node.kind, role).ok().flatten();
+        Some(declared.unwrap_or(pos))
+    }
+
+    /// Render the child at named `role` (positional fallback `pos`).
+    fn child_str(lang: &Language, ast: &Ast, node: &AstNode, role: &str, pos: usize) -> String {
+        let idx = child_at(lang, node, role, pos);
+        node.payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .and_then(|arr| idx.and_then(|i| arr.get(i)))
+            .and_then(|v| v.as_u64())
+            .and_then(|i| ast.get(AstRef::new(i as usize)))
+            .map(|n| node_to_type_string(lang, ast, n))
+            .unwrap_or_default()
+    }
+
+    /// The `payload["children"]` array, if any.
+    fn kids(node: &AstNode) -> Option<&Vec<Value>> {
+        node.payload.get("children").and_then(|c| c.as_array())
+    }
+
     match node.kind.as_str() {
         "var" => node.payload.as_str().unwrap_or("").to_string(),
         "value" => node.payload.to_string(),
@@ -534,7 +596,7 @@ fn node_to_type_string(ast: &Ast, node: &AstNode) -> String {
                 .first()
                 .and_then(|v| v.as_u64())
                 .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                .map(|n| node_to_type_string(ast, n))
+                .map(|n| node_to_type_string(lang, ast, n))
                 .unwrap_or_default();
             let args: Vec<String> = children
                 .iter()
@@ -542,44 +604,26 @@ fn node_to_type_string(ast: &Ast, node: &AstNode) -> String {
                 .filter_map(|v| {
                     v.as_u64()
                         .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                        .map(|n| node_to_type_string(ast, n))
+                        .map(|n| node_to_type_string(lang, ast, n))
                 })
                 .collect();
             format!("{}({})", callee, args.join(", "))
         }
         "type-annot" => {
-            let children = node.payload.get("children").and_then(|c| c.as_array());
-            if let Some(arr) = children {
+            if let Some(arr) = kids(node) {
                 if arr.len() >= 2 {
-                    let left = arr[0]
-                        .as_u64()
-                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                        .map(|n| node_to_type_string(ast, n))
-                        .unwrap_or_default();
-                    let right = arr[1]
-                        .as_u64()
-                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                        .map(|n| node_to_type_string(ast, n))
-                        .unwrap_or_default();
+                    let left = child_str(lang, ast, node, "subject", 0);
+                    let right = child_str(lang, ast, node, "annot", 1);
                     return format!("{} : {}", left, right);
                 }
             }
             String::new()
         }
         "field-access" => {
-            let children = node.payload.get("children").and_then(|c| c.as_array());
-            if let Some(arr) = children {
+            if let Some(arr) = kids(node) {
                 if arr.len() >= 2 {
-                    let left = arr[0]
-                        .as_u64()
-                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                        .map(|n| node_to_type_string(ast, n))
-                        .unwrap_or_default();
-                    let right = arr[1]
-                        .as_u64()
-                        .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                        .map(|n| node_to_type_string(ast, n))
-                        .unwrap_or_default();
+                    let left = child_str(lang, ast, node, "target", 0);
+                    let right = child_str(lang, ast, node, "field", 1);
                     return format!("{}.{}", left, right);
                 }
             }
@@ -603,12 +647,12 @@ fn node_to_type_string(ast: &Ast, node: &AstNode) -> String {
                 let left = children[0]
                     .as_u64()
                     .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                    .map(|n| node_to_type_string(ast, n))
+                    .map(|n| node_to_type_string(lang, ast, n))
                     .unwrap_or_default();
                 let right = children[1]
                     .as_u64()
                     .and_then(|idx| ast.get(AstRef::new(idx as usize)))
-                    .map(|n| node_to_type_string(ast, n))
+                    .map(|n| node_to_type_string(lang, ast, n))
                     .unwrap_or_default();
                 return format!("{} {} {}", left, op_symbol, right);
             }
