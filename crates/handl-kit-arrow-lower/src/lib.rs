@@ -1218,7 +1218,15 @@ fn lower_call(
     }
 
     let callee_term = lower_node(ast, lang, callee_idx, env, params)?;
-    if callee.kind == "call" {
+    // Call dispatch is face-driven (ADR-0123): `call` names the family, so a
+    // language that spells its application differently still gets
+    // `term_app` semantics. Face-less shapes keep the canonical fallback.
+    let is_call = if lang.declares_faces(&callee.kind) {
+        lang.shape_has_face(&callee.kind, "call")
+    } else {
+        callee.kind == "call"
+    };
+    if is_call {
         // A `call` callee produces a bound-arrow record (`{__term__,
         // __bound__}`) — e.g. `Type.rec(m, c0..)(params.., v)` or the
         // intermediate of a curried application. Tuple application
