@@ -225,6 +225,34 @@ export`). A spec that does **not** resolve to a file (bare host-module
     - `plugin-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
       the bare `param_node.kind == "var"` check is now `Language::param_name`,
       which unwraps `type-annot.subject` role data as well as bare `var`.
+  - **(a2) Closed by the structural-token pass (ADR-0081).** The Pratt
+    parser is a *fixed interpreter of grammar data*, but a handful of
+    productions cannot be expressed in a grammar row: which token opens a
+    block child, which closes a dimension bracket, which tokens separate
+    block elements, and whether a keyword token may satisfy an `identifier`
+    step. All four now resolve through `Language` token data — surface
+    `label` via `Language::token_kind_for_label`, and declared `category` /
+    `pair` via `Language::token_in_category` / `Language::token_pair` —
+    through five `PrattEngine` helpers (`kind_for_label`, `kind_is_label`,
+    `closing_kind`, `kind_in_category`, `is_keyword_kind`), each falling
+    back to the canonical kind so third-party kits and hand-built test
+    languages (which declare no token data) parse unchanged. `<` is
+    resolved by label *and* kept as a nesting opener in
+    `dimension_closes` because the canonical kit classifies it as
+    `operator`, not `open-bracket`. `token.arrow.comma` was accepted as a
+    block separator but is declared in no fragment and lexed nowhere — it
+    is gone (`plugin-engine-parse-pratt/tests` has a
+    `block_child_resolves_through_token_label` regression proving a
+    language whose block opener is a non-canonical kind still parses).
+    `desugar`'s `node_to_type_string` + the `type-param`/`constructor-arg`
+    readers now take `&Language` and resolve `field-access`/
+    `type-annot` children by their declared `target`/`field` and
+    `subject`/`annot` roles with a positional fallback. `handl-runtime`'s
+    two `kind == "token.identifier"` probes became
+    `lang.token_in_category(kind, "identifier")` (one is the shared
+    `Runtime::is_bindable_name`). `plugin-lsp`'s two identical
+    `kind == "export"` rule lookups are the single `export_rule_ids`
+    helper over `EXPORT_RULE_KIND`.
   - **(b) Intentionally kept (bootstrap or identity-specific):**
     - `plugin-ext-refinement/src/arrow_parser.rs` **= bootstrap**. The arrow
       combinator vocabulary (`arr`, `comp`, `first`, `choice`, `loop`, `app`,
@@ -292,10 +320,33 @@ run` when its specifier does not resolve to a file) — the stdlib
     - `host-lsp/src/*` and `crates/kit-canonical/src/lib.rs`: residual
       keyword text matches (`rec`/`law`/`match`/...) and legacy token-class
       shims are identity-specific or for bootstrap/third-party kits.
+      `kit-canonical`'s `is_identifier_kind`/`is_number_kind`/… helpers
+      string-match canonical `token.*` ids because they classify *embedded
+      YAML* text (prelude names, `cap` rows), not tokens flowing through a
+      `Language` — a `token_in_category` call needs a `Language` they do not
+      have at those call sites.
     - `plugin-engine-parse-pratt/src/lib.rs`: the generic Pratt interpreter
-      still inspects token kind strings supplied by grammar data; the handful
-      of `token.lbrace`/`token.comma`/`token.arrow.comma` checks are
-      structural delimiter detection, not language-specific dispatch.
+      still inspects token kind strings supplied by grammar data. The
+      *structural* delimiter checks (block opener, dimension bracket, block
+      element separators, keyword-as-identifier) are now data-driven — see
+      (a2) above. What remains is `payload_tokens` / `delimited.open` /
+      `infix_row.token` comparison, which is a straight equality test
+      against ids the grammar row itself named, so there is nothing to
+      resolve.
+    - `handl-kit-arrow-lower/src/lib.rs` (`assign`/`bind`/`op`/
+      `function`/`rec`/`var`/`call`) and `host-cli/src/transform_categorical.rs`
+      (`dim_arrow`/`stmt.import`/`var`/`value`/`flow`): these name specific
+      canonical constructs rather than detecting structure. The lowerer
+      already resolves child positions via `child_at_role_or_pos` (only the
+      *kind dispatch* is literal), and `transform_categorical` is a
+      dimension-analysis pass over the `dim_arrow` shape. Making the kind
+      dispatch data-driven would need a new `Language` vocabulary (e.g. a
+      `binding_kind`/`arrow_kind` tag), i.e. category (c) work.
+    - `platform/src/resolve.rs` (`kind == "call"`): dependency-resolution
+      capability matching, identity-specific.
+    - `handl-language/src/instantiate.rs` + `language.rs`: `var`/`array`/
+      `assign` appear in doc comments and in the bootstrap shape-instantiation
+      path, which by definition names canonical kinds.
   - **(c) Genuinely blocked on missing vocabulary:**
     - None of the remaining hits are cheaply closable; the few that could move
       into `Language` data (e.g. a `pattern_role: tag` for `call` patterns,
