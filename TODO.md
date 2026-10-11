@@ -206,9 +206,29 @@ These are still open and should be picked up alongside the above.
       `runtime().typecheck()` takes the fast bootstrap path, keep the model
       enabled only for the explicit `Kit::typecheck_handl*` entry points (which
       already own the model↔bootstrap fallback), and give `Kit::typecheck` the
-      same bootstrap fallback on `NotImplemented`. Needs the full suite to
-      confirm no caller depended on `runtime().typecheck()` returning a model
-      type.
+      same bootstrap fallback on `NotImplemented`.
+      **Two things checked on the way, so they need not be re-tried:**
+      1. The fuel budget is **not** the lever. It is `fuel: 50000` in
+         `project/design/adr0103/typecheck_model.hnl`, and 50000 ≈ 175 s, so
+         lowering it to 5000 looked promising — but the 565-node `data Nat` AST
+         still took >90 s. The cost is per-node model work, not fuel steps.
+         (Exhaustion is graceful: it emits a `typecheck fuel exhausted`
+         diagnostic and a `type.unknown`, it does not raise.)
+      2. `.with_model_enabled(false)` on the *runtime* engine would break
+         `Kit::typecheck`. Its unit tests assert model-produced types —
+         `kit.typecheck("42").unwrap()` → `type.number`, plus `type.bool`,
+         function types, `do { x :: 1; x }`, `match`, `x ~: type.string`
+         mismatches, ~20 assertions in `kit-canonical`'s test module — and the
+         bootstrap checker does **not** synthesize a type (the existing
+         `NotImplemented` fallback in `typecheck_handl_with_prelude` returns
+         `Value::Null`, not `report.typ`). So the wiring fix needs a
+         source-level bootstrap *type synthesiser* behind the fallback first;
+         without one it trades the slow tests for ~20 broken ones.
+      Measured reference points: 3-node AST — model succeeds in **7.65 s**;
+      565-node `data Nat` AST — model burns **175 s** and reports fuel
+      exhaustion. So the model is only viable for very small ASTs, which is also
+      what a tightened `MAX_MODEL_NODES` would encode (currently 1000, far above
+      where the model stops being viable).
 
 - [x] **A ~40 s one-time cost on the first module-backed eval — FIXED.**
       Cause: `kit-canonical`'s `build_kit` called
