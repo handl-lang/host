@@ -211,6 +211,37 @@ fn normalize_for_compare(src: &str) -> String {
 mod tests {
     use super::*;
 
+    // --- format_ast / check_source normalization ---
+
+    #[test]
+    fn format_ast_renders_a_parsed_arena() {
+        use handl_plugin_engine_parse::ParserEngine as _;
+
+        let lang = canonical_language().expect("canonical language assembles");
+        let tokens = handl_plugin_engine_lex_pattern::lex(&lang, "x   =   1;").expect("lexes");
+        let request = handl_plugin_engine_parse::ParserRequest::new(tokens);
+        let ast = handl_plugin_engine_parse_pratt::PrattEngine::new()
+            .parse(&lang, &request)
+            .expect("parses");
+        assert!(!ast.is_empty(), "the parse must produce a node");
+        let root = AstRef::new(ast.len() - 1);
+        let rendered = format_ast(&lang, &ast, root).expect("formats");
+        assert!(!rendered.is_empty(), "expected rendered source");
+    }
+
+    #[test]
+    fn check_source_tolerates_extra_trailing_blank_lines() {
+        // `normalize_for_compare` collapses *repeated* trailing newlines, so a
+        // file with blank lines at EOF still compares equal to its canonical
+        // form (this is what the `while result.ends_with('\n')` loop is for).
+        let formatted = format_source("x = 1;").expect("formats");
+        assert!(check_source(&formatted).expect("checks"));
+        assert!(
+            check_source(&format!("{formatted}\n\n")).expect("checks"),
+            "trailing blank lines must not make canonical source look unformatted"
+        );
+    }
+
     // --- format_source basic tests ---
 
     #[test]

@@ -486,4 +486,335 @@ mod tests {
             );
         }
     }
+    // ── Default / name ───────────────────────────────────────────────
+
+    #[test]
+    fn default_is_new_and_name_is_reported() {
+        let plugin = TestPlugin::default();
+        assert_eq!(plugin.name(), "Test runner");
+        assert_eq!(plugin.capabilities().len(), 1);
+    }
+
+    #[test]
+    fn a_non_array_paths_is_invalid_metadata() {
+        let plugin = TestPlugin::new();
+        let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({ "paths": "tests" })), ctx))
+            .expect_err("a string `paths` must fail");
+        assert!(
+            matches!(err, PlatformError::InvalidMetadata(_)),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn jobs_rejects_fractional_and_non_numeric_values() {
+        for bad in [
+            serde_json::json!({ "jobs": 1.5 }),
+            serde_json::json!({ "jobs": [] }),
+        ] {
+            let err = parse_jobs(&bad).expect_err("must fail");
+            assert!(
+                matches!(err, PlatformError::InvalidMetadata(_)),
+                "got {err:?}"
+            );
+        }
+    }
+
+    // ── Project-driven runs ──────────────────────────────────────────
+
+    /// A scratch project with one subdirectory per scenario, so a run picks up
+    /// exactly the modules it means to.
+    struct Project {
+        root: PathBuf,
+    }
+
+    impl Project {
+        fn new(tag: &str) -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "hnl-ext-test-{tag}-{}-{:?}",
+                std::process::id(),
+                std::thread::current().id()
+            ));
+            let _ = std::fs::remove_dir_all(&root);
+            for (dir, body) in [
+                (
+                    "pass",
+                    "-- A module with passing tests.\ntest_addition :: 1 + 1\n",
+                ),
+                (
+                    "fail",
+                    "-- A module with a failing test.\ntest_fail = assert false\n",
+                ),
+                ("bad", "-- A module with a syntax error.\ntest_bad = 1 +\n"),
+            ] {
+                let d = root.join(dir);
+                std::fs::create_dir_all(&d).expect("scenario dir");
+                std::fs::write(d.join("case.handl"), body).expect("scenario module");
+            }
+            Self { root }
+        }
+
+        /// Payload `paths` for one scenario directory.
+        fn paths(&self, scenario: &str) -> serde_json::Value {
+            let d = self.root.join(scenario);
+            serde_json::json!([d.display().to_string()])
+        }
+    }
+
+    impl Drop for Project {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn run_payload(payload: serde_json::Value) -> serde_json::Value {
+        let plugin = TestPlugin::new();
+        with_ctx(|ctx| plugin.run(&req(payload), ctx).expect("test runs").0)
+    }
+
+    fn status_of(response: &serde_json::Value) -> &str {
+        response
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or_else(|| panic!("no status in {response}"))
+    }
+
+    #[test]
+    fn an_explicit_null_tags_is_treated_as_absent() {
+        let project = Project::new("nulltags");
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "list": true,
+            "tags": serde_json::Value::Null,
+        }));
+
+        assert_eq!(status_of(&res), "list");
+        assert_eq!(
+            res["cases"].as_array().map(Vec::len),
+            Some(1),
+            "a null `tags` must not filter anything out, got {res}"
+        );
+    }
+
+    #[test]
+    fn a_filter_narrows_the_case_list() {
+        let project = Project::new("filter");
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "list": true,
+            "filter": "no_such_case_name",
+        }));
+
+        assert_eq!(status_of(&res), "list");
+        assert_eq!(res["cases"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn a_passing_project_reports_ok_with_a_summary_and_a_human_report() {
+        let project = Project::new("pass");
+        let res = run_payload(serde_json::json!({ "paths": project.paths("pass") }));
+
+        assert_eq!(status_of(&res), "ok");
+        assert_eq!(res["summary"]["total"], 1);
+        assert_eq!(res["summary"]["failed"], 0);
+        assert!(
+            res["report"].as_str().is_some_and(|r| !r.is_empty()),
+            "the human report must be rendered, got {res}"
+        );
+        assert_eq!(res["warnings"], serde_json::json!([]));
+        assert_eq!(res["parseErrors"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn a_failing_project_reports_failed() {
+        let project = Project::new("fail");
+        let res = run_payload(serde_json::json!({ "paths": project.paths("fail") }));
+
+        assert_eq!(status_of(&res), "failed");
+        assert_eq!(res["summary"]["failed"], 1);
+    }
+
+    #[test]
+    fn the_json_reporter_renders_parseable_json() {
+        let project = Project::new("json");
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "report": "json",
+        }));
+
+        let rendered = res["report"].as_str().expect("json report is text");
+        let parsed: serde_json::Value =
+            serde_json::from_str(rendered).expect("the json report must be valid JSON");
+        assert!(parsed.is_object(), "got {parsed}");
+    }
+
+    #[test]
+    fn parse_errors_are_surfaced_in_the_response() {
+        let project = Project::new("bad");
+        let res = run_payload(serde_json::json!({ "paths": project.paths("bad") }));
+
+        let errors = res["parseErrors"].as_array().expect("parseErrors array");
+        assert!(
+            !errors.is_empty(),
+            "the unparseable module must be reported"
+        );
+        assert!(errors[0].get("file").is_some(), "got {errors:?}");
+        assert!(errors[0].get("message").is_some(), "got {errors:?}");
+    }
+
+    #[test]
+    fn list_mode_reports_the_discovered_cases() {
+        let project = Project::new("list");
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "list": true,
+        }));
+
+        assert_eq!(status_of(&res), "list");
+        let cases = res["cases"].as_array().expect("cases array");
+        assert_eq!(cases.len(), 1, "got {cases:?}");
+        assert!(cases[0].get("name").is_some());
+        assert!(
+            cases[0]
+                .get("module")
+                .and_then(|m| m.as_str())
+                .is_some_and(|m| m.ends_with("case.handl")),
+            "got {cases:?}"
+        );
+        assert!(cases[0].get("tags").is_some());
+    }
+
+    #[test]
+    fn a_tag_expression_narrows_the_case_list() {
+        let project = Project::new("tags");
+        // No case in the project declares a tag, so a tag expression matches
+        // nothing — `--filter`/`--tag` are ANDed.
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "list": true,
+            "tags": ["slow"],
+        }));
+
+        assert_eq!(status_of(&res), "list");
+        assert_eq!(res["cases"], serde_json::json!([]));
+    }
+
+    #[test]
+    fn changed_discovery_degrades_gracefully_outside_a_repository() {
+        let project = Project::new("changed");
+        // A scratch dir is not a git work tree, so the changed-files provider
+        // finds nothing; the run must still succeed.
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "changed": true,
+        }));
+
+        assert!(matches!(status_of(&res), "ok" | "failed"), "got {res}");
+    }
+
+    #[test]
+    fn an_explicit_jobs_policy_is_applied() {
+        let project = Project::new("jobs");
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "jobs": 2,
+        }));
+
+        assert_eq!(status_of(&res), "ok");
+        assert_eq!(res["summary"]["total"], 1);
+    }
+
+    /// `CACHE_PATH` is relative to the process CWD, so every cache test shares
+    /// one path. Serialize them instead of letting them race.
+    fn cache_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    #[test]
+    fn the_result_cache_round_trips() {
+        let _guard = cache_lock();
+        let project = Project::new("cache");
+        let payload = serde_json::json!({
+            "paths": project.paths("pass"),
+            "cache": true,
+        });
+
+        // First run creates the cache, second run loads and re-saves it.
+        for _ in 0..2 {
+            let res = run_payload(payload.clone());
+            assert_eq!(status_of(&res), "ok");
+            assert_eq!(
+                res["warnings"],
+                serde_json::json!([]),
+                "the cache must load and save cleanly, got {res}"
+            );
+        }
+
+        let cache = std::path::Path::new(CACHE_PATH);
+        assert!(cache.exists(), "the run must persist {CACHE_PATH}");
+        let _ = std::fs::remove_file(cache);
+    }
+
+    #[test]
+    fn a_corrupt_cache_is_reported_and_ignored() {
+        let _guard = cache_lock();
+        let project = Project::new("badcache");
+        let cache = std::path::Path::new(CACHE_PATH);
+        if let Some(parent) = cache.parent() {
+            std::fs::create_dir_all(parent).expect("cache dir");
+        }
+        std::fs::write(cache, "{ not json").expect("write a corrupt cache");
+
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "cache": true,
+        }));
+
+        assert_eq!(
+            status_of(&res),
+            "ok",
+            "a corrupt cache must not fail the run"
+        );
+        let warnings = res["warnings"].as_array().expect("warnings array");
+        assert!(
+            warnings.iter().any(|w| w
+                .as_str()
+                .is_some_and(|s| s.contains("failed to load cache"))),
+            "expected a load warning, got {res}"
+        );
+        let _ = std::fs::remove_file(cache);
+    }
+
+    #[test]
+    fn an_unwritable_cache_location_is_reported_as_a_warning() {
+        let _guard = cache_lock();
+        let project = Project::new("nosave");
+        let cache = std::path::Path::new(CACHE_PATH);
+        // A *directory* where the cache file belongs makes both the load and
+        // the save fail without touching permissions, so the test behaves the
+        // same for root and non-root runners.
+        let _ = std::fs::remove_file(cache);
+        std::fs::create_dir_all(cache).expect("occupy the cache path");
+
+        let res = run_payload(serde_json::json!({
+            "paths": project.paths("pass"),
+            "cache": true,
+        }));
+
+        assert_eq!(
+            status_of(&res),
+            "ok",
+            "a cache failure must not fail the run"
+        );
+        let warnings = res["warnings"].as_array().expect("warnings array");
+        assert!(
+            warnings.iter().any(|w| w
+                .as_str()
+                .is_some_and(|s| s.contains("failed to save cache"))),
+            "expected a save warning, got {res}"
+        );
+
+        let _ = std::fs::remove_dir_all(cache);
+    }
 }

@@ -247,6 +247,80 @@ mod tests {
     }
 
     #[test]
+    fn default_is_new_and_name_is_reported() {
+        let plugin = FmtPlugin::default();
+        assert_eq!(plugin.name(), "Formatter");
+        assert_eq!(plugin.capabilities().len(), 1);
+    }
+
+    #[test]
+    fn check_reports_not_canonical_for_unformatted_source() {
+        // `x   =   1` has non-canonical spacing, so the check must say so
+        // rather than merely returning *some* status.
+        let plugin = FmtPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({"source": "x   =   1;", "check": true})),
+                    ctx,
+                )
+                .expect("fmt check succeeds")
+        });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("not-canonical"),
+            "got {}",
+            res.0
+        );
+    }
+
+    #[test]
+    fn check_on_a_lex_error_carries_a_structured_diagnostic() {
+        // A lex failure (not a parse failure) is the deterministic error path:
+        // the formatter renders from the token stream, so only input that
+        // cannot be lexed at all fails.
+        let plugin = FmtPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({"source": "x = \"unterminated;", "check": true})),
+                    ctx,
+                )
+                .expect("a lex failure is a response, not a PlatformError")
+        });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("error"),
+            "got {}",
+            res.0
+        );
+        let diag = res.0.get("diagnostic").expect("diagnostic present");
+        let parsed: Result<handl_plugin_ext_diag::Diagnostic, _> =
+            serde_json::from_value(diag.clone());
+        assert!(parsed.is_ok(), "diagnostic must deserialize: {diag}");
+    }
+
+    #[test]
+    fn format_reports_a_lex_error_as_a_structured_diagnostic() {
+        let plugin = FmtPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({"source": "x = \"unterminated;"})),
+                    ctx,
+                )
+                .expect("a lex failure is a response, not a PlatformError")
+        });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("error"),
+            "got {}",
+            res.0
+        );
+        assert!(res.0.get("diagnostic").is_some(), "got {}", res.0);
+    }
+
+    #[test]
     fn missing_source_is_invalid_metadata() {
         let plugin = FmtPlugin::new();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({"check": true})), ctx))

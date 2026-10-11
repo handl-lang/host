@@ -168,9 +168,11 @@ impl Plugin for LintPlugin {
                 (None, None) => crate::lint_source(source),
             } {
                 Ok(diagnostics) => {
-                    let json = serde_json::to_value(&diagnostics).map_err(|e| {
-                        PlatformError::Plugin(format!("lint: diagnostics not serializable: {e}"))
-                    })?;
+                    // `Diagnostic` is plain data (strings/numbers/options), so
+                    // serialization cannot fail — panic rather than carry an
+                    // untestable fallback arm.
+                    let json = serde_json::to_value(&diagnostics)
+                        .expect("lint diagnostics must serialize");
                     Ok(CapabilityResponse(serde_json::json!({
                         "status": "diagnostics",
                         "diagnostics": json,
@@ -275,6 +277,112 @@ mod tests {
                 .expect("lint with an explicit empty prelude succeeds")
         });
         assert!(res.0.get("diagnostics").is_some());
+    }
+
+    #[test]
+    fn default_is_new_and_name_is_reported() {
+        let plugin = LintPlugin::default();
+        assert_eq!(plugin.name(), "Linter");
+        assert_eq!(plugin.capabilities().len(), 1);
+    }
+
+    #[test]
+    fn a_wrong_capability_is_unknown() {
+        let plugin = LintPlugin::new();
+        let err = with_ctx(|ctx| {
+            plugin.run(
+                &CapabilityRequest {
+                    capability: CapabilityId::from("fmt"),
+                    payload: serde_json::json!({ "source": "x = 1" }),
+                },
+                ctx,
+            )
+        })
+        .expect_err("a mismatched capability must fail");
+        assert!(
+            matches!(err, PlatformError::UnknownCapability(_)),
+            "got {err:?}"
+        );
+    }
+
+    #[test]
+    fn fix_honours_an_explicit_prelude() {
+        let plugin = LintPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({
+                        "source": "x = 1",
+                        "fix": true,
+                        "prelude": [],
+                    })),
+                    ctx,
+                )
+                .expect("fix with an explicit prelude succeeds")
+        });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("fixed"));
+    }
+
+    #[test]
+    fn fix_reports_a_lex_error_as_a_response() {
+        let plugin = LintPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({
+                        "source": "x = \"unterminated;",
+                        "fix": true,
+                    })),
+                    ctx,
+                )
+                .expect("a lint failure is a response, not a PlatformError")
+        });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("error"));
+        assert!(res.0.get("message").is_some(), "got {}", res.0);
+    }
+
+    #[test]
+    fn lint_with_both_a_language_and_a_prelude_succeeds() {
+        // Exercises the `(Some(language), Some(prelude))` dispatch arm.
+        let plugin = LintPlugin::new();
+        let lang =
+            handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles");
+        let serialized = serde_json::to_value(&lang).expect("Language serializes");
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({
+                        "source": "x = 1",
+                        "language": serialized,
+                        "prelude": ["str"],
+                    })),
+                    ctx,
+                )
+                .expect("lint succeeds")
+        });
+        assert!(res.0.get("diagnostics").is_some(), "got {}", res.0);
+    }
+
+    #[test]
+    fn lint_reports_a_lex_error_as_a_response() {
+        let plugin = LintPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({ "source": "x = \"unterminated;" })),
+                    ctx,
+                )
+                .expect("a lint failure is a response, not a PlatformError")
+        });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("error"));
+        assert!(
+            res.0
+                .get("message")
+                .and_then(|v| v.as_str())
+                .is_some_and(|m| !m.is_empty()),
+            "got {}",
+            res.0
+        );
     }
 
     #[test]

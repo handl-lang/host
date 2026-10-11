@@ -49,24 +49,19 @@ thread_local! {
 }
 
 /// Run `f` with the memoized kit, assembling it on first use.
-fn with_kit<R>(f: impl FnOnce(&Kit) -> R) -> Result<R, PlatformError> {
+///
+/// The canonical language is compiled-in data, so assembly failing means a
+/// corrupt build rather than a recoverable condition — panic instead of
+/// degrading, matching `plugin-ext-lint::lint_language`. This also keeps the
+/// happy path the *only* path, so the plugin has no untestable error arm.
+fn with_kit<R>(f: impl FnOnce(&Kit) -> R) -> R {
     KIT.with(|cell| {
         let mut slot = cell.borrow_mut();
         if slot.is_none() {
-            let kit = Kit::new().map_err(|e| {
-                PlatformError::Plugin(format!(
-                    "typecheck: failed to assemble the canonical kit: {e}"
-                ))
-            })?;
-            *slot = Some(kit);
+            *slot = Some(Kit::new().expect("canonical kit must assemble"));
         }
-        match slot.as_ref() {
-            Some(kit) => Ok(f(kit)),
-            // Unreachable: the slot is populated above.
-            None => Err(PlatformError::Plugin(
-                "typecheck: canonical kit unavailable".into(),
-            )),
-        }
+        let kit = slot.as_ref().expect("kit populated above");
+        f(kit)
     })
 }
 
@@ -143,7 +138,7 @@ impl Plugin for TypecheckPlugin {
             }
         };
 
-        let outcome = with_kit(|kit| kit.typecheck_handl_with_prelude(source, &prelude))?;
+        let outcome = with_kit(|kit| kit.typecheck_handl_with_prelude(source, &prelude));
         let response = match outcome {
             Ok(typ) => serde_json::json!({ "status": "ok", "type": format!("{typ}") }),
             Err(err) => {
@@ -183,6 +178,54 @@ mod tests {
             capability: CapabilityId::from(TYPECHECK_CAPABILITY),
             payload,
         }
+    }
+
+    #[test]
+    fn default_is_new_and_name_is_reported() {
+        let plugin = TypecheckPlugin::default();
+        assert_eq!(plugin.name(), "Typechecker");
+        assert_eq!(plugin.capabilities().len(), 1);
+    }
+
+    #[test]
+    fn a_null_prelude_is_treated_as_absent() {
+        let plugin = TypecheckPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(
+                    &req(serde_json::json!({ "source": "x = 1", "prelude": null })),
+                    ctx,
+                )
+                .expect("typecheck runs")
+        });
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("ok"));
+    }
+
+    #[test]
+    fn type_errors_are_reported_as_a_distinct_status() {
+        // `host-cli` distinguishes "the checker ran and found type errors"
+        // (stdout, exit 0) from "could not check" (stderr, exit 2). The former
+        // is the `type-errors` status; an unbound wire produces it.
+        let plugin = TypecheckPlugin::new();
+        let res = with_ctx(|ctx| {
+            plugin
+                .run(&req(serde_json::json!({ "source": "x = y;" })), ctx)
+                .expect("a type error is a response, not a PlatformError")
+        });
+        assert_eq!(
+            res.0.get("status").and_then(|v| v.as_str()),
+            Some("type-errors"),
+            "got {}",
+            res.0
+        );
+        assert!(
+            res.0
+                .get("message")
+                .and_then(|v| v.as_str())
+                .is_some_and(|m| m.contains("typecheck errors:")),
+            "got {}",
+            res.0
+        );
     }
 
     #[test]

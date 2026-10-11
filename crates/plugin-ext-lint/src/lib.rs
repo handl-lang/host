@@ -404,4 +404,111 @@ mod tests {
             non_fmt
         );
     }
+    // --- private helpers: the "cannot check" degradation arms ---
+    //
+    // These paths are unreachable through the public API for well-formed
+    // input, so they are covered by calling the helpers directly rather than
+    // by leaving them untested.
+
+    /// Source that cannot even be lexed, so every downstream stage fails.
+    const UNLEXABLE: &str = "x = \"unterminated;";
+
+    #[test]
+    fn lint_source_with_language_uses_the_supplied_language() {
+        let lang = lint_language().expect("canonical language");
+        let diags = lint_source_with_language(lang, "x = 1;").expect("lints");
+        // The module has no doc comment, so at least one info diagnostic.
+        assert!(!diags.is_empty(), "expected diagnostics, got none");
+    }
+
+    #[test]
+    fn fix_source_applies_the_fmt_fix() {
+        // A non-canonical file: the `fmt` rule supplies a whole-file fix, and
+        // `compute_fixes` applies it alone (it overlaps every other fix).
+        let fixed = fix_source("x   =   1;").expect("fixes");
+        assert!(
+            check_source(&fixed).expect("checks"),
+            "the fixed source must be canonical, got {fixed:?}"
+        );
+    }
+
+    #[test]
+    fn compute_fixes_on_canonical_source_is_empty() {
+        // No fmt fix present, so the non-fmt filter chain is exercised.
+        let canonical = handl_plugin_ext_fmt::format_source("x = 1;").expect("formats");
+        assert!(compute_fixes(&canonical, &HashSet::new()).is_empty());
+    }
+
+    #[test]
+    fn unbound_wire_diagnostics_is_empty_when_the_source_cannot_be_checked() {
+        let lang = lint_language().expect("canonical language");
+        let prelude = HashSet::new();
+        assert!(
+            unbound_wire_diagnostics_with_language(lang, UNLEXABLE, &prelude).is_empty(),
+            "a check failure must degrade to no diagnostics, not propagate"
+        );
+    }
+
+    #[test]
+    fn compute_fixes_is_empty_when_the_source_cannot_be_linted() {
+        assert!(compute_fixes(UNLEXABLE, &HashSet::new()).is_empty());
+    }
+
+    #[test]
+    fn fmt_rule_declines_when_the_source_cannot_be_checked() {
+        let lang = lint_language().expect("canonical language");
+        assert!(fmt_rule(lang, UNLEXABLE).is_empty());
+    }
+
+    #[test]
+    fn fmt_rule_declines_on_whitespace_only_source() {
+        // The early return: there is nothing to format.
+        let lang = lint_language().expect("canonical language");
+        assert!(fmt_rule(lang, "   \n\t\n").is_empty());
+    }
+
+    #[test]
+    fn fmt_rule_reports_a_fix_for_non_canonical_source() {
+        let lang = lint_language().expect("canonical language");
+        let hits = fmt_rule(lang, "x   =   1;");
+        assert_eq!(hits.len(), 1, "the fmt rule is fixable");
+        assert!(hits[0].fix.is_some(), "the hit must carry a fix");
+    }
+
+    #[test]
+    fn convert_maps_every_severity_level() {
+        for (level, want) in [
+            (DiagnosticLevel::Error, Severity::Error),
+            (DiagnosticLevel::Warning, Severity::Warning),
+            (DiagnosticLevel::Info, Severity::Info),
+        ] {
+            let engine_diag = LintDiagnostic {
+                rule: "test-rule".into(),
+                level,
+                span: Some(handl_language::Span { start: 0, end: 1 }),
+                message: "msg".into(),
+                fix: None,
+            };
+            let converted = convert("ab", &engine_diag);
+            assert_eq!(converted.severity, want);
+            assert_eq!(converted.rule, "test-rule");
+            assert_eq!(converted.span.end, 1);
+        }
+    }
+
+    #[test]
+    fn check_source_with_prelude_seeds_the_wire_scope() {
+        // With `provided` in the prelude the module is clean; without it the
+        // unbound wire is an Error.
+        let with_name: HashSet<String> = ["provided".to_string()].into_iter().collect();
+        assert!(check_source_with_prelude("provided", &with_name).expect("checks"));
+        assert!(!check_source_with_prelude("provided", &HashSet::new()).expect("checks"));
+    }
+
+    #[test]
+    fn check_source_with_prelude_propagates_a_parse_error() {
+        // Unlike `compute_fixes`/`fmt_rule`, the `check_source*` family
+        // propagates the parse failure to the caller.
+        assert!(check_source_with_prelude(UNLEXABLE, &HashSet::new()).is_err());
+    }
 }
