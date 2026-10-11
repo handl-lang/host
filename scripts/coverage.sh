@@ -39,29 +39,34 @@ TOOLING_GATE=0
 # `typecheck` / `test`, ADR-0085) are small and self-contained, so they are
 # held to a coverage floor rather than left ungated.
 #
-# Measured: 99.64% lines (7 uncovered of 1951).
+# Measured: >=99.4% lines across the set.
 #   plugin-ext-fmt/src/lib.rs       0 uncovered  (100%)
 #   plugin-ext-fmt/src/plugin.rs    0 uncovered  (100%)
 #   plugin-ext-typecheck/plugin.rs  0 uncovered  (100%)
 #   plugin-ext-lint/src/lib.rs      3 uncovered
 #   plugin-ext-test/src/plugin.rs   4 uncovered
+#   plugin-ext-diag/src/lib.rs      1 uncovered (line 452)
 #
-# The 7 residual lines are defensive guards that cannot execute on a 64-bit
-# host and so cannot be tested there:
+# The residual lines are defensive guards that cannot execute on a 64-bit host
+# and so cannot be tested there:
 #   * `parse_jobs`' `usize::try_from` range check (only reachable on 32-bit)
 #   * `fix_source_with_prelude`'s non-convergence arm (the canonical fix set
 #     converges in one round and formatting is idempotent)
 #   * `with_kit` / cache-persistence failure arms reached only by I/O faults
-# Raising the threshold above ~99.2 would fail on those guards; 99 still
-# catches any regression of more than a handful of lines.
+#   * `is_import_chunk`'s `rest.is_empty()` clause — the only caller passes a
+#     chunk ending in `*`, so a bare `import`/`from` chunk cannot reach it
+# Raising the threshold above ~99 would fail on those guards; 99 still catches
+# any regression of more than a handful of lines.
 TOOLING_MIN_LINES=99
 
-# The tooling capability adapters (ADR-0085).
+# The tooling capability adapters (ADR-0085) plus the shared diagnostics crate
+# they all render through.
 TOOLING_CRATES=(
   handl-plugin-ext-fmt
   handl-plugin-ext-lint
   handl-plugin-ext-typecheck
   handl-plugin-ext-test
+  handl-plugin-ext-diag
 )
 
 while [[ $# -gt 0 ]]; do

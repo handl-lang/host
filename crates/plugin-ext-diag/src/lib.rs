@@ -868,4 +868,92 @@ mod tests {
         assert_eq!(s.end, 9);
         assert_eq!((s.start_line, s.start_col), (1, 1));
     }
+    // --- boundary/escape branches of the shared statement splitter ---
+
+    #[test]
+    fn split_statements_respects_escaped_quotes_in_strings() {
+        // The `\\` arm of the string scanner: an escaped quote must not close
+        // the literal, so the `;` inside it is not a statement boundary.
+        let chunks = split_statements("a = \"x\\\"y; z\"\nb = 2");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[1].text, "b = 2");
+    }
+
+    #[test]
+    fn split_statements_elides_a_comment_only_leading_region() {
+        let chunks = split_statements("-- header\nx = 1");
+        assert_eq!(chunks.len(), 1, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x = 1");
+    }
+
+    #[test]
+    fn split_statements_treats_import_star_as_a_complete_statement() {
+        // `from "x" import *` ends in `*`, which is otherwise a pending binary
+        // operator; `is_import_chunk` exempts it, so the following line splits.
+        let chunks = split_statements("from \"x\" import *\ny = 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "from \"x\" import *");
+    }
+
+    #[test]
+    fn split_statements_handles_a_statement_ending_at_eof() {
+        // `bytes.get(j)` is `None` once past the end — still a boundary.
+        let chunks = split_statements("a = 1\n");
+        assert_eq!(chunks.len(), 1, "{chunks:?}");
+    }
+
+    #[test]
+    fn split_statements_drops_a_comment_only_tail() {
+        let chunks = split_statements("a = 1;\n-- just a comment\n");
+        assert_eq!(chunks.len(), 1, "{chunks:?}");
+        // The `;` is the separator, so it is not part of the chunk text.
+        assert_eq!(chunks[0].text, "a = 1");
+    }
+
+    #[test]
+    fn apply_fixes_to_fixpoint_accepts_convergence_on_the_final_check() {
+        // The loop exhausts `max_iterations`, but the source has converged by
+        // then — the trailing check must still return `Ok`. (`Cell`, because
+        // the closure parameter is `Fn`, not `FnMut`.)
+        let calls = std::cell::Cell::new(0usize);
+        let out = apply_fixes_to_fixpoint(
+            "a",
+            |s| {
+                let n = calls.get();
+                calls.set(n + 1);
+                if n == 0 {
+                    vec![Fix {
+                        span: Span::from_byte_range(0, 1, s),
+                        replacement: "b".into(),
+                    }]
+                } else {
+                    Vec::new()
+                }
+            },
+            1,
+        )
+        .expect("convergence on the final check is success");
+        assert_eq!(out, "b");
+    }
+
+    #[test]
+    fn apply_fixes_to_fixpoint_reports_non_convergence() {
+        // A fix closure that always produces more work never converges, so the
+        // loop exhausts `max_iterations` and the final check still finds work.
+        let err = apply_fixes_to_fixpoint(
+            "a",
+            |s| {
+                vec![Fix {
+                    span: Span::from_byte_range(s.len(), s.len(), s),
+                    replacement: "b".into(),
+                }]
+            },
+            2,
+        )
+        .expect_err("must not converge");
+        assert!(
+            matches!(err, FixError::NotConverged { max_iterations: 2 }),
+            "{err:?}"
+        );
+    }
 }
