@@ -758,6 +758,8 @@ dependencies = [
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-typecheck",
+ "handl-value",
+ "serde_json",
 ]
 
 [[package]]
@@ -984,6 +986,14 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.20",
  "toml",
+]
+
+[[package]]
+name = "handl-platform-tests"
+version = "0.1.0"
+dependencies = [
+ "handl-platform",
+ "serde_json",
 ]
 
 [[package]]

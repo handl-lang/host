@@ -7,6 +7,7 @@ edition = "2024"
 members = [
   "crates/bench",
   "crates/ext-tests",
+  "crates/platform-tests",
   "crates/plugin-ext-build",
   "crates/plugin-ext-cli",
   "crates/plugin-ext-diag",

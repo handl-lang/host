@@ -1,0 +1,12 @@
+[package]
+name = "handl-platform-tests"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+handl-platform = { workspace = true }
+serde_json = { workspace = true }
+
+[lib]
+bench = false
