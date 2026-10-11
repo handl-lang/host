@@ -212,8 +212,16 @@ These are still open and should be picked up alongside the above.
          boundary, which is what makes the env expansion unavoidable today.
          This would also cut `hnl` startup latency (a first `hnl eval` of
          `tag.tag(...)` exceeds **30 s** on the CLI).
-      Next step: time `build_runtime` and the first `HandlFunction::call` to
-      split the 40 s between runtime construction and first evaluation.
+      Next step: `HandlModule::new` only captures an `Arc<dyn Fn>` runtime
+      builder, so the 40 s is paid when that builder is first invoked.
+      `build_runtime` (plugin-lib-handl) does just two non-trivial things —
+      `handl_runtime::fp::canonical_fp_host_functions(module_chain)` and
+      `Runtime::from_registry_with_resolver(...)` — and since only the *first*
+      module build in a process is slow, the cost is a one-time initializer
+      behind a global cache in one of those (most likely
+      `canonical_fp_host_functions`, which builds a large record of host-function
+      arrows — the same captured-environment shape as the documented `do {}`
+      blow-up). Time those two calls directly to split the 40 s.
 
 
 - [x] Restore bench suite (core, infer, lexer, parser, pipeline, typecheck) —
