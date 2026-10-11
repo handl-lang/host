@@ -177,18 +177,16 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 
 These are still open and should be picked up alongside the above.
 
-- [ ] **Extend the tooling coverage gate to the exec-control crates (blocked on
-      disk, not effort).** `scripts/coverage.sh --tooling-gate` covers the four
-      tooling adapters. The natural next set is `plugin-ext-diag` plus the nine
-      `plugin-exec-*` rule crates, but measuring them needs a `cargo llvm-cov`
-      instrumented rebuild (~4-5 GB), and this box has been at 100% with ~1-2 GB
-      free — the run would ENOSPC before producing a number. Assessment done
-      without building: `plugin-ext-diag` is 871 src lines with 31 unit tests
-      (plausibly near-gateable); the nine `plugin-exec-*` crates are 166-293 src
-      lines each with only **2-3 unit tests** each, so a 100% gate there means
-      writing ~10 crates' worth of new tests — plan for that, don't assume it is
-      a config tweak. Command when there is headroom:
-      `cargo llvm-cov -p handl-plugin-ext-diag -p handl-plugin-exec-allow … --summary-only`.
+- [~] **Extend the tooling coverage gate beyond the tooling adapters.**
+      `plugin-ext-diag` is **done** (commit `9e1a1cda`): 97.85% -> 99.42% with 6
+      targeted tests, and it is now in the gated set, which passes at 99.60%
+      over five crates.
+      The nine `plugin-exec-*` rule crates remain, and the assessment stands:
+      they are 166-293 src lines each with only **2-3 unit tests** each, so a
+      100% gate there means writing ~10 crates' worth of new tests — plan for
+      that, it is not a config tweak. Measuring needs a `cargo llvm-cov`
+      instrumented rebuild (~4-5 GB), so budget disk headroom:
+      `cargo llvm-cov -p handl-plugin-exec-allow -p handl-plugin-exec-cache … --summary-only`.
 
 - [ ] **The interpreted typecheck model is the remaining suite bottleneck.**
       After the loader fix above (64.5 min → 25 min), the leftover slow tests are
