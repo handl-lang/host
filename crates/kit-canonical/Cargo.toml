@@ -38,3 +38,7 @@ toml = "0.8"
 [dev-dependencies]
 criterion = "0.5"
 tempfile = "3"
+
+[[bench]]
+name = "perf"
+harness = false

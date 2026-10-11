@@ -27,9 +27,23 @@ pub const SAMPLE: &str =
 /// [`SAMPLE`] deliberately leaves its callee unbound so it exercises parsing
 /// without needing a runtime; evaluating it fails with
 /// `function 'qux…' not found`. Evaluation needs every name bound, so this
-/// binds the function first — the same construct
-/// `kit-canonical/benches/perf.rs` uses, which is known to evaluate.
-pub const EVAL_SAMPLE: &str = "f = x ~> x; 1 |> f";
+/// binds the function first.
+///
+/// Note: this previously used the `|>` pipe operator (`"f = x ~> x; 1 |> f"`),
+/// inherited from `kit-canonical/benches/perf.rs`. `|>` was **removed** from
+/// the canonical grammar (`handl-kit-data-canonical/data/ast.yaml`,
+/// "Removed: … pipe …"), so the sample no longer parsed and
+/// `pipeline/parse_and_eval` panicked on its first iteration. Plain
+/// application is the supported form.
+pub const EVAL_SAMPLE: &str = "f = x ~> x; f 1";
+
+/// An inference-heavy module for the `infer` bench.
+///
+/// Three chained arrows plus an application, so the `.hnl` model has to
+/// synthesize a type for each binding *and* for the application site — the
+/// shape `handl-typecheck-infer` used to be measured on. Validated against
+/// `hnl typecheck` (`<path>: ok`).
+pub const INFERENCE_SAMPLE: &str = "f = x ~> x; g = y ~> f y; h = z ~> g z; h 1";
 
 /// The canonical language, assembled from the embedded YAML fragments.
 pub fn canonical_lang() -> Language {

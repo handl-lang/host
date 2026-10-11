@@ -19,6 +19,8 @@ handl-plugin-engine-lex-pattern = { workspace = true }
 handl-plugin-engine-parse = { workspace = true }
 handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-typecheck = { workspace = true }
+handl-value = { workspace = true }
+serde_json = { workspace = true }
 
 [lib]
 bench = false
@@ -37,4 +39,12 @@ harness = false
 
 [[bench]]
 name = "pipeline"
+harness = false
+
+[[bench]]
+name = "core"
+harness = false
+
+[[bench]]
+name = "infer"
 harness = false
