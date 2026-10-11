@@ -5,8 +5,10 @@
 # `Scheme` kernel (the same `!Arr`/`!Seq`/`!First`/`!Choice`/`!Loop` tags as
 # `eval.yaml`) with `source: Judgment` for typecheck judgment ops.
 #
-# The NBE typecheck engine (`plugin-engine-typecheck-nbe`) interprets these
-# schemes. Judgment ops: `construct`, `match_type`, `synth_child`, `check_child`,
+# The interpreted `.hnl` typecheck model (`plugin-engine-typecheck-handl`,
+# registered by the canonical kit under the engine name `handl`) and this
+# crate's Rust bootstrap checker interpret these schemes. Judgment ops:
+# `construct`, `match_type`, `synth_child`, `check_child`,
 # `eval_child`, `proj_child`, `unify`, `extend`, `lookup`, `lookup_var`,
 # `fresh_meta`, `solve_meta`, `quote`, `normalize`, `bind`, `result`,
 # `node_payload`, `json_type_construct`, `payload_field`, `field`, `type_field`,

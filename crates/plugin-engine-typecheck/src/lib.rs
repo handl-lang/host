@@ -8,10 +8,12 @@
 //! `hnl typecheck`. `Foreign` scheme dispatch uses
 //! [`handl_platform::ModuleLookup`] from the `handl-platform` crate (type
 //! rules may call host functions).
-//! **No typecheck engine code lives here** — the abstraction is the
-//! contract; the concrete engine is `handl-plugin-engine-typecheck-nbe`
-//! (a normalization-based checker), selected via `runtime.typecheck` in
-//! the kit data.
+//! **No typecheck engine code lives here except the bootstrap checker** — the
+//! abstraction is the contract. The concrete engines are
+//! `handl-plugin-engine-typecheck-handl` (an interpreted `.hnl` model, the
+//! engine the canonical kit registers under the name `"handl"`) and this
+//! crate's own Rust [`check_module`] bootstrap checker, which hosts fall back
+//! to. Engines are selected via `runtime.typecheck` in the kit data.
 //!
 //! Engines consume [`handl_language::Language`] **data** — they look up
 //! `lang.types[node.kind]` to find a [`handl_language::Term`] and
