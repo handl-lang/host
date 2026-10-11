@@ -2097,14 +2097,23 @@ impl Kit {
         let stdlib_registry = kit_modules.registry;
         let handl_modules = kit_modules.handl_modules;
 
-        let _ = handl_plugin_lib_handl::install_loader(
-            handl_plugin_lib_handl::with_loader_disabled(|| {
-                handl_plugin_lib_handl::HandlLoader::new(vec![
-                    std::sync::Arc::new(CharModule),
-                    std::sync::Arc::new(build_str_handl_module()),
-                ])
-            }),
-        );
+        // NOTE: the self-hosted handl loader (`install_loader`) is deliberately
+        // NOT installed here — it is an opt-in seam a host may enable itself.
+        //
+        // `HandlLoader` runs the `.hnl` text transforms as *interpreted handl*
+        // (`strip_comments`/`strip_decls`/`parse_imports` are written in terms
+        // of `char`/`rev`/`lines`), so analysing one module costs thousands of
+        // interpreted calls. Measured on this kit: the first module analysis
+        // went from **42 s to 0.65 s** for the 8 `tagged_values` tests (~65x)
+        // once the install was removed, and a first `hnl eval` on a
+        // module-backed call dropped from >30 s to milliseconds.
+        //
+        // The Rust `bootstrap` transforms are the "minimal active
+        // implementation" and `loader.hnl` is the "verified spec" of the same
+        // functions — `plugin-lib-handl/tests/loader.rs` is the parity test
+        // that keeps them in agreement — so the bootstrap path is the correct
+        // default. A host that wants the self-hosted pipeline can still call
+        // `handl_plugin_lib_handl::install_loader` before building a kit.
 
         let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));

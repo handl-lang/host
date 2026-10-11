@@ -51,24 +51,25 @@ each — they compile the corpus to native and run it) and `kit-canonical`'s
 `fp_integration`/`intl_c`/`noise_c`/`rand_c` (~40-80 s per test). Check
 `ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
 
-**Caveat — nextest's process-per-test model is pathological for `kit-canonical`.**
-Nextest runs *each test in its own process*, which is normally a feature, but
-the first module-backed eval in a process costs a **one-time ~40 s** (see
-`project/TODO.md`, "A ~40 s one-time cost on the first module-backed eval").
-So all 181 `kit-canonical` tests pay it, and that crate alone is nearly the
-whole suite runtime. Measured: the 8 `tagged_values` tests take **42 s under
-libtest** (one process for the whole binary) versus **~8 min under nextest** —
-an **~11x** difference from process isolation alone.
+**Caveat — nextest's process-per-test model is expensive for `kit-canonical`.**
+Nextest runs *each test in its own process*; that used to cost a **one-time
+~40 s per process** because the kit installed the self-hosted `.hnl` loader
+(see `project/TODO.md`, "A ~40 s one-time cost on the first module-backed eval
+— FIXED"). That install is gone, so the crate is now fast under either runner.
+libtest (`cargo test`, one process per binary) still avoids re-paying any
+one-time init per test, so it remains the cheaper runner for this crate:
 
 ```bash
-# ~11x faster for the affected crates: one process per binary, so the
-# one-time init is paid once rather than once per test.
 CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical
 ```
 
-The whole-workspace run stays on nextest (it is genuinely faster for the other
-~4,100 tests, whose median duration is 0.13 s); the exception is the crates
-dominated by module-backed evals.
+Measured after the fix: the whole crate is **252/252 in 648 s single-threaded**
+(`rand_c` 29 tests in 7.65 s, `tagged_values` 8 in 1.22 s, `intl_c` 13 in
+2.59 s).
+
+The whole-workspace run stays on nextest; the crates still dominated by
+Handl-model typechecking (`kit-canonical`'s `fp_integration`/`ordered_annotations`
+and the lib `typecheck_*` tests, ~8 s each) are the remaining slow spots.
 
 
 Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
