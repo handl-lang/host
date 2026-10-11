@@ -177,6 +177,24 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 
 These are still open and should be picked up alongside the above.
 
+- [ ] **`Kit::new()` per test makes the suite ~10x slower than it needs to be.**
+      Measured: every heavy test in `crates/kit-canonical/tests/*` goes through a
+      helper (`fn eval()` / `fn kit()`) that calls `Kit::new()`, which assembles
+      the whole canonical language and binds every engine. That is ~50 s per
+      call, so `rand_c` (29 tests) costs ~28 min, `tagged_values` (8 tests)
+      ~8 min, `intl_c` (13) ~11 min, … The 181 tests in that crate are ~90 min
+      of CPU for assertions that take microseconds once a kit exists.
+      Everything else in the workspace has a median test time of 0.13 s, which
+      is why the full suite is dominated by this one crate.
+      The fix is not simply a `static Kit`: `Kit` holds `RefCell`s and is
+      therefore not `Sync`, and libtest runs each test on its own thread, so
+      the `thread_local!` memoization `plugin-ext-typecheck` uses does not
+      share across tests either. Real options: (a) make `Kit` `Sync` (swap the
+      `RefCell`s for a lock / `OnceCell`) so a `OnceLock<Kit>` can be shared;
+      (b) add a `Sync` read-only "assembled language" handle that tests share
+      and from which per-test state is derived; (c) cut `Kit::new()` cost.
+      Worth an ADR: it is the single largest lever on CI wall-clock.
+
 - [x] Restore bench suite (core, infer, lexer, parser, pipeline, typecheck) —
       all six live in `crates/bench`; `core`/`infer` are re-targets of deleted
       crates (see `crates/bench/README.md`). Fixing the restore surfaced that
