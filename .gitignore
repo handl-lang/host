@@ -68,3 +68,7 @@ node_modules
 # python test fixtures imported by a test run
 __pycache__/
 *.pyc
+
+# Runtime caches written relative to the CWD (e.g. `hnl test --cache` ->
+# .handl/cache/test-runner/cache.json).
+/.handl/

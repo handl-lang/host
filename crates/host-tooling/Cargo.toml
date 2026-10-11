@@ -4,16 +4,12 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-plugin-load.workspace = true
-handl-plugin-diag-expression.workspace = true
-handl-plugin-engine-lint.workspace = true
 handl-kit-canonical.workspace = true
 handl-language.workspace = true
 handl-platform.workspace = true
-handl-plugin-engine-fmt.workspace = true
-handl-plugin-engine-lex-pattern.workspace = true
-handl-plugin-engine-parse.workspace = true
-handl-plugin-engine-parse-pratt.workspace = true
+handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
+handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
+handl-plugin-ext-lint = { path = "../plugin-ext-lint" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1"
 

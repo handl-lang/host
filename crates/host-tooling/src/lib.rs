@@ -1,32 +1,32 @@
-//! Tooling / LSP host stubs; full implementation pending migration.
+//! Tooling / LSP host: the plugin-host contract for tooling capabilities.
+//!
+//! The formatting and linting *implementations* live in `plugin-ext-fmt` and
+//! `plugin-ext-lint`; this crate owns the host surface (plugin slots +
+//! delegates) and the LSP support types (`lsp`, `semantic_tokens`,
+//! `grammar`).
 
 use handl_language::Language;
 use handl_platform::PlatformError;
 
-/// A diagnostic message with severity and optional source span.
+/// A diagnostic from the shared `plugin-ext-diag` model (ADR-0091).
 ///
-/// This is a local replacement for the former `handl_plugin_diag_core::Diagnostic`
-/// type, kept here so the `ToolingHost::diagnose` API remains stable while the
-/// old plugin-diag-core crate is removed.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Diagnostic {
-    /// Severity level.
-    pub level: DiagnosticLevel,
-    /// Diagnostic message.
-    pub message: String,
-    /// Optional source span (byte offsets).
-    pub span: Option<handl_platform::Span>,
-}
+/// Re-exported so `ToolingHost::diagnose` keeps its name and shape while the
+/// crate no longer carries a private copy of the type: `plugin-ext-diag`'s
+/// `Diagnostic` also carries the rule name, line/column spans and an optional
+/// machine-applicable fix, which the former local struct dropped.
+pub use handl_plugin_ext_diag::{Diagnostic, Severity};
 
-/// Severity of a diagnostic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DiagnosticLevel {
-    /// Error-level diagnostic.
-    Error,
-    /// Warning-level diagnostic.
-    Warning,
-    /// Info-level diagnostic.
-    Info,
+/// Builds a single error-level diagnostic carrying `message`.
+///
+/// `ToolingHost::diagnose` returns diagnostics rather than a `Result` (its
+/// contract predates the shared model), so failures are surfaced in-band.
+fn error_diagnostic(message: &str) -> Diagnostic {
+    Diagnostic::new(
+        "host-tooling.error",
+        Severity::Error,
+        handl_plugin_ext_diag::Span::default(),
+        message,
+    )
 }
 
 pub mod command;
@@ -215,107 +215,40 @@ impl ToolingHost {
         }
     }
 
-    /// Parses `source` using the data-driven lex + Pratt parse pipeline and
-    /// returns a formatted canonical source string via [`FormatEngine`].
+    /// Formats `source` with the shared data-driven formatter
+    /// ([`handl_plugin_ext_fmt`], ADR-0044).
     ///
     /// The caller supplies the [`Language`] so the formatter and parser are
-    /// fully data-driven — no hardcoded kind strings.
+    /// fully data-driven — no hardcoded kind strings. This is the same
+    /// implementation `hnl fmt` dispatches to; the host does not re-implement
+    /// the lex → parse → render pipeline.
     ///
     /// # Errors
     ///
     /// Returns [`PlatformError::Plugin`] if lexing, parsing, or formatting
     /// fails.
     pub fn format(&self, lang: &Language, source: &str) -> Result<String, PlatformError> {
-        use handl_language::AstRef;
-        use handl_plugin_engine_fmt::FormatEngine;
-        use handl_plugin_engine_lex_pattern::lex;
-        use handl_plugin_engine_parse::ParserEngine;
-        use handl_plugin_engine_parse::ParserRequest;
-        use handl_plugin_engine_parse_pratt::PrattEngine;
-
-        let tokens = lex(lang, source).map_err(|e| PlatformError::Plugin(e.to_string()))?;
-        if tokens.as_slice().is_empty() {
-            return Ok(String::new());
-        }
-        let engine = PrattEngine::new();
-        let req = ParserRequest::new(tokens);
-        let ast = engine
-            .parse(lang, &req)
-            .map_err(|e| PlatformError::Plugin(e.to_string()))?;
-        if ast.is_empty() {
-            return Ok(String::new());
-        }
-        // Root = last node pushed (Pratt convention).
-        let root = AstRef::new(ast.len() - 1);
-        FormatEngine::new()
-            .format(lang, &ast, root)
+        handl_plugin_ext_fmt::format_source_with_language(lang, source)
             .map_err(|e| PlatformError::Plugin(e.to_string()))
     }
 
     /// Parses `source` and returns diagnostics for the resulting module.
     ///
-    /// Lexes and parses `source` with the canonical kit, then runs the
-    /// data-driven [`handl_plugin_engine_lint::LintEngine`] over the
-    /// resulting AST. Parse errors are converted to error-level diagnostics;
-    /// lint diagnostics are mapped to the host-tooling [`Diagnostic`] type.
+    /// Delegates to the shared lint implementation
+    /// ([`handl_plugin_ext_lint`]), which runs the data-driven lint engine
+    /// over the canonical kit's AST — including the handl-native resolver
+    /// (ADR-0097) wired from the kit's registered `.hnl` modules. Parse errors
+    /// become error-level diagnostics.
+    ///
+    /// The returned diagnostics are the shared `plugin-ext-diag` model, so
+    /// they carry the rule name, line/column span and any machine-applicable
+    /// fix.
     pub fn diagnose(&self, source: &str) -> Vec<Diagnostic> {
-        let kit = match handl_kit_canonical::Kit::new() {
-            Ok(kit) => kit,
-            Err(e) => {
-                return vec![Diagnostic {
-                    level: DiagnosticLevel::Error,
-                    message: format!("failed to assemble canonical kit: {e}"),
-                    span: None,
-                }];
-            }
-        };
-        let ast = match kit.parse(source) {
-            Ok(ast) => ast,
-            Err(e) => {
-                return vec![Diagnostic {
-                    level: DiagnosticLevel::Error,
-                    message: format!("parse error: {e}"),
-                    span: None,
-                }];
-            }
-        };
-        if ast.is_empty() {
-            return Vec::new();
-        }
-        let root = handl_language::AstRef::new(ast.len() - 1);
-        let lang = kit.runtime().lang();
-        // Wire the handl-native lint resolver (ADR-0097) from the kit's
-        // registered `.hnl` modules — the production seam that lets
-        // `check: !Native "handl:<mod>.<fn>"` lint rules dispatch.
-        let mut lint_natives = handl_plugin_engine_lint::NativeLintRegistry::new();
-        lint_natives.add_resolver(kit.handl_lint_adapter().resolver());
-        match handl_plugin_engine_lint::LintEngine::new()
-            .with_canonical_lint_natives()
-            .with_native_registry(lint_natives)
-            .lint(lang, &ast, root)
+        match handl_plugin_ext_lint::lint_language()
+            .and_then(|lang| handl_plugin_ext_lint::lint_source_with_language(lang, source))
         {
-            Ok(lint_diags) => lint_diags
-                .into_iter()
-                .map(|d| Diagnostic {
-                    level: match d.level {
-                        handl_plugin_engine_lint::DiagnosticLevel::Error => DiagnosticLevel::Error,
-                        handl_plugin_engine_lint::DiagnosticLevel::Warning => {
-                            DiagnosticLevel::Warning
-                        }
-                        handl_plugin_engine_lint::DiagnosticLevel::Info => DiagnosticLevel::Info,
-                    },
-                    message: d.message,
-                    span: d.span.map(|s| handl_platform::Span {
-                        start: s.start,
-                        end: s.end,
-                    }),
-                })
-                .collect(),
-            Err(e) => vec![Diagnostic {
-                level: DiagnosticLevel::Error,
-                message: format!("lint error: {e}"),
-                span: None,
-            }],
+            Ok(diags) => diags,
+            Err(e) => vec![error_diagnostic(&e.to_string())],
         }
     }
 
