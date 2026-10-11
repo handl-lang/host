@@ -177,6 +177,39 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 
 These are still open and should be picked up alongside the above.
 
+- [ ] **The interpreted typecheck model is the remaining suite bottleneck.**
+      After the loader fix above (64.5 min → 25 min), the leftover slow tests are
+      all ones that reach the Handl typecheck model: `kit-canonical`'s
+      `fp_integration` (worst single test **175 s**) / `ordered_annotations`
+      (~121 s), and `plugin-engine-typecheck-handl::dependent_structure`
+      (~40-60 s each at ~2 GB RSS).
+      Measured inside `HandlTypecheckEngine::typecheck` on
+      `data_typecheck_sees_desugared_block` (the 175 s case) — so the cost is
+      neither marshalling nor loading:
+      - `ensure_model` = **305 ns** (cached)
+      - `marshal_language` (~31k nodes) = **6.2 ms**
+      - `marshal_ast` = **0.2 ms**
+      - model `func.call` = **the remaining ~175 s**
+      The model (`typecheck_model.hnl`, ~51k chars) is evaluated by the tree-walk
+      interpreter with a fixed fuel budget and O(n²) tendencies — as the code
+      already says: "measured at minutes even for a 9-node AST, so it is
+      unusable as a default CLI path". On these ASTs it burns the budget and
+      then degrades to the Rust bootstrap checker anyway, i.e. the 175 s is
+      pure waste.
+      Root wiring: only `"handl"` (the model) is registered as a typecheck
+      engine (`build_kit`), with `model_enabled` defaulting to **true**
+      (`plugin-engine-typecheck-handl`, line 98), so *every*
+      `kit.runtime().typecheck()` runs the model. The kit yaml's
+      `runtime.typecheck: nbe` names an engine that no longer exists.
+      Fix path (deliberate, cross-cutting — not rushed): register the runtime
+      typecheck engine with `.with_model_enabled(false)` so
+      `runtime().typecheck()` takes the fast bootstrap path, keep the model
+      enabled only for the explicit `Kit::typecheck_handl*` entry points (which
+      already own the model↔bootstrap fallback), and give `Kit::typecheck` the
+      same bootstrap fallback on `NotImplemented`. Needs the full suite to
+      confirm no caller depended on `runtime().typecheck()` returning a model
+      type.
+
 - [x] **A ~40 s one-time cost on the first module-backed eval — FIXED.**
       Cause: `kit-canonical`'s `build_kit` called
       `handl_plugin_lib_handl::install_loader(...)`, installing the
