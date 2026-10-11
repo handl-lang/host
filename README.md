@@ -56,13 +56,21 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 
 ## Crate directory map
 
-- `crates/handl-*` — language core: `handl-language`, `handl-kit-data`, `handl-kit-data-canonical`, `kit-canonical`, `handl-runtime`, `handl-value`, `handl-emitters`, `handl-test-utils`, `handl-defining-handl`.
-- `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`).
-- `crates/plugin-ext-*` — capability contracts and default category plugins (`diag`, `fmt`, `lint`, `kit`, `cli`, `lsp`, `eval`, `refinement`, `build`, `compile`, `plugin`).
-- `crates/plugin-engine-*` — concrete language/tooling engines (`lex`, `lex-pattern`, `parse`, `parse-pratt`, `fmt`, `lint`, `typecheck`, `typecheck-handl`, `test`, `transform`, `transform-rewrite`, `transform-parallel`, `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`).
-- `crates/plugin-lib-*` / `crates/crate-*` — standard library, native ops, and utility libraries.
-- `crates/plugin-applier-*` / `crates/plugin-load*` — applier composition and loaders.
-- `crates/host-*` — CLI, LSP, and shared tooling host.
+- `crates/handl-*` — language core: `handl-language`, `handl-kit-data`, `handl-kit-data-canonical`, `kit-canonical`, `handl-runtime`, `handl-value`, `handl-emitters`, `handl-test-utils`, `handl-defining-handl`, `handl-kit-arrow-lower`.
+- `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`, `Kit`); `crates/platform-tests` — its integration tests.
+- `crates/plugin-engine` — the generic engine substrate (staged `Behavior` machinery).
+- `crates/plugin-engine-*` — concrete engines, all data-driven off `Language`:
+  - front end — `lex`, `lex-pattern`, `parse`, `parse-pratt`
+  - tooling — `fmt`, `lint`, `typecheck` (bootstrap checker), `typecheck-handl` (the `.hnl` model's inference engine), `test`
+  - transforms — `transform`, `transform-rewrite`, `transform-parallel`
+  - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
+- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `fmt`, `lint`, `typecheck`, `test`, `cli`, `lsp`, `eval`, `refinement`, `build`, `compile`, `kit`, `plugin`, `sdkgen`). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `plugin-engine-*` engine — see ADR-0085.
+- `crates/plugin-exec-*` / `plugin-compile-*` — exec-control rules (`allow`, `deny`, `cache`, `counter`, `logging`, `map`, `max-calls`, `max-depth`, `trace`) and compiler back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`).
+- `crates/plugin-sdkgen*` / `plugin-diag-expression` — SDK generators (and their back ends/emitters) and expression-level diagnostics.
+- `crates/plugin-lib-*` / `crate-*` — standard library, native ops, and utility libraries.
+- `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-*` — applier composition and loaders (native, wasm, web); `plugin-module` / `plugin-source` — module and source plumbing.
+- `crates/host-*` — `host-cli` (the `hnl` binary), `host-lsp` (the LSP server), `host-tooling` (the shared tooling/LSP host contract); `plugin-lsp` / `plugin-lsp-std` — LSP provider plugins.
+- `crates/bench` / `ext-tests` — criterion benchmarks and integration-test scaffolding.
 - `handl-packages/` — `.hnl` packages and contracts; `data/` — YAML language fragments.
 - `docs/` — language and runtime design docs.
 - `project/` — project notes and ADRs.

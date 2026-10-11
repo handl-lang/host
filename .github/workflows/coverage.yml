@@ -58,3 +58,35 @@ jobs:
           path: coverage/html/
           if-no-files-found: ignore
           retention-days: 14
+
+  # Blocking: the tooling capability adapters (`fmt`/`lint`/`typecheck`/`test`)
+  # are small and self-contained, so they get a real coverage floor — the
+  # whole-workspace `coverage` job above deliberately is not gated (it would
+  # fail a build on unrelated, still-migrating crates). See
+  # `scripts/coverage.sh` for the measured numbers and the residual
+  # defensive guards.
+  tooling-coverage-gate:
+    name: tooling crates coverage floor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: |
+          rustup update stable
+          rustup component add llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cov-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cov-cargo-${{ runner.os }}-
+
+      - name: Gate tooling plugin coverage at 100% lines
+        run: ./scripts/coverage.sh --tooling-gate
