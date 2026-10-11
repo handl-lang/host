@@ -96,20 +96,30 @@ Phase 1 crates are now `plugin-ext-diag`, `plugin-ext-fmt`, `plugin-ext-lint`,
 and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 `typecheck` (not `check`), `test`, `run`, `eval`, `transform`, `gen-grammar`.
 
-- [~] Wire `plugin-ext-fmt` / `plugin-ext-lint` / `plugin-engine-typecheck` /
+- [x] Wire `plugin-ext-fmt` / `plugin-ext-lint` / `plugin-engine-typecheck` /
       `plugin-engine-test` through the existing `plugin-ext-*` capability
       contracts so `host-lsp`, `host-cli`, and third parties can reuse them.
-      **Scoped, not started** — see
-      `project/tasks/0085-tooling-capability-wiring.md`. The item reads like
-      wiring; it is not. None of `plugin-ext-{fmt,lint,eval,build,compile}`
-      declares a `Plugin`/`Behavior` at all (they are free-function modules),
-      so the plugins must be **created** first. `host-cli` already links
-      `DefaultHost` + `BasicCli` but calls the free functions directly.
-      Steps 1–3 (add a thin adapter `Plugin` per tool, decide its payload
-      schema, register it) are additive and are the natural first PR;
-      step 4 (reroute `host-cli`'s subcommand bodies) touches the primary
-      user-facing binary and should follow once the plugins are individually
-      tested.
+      **Landed** — see `project/tasks/0085-tooling-capability-wiring.md`.
+      `FmtPlugin`, `LintPlugin`, `TypecheckPlugin`, and `TestPlugin` all exist,
+      are registered in `host-cli`'s `tooling_host()`, and `hnl
+      fmt`/`lint`/`typecheck`/`test` all dispatch through them (lossless: same
+      stdout/stderr routing and exit codes). `lint` carries the caller's
+      serialized `Language` (ADR-0124); `typecheck`/`test` do not need it —
+      both sides assemble from the single `Kit::new` path, so there is no
+      caller-vs-plugin divergence to close. `host-lsp` is *not* converted yet.
+- [x] Assess converting `host-lsp` to the capability path — **decision: don't,
+      as a rewrite**. `host-lsp` is a 94-file / ~14k-line LSP *protocol server*
+      (long-lived loop, incremental document store, per-request cancellation,
+      workspace-wide rename/symbols), not a one-shot capability
+      request/response; the `fmt`/`lint`/`typecheck`/`test` capability shape
+      does not fit it. It also already sits on the plugin architecture
+      (`ToolingHost` + `plugin-lsp::BasicLsp` providers), so it is not
+      bypassing the contracts. The reusable value the ADR-0085 work was after —
+      a shared fmt/lint/typecheck implementation — is already reachable from
+      `host-lsp` through those same crates; re-plumbing ~14k lines for no
+      functional gain is pure risk. Revisit only if a *capability-shaped* LSP
+      request appears (e.g. serverless/one-shot formatting in a served
+      context).
 - [ ] Bring the linter / typechecker rule engines onto the generic
       `plugin-engine-*` machinery where applicable
 - [ ] Replace any pre-arrow tooling duplicates with the improved
@@ -131,10 +141,36 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 
 These are still open and should be picked up alongside the above.
 
-- [ ] Restore bench suite (core, infer, lexer, parser, pipeline, typecheck)
-- [ ] Restore integration tests (fuzz, generics, integration, mock)
-- [ ] Restore platform/e2e tests (e2e, language_host, integration, mock)
-- [ ] Restore ext-tests and compiler-tests after compiler/typecheck refactor
+- [x] Restore bench suite (core, infer, lexer, parser, pipeline, typecheck) —
+      all six live in `crates/bench`; `core`/`infer` are re-targets of deleted
+      crates (see `crates/bench/README.md`). Fixing the restore surfaced that
+      `EVAL_SAMPLE` and `kit-canonical/benches/perf.rs` still used the removed
+      `|>` pipe syntax, so both benched the error path; replaced with plain
+      application and validated with `cargo bench -- --test` (11/11 pass).
+      `perf.rs` was *also* never wired up — `crates/kit-canonical/Cargo.toml`
+      declared no `[[bench]]`, so libtest's harness swallowed it
+      (`running 0 tests`) and criterion never ran; added
+      `[[bench]] name = "perf" harness = false` and it now runs (4/4 pass).
+- [x] Restore platform/e2e tests (e2e, language_host, integration, mock) —
+      `crates/platform-tests` restored for `mock`/`integration`/`e2e` (9 tests,
+      green), adapted to the current API: `DefaultHost` replaces the crate's
+      `MockHost`, and `MockExtension`/`ExtensionRegistry` are gone from the
+      platform. `language_host.rs` is **not** restorable — it targeted the
+      removed `LanguageHost`/`SyntaxNode` and the deleted comment plugins; the
+      current LSP path is covered by `plugin-lsp`/`plugin-ext-lsp`/`host-lsp`.
+      See `crates/platform-tests/README.md`.
+- [x] Restore integration tests (fuzz, generics, integration, mock) — **closed
+      as unrestorable**: every import targets a deleted crate
+      (`handl-ast-canonical`, `handl-store`, `handl-vm*`,
+      `handl-typecheck-core`/`-infer`/`-schema-json`, `handl-lib-collections`).
+      Coverage is now in the per-crate conformance/parity suites under
+      `crates/*/tests/` (`kit-canonical`, `handl-runtime`, `plugin-engine-*`).
+      A rewrite would be new work, not a restore.
+- [x] Restore ext-tests and compiler-tests after compiler/typecheck refactor —
+      `crates/ext-tests` (`e2e.rs`) restored alongside the ADR-0085 capability
+      work; the compiler-side end-to-end is `crates/host-cli/tests/`
+      (`eval_e2e`, `compile_smoke`, `integration`, `transform`) plus the
+      `plugin-engine-exec-*` conformance suites.
 
 ## Recently completed
 
