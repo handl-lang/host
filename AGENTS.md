@@ -51,6 +51,26 @@ each — they compile the corpus to native and run it) and `kit-canonical`'s
 `fp_integration`/`intl_c`/`noise_c`/`rand_c` (~40-80 s per test). Check
 `ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
 
+**Caveat — nextest's process-per-test model is pathological for `kit-canonical`.**
+Nextest runs *each test in its own process*, which is normally a feature, but
+the first module-backed eval in a process costs a **one-time ~40 s** (see
+`project/TODO.md`, "A ~40 s one-time cost on the first module-backed eval").
+So all 181 `kit-canonical` tests pay it, and that crate alone is nearly the
+whole suite runtime. Measured: the 8 `tagged_values` tests take **42 s under
+libtest** (one process for the whole binary) versus **~8 min under nextest** —
+an **~11x** difference from process isolation alone.
+
+```bash
+# ~11x faster for the affected crates: one process per binary, so the
+# one-time init is paid once rather than once per test.
+CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical
+```
+
+The whole-workspace run stays on nextest (it is genuinely faster for the other
+~4,100 tests, whose median duration is 0.13 s); the exception is the crates
+dominated by module-backed evals.
+
+
 Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
 (12 flagged slow). Note nextest does not run doctests — `cargo test --doc
 --workspace` is the separate check for those.
