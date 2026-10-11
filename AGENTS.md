@@ -545,7 +545,7 @@ implementation** of the `.hnl` text transforms: `strip_comments`,
 - `plugin-lib-handl/tests/loader.rs` is a parity test (handl vs bootstrap,
   small corpus) — **all transforms agree**.
 
-**Why the handl loader is not the default yet:** `HandlFunction::call`
+**Why the handl loader is not the default:** `HandlFunction::call`
 now caches the parsed applied-form `Ast` per (module, function, arity) in
 a thread-local `AST_CACHE` and evaluates it via
 `Runtime::eval_shared_with_globals` / `EvalEngine::eval_shared` (an
@@ -553,18 +553,26 @@ a thread-local `AST_CACHE` and evaluates it via
 tree-walk engine), so parsing is no longer the bottleneck. Measured on
 `examples/loader_bench.rs` (release): a warm `str.length` call went
 ~6.5ms → ~0.33ms (~19×); `loader.strip_decls` on `dedent.hnl` (2.7k
-chars) ~6.7s → ~0.93s (~7×); but on `str-handl.hnl` (22k chars) ~91s →
-~43s. The residual cost is the _interpreted_ `str.*`/`char.*` body eval
-over every input character (record caching is impossible across the
-`serde_json::Value` boundary — arrows' captured `env`s expand
-exponentially for `do {}`-block modules like `str-handl`). ~43s for one
-22k-char transform — minutes across a kit's ~30 modules — is still far
-too slow, so `kit-canonical` deliberately does **not** `install_loader`
-(see the NOTE in `build_kit`). Promotion to the default path awaits a
-compiled eval engine (bytecode/cranelift) for the transform pass, or a
-`TaggedValue`-level cache that never serializes captured envs. Until then
-the Rust `bootstrap` seam is the minimal _active_ implementation and
-`loader.hnl` is the verified spec.
+chars) ~6.7s → ~0.93s (~7×). The residual cost is the _interpreted_
+`str.*`/`char.*` body eval over every input character (record caching is
+impossible across the `serde_json::Value` boundary — arrows' captured
+`env`s expand exponentially for `do {}`-block modules like `str-handl`).
+
+That residual is severe enough that installing the loader as the default is
+actively harmful, which is why `kit-canonical` does **not** `install_loader`
+(see the NOTE in `build_kit`). Measured with it installed: the *first* module
+analysis in a process executed **~21,000 interpreted calls** (`char.chars`
+×2809, `len.len` ×2674, `head.head` ×2650, `rev.rev` ×2543 at ~2.6 ms each)
+for a one-time **~40 s** per process — enough to dominate the whole
+`kit-canonical` suite under nextest's process-per-test model. Removing the
+install took the full workspace run from **3871 s to 1502 s**.
+
+Promotion to the default path awaits a compiled eval engine
+(bytecode/cranelift) for the transform pass, or a `TaggedValue`-level cache
+that never serializes captured envs. Until then the Rust `bootstrap` seam is
+the minimal _active_ implementation and `loader.hnl` is the verified spec; the
+loader stays available as the opt-in seam described above — a host may call
+`install_loader` itself before building a kit.
 
 ## String / Char / Unicode layering (ADR-0093)
 
