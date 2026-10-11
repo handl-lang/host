@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }
-handl-plugin-ext-eval = { path = "../plugin-ext-eval" }
 handl-plugin-exec-logging = { path = "../plugin-exec-logging" }
 serde_json = { workspace = true }
 

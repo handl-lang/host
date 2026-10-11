@@ -5,7 +5,5 @@ edition.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }
-serde_json = { workspace = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }

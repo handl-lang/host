@@ -7,5 +7,4 @@ edition.workspace = true
 handl-language = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-lib-handl = { workspace = true }
-handl-plugin-module = { workspace = true }
 serde_json = { workspace = true }

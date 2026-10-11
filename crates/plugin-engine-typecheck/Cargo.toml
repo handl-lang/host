@@ -13,5 +13,4 @@ handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-plugin-module = { path = "../plugin-module" }
 handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

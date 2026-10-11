@@ -5,7 +5,5 @@ edition.workspace = true
 
 [dependencies]
 handl-plugin-compile = { path = "../plugin-compile" }
-handl-language = { path = "../handl-language" }
 handl-kit-arrow-lower = { path = "../handl-kit-arrow-lower" }
 serde_json = { workspace = true }
-thiserror = { workspace = true }

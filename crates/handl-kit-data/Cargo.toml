@@ -8,10 +8,8 @@ handl-language = { path = "../handl-language" }
 handl-emitters = { path = "../handl-emitters" }
 handl-platform = { path = "../platform" }
 handl-runtime = { path = "../handl-runtime" }
-handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
 
 [dev-dependencies]
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }

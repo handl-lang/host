@@ -9,7 +9,6 @@ handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-runtime = { path = "../handl-runtime" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
-serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
@@ -25,4 +24,3 @@ handl-plugin-lib-lang-eval = { workspace = true }
 handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
 handl-kit-canonical = { path = "../kit-canonical" }
-handl-test-utils = { path = "../handl-test-utils" }

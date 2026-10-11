@@ -12,7 +12,6 @@ handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
 handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-kit-canonical = { path = "../kit-canonical" }
 handl-language = { path = "../handl-language" }
-serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

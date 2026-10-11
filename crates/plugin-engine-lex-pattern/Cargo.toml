@@ -9,5 +9,4 @@ handl-language = { path = "../handl-language" }
 handl-plugin-engine-lex = { path = "../plugin-engine-lex" }
 
 [dev-dependencies]
-serde_json = { workspace = true }
 handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

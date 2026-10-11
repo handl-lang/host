@@ -12,14 +12,12 @@ handl-platform = { path = "../platform" }
 handl-language = { path = "../handl-language" }
 plugin-engine = { path = "../plugin-engine" }
 handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
-handl-plugin-engine-lex = { path = "../plugin-engine-lex" }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
 handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-lib-handl = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-serde_yaml = "0.9"
 z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 
 [[bin]]

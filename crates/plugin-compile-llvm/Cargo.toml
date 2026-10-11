@@ -9,7 +9,6 @@ handl-language = { path = "../handl-language" }
 plugin-engine = { path = "../plugin-engine" }
 plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
 
 inkwell = { version = "0.5", optional = true }
 

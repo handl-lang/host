@@ -5,8 +5,6 @@ edition.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-thiserror = { workspace = true }
-indexmap = { workspace = true, features = ["serde"] }
 ureq = "2"
 
 [dev-dependencies]
