@@ -177,23 +177,44 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 
 These are still open and should be picked up alongside the above.
 
-- [ ] **`Kit::new()` per test makes the suite ~10x slower than it needs to be.**
-      Measured: every heavy test in `crates/kit-canonical/tests/*` goes through a
-      helper (`fn eval()` / `fn kit()`) that calls `Kit::new()`, which assembles
-      the whole canonical language and binds every engine. That is ~50 s per
-      call, so `rand_c` (29 tests) costs ~28 min, `tagged_values` (8 tests)
-      ~8 min, `intl_c` (13) ~11 min, … The 181 tests in that crate are ~90 min
-      of CPU for assertions that take microseconds once a kit exists.
-      Everything else in the workspace has a median test time of 0.13 s, which
-      is why the full suite is dominated by this one crate.
-      The fix is not simply a `static Kit`: `Kit` holds `RefCell`s and is
-      therefore not `Sync`, and libtest runs each test on its own thread, so
-      the `thread_local!` memoization `plugin-ext-typecheck` uses does not
-      share across tests either. Real options: (a) make `Kit` `Sync` (swap the
-      `RefCell`s for a lock / `OnceCell`) so a `OnceLock<Kit>` can be shared;
-      (b) add a `Sync` read-only "assembled language" handle that tests share
-      and from which per-test state is derived; (c) cut `Kit::new()` cost.
-      Worth an ADR: it is the single largest lever on CI wall-clock.
+- [ ] **A ~40 s one-time cost on the first module-backed eval — and nextest turns
+      it into a per-test cost.**
+      Measured (debug profile):
+      - `Kit::new()` = **126 ms** (a first guess blamed this; it was wrong).
+      - First module-backed eval (`str.length` *or* `tag.tag` *or* `math.abs`;
+        any of them) = **~40 s**.
+      - Every subsequent module call in the same process = **5-12 ms**
+        (`str.length` 1st-after-init = 79 ms; `tag.tag` 2nd = 7.6 ms, 3rd =
+        5.1 ms).
+      So it is a one-time lazy initialization, not per-call overhead.
+      **Where it is NOT:** `HandlModule::new` (the text-transform/analysis
+      step) is *microseconds* for every real module — measured directly with
+      `funcs = &[]`: `math` (10.8 KB) 112 µs, `str-handl` (3.5 KB) 140 µs,
+      `intl-c` (53 KB) 922 µs, `loader` (32 KB) 433 µs. So the quadratic/
+      exponential cost is **not** the loader transforms, and not module
+      analysis. It is further down: the lazy per-module runtime build /
+      first `HandlFunction` path (each `HandlModule` holds an `Arc<dyn Fn>`
+      runtime builder that is invoked on first use, and the first such build
+      in a process pays ~40 s while every later one is ms).
+      **Why it dominates the suite:** `cargo-nextest` runs *each test in its own
+      process*, so all 181 tests in `kit-canonical` pay the 40 s — ~2 h of CPU
+      (~45 min wall at `-j 2`), which is essentially the whole suite runtime.
+      Measured directly: the 8 `tagged_values` tests take **42 s total under
+      libtest** (one process) vs **~8 min under nextest** — an **~11x**
+      difference from process isolation alone.
+      Two independent fixes, either of which would pay off:
+      1. **Runner (cheap, verified):** `AGENTS.md` currently recommends nextest
+         as simply "much faster". For crates whose first module call costs 40 s
+         that is inverted; running them under libtest is ~11x faster. Consider
+         `cargo test` for `kit-canonical`, or at least record the exception.
+      2. **Root cause (deep, already flagged):** cache the module record at the
+         `TaggedValue` level so it never crosses the `serde_json::Value`
+         boundary, which is what makes the env expansion unavoidable today.
+         This would also cut `hnl` startup latency (a first `hnl eval` of
+         `tag.tag(...)` exceeds **30 s** on the CLI).
+      Next step: time `build_runtime` and the first `HandlFunction::call` to
+      split the 40 s between runtime construction and first evaluation.
+
 
 - [x] Restore bench suite (core, infer, lexer, parser, pipeline, typecheck) —
       all six live in `crates/bench`; `core`/`infer` are re-targets of deleted
