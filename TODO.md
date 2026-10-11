@@ -177,51 +177,36 @@ and `host-cli` / `plugin-ext-cli`. The CLI subcommands are `fmt`, `lint`,
 
 These are still open and should be picked up alongside the above.
 
-- [ ] **A ~40 s one-time cost on the first module-backed eval — and nextest turns
-      it into a per-test cost.**
-      Measured (debug profile):
-      - `Kit::new()` = **126 ms** (a first guess blamed this; it was wrong).
-      - First module-backed eval (`str.length` *or* `tag.tag` *or* `math.abs`;
-        any of them) = **~40 s**.
-      - Every subsequent module call in the same process = **5-12 ms**
-        (`str.length` 1st-after-init = 79 ms; `tag.tag` 2nd = 7.6 ms, 3rd =
-        5.1 ms).
-      So it is a one-time lazy initialization, not per-call overhead.
-      **Where it is NOT:** `HandlModule::new` (the text-transform/analysis
-      step) is *microseconds* for every real module — measured directly with
-      `funcs = &[]`: `math` (10.8 KB) 112 µs, `str-handl` (3.5 KB) 140 µs,
-      `intl-c` (53 KB) 922 µs, `loader` (32 KB) 433 µs. So the quadratic/
-      exponential cost is **not** the loader transforms, and not module
-      analysis. It is further down: the lazy per-module runtime build /
-      first `HandlFunction` path (each `HandlModule` holds an `Arc<dyn Fn>`
-      runtime builder that is invoked on first use, and the first such build
-      in a process pays ~40 s while every later one is ms).
-      **Why it dominates the suite:** `cargo-nextest` runs *each test in its own
-      process*, so all 181 tests in `kit-canonical` pay the 40 s — ~2 h of CPU
-      (~45 min wall at `-j 2`), which is essentially the whole suite runtime.
-      Measured directly: the 8 `tagged_values` tests take **42 s total under
-      libtest** (one process) vs **~8 min under nextest** — an **~11x**
-      difference from process isolation alone.
-      Two independent fixes, either of which would pay off:
-      1. **Runner (cheap, verified):** `AGENTS.md` currently recommends nextest
-         as simply "much faster". For crates whose first module call costs 40 s
-         that is inverted; running them under libtest is ~11x faster. Consider
-         `cargo test` for `kit-canonical`, or at least record the exception.
-      2. **Root cause (deep, already flagged):** cache the module record at the
-         `TaggedValue` level so it never crosses the `serde_json::Value`
-         boundary, which is what makes the env expansion unavoidable today.
-         This would also cut `hnl` startup latency (a first `hnl eval` of
-         `tag.tag(...)` exceeds **30 s** on the CLI).
-      Next step: `HandlModule::new` only captures an `Arc<dyn Fn>` runtime
-      builder, so the 40 s is paid when that builder is first invoked.
-      `build_runtime` (plugin-lib-handl) does just two non-trivial things —
-      `handl_runtime::fp::canonical_fp_host_functions(module_chain)` and
-      `Runtime::from_registry_with_resolver(...)` — and since only the *first*
-      module build in a process is slow, the cost is a one-time initializer
-      behind a global cache in one of those (most likely
-      `canonical_fp_host_functions`, which builds a large record of host-function
-      arrows — the same captured-environment shape as the documented `do {}`
-      blow-up). Time those two calls directly to split the 40 s.
+- [x] **A ~40 s one-time cost on the first module-backed eval — FIXED.**
+      Cause: `kit-canonical`'s `build_kit` called
+      `handl_plugin_lib_handl::install_loader(...)`, installing the
+      self-hosted `.hnl` loader. `HandlLoader` runs the text transforms
+      (`strip_comments`/`strip_decls`/`parse_imports`) as *interpreted handl*,
+      so analysing one module executed **~21,000 interpreted `char`/`rev`/
+      `lines` calls** (measured: `char.chars` ×2809, `len.len` ×2674,
+      `head.head` ×2650, `rev.rev` ×2543 at ~2.6 ms each).
+      `kit-canonical`'s own comment claimed it routed its modules around the
+      loader via `with_loader_disabled`, but the install itself still made the
+      first module analysis walk the handl pipeline.
+      Fix: **don't install it** — the Rust `bootstrap` transforms are the
+      "minimal active implementation" and `loader.hnl` is the "verified spec"
+      of the same functions, with `plugin-lib-handl/tests/loader.rs` as the
+      parity test. The seam stays available: a host can still call
+      `install_loader` before building a kit.
+      Measured effect (`cargo test -p handl-kit-canonical`, and note these are
+      now one process per binary):
+      - `tagged_values`: 42 s → **1.22 s**; `rand_c`: ~28 min → **7.65 s**;
+        `intl_c`: ~11 min → **2.59 s**; `noise_c`: ~9 min → **2.84 s**.
+      - Whole crate: ~45+ min at `-j 2` → **648 s single-threaded**, 252/252 pass.
+      - CLI: first `hnl eval 'tag.tag(...)'` went from **>30 s** to milliseconds.
+      Also confirmed while localising this: `Kit::new()` = 126 ms (my first
+      guess blamed it, wrongly), `HandlModule::new` analysis = µs,
+      `build_runtime` = 66 ms then sub-ms across 68 calls, `lower_ast` = 13 µs.
+      Remaining slow spots in that crate are *not* this: the Handl-model
+      typecheck tests (`fp_integration` ~8 s each, lib `typecheck_*`, and
+      `ordered_annotations`) — a separate, still-open cost.
+      Note `cargo test` (libtest, one process per binary) is also much better
+      than nextest's process-per-test for this crate; see `AGENTS.md`.
 
 
 - [x] Restore bench suite (core, infer, lexer, parser, pipeline, typecheck) —
