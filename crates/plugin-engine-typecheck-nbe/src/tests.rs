@@ -8534,10 +8534,12 @@ fn rec_test_lang() -> Language {
             ChildRoleSpec {
                 role: "target".into(),
                 variadic: false,
+                optional: false,
             },
             ChildRoleSpec {
                 role: "value".into(),
                 variadic: false,
+                optional: false,
             },
         ]))
         .unwrap();
@@ -8546,6 +8548,7 @@ fn rec_test_lang() -> Language {
             AstShapeDef::new("ast.return", "return").with_children(vec![ChildRoleSpec {
                 role: "value".into(),
                 variadic: false,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -9320,10 +9323,12 @@ fn predicate_lang() -> Language {
                 ChildRoleSpec {
                     role: "params".into(),
                     variadic: false,
+                    optional: false,
                 },
                 ChildRoleSpec {
                     role: "body".into(),
                     variadic: false,
+                    optional: false,
                 },
             ]),
         )
@@ -10662,6 +10667,7 @@ fn meta_predicate_lang() -> Language {
             AstShapeDef::new("ast.paren", "paren").with_children(vec![ChildRoleSpec {
                 role: "body".into(),
                 variadic: true,
+                optional: false,
             }]),
         )
         .unwrap();
@@ -11174,52 +11180,7 @@ fn marshalable_predicate_for_each_ffi_type() {
     // Frontier Term variants
     // ---------------------------------------------------------------------------
 
-    #[test]
-    fn type_cell_id_runs_arrow() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::CellId {
-            arrow: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.number"),
-            )),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, type_number());
-    }
 
-    #[test]
-    fn type_refine_runs_sort() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::Refine {
-            sort: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.number"),
-            )),
-            predicate: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.bool"),
-            )),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, type_number());
-    }
 
     #[test]
     fn type_cobind_runs_body() {
@@ -11254,62 +11215,7 @@ fn marshalable_predicate_for_each_ffi_type() {
         );
     }
 
-    #[test]
-    fn type_jelim_runs_motive_on_path() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let path =
-            Term::const_value(json!({"__tag__": "Path", "from": 0, "to": 1, "witness": null}));
-        let scheme = Term::JElim {
-            path: Box::new(path),
-            motive: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.string"),
-            )),
-            base: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.number"),
-            )),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, type_string());
-    }
 
-    #[test]
-    fn type_jelim_returns_base_for_non_path() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let path = Term::const_value(json!({"__tag__": "Other"}));
-        let scheme = Term::JElim {
-            path: Box::new(path),
-            motive: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.string"),
-            )),
-            base: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.number"),
-            )),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, type_number());
-    }
 
     #[test]
     fn cobind_adds_coeffect() {

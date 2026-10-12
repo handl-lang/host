@@ -81,12 +81,15 @@ fn with_handle_returns_number_type() {
 
     // 3. Construct `handle add(Number(1), Number(2)) with "" = AddableHandler`.
     let body = Term::Op {
+        dim: Box::new(Term::Const { value: json!(1) }),
         name: "add".to_string(),
         args: vec![
             Term::Arr {
+                dim: Box::new(Term::Const { value: json!(1) }),
                 value: number_arg(1.0),
             },
             Term::Arr {
+                dim: Box::new(Term::Const { value: json!(1) }),
                 value: number_arg(2.0),
             },
         ],
@@ -97,6 +100,7 @@ fn with_handle_returns_number_type() {
         body: Box::new(body),
         target: "".to_string(),
         impl_: Box::new(Term::Arr {
+            dim: Box::new(Term::Const { value: json!(1) }),
             value: add_handler(),
         }),
     };

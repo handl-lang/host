@@ -62,10 +62,17 @@ fn model_ctx<'a>(lang: &'a Language, ast: &'a Ast, handler_stack: Vec<Value>) ->
 
 fn add_term() -> Term {
     Term::Op {
+        dim: Box::new(Term::Const { value: json!(1) }),
         name: "add".to_string(),
         args: vec![
-            Term::Arr { value: json!(1.0) },
-            Term::Arr { value: json!(2.0) },
+            Term::Arr {
+                dim: Box::new(Term::Const { value: json!(1) }),
+                value: json!(1.0),
+            },
+            Term::Arr {
+                dim: Box::new(Term::Const { value: json!(1) }),
+                value: json!(2.0),
+            },
         ],
         source: ArrSource::Native,
         lit: None,
