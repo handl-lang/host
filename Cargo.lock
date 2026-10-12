@@ -1318,6 +1318,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-engine-typecheck-nbe"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-data-canonical",
+ "handl-language",
+ "handl-platform",
+ "handl-plugin-engine-exec",
+ "handl-plugin-engine-exec-tree-walk",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-typecheck",
+ "handl-plugin-lib-tag",
+ "handl-plugin-module",
+ "plugin-engine",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-exec-allow"
 version = "0.1.0"
 dependencies = [

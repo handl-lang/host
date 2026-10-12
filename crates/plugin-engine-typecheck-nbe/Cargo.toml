@@ -1,0 +1,21 @@
+[package]
+name = "handl-plugin-engine-typecheck-nbe"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+handl-language = {path = "../handl-language" }
+handl-platform = {path = "../platform" }
+handl-plugin-engine-exec = {path = "../plugin-engine-exec" }
+handl-plugin-engine-typecheck = {path = "../plugin-engine-typecheck" }
+plugin-engine = { path = "../plugin-engine" }
+handl-plugin-lib-tag = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-plugin-engine-exec-tree-walk = {path = "../plugin-engine-exec-tree-walk" }
+handl-plugin-engine-lex-pattern = {path = "../plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = {path = "../plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = {path = "../plugin-engine-parse-pratt" }
+handl-plugin-module = {path = "../plugin-module" }
+handl-kit-data-canonical = {path = "../handl-kit-data-canonical" }
