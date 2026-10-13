@@ -68,11 +68,15 @@ nobody could tell the difference between "aspirational", "superseded", and
   and survived only because ten tests had been written for it. The dead
   formatter, its `TextEdit` shape and those tests are gone; the live
   `format_document_json` bridge (which delegates to the canonical engine) stays.
-- Removing the duplicate surfaced a real inconsistency, now pinned by a test:
-  the LSP's *range* formatter still runs its own line-based indentation and
-  disagrees with `hnl fmt` (it indents input the canonical engine leaves
-  untouched). Recorded in `project/TODO.md` — the fix is to delegate range
-  formatting to `plugin-ext-fmt` as well.
+- Removing the duplicate surfaced a real inconsistency: the LSP's *range*
+  formatter had its own line-based indentation and disagreed with `hnl fmt` (it
+  indented input the canonical engine leaves untouched). **Fixed in workstream
+  A**: `range_formatting.rs` is now a projection of the canonical result — format
+  the whole document, emit an edit for the selected lines that changed — and its
+  tests assert against `format_source` rather than hand-written strings. The
+  remaining hand-rolled indenter is `on_type_formatting.rs`, which cannot be
+  delegated by inspection (a formatter rewrites lines that have content; the
+  feature exists to indent a *blank* new line) — see `project/TODO.md`.
 - The next accidental orphan fails CI rather than waiting for the next sweep.
 - Parked ideas stay one `git checkout` away, and the ledger makes their status
   reviewable without reading code.
