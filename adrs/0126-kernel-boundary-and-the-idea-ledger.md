@@ -62,16 +62,29 @@ nobody could tell the difference between "aspirational", "superseded", and
 - 14 crates (~2.9k LOC) and `kit-canonical`'s vestigial duplicate `KitManifest`
   (plus `canonical_manifest()` and the `Kit::from_manifest` shim that ignored its
   own argument) were removed; `cargo check --workspace --all-targets` stays green.
+- The same pattern was found *inside* a live crate: `host-lsp` kept a whole
+  second `.hnl` formatter (`src/formatting.rs`, 318 lines plus `TextEdit`) that
+  `textDocument/formatting` no longer used — it was superseded by `plugin-ext-fmt`
+  and survived only because ten tests had been written for it. The dead
+  formatter, its `TextEdit` shape and those tests are gone; the live
+  `format_document_json` bridge (which delegates to the canonical engine) stays.
+- Removing the duplicate surfaced a real inconsistency, now pinned by a test:
+  the LSP's *range* formatter still runs its own line-based indentation and
+  disagrees with `hnl fmt` (it indents input the canonical engine leaves
+  untouched). Recorded in `project/TODO.md` — the fix is to delegate range
+  formatting to `plugin-ext-fmt` as well.
 - The next accidental orphan fails CI rather than waiting for the next sweep.
 - Parked ideas stay one `git checkout` away, and the ledger makes their status
   reviewable without reading code.
 - **Friction is intentional:** adding a genuinely unwired crate now requires a
   deliberate ledger entry with an ADR and an unpark condition.
-- Not addressed here (still open, tracked in `project/TODO.md`): the 48
-  zero-coverage files, 68 single-use public functions, 179 `#[ignore]`d tests
-  (172 of them the single unfinished `n-dim` feature), the untested
-  `host-lsp/src/handlers/*` surface, and four near-clone
-  `plugin-compile-*/config.rs`+`output.rs` pairs.
+- Not addressed here (still open, tracked in `project/TODO.md`): the remaining
+  zero-coverage files (mostly the `host-lsp/src/handlers/*` surface, which is
+  runtime-reachable but untested), 68 single-use public functions, 179
+  `#[ignore]`d tests (172 of them the single unfinished `n-dim` feature), the
+  four near-clone `plugin-compile-*/config.rs`+`output.rs` pairs, and two
+  implemented-but-never-dispatched lowerers in
+  `plugin-compile-js/src/lower/proof.rs` (`Path`/`Equiv`).
 
 ## Status
 
