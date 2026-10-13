@@ -7,7 +7,7 @@
 //! serialization round-trips of nominal values through the
 //! `{"__sym__": ...}` JSON encoding.
 
-use handl_platform::{EvalContext, Function, Module};
+use handl_platform::{EvalContext, Module};
 use handl_runtime::vm_primitives::VmPrimitivesModule;
 use handl_value::{TaggedValue, eq};
 use serde_json::{Value, json};

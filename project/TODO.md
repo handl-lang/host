@@ -139,12 +139,22 @@ ever linked. They are retired, not deleted from history.
       - **Pattern to watch:** a compile that is *skipped* is invisible to both the
         compiler and coverage. `#[cfg(any())]` was the only such disable in the
         repo and it hid 458 lines.
-- [ ] **Residual warnings (declared, not silent).** `cargo check --workspace
-      --all-targets` still reports ~14 `unused import` (cfg-ambiguous — the item
-      is used in only one of the test / non-test compilations), 10 never-read
-      fields in `plugin-sdkgen-backend-webidl/src/parser.rs`, and 2 unused
-      `LineMap` methods (`is_at_line_start`, `rest_of_line` — the latter
-      transitively keeps `line_end_offset` alive).
+- [x] **Residual warnings — the unused imports are gone.** 14 unused imports
+      (`Function`/`Module` from `handl_platform`, in test files across
+      `handl-runtime`, `plugin-lib-handl` and `plugin-lib-stdlib`) were verified
+      unused and removed by hand; `cargo fix` had declined them. A fresh
+      `cargo check --workspace --all-targets` is clean of `unused import`.
+- [ ] **Residual warnings (judgement calls, left deliberately).** What remains is
+      ~19 warnings that are *not* obviously dead:
+      - `plugin-sdkgen-backend-webidl/src/parser.rs` — 8 never-read fields, 2
+        never-constructed variants, and unused methods/associated functions. The
+        WebIDL parser records parse results nothing reads yet; deleting them
+        changes the parser's data model, so it needs a decision, not a sweep.
+      - `host-lsp/src/line_map.rs` — `is_at_line_start`, `line_end_offset` and
+        `rest_of_line` are used only by their own tests. They are a coherent slice
+        of a live utility type's API, which is why they were kept (see the
+        "don't delete on a pattern match" note above).
+      - 2 `value assigned … is never read` dead stores.
 
 ## High priority — package manager and `import`
 

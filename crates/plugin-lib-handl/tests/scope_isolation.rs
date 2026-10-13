@@ -4,7 +4,7 @@
 //! body could overwrite a same-named binding the caller had in scope (here,
 //! a match-pattern binding) — the caller then read the callee's value.
 
-use handl_platform::{EvalContext, Function, Module};
+use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_handl::HandlModule;
 
 const SRC: &str = r#"do {

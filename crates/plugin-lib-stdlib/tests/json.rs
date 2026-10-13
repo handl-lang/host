@@ -1,4 +1,4 @@
-use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
+use handl_platform::{EvalContext, Function, ModuleLookup, Plugin};
 use handl_plugin_lib_serialize::{Decoder, Encoder};
 use handl_plugin_lib_stdlib::ops::json::*;
 use handl_plugin_lib_stdlib::{library, module};
