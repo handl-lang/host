@@ -217,7 +217,7 @@ The families, and where each belongs under the maintainer's rulings:
 | `kit-canonical` classifiers (`is_*_kind`, `category_of`, …) | 11 | token classification as free functions over embedded YAML text | **misplaced**: ADR-0081 puts classification in `Language` as data (`token_in_category`). Check overlap — if covered, they are superseded; if not, move into `handl-language` |
 | `platform` host/VM API (`with_globals`, `collect_vars`, `env_mut`, `get_plugin`, …) | 11 | the kernel's own public surface (ADR-0031/0040) | **kernel API** — keep, but likely wants an `api` module or `#[doc(hidden)]`; only a maintainer should shrink the kernel boundary |
 | `host-tooling` (`run_cli`, `read_source_or_stdin`, `semantic_tokens_legend`, `with_*_plugin`) | 5 | CLI + LSP plumbing seams | **generic tooling**: check whether `host-cli` reimplements `run_cli` — if so, that is the ruling-2 "no duplicate" case applied to tooling, and `host-cli` should call it |
-| `*_handl_plugin()` constructors (crypto, kv-hashmap, otlp, otlp-std, parse, serialize, tag, ip) | 8 | one `HandlLibraryPlugin` ctor per FFI library — identical in shape | **superseded**: libraries now register by `*Module` type, not via the `HandlLibraryPlugin` wrapper — verified for `crypto` (`kit-canonical` → `handl_plugin_lib_crypto::module::CryptoModule`) and `crypto_handl_plugin()` is called nowhere. One decision retires all eight |
+| `*_handl_plugin()` constructors (crypto, kv-hashmap, otlp, otlp-std, parse, serialize, tag, ip) | 8 | one `HandlLibraryPlugin` ctor per FFI library — identical in shape | **unused, and every library is registered by another path** — but *not* via one uniform replacement: `crypto`/`parse`/`tag` register a `*Module` type through `kit-canonical`; `kv-hashmap`/`otlp`/`otlp-std` go through `plugin-ext-kit::library_registry`; `serialize`/`parse` through `plugin-lib-stdlib::ops::*`. Each is `pub` API of its own crate, so retiring the eight is a per-crate decision, not one switch |
 | `plugin-compile-*` emit/ABI internals (`emit_program`, `emit_placeholder`, `dwarf_line_table`, `build_apply_native_call`, `expect_tag`) | 6 | backend internals; `dwarf_line_table` + the 0%-covered `emit/debug_info.rs` | **an unwired idea**: debug info for compiled output. Keep and record — do not delete |
 | `handl-language` fragment builders (`with_faces`, `with_keyword_clauses`, `with_trailing_tokens`, `with_trivia`, …) | 6 | programmatic construction API for language data (ADR-0044/0081/0096) | **capability API** — the repo builds `Language`s from YAML, but `with_trailing_tokens` backs a real ADR-0096 feature. Keep |
 | `host-lsp` internals (`hover_at`, `property_at_offset`, `cross_arrow_hover`, `invalidate`, `invalidate_dir`, `rest_of_line`) | 6 | hover variants + kit-resolver cache invalidation | **fold into workstream B** (the `host-lsp` vs `plugin-lsp` audit) |
@@ -226,8 +226,23 @@ The families, and where each belongs under the maintainer's rulings:
 
 **Outcome:** no deletions. Six of the eight families turn out to be *live API or a
 recorded idea*, not garbage — which is exactly the correction the maintainer
-asked for. The two actionable families are the ADR-0081 classifiers (re-home) and
-the `*_handl_plugin` constructors (superseded by the package table).
+asked for. Two families are candidates for a maintainer decision, and neither is
+a bulk switch:
+
+- the `kit-canonical` token classifiers: ADR-0081 puts classification in
+  `Language` as data (`token_in_category`), so these are misplaced rather than
+  dead — but first check how much `token_in_category` already covers;
+- the eight `*_handl_plugin()` constructors: unused, and every library *is*
+  registered, but through three different mechanisms (`kit-canonical` `*Module`,
+  `plugin-ext-kit::library_registry`, `plugin-lib-stdlib::ops::*`). Retiring them
+  is a per-crate call.
+
+**A note on process:** this census replaced an earlier claim that the eight
+constructors were "superseded — one decision retires all eight". Checking each
+crate showed that was too glib (only three register a `*Module`). The same
+happened twice more in this task (the "68 useless functions", the "16 unverified
+LSP features"). Heuristics produce leads; each one needs its own verification
+before anything is deleted.
 
 ## Order
 
