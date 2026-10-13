@@ -73,7 +73,32 @@ ever linked. They are retired, not deleted from history.
       (`crates/host-lsp/src/handlers_e2e_tests.rs`, 23 handlers, covering all 16
       previously-uncovered modules; `host-lsp` 278 tests green), so a feature now
       regresses loudly when it moves behind the seam.
-- [ ] **A (part 2) — `on_type_formatting.rs` still owns an indenter.** 295 lines
+- [x] **Ignored tests audited beyond n-dim.** Three more labels were stale or
+      misleading:
+      - `bootstrap_proc::proc_bootstrap_self_host` — parked for *"v0.1 removed |>
+        and ~> surface syntax"*. Rewrote the fixture to the canonical form
+        (`do { lang = self; eval(lang, parse(lang, lex(lang, "1 + 2"))) }` in
+        `handl-defining-handl/data/handl-defining-handl-proc.hnl`); the test passes
+        and is live again.
+      - `host-cli::cli_lib_hello_eval` — parked for *"Pratt engine does not yet
+        support function call syntax with arguments"*; long obsolete, passes
+        unmodified.
+      - `host-cli::cli_loads_native_plugin_and_runs_echo` — **deleted**: it drove
+        the `--plugin` flag, which no longer exists (ADR-0090 subcommand surface),
+        *and* early-returned when the fixture cdylib was missing, so it verified
+        nothing either way. The capability is covered at the right layer by
+        `host-tooling/tests/loader.rs`.
+- [x] **An integration test that passed by *skipping* — fixed.**
+      `host-tooling/tests/loader.rs::tooling_host_loads_native_plugin_and_dispatches_command`
+      called `find_example_cdylib()`, found no
+      `libhandl_plugin_loader_native_fixture_echo.so` in `target/debug/` because
+      cargo never built that fixture for this package, and early-returned — a green
+      skip, the same silent-debt shape as an ignored test. Its old label ("loader/cli
+      wiring not yet implemented") was also simply wrong: once the `.so` exists the
+      wiring works. Fixed by making the fixture a genuine
+      `dev-dependency` of `host-tooling` (with `rlib` added to the fixture's
+      `crate-type` so it can be one), which forces cargo to build the cdylib; the
+      test is un-ignored and now runs for real.
       of hand-rolled indentation plus bracket matching. The basis is stronger than
       "tidy": `archived/ADR-LSP.md` (**Accepted**) says *"Formatting and diagnostics
       are shared with the command-line tooling; they are not duplicated inside the

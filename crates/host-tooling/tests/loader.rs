@@ -36,7 +36,6 @@ fn find_example_cdylib() -> Option<PathBuf> {
 }
 
 #[test]
-#[ignore = "loader/cli wiring not yet implemented"]
 fn tooling_host_loads_native_plugin_and_dispatches_command() -> Result<(), PlatformError> {
     let Some(cdylib) = find_example_cdylib() else {
         eprintln!("native-echo fixture cdylib not found; skipping loader wiring test");

@@ -5,7 +5,9 @@ edition.workspace = true
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+# `cdylib` is what the loader tests load; `rlib` exists so the fixture can also be
+# a (dev-)dependency, which is what forces cargo to build it.
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }

@@ -794,6 +794,7 @@ dependencies = [
  "handl-plugin-ext-fmt",
  "handl-plugin-ext-lint",
  "handl-plugin-loader-native",
+ "handl-plugin-loader-native-fixture-echo",
  "serde",
  "serde_json",
 ]
