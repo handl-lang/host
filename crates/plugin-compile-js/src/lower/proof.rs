@@ -1,4 +1,11 @@
-//! Lower the proof `Term` combinators (`Rewrite`, `Path`, `Equiv`) to JS.
+//! Lower the proof `Term` combinators to JS.
+//!
+//! Only `Rewrite` reaches this module: it is the only proof shape in the
+//! closed `Term` vocabulary. `Path` / `Equiv` (with `Refine`, `CellId`,
+//! `JElim`, `Whisker`, …) are *derived* operators that ADR-0119 §7 folded into
+//! `Term::Opaque`, so they arrive as opaque ADR-0103 records at the appropriate
+//! dimension rather than as variants — there is nothing left to lower here.
+//! Dispatched from `lower::lower` / `lower::lower_applied`.
 
 use handl_plugin_compile::CompileError;
 use plugin_engine::{Term, term::RewriteWitness};
@@ -81,52 +88,6 @@ fn lower_rewrite_applied(
     let rewrite = rt_call("rewrite", vec![s, t, w]);
     Ok(JsAst::Call {
         callee: Box::new(rewrite),
-        args: vec![input.clone()],
-    })
-}
-
-fn lower_path(a: &Term, b: &Term, witness: Option<&Term>) -> Result<JsAst, CompileError> {
-    Ok(arrow_fn(lower_path_applied(a, b, witness, &input_ident())?))
-}
-
-fn lower_path_applied(
-    a: &Term,
-    b: &Term,
-    witness: Option<&Term>,
-    input: &JsAst,
-) -> Result<JsAst, CompileError> {
-    let from = crate::lower::lower(a)?;
-    let to = crate::lower::lower(b)?;
-    let w = match witness {
-        Some(t) => crate::lower::lower(t)?,
-        None => JsAst::Null,
-    };
-    let path = rt_call("path", vec![from, to, w]);
-    Ok(JsAst::Call {
-        callee: Box::new(path),
-        args: vec![input.clone()],
-    })
-}
-
-fn lower_equiv(a: &Term, b: &Term, path: Option<&Term>) -> Result<JsAst, CompileError> {
-    Ok(arrow_fn(lower_equiv_applied(a, b, path, &input_ident())?))
-}
-
-fn lower_equiv_applied(
-    a: &Term,
-    b: &Term,
-    path: Option<&Term>,
-    input: &JsAst,
-) -> Result<JsAst, CompileError> {
-    let left = crate::lower::lower(a)?;
-    let right = crate::lower::lower(b)?;
-    let p = match path {
-        Some(t) => crate::lower::lower(t)?,
-        None => JsAst::Null,
-    };
-    let equiv = rt_call("equiv", vec![left, right, p]);
-    Ok(JsAst::Call {
-        callee: Box::new(equiv),
         args: vec![input.clone()],
     })
 }

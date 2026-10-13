@@ -250,6 +250,60 @@ fn ledger_is_not_stale() {
     );
 }
 
+/// Recursively visit every file under `dir`.
+fn visit(dir: &Path, f: &mut impl FnMut(&Path)) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_dir() {
+            visit(&path, f);
+        } else {
+            f(&path);
+        }
+    }
+}
+
+/// A module behind an empty `cfg(any())` is **never compiled** — invisible to
+/// the compiler *and* to coverage, so nothing can report it. One such block hid
+/// 458 lines of pre-ADR-0119 tests in `plugin-engine/src/term_data.rs` until it
+/// was found by hand.
+///
+/// Skipping a compilation is therefore a decision that must be declared, not
+/// absorbed: delete the code, or park the idea in `project/parked.yaml`.
+#[test]
+fn no_silently_disabled_compilation() {
+    // Built at runtime so this test's own source does not match the needle.
+    let needle = concat!("cfg(", "any())");
+    let root = repo_root();
+    let mut offenders = vec![];
+    visit(&root.join("crates"), &mut |path| {
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            return;
+        }
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            if line.trim_start().starts_with("//") {
+                continue; // prose is allowed to discuss the pattern
+            }
+            if line.replace(' ', "").contains(needle) {
+                let rel = path.strip_prefix(&root).unwrap_or(path);
+                offenders.push(format!("{}:{}", rel.display(), idx + 1));
+            }
+        }
+    });
+    assert!(
+        offenders.is_empty(),
+        "compilation is silently disabled — an empty `{needle}` block is never compiled, so \
+         neither the compiler nor coverage can see it:\n  {}\n\n\
+         Delete the code, or park the idea in project/parked.yaml.",
+        offenders.join("\n  ")
+    );
+}
+
 /// ADRs are filed as `NNNN-slug.md`, so cite by number and check the prefix.
 /// Archived ADRs count — they are still the record of an idea.
 fn adr_exists(adr: &str) -> bool {
