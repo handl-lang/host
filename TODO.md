@@ -63,6 +63,12 @@ ever linked. They are retired, not deleted from history.
       evaluates it (`{"__tag__":"Cell2", …}`) while the Rust default model returns
       `Null`. Which is right depends on ADR-0119 §4 (it calls `CellCompV`
       redundant).
+      Scope note: this is confined to the **model layer**. The source-level
+      behaviour is already covered by the passing `option_b_frontier_e2e`
+      test `axis_flow_axis1_matches_cell_comp_v`, which runs both `>>>[1]` (the
+      indexed paste) and `=>>` (the derived `cell_comp_v`) and asserts they agree.
+      What the parked tests add is that the two *models* disagree on a derived
+      record — so deleting them would remove the only signal of that.
 - [ ] **B — `host-lsp` diverges from an *accepted* ADR.** `project/adrs/archived/ADR-LSP.md`
       (Accepted) mandates LSP features as plugins behind `ToolingHost`, a thin
       `handl-host-lsp`, and formatting/diagnostics **shared** with the CLI rather
