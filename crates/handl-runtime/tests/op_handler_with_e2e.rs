@@ -21,7 +21,6 @@ use plugin_engine::TermData;
 use serde_json::json;
 
 #[test]
-#[ignore = "n-dim"]
 fn op_handler_with_runs_end_to_end() {
     let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
 
@@ -37,7 +36,7 @@ fn op_handler_with_runs_end_to_end() {
         Runtime::from_registry(kit.lang().clone(), &registry, &config).expect("runtime binds");
 
     // Parse and evaluate the `op` declaration, then register it.
-    let op_src = "op add : (Number, Number) ~Addable~> Number";
+    let op_src = "op add : (Number, Number) ~[Addable]~> Number";
     let op_toks = runtime.lex(&Source::new(op_src)).expect("lex op");
     let op_ast = runtime.parse(&op_toks).expect("parse op");
     let op_value = runtime.eval(&op_ast).expect("eval op");

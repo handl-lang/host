@@ -174,6 +174,34 @@ tests, and update the 6 stale assertions to the post-fold shapes. That is roughl
 a day of mechanical work — *not* the "implement the n-dimensional calculus"
 project the ignore labels implied. No ADR work needed; ADR-0119 stands.
 
+**EXECUTED.** 169 of the 173 `n-dim` ignore labels were removed, so those tests
+now run on every build — **all green** (`handl-runtime`: `arrow_model_delegate` 9,
+`arrow_model_parity` 24, `composite_model_parity` 24, `exec_model_parity` 63,
+`type_model_parity` 23, `value_model_parity` 24, `call_args_binding` 1,
+`op_handler_with_e2e` 1, `option_b_frontier_e2e` 13; `handl-kit-data-canonical`:
+`proc_notation` 6). Three stale expectations were corrected:
+
+- `graded_arrow_lexes_parses_runs` and `op_handler_with_runs_end_to_end` used the
+  pre-ADR-0119 graded surface `~Addable~>`; the current spelling is the bracketed
+  `~[Addable]~>` (confirmed by `handl-kit-arrow-lower`, which documents a bare
+  `var` in `~[N]~>` as a *named* dimension).
+- `type_model_cobind_is_graded_type` expected the pre-ADR-0119 `Arr` shape; it now
+  expects `dim` as well, which is what the implementation correctly emits.
+
+Four labels remain, each with a **precise** reason instead of the blanket
+`"n-dim"`, because they are genuine open questions rather than blocked work:
+
+1. `arrow_parity_cell_comp_v`, `parity_cell_comp_v` (×2 files) — a **model-parity
+   gap**: for a derived (`Term::Opaque`) record the Handl model evaluates it
+   (`{"__tag__":"Cell2", …}`) while the Rust default model returns `Null`.
+   Recording it rather than picking a side: ADR-0119 §4 says `CellCompV` is
+   redundant once dimensions exist, so which model is "right" is a design call.
+2. `arrow_x_to_x_evaluates_to_closure` (`proc_notation`) — uses `x ~> x`, an
+   anonymous-arrow surface removed by ADR-0074; it needs rewriting to the current
+   lambda form. Note its old label ("function runtime value shape is not yet
+   producing closure records") was simply wrong — closure records are minted by
+   `handl-value`.
+
 ### E — census of the one-use public functions (read-only) — DONE
 
 Scope: `pub fn` whose identifier appears **exactly once** in the whole repo

@@ -212,7 +212,6 @@ fn number_value(value: i64, grades: &[&str]) -> Value {
 // ===========================================================================
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_number_add_array_of_two() {
     // number_add on an array of two tagged Numbers: untag, add, re-tag.
     let args = vec![json!([
@@ -224,7 +223,6 @@ fn exec_model_number_add_array_of_two() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_number_add_pair() {
     // number_add on a serialized pair: the second component is the operands
     // array.
@@ -236,7 +234,6 @@ fn exec_model_number_add_pair() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_number_add_matches_value_model() {
     // The exec model's number_add should produce the same result as the
     // value_model's number_add (both use the tag.untag / tag.tag pattern).
@@ -261,7 +258,6 @@ fn exec_model_number_add_matches_value_model() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_record_construction() {
     // record: construct a record from field/value pairs.
     let args = vec![json!([["a", 1], ["b", 2], ["c", 3]])];
@@ -270,14 +266,12 @@ fn exec_model_record_construction() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_record_empty() {
     let result = call_op("record", &[json!([])]);
     assert_eq!(result, json!({}));
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_field_access_record() {
     // field_access on a record (object): field lookup.
     let args = vec![json!({ "a": 1, "b": 2 }), json!("a")];
@@ -286,7 +280,6 @@ fn exec_model_field_access_record() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_field_access_record_missing() {
     // field_access on a record with an absent field: returns null.
     let args = vec![json!({ "a": 1 }), json!("z")];
@@ -295,7 +288,6 @@ fn exec_model_field_access_record_missing() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_field_access_array() {
     // field_access on an array: index lookup.
     let args = vec![json!([10, 20, 30]), json!(1)];
@@ -304,7 +296,6 @@ fn exec_model_field_access_array() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_field_access_non_record_non_array() {
     // field_access on a non-record/non-array value: returns null.
     let args = vec![json!(42), json!("a")];
@@ -313,7 +304,6 @@ fn exec_model_field_access_non_record_non_array() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_array_identity() {
     // array: identity — returns the elements as-is.
     let args = vec![json!([1, 2, 3])];
@@ -322,7 +312,6 @@ fn exec_model_array_identity() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_tag_construct() {
     // tag_construct: merge __tag__ with the payload fields (via tag.tag).
     let args = vec![json!("ok"), json!({ "value": 42 })];
@@ -331,7 +320,6 @@ fn exec_model_tag_construct() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_tag_construct_with_extra_fields() {
     // tag_construct merges all payload fields, not just "value".
     let args = vec![
@@ -346,7 +334,6 @@ fn exec_model_tag_construct_with_extra_fields() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_arrow_field() {
     // arrow_field: project a named field from an arrow cell record.
     let arrow = json!({ "__tag__": "Arrow", "first": 1, "second": 2 });
@@ -358,7 +345,6 @@ fn exec_model_arrow_field() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_arrow_field_missing() {
     let result = call_op(
         "arrow_field",
@@ -372,7 +358,6 @@ fn exec_model_arrow_field_missing() {
 // ===========================================================================
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_proj_env_lookup_unbound() {
     // proj_env on an unbound name: lookup returns null.
     let result = call_op("proj_env", &[json!("nonexistent")]);
@@ -380,7 +365,6 @@ fn exec_model_proj_env_lookup_unbound() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_extend_env_binds_value() {
     // extend_env: push scope, bind name→val, return val.
     let result = call_op("extend_env", &[json!("x"), json!(42)]);
@@ -388,7 +372,6 @@ fn exec_model_extend_env_binds_value() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_proj_env_after_extend_env() {
     // After extend_env binds "x"→42, proj_env("x") should find it.
     // Note: each call_op creates a fresh module, so bindings don't persist
@@ -403,7 +386,6 @@ fn exec_model_proj_env_after_extend_env() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_closure_creates_closure_record() {
     // closure: create a closure value via make_closure.
     let result = call_op("closure", &[json!(["x"]), json!(42), json!({})]);
@@ -419,7 +401,6 @@ fn exec_model_closure_creates_closure_record() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_apply_closure_returns_body() {
     // apply on a closure record: call returns the body field (minimal).
     let closure = json!({
@@ -433,7 +414,6 @@ fn exec_model_apply_closure_returns_body() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_apply_non_callable_returns_null() {
     // apply on a non-callable value: call returns null.
     let result = call_op("apply", &[json!(42), json!([1])]);
@@ -441,7 +421,6 @@ fn exec_model_apply_non_callable_returns_null() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_pattern_match_wildcard() {
     // pattern_match with wildcard "_": matches anything, returns empty bindings.
     let result = call_op("pattern_match", &[json!("_"), json!(42)]);
@@ -449,7 +428,6 @@ fn exec_model_pattern_match_wildcard() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_pattern_match_variable() {
     // pattern_match with a variable pattern: binds the variable to the value.
     let result = call_op("pattern_match", &[json!("x"), json!(42)]);
@@ -457,7 +435,6 @@ fn exec_model_pattern_match_variable() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_pattern_match_literal_equal() {
     // pattern_match with a literal that equals the value: match success.
     let result = call_op("pattern_match", &[json!(42), json!(42)]);
@@ -465,7 +442,6 @@ fn exec_model_pattern_match_literal_equal() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_pattern_match_literal_not_equal() {
     // pattern_match with a literal that doesn't match: returns null.
     let result = call_op("pattern_match", &[json!(42), json!(43)]);
@@ -473,7 +449,6 @@ fn exec_model_pattern_match_literal_not_equal() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_push_handler_adds_to_stack() {
     // push_handler: pushes a handler onto the context's handler stack.
     // Returns the new handler stack (via setfield returning the new value).
@@ -484,7 +459,6 @@ fn exec_model_push_handler_adds_to_stack() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_pop_handler_removes_from_stack() {
     // pop_handler: pops the top handler from the handler stack.
     // Since each call_op creates a fresh module, the stack starts empty.
@@ -496,7 +470,6 @@ fn exec_model_pop_handler_removes_from_stack() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_call_op_ffi_fallback() {
     // call_op with no handler: falls back to ffi("native", name, args).
     // ffi("native", "add", [1, 2]) → 3.
@@ -505,7 +478,6 @@ fn exec_model_call_op_ffi_fallback() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_call_op_mul_via_ffi() {
     // call_op with no handler: ffi("native", "mul", [3, 4]) → 12.
     let result = call_op("call_op", &[json!("mul"), json!([3, 4])]);
@@ -513,7 +485,6 @@ fn exec_model_call_op_mul_via_ffi() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_eval_arr_node() {
     // eval on an Arr node: lookup_eval_scheme("Arr") → "eval_scheme_Arr"
     // → eval_scheme_Arr(node) → node.value.
@@ -523,7 +494,6 @@ fn exec_model_eval_arr_node() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_eval_const_node() {
     // eval on a Const node: lookup_eval_scheme("Const") → "eval_scheme_Const"
     // → eval_scheme_Const(node) → node.value.
@@ -533,7 +503,6 @@ fn exec_model_eval_const_node() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_proj_child_arr() {
     // proj_child: look up the child at a named role, then eval it.
     let node = json!({
@@ -546,7 +515,6 @@ fn exec_model_proj_child_arr() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_proj_child_or_with_child() {
     // proj_child_or: child exists → eval it.
     let node = json!({
@@ -559,7 +527,6 @@ fn exec_model_proj_child_or_with_child() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_proj_child_or_default() {
     // proj_child_or: child absent → return default.
     let node = json!({"children": {}});
@@ -568,7 +535,6 @@ fn exec_model_proj_child_or_default() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_eval_block_arr_children() {
     // eval_block: push scope, eval each child, pop scope, return last.
     let node = json!({
@@ -583,7 +549,6 @@ fn exec_model_eval_block_arr_children() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_eval_block_empty() {
     // eval_block with no children: array.last([]) → null.
     let node = json!({"children": []});
@@ -592,7 +557,6 @@ fn exec_model_eval_block_empty() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_eval_block_const_children() {
     // eval_block with Const children.
     let node = json!({
@@ -606,7 +570,6 @@ fn exec_model_eval_block_const_children() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_import_module_returns_exports() {
     // import_module: ffi("module", "load", [spec]) → {} (empty exports),
     // then binds each export name. Returns the exports record.
@@ -615,7 +578,6 @@ fn exec_model_import_module_returns_exports() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_export_binding_returns_value() {
     // export_binding: registers name→value in the context's exports.
     // Returns the value.
@@ -628,7 +590,6 @@ fn exec_model_export_binding_returns_value() {
 // ===========================================================================
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_arr() {
     let term = to_term(TermData::arr(json!(5)));
     let result = exec_model_run(&term, Value::Null);
@@ -637,7 +598,6 @@ fn exec_model_run_arr() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_const() {
     let term = to_term(TermData::const_value(json!(7)));
     let result = exec_model_run(&term, Value::Null);
@@ -646,7 +606,6 @@ fn exec_model_run_const() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_seq() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
@@ -658,7 +617,6 @@ fn exec_model_run_seq() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_tag() {
     let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let result = exec_model_run(&term, Value::Null);
@@ -667,7 +625,6 @@ fn exec_model_run_tag() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_record_proj() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
@@ -679,7 +636,6 @@ fn exec_model_run_record_proj() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_record_with() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
@@ -695,7 +651,6 @@ fn exec_model_run_record_with() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_op_add() {
     let term = to_term(TermData::op(
         "add",
@@ -709,7 +664,6 @@ fn exec_model_run_op_add() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_op_mul() {
     let term = to_term(TermData::op(
         "mul",
@@ -723,7 +677,6 @@ fn exec_model_run_op_mul() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_op_is_pos() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(3)),
@@ -735,7 +688,6 @@ fn exec_model_run_op_is_pos() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_op_inc() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -747,7 +699,6 @@ fn exec_model_run_op_inc() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_path() {
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
@@ -768,7 +719,6 @@ fn exec_model_run_path() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_equiv_bool() {
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
@@ -781,7 +731,6 @@ fn exec_model_run_equiv_bool() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_cell_id() {
     let term = to_term(TermData::cell_id(TermData::arr(json!(7))));
     let result = exec_model_run(&term, Value::Null);
@@ -798,7 +747,6 @@ fn exec_model_run_cell_id() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_rewrite() {
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(
@@ -815,7 +763,6 @@ fn exec_model_run_rewrite() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_refine() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -830,7 +777,6 @@ fn exec_model_run_refine() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_cobind() {
     let term = to_term(TermData::seq(
         TermData::arr(json!(99)),
@@ -845,7 +791,6 @@ fn exec_model_run_cobind() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_iter() {
     let term = to_term(TermData::iter(
         TermData::arr(json!(10)),
@@ -859,7 +804,6 @@ fn exec_model_run_iter() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_first() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "__pair__": [1, 2] })),
@@ -871,7 +815,6 @@ fn exec_model_run_first() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_choice_left() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "__either__": "left", "value": 5 })),
@@ -886,7 +829,6 @@ fn exec_model_run_choice_left() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_choice_right() {
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "__either__": "right", "value": 5 })),
@@ -901,7 +843,6 @@ fn exec_model_run_choice_right() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_app_tag() {
     let term = to_term(TermData::app(
         TermData::arr(json!("tag.tag")),
@@ -916,7 +857,6 @@ fn exec_model_run_app_tag() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_run_handle_number_add() {
     let handler_impl = serde_json::to_value(&to_term(TermData::op(
         "number_add",
@@ -956,7 +896,6 @@ fn exec_model_run_handle_number_add() {
 // ===========================================================================
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_parity_with_value_model_and_rust() {
     // A batch of terms where the exec model, value_model.hnl, and the Rust
     // tree-walk engine all agree — confirming the exec model's `run` is a
@@ -1032,7 +971,6 @@ fn exec_model_parity_with_value_model_and_rust() {
 // ===========================================================================
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_module_loads_all_ops() {
     // Verify that the module loads and all structural op functions are
     // resolvable — even the spec-only ones that require VM primitives.
@@ -1048,7 +986,6 @@ fn exec_model_module_loads_all_ops() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn exec_model_adapter_is_model() {
     // The HandlModelAdapter wrapping the exec model satisfies the Model
     // trait and can run terms.

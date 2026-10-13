@@ -42,6 +42,19 @@ ever linked. They are retired, not deleted from history.
       lines that changed), and its tests now assert against `format_source`
       instead of hand-written strings — so "format selection" and "format
       document" can no longer disagree with `hnl fmt`.
+- [x] **D — n-dim re-enabled.** The 172 `n-dim` ignore labels were a blanket
+      disable from the ADR-0119 transition, not blocked work: **169 labels
+      removed, all those tests now run on every build and pass.** Three stale
+      expectations were corrected (`~Addable~>` → the current `~[Addable]~>`
+      bracket form; the pre-`dim` `Arr` shape in the cobind type test).
+- [ ] **D remainder — two real open questions** (kept ignored, each with a
+      precise reason instead of the blanket `n-dim`):
+      1. `parity_cell_comp_v` (×2) / `arrow_parity_cell_comp_v` — **model-parity
+         gap**: for a derived (`Term::Opaque`) record the Handl model evaluates it
+         (`{"__tag__":"Cell2", …}`) while the Rust default model returns `Null`.
+         Which is right depends on ADR-0119 §4 (it calls `CellCompV` redundant).
+      2. `arrow_x_to_x_evaluates_to_closure` — uses `x ~> x`, removed by
+         ADR-0074; needs rewriting to the current lambda form.
 - [ ] **A (part 2) — `on_type_formatting.rs` still owns an indenter.** 295 lines
       of hand-rolled indentation plus bracket matching. It cannot be delegated by
       inspection: it exists to indent a *blank* new line as you type, and a

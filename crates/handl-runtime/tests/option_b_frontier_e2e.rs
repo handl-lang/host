@@ -188,13 +188,12 @@ fn cobind_end_to_end() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn graded_arrow_lexes_parses_runs() {
     let rt = frontier_runtime();
-    // `add ~Addable~> Int` produces an `Arrow` record carrying the grade.
+    // `add ~[Addable]~> Int` produces an `Arrow` record carrying the grade.
     // Effect collection is not yet exposed at runtime, so we assert the record.
     let result = rt
-        .run(&Source::new("add ~Addable~> Int"))
+        .run(&Source::new("add ~[Addable]~> Int"))
         .expect("graded arrow runs");
     assert_eq!(
         result.get("__tag__").and_then(|v| v.as_str()),

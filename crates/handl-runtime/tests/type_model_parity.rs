@@ -107,7 +107,6 @@ fn arrow_model_run(term: &Term, incoming: Value) -> Value {
 // -------------------------------------------------------------------------
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_arr_is_constant_type() {
     // `Arr` in the type model is the constant type: the value IS the type
     // (HoTT: types are values), so the type of a pure value is the value
@@ -119,7 +118,6 @@ fn type_model_arr_is_constant_type() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_const_is_constant_type() {
     let term = to_term(TermData::const_value(json!(7)));
     let ty = type_model_run(&term, Value::Null);
@@ -128,7 +126,6 @@ fn type_model_const_is_constant_type() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_seq_is_compose_type() {
     // `Seq` in the type model is type composition: the composite type
     // `b ∘ a`. With non-function operands, `compose_type` builds a tagged
@@ -151,7 +148,6 @@ fn type_model_seq_is_compose_type() {
 // -------------------------------------------------------------------------
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_path_is_identity_type() {
     // `Path a b` is the identity type `Id_A(a, b)`. The type model evaluates
     // the endpoints and constructs a `Path`-tagged type witnessing that the
@@ -167,7 +163,6 @@ fn type_model_path_is_identity_type() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_equiv_is_equivalence_type() {
     // `Equiv a b` is the equivalence type: a proposition (`type.bool`)
     // witnessing that `a ≃ b`. The type model evaluates the operands and
@@ -191,7 +186,6 @@ fn type_model_equiv_is_equivalence_type() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_refine_yields_incoming_when_predicate_holds() {
     // `Refine` is a refinement type (subtype): a proposition over a type.
     // When the predicate holds, the refined type is the incoming (ambient)
@@ -206,7 +200,6 @@ fn type_model_refine_yields_incoming_when_predicate_holds() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_refine_is_type_error_when_predicate_fails() {
     let term = to_term(TermData::refine(
         TermData::arr(json!("Nat")),
@@ -224,7 +217,6 @@ fn type_model_refine_is_type_error_when_predicate_fails() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_rewrite_evaluates_target() {
     // `Rewrite` is a 2-cell; the type of a rewrite is the type of its
     // target. The type model evaluates the target sub-term. This agrees
@@ -241,7 +233,6 @@ fn type_model_rewrite_evaluates_target() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_cell_id_is_identity_cell() {
     // `CellId arrow` is the identity 2-cell: source = target = the arrow
     // itself. The type model constructs a `Cell2`-tagged cell. This agrees
@@ -261,7 +252,6 @@ fn type_model_cell_id_is_identity_cell() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_src_is_source_face() {
     // `Src` projects the source face of a 2-cell type. With an identity cell
     // (`CellId`), the source face is the arrow itself.
@@ -271,7 +261,6 @@ fn type_model_src_is_source_face() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_tgt_is_target_face() {
     let term = to_term(TermData::tgt(TermData::cell_id(TermData::arr(json!(7)))));
     let ty = type_model_run(&term, Value::Null);
@@ -279,7 +268,6 @@ fn type_model_tgt_is_target_face() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_cell_comp_v_composes_faces() {
     // `CellCompV` is vertical composition of 2-cells: the source of the
     // composite is the source of the first cell; the target is the target
@@ -301,7 +289,6 @@ fn type_model_cell_comp_v_composes_faces() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_whisker_attaches_arrow_to_cell() {
     // `Whisker` attaches an arrow to a 2-cell, composing the faces. With a
     // `Left` whisker, the arrow is composed on the left of both faces.
@@ -331,7 +318,6 @@ fn type_model_whisker_attaches_arrow_to_cell() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_univalence_produces_path_from_equiv() {
     // `Univalence` turns an equivalence into a path. The type model reads
     // the `Equiv`-tagged value and constructs a `Path` from its `a`/`b`/`path`
@@ -350,7 +336,6 @@ fn type_model_univalence_produces_path_from_equiv() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_cobind_is_graded_type() {
     // `Cobind` is a graded type (coeffect): attach the `__coeffects__` field
     // (the grade) to the body type. The grade sub-term is read raw (not
@@ -360,17 +345,24 @@ fn type_model_cobind_is_graded_type() {
         TermData::arr(json!(42)),
     ));
     let ty = type_model_run(&term, Value::Null);
+    // ADR-0119 §3 added `dim` to `Arr`: a grade term now carries its dimension
+    // alongside its value, so the recorded grade is an `Arr` *with* `dim`.
     assert_eq!(
         ty,
         json!({
             "__type__": 42,
-            "__coeffects__": [{ "grade": { "__tag__": "Arr", "value": "Affine" } }]
+            "__coeffects__": [{
+                "grade": {
+                    "__tag__": "Arr",
+                    "dim": { "__tag__": "Const", "value": 1 },
+                    "value": "Affine"
+                }
+            }]
         })
     );
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_glue_returns_family_type() {
     // `Glue` glues a family along a path; the type model returns the family
     // type.
@@ -383,7 +375,6 @@ fn type_model_glue_returns_family_type() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_fibrant_returns_base_type() {
     // `Fibrant` is fibrant replacement; the type model returns the base type.
     let term = to_term(TermData::fibrant(
@@ -395,7 +386,6 @@ fn type_model_fibrant_returns_base_type() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_jelim_dispatches_on_path_tag() {
     // `JElim` is J-elimination: path-based motive dispatch. When the path
     // evaluates to a `Path`-tagged value, the motive is applied to the base;
@@ -414,7 +404,6 @@ fn type_model_jelim_dispatches_on_path_tag() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_record_proj_projects_field() {
     let term = to_term(TermData::record_proj(
         TermData::arr(json!({ "a": 1, "b": 2 })),
@@ -425,7 +414,6 @@ fn type_model_record_proj_projects_field() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_record_with_updates_field() {
     let term = to_term(TermData::record_with(
         TermData::arr(json!({ "a": 1, "b": 2 })),
@@ -437,7 +425,6 @@ fn type_model_record_with_updates_field() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_tag_wraps_value() {
     let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let ty = type_model_run(&term, Value::Null);
@@ -445,7 +432,6 @@ fn type_model_tag_wraps_value() {
 }
 
 #[test]
-#[ignore = "n-dim"]
 fn type_model_child_is_type_error() {
     // `Child` is AST recursion, which is the exec model's job, not the type
     // model's — so the type model reports a `TypeError`.
@@ -466,7 +452,6 @@ fn type_model_child_is_type_error() {
 // -------------------------------------------------------------------------
 
 #[test]
-#[ignore = "n-dim"]
 fn type_and_arrow_models_agree_on_coincident_tags() {
     // The type model and the arrow model read the same `Term` tags through
     // different lenses (type judgment vs executable combinator). They agree
