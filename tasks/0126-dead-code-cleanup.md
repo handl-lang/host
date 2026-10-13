@@ -64,47 +64,55 @@ quietly disable auto-indent. Two options, needing a maintainer decision:
 The same question applies to `on_close_bracket` (re-indenting a line when a
 closing bracket is typed) — option 1 covers both.
 
-### B — `host-lsp` vs `plugin-lsp`: the duplicate is architectural — AUDITED
+### B — `host-lsp` vs `plugin-lsp`: an accepted ADR, partially executed — AUDITED
 
-Sizes: **`host-lsp` = 14,490 lines**, **`plugin-lsp` = 1,857 lines**, and they are
-**parallel implementations** — `host-lsp` does not depend on `plugin-lsp` at all.
+**The decision already exists.** `project/adrs/archived/ADR-LSP.md` (**Status:
+Accepted**) says:
+
+> *"LSP features are implemented as separate plugins … `handl-tooling` exposes
+> `ToolingHost`, which coordinates parsing, formatting, diagnostics, and the LSP
+> plugin slots. `handl-host-lsp` dispatches LSP requests to `ToolingHost` … It
+> does not know concrete parser or compiler internals. … Formatting and
+> diagnostics are shared with the command-line tooling; they are not duplicated
+> inside the LSP. … `handl-host-lsp` stays thin: document store, request mapping,
+> and incremental sync."*
+
+That is exactly the maintainer's ruling 1 and 3. So `host-lsp`'s 14,490 lines are
+**a divergence from an accepted ADR**, and this workstream is *finishing that
+ADR* — no new ADR is needed. `project/adrs/ADR-LSP-remaining.md` (**Proposed**)
+is the live work item and names the next two features: **hover** and
+**source-position resolution**.
+
+**How far the migration got.** `ToolingHost` exists with plugin slots
+(`with_completion_plugin`, `with_goto_def_plugin`, `with_document_symbols_plugin`,
+`with_hover_plugin`, `with_signature_help_plugin`, `with_folding_range_plugin`,
+`with_semantic_tokens_plugin`, `with_incremental_sync_plugin`), and **7 of 26**
+handler modules dispatch through it: `completion`, `definition`,
+`document_symbols`, `folding_ranges`, `hover`, `signature_help`, `workspace`
+(plus `workspace_symbols`). The rest are hand-coded in `host-lsp` with no plugin
+seam: `call_hierarchy`, `code_actions`, `code_lens`, `color`, `diagnostics`,
+`document_highlight`, `document_link`, `execute_command`, `inlay_hints`,
+`linked_editing`, `moniker`, `references`, `rename`, `selection_ranges`,
+`type_hierarchy` (and the host-infrastructure ones: `initialize`, `lifecycle`,
+`formatting`, `semantic_tokens`).
+
+**Two divergences have already been closed** (workstream A, which is this ADR's
+*"formatting … not duplicated inside the LSP"* clause): the second full-document
+formatter (`c60fda0d`) and the hand-rolled range formatter (`f500a64f`).
 
 **Correction to the earlier alarm.** The 16 zero-coverage files in
-`host-lsp/src/handlers/` are *thin protocol glue* (26–64 lines each): they parse a
-request and call into a top-level module. The **logic** lives in
-`host-lsp/src/<feature>.rs`, and each of those has a sibling
-`<feature>_tests.rs` that *does* run. So the 0% coverage means "no test drives the
-server protocol end to end", **not** "16 features are unverified". The gap is an
-end-to-end server test, not per-handler unit tests.
+`handlers/` are *thin protocol glue* (26–64 lines each) delegating to top-level
+feature modules that **do** have running `*_tests.rs` siblings. 0% there means
+"no test drives the server protocol end to end", not "16 features are
+unverified" — and that missing end-to-end test is arguably a **prerequisite** for
+this migration, since it is the only thing that would catch a feature regressing
+as it moves behind the seam.
 
-**The real issue is the duplication.** `plugin-lsp` is the *generic, data-driven*
-provider layer — its own doc says: *"Generic LSP providers driven by
-`Language::lsp` rule configuration … returns language-agnostic data that
-`LspEngine` formats into host LSP responses."* That is precisely the maintainer's
-ruling 2 (tooling configured by Handl as data). `host-lsp` instead hand-codes
-roughly twenty features in Rust: `call_hierarchy`, `code_actions`,
-`code_lens_resolve`, `color_provider`, `cross_file_rename`, `diagnostics`,
-`document_highlight`, `document_link`, `execute_command`, `folding_ranges`,
-`hover`, `implementation`, `inlay_hint_resolve`, `inlay_hints`, `linked_editing`,
-`moniker`, `references`, `rename`, `selection_ranges`, `signature_help`,
-`type_hierarchy`, `workspace` (plus `plugin-lsp`'s rule-driven set: completion,
-document symbols, folding ranges, signature help).
-
-**So B is a migration, not a deletion, and it is the largest workstream.** The
-per-feature question is: can the feature be expressed as a `Language::lsp` rule
-(then it belongs in `plugin-lsp`, driven by data), or is it genuinely
-host-specific (then it stays as glue)? Features that are pure "find the AST node
-under the cursor and describe it" — hover, definition, references, document
-highlight, document link, selection ranges, moniker, inlay hints — are the
-obvious first candidates for expression as rules; features with cross-file or
-stateful behaviour (rename across files, code actions with edits, execute
-command, call/type hierarchy) need a decision on whether the rule vocabulary
-should grow.
-
-**Recommendation:** treat B as its own ADR + task, and start with the two or three
-features `plugin-lsp` already has rule vocabulary for, so the migration proves
-the pattern before committing to the other twenty. Do not delete anything until
-the rule vocabulary is shown to cover a feature.
+**Recommendation:** finish `ADR-LSP-remaining.md` (hover next — it already has a
+slot in `ToolingHost` and a placeholder plugin), add one end-to-end server test
+first, and take the other un-migrated features one at a time: each is either
+expressible as a `Language::lsp` rule (move it) or genuinely host-specific
+(declare it and keep it). Nothing gets deleted on the way.
 
 ### C — finish ADR-0119's cleanup half (supersession, hard evidence) — DONE
 
