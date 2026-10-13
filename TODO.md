@@ -46,6 +46,29 @@ ever linked. They are retired, not deleted from history.
       dispatcher only handles `Term::Rewrite`. Either wire `Path`/`Equiv` into the
       dispatcher or retire the four functions — deliberately left in place
       because the module doc advertises all three combinators.
+- [x] **Tranche 3 (C) — ADR-0119's cleanup half.** `Term::Path` and `Term::Equiv`
+      do not exist: ADR-0119 §7 folded the *derived* operators (`Path`, `Equiv`,
+      `Refine`, `CellId`, `Whisker`, `JElim`, `Univalence`, …) out of the closed
+      `Term` vocabulary into `Term::Opaque { data }`, an opaque ADR-0103 record.
+      What that left behind:
+      - `plugin-compile-js/src/lower/proof.rs` carried `lower_path` /
+        `lower_equiv` (and `_applied` forms) that could never be dispatched — the
+        dispatcher matches only `Term::Rewrite`, and no `Path`/`Equiv` variant
+        exists to pass them. Deleted; the module doc now says so.
+      - `plugin-engine/src/term_data.rs` hid a **`#[cfg(any())]`-disabled test
+        module**: 458 lines that had not compiled or run since the ADR-0119
+        transition, asserting pre-fold shapes (`Arr { value }` without `dim`,
+        `Term::Path`, `Term::Equiv`, `JElim`, `Refine`). Replaced with an
+        **active** round-trip test over the current vocabulary plus an
+        `unknown_tag_decodes_to_opaque` test that pins the fold's totality — so
+        `term_data.rs` has running tests for the first time since the migration.
+      - Stale doc claims ("lossless for all 28 variants") corrected.
+      - Deliberately kept: `value_to_side` (`#[allow(dead_code)]`, documented as
+        the Whisker decode path to restore if whisker folds back out of
+        `Opaque`).
+      - **Pattern to watch:** a compile that is *skipped* is invisible to both the
+        compiler and coverage. `#[cfg(any())]` was the only such disable in the
+        repo and it hid 458 lines.
 - [ ] **Residual warnings (declared, not silent).** `cargo check --workspace
       --all-targets` still reports ~14 `unused import` (cfg-ambiguous — the item
       is used in only one of the test / non-test compilations), 10 never-read
