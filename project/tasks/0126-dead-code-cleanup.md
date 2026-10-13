@@ -100,16 +100,45 @@ lowerers, and the `term_data` tests that only round-trip them.
 **`Term::Rewrite` stays** — it is live in every backend and ADR-0119 merely
 reinterprets it as a `dim=2` arrow.
 
-### D — implement n-dim / n-morphisms (the real feature)
+### D — n-dim / n-morphisms — MEASURED, and it is not a feature project
 
-ADR-0119 status: *"Proposed — design finalized during review; ready for
-implementation."* 172 tests carry `#[ignore = "n-dim"]`; the reason is *"function
-runtime value shape is not yet producing closure records"*.
+Measured by running the ignored tests (`--ignored`). **Result: n-dim is
+essentially implemented.** The 172 ignored tests are not blocked work; the
+`#[ignore = "n-dim"]` labels are obsolete.
 
-**Measure before committing.** Half the blocker may be the parity harness rather
-than missing runtime code; `handl-runtime/tests/arrow_model_*` and
-`*_model_parity` are the suite to interrogate first. Deliver a size estimate
-before any implementation.
+| File | Result |
+| --- | --- |
+| `arrow_model_delegate` | 8 / 8 pass |
+| `arrow_model_parity` | 24 pass, 1 stale |
+| `composite_model_parity` | 24 pass, 1 stale |
+| `exec_model_parity` | 63 / 63 pass |
+| `type_model_parity` | 22 pass, 1 stale |
+| `value_model_parity` | 24 pass, 1 stale |
+| `call_args_binding` | 1 / 1 pass |
+| `op_handler_with_e2e` | 1 stale |
+| `option_b_frontier_e2e` | 1 stale |
+| `proc_notation` | 1 stale |
+
+**166 pass; 6 fail, every one a stale assertion about something ADR-0119/ADR-0074
+deliberately changed** — not a missing capability:
+
+- `parity_cell_comp_v` (×3 files) expects a `{"__tag__":"Cell2", …}` record;
+  ADR-0119 §4 folded `CellCompV`/`CellId`/`Whisker` into dimensioned `Arr`/`Op`.
+- `type_model_cobind_is_graded_type` expects the pre-ADR-0119 `Arr` shape
+  (`{"__tag__":"Arr","value":"Affine"}`); the implementation correctly emits the
+  new one (`{"__tag__":"Arr","dim":{"__tag__":"Const","value":1},"value":"Affine"}`).
+  The *implementation* is right — the test predates the `dim` field.
+- `graded_arrow_lexes_parses_runs` uses `~[R]~>`, removed by ADR-0119 §1.
+- `arrow_x_to_x_evaluates_to_closure` (`proc_notation`) is labelled *"function
+  runtime value shape is not yet producing closure records"* — **that label is
+  wrong**: closure records are minted (`handl-value` emits
+  `{"__arrow__": true, "params": […], "body_def": …}`) and the test fails because
+  `x ~> x` uses `~>` surface syntax that ADR-0074 removed.
+
+**Revised scope for D:** delete the obsolete ignore labels, re-enable the 166
+tests, and update the 6 stale assertions to the post-fold shapes. That is roughly
+a day of mechanical work — *not* the "implement the n-dimensional calculus"
+project the ignore labels implied. No ADR work needed; ADR-0119 stands.
 
 ### E — census of the one-use public functions (read-only) — DONE
 
