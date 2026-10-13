@@ -11175,142 +11175,142 @@ fn marshalable_predicate_for_each_ffi_type() {
             result.typ
         );
     }
+}
 
-    // ---------------------------------------------------------------------------
-    // Frontier Term variants
-    // ---------------------------------------------------------------------------
-
-
-
-    #[test]
-    fn type_cobind_runs_body() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::Cobind {
-            grade: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.string"),
-            )),
-            body: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.number"),
-            )),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(
-            result,
-            json!({
-                "__tag__": "type.number",
-                "__registry__": "handl.canonical",
-                "__coeffects__": [{"grade": "type.string"}]
-            })
-        );
-    }
+// ---------------------------------------------------------------------------
+// Frontier Term variants
+// ---------------------------------------------------------------------------
 
 
 
-    #[test]
-    fn cobind_adds_coeffect() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::Cobind {
-            grade: Box::new(Term::const_value("U")),
-            body: Box::new(Term::arr_judgment_lit(
-                "construct",
-                vec![],
-                Value::from("type.number"),
-            )),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(
-            result,
-            json!({
-                "__tag__": "type.number",
-                "__registry__": "handl.canonical",
-                "__coeffects__": [{"grade": "U"}]
-            })
-        );
-    }
+#[test]
+fn type_cobind_runs_body() {
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let node_ref = AstRef::new(0);
+    let lang = Language::new();
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+    let scheme = Term::Cobind {
+        grade: Box::new(Term::arr_judgment_lit(
+            "construct",
+            vec![],
+            Value::from("type.string"),
+        )),
+        body: Box::new(Term::arr_judgment_lit(
+            "construct",
+            vec![],
+            Value::from("type.number"),
+        )),
+    };
+    let result = engine
+        .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+        .unwrap();
+    assert_eq!(
+        result,
+        json!({
+            "__tag__": "type.number",
+            "__registry__": "handl.canonical",
+            "__coeffects__": [{"grade": "type.string"}]
+        })
+    );
+}
 
-    #[test]
-    fn type_const_returns_value() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::Const {
-            value: Value::from("hello"),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, Value::from("hello"));
-    }
 
-    #[test]
-    fn type_record_proj_and_with() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::RecordWith {
-            record: Box::new(Term::Const {
-                value: json!({"x": type_number()}),
-            }),
-            field: "y".to_string(),
-            value: Box::new(Term::Const {
-                value: type_string(),
-            }),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, json!({"x": type_number(), "y": type_string()}));
-        let proj = Term::RecordProj {
-            record: Box::new(scheme),
-            field: "x".to_string(),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &proj, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, type_number());
-    }
 
-    #[test]
-    fn type_tag_wraps_value() {
-        let engine = engine();
-        let mut ast = Ast::new();
-        ast.push(AstNode::new("test"));
-        let node_ref = AstRef::new(0);
-        let lang = Language::new();
-        let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
-        let scheme = Term::Tag {
-            tag: "Foo".to_string(),
-            value: Box::new(Term::Const {
-                value: type_number(),
-            }),
-        };
-        let result = engine
-            .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
-            .unwrap();
-        assert_eq!(result, json!({"__tag__": "Foo", "value": type_number()}));
-    }
+#[test]
+fn cobind_adds_coeffect() {
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let node_ref = AstRef::new(0);
+    let lang = Language::new();
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+    let scheme = Term::Cobind {
+        grade: Box::new(Term::const_value("U")),
+        body: Box::new(Term::arr_judgment_lit(
+            "construct",
+            vec![],
+            Value::from("type.number"),
+        )),
+    };
+    let result = engine
+        .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+        .unwrap();
+    assert_eq!(
+        result,
+        json!({
+            "__tag__": "type.number",
+            "__registry__": "handl.canonical",
+            "__coeffects__": [{"grade": "U"}]
+        })
+    );
+}
+
+#[test]
+fn type_const_returns_value() {
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let node_ref = AstRef::new(0);
+    let lang = Language::new();
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+    let scheme = Term::Const {
+        value: Value::from("hello"),
+    };
+    let result = engine
+        .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+        .unwrap();
+    assert_eq!(result, Value::from("hello"));
+}
+
+#[test]
+fn type_record_proj_and_with() {
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let node_ref = AstRef::new(0);
+    let lang = Language::new();
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+    let scheme = Term::RecordWith {
+        record: Box::new(Term::Const {
+            value: json!({"x": type_number()}),
+        }),
+        field: "y".to_string(),
+        value: Box::new(Term::Const {
+            value: type_string(),
+        }),
+    };
+    let result = engine
+        .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+        .unwrap();
+    assert_eq!(result, json!({"x": type_number(), "y": type_string()}));
+    let proj = Term::RecordProj {
+        record: Box::new(scheme),
+        field: "x".to_string(),
+    };
+    let result = engine
+        .eval_type_scheme(&lang, &ast, node_ref, &proj, &mut ctx, None)
+        .unwrap();
+    assert_eq!(result, type_number());
+}
+
+#[test]
+fn type_tag_wraps_value() {
+    let engine = engine();
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test"));
+    let node_ref = AstRef::new(0);
+    let lang = Language::new();
+    let mut ctx = TypecheckContext::new("handl.canonical", HashMap::new());
+    let scheme = Term::Tag {
+        tag: "Foo".to_string(),
+        value: Box::new(Term::Const {
+            value: type_number(),
+        }),
+    };
+    let result = engine
+        .eval_type_scheme(&lang, &ast, node_ref, &scheme, &mut ctx, None)
+        .unwrap();
+    assert_eq!(result, json!({"__tag__": "Foo", "value": type_number()}));
 }
