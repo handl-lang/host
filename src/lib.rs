@@ -1,13 +1,9 @@
 //! `handl` is the root facade for the Handl language platform.
 //!
-//! It re-exports the core platform contracts from `handl-platform` and
-//! the generic base crates that survive the canonical-kit retirement.
+//! It re-exports the core platform contracts from `handl-platform`.
 
 // Core platform contracts and types (always available).
 pub use handl_platform::*;
-
-// Non-optional workspace crates that remain after the canonical retirement.
-pub use handl_plugin_source;
 
 #[cfg(test)]
 mod tests {

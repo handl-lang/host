@@ -1742,10 +1742,6 @@ impl ModuleLookup for HelloHostFunctions {
     }
 }
 
-/// Kit manifest loading and the default canonical manifest.
-pub mod kit_manifest;
-pub use kit_manifest::{KitManifest, canonical_manifest};
-
 /// A token annotated with its source span.
 ///
 /// The data-driven lexer (`handl_language::Token`) carries only `kind` and
@@ -2303,21 +2299,6 @@ impl Kit {
         }
 
         // Fallback to the compiled-in canonical kit.
-        Self::new()
-    }
-
-    /// Build a `Kit` from a `KitManifest`.
-    ///
-    /// This is a compatibility wrapper: in the data-driven model the manifest
-    /// is replaced by the data fragment registry, so this always assembles the
-    /// full canonical language regardless of the manifest contents. The
-    /// manifest parameter is retained for API compatibility with downstream
-    /// callers that still pass a `KitManifest`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`LangError`] if fragment assembly or engine binding fails.
-    pub fn from_manifest(_manifest: &KitManifest) -> Result<Self, LangError> {
         Self::new()
     }
 
@@ -3336,14 +3317,6 @@ mod tests {
         let kit = Kit::new().unwrap();
         let val = kit.run("1 + 2 * 3").unwrap();
         assert_eq!(val, serde_json::json!(7));
-    }
-
-    #[test]
-    fn from_manifest_works() {
-        let manifest = canonical_manifest();
-        let kit = Kit::from_manifest(&manifest).unwrap();
-        let tokens = kit.lex("42").unwrap();
-        assert_eq!(tokens.as_slice()[0].kind, "token.number");
     }
 
     #[test]

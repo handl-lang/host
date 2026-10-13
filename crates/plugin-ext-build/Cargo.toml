@@ -1,9 +1,0 @@
-[package]
-name = "handl-plugin-ext-build"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-handl-platform = { path = "../platform" }
-
-[dev-dependencies]

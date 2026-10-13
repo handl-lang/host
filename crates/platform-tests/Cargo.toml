@@ -8,5 +8,10 @@ publish = false
 handl-platform = { workspace = true }
 serde_json = { workspace = true }
 
+[dev-dependencies]
+# For `tests/wiring.rs` — the idea-ledger / dead-code gate.
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = { workspace = true }
+
 [lib]
 bench = false

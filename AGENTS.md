@@ -416,9 +416,11 @@ run` when its specifier does not resolve to a file) — the stdlib
       and the role-less `Language::new()` used in NBE unit tests has no
       `AstShapeDef` for it, so the identity guard remains; only the inner
       `param_node.kind == "var"` was closed (replaced by `Language::param_name`).
-    - `plugin-exec-map/src/lib.rs`, `plugin-exec-logging/src/lib.rs`: small
-      exec-control plugins that extract a `call` callee name from a `var`;
-      identity-specific.
+    - *(retired)* `plugin-exec-map` and `plugin-exec-logging` were the two
+      genuinely identity-specific members of the `plugin-exec-*` family
+      ("extract a `call` callee name from a `var`"). The whole unwired family
+      is now retired and recorded in `project/parked.yaml` (ADR-0040), where
+      `crates/platform-tests/tests/wiring.rs` keeps the ledger honest.
     - `host-lsp/src/*` and `crates/kit-canonical/src/lib.rs`: residual
       keyword text matches (`rec`/`law`/`match`/...) and legacy token-class
       shims are identity-specific or for bootstrap/third-party kits.

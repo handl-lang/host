@@ -1,5 +1,34 @@
 # TODO
 
+## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
+
+Rust holds the kernel (`Plugin`, `Host`, `Operation`, `Behavior`,
+`RuleAcceptor`, `Contribution` — ADR-0040) plus generic tooling; everything
+else is Handl over a C ABI / SDK-gen contract. A dead-code sweep (static
+`cargo check --all-targets` plus `llvm-cov` over the whole workspace) found 15
+crates that nothing live depends on — ideas reified as Rust crates no binary
+ever linked. They are retired, not deleted from history.
+
+- [x] **Idea ledger + gate.** `project/parked.yaml` records each retired idea
+      (adr, `status`, `superseded_by`, `unpark` condition). `crates/platform-tests/
+      tests/wiring.rs` fails the build if a retired crate is still a member, if a
+      member is an undeclared orphan, or if the ledger goes stale. Removal is
+      reversible — `git tag parked/<family>-2026` marks the commit before each
+      removal, so `git checkout <tag> -- crates/<dir>` restores it.
+- [x] **Retired (14 crates, ~2.9k LOC):** the unwired `plugin-exec-*` family
+      (`allow`/`deny`/`counter`/`map`/`trace`/`max-calls`/`max-depth`/`logging`
+      — the ADR-0040 limits are already inlined in `SandboxHost`),
+      `plugin-loader-wasm`/`plugin-loader-web` (ADR-0035, never accepted),
+      `plugin-ext-build` (3-LOC placeholder), `plugin-engine-transform-parallel`
+      (ADR-0094; the sequential `RewriteEngine` is the live path),
+      `plugin-diag-expression` (superseded by `plugin-ext-diag` +
+      lint-rules-as-data), and `plugin-source` (spans now ride on the AST).
+      `plugin-exec-cache` is unaffected — it is live via `plugin-engine-test`.
+- [x] **Vestigial `KitManifest`.** `kit-canonical`'s duplicate `KitManifest` +
+      `canonical_manifest()` existed only to feed `Kit::from_manifest`, a compat
+      shim that ignored its argument ("the manifest is replaced by the data
+      fragment registry"). All three deleted.
+
 ## High priority — package manager and `import`
 
 The `import` op is now implemented in all three eval engines and the runtime

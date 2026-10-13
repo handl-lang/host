@@ -18,8 +18,8 @@
 - `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments.
 - `crates/handl-kit-*` / `kit-canonical` — canonical language data assembly and ready-made kit loading.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
-- `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `fmt`, `lint`, `kit`, `cli`, `lsp`, `eval`, `refinement`, `build`, `compile`, `plugin`.
-- `crates/plugin-engine-*` — concrete tooling engines: `lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform` (`transform-rewrite`, `transform-parallel`), `exec` (`tree-walk`, `bytecode`, `cranelift`).
+- `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `fmt`, `lint`, `kit`, `cli`, `lsp`, `eval`, `refinement`, `compile`, `plugin`.
+- `crates/plugin-engine-*` — concrete tooling engines: `lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform` (`transform-rewrite`), `exec` (`tree-walk`, `bytecode`, `cranelift`).
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `compress`, `kv`, `http`, `os`, `unicode`, `rand`, `time`, `tls`, `ws`, etc.).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and plugin loaders (`native`, `wasm`, `web`).
 - `crates/host-*` — end-user hosts: `host-cli` (`hnl`), `host-lsp` (LSP server), `host-tooling` (semantic tokens and LSP helpers).
@@ -62,13 +62,13 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 - `crates/plugin-engine-*` — concrete engines, all data-driven off `Language`:
   - front end — `lex`, `lex-pattern`, `parse`, `parse-pratt`
   - tooling — `fmt`, `lint`, `typecheck` (bootstrap checker), `typecheck-handl` (the `.hnl` model's inference engine), `test`
-  - transforms — `transform`, `transform-rewrite`, `transform-parallel`
+  - transforms — `transform`, `transform-rewrite`
   - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
-- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `fmt`, `lint`, `typecheck`, `test`, `cli`, `lsp`, `eval`, `refinement`, `build`, `compile`, `kit`, `plugin`, `sdkgen`). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `plugin-engine-*` engine — see ADR-0085.
-- `crates/plugin-exec-*` / `plugin-compile-*` — exec-control rules (`allow`, `deny`, `cache`, `counter`, `logging`, `map`, `max-calls`, `max-depth`, `trace`) and compiler back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`).
-- `crates/plugin-sdkgen*` / `plugin-diag-expression` — SDK generators (and their back ends/emitters) and expression-level diagnostics.
+- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `fmt`, `lint`, `typecheck`, `test`, `cli`, `lsp`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `sdkgen`). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `plugin-engine-*` engine — see ADR-0085.
+- `crates/plugin-exec-cache` / `plugin-compile-*` — the exec result cache and the compiler back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`).
+- `crates/plugin-sdkgen*` — SDK generators (and their back ends/emitters).
 - `crates/plugin-lib-*` / `crate-*` — standard library, native ops, and utility libraries.
-- `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-*` — applier composition and loaders (native, wasm, web); `plugin-module` / `plugin-source` — module and source plumbing.
+- `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-native` — applier composition and the native loader; `plugin-module` — module plumbing.
 - `crates/host-*` — `host-cli` (the `hnl` binary), `host-lsp` (the LSP server), `host-tooling` (the shared tooling/LSP host contract); `plugin-lsp` / `plugin-lsp-std` — LSP provider plugins.
 - `crates/bench` / `ext-tests` — criterion benchmarks and integration-test scaffolding.
 - `handl-packages/` — `.hnl` packages and contracts; `data/` — YAML language fragments.
