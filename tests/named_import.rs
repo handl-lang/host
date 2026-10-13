@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, Function, Module};
+use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_lib_stdlib::DEFAULT_RESOLVER;
 use handl_plugin_lib_stdlib::TableModuleLookup;

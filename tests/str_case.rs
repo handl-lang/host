@@ -1,4 +1,3 @@
-use handl_platform::Function;
 use handl_platform::Module;
 
 use handl_platform::{EvalContext, EvalError};
