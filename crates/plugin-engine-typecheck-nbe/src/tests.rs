@@ -25,11 +25,6 @@ fn type_number() -> Value {
     json!({"__tag__":"type.number","__registry__":"handl.canonical"})
 }
 
-/// The expected tagged type value for `type.float` in `handl.canonical`.
-fn type_float() -> Value {
-    json!({"__tag__":"type.float","__registry__":"handl.canonical"})
-}
-
 /// The expected tagged type value for `type.string` in `handl.canonical`.
 fn type_string() -> Value {
     json!({"__tag__":"type.string","__registry__":"handl.canonical"})

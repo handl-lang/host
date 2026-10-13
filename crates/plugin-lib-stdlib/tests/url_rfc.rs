@@ -1,7 +1,7 @@
 use handl_platform::{EvalContext, Function, Plugin};
 use handl_plugin_lib_parse::DynParser;
 use handl_plugin_lib_stdlib::ops::url_rfc::*;
-use handl_plugin_lib_stdlib::{library, module, module_ref};
+use handl_plugin_lib_stdlib::library;
 use serde_json::json;
 use std::sync::Arc;
 

@@ -1,10 +1,9 @@
-use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup, Plugin};
-use handl_plugin_lib_serialize::{Decoder, Encoder, Serializer};
+use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
+use handl_plugin_lib_serialize::{Decoder, Encoder};
 use handl_plugin_lib_stdlib::ops::yaml::*;
-use handl_plugin_lib_stdlib::{library, module, module_ref};
+use handl_plugin_lib_stdlib::{library, module};
 use handl_plugin_module::ModuleRegistry;
-use serde_json::{Value, json};
-use std::sync::Arc;
+use serde_json::json;
 
 #[test]
 fn round_trip_document() {

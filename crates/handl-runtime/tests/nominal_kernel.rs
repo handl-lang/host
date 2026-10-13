@@ -9,7 +9,7 @@
 
 use handl_platform::{EvalContext, Function, Module};
 use handl_runtime::vm_primitives::VmPrimitivesModule;
-use handl_value::{TaggedValue, eq, tagged_to_value};
+use handl_value::{TaggedValue, eq};
 use serde_json::{Value, json};
 
 /// Call a VM primitive by name, panicking on error (for success-path tests).
@@ -181,7 +181,7 @@ fn vm_sym_too_many_args_errors() {
 
 #[test]
 fn vm_instance_of_direct_and_self() {
-    let (_root, number, _float) = vm_chain();
+    let (_root, _number, _float) = vm_chain();
     // Direct: Float instanceof Number is built below; here Number instanceof
     // Number (self) and Number instanceof root (direct parent).
     let (_r, n, _f) = vm_chain();

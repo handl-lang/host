@@ -28,6 +28,30 @@ ever linked. They are retired, not deleted from history.
       `canonical_manifest()` existed only to feed `Kit::from_manifest`, a compat
       shim that ignored its argument ("the manifest is replaced by the data
       fragment registry"). All three deleted.
+- [x] **Tranche 2 — the same pattern inside a live crate.** `host-lsp` carried a
+      second `.hnl` formatter (`src/formatting.rs`, 318 lines plus `TextEdit`)
+      superseded by `plugin-ext-fmt`; it survived only because ten tests had been
+      written for it. The dead formatter, its `TextEdit` shape and those ten
+      tests are gone (the live `format_document_json` bridge stays); `type_float`
+      was dropped from the NBE test helpers; 22 unused imports cleared by
+      `cargo fix`.
+- [ ] **Known divergence (found by that removal).** The LSP's *range* formatter
+      (`host-lsp/src/range_formatting.rs`) still indents with its own line-based
+      pass and disagrees with `hnl fmt`: for `loop {\nfoo: 1\nbar: 2\n}` it emits
+      indented lines where `plugin-ext-fmt` leaves the snippet untouched. Pinned
+      by `range_format_diverges_from_canonical_formatter`; the fix is to delegate
+      range formatting to `plugin-ext-fmt`.
+- [ ] **Never-dispatched lowerers.** `plugin-compile-js/src/lower/proof.rs`
+      implements `lower_path`/`lower_equiv` (and their `_applied` forms) but the
+      dispatcher only handles `Term::Rewrite`. Either wire `Path`/`Equiv` into the
+      dispatcher or retire the four functions — deliberately left in place
+      because the module doc advertises all three combinators.
+- [ ] **Residual warnings (declared, not silent).** `cargo check --workspace
+      --all-targets` still reports ~14 `unused import` (cfg-ambiguous — the item
+      is used in only one of the test / non-test compilations), 10 never-read
+      fields in `plugin-sdkgen-backend-webidl/src/parser.rs`, and 2 unused
+      `LineMap` methods (`is_at_line_start`, `rest_of_line` — the latter
+      transitively keeps `line_end_offset` alive).
 
 ## High priority — package manager and `import`
 

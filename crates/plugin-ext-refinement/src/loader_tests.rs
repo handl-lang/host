@@ -701,11 +701,11 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::arrow_loader::{
-    CachingResolver, ChainResolver, FileResolver, LoadError, LoadedModule, MemoryResolver,
+    CachingResolver, ChainResolver, FileResolver, LoadError, MemoryResolver,
     ModuleLoader, ModuleResolver, ResolveErrorKind, flatten_program, has_unresolved_apps,
     normalize_compile_time,
 };
-use crate::arrow_parser::{ExportDecl, ImportDecl, parse_arrow_module};
+use crate::arrow_parser::{ExportDecl, parse_arrow_module};
 
 // --- CountingResolver (for cache-hit verification) ---
 
