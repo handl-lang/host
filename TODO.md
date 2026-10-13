@@ -35,12 +35,21 @@ ever linked. They are retired, not deleted from history.
       tests are gone (the live `format_document_json` bridge stays); `type_float`
       was dropped from the NBE test helpers; 22 unused imports cleared by
       `cargo fix`.
-- [ ] **Known divergence (found by that removal).** The LSP's *range* formatter
-      (`host-lsp/src/range_formatting.rs`) still indents with its own line-based
-      pass and disagrees with `hnl fmt`: for `loop {\nfoo: 1\nbar: 2\n}` it emits
-      indented lines where `plugin-ext-fmt` leaves the snippet untouched. Pinned
-      by `range_format_diverges_from_canonical_formatter`; the fix is to delegate
-      range formatting to `plugin-ext-fmt`.
+- [x] **A (part 1) — the range formatter no longer owns an indenter.** Known
+      divergence **fixed**: `host-lsp/src/range_formatting.rs` went from a
+      307-line hand-rolled line-based indenter to a ~85-line *projection* of the
+      canonical result (format the whole document, emit an edit for the selected
+      lines that changed), and its tests now assert against `format_source`
+      instead of hand-written strings — so "format selection" and "format
+      document" can no longer disagree with `hnl fmt`.
+- [ ] **A (part 2) — `on_type_formatting.rs` still owns an indenter.** 295 lines
+      of hand-rolled indentation plus bracket matching. It cannot be delegated by
+      inspection: it exists to indent a *blank* new line as you type, and a
+      formatter only rewrites lines that have content, so swapping in
+      `format_source` would silently stop the auto-indent working.
+      **Needs a decision:** does the generic formatter grow a "indent this blank
+      line" entry point (then delegate), or does the LSP drop
+      `textDocument/onTypeFormatting` and rely on format-on-save?
 - [ ] **Never-dispatched lowerers.** `plugin-compile-js/src/lower/proof.rs`
       implements `lower_path`/`lower_equiv` (and their `_applied` forms) but the
       dispatcher only handles `Term::Rewrite`. Either wire `Path`/`Equiv` into the

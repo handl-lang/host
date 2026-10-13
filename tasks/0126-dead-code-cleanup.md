@@ -38,23 +38,29 @@ checksums prove only that files differ. They moved to workstream E, read-only.
 
 ## Workstreams
 
-### A — the LSP owns no indenter (ruling 1)
+### A — the LSP owns no indenter (ruling 1) — PART 1 DONE
 
-Delete the hand-rolled indentation family and route all formatting through the
-canonical engine:
+**Done — range formatting.** `crates/host-lsp/src/range_formatting.rs` went from
+a 307-line hand-rolled line-based indenter to a ~85-line *projection* of the
+canonical result: format the whole document with `format_source`, then emit an
+edit for the selected lines that changed. Its tests were rewritten to assert
+against `format_source` (the oracle) rather than hand-written strings, and the
+divergence this cleanup had surfaced — "format selection" indenting input `hnl
+fmt` leaves untouched — is gone: `cargo test -p handl-host-lsp` is 255 + 16
+green.
 
-- `crates/host-lsp/src/range_formatting.rs` (own line-based pass)
-- `crates/host-lsp/src/on_type_formatting.rs` (own line-based pass)
-- the helpers they duplicate
+**Pending — on-type formatting.** `crates/host-lsp/src/on_type_formatting.rs`
+(295 lines) is the second hand-rolled indenter. It is *not* a mechanical
+delegation: the feature exists to indent a **blank** new line as you type, and
+`format_source` only rewrites lines that have content — so swapping it in would
+quietly disable auto-indent. Two options, needing a maintainer decision:
 
-Same move as `c60fda0d`, which already deleted `host-lsp/src/formatting.rs`'s
-318-line second formatter; the live bridge is `format_document_json` →
-`plugin-ext-fmt`. Tests currently assert the hand-rolled behaviour and must be
-re-pointed at the canonical engine.
+1. give the generic formatter an "indent this blank line" entry point (the
+   canonical indent logic already exists internally), then delegate; or
+2. drop `textDocument/onTypeFormatting` from the LSP and rely on format-on-save.
 
-Found while working: the range formatter **disagrees with `hnl fmt`** (it indents
-input the canonical engine leaves untouched), pinned by
-`range_format_diverges_from_canonical_formatter`.
+The same question applies to `on_close_bracket` (re-indenting a line when a
+closing bracket is typed) — option 1 covers both.
 
 ### B — `host-lsp` is a thin host, not a second LSP (ruling 3)
 
