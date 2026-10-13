@@ -250,6 +250,45 @@ fn ledger_is_not_stale() {
     );
 }
 
+/// Every `#[ignore]` must carry a reason, and a non-trivial one.
+///
+/// A bare `#[ignore]` is a silent skip: nothing records whether it is a
+/// deliberate park or an oversight, so nobody can tell later. This repo carried
+/// 172 ignored tests under one blanket `"n-dim"` label for an entire feature
+/// transition — enough to look like blocked work when it was finished work.
+/// Requiring a reason makes each skip a declaration.
+#[test]
+fn every_ignored_test_states_a_reason() {
+    // Built at runtime so this test's own source does not match the needle.
+    let needle = concat!("#[ignore", "]");
+    let root = repo_root();
+    let mut offenders = vec![];
+    visit(&root.join("crates"), &mut |path| {
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            return;
+        }
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return;
+        };
+        for (idx, line) in text.lines().enumerate() {
+            if line.trim_start().starts_with("//") {
+                continue;
+            }
+            if line.replace(' ', "").contains(needle) {
+                let rel = path.strip_prefix(&root).unwrap_or(path);
+                offenders.push(format!("{}:{}", rel.display(), idx + 1));
+            }
+        }
+    });
+    assert!(
+        offenders.is_empty(),
+        "ignored tests without a reason — a bare `{needle}` records nothing about whether the skip \
+         is a deliberate park or an oversight:\n  {}\n\n\
+         Write `#[ignore = \"why, and what would un-ignore it\"]`.",
+        offenders.join("\n  ")
+    );
+}
+
 /// Recursively visit every file under `dir`.
 fn visit(dir: &Path, f: &mut impl FnMut(&Path)) {
     let Ok(entries) = std::fs::read_dir(dir) else {
