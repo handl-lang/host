@@ -1,6 +1,8 @@
 # Task: dead-code cleanup and the kernel boundary (ADR-0126)
 
-Status: **in progress — C done; A next.** Plan agreed with the maintainer.
+Status: **A (part 1), C, E done; B and D measured.** Remaining: A part 2 (needs a
+maintainer call — see below), B (a migration, deserves its own ADR), D (mechanical
+re-enable). Plan agreed with the maintainer.
 
 ## The principle
 
@@ -62,15 +64,47 @@ quietly disable auto-indent. Two options, needing a maintainer decision:
 The same question applies to `on_close_bracket` (re-indenting a line when a
 closing bracket is typed) — option 1 covers both.
 
-### B — `host-lsp` is a thin host, not a second LSP (ruling 3)
+### B — `host-lsp` vs `plugin-lsp`: the duplicate is architectural — AUDITED
 
-16 modules under `crates/host-lsp/src/handlers/` have zero test coverage but are
-runtime-reachable (an editor reaches them). They are **not** dead — they are
-unverified, and in some cases duplicating `plugin-lsp`.
+Sizes: **`host-lsp` = 14,490 lines**, **`plugin-lsp` = 1,857 lines**, and they are
+**parallel implementations** — `host-lsp` does not depend on `plugin-lsp` at all.
 
-This is an **audit, not a test-writing project**: for each module, is there an
-equivalent in `plugin-lsp`? Duplicate → delete the `host-lsp` copy. Genuinely
-host-specific protocol glue → keep. Needs a read of a few files to classify.
+**Correction to the earlier alarm.** The 16 zero-coverage files in
+`host-lsp/src/handlers/` are *thin protocol glue* (26–64 lines each): they parse a
+request and call into a top-level module. The **logic** lives in
+`host-lsp/src/<feature>.rs`, and each of those has a sibling
+`<feature>_tests.rs` that *does* run. So the 0% coverage means "no test drives the
+server protocol end to end", **not** "16 features are unverified". The gap is an
+end-to-end server test, not per-handler unit tests.
+
+**The real issue is the duplication.** `plugin-lsp` is the *generic, data-driven*
+provider layer — its own doc says: *"Generic LSP providers driven by
+`Language::lsp` rule configuration … returns language-agnostic data that
+`LspEngine` formats into host LSP responses."* That is precisely the maintainer's
+ruling 2 (tooling configured by Handl as data). `host-lsp` instead hand-codes
+roughly twenty features in Rust: `call_hierarchy`, `code_actions`,
+`code_lens_resolve`, `color_provider`, `cross_file_rename`, `diagnostics`,
+`document_highlight`, `document_link`, `execute_command`, `folding_ranges`,
+`hover`, `implementation`, `inlay_hint_resolve`, `inlay_hints`, `linked_editing`,
+`moniker`, `references`, `rename`, `selection_ranges`, `signature_help`,
+`type_hierarchy`, `workspace` (plus `plugin-lsp`'s rule-driven set: completion,
+document symbols, folding ranges, signature help).
+
+**So B is a migration, not a deletion, and it is the largest workstream.** The
+per-feature question is: can the feature be expressed as a `Language::lsp` rule
+(then it belongs in `plugin-lsp`, driven by data), or is it genuinely
+host-specific (then it stays as glue)? Features that are pure "find the AST node
+under the cursor and describe it" — hover, definition, references, document
+highlight, document link, selection ranges, moniker, inlay hints — are the
+obvious first candidates for expression as rules; features with cross-file or
+stateful behaviour (rename across files, code actions with edits, execute
+command, call/type hierarchy) need a decision on whether the rule vocabulary
+should grow.
+
+**Recommendation:** treat B as its own ADR + task, and start with the two or three
+features `plugin-lsp` already has rule vocabulary for, so the migration proves
+the pattern before committing to the other twenty. Do not delete anything until
+the rule vocabulary is shown to cover a feature.
 
 ### C — finish ADR-0119's cleanup half (supersession, hard evidence) — DONE
 
