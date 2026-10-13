@@ -98,21 +98,24 @@ fn function_eval_scheme_exists() {
 // ---------------------------------------------------------------------------
 
 #[test]
-#[ignore = "uses the removed anonymous-arrow surface `x ~> x` (ADR-0074); needs rewriting to the current lambda form. See project/TODO.md"]
-fn arrow_x_to_x_evaluates_to_closure() {
+fn arrow_x_to_x_evaluates_to_the_identity_op() {
     let rt = full_runtime();
-    let result = rt.run(&Source::new("x ~> x")).expect("eval should succeed");
-    // The result is a closure value: {"__arrow__": true, "params": ["x"], ...}
-    assert_eq!(
-        result["__arrow__"],
-        serde_json::Value::Bool(true),
-        "x ~> x should evaluate to a closure",
-    );
-    assert_eq!(
-        result["params"],
-        serde_json::json!(["x"]),
-        "closure should have params ['x']",
-    );
+    // Arrow literals evaluate to their **term representation** (the arrow-lower
+    // pipeline, ADR-0119/ADR-0120), not to a `{"__arrow__": true, …}` closure
+    // record — which is what this test was originally written to expect, and why
+    // it was parked under "function runtime value shape is not yet producing
+    // closure records". That label was substantively right.
+    //
+    // The identity arrow additionally folds to the `id` combinator, so the
+    // evaluated value is a serialized `Term::Op { name: "id", … }`.
+    let result = rt
+        .run(&Source::new("(x) ~> x"))
+        .expect("eval should succeed");
+    let op = result
+        .get("Op")
+        .expect("an arrow literal evaluates to a Term record");
+    assert_eq!(op["name"], serde_json::json!("id"));
+    assert_eq!(op["source"], serde_json::json!("Native"));
 }
 
 // ---------------------------------------------------------------------------

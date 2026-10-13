@@ -188,7 +188,7 @@ now run on every build — **all green** (`handl-runtime`: `arrow_model_delegate
 - `type_model_cobind_is_graded_type` expected the pre-ADR-0119 `Arr` shape; it now
   expects `dim` as well, which is what the implementation correctly emits.
 
-Four labels remain, each with a **precise** reason instead of the blanket
+Three labels remain, each with a **precise** reason instead of the blanket
 `"n-dim"`, because they are genuine open questions rather than blocked work:
 
 1. `arrow_parity_cell_comp_v`, `parity_cell_comp_v` (×2 files) — a **model-parity
@@ -196,11 +196,23 @@ Four labels remain, each with a **precise** reason instead of the blanket
    (`{"__tag__":"Cell2", …}`) while the Rust default model returns `Null`.
    Recording it rather than picking a side: ADR-0119 §4 says `CellCompV` is
    redundant once dimensions exist, so which model is "right" is a design call.
-2. `arrow_x_to_x_evaluates_to_closure` (`proc_notation`) — uses `x ~> x`, an
-   anonymous-arrow surface removed by ADR-0074; it needs rewriting to the current
-   lambda form. Note its old label ("function runtime value shape is not yet
-   producing closure records") was simply wrong — closure records are minted by
-   `handl-value`.
+
+**`arrow_x_to_x_evaluates_to_closure` — resolved, and it corrected me.** Its label
+claimed *"function runtime value shape is not yet producing closure records"*. I
+first dismissed that as wrong (reasoning that `~>` was removed by ADR-0074), then
+tested it: `~>` is alive — `grammar.arrow.infix` parses it into a `function` node
+and `crypto.hnl` writes `name :: (params) ~> body` throughout — but neither
+`x ~> x` nor `(x) ~> x` evaluates to a `__arrow__` record. A probe showed what it
+actually returns:
+
+```json
+{"Op":{"args":[],"dim":{"Const":{"value":1}},"name":"id","source":"Native"}}
+```
+
+So **arrow literals evaluate to serialized `Term` records** (the arrow-lower
+pipeline, ADR-0119/ADR-0120), and the identity folds to the `id` combinator. The
+original label was substantively right, and the test now asserts the real
+behaviour (`arrow_x_to_x_evaluates_to_the_identity_op`, re-enabled).
 
 ### E — census of the one-use public functions (read-only) — DONE
 

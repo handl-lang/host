@@ -46,15 +46,23 @@ ever linked. They are retired, not deleted from history.
       disable from the ADR-0119 transition, not blocked work: **169 labels
       removed, all those tests now run on every build and pass.** Three stale
       expectations were corrected (`~Addable~>` → the current `~[Addable]~>`
-      bracket form; the pre-`dim` `Arr` shape in the cobind type test).
-- [ ] **D remainder — two real open questions** (kept ignored, each with a
-      precise reason instead of the blanket `n-dim`):
-      1. `parity_cell_comp_v` (×2) / `arrow_parity_cell_comp_v` — **model-parity
-         gap**: for a derived (`Term::Opaque`) record the Handl model evaluates it
-         (`{"__tag__":"Cell2", …}`) while the Rust default model returns `Null`.
-         Which is right depends on ADR-0119 §4 (it calls `CellCompV` redundant).
-      2. `arrow_x_to_x_evaluates_to_closure` — uses `x ~> x`, removed by
-         ADR-0074; needs rewriting to the current lambda form.
+      bracket form; the pre-`dim` `Arr` shape in the cobind type test). A fourth
+      (`arrow_x_to_x_evaluates_to_closure`) turned out to be right all along — see
+      the finding below — and now asserts the real behaviour as
+      `arrow_x_to_x_evaluates_to_the_identity_op`.
+- [x] **Finding — functions evaluate to `Term` records, not closures.**
+      `(x) ~> x` evaluates to
+      `{"Op":{"args":[],"dim":{"Const":{"value":1}},"name":"id","source":"Native"}}`:
+      arrow literals go through the arrow-lower pipeline and the identity folds to
+      the `id` combinator. The parked label *"function runtime value shape is not
+      yet producing closure records"* was substantively correct; only its
+      implication (that it was blocked work) was wrong.
+- [ ] **D remainder — one real open question** (kept ignored with a precise
+      reason): `parity_cell_comp_v` (×2) / `arrow_parity_cell_comp_v` — a
+      **model-parity gap**: for a derived (`Term::Opaque`) record the Handl model
+      evaluates it (`{"__tag__":"Cell2", …}`) while the Rust default model returns
+      `Null`. Which is right depends on ADR-0119 §4 (it calls `CellCompV`
+      redundant).
 - [ ] **A (part 2) — `on_type_formatting.rs` still owns an indenter.** 295 lines
       of hand-rolled indentation plus bracket matching. It cannot be delegated by
       inspection: it exists to indent a *blank* new line as you type, and a
