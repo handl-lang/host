@@ -109,10 +109,22 @@ this migration, since it is the only thing that would catch a feature regressing
 as it moves behind the seam.
 
 **Recommendation:** finish `ADR-LSP-remaining.md` (hover next — it already has a
-slot in `ToolingHost` and a placeholder plugin), add one end-to-end server test
-first, and take the other un-migrated features one at a time: each is either
-expressible as a `Language::lsp` rule (move it) or genuinely host-specific
-(declare it and keep it). Nothing gets deleted on the way.
+slot in `ToolingHost` and a placeholder plugin), and take the other un-migrated
+features one at a time: each is either expressible as a `Language::lsp` rule
+(move it) or genuinely host-specific (declare it and keep it). Nothing gets
+deleted on the way.
+
+**Prerequisite DONE.** The end-to-end safety net now exists:
+`crates/host-lsp/src/handlers_e2e_tests.rs` drives **23** handlers with a real
+document on disk and asserts each reply is a well-formed LSP response carrying the
+request id — covering every one of the 16 previously-uncovered handler modules
+(highlight, moniker, selection ranges, document link, references, colour,
+linked editing, code actions, prepare/rename, prepare/sub/super type hierarchy,
+call hierarchy incoming/outgoing, colour presentation, execute command, inlay
+hint(s), resolve, signature help, workspace symbols, code lens). `host-lsp` went
+from 255 to **278** tests, all passing, and no handler misbehaved — so the 0%
+coverage was a missing test, not hidden breakage. A feature can now regress
+loudly when it moves behind the seam.
 
 ### C — finish ADR-0119's cleanup half (supersession, hard evidence) — DONE
 

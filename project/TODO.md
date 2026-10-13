@@ -69,8 +69,10 @@ ever linked. They are retired, not deleted from history.
       than duplicated in the LSP. Only **7 of 26** handler modules dispatch through
       `ToolingHost`; the rest are hand-coded, and `host-lsp` is 14,490 lines against
       `plugin-lsp`'s 1,857. The live work item is `project/adrs/ADR-LSP-remaining.md`
-      (hover + source-position). Add an end-to-end server test first — it is the only
-      thing that can catch a feature regressing as it moves behind the seam.
+      (hover + source-position). **The end-to-end safety net is now in place**
+      (`crates/host-lsp/src/handlers_e2e_tests.rs`, 23 handlers, covering all 16
+      previously-uncovered modules; `host-lsp` 278 tests green), so a feature now
+      regresses loudly when it moves behind the seam.
 - [ ] **A (part 2) — `on_type_formatting.rs` still owns an indenter.** 295 lines
       of hand-rolled indentation plus bracket matching. It cannot be delegated by
       inspection: it exists to indent a *blank* new line as you type, and a

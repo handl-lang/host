@@ -71,6 +71,9 @@ mod folding_ranges_tests;
 mod formatting_tests;
 #[cfg(test)]
 mod handlers_tests;
+
+#[cfg(test)]
+mod handlers_e2e_tests;
 #[cfg(test)]
 mod implementation_tests;
 #[cfg(test)]
