@@ -111,21 +111,32 @@ than missing runtime code; `handl-runtime/tests/arrow_model_*` and
 `*_model_parity` are the suite to interrogate first. Deliver a size estimate
 before any implementation.
 
-### E — census, not cleanup (read-only)
+### E — census of the one-use public functions (read-only) — DONE
 
-Group the 68 one-use public functions into **families** and state, per family,
-where it belongs under the rulings above (kernel / generic tooling / Handl data /
-ledger). No deletions. Produce one page, not 68 line items.
+Scope: `pub fn` whose identifier appears **exactly once** in the whole repo
+(definition only). Current count: **67 across 37 files** (the original sweep said
+68; the retired crates accounted for almost none of it — the list was mostly
+live-crate API surface). No deletions on this evidence alone: `pub` is written on
+purpose, and a name used nowhere yet is not the same as a name that is useless.
 
-Families already visible:
+The families, and where each belongs under the maintainer's rulings:
 
-- 11 token classifiers in `kit-canonical` (`is_bool_kind`, `is_string_kind`,
-  `is_operator_kind`, …) — ADR-0081 says classification belongs in `Language` as
-  data (`token_in_category`); `AGENTS.md` flags this too. Misplaced, not dead.
-- 7 `*_handl_plugin()` constructors — one per FFI library, identical in shape;
-  `plugin-lib-stdlib/src/packages.rs` is where libraries register now.
-- `host-tooling`'s `run_cli` / `read_source_or_stdin` / `with_*_plugin` — looks
-  like CLI plumbing `host-cli` may be reimplementing.
+| Family | n | What it is | Verdict |
+| --- | --- | --- | --- |
+| `kit-canonical` classifiers (`is_*_kind`, `category_of`, …) | 11 | token classification as free functions over embedded YAML text | **misplaced**: ADR-0081 puts classification in `Language` as data (`token_in_category`). Check overlap — if covered, they are superseded; if not, move into `handl-language` |
+| `platform` host/VM API (`with_globals`, `collect_vars`, `env_mut`, `get_plugin`, …) | 11 | the kernel's own public surface (ADR-0031/0040) | **kernel API** — keep, but likely wants an `api` module or `#[doc(hidden)]`; only a maintainer should shrink the kernel boundary |
+| `host-tooling` (`run_cli`, `read_source_or_stdin`, `semantic_tokens_legend`, `with_*_plugin`) | 5 | CLI + LSP plumbing seams | **generic tooling**: check whether `host-cli` reimplements `run_cli` — if so, that is the ruling-2 "no duplicate" case applied to tooling, and `host-cli` should call it |
+| `*_handl_plugin()` constructors (crypto, kv-hashmap, otlp, otlp-std, parse, serialize, tag, ip) | 8 | one `HandlLibraryPlugin` ctor per FFI library — identical in shape | **superseded**: libraries now register by `*Module` type, not via the `HandlLibraryPlugin` wrapper — verified for `crypto` (`kit-canonical` → `handl_plugin_lib_crypto::module::CryptoModule`) and `crypto_handl_plugin()` is called nowhere. One decision retires all eight |
+| `plugin-compile-*` emit/ABI internals (`emit_program`, `emit_placeholder`, `dwarf_line_table`, `build_apply_native_call`, `expect_tag`) | 6 | backend internals; `dwarf_line_table` + the 0%-covered `emit/debug_info.rs` | **an unwired idea**: debug info for compiled output. Keep and record — do not delete |
+| `handl-language` fragment builders (`with_faces`, `with_keyword_clauses`, `with_trailing_tokens`, `with_trivia`, …) | 6 | programmatic construction API for language data (ADR-0044/0081/0096) | **capability API** — the repo builds `Language`s from YAML, but `with_trailing_tokens` backs a real ADR-0096 feature. Keep |
+| `host-lsp` internals (`hover_at`, `property_at_offset`, `cross_arrow_hover`, `invalidate`, `invalidate_dir`, `rest_of_line`) | 6 | hover variants + kit-resolver cache invalidation | **fold into workstream B** (the `host-lsp` vs `plugin-lsp` audit) |
+| `plugin-engine*` / transform (`with_rule_source`, `run_pass_root`, `child_is_kind`, `remap_children_from`, `op_native_dim`, `fixpoint_trace`) | 6 | engine entry points; `op_native_dim` is a dimensioned `Term` ctor | **`op_native_dim` belongs to D (n-dim)**; the rest are engine API — keep |
+| singletons (`is_enabled`, `has_plugin_id`, `from_arc`, `set_partial`, `with_tag`, `new_with_project`, `with_caps`, `with_factories`, `with_resolver_fallback`, `into_vm_error`, `invalid_argument`, `fixpoint_trace`) | 12 | one-offs across the workspace | case-by-case; none is urgent |
+
+**Outcome:** no deletions. Six of the eight families turn out to be *live API or a
+recorded idea*, not garbage — which is exactly the correction the maintainer
+asked for. The two actionable families are the ADR-0081 classifiers (re-home) and
+the `*_handl_plugin` constructors (superseded by the package table).
 
 ## Order
 
