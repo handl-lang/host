@@ -74,13 +74,18 @@ ever linked. They are retired, not deleted from history.
       previously-uncovered modules; `host-lsp` 278 tests green), so a feature now
       regresses loudly when it moves behind the seam.
 - [ ] **A (part 2) — `on_type_formatting.rs` still owns an indenter.** 295 lines
-      of hand-rolled indentation plus bracket matching. It cannot be delegated by
-      inspection: it exists to indent a *blank* new line as you type, and a
-      formatter only rewrites lines that have content, so swapping in
-      `format_source` would silently stop the auto-indent working.
-      **Needs a decision:** does the generic formatter grow a "indent this blank
-      line" entry point (then delegate), or does the LSP drop
-      `textDocument/onTypeFormatting` and rely on format-on-save?
+      of hand-rolled indentation plus bracket matching. The basis is stronger than
+      "tidy": `archived/ADR-LSP.md` (**Accepted**) says *"Formatting and diagnostics
+      are shared with the command-line tooling; they are not duplicated inside the
+      LSP"* — so a private indenter in the LSP is a divergence, not a style choice.
+      It is not a mechanical delegation though: the feature exists to indent a
+      **blank** new line as you type, and `format_source` only rewrites lines that
+      have content, so swapping it in would quietly disable auto-indent.
+      **Two options:** (1) give `plugin-ext-fmt` an "indent this blank line" entry
+      point (the canonical indent logic already exists internally), then delegate —
+      ADR-compliant and keeps the feature; or (2) drop
+      `textDocument/onTypeFormatting` and rely on format-on-save. The same question
+      covers `on_close_bracket` (re-indent when a closing bracket is typed).
 - [ ] **Never-dispatched lowerers.** `plugin-compile-js/src/lower/proof.rs`
       implements `lower_path`/`lower_equiv` (and their `_applied` forms) but the
       dispatcher only handles `Term::Rewrite`. Either wire `Path`/`Equiv` into the
