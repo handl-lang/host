@@ -60,3 +60,44 @@ fn catopt_law_survives_as_data() {
         other => panic!("expected And([...]), got {other:?}"),
     }
 }
+
+// --- the full bank ---------------------------------------------------------
+
+fn full_bank_dir() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/catopt-fragments-all")
+}
+
+/// The whole shipped bank (every rule), not the one-law slice.
+///
+/// **This test pins a known gap.**  The slice above loads because
+/// `assoc_add` is purely structural; the full bank does not, because
+/// some law's right-hand side contains a *leaf* — catopt spells it
+/// `{"catopt:leaf": …}`, and handl's `RewriteStep` vocabulary has no
+/// counterpart for a literal (or a variable) child.  The bridge emits a
+/// map there, which is not a YAML tag, so the load fails.
+///
+/// So the honest statement of Q0's result is: catopt's vocabulary is
+/// expressible as handl data **for structural laws**; leaf-bearing laws
+/// need a mapping first — candidates are `Create` with the value in the
+/// node's `payload` (for constants) and `Fresh(hint)` (for variables).
+///
+/// When that mapping lands, this test flips: assert `Ok` and the full
+/// transform count instead of the failure.
+#[test]
+fn catopt_full_bank_leaf_gap_is_pinned() {
+    match language_from_dir(&full_bank_dir()) {
+        Ok(lang) => panic!(
+            "the full bank now loads ({} transforms) — the leaf gap is closed; \
+             flip this test to assert success",
+            lang.transforms.iter().count()
+        ),
+        Err(e) => {
+            let msg = format!("{e}");
+            assert!(
+                msg.contains("expected a YAML tag"),
+                "expected the leaf gap, got: {msg}"
+            );
+            println!("full bank load fails as recorded: {msg}");
+        }
+    }
+}
