@@ -109,7 +109,8 @@ other `plugin-lib-*` moves to `stdlib/`.
 | `host-cli` + `plugin-ext-cli` | `cli/` | the `hnl` distribution — its dep list *is* its target set |
 | `host-lsp` + `plugin-lsp` + `plugin-lsp-std` + `plugin-ext-lsp` | `lsp/` | the LSP server distribution |
 | `plugin-ffi` | `ffi/modules/ffi` | FFI marshalling — sole normal consumer is `kit-canonical`; pulls `cranelift` + `libloading`, the last heavy deps in platform |
-| `handl-kit-data-canonical` + `kit-canonical` + canonical `data/*.yaml` + `handl-packages/` remainder | `lang/` | Handl-the-language as an artifact (ADR-0044 made literal) |
+| `handl-kit-data-canonical` + canonical `data/*.yaml` + `handl-packages/` remainder | `lang/` | Handl-the-language as data (ADR-0044 made literal) |
+| `kit-canonical` | `kit-canonical/crates/kit-canonical` | the canonical *kit assembly* — wires language data + stdlib + engines into a `Kit`; consumed by hosts |
 | `handl-defining-handl`, `plugin-engine-typecheck-nbe` | `meta/crates/` | self-hosting/NbE experiments — zero-consumer leaves |
 
 `plugin-compile-handl` moves to **`handl/`** — the repo for Handl as a
@@ -188,9 +189,9 @@ crates need the `pub const` re-export rule before any move.
 `kit-canonical` — and `kit-canonical` depends on platform engines. A
 naive move creates a cross-repo cycle. The seam that breaks it is the
 same one ADR-0099 established: those consumers take `&Language`/a kit
-handle as a parameter and the concrete canonical kit is assembled by
-the host (the `cli/`/`lsp/` repos git-depend on `lang/`). This
-injection is Phase-0 work, not a `lang/`-phase surprise.
+handle as a parameter and the concrete canonical kit is assembled in
+the `kit-canonical/` repo (which `cli/`/`lsp/` git-depend on alongside
+`lang/`). This injection is Phase-0 work, not a `lang/`-phase surprise.
 
 **The `0.8` seam, concretely** (measured against the real call sites,
 2026-10-15):
