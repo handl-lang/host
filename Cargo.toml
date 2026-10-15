@@ -22,6 +22,7 @@ toml = "0.8"
 url = "2"
 
 [dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-language = { workspace = true }
 handl-platform = { workspace = true }
 handl-plugin-engine-exec-tree-walk = { workspace = true }
