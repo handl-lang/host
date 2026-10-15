@@ -107,7 +107,10 @@ emits its vocabulary in exactly this layout and loads it back:
 - test: `crates/handl-kit-data-canonical/tests/catopt_fragments.rs`.
 
 That is the spike that established the boundary: a foreign project's laws
-land in `lang.transforms` with their fields intact. Rows may carry extra
+land in `lang.transforms` with their fields intact — **all 83 of them**
+(`catopt_full_bank_loads`) — and a foreign law *executes* through the
+rewrite engine (`catopt_law_fires_through_the_rewrite_engine`), producing
+exactly the term the producer's own engine produces. Rows may carry extra
 keys — serde ignores unknown fields — so a producer can ride its own
 authoritative record alongside the handl-shaped view (catopt uses a
 `catopt:` key for this).
