@@ -30,7 +30,7 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
 - [ ] **0.7 `pub const` re-export rule**: each `include_str!`ed package
       gets exactly one owner; other consumers take `pub const`. Apply to
       `hello`, `transform`, `stats` first (each pinned by ≥2 crates).
-- [ ] **0.8 Kit-injection seam**: `plugin-engine-test`,
+- [x] **0.8 Kit-injection seam**: `plugin-engine-test`,
       `plugin-ext-lint`, `plugin-ext-typecheck`, `host-tooling` take a
       `&Language`/kit handle instead of linking `kit-canonical`
       directly — their normal deps on it would otherwise create a
@@ -47,9 +47,12 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       declared feature so platform's default build drops
       cranelift/libloading even before `ffi/` exists.
 - [ ] **0.10 Applier audit**: `plugin-applier-bootstrap` has zero
-      consumers (normal *and* dev) — the `applier → applier-default →
-      applier-bootstrap` chain is dormant. Keep-in-platform vs remove,
-      same class as the deleted `plugin-loader-wasm` stubs.
+      consumers — `BootstrapPlugin` is never instantiated. It stays in
+      platform (it's the ADR-0036 host-composition seam, and `cli/`
+      will need it to assemble kits), but decide: **wire it** (make
+      `host-cli` compose via `BootstrapPlugin` as designed) or
+      **document superseded** (host-cli's inline path won). Do not
+      delete blindly.
 
 Phase-0 verification: `cargo check --workspace` green; `hnl sdkgen
 c|webidl|python` and `hnl compile js|llvm|dot|term|sexp` behavior
@@ -66,6 +69,10 @@ unchanged (all still statically linked, just through registries).
       module is expressed at the *target* level.
 - [ ] `dev-link.sh` (or superrepo) generates the `[patch]` block across
       sibling checkouts; CI uses the git dep only.
+- [ ] NB: `python` works in Phase 1 because `backend: c` still resolves
+      in-platform — Phase 2 re-points it to `c/`'s module. That
+      re-resolution is the cross-repo composition proof, not an
+      accident.
 - [ ] Prove: `python/` CI builds only its own graph; `platform/` tests
       green without the emitter.
 
@@ -158,6 +165,13 @@ This phase validates the whole template on a 1-crate port surface with
       `handl-emitters` (generic fragment emitter, consumed by staying
       `handl-kit-data`), `plugin-ext-refinement` (consumed by
       `plugin-engine-test`).
+
+## Phase 12 — `docs/` (independent, anytime)
+
+- [ ] `docs/` repo ← platform `docs/` (VitePress) + sibling
+      `handl-lang/docs/` top-level ADRs.
+- [ ] Per-repo generated reference: each repo publishes rustdoc + its
+      `.hnl` module surface; `docs/` aggregates them into one site.
 
 ## Deferred
 
