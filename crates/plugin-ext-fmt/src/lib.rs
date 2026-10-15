@@ -5,10 +5,15 @@
 //! This crate is a **thin surface** over the language-generic engine in
 //! `handl-plugin-engine-fmt`. It owns only what is canonical to the v0.1
 //! surface:
-//! - the canonical [`Language`] assembly [`canonical_language`],
 //! - the **parse** stage (lex + Pratt) that validates and tokenizes source,
 //! - the selection of the canonical v0.1 layout/post-process rule sets,
 //! - the [`FormatError`]/diagnostics (ADR-0091) surface.
+//!
+//! The [`Language`] the formatter runs against is **injected by the host**
+//! (ADR-0128 §"The 0.8 seam"): this crate stays in `platform`, so it must
+//! not link `handl-kit-data-canonical` — every entry point takes `lang`
+//! (the `*_with_language` convention) or, for [`FmtPlugin`], an
+//! `Arc<Language>` at construction.
 //!
 //! The engine owns the pipeline stages:
 //! ```text
@@ -19,9 +24,11 @@
 //! and **post-process** ([`PostProcessRule`]) all live in
 //! `handl-plugin-engine-fmt` and are reusable/replaceable.
 //!
-//! Public API (unchanged, thin wrappers over the pipeline):
-//! - [`format_source`] — parse + canonical layout + source text out.
-//! - [`check_source`] — true iff the source is already canonical.
+//! Public API (thin wrappers over the pipeline):
+//! - [`format_source_with_language`] — parse + canonical layout + source
+//!   text out.
+//! - [`check_source_with_language`] — true iff the source is already
+//!   canonical.
 //! - [`format_ast`] — data-driven `Ast` → source via [`FormatEngine`].
 //! - [`format_error_to_diagnostic`] — shared diagnostics (ADR-0091).
 //!
@@ -115,12 +122,6 @@ pub fn format_source_with_language(lang: &Language, src: &str) -> Result<String,
     Ok(canonical_post_process(&rendered))
 }
 
-/// Format handl source text into canonical form using the canonical [`Language`].
-pub fn format_source(src: &str) -> Result<String, FormatError> {
-    let lang = canonical_language()?;
-    format_source_with_language(&lang, src)
-}
-
 /// Check whether source text is already in canonical form using the provided
 /// [`Language`].
 pub fn check_source_with_language(lang: &Language, src: &str) -> Result<bool, FormatError> {
@@ -129,13 +130,6 @@ pub fn check_source_with_language(lang: &Language, src: &str) -> Result<bool, Fo
     // a single trailing newline (matching what format_source produces).
     let normalized = normalize_for_compare(src);
     Ok(formatted == normalized)
-}
-
-/// Check whether source text is already in canonical form using the canonical
-/// [`Language`].
-pub fn check_source(src: &str) -> Result<bool, FormatError> {
-    let lang = canonical_language()?;
-    check_source_with_language(&lang, src)
 }
 
 /// Format the subtree rooted at `root` in `ast` using `lang` data.
@@ -172,17 +166,6 @@ pub fn format_error_to_diagnostic(
 }
 
 // ---------------------------------------------------------------------------
-// Internal: language assembly + parsing (the pipeline's parse stage)
-// ---------------------------------------------------------------------------
-
-/// Assemble the canonical language once (cheap after the first call thanks to
-/// the compiled-in data fragments).
-fn canonical_language() -> Result<Language, FormatError> {
-    let kit = handl_kit_data_canonical::assemble()?;
-    Ok(kit.lang().clone())
-}
-
-// ---------------------------------------------------------------------------
 // Internal: normalization for `check_source` comparison
 // ---------------------------------------------------------------------------
 
@@ -211,21 +194,39 @@ fn normalize_for_compare(src: &str) -> String {
 mod tests {
     use super::*;
 
+    /// The canonical language for tests — assembled from the dev-dep data
+    /// crate (tests may depend on `lang/` data; the library must not).
+    fn lang() -> &'static Language {
+        static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
+        LANG.get_or_init(|| {
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles")
+        })
+    }
+
+    fn format_source(src: &str) -> Result<String, FormatError> {
+        format_source_with_language(lang(), src)
+    }
+
+    fn check_source(src: &str) -> Result<bool, FormatError> {
+        check_source_with_language(lang(), src)
+    }
+
     // --- format_ast / check_source normalization ---
 
     #[test]
     fn format_ast_renders_a_parsed_arena() {
         use handl_plugin_engine_parse::ParserEngine as _;
 
-        let lang = canonical_language().expect("canonical language assembles");
-        let tokens = handl_plugin_engine_lex_pattern::lex(&lang, "x   =   1;").expect("lexes");
+        let lang = lang();
+        let tokens = handl_plugin_engine_lex_pattern::lex(lang, "x   =   1;").expect("lexes");
         let request = handl_plugin_engine_parse::ParserRequest::new(tokens);
         let ast = handl_plugin_engine_parse_pratt::PrattEngine::new()
-            .parse(&lang, &request)
+            .parse(lang, &request)
             .expect("parses");
         assert!(!ast.is_empty(), "the parse must produce a node");
         let root = AstRef::new(ast.len() - 1);
-        let rendered = format_ast(&lang, &ast, root).expect("formats");
+        let rendered = format_ast(lang, &ast, root).expect("formats");
         assert!(!rendered.is_empty(), "expected rendered source");
     }
 
@@ -526,17 +527,17 @@ mod tests {
 
     #[test]
     fn classify_known_tokens() {
-        let lang = canonical_language().expect("canonical language assembles");
-        assert_eq!(classify_token(&lang, "token.lparen"), TokenCat::OpenParen);
-        assert_eq!(classify_token(&lang, "token.rparen"), TokenCat::CloseParen);
-        assert_eq!(classify_token(&lang, "token.lbrace"), TokenCat::OpenBrace);
-        assert_eq!(classify_token(&lang, "token.rbrace"), TokenCat::CloseBrace);
-        assert_eq!(classify_token(&lang, "token.comma"), TokenCat::Comma);
-        assert_eq!(classify_token(&lang, "token.equal"), TokenCat::BinaryOp);
-        assert_eq!(classify_token(&lang, "token.flow"), TokenCat::BinaryOp);
-        assert_eq!(classify_token(&lang, "token.keyword.if"), TokenCat::Keyword);
-        assert_eq!(classify_token(&lang, "token.identifier"), TokenCat::Atom);
-        assert_eq!(classify_token(&lang, "token.comment"), TokenCat::Comment);
+        let lang = lang();
+        assert_eq!(classify_token(lang, "token.lparen"), TokenCat::OpenParen);
+        assert_eq!(classify_token(lang, "token.rparen"), TokenCat::CloseParen);
+        assert_eq!(classify_token(lang, "token.lbrace"), TokenCat::OpenBrace);
+        assert_eq!(classify_token(lang, "token.rbrace"), TokenCat::CloseBrace);
+        assert_eq!(classify_token(lang, "token.comma"), TokenCat::Comma);
+        assert_eq!(classify_token(lang, "token.equal"), TokenCat::BinaryOp);
+        assert_eq!(classify_token(lang, "token.flow"), TokenCat::BinaryOp);
+        assert_eq!(classify_token(lang, "token.keyword.if"), TokenCat::Keyword);
+        assert_eq!(classify_token(lang, "token.identifier"), TokenCat::Atom);
+        assert_eq!(classify_token(lang, "token.comment"), TokenCat::Comment);
     }
 
     #[test]

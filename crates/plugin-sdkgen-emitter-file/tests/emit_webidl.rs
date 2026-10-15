@@ -4,6 +4,14 @@ use std::path::PathBuf;
 use handl_plugin_sdkgen::*;
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 
+/// The canonical language, assembled from the dev-dep data crate.
+fn lang() -> std::sync::Arc<handl_language::Language> {
+    std::sync::Arc::new(
+        handl_kit_data_canonical::language_from_yaml()
+            .expect("canonical language assembles"),
+    )
+}
+
 fn build_console_module() -> SdkgenModule {
     let mut module = SdkgenModule::default();
     module.module = "console".to_string();
@@ -43,7 +51,7 @@ fn emits_js_port_and_adapter() {
     let port_dir = tmp.join("console");
 
     let _ = fs::remove_dir_all(&tmp);
-    FileEmitter::new().emit(&module, &port_dir).unwrap();
+    FileEmitter::new(lang()).emit(&module, &port_dir).unwrap();
 
     let port = fs::read_to_string(port_dir.join("console.hnl")).unwrap();
     let adapter = fs::read_to_string(tmp.join("console-webidl-browser/console.hnl")).unwrap();
@@ -101,11 +109,11 @@ fn emits_js_port_and_adapter() {
 
     // Emitted files are canonical: `hnl fmt --check` must pass on both.
     assert!(
-        handl_plugin_ext_fmt::check_source(&port).unwrap_or(false),
+        handl_plugin_ext_fmt::check_source_with_language(&lang(), &port).unwrap_or(false),
         "port is not canonical:\n{port}"
     );
     assert!(
-        handl_plugin_ext_fmt::check_source(&adapter).unwrap_or(false),
+        handl_plugin_ext_fmt::check_source_with_language(&lang(), &adapter).unwrap_or(false),
         "adapter is not canonical:\n{adapter}"
     );
 
@@ -154,7 +162,7 @@ fn emits_per_record_layout() {
     let adapter_dir = tmp.join("console-webidl-browser");
 
     let _ = fs::remove_dir_all(&tmp);
-    FileEmitter::new().emit(&module, &port_dir).unwrap();
+    FileEmitter::new(lang()).emit(&module, &port_dir).unwrap();
 
     let widget_port = fs::read_to_string(port_dir.join("Widget.hnl")).unwrap();
     let types_port = fs::read_to_string(port_dir.join("types.hnl")).unwrap();

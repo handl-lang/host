@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-language = { path = "../handl-language" }
 handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
 handl-plugin-sdkgen-backend-c = { path = "../plugin-sdkgen-backend-c" }
 handl-plugin-sdkgen-backend-webidl = { path = "../plugin-sdkgen-backend-webidl" }

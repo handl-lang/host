@@ -1,8 +1,9 @@
 //! The `fmt` capability plugin — the capability-contract adapter over the
 //! free functions in this crate.
 //!
-//! `host-cli` currently calls [`crate::format_source`] / [`crate::check_source`]
-//! directly. This adapter exposes the same behaviour through the
+//! `host-cli` currently calls [`crate::format_source_with_language`] /
+//! [`crate::check_source_with_language`] through the plugin's injected
+//! [`Language`]. This adapter exposes the same behaviour through the
 //! `plugin-ext-*` capability seam so a host (`host-cli`, `host-lsp`, a third
 //! party) can dispatch `{command: "fmt", args: [...]}` uniformly. The free
 //! functions remain the implementation.
@@ -42,22 +43,22 @@ use handl_platform::{
 pub const FMT_CAPABILITY: &str = "fmt";
 
 /// Adapts this crate's formatter to the capability contract.
+///
+/// The [`Language`](handl_language::Language) is injected at construction
+/// (ADR-0128 §"The 0.8 seam") — the host assembles the canonical language
+/// and hands it in; the plugin stays `Send + Sync` (`Language` is).
 pub struct FmtPlugin {
     capabilities: Vec<CapabilityId>,
+    lang: std::sync::Arc<handl_language::Language>,
 }
 
 impl FmtPlugin {
-    /// Create the plugin, declaring the `fmt` capability.
-    pub fn new() -> Self {
+    /// Create the plugin, declaring the `fmt` capability, bound to `lang`.
+    pub fn new(lang: std::sync::Arc<handl_language::Language>) -> Self {
         Self {
             capabilities: vec![CapabilityId::from(FMT_CAPABILITY)],
+            lang,
         }
-    }
-}
-
-impl Default for FmtPlugin {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -106,7 +107,7 @@ impl Plugin for FmtPlugin {
             .unwrap_or(false);
 
         if check {
-            match crate::check_source(source) {
+            match crate::check_source_with_language(&self.lang, source) {
                 Ok(true) => Ok(CapabilityResponse(
                     serde_json::json!({ "status": "canonical" }),
                 )),
@@ -127,7 +128,7 @@ impl Plugin for FmtPlugin {
                 }
             }
         } else {
-            match crate::format_source(source) {
+            match crate::format_source_with_language(&self.lang, source) {
                 Ok(output) => Ok(CapabilityResponse(
                     serde_json::json!({ "status": "formatted", "output": output }),
                 )),
@@ -148,6 +149,15 @@ mod tests {
     use super::*;
     use handl_platform::{KitRegistry, PluginRegistry};
 
+    /// The canonical language for tests — assembled from the dev-dep data
+    /// crate (tests may depend on `lang/` data; the plugin must not).
+    fn lang() -> std::sync::Arc<handl_language::Language> {
+        std::sync::Arc::new(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    }
+
     fn with_ctx<R>(f: impl FnOnce(&mut PluginContext) -> R) -> R {
         let mut plugins = PluginRegistry::new();
         let mut kits = KitRegistry::new();
@@ -167,7 +177,7 @@ mod tests {
 
     #[test]
     fn declares_the_fmt_capability() {
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         assert_eq!(plugin.id(), "ext.fmt");
         assert_eq!(plugin.capabilities().len(), 1);
         assert_eq!(plugin.capabilities()[0].as_str(), "fmt");
@@ -177,7 +187,7 @@ mod tests {
 
     #[test]
     fn check_reports_whether_source_is_formatted() {
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -201,7 +211,7 @@ mod tests {
         // exactly which inputs today's parser rejects — writing it against a
         // single guessed input failed twice (the formatter happily formatted
         // both `"x = "` and `"x = (1"`).
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let candidates = ["x = (1", ")", "\"unterminated", "@@@", "~[", "x = = 1"];
         let mut saw_error = false;
         for src in candidates {
@@ -229,7 +239,7 @@ mod tests {
 
     #[test]
     fn format_returns_output() {
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let res = with_ctx(|ctx| {
             plugin
                 .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
@@ -247,8 +257,8 @@ mod tests {
     }
 
     #[test]
-    fn default_is_new_and_name_is_reported() {
-        let plugin = FmtPlugin::default();
+    fn name_is_reported() {
+        let plugin = FmtPlugin::new(lang());
         assert_eq!(plugin.name(), "Formatter");
         assert_eq!(plugin.capabilities().len(), 1);
     }
@@ -257,7 +267,7 @@ mod tests {
     fn check_reports_not_canonical_for_unformatted_source() {
         // `x   =   1` has non-canonical spacing, so the check must say so
         // rather than merely returning *some* status.
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -279,7 +289,7 @@ mod tests {
         // A lex failure (not a parse failure) is the deterministic error path:
         // the formatter renders from the token stream, so only input that
         // cannot be lexed at all fails.
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -302,7 +312,7 @@ mod tests {
 
     #[test]
     fn format_reports_a_lex_error_as_a_structured_diagnostic() {
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -322,7 +332,7 @@ mod tests {
 
     #[test]
     fn missing_source_is_invalid_metadata() {
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({"check": true})), ctx))
             .expect_err("a payload without `source` must fail");
         assert!(
@@ -333,7 +343,7 @@ mod tests {
 
     #[test]
     fn wrong_capability_is_unknown() {
-        let plugin = FmtPlugin::new();
+        let plugin = FmtPlugin::new(lang());
         let err = with_ctx(|ctx| {
             plugin.run(
                 &CapabilityRequest {

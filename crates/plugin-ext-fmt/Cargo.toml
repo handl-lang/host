@@ -7,7 +7,6 @@ edition.workspace = true
 handl-platform = { path = "../platform" }
 handl-plugin-engine-fmt = { path = "../plugin-engine-fmt" }
 handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
 handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
@@ -15,4 +14,5 @@ handl-language = { path = "../handl-language" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 serde_json = { workspace = true }

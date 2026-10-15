@@ -1,14 +1,23 @@
 //! File emitter for the Handl SDK generator (ADR-0107).
 
+use handl_language::Language;
 use handl_plugin_sdkgen::{Emitter, SdkgenError, SdkgenModule};
 use std::path::Path;
+use std::sync::Arc;
 
 /// Emitter that writes port and adapter `.hnl` files to disk.
-pub struct FileEmitter;
+///
+/// The [`Language`] used to canonicalize emitted source is injected at
+/// construction (ADR-0128 §"The 0.8 seam"): the emitter lives in platform,
+/// so it must not link `handl-kit-data-canonical` itself — the host
+/// (`hnl sdkgen`) assembles the canonical language and hands it in.
+pub struct FileEmitter {
+    lang: Arc<Language>,
+}
 
 impl FileEmitter {
-    pub fn new() -> Self {
-        Self
+    pub fn new(lang: Arc<Language>) -> Self {
+        Self { lang }
     }
 }
 
@@ -31,11 +40,14 @@ impl Emitter for FileEmitter {
             .map_err(|e| SdkgenError(format!("failed to create adapter dir: {e}")))?;
 
         if module.per_record_files {
-            return emit_per_record(module, output, &adapter_dir, &lib, &adapter_pkg);
+            return emit_per_record(&self.lang, module, output, &adapter_dir, &lib, &adapter_pkg);
         }
 
-        let port = canonicalize(build_port(module, &lib, module_name));
-        let adapter = canonicalize(build_adapter(module, &lib, module_name, &adapter_pkg));
+        let port = canonicalize(&self.lang, build_port(module, &lib, module_name));
+        let adapter = canonicalize(
+            &self.lang,
+            build_adapter(module, &lib, module_name, &adapter_pkg),
+        );
 
         let port_path = output.join(format!("{module_name}.hnl"));
         let adapter_path = adapter_dir.join(format!("{module_name}.hnl"));
@@ -55,6 +67,7 @@ impl Emitter for FileEmitter {
 /// layout's `<module>.hnl` artifacts are removed so a regenerated spec
 /// doesn't leave a stale, oversized file behind.
 fn emit_per_record(
+    lang: &Language,
     module: &SdkgenModule,
     output: &Path,
     adapter_dir: &Path,
@@ -85,8 +98,8 @@ fn emit_per_record(
     }
 
     let write = |sub: &SdkgenModule, name: &str| -> Result<(), SdkgenError> {
-        let port = canonicalize(build_port(sub, lib, name));
-        let adapter = canonicalize(build_adapter(sub, lib, name, adapter_pkg));
+        let port = canonicalize(lang, build_port(sub, lib, name));
+        let adapter = canonicalize(lang, build_adapter(sub, lib, name, adapter_pkg));
         std::fs::write(output.join(format!("{name}.hnl")), port)
             .map_err(|e| SdkgenError(format!("failed to write {name}.hnl: {e}")))?;
         std::fs::write(adapter_dir.join(format!("{name}.hnl")), adapter)
@@ -117,8 +130,8 @@ fn emit_per_record(
 /// satisfy `hnl fmt --check` out of the box (e.g. `Result<(), E>` renders as
 /// `Result < (), E >`). On a format error the raw text is still written — an
 /// unformatted artifact is more debuggable than none.
-fn canonicalize(src: String) -> String {
-    match handl_plugin_ext_fmt::format_source(&src) {
+fn canonicalize(lang: &Language, src: String) -> String {
+    match handl_plugin_ext_fmt::format_source_with_language(lang, &src) {
         Ok(formatted) => formatted,
         Err(e) => {
             eprintln!("sdkgen: emitted source failed canonical fmt ({e}); writing unformatted");

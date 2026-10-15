@@ -1379,6 +1379,7 @@ dependencies = [
 name = "handl-plugin-ext-sdkgen"
 version = "0.1.0"
 dependencies = [
+ "handl-language",
  "handl-plugin-sdkgen",
  "handl-plugin-sdkgen-backend-c",
  "handl-plugin-sdkgen-backend-webidl",
@@ -1754,6 +1755,8 @@ dependencies = [
 name = "handl-plugin-sdkgen-emitter-file"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
+ "handl-language",
  "handl-plugin-ext-fmt",
  "handl-plugin-sdkgen",
 ]

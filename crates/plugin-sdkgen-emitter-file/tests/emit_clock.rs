@@ -4,6 +4,14 @@ use std::path::PathBuf;
 use handl_plugin_sdkgen::*;
 use handl_plugin_sdkgen_emitter_file::FileEmitter;
 
+/// The canonical language, assembled from the dev-dep data crate.
+fn lang() -> std::sync::Arc<handl_language::Language> {
+    std::sync::Arc::new(
+        handl_kit_data_canonical::language_from_yaml()
+            .expect("canonical language assembles"),
+    )
+}
+
 fn build_clock_module() -> SdkgenModule {
     let mut module = SdkgenModule::default();
     module.module = "clock".to_string();
@@ -77,7 +85,7 @@ fn emits_port_and_adapter() {
     let port_dir = tmp.join("libc");
 
     let _ = fs::remove_dir_all(&tmp);
-    FileEmitter::new().emit(&module, &port_dir).unwrap();
+    FileEmitter::new(lang()).emit(&module, &port_dir).unwrap();
 
     let port = fs::read_to_string(port_dir.join("clock.hnl")).unwrap();
     let adapter = fs::read_to_string(tmp.join("libc-c-linux-x86_64/clock.hnl")).unwrap();
@@ -157,7 +165,7 @@ fn out_buf_descriptor_gets_buf_unwrap_body() {
     let port_dir = tmp.join("libc");
 
     let _ = fs::remove_dir_all(&tmp);
-    FileEmitter::new().emit(&module, &port_dir).unwrap();
+    FileEmitter::new(lang()).emit(&module, &port_dir).unwrap();
 
     let adapter = fs::read_to_string(tmp.join("libc-c-linux-x86_64/socket.hnl")).unwrap();
     assert!(

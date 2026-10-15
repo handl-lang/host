@@ -6,16 +6,18 @@
 //! (and its `TextEdit` shape) was superseded by that engine and has been
 //! retired — see `project/parked.yaml` and ADR-0126.
 
-use handl_plugin_ext_fmt::format_source;
+use handl_plugin_ext_fmt::format_source_with_language;
 use serde_json::{Value, json};
 
 /// Wrap the formatting edits in an LSP `textDocument/formatting` response
 /// (a JSON array of `{ range, newText }` objects).
 ///
-/// The full-document canonical formatter (`handl_plugin_ext_fmt::format_source`)
-/// is used so the LSP matches the `hnl fmt` CLI.
+/// The full-document canonical formatter
+/// (`handl_plugin_ext_fmt::format_source_with_language`) is used so the LSP
+/// matches the `hnl fmt` CLI — the language comes from the host's
+/// thread-local kit (ADR-0128 §"The 0.8 seam").
 pub fn format_document_json(source: &str) -> Value {
-    match format_source(source) {
+    match crate::with_main_kit(|kit| format_source_with_language(kit.lang(), source)) {
         Ok(formatted) => {
             if formatted == source {
                 return json!([]);

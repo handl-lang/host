@@ -5,7 +5,12 @@
 //! of this module is that the LSP agrees with `hnl fmt`: the previous version
 //! had its own indenter and disagreed.
 
-use handl_plugin_ext_fmt::format_source;
+use handl_plugin_ext_fmt::format_source_with_language;
+
+/// The canonical formatter over the host's thread-local kit language.
+fn format_source(source: &str) -> Result<String, handl_plugin_ext_fmt::FormatError> {
+    crate::with_main_kit(|kit| format_source_with_language(kit.lang(), source))
+}
 use serde_json::Value;
 
 use crate::range_formatting::range_format;

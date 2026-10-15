@@ -11,7 +11,7 @@
 //! `hnl fmt` leaves untouched, so "format selection" and "format document"
 //! produced different files. See `project/parked.yaml` and ADR-0126.
 
-use handl_plugin_ext_fmt::format_source;
+use handl_plugin_ext_fmt::format_source_with_language;
 use serde_json::{Value, json};
 
 /// Format the lines in `[start_line, end_line]` (inclusive) of `source`,
@@ -29,7 +29,9 @@ pub fn range_format(source: &str, start_line: u32, end_line: u32) -> Vec<Value> 
     if source.is_empty() || start_line > end_line {
         return Vec::new();
     }
-    let Ok(formatted) = format_source(source) else {
+    let Ok(formatted) =
+        crate::with_main_kit(|kit| format_source_with_language(kit.lang(), source))
+    else {
         return Vec::new();
     };
     if formatted == source {

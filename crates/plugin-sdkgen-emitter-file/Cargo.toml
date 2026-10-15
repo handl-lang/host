@@ -4,5 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+handl-language = { path = "../handl-language" }
 handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
 handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
+
+[dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

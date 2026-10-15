@@ -1,5 +1,6 @@
 //! `hnl sdkgen` CLI extension (ADR-0107).
 
+use handl_language::Language;
 use handl_plugin_sdkgen::{Emitter, SdkgenBackend, http_get};
 use handl_plugin_sdkgen_backend_c::{CBackend, SdkgenConfig};
 use handl_plugin_sdkgen_backend_webidl::{MdnDocSource, WebIdlBackend, WebIdlConfig};
@@ -8,7 +9,11 @@ use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 /// Run the `hnl sdkgen` subcommand and return the process exit code.
-pub fn sdkgen_command(args: &[String]) -> i32 {
+///
+/// `lang` is the language the emitted `.hnl` port/adapter sources are
+/// canonicalized against — injected by the host (ADR-0128 §"The 0.8 seam")
+/// because this crate must not link `handl-kit-data-canonical`.
+pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
     let usage = "usage: hnl sdkgen <c|webidl|python> [<header|spec> | --from-url <url>] --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>]";
     if args.is_empty() {
         eprintln!("{usage}");
@@ -145,7 +150,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             for d in &module.diagnostics {
                 eprintln!("sdkgen: diagnostic: {d}");
             }
-            let emitter = FileEmitter::new();
+            let emitter = FileEmitter::new(std::sync::Arc::new(lang.clone()));
             if let Err(e) = emitter.emit(&module, output_path) {
                 eprintln!("sdkgen: {e}");
                 return 1;
@@ -193,7 +198,7 @@ pub fn sdkgen_command(args: &[String]) -> i32 {
             for d in &module.diagnostics {
                 eprintln!("sdkgen: diagnostic: {d}");
             }
-            let emitter = FileEmitter::new();
+            let emitter = FileEmitter::new(std::sync::Arc::new(lang.clone()));
             if let Err(e) = emitter.emit(&module, output_path) {
                 eprintln!("sdkgen: {e}");
                 return 1;

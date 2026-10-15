@@ -483,7 +483,9 @@ mod tests {
     #[test]
     fn compute_fixes_on_canonical_source_is_empty() {
         // No fmt fix present, so the non-fmt filter chain is exercised.
-        let canonical = handl_plugin_ext_fmt::format_source("x = 1;").expect("formats");
+        let canonical =
+            handl_plugin_ext_fmt::format_source_with_language(canonical_ctx().lang(), "x = 1;")
+                .expect("formats");
         assert!(compute_fixes(&canonical_ctx(), &canonical, &HashSet::new()).is_empty());
     }
 

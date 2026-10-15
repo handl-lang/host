@@ -6,7 +6,22 @@
 use std::fs;
 use std::path::PathBuf;
 
-use handl_plugin_ext_fmt::format_source;
+use handl_plugin_ext_fmt::format_source_with_language;
+
+/// The canonical language, assembled once from the dev-dep data crate
+/// (integration tests may depend on `lang/` data; the library must not).
+fn lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        handl_kit_data_canonical::language_from_yaml()
+            .expect("canonical language assembles")
+    })
+}
+
+fn format_source(src: &str) -> Result<String, handl_plugin_ext_fmt::FormatError> {
+    format_source_with_language(lang(), src)
+}
 
 /// Find all `.input.handl` files in the `tests/golden/` directory and return
 /// their stem names (e.g. `binding`, `import`, …).
