@@ -19,3 +19,4 @@ handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-exec-cranelift = { path = "../plugin-engine-exec-cranelift" }
+handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }

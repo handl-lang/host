@@ -97,3 +97,67 @@ fn catopt_full_bank_loads() {
         );
     }
 }
+
+// --- step 1 of plan 0030: does a catopt law actually FIRE? ----------------
+//
+// Loading a `Language` is not running its engine.  This is the measurement
+// plan 0030 gates the peer on: a catopt law, an AST shaped like a catopt
+// term, and handl's `RewriteEngine` doing the rewrite.
+//
+// catopt's `assoc_add` says  add(a, add(b, c))  ->  add(add(a, b), c).
+// Its emitted rule is `!Declarative { target_kind: add, children: [
+// !Create { kind: add, children: [KeepPath([0]), KeepPath([1,0])] },
+// KeepPath([1,1]) ] }` — i.e. rebuild the node as add(child0,
+// child1.child0) with child1.child1 second — so the expected result is
+// exactly the associativity law.
+
+use handl_language::{Ast, AstNode, AstRef};
+use handl_plugin_engine_transform_rewrite::RewriteEngine;
+
+fn cnode(kind: &str, children: &[usize]) -> AstNode {
+    AstNode::new(kind).with_payload(serde_json::json!({ "children": children }))
+}
+
+#[test]
+fn catopt_law_fires_through_the_rewrite_engine() {
+    let lang = language_from_dir(&fixture_dir()).expect("the slice loads");
+
+    // add(a, add(b, c))
+    let mut ast = Ast::new();
+    ast.push(cnode("a", &[])); // 0
+    ast.push(cnode("b", &[])); // 1
+    ast.push(cnode("c", &[])); // 2
+    ast.push(cnode("add", &[1, 2])); // 3 = add(b, c)
+    ast.push(cnode("add", &[0, 3])); // 4 = add(a, add(b, c))
+
+    let out = RewriteEngine::new()
+        .apply_rule(&lang, &ast, AstRef::new(4), "transform.catopt.assoc_add")
+        .expect("catopt's law must fire on a catopt-shaped term");
+
+    assert_eq!(out.trace.rewrites.len(), 1, "exactly one rewrite");
+
+    // Navigate the result: root add(_, _) with [add(a, b), c].
+    let kids = |i: AstRef| -> Vec<AstRef> {
+        out.ast
+            .get(i)
+            .expect("node")
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .expect("children")
+            .iter()
+            .map(|v| AstRef::new(v.as_u64().expect("index") as usize))
+            .collect()
+    };
+    let root = out.root;
+    assert_eq!(out.ast.get(root).unwrap().kind, "add");
+    let top = kids(root);
+    assert_eq!(top.len(), 2);
+
+    let left = out.ast.get(top[0]).unwrap();
+    assert_eq!(left.kind, "add", "left child is the new add(a, b)");
+    let left_kids = kids(top[0]);
+    assert_eq!(out.ast.get(left_kids[0]).unwrap().kind, "a");
+    assert_eq!(out.ast.get(left_kids[1]).unwrap().kind, "b");
+    assert_eq!(out.ast.get(top[1]).unwrap().kind, "c", "right child is c");
+}
