@@ -1,4 +1,6 @@
-use handl_kit_canonical::{Kit, SpannedToken, TokenClasses};
+use std::sync::Arc;
+
+use handl_language::{LangError, SpannedToken, TokenClasses};
 use handl_platform::PlatformError;
 
 /// LSP semantic token type names and modifier names, in protocol order.
@@ -152,12 +154,6 @@ impl CanonicalTokenClassifier {
             }
         }
         classifier
-    }
-
-    /// Build a classifier for the compiled-in canonical kit's language.
-    pub fn canonical() -> Self {
-        let kit = Kit::new().expect("canonical kit should assemble");
-        Self::for_language(kit.language())
     }
 
     /// Context-unaware classification based solely on the token kind's
@@ -382,17 +378,33 @@ fn is_at_line_start(tokens: &[SpannedToken], index: usize, source: &str) -> bool
     source[prev_end..curr_start].contains('\n')
 }
 
-/// A semantic tokens provider that uses the canonical kit lexer and a
+/// The injected spanned lexer: source → tokens with byte spans
+/// (ADR-0128 §"The 0.8 seam"). The host wires it from its kit —
+/// `kit.lex_with_spans` — via a capture-less closure so the provider
+/// stays `Send + Sync` while the `!Sync` kit lives thread-local.
+pub type SpannedLex = dyn Fn(&str) -> Result<Vec<SpannedToken>, LangError> + Send + Sync;
+
+/// A semantic tokens provider that uses the injected lexer and a
 /// context-aware token classifier.
 pub struct BasicSemanticTokens {
     classifier: CanonicalTokenClassifier,
     legend: SemanticTokenLegend,
+    lex: Arc<SpannedLex>,
 }
 
 impl BasicSemanticTokens {
-    /// Creates a new semantic tokens provider with the given classifier and legend.
-    pub fn new(classifier: CanonicalTokenClassifier, legend: SemanticTokenLegend) -> Self {
-        Self { classifier, legend }
+    /// Creates a new semantic tokens provider with the given classifier,
+    /// legend, and injected lexer.
+    pub fn new(
+        classifier: CanonicalTokenClassifier,
+        legend: SemanticTokenLegend,
+        lex: Arc<SpannedLex>,
+    ) -> Self {
+        Self {
+            classifier,
+            legend,
+            lex,
+        }
     }
 }
 
@@ -405,9 +417,7 @@ impl SemanticTokensPlugin for BasicSemanticTokens {
         &self,
         request: &SemanticTokensRequest,
     ) -> Result<SemanticTokensResponse, PlatformError> {
-        let kit = Kit::new().map_err(|e| PlatformError::Plugin(e.to_string()))?;
-        let tokens = kit
-            .lex_with_spans(&request.source)
+        let tokens = (self.lex)(&request.source)
             .map_err(|e| PlatformError::Plugin(e.to_string()))?;
 
         let line_starts = compute_line_starts(&request.source);
@@ -452,14 +462,6 @@ impl SemanticTokensPlugin for BasicSemanticTokens {
 
         Ok(SemanticTokensResponse(result))
     }
-}
-
-/// Convenience constructor for the default canonical semantic tokens provider.
-pub fn canonical_semantic_tokens() -> BasicSemanticTokens {
-    BasicSemanticTokens::new(
-        CanonicalTokenClassifier::canonical(),
-        SemanticTokenLegend::default(),
-    )
 }
 
 /// Precomputed line start offsets for O(log n) line:column lookup.

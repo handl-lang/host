@@ -105,12 +105,17 @@ mod type_hierarchy_tests;
 #[cfg(test)]
 mod workspace_symbols_tests;
 
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::io::{self, BufRead};
+use std::sync::Arc;
 
 use handl_host_tooling::{
-    SemanticTokensPlugin, TextContentChange, ToolingHost, canonical_semantic_tokens,
+    BasicSemanticTokens, CanonicalTokenClassifier, SemanticTokenLegend, SemanticTokensPlugin,
+    TextContentChange, ToolingHost,
 };
+use handl_kit_canonical::Kit;
+use handl_plugin_ext_lint::LintContext;
 use handl_plugin_lsp_std::BasicLsp;
 
 use document::DocumentStore;
@@ -157,8 +162,34 @@ fn read_message(reader: &mut impl BufRead) -> Option<Message> {
     serde_json::from_str(&body).ok()
 }
 
+thread_local! {
+    /// The canonical kit for the tooling providers. `Kit` is `!Sync`, so
+    /// it lives thread-local and the providers get the injected pieces —
+    /// a capture-less lex closure and a [`LintContext`] (ADR-0128 §0.8).
+    static MAIN_KIT: RefCell<Option<Kit>> = const { RefCell::new(None) };
+}
+
+/// Run `f` with the thread-cached canonical kit, assembling on first use.
+fn with_main_kit<R>(f: impl FnOnce(&Kit) -> R) -> R {
+    MAIN_KIT.with(|cell| {
+        let mut slot = cell.borrow_mut();
+        if slot.is_none() {
+            *slot = Some(Kit::new().expect("canonical kit must assemble"));
+        }
+        f(slot.as_ref().expect("kit populated above"))
+    })
+}
+
 fn main() {
-    let tokens_provider = canonical_semantic_tokens();
+    // The kit is assembled once on the main thread (not per request — the
+    // former `canonical_semantic_tokens` provider built one per call).
+    let tokens_provider = with_main_kit(|kit| {
+        BasicSemanticTokens::new(
+            CanonicalTokenClassifier::for_language(kit.language()),
+            SemanticTokenLegend::default(),
+            Arc::new(|src: &str| with_main_kit(|k| k.lex_with_spans(src))),
+        )
+    });
     let legend = tokens_provider.legend();
     let refinement_engine = RefinementEngine::new();
     // Per-workspace kit resolver (ADR 0003). Resolves which language kit to
@@ -173,6 +204,12 @@ fn main() {
     let mut reader = stdin.lock();
     let mut store = DocumentStore::new();
     let host = ToolingHost::new()
+        .with_lint_context(with_main_kit(|kit| {
+            LintContext::with_resolver(
+                kit.language().clone(),
+                kit.handl_lint_adapter().resolver(),
+            )
+        }))
         .with_completion_plugin(Box::new(BasicLsp::new()))
         .with_goto_def_plugin(Box::new(BasicLsp::new()))
         .with_document_symbols_plugin(Box::new(BasicLsp::new()))

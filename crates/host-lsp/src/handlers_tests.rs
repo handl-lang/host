@@ -1,6 +1,10 @@
 use serde_json::json;
 
-use handl_host_tooling::{SemanticTokenLegend, canonical_semantic_tokens};
+use std::cell::RefCell;
+
+use handl_host_tooling::{
+    BasicSemanticTokens, CanonicalTokenClassifier, SemanticTokenLegend,
+};
 
 use crate::document::DocumentStore;
 use crate::handlers::{
@@ -8,6 +12,35 @@ use crate::handlers::{
     handle_semantic_tokens_range, handle_shutdown, handle_unknown,
 };
 use crate::protocol::Message;
+
+thread_local! {
+    /// Thread-cached canonical kit for the provider under test — the
+    /// host-side cache shape `main` keeps (ADR-0128 §0.8).
+    static TEST_KIT: RefCell<Option<handl_kit_canonical::Kit>> =
+        const { RefCell::new(None) };
+}
+
+/// The canonical semantic-tokens provider, wired as `main` wires it.
+fn canonical_semantic_tokens() -> BasicSemanticTokens {
+    TEST_KIT.with(|cell| {
+        let mut slot = cell.borrow_mut();
+        if slot.is_none() {
+            *slot = Some(handl_kit_canonical::Kit::new().expect("canonical kit assembles"));
+        }
+        let kit = slot.as_ref().expect("kit populated above");
+        BasicSemanticTokens::new(
+            CanonicalTokenClassifier::for_language(kit.language()),
+            SemanticTokenLegend::default(),
+            std::sync::Arc::new(|src: &str| {
+                TEST_KIT.with(|cell| {
+                    let borrow = cell.borrow();
+                    let kit = borrow.as_ref().expect("kit populated above");
+                    kit.lex_with_spans(src)
+                })
+            }),
+        )
+    })
+}
 
 fn extract_body(raw: &[u8]) -> String {
     let s = String::from_utf8_lossy(raw);

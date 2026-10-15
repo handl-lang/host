@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-handl-kit-canonical.workspace = true
 handl-language.workspace = true
 handl-platform.workspace = true
 handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
@@ -14,6 +13,10 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = "1"
 
 [dev-dependencies]
+# Tests build the canonical kit for lint/token fixtures — the same shape
+# the host uses (ADR-0128 §0.8). Dev-only: only normal deps create the
+# platform↔lang cycle.
+handl-kit-canonical.workspace = true
 handl-plugin-loader-native.workspace = true
 # The native fixture cdylib `tests/loader.rs` loads. It is a dependency purely so
 # cargo *builds* it: without this the test could not find the `.so` in
