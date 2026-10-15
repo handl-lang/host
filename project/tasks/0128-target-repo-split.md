@@ -144,10 +144,14 @@ This phase validates the whole template on a 1-crate port surface with
       platform's lock entirely). `lang/` git-depends on `ffi/` since
       `kit-canonical` is its only normal consumer.
 
-## Phase 11 — `lang/` (needs 0.8 first)
+## Phase 11 — `lang/` + `kit-canonical/` (needs 0.8 first)
 
-- [ ] `lang/` ← `handl-kit-data-canonical` + `kit-canonical` + canonical
-      `data/*.yaml` + the `handl-packages/` dirs pinned to it.
+- [ ] `lang/` ← `handl-kit-data-canonical` + canonical `data/*.yaml` +
+      the `handl-packages/` dirs pinned to it — the language as data.
+- [ ] `kit-canonical/crates/kit-canonical` ← `kit-canonical` — the
+      assembled canonical kit; git-deps on `lang/`, `stdlib/`, `ffi/`
+      and platform engines. `cli/`/`lsp/` consume `kit-canonical/` for
+      their default language.
 - [ ] **Not moved:** `handl-kit-data` (generic kit types — consumed by
       staying `plugin-ext-kit`), `handl-kit-arrow-lower` (linked by
       `handl-runtime`; moving it would cycle platform↔lang),
