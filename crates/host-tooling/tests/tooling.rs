@@ -10,9 +10,17 @@
 
 use handl_host_tooling::{Severity, ToolingHost};
 use handl_kit_canonical::Kit;
+use handl_plugin_ext_lint::LintContext;
+
+/// The canonical lint context the host would inject — the kit's language
+/// plus its `.hnl` resolver (ADR-0128 §0.8; the kit is a dev-dep).
+fn lint_ctx() -> LintContext {
+    let kit = Kit::new().expect("canonical kit should assemble");
+    LintContext::with_resolver(kit.language().clone(), kit.handl_lint_adapter().resolver())
+}
 
 fn host() -> ToolingHost {
-    ToolingHost::new()
+    ToolingHost::new().with_lint_context(lint_ctx())
 }
 
 fn lang() -> handl_language::Language {

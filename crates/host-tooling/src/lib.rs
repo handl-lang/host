@@ -7,6 +7,7 @@
 
 use handl_language::Language;
 use handl_platform::PlatformError;
+use handl_plugin_ext_lint::LintContext;
 
 /// A diagnostic from the shared `plugin-ext-diag` model (ADR-0091).
 ///
@@ -57,6 +58,9 @@ pub struct ToolingHost {
     hover: Option<Box<dyn HoverPlugin>>,
     signature_help: Option<Box<dyn SignatureHelpPlugin>>,
     folding_range: Option<Box<dyn FoldingRangePlugin>>,
+    /// The injected lint bundle [`diagnose`](Self::diagnose) lints through —
+    /// the language plus the `.hnl`-rule resolver (ADR-0128 §"The 0.8 seam").
+    lint: Option<LintContext>,
 }
 
 impl ToolingHost {
@@ -71,7 +75,15 @@ impl ToolingHost {
             hover: None,
             signature_help: None,
             folding_range: None,
+            lint: None,
         }
+    }
+
+    /// Injects the [`LintContext`] `diagnose` lints through — the host
+    /// supplies the language and the `.hnl` resolver (ADR-0128 §0.8).
+    pub fn with_lint_context(mut self, ctx: LintContext) -> Self {
+        self.lint = Some(ctx);
+        self
     }
 
     /// Registers a completion plugin.
@@ -235,20 +247,24 @@ impl ToolingHost {
     /// Parses `source` and returns diagnostics for the resulting module.
     ///
     /// Delegates to the shared lint implementation
-    /// ([`handl_plugin_ext_lint`]), which runs the data-driven lint engine
-    /// over the canonical kit's AST — including the handl-native resolver
-    /// (ADR-0097) wired from the kit's registered `.hnl` modules. Parse errors
-    /// become error-level diagnostics.
+    /// ([`handl_plugin_ext_lint`]) over the injected [`LintContext`], which
+    /// carries the language plus the handl-native resolver (ADR-0097) wired
+    /// from the host kit's registered `.hnl` modules. Parse errors become
+    /// error-level diagnostics; a host that never injected a context gets a
+    /// single error diagnostic rather than silently clean output.
     ///
     /// The returned diagnostics are the shared `plugin-ext-diag` model, so
     /// they carry the rule name, line/column span and any machine-applicable
     /// fix.
     pub fn diagnose(&self, source: &str) -> Vec<Diagnostic> {
-        match handl_plugin_ext_lint::lint_language()
-            .and_then(|lang| handl_plugin_ext_lint::lint_source_with_language(lang, source))
-        {
-            Ok(diags) => diags,
-            Err(e) => vec![error_diagnostic(&e.to_string())],
+        match &self.lint {
+            Some(ctx) => match handl_plugin_ext_lint::lint_source_with(ctx, source) {
+                Ok(diags) => diags,
+                Err(e) => vec![error_diagnostic(&e.to_string())],
+            },
+            None => vec![error_diagnostic(
+                "no lint context configured (with_lint_context)",
+            )],
         }
     }
 

@@ -5,8 +5,39 @@
 //! assertions so the `fmt` rule (which fires on non-canonical spacing) does
 //! not interfere with rule-specific checks.
 
+use std::sync::OnceLock;
+
 use handl_plugin_ext_diag::Severity;
-use handl_plugin_ext_lint::{LintError, check_source, fix_source, lint_source};
+use handl_plugin_ext_lint::{
+    LintContext, LintError, check_source_with, fix_source, lint_source_with,
+};
+
+/// The canonical lint context, memoized for the test binary — the same
+/// injected pieces a host supplies (`kit.language()` + the `.hnl` lint
+/// resolver). The kit is a dev-dep (ADR-0128 §0.8).
+fn ctx() -> LintContext {
+    static CTX: OnceLock<LintContext> = OnceLock::new();
+    CTX.get_or_init(|| {
+        let kit = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+        LintContext::with_resolver(kit.language().clone(), kit.handl_lint_adapter().resolver())
+    })
+    .clone()
+}
+
+/// Lint `src` under the canonical context.
+fn lint_source(src: &str) -> Result<Vec<handl_plugin_ext_diag::Diagnostic>, LintError> {
+    lint_source_with(&ctx(), src)
+}
+
+/// Lint-check `src` under the canonical context.
+fn check_source(src: &str) -> Result<bool, LintError> {
+    check_source_with(&ctx(), src)
+}
+
+/// Fix `src` under the canonical context.
+fn fix(src: &str) -> Result<String, LintError> {
+    fix_source(&ctx(), src)
+}
 
 /// Collect diagnostics whose `rule` matches `name`.
 fn for_rule<'a>(
@@ -50,7 +81,7 @@ fn unused_import_clean() {
 #[test]
 fn unused_import_fix() {
     let src = "-- doc\nimport unused from \"mod\"\nmain = 42\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert!(
         !fixed.contains("import unused"),
         "fix should remove the import: {fixed:?}"
@@ -202,7 +233,7 @@ fn naming_convention_clean() {
 #[test]
 fn naming_convention_fix() {
     let src = "-- doc\nMyFunc = 42\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert!(
         fixed.contains("my_func"),
         "fix should rename to snake_case: {fixed:?}"
@@ -263,7 +294,7 @@ fn simplify_paren_fires() {
 #[test]
 fn simplify_paren_fix() {
     let src = "-- doc\nmain = (42)\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert_eq!(fixed, "-- doc\nmain = 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
@@ -274,7 +305,7 @@ fn simplify_paren_var() {
     // The `paren` node wraps a bound `var`; the fix removes the parens while
     // preserving the surrounding source layout.
     let src = "-- doc\nx = 1\nmain = (x)\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert_eq!(fixed, "-- doc\nx = 1\nmain = x\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
@@ -285,7 +316,7 @@ fn simplify_paren_nested() {
     // `find_matches` reports both paren layers; the fixpoint removes all
     // redundant parens, converging on the bare atom.
     let src = "-- doc\nmain = ((x))\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert_eq!(fixed, "-- doc\nmain = x\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
@@ -296,7 +327,7 @@ fn simplify_paren_inner_value() {
     // The inner fix comes from the `paren` node span and the child's span,
     // not a token walk, so a single-atom value works too.
     let src = "-- doc\nmain = ((42))\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert_eq!(fixed, "-- doc\nmain = 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
@@ -346,7 +377,7 @@ fn fmt_rule_fires() {
 #[test]
 fn fmt_rule_fix() {
     let src = "-- doc\nmain=42\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert_eq!(fixed, "-- doc\nmain = 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "fmt").is_empty());
@@ -381,10 +412,10 @@ fn check_source_has_errors() {
 #[test]
 fn fix_source_idempotent() {
     let src = "-- doc\nmy_func = 42\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     assert_eq!(fixed, src, "fixing already-fixed source is a no-op");
     // Fixing the fixed output is also a no-op.
-    let fixed2 = fix_source(&fixed).unwrap();
+    let fixed2 = fix(&fixed).unwrap();
     assert_eq!(fixed2, fixed);
 }
 
@@ -393,7 +424,7 @@ fn fix_source_converges() {
     // Multiple fixable issues: an unused import, a naming violation, and
     // non-canonical formatting. The fixpoint should converge to a clean file.
     let src = "-- doc\nimport unused from \"mod\"\nMyFunc = 42\n";
-    let fixed = fix_source(src).unwrap();
+    let fixed = fix(src).unwrap();
     let diags = lint_source(&fixed).unwrap();
     let fixable: Vec<_> = diags.iter().filter(|d| d.fix.is_some()).collect();
     assert!(

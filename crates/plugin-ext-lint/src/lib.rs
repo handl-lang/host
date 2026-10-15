@@ -1,10 +1,13 @@
-//! `handl-plugin-ext-lint` — canonical bootstrap linter for the v0.1 arrow
-//! surface syntax (ADR-0087, rules-as-data per ADR-0097).
+//! `handl-plugin-ext-lint` — bootstrap linter for the v0.1 arrow surface
+//! syntax (ADR-0087, rules-as-data per ADR-0097).
 //!
 //! Re-exports the platform `Lint` operation machinery ([`BasicLinter`], the
-//! generic rule/capability registry) and runs the **canonical rule set**
-//! declared in `lang.lints` (`handl-kit-data-canonical`'s `lints.yaml`)
-//! through the data-driven [`LintEngine`] in `plugin-engine-lint`.
+//! generic rule/capability registry) and runs the rule set declared in
+//! `lang.lints` of the injected [`Language`] through the data-driven
+//! [`LintEngine`] in `plugin-engine-lint`. The canonical rule set lives in
+//! `handl-kit-data-canonical`'s `lints.yaml`; the host supplies the language
+//! via [`LintContext`] (ADR-0128 §"The 0.8 seam") — this crate keeps no
+//! normal dependency on the canonical kit.
 //!
 //! # Canonical rule set
 //!
@@ -26,8 +29,11 @@
 //! The `scope.*` / `naming-convention` / `source.missing-module-doc` natives
 //! ship in [`canonical_lint_natives`]; `source.fmt` is registered by
 //! [`lint_engine`] because it needs the formatter (`plugin-ext-fmt`).
-//! Diagnostics use the shared types from `plugin-ext-diag` (ADR-0091). See
-//! [`lint_source`], [`check_source`], and [`fix_source`] for the public API.
+//! `.hnl`-authored `handl:<mod>.<fn>` rules resolve through the
+//! [`NativeLintResolver`] carried on the [`LintContext`] — without one they
+//! error as "unknown native", faithfully. Diagnostics use the shared types
+//! from `plugin-ext-diag` (ADR-0091). See [`lint_source_with`],
+//! [`check_source_with`], and [`fix_source`] for the public API.
 
 pub use handl_language::Language;
 pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
@@ -36,11 +42,12 @@ pub mod plugin;
 pub use plugin::{LINT_CAPABILITY, LintPlugin};
 
 use std::collections::HashSet;
-use std::sync::OnceLock;
+use std::sync::Arc;
 
 use handl_language::LangError;
 use handl_plugin_engine_lint::{
-    DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, canonical_lint_natives,
+    DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, NativeLintResolver,
+    canonical_lint_natives,
 };
 use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
 
@@ -71,43 +78,78 @@ impl From<LangError> for LintError {
     }
 }
 
-/// Lint a handl source file using the provided [`Language`] and rule set.
-pub fn lint_source_with_language(lang: &Language, src: &str) -> Result<Vec<Diagnostic>, LintError> {
-    lint_source_with_prelude_and_language(lang, src, &HashSet::new())
+/// The injected lint bundle: the [`Language`] (carrying `lang.lints`) plus an
+/// optional [`NativeLintResolver`] that dispatches `.hnl`-authored
+/// `handl:<mod>.<fn>` rule names (ADR-0097).
+///
+/// `Plugin: Send + Sync` forbids holding a `Kit` (`!Sync`), so per ADR-0128
+/// §"The 0.8 seam" the host assembles the kit-side pieces — `kit.language()`
+/// and `kit.handl_lint_adapter().resolver()` — and hands them in. Both
+/// halves are `Send + Sync`, so the context can ride inside a plugin.
+#[derive(Clone)]
+pub struct LintContext {
+    lang: Arc<Language>,
+    resolver: Option<NativeLintResolver>,
 }
 
-/// Lint a handl source file using the provided [`Language`] and a host-supplied
-/// wire prelude.
-pub fn lint_source_with_prelude_and_language(
-    lang: &Language,
+impl LintContext {
+    /// A context over `lang` with no `.hnl`-rule resolver — `handl:` native
+    /// names then resolve to the engine's "unknown native" error, same as an
+    /// unregistered `!Native` name.
+    pub fn new(lang: Language) -> Self {
+        Self {
+            lang: Arc::new(lang),
+            resolver: None,
+        }
+    }
+
+    /// A context over `lang` whose `.hnl`-authored lint rules dispatch
+    /// through `resolver` — e.g. `kit.handl_lint_adapter().resolver()`.
+    pub fn with_resolver(lang: Language, resolver: NativeLintResolver) -> Self {
+        Self {
+            lang: Arc::new(lang),
+            resolver: Some(resolver),
+        }
+    }
+
+    /// This context over a different language, keeping the resolver — the
+    /// payload-`language` (ADR-0124) path: the caller's language with the
+    /// host's `.hnl` dispatch.
+    pub fn for_language(&self, lang: Language) -> Self {
+        Self {
+            lang: Arc::new(lang),
+            resolver: self.resolver.clone(),
+        }
+    }
+
+    /// The language carrying the `lang.lints` rule set.
+    pub fn lang(&self) -> &Language {
+        &self.lang
+    }
+}
+
+/// Lint a handl source file using the injected [`LintContext`] and rule set.
+pub fn lint_source_with(ctx: &LintContext, src: &str) -> Result<Vec<Diagnostic>, LintError> {
+    lint_source_with_prelude(ctx, src, &HashSet::new())
+}
+
+/// Lint a handl source file using the injected [`LintContext`] and a
+/// host-supplied wire prelude.
+pub fn lint_source_with_prelude(
+    ctx: &LintContext,
     src: &str,
     prelude: &HashSet<String>,
 ) -> Result<Vec<Diagnostic>, LintError> {
-    let diags = lint_engine().lint_source(lang, src)?;
+    let diags = lint_engine(ctx.resolver.clone()).lint_source(ctx.lang(), src)?;
     let mut out: Vec<Diagnostic> = diags
         .iter()
         .map(|d| convert(src, d))
         // `unbound-wire` comes from the typechecker, not the engine's native.
         .filter(|d| d.rule != "unbound-wire")
         .collect();
-    out.extend(unbound_wire_diagnostics_with_language(lang, src, prelude));
+    out.extend(unbound_wire_diagnostics_with_language(ctx.lang(), src, prelude));
     out.sort_by_key(|d| d.span.start);
     Ok(out)
-}
-
-/// Lint a handl source file with the canonical rule set.
-pub fn lint_source(src: &str) -> Result<Vec<Diagnostic>, LintError> {
-    let lang = lint_language()?;
-    lint_source_with_language(lang, src)
-}
-
-/// Lint a handl source file with a host-supplied wire prelude.
-pub fn lint_source_with_prelude(
-    src: &str,
-    prelude: &HashSet<String>,
-) -> Result<Vec<Diagnostic>, LintError> {
-    let lang = lint_language()?;
-    lint_source_with_prelude_and_language(lang, src, prelude)
 }
 
 /// `unbound-wire` diagnostics delegated to the bootstrap typechecker using the
@@ -128,22 +170,20 @@ fn unbound_wire_diagnostics_with_language(
 }
 
 /// Check if a source file is lint-clean (no Error diagnostics) using the
-/// provided [`Language`].
-pub fn check_source_with_language(lang: &Language, src: &str) -> Result<bool, LintError> {
-    let diags = lint_source_with_language(lang, src)?;
+/// injected [`LintContext`].
+pub fn check_source_with(ctx: &LintContext, src: &str) -> Result<bool, LintError> {
+    let diags = lint_source_with(ctx, src)?;
     Ok(!diags.iter().any(|d| d.severity == Severity::Error))
-}
-
-/// Check if a source file is lint-clean (no Error diagnostics).
-pub fn check_source(src: &str) -> Result<bool, LintError> {
-    let lang = lint_language()?;
-    check_source_with_language(lang, src)
 }
 
 /// Check if a source file is lint-clean (no Error diagnostics), with a
 /// host-supplied wire prelude for `unbound-wire`.
-pub fn check_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result<bool, LintError> {
-    let diags = lint_source_with_prelude(src, prelude)?;
+pub fn check_source_with_prelude(
+    ctx: &LintContext,
+    src: &str,
+    prelude: &HashSet<String>,
+) -> Result<bool, LintError> {
+    let diags = lint_source_with_prelude(ctx, src, prelude)?;
     Ok(!diags.iter().any(|d| d.severity == Severity::Error))
 }
 
@@ -155,8 +195,8 @@ pub fn check_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result
 /// # Errors
 ///
 /// Returns [`LintError::Parse`] if the source cannot be parsed after fixing.
-pub fn fix_source(src: &str) -> Result<String, LintError> {
-    fix_source_with_prelude(src, &HashSet::new())
+pub fn fix_source(ctx: &LintContext, src: &str) -> Result<String, LintError> {
+    fix_source_with_prelude(ctx, src, &HashSet::new())
 }
 
 /// Apply fixable diagnostics to source text, with a host-supplied wire
@@ -165,11 +205,15 @@ pub fn fix_source(src: &str) -> Result<String, LintError> {
 /// # Errors
 ///
 /// Returns [`LintError::Parse`] if the source cannot be parsed after fixing.
-pub fn fix_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result<String, LintError> {
-    let fixed = apply_fixes_to_fixpoint(src, |s| compute_fixes(s, prelude), 5)
+pub fn fix_source_with_prelude(
+    ctx: &LintContext,
+    src: &str,
+    prelude: &HashSet<String>,
+) -> Result<String, LintError> {
+    let fixed = apply_fixes_to_fixpoint(src, |s| compute_fixes(ctx, s, prelude), 5)
         .map_err(|e| LintError::Parse(e.to_string()))?;
     // Verify the fixed source still parses.
-    let _ = lint_source_with_prelude(&fixed, prelude)?;
+    let _ = lint_source_with_prelude(ctx, &fixed, prelude)?;
     Ok(fixed)
 }
 
@@ -178,8 +222,8 @@ pub fn fix_source_with_prelude(src: &str, prelude: &HashSet<String>) -> Result<S
 /// The `fmt` fix spans the whole file and would overlap every other fix, so
 /// when it is present it is applied alone; otherwise the remaining fixable
 /// diagnostics (non-overlapping among themselves) are returned.
-fn compute_fixes(src: &str, prelude: &HashSet<String>) -> Vec<Fix> {
-    let diags = match lint_source_with_prelude(src, prelude) {
+fn compute_fixes(ctx: &LintContext, src: &str, prelude: &HashSet<String>) -> Vec<Fix> {
+    let diags = match lint_source_with_prelude(ctx, src, prelude) {
         Ok(d) => d,
         Err(_) => return Vec::new(),
     };
@@ -198,49 +242,36 @@ fn compute_fixes(src: &str, prelude: &HashSet<String>) -> Vec<Fix> {
 }
 
 // ---------------------------------------------------------------------------
-// Internal: language assembly + engine wiring
+// Internal: engine wiring
 // ---------------------------------------------------------------------------
 
-/// Assemble the lint language once: canonical data, including the
-/// `lints.yaml` rule set. The `simplify-paren` predicate lives solely in
-/// `lints.yaml` — LSP quick fixes are built from the diagnostic's `fix`
-/// payload, so no transform-engine pass is merged here.
-pub fn lint_language() -> Result<&'static Language, LintError> {
-    static LANG: OnceLock<Language> = OnceLock::new();
-    let lang = LANG.get_or_init(|| {
-        handl_kit_data_canonical::assemble()
-            .expect("canonical language data must assemble")
-            .lang()
-            .clone()
-    });
-    Ok(lang)
-}
-
-/// The canonical [`LintEngine`]: canonical `scope.*`/`naming-convention`/
+/// A [`LintEngine`] for one lint pass: canonical `scope.*`/`naming-convention`/
 /// `source.*` natives plus the host-registered `source.fmt` rule, which
-/// needs `plugin-ext-fmt`.
-fn lint_engine() -> &'static LintEngine {
-    static ENGINE: OnceLock<LintEngine> = OnceLock::new();
-    ENGINE.get_or_init(|| {
-        let mut natives = canonical_lint_natives();
-        // Wire the handl-native lint resolver (ADR-0097) from the canonical
-        // kit's registered `.hnl` modules. Without this, a `lints.yaml` rule
-        // with `check: !Native "handl:<mod>.<fn>"` errors as "unknown
-        // native" — the resolver is the production seam a host uses to let
-        // `.hnl`-authored lint rules dispatch.
-        if let Ok(kit) = handl_kit_canonical::Kit::new() {
-            natives.add_resolver(kit.handl_lint_adapter().resolver());
-        }
-        LintEngine::new()
-            .with_native_registry(natives)
-            // `scope.unbound-wire` is delegated to the bootstrap
-            // typechecker's scope pass in `lint_source_with_prelude` — the
-            // canonical native's local scope walk diverged from it. Register
-            // a no-op so the `lint.scope.unbound-wire` data rule still
-            // resolves but emits nothing here.
-            .with_native("scope.unbound-wire", |_ctx| Ok(Vec::new()))
-            .with_native("source.fmt", |ctx| Ok(fmt_rule(ctx.lang, ctx.src)))
-    })
+/// needs `plugin-ext-fmt`. Built fresh per call — the injected
+/// [`NativeLintResolver`] is what differs between hosts, so there is no
+/// `OnceLock` cache.
+///
+/// The `simplify-paren` predicate lives solely in `lints.yaml` — LSP quick
+/// fixes are built from the diagnostic's `fix` payload, so no
+/// transform-engine pass is merged here.
+fn lint_engine(resolver: Option<NativeLintResolver>) -> LintEngine {
+    let mut natives = canonical_lint_natives();
+    // The handl-native lint resolver (ADR-0097) routes `lints.yaml` rules
+    // with `check: !Native "handl:<mod>.<fn>"` to `.hnl`-authored functions.
+    // It is injected on the `LintContext`: without one, a `handl:` rule
+    // errors as "unknown native" — same as any unregistered `!Native` name.
+    if let Some(resolver) = resolver {
+        natives.add_resolver(resolver);
+    }
+    LintEngine::new()
+        .with_native_registry(natives)
+        // `scope.unbound-wire` is delegated to the bootstrap
+        // typechecker's scope pass in `lint_source_with_prelude` — the
+        // canonical native's local scope walk diverged from it. Register
+        // a no-op so the `lint.scope.unbound-wire` data rule still
+        // resolves but emits nothing here.
+        .with_native("scope.unbound-wire", |_ctx| Ok(Vec::new()))
+        .with_native("source.fmt", |ctx| Ok(fmt_rule(ctx.lang, ctx.src)))
 }
 
 /// `source.fmt` — the file is not canonical for the language. Fixable: the fix
@@ -305,10 +336,26 @@ fn convert(src: &str, d: &LintDiagnostic) -> Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+
     use handl_platform::{
         Behavior, CapabilityId, CapabilityRequest, KitRegistry, Lint, LintRequest, PlatformError,
         Plugin, PluginContext, PluginRegistry,
     };
+
+    /// The canonical lint context — the kit-side pieces a host injects,
+    /// memoized for the test binary (ADR-0128 §0.8; dev-dep only).
+    fn canonical_ctx() -> LintContext {
+        static CTX: OnceLock<LintContext> = OnceLock::new();
+        CTX.get_or_init(|| {
+            let kit = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+            LintContext::with_resolver(
+                kit.language().clone(),
+                kit.handl_lint_adapter().resolver(),
+            )
+        })
+        .clone()
+    }
 
     #[test]
     fn metadata_returns_command_and_description() {
@@ -388,7 +435,7 @@ mod tests {
 
     #[test]
     fn lint_source_empty_input() {
-        let diags = lint_source("").unwrap();
+        let diags = lint_source_with(&canonical_ctx(), "").unwrap();
         // Empty input is lint-clean (no module doc required for empty modules).
         assert!(diags.is_empty());
     }
@@ -396,7 +443,7 @@ mod tests {
     #[test]
     fn lint_source_clean_input() {
         let src = "-- A simple module.\nmain = 42\n";
-        let diags = lint_source(src).unwrap();
+        let diags = lint_source_with(&canonical_ctx(), src).unwrap();
         let non_fmt: Vec<_> = diags.iter().filter(|d| d.rule != "fmt").collect();
         assert!(
             non_fmt.is_empty(),
@@ -414,9 +461,9 @@ mod tests {
     const UNLEXABLE: &str = "x = \"unterminated;";
 
     #[test]
-    fn lint_source_with_language_uses_the_supplied_language() {
-        let lang = lint_language().expect("canonical language");
-        let diags = lint_source_with_language(lang, "x = 1;").expect("lints");
+    fn lint_source_with_uses_the_injected_language() {
+        let ctx = canonical_ctx();
+        let diags = lint_source_with(&ctx, "x = 1;").expect("lints");
         // The module has no doc comment, so at least one info diagnostic.
         assert!(!diags.is_empty(), "expected diagnostics, got none");
     }
@@ -425,9 +472,10 @@ mod tests {
     fn fix_source_applies_the_fmt_fix() {
         // A non-canonical file: the `fmt` rule supplies a whole-file fix, and
         // `compute_fixes` applies it alone (it overlaps every other fix).
-        let fixed = fix_source("x   =   1;").expect("fixes");
+        let ctx = canonical_ctx();
+        let fixed = fix_source(&ctx, "x   =   1;").expect("fixes");
         assert!(
-            check_source(&fixed).expect("checks"),
+            check_source_with(&ctx, &fixed).expect("checks"),
             "the fixed source must be canonical, got {fixed:?}"
         );
     }
@@ -436,41 +484,41 @@ mod tests {
     fn compute_fixes_on_canonical_source_is_empty() {
         // No fmt fix present, so the non-fmt filter chain is exercised.
         let canonical = handl_plugin_ext_fmt::format_source("x = 1;").expect("formats");
-        assert!(compute_fixes(&canonical, &HashSet::new()).is_empty());
+        assert!(compute_fixes(&canonical_ctx(), &canonical, &HashSet::new()).is_empty());
     }
 
     #[test]
     fn unbound_wire_diagnostics_is_empty_when_the_source_cannot_be_checked() {
-        let lang = lint_language().expect("canonical language");
+        let ctx = canonical_ctx();
         let prelude = HashSet::new();
         assert!(
-            unbound_wire_diagnostics_with_language(lang, UNLEXABLE, &prelude).is_empty(),
+            unbound_wire_diagnostics_with_language(ctx.lang(), UNLEXABLE, &prelude).is_empty(),
             "a check failure must degrade to no diagnostics, not propagate"
         );
     }
 
     #[test]
     fn compute_fixes_is_empty_when_the_source_cannot_be_linted() {
-        assert!(compute_fixes(UNLEXABLE, &HashSet::new()).is_empty());
+        assert!(compute_fixes(&canonical_ctx(), UNLEXABLE, &HashSet::new()).is_empty());
     }
 
     #[test]
     fn fmt_rule_declines_when_the_source_cannot_be_checked() {
-        let lang = lint_language().expect("canonical language");
-        assert!(fmt_rule(lang, UNLEXABLE).is_empty());
+        let ctx = canonical_ctx();
+        assert!(fmt_rule(ctx.lang(), UNLEXABLE).is_empty());
     }
 
     #[test]
     fn fmt_rule_declines_on_whitespace_only_source() {
         // The early return: there is nothing to format.
-        let lang = lint_language().expect("canonical language");
-        assert!(fmt_rule(lang, "   \n\t\n").is_empty());
+        let ctx = canonical_ctx();
+        assert!(fmt_rule(ctx.lang(), "   \n\t\n").is_empty());
     }
 
     #[test]
     fn fmt_rule_reports_a_fix_for_non_canonical_source() {
-        let lang = lint_language().expect("canonical language");
-        let hits = fmt_rule(lang, "x   =   1;");
+        let ctx = canonical_ctx();
+        let hits = fmt_rule(ctx.lang(), "x   =   1;");
         assert_eq!(hits.len(), 1, "the fmt rule is fixable");
         assert!(hits[0].fix.is_some(), "the hit must carry a fix");
     }
@@ -500,15 +548,16 @@ mod tests {
     fn check_source_with_prelude_seeds_the_wire_scope() {
         // With `provided` in the prelude the module is clean; without it the
         // unbound wire is an Error.
+        let ctx = canonical_ctx();
         let with_name: HashSet<String> = ["provided".to_string()].into_iter().collect();
-        assert!(check_source_with_prelude("provided", &with_name).expect("checks"));
-        assert!(!check_source_with_prelude("provided", &HashSet::new()).expect("checks"));
+        assert!(check_source_with_prelude(&ctx, "provided", &with_name).expect("checks"));
+        assert!(!check_source_with_prelude(&ctx, "provided", &HashSet::new()).expect("checks"));
     }
 
     #[test]
     fn check_source_with_prelude_propagates_a_parse_error() {
         // Unlike `compute_fixes`/`fmt_rule`, the `check_source*` family
         // propagates the parse failure to the caller.
-        assert!(check_source_with_prelude(UNLEXABLE, &HashSet::new()).is_err());
+        assert!(check_source_with_prelude(&canonical_ctx(), UNLEXABLE, &HashSet::new()).is_err());
     }
 }

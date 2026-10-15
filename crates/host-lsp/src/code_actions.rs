@@ -383,9 +383,24 @@ fn lint_action_title(rule: &str, message: &str) -> String {
     }
 }
 
+/// The canonical lint context, memoized — the injected language + `.hnl`
+/// resolver the linter now takes (ADR-0128 §0.8); built from the canonical
+/// kit, which this crate keeps as a normal dep.
+fn lint_ctx() -> &'static handl_plugin_ext_lint::LintContext {
+    static CTX: std::sync::OnceLock<handl_plugin_ext_lint::LintContext> =
+        std::sync::OnceLock::new();
+    CTX.get_or_init(|| {
+        let kit = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+        handl_plugin_ext_lint::LintContext::with_resolver(
+            kit.language().clone(),
+            kit.handl_lint_adapter().resolver(),
+        )
+    })
+}
+
 /// Offer quick fixes for lint diagnostics that carry a [`Fix`].
 ///
-/// Runs `handl_plugin_ext_lint::lint_source` over the document — each
+/// Runs `handl_plugin_ext_lint::lint_source_with` over the document — each
 /// `LintRuleDef` in `lints.yaml` (e.g. `simplify-paren`) declares its match
 /// and fix in data, and the resulting `Diagnostic.fix` already carries the
 /// exact byte span and replacement text.  Only diagnostics whose fix span
@@ -394,7 +409,7 @@ fn lint_fix_actions(source: &str, range_start: usize, range_end: usize) -> Vec<V
     if source.trim().is_empty() {
         return Vec::new();
     }
-    let diags = match handl_plugin_ext_lint::lint_source(source) {
+    let diags = match handl_plugin_ext_lint::lint_source_with(lint_ctx(), source) {
         Ok(d) => d,
         Err(_) => return Vec::new(),
     };

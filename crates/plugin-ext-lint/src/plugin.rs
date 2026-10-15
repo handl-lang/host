@@ -1,11 +1,12 @@
 //! The `lint` capability plugin — the capability-contract adapter over the
 //! free functions in this crate.
 //!
-//! `host-cli` currently calls [`crate::lint_source_with_prelude`] /
-//! [`crate::fix_source_with_prelude`] directly. This adapter exposes the same
-//! behaviour through the `plugin-ext-*` capability seam so a host can
-//! dispatch `{command: "lint", args: [...]}` uniformly. The free functions
-//! remain the implementation.
+//! The plugin holds the injected [`LintContext`] — the host's language plus
+//! its `.hnl`-rule resolver (ADR-0128 §"The 0.8 seam"); `Plugin: Send + Sync`
+//! forbids holding a `Kit`, so the kit-side pieces arrive already extracted.
+//! `host-cli` registers it with the thread-cached canonical kit's parts and
+//! dispatches `{command: "lint", args: [...]}` through the `plugin-ext-*`
+//! capability seam. The free functions remain the implementation.
 //!
 //! ## Payload contract (capability `lint`)
 //!
@@ -18,17 +19,18 @@
 //! - `fix` (optional, bool, default `false`) — when `true`, return the fixed
 //!   source instead of the diagnostics.
 //! - `prelude` (optional, array of strings) — canonical wire names the
-//!   checker should treat as bound. Omitted = the crate's default prelude.
+//!   checker should treat as bound. Omitted = an empty prelude.
 //! - `language` (optional, object, ADR-0124) — a **serialized `Language`**
 //!   (`handl-language`'s `Language` derives `Serialize`/`Deserialize`; the
-//!   canonical one is ~180 KiB compact JSON). Omitted = the crate builds its
-//!   own default language.
+//!   canonical one is ~180 KiB compact JSON). Omitted = the injected
+//!   context's language.
 //!
-//!   This exists because the caller's language and the crate's built-in
-//!   default are not guaranteed identical — `host-cli` lints through
-//!   `load_canonical_language()` while the default here is `lint_language()`.
-//!   Passing the language makes the capability path match the direct call
-//!   instead of approximating it.
+//!   This exists because the caller's language and the injected default are
+//!   not guaranteed identical — `host-cli` lints through
+//!   `load_canonical_language()` while the injected context carries
+//!   `kit.language()`. Passing the language makes the capability path match
+//!   the direct call instead of approximating it; the injected resolver is
+//!   kept either way (`.hnl` rules always dispatch on the host's modules).
 //!
 //! ## Response
 //!
@@ -43,6 +45,7 @@
 //! capability, un-deserializable `language`); a parse failure is a successful
 //! response carrying an error status.
 
+use crate::LintContext;
 use handl_language::Language;
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
@@ -54,22 +57,22 @@ use std::collections::HashSet;
 pub const LINT_CAPABILITY: &str = "lint";
 
 /// Adapts this crate's linter to the capability contract.
+///
+/// Holds the injected [`LintContext`] — `Send + Sync` (an `Arc<Language>`
+/// plus an `Arc`-ed resolver closure), unlike the `Kit` it came from.
 pub struct LintPlugin {
     capabilities: Vec<CapabilityId>,
+    ctx: LintContext,
 }
 
 impl LintPlugin {
-    /// Create the plugin, declaring the `lint` capability.
-    pub fn new() -> Self {
+    /// Create the plugin over the injected lint context, declaring the
+    /// `lint` capability.
+    pub fn new(ctx: LintContext) -> Self {
         Self {
             capabilities: vec![CapabilityId::from(LINT_CAPABILITY)],
+            ctx,
         }
-    }
-}
-
-impl Default for LintPlugin {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -134,23 +137,27 @@ impl Plugin for LintPlugin {
         };
 
         // ADR-0124 primary path: the payload may carry the caller's language.
-        // Absent = build our own default (today's behaviour). A malformed
-        // language is `InvalidMetadata` rather than a silent fallback, since
-        // silently linting with the wrong ruleset is worse than failing.
-        let language: Option<Language> = match request.payload.get("language") {
-            None | Some(serde_json::Value::Null) => None,
-            Some(v) => Some(serde_json::from_value(v.clone()).map_err(|e| {
-                PlatformError::InvalidMetadata(format!("lint: `language` did not deserialize: {e}"))
-            })?),
+        // Absent = the injected context's language. A malformed language is
+        // `InvalidMetadata` rather than a silent fallback, since silently
+        // linting with the wrong ruleset is worse than failing. The injected
+        // `.hnl` resolver is kept either way — it is a property of the host,
+        // not of the language being linted.
+        let ctx: LintContext = match request.payload.get("language") {
+            None | Some(serde_json::Value::Null) => self.ctx.clone(),
+            Some(v) => {
+                let language: Language = serde_json::from_value(v.clone()).map_err(|e| {
+                    PlatformError::InvalidMetadata(format!(
+                        "lint: `language` did not deserialize: {e}"
+                    ))
+                })?;
+                self.ctx.for_language(language)
+            }
         };
 
         if fix {
-            // No `fix_source_with_language` variant exists, so a caller-supplied
-            // `language` cannot be honoured on the fix path: fixing applies the
-            // crate's own ruleset. Documented rather than silently ignored.
             match match &prelude {
-                Some(p) => crate::fix_source_with_prelude(source, p),
-                None => crate::fix_source(source),
+                Some(p) => crate::fix_source_with_prelude(&ctx, source, p),
+                None => crate::fix_source(&ctx, source),
             } {
                 Ok(output) => Ok(CapabilityResponse(
                     serde_json::json!({ "status": "fixed", "output": output }),
@@ -161,11 +168,9 @@ impl Plugin for LintPlugin {
                 }))),
             }
         } else {
-            match match (&language, &prelude) {
-                (Some(l), Some(p)) => crate::lint_source_with_prelude_and_language(l, source, p),
-                (Some(l), None) => crate::lint_source_with_language(l, source),
-                (None, Some(p)) => crate::lint_source_with_prelude(source, p),
-                (None, None) => crate::lint_source(source),
+            match match &prelude {
+                Some(p) => crate::lint_source_with_prelude(&ctx, source, p),
+                None => crate::lint_source_with(&ctx, source),
             } {
                 Ok(diagnostics) => {
                     // `Diagnostic` is plain data (strings/numbers/options), so
@@ -193,7 +198,29 @@ impl Plugin for LintPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+
     use handl_platform::{KitRegistry, PluginRegistry};
+
+    /// The canonical lint context — the same injected pieces a host would
+    /// supply (`kit.language()` + the `.hnl` resolver), memoized per test
+    /// binary (ADR-0128 §0.8; dev-dep only).
+    fn canonical_ctx() -> LintContext {
+        static CTX: OnceLock<LintContext> = OnceLock::new();
+        CTX.get_or_init(|| {
+            let kit = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+            LintContext::with_resolver(
+                kit.language().clone(),
+                kit.handl_lint_adapter().resolver(),
+            )
+        })
+        .clone()
+    }
+
+    /// A plugin wired with the canonical context.
+    fn plugin() -> LintPlugin {
+        LintPlugin::new(canonical_ctx())
+    }
 
     fn with_ctx<R>(f: impl FnOnce(&mut PluginContext) -> R) -> R {
         let mut plugins = PluginRegistry::new();
@@ -214,7 +241,7 @@ mod tests {
 
     #[test]
     fn declares_the_lint_capability() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         assert_eq!(plugin.id(), "ext.lint");
         assert_eq!(plugin.capabilities().len(), 1);
         assert_eq!(plugin.capabilities()[0].as_str(), "lint");
@@ -224,7 +251,7 @@ mod tests {
 
     #[test]
     fn lint_returns_a_diagnostics_array() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
@@ -246,7 +273,7 @@ mod tests {
 
     #[test]
     fn fix_returns_output() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -267,7 +294,7 @@ mod tests {
     fn an_explicit_empty_prelude_is_honoured() {
         // Distinguishes "omitted" (crate default) from "explicitly empty",
         // which is the whole reason `prelude` is `Option<HashSet<_>>`.
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -280,15 +307,15 @@ mod tests {
     }
 
     #[test]
-    fn default_is_new_and_name_is_reported() {
-        let plugin = LintPlugin::default();
+    fn name_is_reported() {
+        let plugin = plugin();
         assert_eq!(plugin.name(), "Linter");
         assert_eq!(plugin.capabilities().len(), 1);
     }
 
     #[test]
     fn a_wrong_capability_is_unknown() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &CapabilityRequest {
@@ -307,7 +334,7 @@ mod tests {
 
     #[test]
     fn fix_honours_an_explicit_prelude() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -325,7 +352,7 @@ mod tests {
 
     #[test]
     fn fix_reports_a_lex_error_as_a_response() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -344,7 +371,7 @@ mod tests {
     #[test]
     fn lint_with_both_a_language_and_a_prelude_succeeds() {
         // Exercises the `(Some(language), Some(prelude))` dispatch arm.
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let lang =
             handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles");
         let serialized = serde_json::to_value(&lang).expect("Language serializes");
@@ -365,7 +392,7 @@ mod tests {
 
     #[test]
     fn lint_reports_a_lex_error_as_a_response() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -387,7 +414,7 @@ mod tests {
 
     #[test]
     fn missing_source_is_invalid_metadata() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({})), ctx))
             .expect_err("a payload without `source` must fail");
         assert!(
@@ -398,7 +425,7 @@ mod tests {
 
     #[test]
     fn a_non_array_prelude_is_invalid_metadata() {
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &req(serde_json::json!({"source": "x = 1", "prelude": "str"})),
@@ -417,7 +444,7 @@ mod tests {
         // ADR-0124 primary path: the payload carries the caller's language.
         // This is what makes a capability-path lint match a direct call, since
         // the caller's language need not be this crate's built-in default.
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let lang =
             handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles");
         let serialized = serde_json::to_value(&lang).expect("Language serializes");
@@ -443,7 +470,7 @@ mod tests {
     fn a_malformed_language_is_invalid_metadata() {
         // Not a silent canonical fallback: linting with the wrong ruleset is
         // worse than failing loudly.
-        let plugin = LintPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &req(serde_json::json!({ "source": "x = 1", "language": 5 })),

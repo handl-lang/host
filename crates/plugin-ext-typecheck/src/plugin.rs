@@ -24,10 +24,10 @@
 //! `type-errors` and `error` mirrors `host-cli`'s existing exit-code contract
 //! exactly, so the reroute through this plugin is lossless.
 
-use std::cell::RefCell;
 use std::collections::HashSet;
+use std::sync::Arc;
 
-use handl_kit_canonical::Kit;
+use handl_language::{LangError, Value};
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
@@ -36,52 +36,35 @@ use handl_platform::{
 /// Capability id served by [`TypecheckPlugin`].
 pub const TYPECHECK_CAPABILITY: &str = "typecheck";
 
-thread_local! {
-    /// One assembled [`Kit`] per thread.
-    ///
-    /// `Kit::new()` assembles the canonical language and binds the engines —
-    /// the same cost `host-cli` pays once per `hnl typecheck` invocation. A
-    /// `Kit` holds `RefCell`s and so is not `Sync`; memoizing per thread keeps
-    /// the CLI's "build once, check every file" behaviour without a mutex.
-    /// This mirrors the `thread_local!` engine caches in `handl-runtime` and
-    /// the `plugin-engine-*` crates.
-    static KIT: RefCell<Option<Kit>> = const { RefCell::new(None) };
-}
-
-/// Run `f` with the memoized kit, assembling it on first use.
+/// The typechecker this plugin adapts: `(source, extra_prelude)` → the
+/// synthesized [`Value`] type or a [`LangError`].
 ///
-/// The canonical language is compiled-in data, so assembly failing means a
-/// corrupt build rather than a recoverable condition — panic instead of
-/// degrading, matching `plugin-ext-lint::lint_language`. This also keeps the
-/// happy path the *only* path, so the plugin has no untestable error arm.
-fn with_kit<R>(f: impl FnOnce(&Kit) -> R) -> R {
-    KIT.with(|cell| {
-        let mut slot = cell.borrow_mut();
-        if slot.is_none() {
-            *slot = Some(Kit::new().expect("canonical kit must assemble"));
-        }
-        let kit = slot.as_ref().expect("kit populated above");
-        f(kit)
-    })
-}
+/// Injected at construction (ADR-0128 §"The 0.8 seam"): `Plugin` requires
+/// `Send + Sync` and a `Kit` is `!Sync`, so the host owns the kit — in a
+/// thread-local cache, memoized as before — and injects a capture-less
+/// closure that reads it. The plugin is then a pure adapter: it carries no
+/// `handl-kit-canonical` type, and the crate keeps no normal dependency on
+/// the canonical kit.
+pub type TypecheckFn =
+    dyn Fn(&str, &HashSet<String>) -> Result<Value, LangError> + Send + Sync;
 
-/// Adapts the canonical typechecker to the capability contract.
+/// Adapts an injected typechecker to the capability contract.
 pub struct TypecheckPlugin {
     capabilities: Vec<CapabilityId>,
+    check: Arc<TypecheckFn>,
 }
 
 impl TypecheckPlugin {
     /// Create the plugin, declaring the `typecheck` capability.
-    pub fn new() -> Self {
+    ///
+    /// `check` performs the typecheck. The host supplies it — e.g.
+    /// `handl_kit_canonical::Kit::typecheck_handl_with_prelude` bound to a
+    /// thread-cached canonical kit.
+    pub fn new(check: Arc<TypecheckFn>) -> Self {
         Self {
             capabilities: vec![CapabilityId::from(TYPECHECK_CAPABILITY)],
+            check,
         }
-    }
-}
-
-impl Default for TypecheckPlugin {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -138,7 +121,7 @@ impl Plugin for TypecheckPlugin {
             }
         };
 
-        let outcome = with_kit(|kit| kit.typecheck_handl_with_prelude(source, &prelude));
+        let outcome = (self.check)(source, &prelude);
         let response = match outcome {
             Ok(typ) => serde_json::json!({ "status": "ok", "type": format!("{typ}") }),
             Err(err) => {
@@ -161,7 +144,36 @@ impl Plugin for TypecheckPlugin {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+
+    use handl_kit_canonical::Kit;
     use handl_platform::{KitRegistry, PluginRegistry};
+
+    thread_local! {
+        /// The canonical kit, memoized per test binary thread — the same
+        /// host-side cache shape the production hosts keep (ADR-0128 §0.8).
+        static KIT: RefCell<Option<Kit>> = const { RefCell::new(None) };
+    }
+
+    /// The canonical `typecheck` capability, bound to the thread-cached kit.
+    fn canonical_check() -> Arc<TypecheckFn> {
+        Arc::new(|src, prelude| {
+            KIT.with(|cell| {
+                let mut slot = cell.borrow_mut();
+                if slot.is_none() {
+                    *slot = Some(Kit::new().expect("canonical kit must assemble"));
+                }
+                slot.as_ref()
+                    .expect("kit populated above")
+                    .typecheck_handl_with_prelude(src, prelude)
+            })
+        })
+    }
+
+    /// A plugin wired with the canonical checker.
+    fn plugin() -> TypecheckPlugin {
+        TypecheckPlugin::new(canonical_check())
+    }
 
     fn with_ctx<R>(f: impl FnOnce(&mut PluginContext) -> R) -> R {
         let mut plugins = PluginRegistry::new();
@@ -182,14 +194,14 @@ mod tests {
 
     #[test]
     fn default_is_new_and_name_is_reported() {
-        let plugin = TypecheckPlugin::default();
+        let plugin = plugin();
         assert_eq!(plugin.name(), "Typechecker");
         assert_eq!(plugin.capabilities().len(), 1);
     }
 
     #[test]
     fn a_null_prelude_is_treated_as_absent() {
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
@@ -206,7 +218,7 @@ mod tests {
         // `host-cli` distinguishes "the checker ran and found type errors"
         // (stdout, exit 0) from "could not check" (stderr, exit 2). The former
         // is the `type-errors` status; an unbound wire produces it.
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(&req(serde_json::json!({ "source": "x = y;" })), ctx)
@@ -230,7 +242,7 @@ mod tests {
 
     #[test]
     fn declares_the_typecheck_capability() {
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         assert_eq!(plugin.id(), "ext.typecheck");
         assert_eq!(plugin.capabilities().len(), 1);
         assert_eq!(plugin.capabilities()[0].as_str(), "typecheck");
@@ -240,7 +252,7 @@ mod tests {
 
     #[test]
     fn a_wrong_capability_is_unknown() {
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &CapabilityRequest {
@@ -259,7 +271,7 @@ mod tests {
 
     #[test]
     fn missing_source_is_invalid_metadata() {
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({})), ctx))
             .expect_err("a payload without `source` must fail");
         assert!(
@@ -270,7 +282,7 @@ mod tests {
 
     #[test]
     fn a_non_array_prelude_is_invalid_metadata() {
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &req(serde_json::json!({ "source": "x = 1", "prelude": "str" })),
@@ -286,7 +298,7 @@ mod tests {
 
     #[test]
     fn a_well_typed_module_reports_ok_with_a_type() {
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(&req(serde_json::json!({ "source": "x = 1" })), ctx)
@@ -305,7 +317,7 @@ mod tests {
         // Distinguishes "the checker ran and the source is bad" from "the
         // capability could not run": the former is a response, the latter a
         // `PlatformError`.
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(&req(serde_json::json!({ "source": "@@@" })), ctx)
@@ -323,7 +335,7 @@ mod tests {
     fn an_explicit_prelude_is_honoured() {
         // The seeded name must be in scope: without it the module would report
         // an unbound wire for `provided_name`.
-        let plugin = TypecheckPlugin::new();
+        let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
                 .run(
