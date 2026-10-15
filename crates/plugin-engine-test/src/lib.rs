@@ -3,10 +3,14 @@
 //! Bootstrap test runner (ADR-0089).
 //!
 //! Discovers, runs, and reports tests written in handl. Discovery merges the
-//! test-language fragment (`data/test-language.yaml`) onto the canonical kit
-//! via `Language::merge` (ADR-0044), so `test`/`property`/`integration_test`/
-//! `bench` declarations are first-class syntax; the legacy `test_*` binding
-//! convention remains as a fallback. Execution dispatches selected tests to
+//! test-language fragment (`data/test-language.yaml`) onto the injected base
+//! language via `Language::merge` (ADR-0044), so `test`/`property`/
+//! `integration_test`/`bench` declarations are first-class syntax; the
+//! legacy `test_*` binding convention remains as a fallback. The base
+//! runtime — language, module chain, import resolver — is injected through
+//! [`runner::TestKitSource`], a `Send + Sync` factory the scheduler invokes
+//! per worker thread (ADR-0128 §"The 0.8 seam"); this crate keeps no normal
+//! dependency on the canonical kit. Execution dispatches selected tests to
 //! the generic `plugin-lib-scheduler` `BoundedScheduler` under a
 //! `SchedulePolicy`, selects them via [`Filter`]s — a handl filter arrow
 //! from `handl-packages/pred/pred.hnl` evaluated per case against a record

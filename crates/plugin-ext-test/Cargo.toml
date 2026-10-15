@@ -8,3 +8,9 @@ handl-platform = { path = "../platform" }
 handl-plugin-engine-test = { path = "../plugin-engine-test" }
 handl-plugin-lib-scheduler = { path = "../plugin-lib-scheduler" }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+# Tests bind the canonical kit through a thread-local cache — the same
+# shape the host uses (ADR-0128 §0.8). Dev-only: only normal deps create
+# the platform↔lang cycle.
+handl-kit-canonical = { path = "../kit-canonical" }

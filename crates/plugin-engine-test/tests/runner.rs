@@ -1,16 +1,16 @@
 //! Integration tests for the bootstrap test runner (ADR-0089).
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use handl_plugin_engine_test::config::{RunConfig, run_with_config};
 use handl_plugin_engine_test::events::TestEvent;
 use handl_plugin_engine_test::provider::{FileSystemProvider, TestProvider, discover_with};
 use handl_plugin_engine_test::report::{HumanReporter, JsonReporter, Reporter, summarize};
 use handl_plugin_engine_test::runner::{
-    DiscoverError, TestPlan, TestResult, TestRunCache, discover, filter_predicate,
-    format_report_human, format_report_json, run, run_selected, run_selected_cached,
-    run_with_filter, tag_predicate,
+    DiscoverError, TestKitSource, TestPlan, TestResult, TestRunCache, base_runtime, discover,
+    filter_predicate, format_report_human, format_report_json, run, run_selected,
+    run_selected_cached, run_with_filter, tag_predicate,
 };
 use handl_plugin_lib_scheduler::SchedulePolicy;
 
@@ -22,20 +22,46 @@ fn fixture(name: &str) -> PathBuf {
         .join(name)
 }
 
+thread_local! {
+    /// Thread-cached canonical kit — the host-side shape the injected
+    /// factory mirrors (ADR-0128 §0.8; the kit is a dev-dep).
+    static TEST_KIT: std::cell::RefCell<Option<handl_kit_canonical::Kit>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// The canonical base-runtime factory: a capture-less closure over the
+/// thread-local kit, so it is `Send + Sync`.
+fn src() -> TestKitSource {
+    std::sync::Arc::new(|| {
+        TEST_KIT.with(|cell| {
+            let mut slot = cell.borrow_mut();
+            if slot.is_none() {
+                *slot =
+                    Some(handl_kit_canonical::Kit::new().expect("canonical kit assembles"));
+            }
+            let kit = slot.as_ref().expect("kit populated above");
+            Ok::<_, String>(base_runtime(
+                kit.runtime(),
+                kit.module_root().map(Path::to_path_buf),
+            ))
+        })
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Discovery tests
 // ---------------------------------------------------------------------------
 
 #[test]
 fn discover_empty_paths() {
-    let plan = discover(&[]).unwrap();
+    let plan = discover(&src(), &[]).unwrap();
     assert!(plan.tests.is_empty());
     assert!(plan.parse_errors.is_empty());
 }
 
 #[test]
 fn discover_single_file() {
-    let plan = discover(&[fixture("pass.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("pass.handl")]).unwrap();
     assert!(plan.parse_errors.is_empty());
     // Should discover test_addition, test_number, test_string.
     assert_eq!(plan.tests.len(), 3);
@@ -48,7 +74,7 @@ fn discover_single_file() {
 fn discover_test_language_decls() {
     // ADR-0089 §4: `test`/`property`/`integration_test`/`bench` declarations
     // from the test-language fragment merged onto the canonical kit.
-    let plan = discover(&[fixture("decls.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("decls.handl")]).unwrap();
     assert!(
         plan.parse_errors.is_empty(),
         "parse errors: {:?}",
@@ -72,8 +98,8 @@ fn discover_test_language_decls() {
 
 #[test]
 fn run_test_language_decls() {
-    let plan = discover(&[fixture("decls.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("decls.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 5);
     assert_eq!(report.passed(), 4);
     assert_eq!(report.failed(), 1);
@@ -84,9 +110,10 @@ fn run_selected_parallel_matches_sequential_order() {
     // ADR-0089: parallelism changes timing, never logical result ordering.
     // BoundedScheduler returns completion order; the runner re-collects in
     // canonical plan order.
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let seq = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let seq = run(&src(), &plan);
     let par = run_selected(
+        &src(),
         &plan,
         &handl_plugin_engine_test::Filter::all(),
         &SchedulePolicy::parallel(4),
@@ -106,8 +133,9 @@ fn run_selected_parallel_matches_sequential_order() {
 
 #[test]
 fn filter_predicate_glob() {
-    let plan = discover(&[fixture("decls.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("decls.handl")]).unwrap();
     let report = run_selected(
+        &src(),
         &plan,
         &filter_predicate("literal_*"),
         &SchedulePolicy::sequential(),
@@ -122,7 +150,7 @@ fn discover_directory() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join("fixtures");
-    let plan = discover(&[dir]).unwrap();
+    let plan = discover(&src(), &[dir]).unwrap();
     // All .handl files in the fixtures directory should be found.
     // Files are sorted lexicographically: fail, mixed, no_tests, parse_error, pass.
     assert!(!plan.tests.is_empty());
@@ -144,14 +172,14 @@ fn discover_directory() {
 
 #[test]
 fn discover_nonexistent_path() {
-    let result = discover(&[PathBuf::from("/nonexistent/path/file.handl")]);
+    let result = discover(&src(), &[PathBuf::from("/nonexistent/path/file.handl")]);
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), DiscoverError::NotFound(_)));
 }
 
 #[test]
 fn discover_parse_error() {
-    let plan = discover(&[fixture("parse_error.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("parse_error.handl")]).unwrap();
     // The parse error should be recorded, not propagated.
     assert_eq!(plan.parse_errors.len(), 1);
     assert!(plan.tests.is_empty());
@@ -162,14 +190,14 @@ fn discover_parse_error() {
 
 #[test]
 fn discover_no_tests() {
-    let plan = discover(&[fixture("no_tests.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("no_tests.handl")]).unwrap();
     assert!(plan.tests.is_empty());
     assert!(plan.parse_errors.is_empty());
 }
 
 #[test]
 fn discover_preserves_source_order() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     assert_eq!(plan.tests.len(), 3);
     // Source order: test_pass, test_fail, test_pass_two.
     assert_eq!(plan.tests[0].name, "test_pass");
@@ -183,8 +211,8 @@ fn discover_preserves_source_order() {
 
 #[test]
 fn run_all_pass() {
-    let plan = discover(&[fixture("pass.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("pass.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 3);
     assert_eq!(report.failed(), 0);
@@ -194,8 +222,8 @@ fn run_all_pass() {
 
 #[test]
 fn run_with_failure() {
-    let plan = discover(&[fixture("fail.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("fail.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 1);
     assert_eq!(report.passed(), 0);
     assert_eq!(report.failed(), 1);
@@ -212,8 +240,8 @@ fn run_with_failure() {
 
 #[test]
 fn run_mixed() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 2);
     assert_eq!(report.failed(), 1);
@@ -228,8 +256,8 @@ fn run_mixed() {
 
 #[test]
 fn run_assert_keyword() {
-    let plan = discover(&[fixture("assert_keyword.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("assert_keyword.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 2);
     assert_eq!(report.failed(), 1);
@@ -251,18 +279,18 @@ fn run_assert_keyword() {
 #[test]
 fn assert_keyword_truthy_failure_carries_detail() {
     // A standalone failing truthy assertion should record expected/actual.
-    let plan = discover(&[fixture("assert_keyword.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("assert_keyword.handl")]).unwrap();
     // Select only the truthy pass (assert "hello"), which passes.
-    let report = run_with_filter(&plan, "keyword_truthy");
+    let report = run_with_filter(&src(), &plan, "keyword_truthy");
     assert_eq!(report.passed(), 1);
     assert_eq!(report.failed(), 0);
 }
 
 #[test]
 fn run_with_filter_matches_some() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     // Filter matches "test_pass" (both test_pass and test_pass_two).
-    let report = run_with_filter(&plan, "test_pass");
+    let report = run_with_filter(&src(), &plan, "test_pass");
     assert_eq!(report.total(), 3);
     // test_pass and test_pass_two match, test_fail is skipped.
     assert_eq!(report.passed(), 2);
@@ -272,8 +300,8 @@ fn run_with_filter_matches_some() {
 
 #[test]
 fn run_with_filter_matches_none() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run_with_filter(&plan, "nonexistent");
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run_with_filter(&src(), &plan, "nonexistent");
     assert_eq!(report.total(), 3);
     assert_eq!(report.skipped(), 3);
     assert_eq!(report.passed(), 0);
@@ -282,8 +310,8 @@ fn run_with_filter_matches_none() {
 
 #[test]
 fn run_with_filter_empty_matches_all() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run_with_filter(&plan, "");
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run_with_filter(&src(), &plan, "");
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 2);
     assert_eq!(report.failed(), 1);
@@ -293,7 +321,7 @@ fn run_with_filter_empty_matches_all() {
 #[test]
 fn run_empty_plan() {
     let plan = TestPlan::default();
-    let report = run(&plan);
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 0);
     assert_eq!(report.passed(), 0);
     assert_eq!(report.failed(), 0);
@@ -307,8 +335,8 @@ fn run_empty_plan() {
 
 #[test]
 fn format_report_human_output() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run(&src(), &plan);
     let output = format_report_human(&report);
 
     // Each test should have a line.
@@ -325,8 +353,8 @@ fn format_report_human_output() {
 
 #[test]
 fn format_report_json_valid() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run(&src(), &plan);
     let json = format_report_json(&report);
 
     // Should be valid JSON.
@@ -355,8 +383,8 @@ fn format_report_json_valid() {
 fn format_report_human_groups_by_suite_and_shows_failure_detail() {
     // Two modules → two suite headers; the failing test's structured
     // detail (assertion/expected/actual) is rendered on indented lines.
-    let plan = discover(&[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
+    let report = run(&src(), &plan);
     let output = format_report_human(&report);
 
     let mixed = fixture("mixed.handl").display().to_string();
@@ -370,8 +398,8 @@ fn format_report_human_groups_by_suite_and_shows_failure_detail() {
 
 #[test]
 fn format_report_json_includes_suites() {
-    let plan = discover(&[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
+    let report = run(&src(), &plan);
     let json = format_report_json(&report);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
@@ -394,8 +422,8 @@ fn format_report_json_includes_suites() {
 
 #[test]
 fn report_counts() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 2);
     assert_eq!(report.failed(), 1);
@@ -409,9 +437,9 @@ fn report_counts() {
 #[test]
 fn determinism_source_order() {
     // Running the same plan twice should produce identical results.
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report1 = run(&plan);
-    let report2 = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report1 = run(&src(), &plan);
+    let report2 = run(&src(), &plan);
 
     assert_eq!(report1.total(), report2.total());
     assert_eq!(report1.passed(), report2.passed());
@@ -433,19 +461,19 @@ fn cached_second_run_replays_identical_results() {
     // A second run over the same plan must replay the recorded results
     // without re-evaluating: all lookups are hits and the report is
     // identical in ordering and content.
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut cache = TestRunCache::new();
     let pred = handl_plugin_engine_test::Filter::all();
     let policy = SchedulePolicy::sequential();
 
-    let first = run_selected_cached(&plan, &pred, &policy, &mut cache);
+    let first = run_selected_cached(&src(), &plan, &pred, &policy, &mut cache);
     assert_eq!(first.passed(), 2);
     assert_eq!(first.failed(), 1);
     assert_eq!(cache.len(), 3);
     assert_eq!(cache.misses(), 3);
     assert_eq!(cache.hits(), 0);
 
-    let second = run_selected_cached(&plan, &pred, &policy, &mut cache);
+    let second = run_selected_cached(&src(), &plan, &pred, &policy, &mut cache);
     assert_eq!(cache.hits(), 3, "all tests served from cache");
     assert_eq!(cache.misses(), 3, "no re-evaluation on second run");
     assert_eq!(cache.len(), 3);
@@ -467,22 +495,22 @@ fn cached_second_run_replays_identical_results() {
 fn cache_is_opt_in_and_invalidates_on_source_change() {
     // Default runs never touch the cache; a mutated body_source is a
     // different fingerprint and re-evaluates.
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut cache = TestRunCache::new();
     let pred = handl_plugin_engine_test::Filter::all();
     let policy = SchedulePolicy::sequential();
 
     // run / run_selected do not use a cache — nothing to assert on the
     // cache itself; the API simply doesn't take one.
-    let _ = run_selected(&plan, &pred, &policy);
+    let _ = run_selected(&src(), &plan, &pred, &policy);
 
-    run_selected_cached(&plan, &pred, &policy, &mut cache);
+    run_selected_cached(&src(), &plan, &pred, &policy, &mut cache);
     assert_eq!(cache.misses(), 3);
 
     // Mutate one test's body: its key changes, the others still hit.
     let mut plan2 = plan.clone();
     plan2.tests[0].body_source = "1 + 2".to_string();
-    let report = run_selected_cached(&plan2, &pred, &policy, &mut cache);
+    let report = run_selected_cached(&src(), &plan2, &pred, &policy, &mut cache);
     assert_eq!(cache.hits(), 2);
     assert_eq!(cache.misses(), 4);
     assert_eq!(report.passed(), 2);
@@ -492,9 +520,10 @@ fn cache_is_opt_in_and_invalidates_on_source_change() {
 #[test]
 fn filtered_out_tests_are_not_cached() {
     // Skipped tests must not be recorded in the cache.
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut cache = TestRunCache::new();
     let report = run_selected_cached(
+        &src(),
         &plan,
         &filter_predicate("test_pass*"),
         &SchedulePolicy::sequential(),
@@ -523,9 +552,9 @@ fn event_positions(events: &[TestEvent], pred: impl Fn(&TestEvent) -> bool) -> V
 fn events_run_lifecycle_ordering() {
     // RunStarted first, RunFinished last; for every executed test,
     // TestSelected precedes TestStarted precedes TestFinished.
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut config = RunConfig::new();
-    let report = run_with_config(&plan, &mut config);
+    let report = run_with_config(&src(), &plan, &mut config);
     assert_eq!(report.total(), 3);
 
     let events = &config.events;
@@ -576,7 +605,7 @@ fn events_run_lifecycle_ordering() {
 
     // Parallel runs emit the same canonical event order.
     let mut config = RunConfig::new().with_policy(SchedulePolicy::parallel(4));
-    run_with_config(&plan, &mut config);
+    run_with_config(&src(), &plan, &mut config);
     let kind_seq: Vec<&'static str> = config
         .events
         .iter()
@@ -596,7 +625,7 @@ fn events_run_lifecycle_ordering() {
         .collect();
     let seq_kinds: Vec<&'static str> = {
         let mut c = RunConfig::new();
-        run_with_config(&plan, &mut c);
+        run_with_config(&src(), &plan, &mut c);
         c.events
             .iter()
             .map(|e| match e {
@@ -619,9 +648,9 @@ fn events_run_lifecycle_ordering() {
 
 #[test]
 fn events_skipped_tests_emit_test_skipped() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut config = RunConfig::new().with_filter("test_pass*");
-    let report = run_with_config(&plan, &mut config);
+    let report = run_with_config(&src(), &plan, &mut config);
     assert_eq!(report.skipped(), 1);
     let skipped = event_positions(
         &config.events,
@@ -633,9 +662,9 @@ fn events_skipped_tests_emit_test_skipped() {
 #[test]
 fn events_suite_lifecycle_brackets_modules() {
     // Two modules, in lexicographic order: mixed.handl, pass.handl.
-    let plan = discover(&[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl"), fixture("pass.handl")]).unwrap();
     let mut config = RunConfig::new();
-    let report = run_with_config(&plan, &mut config);
+    let report = run_with_config(&src(), &plan, &mut config);
     assert_eq!(report.total(), 6);
     let events = &config.events;
 
@@ -742,6 +771,7 @@ fn discovery_emits_test_discovered() {
     let mut events = Vec::new();
     let plan = discover_with(
         &FileSystemProvider,
+        &src(),
         &[fixture("pass.handl")],
         Some(&mut events),
     )
@@ -764,8 +794,9 @@ fn discovery_emits_test_discovered() {
 
 #[test]
 fn duration_is_populated_for_executed_tests() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let report = run_with_config(
+        &src(),
         &plan,
         &mut RunConfig::new().with_policy(SchedulePolicy::parallel(4)),
     );
@@ -785,8 +816,8 @@ fn duration_is_populated_for_executed_tests() {
 
 #[test]
 fn structured_failure_detail_for_assert_equal() {
-    let plan = discover(&[fixture("equal_fail.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("equal_fail.handl")]).unwrap();
+    let report = run(&src(), &plan);
     assert_eq!(report.total(), 1);
     assert_eq!(report.failed(), 1);
 
@@ -798,13 +829,13 @@ fn structured_failure_detail_for_assert_equal() {
 
 #[test]
 fn cached_hit_emits_test_cached() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut config = RunConfig::new()
         .with_policy(SchedulePolicy::sequential())
         .with_cache(TestRunCache::new());
-    run_with_config(&plan, &mut config);
+    run_with_config(&src(), &plan, &mut config);
     config.events.clear();
-    run_with_config(&plan, &mut config);
+    run_with_config(&src(), &plan, &mut config);
 
     let cached = event_positions(&config.events, |e| {
         matches!(e, TestEvent::TestCached { .. })
@@ -833,8 +864,8 @@ fn cached_hit_emits_test_cached() {
 
 #[test]
 fn reporters_via_trait_match_legacy_formatters() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
-    let report = run(&plan);
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
+    let report = run(&src(), &plan);
     let summary = summarize(&report);
     assert_eq!(summary.total, 3);
     assert_eq!(summary.passed, 2);
@@ -869,7 +900,7 @@ fn reporters_via_trait_match_legacy_formatters() {
 
 #[test]
 fn discover_tagged_tests() {
-    let plan = discover(&[fixture("tagged.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("tagged.handl")]).unwrap();
     assert_eq!(plan.tests.len(), 3);
     assert!(
         plan.tests
@@ -890,9 +921,9 @@ fn discover_tagged_tests() {
 
 #[test]
 fn tag_filter_selects_matching_tests() {
-    let plan = discover(&[fixture("tagged.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("tagged.handl")]).unwrap();
     let predicate = filter_predicate("").and(tag_predicate("slow"));
-    let report = run_selected(&plan, &predicate, &SchedulePolicy::sequential());
+    let report = run_selected(&src(), &plan, &predicate, &SchedulePolicy::sequential());
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 1);
     assert_eq!(report.skipped(), 2);
@@ -900,9 +931,9 @@ fn tag_filter_selects_matching_tests() {
 
 #[test]
 fn tag_filter_composes_with_name_filter() {
-    let plan = discover(&[fixture("tagged.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("tagged.handl")]).unwrap();
     let predicate = filter_predicate("*_net").and(tag_predicate("net"));
-    let report = run_selected(&plan, &predicate, &SchedulePolicy::sequential());
+    let report = run_selected(&src(), &plan, &predicate, &SchedulePolicy::sequential());
     assert_eq!(report.total(), 3);
     assert_eq!(report.passed(), 1);
     assert_eq!(report.skipped(), 2);
@@ -914,9 +945,9 @@ fn tag_filter_composes_with_name_filter() {
 
 #[test]
 fn test_run_cache_save_and_load_round_trip() {
-    let plan = discover(&[fixture("mixed.handl")]).unwrap();
+    let plan = discover(&src(), &[fixture("mixed.handl")]).unwrap();
     let mut config = RunConfig::new().with_cache(TestRunCache::new());
-    run_with_config(&plan, &mut config);
+    run_with_config(&src(), &plan, &mut config);
 
     let cache = config.cache.unwrap();
     assert!(!cache.is_empty());

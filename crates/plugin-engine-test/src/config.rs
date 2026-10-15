@@ -16,7 +16,8 @@ use handl_plugin_lib_scheduler::SchedulePolicy;
 
 use crate::events::TestEvent;
 use crate::runner::{
-    self, Filter, RunReport, TestPlan, TestRunCache, filter_predicate, tag_predicate,
+    self, Filter, RunReport, TestKitSource, TestPlan, TestRunCache, filter_predicate,
+    tag_predicate,
 };
 
 /// Configuration for a single test run.
@@ -97,8 +98,16 @@ impl RunConfig {
 /// `config.cache` when present, and appends structured events to
 /// `config.events` in canonical plan order (deterministic regardless of
 /// parallelism — ADR-0089 §"Determinism").
-pub fn run_with_config(plan: &TestPlan, config: &mut RunConfig) -> RunReport {
+///
+/// `source` is the injected base-runtime factory — invoked on each
+/// scheduler worker thread (see [`TestKitSource`]).
+pub fn run_with_config(
+    source: &TestKitSource,
+    plan: &TestPlan,
+    config: &mut RunConfig,
+) -> RunReport {
     runner::run_selected_impl(
+        source,
         plan,
         &config.predicate,
         &config.policy,

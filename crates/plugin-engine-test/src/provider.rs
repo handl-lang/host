@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::events::TestEvent;
-use crate::runner::{self, DiscoverError, TestCase, TestPlan};
+use crate::runner::{self, DiscoverError, TestCase, TestKitSource, TestPlan};
 
 /// A source of tests (ADR-0089 provider API v1).
 ///
@@ -36,7 +36,8 @@ pub trait TestProvider {
     /// A short provider name, for diagnostics and `--list` attribution.
     fn name(&self) -> &'static str;
 
-    /// Discover tests under `paths`.
+    /// Discover tests under `paths` using the injected base-runtime
+    /// [`source`](TestKitSource) (discovery uses only its language).
     ///
     /// # Errors
     ///
@@ -45,6 +46,7 @@ pub trait TestProvider {
     /// [`TestPlan::parse_errors`] rather than propagated.
     fn discover(
         &self,
+        source: &TestKitSource,
         paths: &[PathBuf],
         events: Option<&mut Vec<TestEvent>>,
     ) -> Result<TestPlan, DiscoverError>;
@@ -68,10 +70,11 @@ impl TestProvider for FileSystemProvider {
 
     fn discover(
         &self,
+        source: &TestKitSource,
         paths: &[PathBuf],
         events: Option<&mut Vec<TestEvent>>,
     ) -> Result<TestPlan, DiscoverError> {
-        runner::discover_inner(paths, events)
+        runner::discover_inner(source, paths, events)
     }
 }
 
@@ -93,6 +96,7 @@ impl TestProvider for ChangedProvider {
 
     fn discover(
         &self,
+        source: &TestKitSource,
         paths: &[PathBuf],
         events: Option<&mut Vec<TestEvent>>,
     ) -> Result<TestPlan, DiscoverError> {
@@ -110,7 +114,7 @@ impl TestProvider for ChangedProvider {
             .collect::<Result<Vec<_>, _>>()?;
 
         let fs = FileSystemProvider;
-        let mut plan = fs.discover(&abs_paths, None)?;
+        let mut plan = fs.discover(source, &abs_paths, None)?;
 
         let changed = match changed_files(&abs_paths) {
             Ok(files) => files,
@@ -341,10 +345,11 @@ fn parse_quoted(s: &str) -> Option<(String, &str)> {
 /// read.
 pub fn discover_with(
     provider: &dyn TestProvider,
+    source: &TestKitSource,
     paths: &[PathBuf],
     events: Option<&mut Vec<TestEvent>>,
 ) -> Result<TestPlan, DiscoverError> {
-    provider.discover(paths, events)
+    provider.discover(source, paths, events)
 }
 
 // ---------------------------------------------------------------------------

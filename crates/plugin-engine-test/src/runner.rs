@@ -51,8 +51,8 @@ use handl_language::{
     TokenKindDef, TransformDef, Value, as_tag, language_value, tag_value,
 };
 
-use handl_kit_canonical::handl_module::HandlModule;
 use handl_platform::{EvalContext, Function, Module, ModuleLookup};
+use handl_plugin_lib_handl::HandlModule;
 use handl_plugin_engine_exec_tree_walk::{AssertFailure, AssertHandler, TreeWalkEngine};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse::ParserEngine;
@@ -573,7 +573,43 @@ fn test_language_fragment() -> Result<Language, String> {
     Ok(frag)
 }
 
-/// Build the **test language**: canonical kit ⊕ test-language fragment.
+/// The injected base-runtime factory (ADR-0128 §"The 0.8 seam").
+///
+/// Each call must produce a fresh [`Runtime`] **on the calling thread** —
+/// the module chain is `Rc`-based, so a runtime cannot cross threads and
+/// scheduler workers invoke the factory inside the job closure rather than
+/// sharing a runtime value. What the runner needs from it: `lang()` (the
+/// base language, pre test-fragment merge), `modules()`, and
+/// `import_resolver()`/`module_root()` — the pieces a kit's `runtime()`
+/// carries. The host wires this from its own kit cache (e.g. a
+/// `thread_local` + capture-less closure, which is what keeps the factory
+/// `Send + Sync`).
+pub type TestKitSource = Arc<dyn Fn() -> Result<Runtime, String> + Send + Sync>;
+
+/// Copy the kit-side pieces of `rt` into a fresh base [`Runtime`] — the
+/// shape a [`TestKitSource`] factory returns. `Runtime` is not `Clone`
+/// (its engines are boxed trait objects), but everything the test runtime
+/// consumes — `lang()`, `modules()`, `import_resolver()`, `module_root()`
+/// — is clonable state, so a host assembles the base by copying them.
+///
+/// `module_root` supplies the root when the source runtime does not carry
+/// one: a `Kit` stores its module root beside the runtime, so a kit-backed
+/// factory passes `kit.module_root()` explicitly.
+pub fn base_runtime(rt: &Runtime, module_root: Option<PathBuf>) -> Runtime {
+    let mut base = Runtime::new(rt.lang().clone());
+    if let Some(modules) = rt.modules() {
+        base = base.with_modules(Rc::clone(modules));
+    }
+    if let Some(resolver) = rt.import_resolver() {
+        base = base.with_import_resolver(Rc::clone(resolver));
+    }
+    if let Some(root) = rt.module_root().map(Path::to_path_buf).or(module_root) {
+        base = base.with_module_root(root);
+    }
+    base
+}
+
+/// Build the **test language**: `base` ⊕ test-language fragment.
 ///
 /// Both discovery and execution use this merged language so that
 /// `test "name" = body`-style declarations parse and evaluate identically
@@ -581,11 +617,9 @@ fn test_language_fragment() -> Result<Language, String> {
 ///
 /// # Errors
 ///
-/// Returns an error string if the canonical kit or the merge fails.
-fn test_language() -> Result<Language, String> {
-    let kit = handl_kit_canonical::Kit::new()
-        .map_err(|e| format!("failed to assemble canonical kit: {e}"))?;
-    let mut lang = kit.runtime().lang().clone();
+/// Returns an error string if the test-language merge fails.
+fn test_language(base: &Language) -> Result<Language, String> {
+    let mut lang = base.clone();
     lang.merge(test_language_fragment()?)
         .map_err(|e| format!("failed to merge test-language fragment: {e}"))?;
     Ok(lang)
@@ -839,13 +873,16 @@ fn collect_handl_files(dir: &Path, files: &mut Vec<PathBuf>) {
 /// ordered by source position within each module, and modules are ordered
 /// lexicographically by path.
 ///
+/// `source` is the injected base-runtime factory (see [`TestKitSource`]);
+/// discovery uses only its language.
+///
 /// # Errors
 ///
 /// Returns [`DiscoverError`] if a path doesn't exist or a file can't be read.
 /// Parse errors for individual modules are recorded in the returned
 /// [`TestPlan::parse_errors`] rather than propagated.
-pub fn discover(paths: &[PathBuf]) -> Result<TestPlan, DiscoverError> {
-    crate::provider::discover_with(&crate::provider::FileSystemProvider, paths, None)
+pub fn discover(source: &TestKitSource, paths: &[PathBuf]) -> Result<TestPlan, DiscoverError> {
+    crate::provider::discover_with(&crate::provider::FileSystemProvider, source, paths, None)
 }
 
 /// Push a [`TestEvent`] into `sink` when one is supplied.
@@ -869,6 +906,7 @@ fn emit(sink: &mut Option<&mut Vec<TestEvent>>, event: TestEvent) {
 ///
 /// See [`discover`].
 pub(crate) fn discover_inner(
+    source: &TestKitSource,
     paths: &[PathBuf],
     mut events: Option<&mut Vec<TestEvent>>,
 ) -> Result<TestPlan, DiscoverError> {
@@ -892,9 +930,10 @@ pub(crate) fn discover_inner(
     // Sort files lexicographically for deterministic ordering.
     files.sort();
 
-    // Build the test language: canonical kit ⊕ test-language fragment
-    // (ADR-0089 §"Test declaration syntax", ADR-0044).
-    let lang = test_language().map_err(DiscoverError::Io)?;
+    // Build the test language: injected base language ⊕ test-language
+    // fragment (ADR-0089 §"Test declaration syntax", ADR-0044).
+    let base = source().map_err(DiscoverError::Io)?;
+    let lang = test_language(base.lang()).map_err(DiscoverError::Io)?;
 
     // Discover tests in each file.
     for file in &files {
@@ -954,33 +993,35 @@ impl ModuleLookup for TestModuleLookup {
     }
 }
 
-/// Build a test runtime: a [`Runtime`] with the canonical language, the
+/// Build a test runtime: a [`Runtime`] with the merged test language, the
 /// data lexer, Pratt parser, and tree-walk eval engine, wired with the
-/// Kit's stdlib module chain and a keyword-assertion failure handler.
+/// base runtime's module chain and a keyword-assertion failure handler.
+///
+/// `base` carries the kit-side pieces (language, module chain, import
+/// resolver, module root) — produced by the injected [`TestKitSource`] on
+/// this thread, since its `Rc` members cannot cross threads.
 ///
 /// This gives test expressions access to the stdlib (`fn.*`, `math.*`,
 /// `str.*`, etc.); `assert` is a keyword handled natively by the
 /// tree-walk engine and is not a module lookup.
-fn build_test_runtime() -> Result<Runtime, String> {
-    let kit = handl_kit_canonical::Kit::new()
-        .map_err(|e| format!("failed to assemble canonical kit: {e}"))?;
-    // Canonical language ⊕ test-language fragment, so `test`-kind nodes
+fn build_test_runtime(base: &Runtime) -> Result<Runtime, String> {
+    // Base language ⊕ test-language fragment, so `test`-kind nodes
     // (whose eval scheme projects the `body` child) evaluate correctly.
-    let lang = test_language()?;
+    let lang = test_language(base.lang())?;
 
-    // Get the Kit's module chain (stdlib + fp + meta + hello).
-    let kit_modules = kit.runtime().modules().cloned();
+    // Get the base runtime's module chain (stdlib + fp + meta + hello).
+    let kit_modules = base.modules().cloned();
 
-    // Wrap the Kit's module chain for the eval engine.
+    // Wrap the base module chain for the eval engine.
     let test_modules: Rc<dyn ModuleLookup> = Rc::new(TestModuleLookup {
         delegate: kit_modules,
     });
 
     // Build the eval engine with the test module chain + `self` global +
-    // the keyword-assertion failure handler, and wire the kit's import
+    // the keyword-assertion failure handler, and wire the base import
     // resolver so `from ... import` and `import` declarations resolve.
     let self_val = language_value(&lang);
-    let import_resolver = kit.runtime().import_resolver().cloned();
+    let import_resolver = base.import_resolver().cloned();
     let mut eval_engine = TreeWalkEngine::new()
         .with_modules(test_modules)
         .with_global("self", self_val)
@@ -997,7 +1038,7 @@ fn build_test_runtime() -> Result<Runtime, String> {
     if let Some(resolver) = import_resolver {
         runtime = runtime.with_import_resolver(resolver);
     }
-    if let Some(root) = kit.module_root() {
+    if let Some(root) = base.module_root() {
         runtime = runtime.with_module_root(root.to_path_buf());
     }
 
@@ -1009,8 +1050,8 @@ fn build_test_runtime() -> Result<Runtime, String> {
 /// Thin wrapper over [`run_selected`]: selects all tests and runs them
 /// sequentially. See [`crate::config::run_with_config`] for the full
 /// planner/policy entry point.
-pub fn run(plan: &TestPlan) -> RunReport {
-    run_selected(plan, &Filter::all(), &SchedulePolicy::sequential())
+pub fn run(source: &TestKitSource, plan: &TestPlan) -> RunReport {
+    run_selected(source, plan, &Filter::all(), &SchedulePolicy::sequential())
 }
 
 /// Run a test plan with a filter pattern.
@@ -1018,8 +1059,9 @@ pub fn run(plan: &TestPlan) -> RunReport {
 /// Thin wrapper over [`run_selected`]: the pattern becomes a
 /// [`filter_predicate`] (substring or glob match on the test name; an
 /// empty pattern selects all) and the run is sequential.
-pub fn run_with_filter(plan: &TestPlan, filter: &str) -> RunReport {
+pub fn run_with_filter(source: &TestKitSource, plan: &TestPlan, filter: &str) -> RunReport {
     run_selected(
+        source,
         plan,
         &filter_predicate(filter),
         &SchedulePolicy::sequential(),
@@ -1065,7 +1107,7 @@ fn pred_module() -> &'static HandlModule {
     // nested eval whose `modules.lookup` misses can re-enter this
     // `OnceLock` and deadlock (bootstrap path is pure text work).
     PRED_MODULE.get_or_init(|| {
-        handl_kit_canonical::handl_module::with_loader_disabled(|| {
+        handl_plugin_lib_handl::with_loader_disabled(|| {
             HandlModule::new("pred", PRED_HNL, PRED_FUNCS).with_dependency_arc(Arc::new(CharModule))
         })
     })
@@ -1213,13 +1255,15 @@ pub fn tag_expr_predicate(expr: &str) -> Filter {
 // ---------------------------------------------------------------------------
 
 thread_local! {
-    /// Per-worker cached test runtime.
+    /// Per-worker cached test runtime, keyed by the source that built it.
     ///
     /// [`Runtime`] is not `Send` (the module chain is `Rc`-based), so it
     /// cannot be shared across scheduler worker threads. Each worker builds
     /// one lazily on first use and reuses it across all jobs dispatched to
-    /// that thread.
-    static TEST_RUNTIME: RefCell<Option<Rc<Runtime>>> = RefCell::new(None);
+    /// that thread. The injected [`TestKitSource`] rides along so a second
+    /// caller's factory never reuses a runtime the first built.
+    static TEST_RUNTIME: RefCell<Option<(TestKitSource, Rc<Runtime>)>> =
+        const { RefCell::new(None) };
 }
 
 /// Whether a test-body value is an `err`-tagged result (the `assert`
@@ -1280,18 +1324,29 @@ fn err_payload<'v>(value: &'v Value) -> Option<&'v serde_json::Map<String, Value
 
 /// Evaluate a single test body on the calling thread's cached runtime.
 ///
+/// `source` is invoked here — inside the job closure, on the worker
+/// thread — to produce the base [`Runtime`] this thread's test runtime is
+/// built from (see [`TEST_RUNTIME`]).
+///
 /// Returns the [`TestResult`], measured duration, and any structured
 /// failure detail captured from the assert framework. The `Instant` is
 /// taken inside the job closure (i.e. on the worker thread), so the
 /// measurement is parallel-safe and independent of dispatch order.
-fn eval_test_body(body_source: &str) -> (TestResult, Duration, FailureDetail) {
+fn eval_test_body(
+    source: &TestKitSource,
+    body_source: &str,
+) -> (TestResult, Duration, FailureDetail) {
     crate::framework::clear_last_assert_failure();
     let start = Instant::now();
     let (result, failure) = TEST_RUNTIME.with(|cell| {
         let mut borrow = cell.borrow_mut();
-        if borrow.is_none() {
-            match build_test_runtime() {
-                Ok(rt) => *borrow = Some(Rc::new(rt)),
+        let stale = match borrow.as_ref() {
+            Some((cached_source, _)) => !Arc::ptr_eq(cached_source, source),
+            None => true,
+        };
+        if stale {
+            match source().and_then(|base| build_test_runtime(&base)) {
+                Ok(rt) => *borrow = Some((Arc::clone(source), Rc::new(rt))),
                 Err(msg) => {
                     return (
                         TestResult::Fail {
@@ -1302,7 +1357,7 @@ fn eval_test_body(body_source: &str) -> (TestResult, Duration, FailureDetail) {
                 }
             }
         }
-        let rt = borrow.as_ref().expect("runtime initialized above");
+        let rt = &borrow.as_ref().expect("runtime initialized above").1;
         match rt.run(&Source::new(body_source)) {
             Ok(value) => {
                 if is_err_result(&value) {
@@ -1361,8 +1416,16 @@ fn job_error_result(err: JobError) -> (TestResult, Duration, FailureDetail) {
 ///
 /// Each worker thread reuses a lazily built [`Runtime`] (see
 /// [`TEST_RUNTIME`]); there is no shared state between tests.
-pub fn run_selected(plan: &TestPlan, predicate: &Filter, policy: &SchedulePolicy) -> RunReport {
-    run_selected_impl(plan, predicate, policy, None, None)
+///
+/// `source` is the injected base-runtime factory — invoked on each worker
+/// thread (see [`TestKitSource`]).
+pub fn run_selected(
+    source: &TestKitSource,
+    plan: &TestPlan,
+    predicate: &Filter,
+    policy: &SchedulePolicy,
+) -> RunReport {
+    run_selected_impl(source, plan, predicate, policy, None, None)
 }
 
 /// Shared implementation for [`run_selected`], [`run_selected_cached`],
@@ -1375,6 +1438,7 @@ pub fn run_selected(plan: &TestPlan, predicate: &Filter, policy: &SchedulePolicy
 /// `SuiteFinished`, and `RunFinished` last. Events are emitted only on
 /// this thread, so ordering is deterministic under any `--jobs`.
 pub(crate) fn run_selected_impl(
+    source: &TestKitSource,
     plan: &TestPlan,
     predicate: &Filter,
     policy: &SchedulePolicy,
@@ -1425,7 +1489,14 @@ pub(crate) fn run_selected_impl(
         } else {
             format!("do {{\n{}\n{}\n}}", case.preamble, case.body_source)
         };
-        jobs.push((i, Box::new(move || eval_test_body(&body))));
+        // The factory is `Send + Sync` (capture-less by contract), so it
+        // can ride into the job and produce the worker's base runtime
+        // on-thread.
+        let job_source = Arc::clone(source);
+        jobs.push((
+            i,
+            Box::new(move || eval_test_body(&job_source, &body)),
+        ));
     }
 
     // Plan tests are already sorted by module. Capture each module's range
@@ -1762,12 +1833,13 @@ impl TestRunCache {
 /// are stored. Cached reports are identical in ordering and content to a
 /// fresh run.
 pub fn run_selected_cached(
+    source: &TestKitSource,
     plan: &TestPlan,
     predicate: &Filter,
     policy: &SchedulePolicy,
     cache: &mut TestRunCache,
 ) -> RunReport {
-    run_selected_impl(plan, predicate, policy, Some(cache), None)
+    run_selected_impl(source, plan, predicate, policy, Some(cache), None)
 }
 
 // ---------------------------------------------------------------------------
@@ -1802,6 +1874,30 @@ pub fn format_report_json(report: &RunReport) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    thread_local! {
+        /// Thread-cached canonical kit for the runner unit tests — the
+        /// same cache shape a host keeps (ADR-0128 §0.8; dev-dep only).
+        static TEST_KIT: RefCell<Option<handl_kit_canonical::Kit>> =
+            const { RefCell::new(None) };
+    }
+
+    /// The canonical base-runtime factory — a capture-less closure over
+    /// the thread-local kit, so it is `Send + Sync`.
+    fn canonical_source() -> TestKitSource {
+        Arc::new(|| {
+            TEST_KIT.with(|cell| {
+                let mut slot = cell.borrow_mut();
+                if slot.is_none() {
+                    *slot = Some(
+                        handl_kit_canonical::Kit::new().expect("canonical kit assembles"),
+                    );
+                }
+                let kit = slot.as_ref().expect("kit populated above");
+                Ok(base_runtime(kit.runtime(), kit.module_root().map(Path::to_path_buf)))
+            })
+        })
+    }
 
     #[test]
     fn test_plan_default_is_empty() {
@@ -2012,7 +2108,7 @@ mod tests {
     #[test]
     fn eval_test_body_fails_on_false_equality() {
         // Regression: `assert 1 = 2` must fail, not silently pass.
-        let (result, _dur, _detail) = eval_test_body("assert 1 = 2");
+        let (result, _dur, _detail) = eval_test_body(&canonical_source(), "assert 1 = 2");
         assert!(
             matches!(result, TestResult::Fail { .. }),
             "expected `assert 1 = 2` to fail, got {result:?}"
@@ -2021,7 +2117,7 @@ mod tests {
 
     #[test]
     fn eval_test_body_passes_on_true_equality() {
-        let (result, _dur, _detail) = eval_test_body("assert 1 = 1");
+        let (result, _dur, _detail) = eval_test_body(&canonical_source(), "assert 1 = 1");
         assert!(
             matches!(result, TestResult::Pass),
             "expected `assert 1 = 1` to pass, got {result:?}"

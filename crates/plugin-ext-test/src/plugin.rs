@@ -39,28 +39,30 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
-use handl_plugin_engine_test as engine;
+use handl_plugin_engine_test::{self as engine, TestKitSource};
 
 /// Capability id served by [`TestPlugin`].
 pub const TEST_CAPABILITY: &str = "test";
 
 /// Adapts the `hnl test` runner to the capability contract.
+///
+/// Holds the injected [`TestKitSource`] base-runtime factory (ADR-0128
+/// §"The 0.8 seam"): `Plugin: Send + Sync` forbids holding a `Kit`, and a
+/// `Runtime` cannot cross threads, so the host supplies a `Send + Sync`
+/// factory the runner invokes on whichever thread needs it.
 pub struct TestPlugin {
     capabilities: Vec<CapabilityId>,
+    source: TestKitSource,
 }
 
 impl TestPlugin {
-    /// Create the plugin, declaring the `test` capability.
-    pub fn new() -> Self {
+    /// Create the plugin over the injected base-runtime factory,
+    /// declaring the `test` capability.
+    pub fn new(source: TestKitSource) -> Self {
         Self {
             capabilities: vec![CapabilityId::from(TEST_CAPABILITY)],
+            source,
         }
-    }
-}
-
-impl Default for TestPlugin {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -95,7 +97,7 @@ impl Plugin for TestPlugin {
         if request.capability.as_str() != TEST_CAPABILITY {
             return Err(PlatformError::UnknownCapability(request.capability.clone()));
         }
-        run_test(request)
+        run_test(&self.source, request)
     }
 }
 
@@ -104,7 +106,10 @@ impl Plugin for TestPlugin {
 const CACHE_PATH: &str = ".handl/cache/test-runner/cache.json";
 
 /// Discover, then either list the cases or run them.
-fn run_test(request: &CapabilityRequest) -> Result<CapabilityResponse, PlatformError> {
+fn run_test(
+    source: &TestKitSource,
+    request: &CapabilityRequest,
+) -> Result<CapabilityResponse, PlatformError> {
     let payload = &request.payload;
     let paths = parse_paths(payload)?;
     let filter = payload.get("filter").and_then(|v| v.as_str()).unwrap_or("");
@@ -127,9 +132,9 @@ fn run_test(request: &CapabilityRequest) -> Result<CapabilityResponse, PlatformE
         .unwrap_or("human");
 
     let plan = if changed {
-        engine::discover_with(&engine::ChangedProvider, &paths, None)
+        engine::discover_with(&engine::ChangedProvider, source, &paths, None)
     } else {
-        engine::discover(&paths)
+        engine::discover(source, &paths)
     }
     .map_err(|e| PlatformError::Plugin(format!("test: discovery error: {e}")))?;
 
@@ -183,7 +188,7 @@ fn run_test(request: &CapabilityRequest) -> Result<CapabilityResponse, PlatformE
         config = config.with_cache(cache);
     }
 
-    let report = engine::run_with_config(&plan, &mut config);
+    let report = engine::run_with_config(source, &plan, &mut config);
 
     // Save the cache only if one was loaded and the run produced a cache to
     // persist (ADR-0089). `cache` is only set when the caller asked for it.
@@ -317,7 +322,41 @@ fn parse_jobs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::RefCell;
+
     use handl_platform::{KitRegistry, PluginRegistry};
+
+    thread_local! {
+        /// Thread-cached canonical kit — the host-side cache shape the
+        /// injected factory mirrors (ADR-0128 §0.8; the kit is a dev-dep).
+        static TEST_KIT: RefCell<Option<handl_kit_canonical::Kit>> =
+            const { RefCell::new(None) };
+    }
+
+    /// The canonical base-runtime factory: capture-less over the
+    /// thread-local kit, so it is `Send + Sync`.
+    fn canonical_source() -> TestKitSource {
+        std::sync::Arc::new(|| {
+            TEST_KIT.with(|cell| {
+                let mut slot = cell.borrow_mut();
+                if slot.is_none() {
+                    *slot = Some(
+                        handl_kit_canonical::Kit::new().expect("canonical kit assembles"),
+                    );
+                }
+                let kit = slot.as_ref().expect("kit populated above");
+                Ok::<_, String>(engine::base_runtime(
+                    kit.runtime(),
+                    kit.module_root().map(std::path::Path::to_path_buf),
+                ))
+            })
+        })
+    }
+
+    /// A plugin wired with the canonical source.
+    fn plugin() -> TestPlugin {
+        TestPlugin::new(canonical_source())
+    }
 
     fn with_ctx<R>(f: impl FnOnce(&mut PluginContext) -> R) -> R {
         let mut plugins = PluginRegistry::new();
@@ -345,7 +384,7 @@ mod tests {
 
     #[test]
     fn declares_the_test_capability() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         assert_eq!(plugin.id(), "ext.test");
         assert_eq!(plugin.capabilities().len(), 1);
         assert_eq!(plugin.capabilities()[0].as_str(), "test");
@@ -355,7 +394,7 @@ mod tests {
 
     #[test]
     fn a_wrong_capability_is_unknown() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &CapabilityRequest {
@@ -374,7 +413,7 @@ mod tests {
 
     #[test]
     fn missing_paths_is_invalid_metadata() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({})), ctx))
             .expect_err("a payload without `paths` must fail");
         assert!(
@@ -385,7 +424,7 @@ mod tests {
 
     #[test]
     fn empty_paths_is_invalid_metadata() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({ "paths": [] })), ctx))
             .expect_err("an empty `paths` must fail rather than silently no-op");
         assert!(
@@ -396,7 +435,7 @@ mod tests {
 
     #[test]
     fn a_non_array_tags_is_invalid_metadata() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
                 &req(serde_json::json!({ "paths": ["."], "tags": "slow" })),
@@ -412,7 +451,7 @@ mod tests {
 
     #[test]
     fn list_mode_on_an_empty_tree_returns_an_empty_case_list() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let dir = empty_dir();
         let res = with_ctx(|ctx| {
             plugin
@@ -436,7 +475,7 @@ mod tests {
 
     #[test]
     fn an_unknown_report_format_is_invalid_metadata() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let dir = empty_dir();
         let err = with_ctx(|ctx| {
             plugin.run(
@@ -489,15 +528,15 @@ mod tests {
     // ── Default / name ───────────────────────────────────────────────
 
     #[test]
-    fn default_is_new_and_name_is_reported() {
-        let plugin = TestPlugin::default();
+    fn name_is_reported() {
+        let plugin = plugin();
         assert_eq!(plugin.name(), "Test runner");
         assert_eq!(plugin.capabilities().len(), 1);
     }
 
     #[test]
     fn a_non_array_paths_is_invalid_metadata() {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         let err = with_ctx(|ctx| plugin.run(&req(serde_json::json!({ "paths": "tests" })), ctx))
             .expect_err("a string `paths` must fail");
         assert!(
@@ -568,7 +607,7 @@ mod tests {
     }
 
     fn run_payload(payload: serde_json::Value) -> serde_json::Value {
-        let plugin = TestPlugin::new();
+        let plugin = plugin();
         with_ctx(|ctx| plugin.run(&req(payload), ctx).expect("test runs").0)
     }
 
