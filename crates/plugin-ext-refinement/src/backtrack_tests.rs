@@ -19,6 +19,20 @@ use crate::inference::infer_refinement;
 use crate::types::Pred;
 
 // Embed the actual .hnl stdlib files for testing.
+/// The arrow-dialect [`Language`] for tests — canonical base from the
+/// dev-dep data crate plus the `arrow_language_for` overrides (tests may
+/// depend on `lang/` data; the library must not).
+fn arrow_lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        crate::arrow_lang::arrow_language_for(
+            &handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    })
+}
+
 const BACKTRACK_HNL: &str = include_str!("../tests/fixtures/parse-backtrack/backtrack.hnl");
 
 // ============================================================================
@@ -155,7 +169,7 @@ fn test_fail_guarantee_is_error() {
 
 #[test]
 fn test_backtrack_hnl_parses() {
-    let parsed = parse_arrow_file(BACKTRACK_HNL).unwrap();
+    let parsed = parse_arrow_file(arrow_lang(), BACKTRACK_HNL).unwrap();
     let expected = backtrack_graph();
     match parsed {
         crate::arrow_parser::ParsedFile::Single(scheme) => {
@@ -247,7 +261,7 @@ fn test_backtrack_e2e_load_and_infer() {
         "{}/tests/fixtures/parse-backtrack/backtrack.hnl",
         manifest_dir
     );
-    let graph = load_arrow_file(&path).unwrap();
+    let graph = load_arrow_file(arrow_lang(), &path).unwrap();
     let result = infer_refinement(&graph, &registry).unwrap();
     let pretty = result.guarantee.pretty();
     println!("backtrack e2e guarantee: {}", pretty);
@@ -266,7 +280,7 @@ fn test_backtrack_e2e_infer_file() {
         "{}/tests/fixtures/parse-backtrack/backtrack.hnl",
         manifest_dir
     );
-    let result = infer_file(&path, &registry).unwrap();
+    let result = infer_file(arrow_lang(), &path, &registry).unwrap();
     let pretty = result.guarantee.pretty();
     println!("backtrack e2e (infer_file) guarantee: {}", pretty);
     assert!(

@@ -13,8 +13,6 @@
 //! (= `Seq(a, Choice(b, c))`). We override the two grammar rows after
 //! loading the canonical language to swap their binding powers.
 
-use std::sync::OnceLock;
-
 use handl_language::ArrSource;
 use handl_language::{
     AstShapeRef, ChildSeparator, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow,
@@ -23,20 +21,24 @@ use handl_language::{
 use plugin_engine::TermData;
 
 /// Cached arrow DSL [`Language`], loaded once and reused.
-static ARROW_LANG: OnceLock<Language> = OnceLock::new();
-
-/// Return the arrow DSL [`Language`], which is the canonical handl language
-/// (ADR-0079 unification) with arrow-specific precedence overrides for
-/// `>>>` (flow) and `|||` (choice).
+/// Derive the arrow DSL [`Language`] from `base`: the canonical handl
+/// language (ADR-0079 unification) with arrow-specific precedence overrides
+/// for `>>>` (flow) and `|||` (choice), plus the arrow block grammar and
+/// arrow-calculus eval schemes.
+///
+/// The *base* language is injected by the host (ADR-0128 §"The 0.8 seam"):
+/// this crate stays in `platform`, so it must not link
+/// `handl-kit-data-canonical` — the caller supplies the canonical language
+/// (e.g. `handl_kit_data_canonical::language_from_yaml()`). Hosts that call
+/// it repeatedly should memoize the result.
 ///
 /// # Panics
 ///
-/// Panics if the canonical YAML data files fail to deserialize or if the
-/// grammar row overrides fail to merge.
-pub fn arrow_language() -> &'static Language {
-    ARROW_LANG.get_or_init(|| {
-        let mut lang = handl_kit_data_canonical::language_from_yaml()
-            .expect("canonical YAML data files must deserialize");
+/// Panics if the grammar row / eval scheme overrides fail to merge (the
+/// overrides assume the canonical row identities exist in `base`).
+pub fn arrow_language_for(base: &Language) -> Language {
+    {
+        let mut lang = base.clone();
 
         // Override `>>>` (flow) binding power: lower it so `|||` binds
         // tighter. Canonical is (25, 26); arrow needs (20, 21).
@@ -235,13 +237,27 @@ pub fn arrow_language() -> &'static Language {
             .expect("override binary.lte eval scheme");
 
         lang
-    })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use handl_language::Term;
+
+    /// The canonical base language, assembled once from the dev-dep data
+    /// crate (tests may depend on `lang/` data; the library must not).
+    fn canonical() -> &'static Language {
+        static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
+        LANG.get_or_init(|| {
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles")
+        })
+    }
+
+    fn arrow_language() -> Language {
+        arrow_language_for(canonical())
+    }
 
     #[test]
     fn arrow_language_loads_successfully() {

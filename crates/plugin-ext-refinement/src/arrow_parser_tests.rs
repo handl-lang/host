@@ -22,8 +22,22 @@ use crate::types::Measure;
 /// Parse a `.hnl` module file's arrow definitions, stripping import/export
 /// declarations without rewriting import references. Used for files that
 /// now have `import`/`export` declarations (ADR-0077 Phase 6).
+/// The arrow-dialect [`Language`] for tests — canonical base from the
+/// dev-dep data crate plus the `arrow_language_for` overrides (tests may
+/// depend on `lang/` data; the library must not).
+fn arrow_lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        crate::arrow_lang::arrow_language_for(
+            &handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    })
+}
+
 fn parse_module_arrows(src: &str) -> Result<ParsedFile, String> {
-    parse_arrow_module_no_rewrite(src).map(|m| m.arrows)
+    parse_arrow_module_no_rewrite(arrow_lang(), src).map(|m| m.arrows)
 }
 
 /// Convert `TermData` back to `Term` (bootstrap compatibility).
@@ -139,7 +153,7 @@ fn zip_graph() -> Term {
 
 #[test]
 fn test_parse_arr() {
-    let scheme = parse_arrow_expr(r#"arr("sort")"#).expect("parse arr");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("sort")"#).expect("parse arr");
     match scheme {
         Term::Op {
             name: op,
@@ -163,7 +177,7 @@ fn test_parse_arr() {
 
 #[test]
 fn test_parse_id() {
-    let scheme = parse_arrow_expr("id").expect("parse id");
+    let scheme = parse_arrow_expr(arrow_lang(), "id").expect("parse id");
     match scheme {
         Term::Op { name: op, .. } => {
             assert_eq!(op, "id");
@@ -174,7 +188,7 @@ fn test_parse_id() {
 
 #[test]
 fn test_parse_comp() {
-    let scheme = parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"comp(arr("a"), arr("b"))"#).expect("parse comp");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(*fst, Term::Op { name: ref op, .. } if op == "a"));
@@ -191,7 +205,7 @@ fn test_parse_comp() {
 #[test]
 fn test_parse_infix_comp_defaults_axis_zero() {
     // `a >>> b` is `>>>[0]`: the materialized Seq carries the default axis.
-    let scheme = parse_arrow_expr("a >>> b").expect("parse >>>");
+    let scheme = parse_arrow_expr(arrow_lang(), "a >>> b").expect("parse >>>");
     match scheme {
         Term::Seq { axis, fst, snd } => {
             assert!(
@@ -208,7 +222,7 @@ fn test_parse_infix_comp_defaults_axis_zero() {
 #[test]
 fn test_parse_axis_flow_literal_axis() {
     // `a >>>[1] b` materializes the axis expression into the Seq axis slot.
-    let scheme = parse_arrow_expr("a >>>[1] b").expect("parse >>>[1]");
+    let scheme = parse_arrow_expr(arrow_lang(), "a >>>[1] b").expect("parse >>>[1]");
     match scheme {
         Term::Seq { axis, fst, snd } => {
             assert_eq!(
@@ -226,8 +240,8 @@ fn test_parse_axis_flow_literal_axis() {
 #[test]
 fn test_parse_axis_flow_zero_equiv_unindexed() {
     // `a >>>[0] b` materializes identically to `a >>> b`.
-    let indexed = parse_arrow_expr("a >>>[0] b").expect("parse >>>[0]");
-    let plain = parse_arrow_expr("a >>> b").expect("parse >>>");
+    let indexed = parse_arrow_expr(arrow_lang(), "a >>>[0] b").expect("parse >>>[0]");
+    let plain = parse_arrow_expr(arrow_lang(), "a >>> b").expect("parse >>>");
     assert_eq!(indexed, plain, ">>>[0] and >>> must lower to the same Seq");
 }
 
@@ -235,7 +249,7 @@ fn test_parse_axis_flow_zero_equiv_unindexed() {
 fn test_parse_axis_flow_variable_axis() {
     // The axis is an ordinary expression position: a bare `k` lowers like
     // any other reference, not a literal.
-    let scheme = parse_arrow_expr("a >>>[k] b").expect("parse >>>[k]");
+    let scheme = parse_arrow_expr(arrow_lang(), "a >>>[k] b").expect("parse >>>[k]");
     match scheme {
         Term::Seq { axis, fst, snd } => {
             assert!(
@@ -252,7 +266,7 @@ fn test_parse_axis_flow_variable_axis() {
 
 #[test]
 fn test_parse_first() {
-    let scheme = parse_arrow_expr("first(id)").expect("parse first");
+    let scheme = parse_arrow_expr(arrow_lang(), "first(id)").expect("parse first");
     match scheme {
         Term::First { inner } => {
             assert!(matches!(*inner, Term::Op { name: ref op, .. } if op == "id"));
@@ -263,7 +277,7 @@ fn test_parse_first() {
 
 #[test]
 fn test_parse_choice() {
-    let scheme = parse_arrow_expr(r#"choice(arr("a"), arr("b"))"#).expect("parse choice");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"choice(arr("a"), arr("b"))"#).expect("parse choice");
     match scheme {
         Term::Choice { l, r } => {
             assert!(matches!(*l, Term::Op { name: ref op, .. } if op == "a"));
@@ -275,7 +289,7 @@ fn test_parse_choice() {
 
 #[test]
 fn test_parse_loop() {
-    let scheme = parse_arrow_expr("loop(id)").expect("parse loop");
+    let scheme = parse_arrow_expr(arrow_lang(), "loop(id)").expect("parse loop");
     match scheme {
         Term::Loop { body } => {
             assert!(matches!(*body, Term::Op { name: ref op, .. } if op == "id"));
@@ -287,7 +301,7 @@ fn test_parse_loop() {
 #[test]
 fn test_parse_nested_loop_comp() {
     // loop(insert >>> first(id))
-    let scheme = parse_arrow_expr("loop(comp(insert, first(id)))").expect("parse nested");
+    let scheme = parse_arrow_expr(arrow_lang(), "loop(comp(insert, first(id)))").expect("parse nested");
     match scheme {
         Term::Loop { body } => {
             match body.as_ref() {
@@ -310,7 +324,7 @@ fn test_parse_nested_loop_comp() {
 
 #[test]
 fn test_parse_app() {
-    let scheme = parse_arrow_expr(r#"app("sort", arr("x"))"#).expect("parse app");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"app("sort", arr("x"))"#).expect("parse app");
     match scheme {
         Term::App { callee, args } => {
             assert!(matches!(callee.as_ref(), Term::Op { name: op, .. } if op == "sort"));
@@ -323,7 +337,7 @@ fn test_parse_app() {
 #[test]
 fn test_parse_bare_identifier_is_app_reference() {
     // A bare identifier (not id, not a combinator) is a reference to a named arrow
-    let scheme = parse_arrow_expr("insert").expect("parse bare ident");
+    let scheme = parse_arrow_expr(arrow_lang(), "insert").expect("parse bare ident");
     match scheme {
         Term::App { callee, args } => {
             assert!(matches!(callee.as_ref(), Term::Op { name: op, .. } if op == "insert"));
@@ -340,7 +354,7 @@ fn test_parse_bare_identifier_is_app_reference() {
 #[test]
 fn test_parse_seq_operator() {
     // a >>> b should produce Seq(a, b) -- same as comp(a, b)
-    let scheme = parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -353,7 +367,7 @@ fn test_parse_seq_operator() {
 #[test]
 fn test_parse_choice_operator() {
     // a ||| b should produce Choice(a, b) -- same as choice(a, b)
-    let scheme = parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
     match scheme {
         Term::Choice { l, r } => {
             assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -367,7 +381,7 @@ fn test_parse_choice_operator() {
 fn test_parse_seq_operator_left_assoc() {
     // a >>> b >>> c should produce Seq(Seq(a, b), c)
     let scheme =
-        parse_arrow_expr(r#"arr("a") >>> arr("b") >>> arr("c")"#).expect("parse seq left-assoc");
+        parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b") >>> arr("c")"#).expect("parse seq left-assoc");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             // snd should be arr("c")
@@ -389,7 +403,7 @@ fn test_parse_seq_operator_left_assoc() {
 fn test_parse_choice_operator_left_assoc() {
     // a ||| b ||| c should produce Choice(Choice(a, b), c)
     let scheme =
-        parse_arrow_expr(r#"arr("a") ||| arr("b") ||| arr("c")"#).expect("parse choice left-assoc");
+        parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b") ||| arr("c")"#).expect("parse choice left-assoc");
     match scheme {
         Term::Choice { l, r } => {
             // r should be arr("c")
@@ -412,7 +426,7 @@ fn test_parse_mixed_precedence() {
     // a >>> b ||| c should parse as Seq(a, Choice(b, c))
     // because ||| binds tighter than >>>
     let scheme =
-        parse_arrow_expr(r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
+        parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -431,7 +445,7 @@ fn test_parse_mixed_precedence() {
 #[test]
 fn test_parse_operator_with_parens() {
     // (a ||| b) >>> c should parse as Seq(Choice(a, b), c)
-    let scheme = parse_arrow_expr(r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "c"));
@@ -450,8 +464,8 @@ fn test_parse_operator_with_parens() {
 #[test]
 fn test_parse_operator_equivalent_to_comp() {
     // a >>> b should produce the same Term as comp(a, b)
-    let op_scheme = parse_arrow_expr(r#"arr("a") >>> arr("b")"#).expect("parse operator");
-    let call_scheme = parse_arrow_expr(r#"comp(arr("a"), arr("b"))"#).expect("parse comp call");
+    let op_scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b")"#).expect("parse operator");
+    let call_scheme = parse_arrow_expr(arrow_lang(), r#"comp(arr("a"), arr("b"))"#).expect("parse comp call");
     assert_eq!(
         op_scheme, call_scheme,
         "operator syntax should produce same Term as function-call syntax"
@@ -461,8 +475,8 @@ fn test_parse_operator_equivalent_to_comp() {
 #[test]
 fn test_parse_operator_equivalent_to_choice() {
     // a ||| b should produce the same Term as choice(a, b)
-    let op_scheme = parse_arrow_expr(r#"arr("a") ||| arr("b")"#).expect("parse operator");
-    let call_scheme = parse_arrow_expr(r#"choice(arr("a"), arr("b"))"#).expect("parse choice call");
+    let op_scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b")"#).expect("parse operator");
+    let call_scheme = parse_arrow_expr(arrow_lang(), r#"choice(arr("a"), arr("b"))"#).expect("parse choice call");
     assert_eq!(
         op_scheme, call_scheme,
         "operator syntax should produce same Term as function-call syntax"
@@ -473,9 +487,9 @@ fn test_parse_operator_equivalent_to_choice() {
 fn test_parse_operator_with_first_and_loop() {
     // loop(insert >>> first(id)) should produce same as loop(comp(insert, first(id)))
     let op_scheme =
-        parse_arrow_expr("loop(insert >>> first(id))").expect("parse operator with first/loop");
+        parse_arrow_expr(arrow_lang(), "loop(insert >>> first(id))").expect("parse operator with first/loop");
     let call_scheme =
-        parse_arrow_expr("loop(comp(insert, first(id)))").expect("parse comp with first/loop");
+        parse_arrow_expr(arrow_lang(), "loop(comp(insert, first(id)))").expect("parse comp with first/loop");
     assert_eq!(
         op_scheme, call_scheme,
         "operator syntax with first/loop should match function-call syntax"
@@ -486,7 +500,7 @@ fn test_parse_operator_with_first_and_loop() {
 fn test_parse_operator_complex_backtrack() {
     // arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))
     // should produce Seq(a, Choice(b, Seq(c, d)))
-    let scheme = parse_arrow_expr(r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#)
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#)
         .expect("parse complex backtrack");
     match scheme {
         Term::Seq { fst, snd, .. } => {
@@ -520,7 +534,7 @@ cons = arr("list.cons")
 head = arr("list.head")
 sort = loop(insert >>> first(id))
 "#;
-    let parsed = parse_arrow_file(src).expect("parse multi-name");
+    let parsed = parse_arrow_file(arrow_lang(), src).expect("parse multi-name");
     match parsed {
         ParsedFile::Named(map) => {
             assert_eq!(map.len(), 3, "should have 3 named arrows");
@@ -542,7 +556,7 @@ sort = loop(insert >>> first(id))
 #[test]
 fn test_parse_single_expr_file() {
     let src = "loop(insert >>> first(id))";
-    let parsed = parse_arrow_file(src).expect("parse single expr");
+    let parsed = parse_arrow_file(arrow_lang(), src).expect("parse single expr");
     match parsed {
         ParsedFile::Single(scheme) => {
             assert!(matches!(scheme, Term::Loop { .. }));
@@ -609,7 +623,7 @@ fn test_parse_sort_hnl() {
 
 #[test]
 fn test_parse_map_hnl() {
-    let parsed = parse_arrow_file(MAP_HNL).expect("parse map.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), MAP_HNL).expect("parse map.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(first(fn.apply))
@@ -633,7 +647,7 @@ fn test_parse_map_hnl() {
 
 #[test]
 fn test_parse_filter_hnl() {
-    let parsed = parse_arrow_file(FILTER_HNL).expect("parse filter.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), FILTER_HNL).expect("parse filter.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(filter_step >>> id)
@@ -658,7 +672,7 @@ fn test_parse_filter_hnl() {
 
 #[test]
 fn test_parse_fold_hnl() {
-    let parsed = parse_arrow_file(FOLD_HNL).expect("parse fold.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), FOLD_HNL).expect("parse fold.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(fold_step) — fold returns both channels
@@ -681,7 +695,7 @@ fn test_parse_fold_hnl() {
 
 #[test]
 fn test_parse_scan_rich_hnl() {
-    let parsed = parse_arrow_file(SCAN_RICH_HNL).expect("parse scan_rich.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), SCAN_RICH_HNL).expect("parse scan_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(fold_step >>> first(list.cons))
@@ -712,7 +726,7 @@ fn test_parse_scan_rich_hnl() {
 
 #[test]
 fn test_parse_take_rich_hnl() {
-    let parsed = parse_arrow_file(TAKE_RICH_HNL).expect("parse take_rich.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), TAKE_RICH_HNL).expect("parse take_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(list.head >>> (cons ||| id))
@@ -747,7 +761,7 @@ fn test_parse_take_rich_hnl() {
 
 #[test]
 fn test_parse_drop_rich_hnl() {
-    let parsed = parse_arrow_file(DROP_RICH_HNL).expect("parse drop_rich.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), DROP_RICH_HNL).expect("parse drop_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(list.tail >>> first(id))
@@ -778,7 +792,7 @@ fn test_parse_drop_rich_hnl() {
 
 #[test]
 fn test_parsed_scan_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(SCAN_RICH_HNL).expect("parse scan_rich");
+    let parsed = parse_arrow_file(arrow_lang(), SCAN_RICH_HNL).expect("parse scan_rich");
     let handbuilt = scan_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -792,7 +806,7 @@ fn test_parsed_scan_rich_matches_handbuilt() {
 
 #[test]
 fn test_parsed_take_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(TAKE_RICH_HNL).expect("parse take_rich");
+    let parsed = parse_arrow_file(arrow_lang(), TAKE_RICH_HNL).expect("parse take_rich");
     let handbuilt = take_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -806,7 +820,7 @@ fn test_parsed_take_rich_matches_handbuilt() {
 
 #[test]
 fn test_parsed_drop_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(DROP_RICH_HNL).expect("parse drop_rich");
+    let parsed = parse_arrow_file(arrow_lang(), DROP_RICH_HNL).expect("parse drop_rich");
     let handbuilt = drop_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -825,23 +839,23 @@ fn test_load_new_rich_loops_from_disk() {
 
     // Load scan_rich.hnl from disk
     let scan_path = format!("{}/fn/scan_rich.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&scan_path).expect("load scan_rich from disk");
+    let scheme = load_arrow_file(arrow_lang(), &scan_path).expect("load scan_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load take_rich.hnl from disk
     let take_path = format!("{}/collection/take_rich.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&take_path).expect("load take_rich from disk");
+    let scheme = load_arrow_file(arrow_lang(), &take_path).expect("load take_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load drop_rich.hnl from disk
     let drop_path = format!("{}/collection/drop_rich.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&drop_path).expect("load drop_rich from disk");
+    let scheme = load_arrow_file(arrow_lang(), &drop_path).expect("load drop_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
 
 #[test]
 fn test_parse_nested_map_rich_hnl() {
-    let parsed = parse_arrow_file(NESTED_MAP_RICH_HNL).expect("parse nested_map_rich.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), NESTED_MAP_RICH_HNL).expect("parse nested_map_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(loop(first(fn.apply)))
@@ -875,7 +889,7 @@ fn test_parse_nested_map_rich_hnl() {
 
 #[test]
 fn test_parsed_nested_map_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(NESTED_MAP_RICH_HNL).expect("parse nested_map_rich");
+    let parsed = parse_arrow_file(arrow_lang(), NESTED_MAP_RICH_HNL).expect("parse nested_map_rich");
     let handbuilt = nested_map_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -889,7 +903,7 @@ fn test_parsed_nested_map_rich_matches_handbuilt() {
 
 #[test]
 fn test_parse_zip_rich_hnl() {
-    let parsed = parse_arrow_file(ZIP_RICH_HNL).expect("parse zip_rich.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), ZIP_RICH_HNL).expect("parse zip_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(first(list.head) >>> (first(list.tail) >>> list.cons))
@@ -941,7 +955,7 @@ fn test_parse_zip_rich_hnl() {
 
 #[test]
 fn test_parsed_zip_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(ZIP_RICH_HNL).expect("parse zip_rich");
+    let parsed = parse_arrow_file(arrow_lang(), ZIP_RICH_HNL).expect("parse zip_rich");
     let handbuilt = zip_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -960,7 +974,7 @@ fn test_load_zip_rich_from_disk() {
 
     // Load zip_rich.hnl from disk
     let zip_path = format!("{}/fn/zip_rich.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&zip_path).expect("load zip_rich from disk");
+    let scheme = load_arrow_file(arrow_lang(), &zip_path).expect("load zip_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
 
@@ -970,7 +984,7 @@ fn test_load_zip_rich_from_disk() {
 
 #[test]
 fn test_parse_reduce_rich_hnl() {
-    let parsed = parse_arrow_file(REDUCE_RICH_HNL).expect("parse reduce_rich.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), REDUCE_RICH_HNL).expect("parse reduce_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(fold_step >>> first(id))
@@ -1007,7 +1021,7 @@ fn test_parse_reduce_rich_hnl() {
 
 #[test]
 fn test_parsed_reduce_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(REDUCE_RICH_HNL).expect("parse reduce_rich");
+    let parsed = parse_arrow_file(arrow_lang(), REDUCE_RICH_HNL).expect("parse reduce_rich");
     let handbuilt = reduce_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -1024,8 +1038,8 @@ fn test_parsed_reduce_rich_distinct_from_fold() {
     // reduce and fold both use fold_step, but reduce projects to the
     // accumulator only (loop(fold_step >>> first(id))) while fold returns
     // both channels (loop(fold_step)).  Their schemes must be distinct.
-    let reduce_parsed = parse_arrow_file(REDUCE_RICH_HNL).expect("parse reduce_rich");
-    let fold_parsed = parse_arrow_file(FOLD_HNL).expect("parse fold");
+    let reduce_parsed = parse_arrow_file(arrow_lang(), REDUCE_RICH_HNL).expect("parse reduce_rich");
+    let fold_parsed = parse_arrow_file(arrow_lang(), FOLD_HNL).expect("parse fold");
 
     let reduce_scheme = match reduce_parsed {
         ParsedFile::Single(s) => s,
@@ -1063,7 +1077,7 @@ fn test_load_reduce_rich_from_disk() {
 
     // Load reduce_rich.hnl from disk
     let reduce_path = format!("{}/fn/reduce_rich.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&reduce_path).expect("load reduce_rich from disk");
+    let scheme = load_arrow_file(arrow_lang(), &reduce_path).expect("load reduce_rich from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
 
@@ -1083,7 +1097,7 @@ fn test_parsed_insert_matches_handbuilt() {
 
 #[test]
 fn test_parsed_map_matches_handbuilt() {
-    let parsed = parse_arrow_file(MAP_HNL).expect("parse map");
+    let parsed = parse_arrow_file(arrow_lang(), MAP_HNL).expect("parse map");
     let handbuilt = map_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -1097,7 +1111,7 @@ fn test_parsed_map_matches_handbuilt() {
 
 #[test]
 fn test_parsed_filter_matches_handbuilt() {
-    let parsed = parse_arrow_file(FILTER_HNL).expect("parse filter");
+    let parsed = parse_arrow_file(arrow_lang(), FILTER_HNL).expect("parse filter");
     let handbuilt = filter_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -1111,7 +1125,7 @@ fn test_parsed_filter_matches_handbuilt() {
 
 #[test]
 fn test_parsed_fold_matches_handbuilt() {
-    let parsed = parse_arrow_file(FOLD_HNL).expect("parse fold");
+    let parsed = parse_arrow_file(arrow_lang(), FOLD_HNL).expect("parse fold");
     let handbuilt = fold_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -1220,7 +1234,7 @@ fn test_infer_sort_from_hnl() {
 #[test]
 fn test_infer_map_from_hnl() {
     let registry = ContractRegistry::minimal();
-    let parsed = parse_arrow_file(MAP_HNL).expect("parse map");
+    let parsed = parse_arrow_file(arrow_lang(), MAP_HNL).expect("parse map");
     let handbuilt = map_graph();
 
     if let ParsedFile::Single(scheme) = parsed {
@@ -1247,7 +1261,7 @@ fn test_infer_map_from_hnl() {
 #[test]
 fn test_infer_filter_from_hnl() {
     let registry = ContractRegistry::minimal();
-    let parsed = parse_arrow_file(FILTER_HNL).expect("parse filter");
+    let parsed = parse_arrow_file(arrow_lang(), FILTER_HNL).expect("parse filter");
     let handbuilt = filter_graph();
 
     if let ParsedFile::Single(scheme) = parsed {
@@ -1274,7 +1288,7 @@ fn test_infer_filter_from_hnl() {
 #[test]
 fn test_infer_fold_from_hnl() {
     let registry = ContractRegistry::minimal();
-    let parsed = parse_arrow_file(FOLD_HNL).expect("parse fold");
+    let parsed = parse_arrow_file(arrow_lang(), FOLD_HNL).expect("parse fold");
     let handbuilt = fold_graph();
 
     if let ParsedFile::Single(scheme) = parsed {
@@ -1356,12 +1370,12 @@ fn test_load_arrow_file_from_disk() {
 
     // Load insert.hnl from disk
     let insert_path = format!("{}/collection/insert.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&insert_path).expect("load insert from disk");
+    let scheme = load_arrow_file(arrow_lang(), &insert_path).expect("load insert from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 
     // Load map.hnl from disk
     let map_path = format!("{}/fn/map.hnl", fixtures_dir);
-    let scheme = load_arrow_file(&map_path).expect("load map from disk");
+    let scheme = load_arrow_file(arrow_lang(), &map_path).expect("load map from disk");
     assert!(matches!(scheme, Term::Loop { .. }));
 }
 
@@ -1371,8 +1385,8 @@ fn test_load_all_arrows_from_disk() {
     let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
-    let mut map = load_all_arrows(&arrows_dir).expect("load all arrows");
-    map.extend(load_all_arrows(&fixtures_dir).expect("load fixture arrows"));
+    let mut map = load_all_arrows(arrow_lang(), &arrows_dir).expect("load all arrows");
+    map.extend(load_all_arrows(arrow_lang(), &fixtures_dir).expect("load fixture arrows"));
     assert!(
         map.contains_key("insert"),
         "should have insert arrow: keys = {:?}",
@@ -1392,7 +1406,7 @@ fn test_infer_file_from_disk() {
 
     // Infer insert from disk
     let insert_path = format!("{}/collection/insert.hnl", fixtures_dir);
-    let result = infer_file(&insert_path, &registry).expect("infer insert from disk");
+    let result = infer_file(arrow_lang(), &insert_path, &registry).expect("infer insert from disk");
     let pretty = result.guarantee.pretty();
     assert!(
         pretty.contains("Sorted"),
@@ -1402,7 +1416,7 @@ fn test_infer_file_from_disk() {
 
     // Infer sort from disk (should resolve insert reference)
     let sort_path = format!("{}/collection/sort.hnl", fixtures_dir);
-    let result = infer_file(&sort_path, &registry).expect("infer sort from disk");
+    let result = infer_file(arrow_lang(), &sort_path, &registry).expect("infer sort from disk");
     let pretty = result.guarantee.pretty();
     assert!(
         pretty.contains("Sorted"),
@@ -1414,10 +1428,10 @@ fn test_infer_file_from_disk() {
 #[test]
 fn test_v01_arrow_lambda_simple() {
     let src = "x ~> x";
-    let result = parse_arrow_expr(src);
+    let result = parse_arrow_expr(arrow_lang(), src);
     assert!(
         result.is_ok(),
-        "parse_arrow_expr(\"x ~> x\") failed: {:?}",
+        "parse_arrow_expr(arrow_lang(), \"x ~> x\") failed: {:?}",
         result.err()
     );
 }
@@ -1426,10 +1440,10 @@ fn test_v01_arrow_lambda_simple() {
 fn test_v01_named_arrows_atoms() {
     let src =
         "-- Base atom arrows\nid = x ~> x\ncompare = [a, b] ~> a < b\ncons = [x, xs] ~> [x, xs]";
-    let result = parse_arrow_file(src);
+    let result = parse_arrow_file(arrow_lang(), src);
     assert!(
         result.is_ok(),
-        "parse_arrow_file(atoms) failed: {:?}",
+        "parse_arrow_file(arrow_lang(), atoms) failed: {:?}",
         result.err()
     );
 }

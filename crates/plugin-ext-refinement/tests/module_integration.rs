@@ -24,6 +24,20 @@ use handl_plugin_ext_refinement::{
 // ============================================================================
 
 /// The workspace root (`platform/`), derived from this crate's manifest dir.
+/// The arrow-dialect [`Language`] for tests — canonical base from the
+/// dev-dep data crate plus the `arrow_language_for` overrides (tests may
+/// depend on `lang/` data; the library must not).
+fn arrow_lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        handl_plugin_ext_refinement::arrow_lang::arrow_language_for(
+            &handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    })
+}
+
 fn workspace_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
@@ -77,7 +91,7 @@ fn write_module(dir: &PathBuf, rel_path: &str, content: &str) {
 
 /// Build a `ModuleLoader` backed by a `FileResolver` rooted at `root`.
 fn loader_for(root: PathBuf) -> ModuleLoader {
-    ModuleLoader::new(Box::new(FileResolver::new(root)))
+    ModuleLoader::new(Box::new(FileResolver::new(root)), arrow_lang().clone())
 }
 
 // ============================================================================

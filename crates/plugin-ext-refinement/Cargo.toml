@@ -11,7 +11,6 @@ native-z3 = ["dep:z3"]
 handl-platform = { path = "../platform" }
 handl-language = { path = "../handl-language" }
 plugin-engine = { path = "../plugin-engine" }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
 handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
@@ -20,9 +19,9 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 
-[[bin]]
-name = "hnlc"
-path = "src/bin/hnlc.rs"
-
+# `hnlc` lives under `examples/` (run: `cargo run -p handl-plugin-ext-refinement
+# --example hnlc -- ...`) — it needs `handl-kit-data-canonical`, which is a
+# dev-dependency now, and examples may use dev-deps while a `[[bin]]` cannot.
 [dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 serde_json = { workspace = true }

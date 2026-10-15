@@ -19,11 +19,19 @@
 
 use std::collections::HashMap;
 
-use handl_language::Term;
+use handl_language::{Language, Term};
 use handl_plugin_ext_refinement::{
-    ContractRegistry, ParsedFile, RefTy, RefinementResult, infer_refinement, load_all_arrows,
-    parse_arrow_file, resolve_apps,
+    ContractRegistry, ParsedFile, RefTy, RefinementResult, arrow_lang::arrow_language_for,
+    infer_refinement, load_all_arrows, parse_arrow_file, resolve_apps,
 };
+
+/// The arrow-dialect [`Language`], derived once from the main kit's canonical
+/// language via [`arrow_language_for`] (ADR-0128 §"The 0.8 seam" — the host
+/// owns the language; the refinement crate is injected with it).
+pub(crate) fn arrow_lang() -> &'static Language {
+    static ARROW_LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
+    ARROW_LANG.get_or_init(|| crate::with_main_kit(|kit| arrow_language_for(kit.lang())))
+}
 
 use crate::diagnostics::offset_to_position;
 
@@ -54,7 +62,7 @@ impl RefinementEngine {
     /// expected for general `.hnl` files that are not arrow-graph files;
     /// callers should treat `None` as "not an arrow file, skip refinement".
     fn parse_source(source: &str) -> Option<ParsedFile> {
-        parse_arrow_file(source).ok()
+        parse_arrow_file(arrow_lang(), source).ok()
     }
 
     /// Extract the named-arrow entries from a parsed file.
@@ -109,7 +117,7 @@ impl RefinementEngine {
 
         // Build a graph map for cross-file reference resolution.
         let mut graph_map = if let Some(root) = file_path.and_then(find_arrows_root) {
-            load_all_arrows(&root).unwrap_or_default()
+            load_all_arrows(arrow_lang(), &root).unwrap_or_default()
         } else {
             HashMap::new()
         };

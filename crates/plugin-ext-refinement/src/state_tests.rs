@@ -20,6 +20,20 @@ use crate::inference::infer_refinement;
 use crate::types::{Measure, Pred};
 
 // Embed the actual .hnl stdlib files for testing.
+/// The arrow-dialect [`Language`] for tests — canonical base from the
+/// dev-dep data crate plus the `arrow_language_for` overrides (tests may
+/// depend on `lang/` data; the library must not).
+fn arrow_lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        crate::arrow_lang::arrow_language_for(
+            &handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    })
+}
+
 const COUNTER_HNL: &str = include_str!("../tests/fixtures/state/counter.hnl");
 const BUFFER_HNL: &str = include_str!("../tests/fixtures/state/buffer.hnl");
 const PROTOCOL_HNL: &str = include_str!("../tests/fixtures/state/protocol.hnl");
@@ -212,7 +226,7 @@ fn test_state_pop_conditional_contract() {
 
 #[test]
 fn test_parse_counter_hnl() {
-    let parsed = parse_arrow_file(COUNTER_HNL).expect("parse counter.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), COUNTER_HNL).expect("parse counter.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             assert!(
@@ -226,7 +240,7 @@ fn test_parse_counter_hnl() {
 
 #[test]
 fn test_parsed_counter_matches_handbuilt() {
-    let parsed = parse_arrow_file(COUNTER_HNL).expect("parse counter.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), COUNTER_HNL).expect("parse counter.hnl");
     let handbuilt = counter_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -257,7 +271,7 @@ fn test_counter_inference_succeeds() {
 #[test]
 fn test_counter_inference_from_hnl() {
     let registry = ContractRegistry::minimal();
-    let parsed = parse_arrow_file(COUNTER_HNL).expect("parse counter.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), COUNTER_HNL).expect("parse counter.hnl");
     let handbuilt = counter_graph();
 
     if let ParsedFile::Single(scheme) = parsed {
@@ -429,7 +443,7 @@ fn test_protocol_inference_succeeds() {
 
 #[test]
 fn test_protocol_parsed_matches_handbuilt() {
-    let parsed = parse_arrow_file(PROTOCOL_HNL).expect("parse protocol.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), PROTOCOL_HNL).expect("parse protocol.hnl");
     let handbuilt = protocol_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -443,7 +457,7 @@ fn test_protocol_parsed_matches_handbuilt() {
 
 #[test]
 fn test_buffer_parsed_matches_handbuilt() {
-    let parsed = parse_arrow_file(BUFFER_HNL).expect("parse buffer.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), BUFFER_HNL).expect("parse buffer.hnl");
     let handbuilt = buffer_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -559,7 +573,7 @@ fn test_load_counter_from_disk() {
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
     let counter_path = format!("{}/state/counter.hnl", fixtures_dir);
 
-    let scheme = load_arrow_file(&counter_path).expect("load counter from disk");
+    let scheme = load_arrow_file(arrow_lang(), &counter_path).expect("load counter from disk");
     assert!(
         matches!(scheme, Term::Loop { .. }),
         "counter should be a Loop"
@@ -573,7 +587,7 @@ fn test_infer_counter_from_disk() {
     let counter_path = format!("{}/state/counter.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
-    let result = infer_file(&counter_path, &registry).expect("infer counter from disk");
+    let result = infer_file(arrow_lang(), &counter_path, &registry).expect("infer counter from disk");
 
     let pretty = result.guarantee.pretty();
     println!("counter (from disk) guarantee: {}", pretty);
@@ -591,7 +605,7 @@ fn test_infer_buffer_from_disk() {
     let buffer_path = format!("{}/state/buffer.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
-    let result = infer_file(&buffer_path, &registry).expect("infer buffer from disk");
+    let result = infer_file(arrow_lang(), &buffer_path, &registry).expect("infer buffer from disk");
 
     let pretty = result.guarantee.pretty();
     println!("buffer (from disk) guarantee: {}", pretty);
@@ -612,7 +626,7 @@ fn test_infer_protocol_from_disk() {
     let protocol_path = format!("{}/state/protocol.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
-    let result = infer_file(&protocol_path, &registry).expect("infer protocol from disk");
+    let result = infer_file(arrow_lang(), &protocol_path, &registry).expect("infer protocol from disk");
     println!(
         "protocol (from disk) guarantee: {}",
         result.guarantee.pretty()

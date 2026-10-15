@@ -23,6 +23,20 @@ use crate::types::{BaseTy, Pred, RefTy};
 // ============================================================================
 
 /// Convenience: native arr with no args.
+/// The arrow-dialect [`Language`] for tests — canonical base from the
+/// dev-dep data crate plus the `arrow_language_for` overrides (tests may
+/// depend on `lang/` data; the library must not).
+fn arrow_lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        crate::arrow_lang::arrow_language_for(
+            &handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    })
+}
+
 fn arr(op: &str) -> Term {
     TermData::op(op, vec![], &ArrSource::Native, None)
         .to_term()
@@ -858,7 +872,7 @@ fn test_caching_resolver_caches() {
 #[test]
 fn test_module_loader_load() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match loader.load("collection/sort") {
         Ok(loaded) => {
@@ -878,7 +892,7 @@ fn test_module_loader_load() {
 fn test_module_loader_cache_hit() {
     let mem = build_test_memory_resolver();
     let (counting, counter) = CountingResolver::new_with_counter(Box::new(mem));
-    let loader = ModuleLoader::new(Box::new(counting));
+    let loader = ModuleLoader::new(Box::new(counting), arrow_lang().clone());
 
     // First load.
     let _ = loader.load("collection/sort").expect("first load");
@@ -897,7 +911,7 @@ fn test_module_loader_cache_hit() {
 #[test]
 fn test_module_loader_public_names_all() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match loader.public_names("collection") {
         Ok(names) => {
@@ -921,7 +935,7 @@ fn test_module_loader_public_names_with_exports() {
         "mod_with_exports",
         "export sort, cons\nsort = arr(\"sort\")\ncons = arr(\"list.cons\")\nhidden = arr(\"id\")",
     );
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match loader.public_names("mod_with_exports") {
         Ok(names) => {
@@ -937,7 +951,7 @@ fn test_module_loader_public_names_with_exports() {
 #[test]
 fn test_module_loader_load_arrow() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match loader.load_arrow("collection/sort", "sort") {
         Ok(scheme) => {
@@ -955,7 +969,7 @@ fn test_module_loader_load_arrow() {
 fn test_module_loader_load_arrow_single() {
     let mut mem = MemoryResolver::new();
     mem.insert("single", "arr(\"id\")");
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     // Single-expression file: any name should return the arrow.
     match loader.load_arrow("single", "anything") {
@@ -976,7 +990,7 @@ fn test_module_loader_load_arrow_single() {
 #[test]
 fn test_normalize_compile_time_no_module_ref() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match normalize_compile_time("main", &loader) {
         Ok(normalized) => {
@@ -993,7 +1007,7 @@ fn test_normalize_compile_time_no_module_ref() {
 #[test]
 fn test_normalize_compile_time_has_project() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match normalize_compile_time("main", &loader) {
         Ok(normalized) => {
@@ -1019,7 +1033,7 @@ fn test_normalize_compile_time_has_project() {
 #[test]
 fn test_flatten_program_no_unresolved_apps() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match flatten_program("main", &loader) {
         Ok(flat) => {
@@ -1041,7 +1055,7 @@ fn test_flatten_program_no_unresolved_apps() {
 #[test]
 fn test_flatten_program_no_module_ref() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match flatten_program("main", &loader) {
         Ok(flat) => {
@@ -1061,7 +1075,7 @@ fn test_flatten_program_no_module_ref() {
 #[test]
 fn test_cycle_detection_normalize() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match normalize_compile_time("cycle_a", &loader) {
         Ok(_) => panic!("cycle_a normalization should return Cycle error"),
@@ -1078,7 +1092,7 @@ fn test_cycle_detection_normalize() {
 #[test]
 fn test_cycle_detection_flatten() {
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match flatten_program("cycle_a", &loader) {
         Ok(_) => panic!("cycle_a flatten should return Cycle error"),
@@ -1099,7 +1113,7 @@ fn test_cycle_detection_flatten() {
 #[test]
 fn test_parse_arrow_module_simple_import() {
     let src = "import sort from \"collection/sort\"\nmain = arr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1, "should have 1 import");
     assert_eq!(parsed.imports[0].path, "collection/sort");
     assert_eq!(parsed.imports[0].names.len(), 1);
@@ -1112,7 +1126,7 @@ fn test_parse_arrow_module_simple_import() {
 #[test]
 fn test_parse_arrow_module_multi_import() {
     let src = "import sort, insert from \"collection\"\nmain = arr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(parsed.imports[0].path, "collection");
     assert_eq!(parsed.imports[0].names.len(), 2);
@@ -1131,7 +1145,7 @@ fn test_parse_arrow_module_multi_import() {
 #[test]
 fn test_parse_arrow_module_import_as() {
     let src = "import sort as s from \"collection/sort\"\nmain = arr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(
         parsed.imports[0].names[0],
@@ -1142,7 +1156,7 @@ fn test_parse_arrow_module_import_as() {
 #[test]
 fn test_parse_arrow_module_import_whole_module() {
     let src = "import \"collection/sort\" as sortmod\nmain = arr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(parsed.imports[0].path, "collection/sort");
     assert_eq!(
@@ -1154,7 +1168,7 @@ fn test_parse_arrow_module_import_whole_module() {
 #[test]
 fn test_parse_arrow_module_export_names() {
     let src = "export sort, cons\nsort = arr(\"sort\")\ncons = arr(\"list.cons\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.exports.len(), 1);
     match &parsed.exports[0] {
         ExportDecl::Names(ns) => {
@@ -1169,7 +1183,7 @@ fn test_parse_arrow_module_export_names() {
 #[test]
 fn test_parse_arrow_module_export_all() {
     let src = "export *\nsort = arr(\"sort\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.exports.len(), 1);
     assert!(matches!(parsed.exports[0], ExportDecl::All));
 }
@@ -1177,7 +1191,7 @@ fn test_parse_arrow_module_export_all() {
 #[test]
 fn test_parse_arrow_module_export_from() {
     let src = "export sort from \"collection/sort\"";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.exports.len(), 1);
     match &parsed.exports[0] {
         ExportDecl::NamesFrom(ns, path) => {
@@ -1191,7 +1205,7 @@ fn test_parse_arrow_module_export_from() {
 #[test]
 fn test_parse_arrow_module_export_all_from() {
     let src = "export * from \"collection\"";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.exports.len(), 1);
     match &parsed.exports[0] {
         ExportDecl::AllFrom(path) => assert_eq!(path, "collection"),
@@ -1202,7 +1216,7 @@ fn test_parse_arrow_module_export_all_from() {
 #[test]
 fn test_parse_arrow_module_mixed() {
     let src = "import sort from \"collection/sort\"\nimport insert from \"collection/insert\"\nexport main\nmain = arr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 2, "should have 2 imports");
     assert_eq!(parsed.exports.len(), 1, "should have 1 export");
 }
@@ -1210,7 +1224,7 @@ fn test_parse_arrow_module_mixed() {
 #[test]
 fn test_parse_arrow_module_no_imports_exports() {
     let src = "sort = arr(\"sort\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert!(parsed.imports.is_empty(), "should have no imports");
     assert!(parsed.exports.is_empty(), "should have no exports");
 }
@@ -1218,7 +1232,7 @@ fn test_parse_arrow_module_no_imports_exports() {
 #[test]
 fn test_parse_arrow_module_empty_after_imports() {
     let src = "export * from \"collection\"";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert!(parsed.imports.is_empty());
     assert_eq!(parsed.exports.len(), 1);
     // Arrows should be empty (pure re-export module).
@@ -1236,7 +1250,7 @@ fn test_parse_arrow_module_empty_after_imports() {
 fn test_parse_arrow_module_op_declaration() {
     let src = r#"op "base64.encode" : String -> String
 op "base64.decode" : String -> String"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 2);
     assert_eq!(parsed.ops[0].name, "base64.encode");
     assert_eq!(parsed.ops[0].input_type, "String");
@@ -1250,7 +1264,7 @@ op "base64.decode" : String -> String"#;
 fn test_parse_arrow_module_op_with_guarantee() {
     let src = r#"op "base64.encode" : String -> String
   guarantee: IsBase64(output)"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 1);
     assert_eq!(parsed.ops[0].name, "base64.encode");
     assert_eq!(parsed.ops[0].guarantee.as_deref(), Some("IsBase64(output)"));
@@ -1263,7 +1277,7 @@ fn test_parse_arrow_module_op_with_requires_and_guarantee() {
     let src = r#"op "fs.read" : Path -> Bytes
   requires: PathValid(path)
   guarantee: IsUtf8(output)"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 1);
     assert_eq!(parsed.ops[0].name, "fs.read");
     assert_eq!(parsed.ops[0].input_type, "Path");
@@ -1276,7 +1290,7 @@ fn test_parse_arrow_module_op_with_requires_and_guarantee() {
 fn test_parse_arrow_module_handl_declaration() {
     let src = r#"op "base64.encode" : String -> String
 handl "base64.encode" = rust_base64_encode"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.handls.len(), 1);
     assert_eq!(parsed.handls[0].op_name, "base64.encode");
     assert_eq!(parsed.handls[0].rust_fn, "rust_base64_encode");
@@ -1286,7 +1300,7 @@ handl "base64.encode" = rust_base64_encode"#;
 fn test_parse_arrow_module_cap_declaration() {
     let src = r#"cap "fs.read"
 cap "fs.write""#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.caps.len(), 2);
     assert_eq!(parsed.caps[0].name, "fs.read");
     assert_eq!(parsed.caps[1].name, "fs.write");
@@ -1301,7 +1315,7 @@ op "base64.decode" : String -> String
 
 handl "base64.encode" = rust_base64_encode
 handl "base64.decode" = rust_base64_decode"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 2);
     assert_eq!(parsed.handls.len(), 2);
     assert!(parsed.caps.is_empty());
@@ -1316,7 +1330,7 @@ handl "base64.decode" = rust_base64_decode"#;
 fn test_parse_arrow_module_op_does_not_interfere_with_arrows() {
     let src = r#"op "base64.encode" : String -> String
 sort = arr("sort")"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 1);
     // The arrow should still be parsed.
     match &parsed.arrows {
@@ -1338,7 +1352,7 @@ tag ok = Value
 tag err = Error
 result_ok = value ~> value >>> ok
 "#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 2);
     assert_eq!(parsed.tags[0].name, "ok");
     assert_eq!(parsed.tags[0].payload_type, "Value");
@@ -1353,7 +1367,7 @@ tag ok = Value
 tag err = Error
 result_ok = value ~> value >>> ok
 "#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     // The tag declarations should generate constructor arrows named
     // "ok" and "err" in the Named map.
     match &parsed.arrows {
@@ -1378,7 +1392,7 @@ fn test_parse_arrow_module_tag_only_module() {
     // parse, with the constructors in the Named map.
     let src = r#"tag ok = Value
 tag err = Error"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 2);
     match &parsed.arrows {
         crate::arrow_parser::ParsedFile::Named(map) => {
@@ -1394,7 +1408,7 @@ tag err = Error"#;
 fn test_parse_arrow_module_tag_does_not_interfere_with_arrows() {
     let src = r#"tag ok = Value
 sort = arr("sort")"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 1);
     assert_eq!(parsed.tags[0].name, "ok");
     match &parsed.arrows {
@@ -1412,7 +1426,7 @@ fn test_parse_arrow_module_tag_mixed_with_op_handl_cap() {
 op "tag.tag" : (String, Value) -> Value
 cap "tag.tag"
 handl "tag.tag" = rust_tag_tag"#;
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 1);
     assert_eq!(parsed.ops.len(), 1);
     assert_eq!(parsed.caps.len(), 1);
@@ -1523,7 +1537,7 @@ fn test_rewrite_imports_named_import_produces_project_module_ref() {
     // `import sort from "collection/sort"` then `main = sort`.
     // After rewrite, `main` should be `project(module_ref("collection/sort"), "sort")`.
     let src = "import sort from \"collection/sort\"\nmain = sort";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
@@ -1543,7 +1557,7 @@ fn test_rewrite_imports_named_import_as_alias() {
     // (the remote name is used in the projection, the local alias is the
     // reference that gets rewritten).
     let src = "import sort as s from \"collection/sort\"\nmain = s";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
@@ -1561,7 +1575,7 @@ fn test_rewrite_imports_local_shadow_not_rewritten() {
     // `import sort from "collection/sort"` but `sort` is also locally defined.
     // The local binding shadows the import — `sort` should NOT be rewritten.
     let src = "import sort from \"collection/sort\"\nsort = arr(\"id\")\nmain = sort";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             // `sort` is locally defined: it should remain arr("id"), not a
@@ -1594,7 +1608,7 @@ fn test_rewrite_imports_whole_module_produces_module_ref() {
     // `import "collection/sort" as sortmod` then `main = sortmod`.
     // After rewrite, `main` should be `module_ref("collection/sort")`.
     let src = "import \"collection/sort\" as sortmod\nmain = sortmod";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
@@ -1612,7 +1626,7 @@ fn test_rewrite_imports_whole_module_field_access_chains() {
     // `module_ref("collection/sort")` (wrapped in App), and the surrounding
     // structure is preserved.
     let src = "import \"collection/sort\" as sortmod\nmain = comp(sortmod, arr(\"id\"))";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
@@ -1642,7 +1656,7 @@ fn test_rewrite_imports_no_unresolved_apps_for_imported_names() {
     // should return false when "project" and "module_ref" are known ops
     // (they are native ops, not named-arrow references).
     let src = "import sort from \"collection/sort\"\nmain = sort";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     let known: HashSet<String> = vec![
         "main".to_string(),
         "project".to_string(),
@@ -1670,7 +1684,7 @@ fn test_rewrite_imports_single_expression_file() {
     // reference to the "id" arrow — which is rewritten to
     // `project(module_ref("util"), "id")`.
     let src = "import id from \"util\"\narr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Single(scheme) => {
             let (path, field) = is_project_of_module_ref(scheme)
@@ -1688,7 +1702,7 @@ fn test_rewrite_imports_app_callee_rewritten() {
     // The `sort` reference in the Seq's fst is an App whose callee is
     // rewritten to project(module_ref(path), "sort").
     let src = "import sort from \"collection/sort\"\nmain = sort >>> arr(\"id\")";
-    let parsed = parse_arrow_module(src).expect("must parse");
+    let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
             let main = map.get("main").expect("should have 'main' arrow");
@@ -1715,7 +1729,7 @@ fn test_e2e_normalize_compile_time_eliminates_module_ref() {
     // main imports sort from collection/sort; sort = arr("sort").
     // After rewrite + normalize_compile_time, no module_ref should remain.
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match normalize_compile_time("main", &loader) {
         Ok(normalized) => {
             let any_ref = normalized
@@ -1742,7 +1756,7 @@ fn test_e2e_flatten_program_eliminates_module_ref_and_project() {
     // After rewrite + flatten_program, no module_ref and no project should
     // remain — Strategy B flattens everything into a single graph.
     let mem = build_test_memory_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("main", &loader) {
         Ok(flat) => {
             assert!(
@@ -1764,7 +1778,7 @@ fn test_e2e_flatten_program_whole_module_import() {
     let mut mem = MemoryResolver::new();
     mem.insert("util", "id = arr(\"id\")\nconst = arr(\"const\")");
     mem.insert("main_whole", "import \"util\" as u\nmain = u");
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("main_whole", &loader) {
         Ok(flat) => {
             assert!(
@@ -1793,7 +1807,7 @@ fn test_flatten_program_bare_name_app_discovery() {
     let mut mem = MemoryResolver::new();
     mem.insert("insert", "arr(\"cons\")");
     mem.insert("sort", "loop(comp(insert, first(id)))");
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("sort", &loader) {
         Ok(flat) => {
             // After flattening, no App nodes should remain — `insert` is
@@ -1821,7 +1835,7 @@ fn test_flatten_program_file_stem_alias_for_single_expression() {
     let mut mem = MemoryResolver::new();
     mem.insert("helper", "arr(\"id\")");
     mem.insert("caller", "helper");
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("caller", &loader) {
         Ok(flat) => {
             let known: HashSet<String> = HashSet::new();
@@ -1845,7 +1859,7 @@ fn test_flatten_program_primitive_ops_no_unresolved_apps() {
         "prim_only",
         "loop(comp(arr(\"prim.compare\"), choice(arr(\"cons\"), arr(\"cons\"))))",
     );
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("prim_only", &loader) {
         Ok(flat) => {
             let known: HashSet<String> = HashSet::new();
@@ -1868,7 +1882,7 @@ fn test_flatten_program_unresolvable_bare_name_skipped() {
     // `mystery` is not a module and not imported — discovery skips it.
     // A bare identifier parses to `App { callee: arr("mystery"), args: [] }`.
     mem.insert("main", "mystery");
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("main", &loader) {
         Ok(flat) => {
             // The App to "mystery" remains (unresolvable), but flatten
@@ -1894,7 +1908,7 @@ fn test_flatten_program_transitive_bare_name_discovery() {
     mem.insert("c", "arr(\"id\")");
     mem.insert("b", "c");
     mem.insert("a", "b");
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("a", &loader) {
         Ok(flat) => {
             let known: HashSet<String> = HashSet::new();
@@ -1943,7 +1957,7 @@ fn build_real_arrows_resolver() -> MemoryResolver {
 #[test]
 fn test_phase6_basic_import() {
     let mem = build_real_arrows_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     // Load sort — should succeed and parse the import declaration.
     let _loaded = loader
@@ -1983,7 +1997,7 @@ fn test_phase6_basic_import() {
 #[test]
 fn test_phase6_compositional_inference() {
     let mem = build_real_arrows_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     // Flatten sort — inlines insert's graph via the import boundary.
     let flat = flatten_program("collection/sort", &loader).expect("flatten sort");
@@ -2010,7 +2024,7 @@ fn test_phase6_compositional_inference() {
 #[test]
 fn test_phase6_full_cascade() {
     let mem = build_real_arrows_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     // Load insert directly and verify it infers Sorted.
     let insert_flat = flatten_program("collection/insert", &loader).expect("flatten insert");
@@ -2040,7 +2054,7 @@ fn test_phase6_full_cascade() {
 #[test]
 fn test_phase6_export_declaration() {
     let mem = build_real_arrows_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     // insert.hnl has `export insert` — public_names should include "insert".
     let names = loader
@@ -2059,7 +2073,7 @@ fn test_phase6_export_declaration() {
 #[test]
 fn test_phase6_normalize_compile_time() {
     let mem = build_real_arrows_resolver();
-    let loader = ModuleLoader::new(Box::new(mem));
+    let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
     match normalize_compile_time("collection/sort", &loader) {
         Ok(normalized) => {

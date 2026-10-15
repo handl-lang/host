@@ -13,7 +13,7 @@
 //!
 //! The pipeline mirrors ADR-0069:
 //! 1. `FileResolver { root }` resolves `<root>/<path>.hnl`.
-//! 2. `ModuleLoader::new(resolver)` loads and caches modules.
+//! 2. `ModuleLoader::new(resolver, lang)` loads and caches modules.
 //! 3. `normalize_compile_time` (Strategy A) or `flatten_program` (Strategy B)
 //!    eliminates module refs, producing a self-contained `Term`.
 //! 4. `infer_refinement(scheme, &ContractRegistry::standard())` infers
@@ -24,9 +24,10 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use handl_language::Term;
+use handl_language::Language;
 use handl_plugin_ext_refinement::{
-    ContractRegistry, FileResolver, ModuleLoader, RefinementResult, contains_module_ref,
-    contains_project, flatten_program, has_unresolved_apps, infer_refinement,
+    ContractRegistry, FileResolver, ModuleLoader, RefinementResult, arrow_lang::arrow_language_for,
+    contains_module_ref, contains_project, flatten_program, has_unresolved_apps, infer_refinement,
     normalize_compile_time,
 };
 
@@ -366,9 +367,16 @@ fn run() -> Result<(), String> {
         println!();
     }
 
-    // 1. Build the resolver + loader.
+    // 1. Build the resolver + loader. The canonical base language is
+    // assembled from `handl-kit-data-canonical` (a dev-dependency — `hnlc`
+    // is a dev tool, not a shipped artifact) and overridden to the arrow
+    // dialect via `arrow_language_for`.
+    let lang: Language = arrow_language_for(
+        &handl_kit_data_canonical::language_from_yaml()
+            .map_err(|e| format!("canonical language failed to assemble: {e}"))?,
+    );
     let resolver = FileResolver::new(root.clone());
-    let loader = ModuleLoader::new(Box::new(resolver));
+    let loader = ModuleLoader::new(Box::new(resolver), lang);
 
     // 2. Run the chosen strategy.
     match cfg.strategy {

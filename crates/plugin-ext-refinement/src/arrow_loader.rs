@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
-use handl_language::{ArrSource, Term, Value};
+use handl_language::{ArrSource, Language, Term, Value};
 
 use plugin_engine::{RewriteWitness, TermData};
 
@@ -61,10 +61,13 @@ fn parse_rewrite_witness(td: &TermData) -> RewriteWitness {
 /// For single-expression files, returns the arrow directly.
 /// For multi-name files, returns the first named arrow (or the whole record
 /// if there's only one).
-pub fn load_arrow_file(path: &str) -> Result<Term, String> {
+/// `lang` is the arrow-dialect [`Language`](handl_language::Language) —
+/// derive it via [`crate::arrow_lang::arrow_language_for`] (ADR-0128 §"The
+/// 0.8 seam").
+pub fn load_arrow_file(lang: &Language, path: &str) -> Result<Term, String> {
     let content =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
-    let parsed = parse_arrow_module_no_rewrite(&content)?;
+    let parsed = parse_arrow_module_no_rewrite(lang, &content)?;
 
     match parsed.arrows {
         ParsedFile::Single(scheme) => Ok(scheme),
@@ -83,10 +86,15 @@ pub fn load_arrow_file(path: &str) -> Result<Term, String> {
 /// For single-expression files, returns a map with a single entry keyed by
 /// the file's stem name.
 /// For multi-name files, returns all named arrows.
-pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Term>, String> {
+/// `lang` is the arrow-dialect [`Language`](handl_language::Language) —
+/// see [`load_arrow_file`].
+pub fn load_arrow_file_named(
+    lang: &Language,
+    path: &str,
+) -> Result<HashMap<String, Term>, String> {
     let content =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
-    let parsed = parse_arrow_module_no_rewrite(&content)?;
+    let parsed = parse_arrow_module_no_rewrite(lang, &content)?;
 
     match parsed.arrows {
         ParsedFile::Single(scheme) => {
@@ -109,12 +117,18 @@ pub fn load_arrow_file_named(path: &str) -> Result<HashMap<String, Term>, String
 /// This is the end-to-end path from a `.hnl` source file to an inferred
 /// contract. Cross-file references (e.g. `sort` referencing `insert`) are
 /// resolved by loading all arrow files from the same arrows directory.
-pub fn infer_file(path: &str, registry: &ContractRegistry) -> Result<RefinementResult, String> {
-    let scheme = load_arrow_file(path)?;
+/// `lang` is the arrow-dialect [`Language`](handl_language::Language) —
+/// see [`load_arrow_file`].
+pub fn infer_file(
+    lang: &Language,
+    path: &str,
+    registry: &ContractRegistry,
+) -> Result<RefinementResult, String> {
+    let scheme = load_arrow_file(lang, path)?;
 
     // Build a graph map from the arrows root for reference resolution
     let graph_map = if let Some(root) = find_arrows_root(path) {
-        load_all_arrows(&root).unwrap_or_default()
+        load_all_arrows(lang, &root).unwrap_or_default()
     } else {
         HashMap::new()
     };
@@ -130,9 +144,11 @@ pub fn infer_file(path: &str, registry: &ContractRegistry) -> Result<RefinementR
 /// name -> `Term` graph map.
 ///
 /// The key is the file stem (e.g. `insert.hnl` -> `"insert"`).
-pub fn load_all_arrows(dir: &str) -> Result<HashMap<String, Term>, String> {
+/// `lang` is the arrow-dialect [`Language`](handl_language::Language) —
+/// see [`load_arrow_file`].
+pub fn load_all_arrows(lang: &Language, dir: &str) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
-    walk_dir(dir, &mut map)?;
+    walk_dir(lang, dir, &mut map)?;
     Ok(map)
 }
 
@@ -169,7 +185,7 @@ fn find_arrows_root(path: &str) -> Option<String> {
 /// Both single-expression files and multi-name files are loaded. Files that
 /// fail to parse are silently skipped (the parser is minimal and may not
 /// handle all syntax).
-fn walk_dir(dir: &str, map: &mut HashMap<String, Term>) -> Result<(), String> {
+fn walk_dir(lang: &Language, dir: &str, map: &mut HashMap<String, Term>) -> Result<(), String> {
     let entries =
         fs::read_dir(dir).map_err(|e| format!("failed to read directory {}: {}", dir, e))?;
 
@@ -181,7 +197,7 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Term>) -> Result<(), String> {
             if path.file_name().map(|n| n == "contracts").unwrap_or(false) {
                 continue;
             }
-            walk_dir(path.to_str().unwrap_or(""), map)?;
+            walk_dir(lang, path.to_str().unwrap_or(""), map)?;
         } else if path.extension().map(|e| e == "hnl").unwrap_or(false) {
             let name = path
                 .file_stem()
@@ -195,7 +211,7 @@ fn walk_dir(dir: &str, map: &mut HashMap<String, Term>) -> Result<(), String> {
             // Parse — use module-aware parser (strips import/export/op/handl/cap
             // declarations) but WITHOUT import rewriting, so bare name references
             // are preserved for `resolve_apps`. Skip files that fail.
-            if let Ok(parsed) = parse_arrow_module_no_rewrite(&content) {
+            if let Ok(parsed) = parse_arrow_module_no_rewrite(lang, &content) {
                 match parsed.arrows {
                     ParsedFile::Single(scheme) => {
                         map.insert(name, scheme);
@@ -610,6 +626,10 @@ pub struct LoadedModule {
 /// (runtime module loading, lazy + cached) — see ADR-0069 §5.
 pub struct ModuleLoader {
     resolver: Box<dyn ModuleResolver>,
+    /// The arrow-dialect [`Language`] modules are parsed against — built
+    /// once at construction via
+    /// [`arrow_language_for`](crate::arrow_lang::arrow_language_for).
+    lang: Language,
     /// Graph cache: module path → named arrows.
     pub graph_cache: RefCell<HashMap<String, HashMap<String, Term>>>,
     /// Contract cache: module path → contracts per arrow.
@@ -619,10 +639,12 @@ pub struct ModuleLoader {
 }
 
 impl ModuleLoader {
-    /// Create a new `ModuleLoader` with the given resolver.
-    pub fn new(resolver: Box<dyn ModuleResolver>) -> Self {
+    /// Create a new `ModuleLoader` with the given resolver and the
+    /// arrow-dialect `lang` (see [`load_arrow_file`]).
+    pub fn new(resolver: Box<dyn ModuleResolver>, lang: Language) -> Self {
         ModuleLoader {
             resolver,
+            lang,
             graph_cache: RefCell::new(HashMap::new()),
             contract_cache: RefCell::new(HashMap::new()),
             meta_cache: RefCell::new(HashMap::new()),
@@ -651,7 +673,8 @@ impl ModuleLoader {
         let resolved = self.resolver.resolve(path).map_err(LoadError::Resolve)?;
 
         // Parse with module-aware parser (extracts imports/exports).
-        let parsed = parse_arrow_module(&resolved.source).map_err(LoadError::Parse)?;
+        let parsed =
+            parse_arrow_module(&self.lang, &resolved.source).map_err(LoadError::Parse)?;
 
         // Convert ParsedFile to HashMap<String, Term>.
         let arrows = match parsed.arrows {

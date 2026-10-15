@@ -6,11 +6,23 @@
 //!
 //!   `.hnl` file → `arrow_parser` → `Term` IR → `infer_refinement`
 
+use handl_language::Language;
 use handl_plugin_ext_refinement::{
-    ContractRegistry, infer_file, infer_refinement, load_all_arrows, load_arrow_file, resolve_apps,
+    ContractRegistry, arrow_lang::arrow_language_for, infer_file, infer_refinement,
+    load_all_arrows, load_arrow_file, resolve_apps,
 };
 
+/// The arrow-dialect language — canonical base (dev-dep data crate) plus
+/// the `arrow_language_for` overrides.
+fn lang() -> Language {
+    arrow_language_for(
+        &handl_kit_data_canonical::language_from_yaml()
+            .expect("canonical language assembles"),
+    )
+}
+
 fn main() {
+    let lang = lang();
     let registry = ContractRegistry::from_axioms();
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     // The former `handl-packages/{fn,collection,state,contracts,parse-pratt}/`
@@ -24,7 +36,7 @@ fn main() {
     println!();
 
     // Load all arrow files for cross-file reference resolution
-    let graph_map = load_all_arrows(&fixtures_dir).expect("failed to load fixture arrows");
+    let graph_map = load_all_arrows(&lang, &fixtures_dir).expect("failed to load fixture arrows");
     println!("Loaded {} arrow files from stdlib", graph_map.len());
     println!();
 
@@ -44,7 +56,7 @@ fn main() {
         let path = format!("{}/{}", base_dir, rel_path);
 
         // Load the .hnl file → Term IR
-        let scheme = match load_arrow_file(&path) {
+        let scheme = match load_arrow_file(&lang, &path) {
             Ok(s) => s,
             Err(e) => {
                 println!("{}: FAILED to load: {}\n", name, e);
@@ -85,7 +97,7 @@ fn main() {
     // Also demonstrate the one-call API: infer_file does load + resolve + infer
     println!("--- One-call API: infer_file(path, registry) ---");
     let sort_path = format!("{}/collection/sort.hnl", fixtures_dir);
-    match infer_file(&sort_path, &registry) {
+    match infer_file(&lang, &sort_path, &registry) {
         Ok(r) => {
             println!(
                 "sort (via infer_file): guarantee = {}",

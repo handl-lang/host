@@ -45,7 +45,6 @@ use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
 use handl_plugin_engine_parse_pratt::PrattEngine;
 use plugin_engine::{ArrSource, RewriteWitness, TermData};
 
-use crate::arrow_lang::arrow_language;
 
 // ============================================================================
 // Public API
@@ -72,7 +71,10 @@ pub enum ParsedFile {
 /// the YAML grammar tokenizes and parses it into a `loop_rich` AST node,
 /// which `ast_to_scheme` pattern-matches to determine the corresponding
 /// `Term` graph.
-pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
+/// `lang` is the arrow-dialect [`Language`] — derive it from the host's
+/// base language via [`arrow_language_for`] (ADR-0128 §"The 0.8 seam";
+/// this crate must not link `handl-kit-data-canonical`).
+pub fn parse_arrow_file(lang: &Language, src: &str) -> Result<ParsedFile, String> {
     let stripped = strip_comments(src);
     let trimmed = stripped.trim();
 
@@ -81,12 +83,12 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
     }
 
     // Try the data-driven parser first.
-    if let Ok(result) = parse_arrow_file_data_driven(&stripped) {
+    if let Ok(result) = parse_arrow_file_data_driven(lang, &stripped) {
         return Ok(result);
     }
 
     // Fall back to the legacy ad-hoc parser.
-    parse_arrow_file_legacy(&stripped)
+    parse_arrow_file_legacy(lang, &stripped)
 }
 
 /// Parse a simple arrow expression (the combinator syntax).
@@ -99,13 +101,13 @@ pub fn parse_arrow_file(src: &str) -> Result<ParsedFile, String> {
 /// to named arrows). Also supports infix operator syntax: `a >>> b`
 /// (sequence, same as `comp(a, b)`) and `a ||| b` (choice, same as
 /// `choice(a, b)`).
-pub fn parse_arrow_expr(src: &str) -> Result<Term, String> {
+/// `lang` is the arrow-dialect [`Language`] — see [`parse_arrow_file`].
+pub fn parse_arrow_expr(lang: &Language, src: &str) -> Result<Term, String> {
     // Check for simple rec form: `rec { body }` (without `( ... )` after `}`).
     // This is the v0.1 replacement for `loop(body)`.
-    if let Some(scheme) = try_parse_simple_rec(src) {
+    if let Some(scheme) = try_parse_simple_rec(lang, src) {
         return Ok(scheme);
     }
-    let lang = arrow_language();
     if let Ok(scheme) = parse_arrow_expr_data_driven(src, lang) {
         return Ok(scheme);
     }
@@ -275,8 +277,9 @@ pub struct TagDecl {
 /// If the remaining content (after removing declaration lines) is empty,
 /// the `arrows` field is `ParsedFile::Named` with an empty map (a pure
 /// re-export or op-only module).
-pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
-    let mut parsed = parse_arrow_module_inner(src)?;
+/// `lang` is the arrow-dialect [`Language`] — see [`parse_arrow_file`].
+pub fn parse_arrow_module(lang: &Language, src: &str) -> Result<ParsedModule, String> {
+    let mut parsed = parse_arrow_module_inner(lang, src)?;
 
     // Rewrite references to imported names into module_ref/project nodes so
     // the normalisation strategies (Strategy A / Strategy B) can eliminate
@@ -295,15 +298,19 @@ pub fn parse_arrow_module(src: &str) -> Result<ParsedModule, String> {
 /// `module_ref`/`project` nodes). This is used by `load_all_arrows` and
 /// `load_arrow_file` to handle files with import/export declarations while
 /// preserving the bare-reference form that `resolve_apps` expects.
-pub fn parse_arrow_module_no_rewrite(src: &str) -> Result<ParsedModule, String> {
-    parse_arrow_module_inner(src)
+/// `lang` is the arrow-dialect [`Language`] — see [`parse_arrow_file`].
+pub fn parse_arrow_module_no_rewrite(
+    lang: &Language,
+    src: &str,
+) -> Result<ParsedModule, String> {
+    parse_arrow_module_inner(lang, src)
 }
 
 /// Inner implementation: scan declaration lines, parse the remaining content
 /// into a [`ParsedFile`], and return a [`ParsedModule`] without import
 /// rewriting. Both [`parse_arrow_module`] (with rewriting) and
 /// [`parse_arrow_module_no_rewrite`] (without) delegate to this function.
-fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
+fn parse_arrow_module_inner(lang: &Language, src: &str) -> Result<ParsedModule, String> {
     let stripped = strip_comments(src);
     let mut imports: Vec<ImportDecl> = Vec::new();
     let mut exports: Vec<ExportDecl> = Vec::new();
@@ -426,15 +433,15 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
         ParsedFile::Named(HashMap::new())
     } else if arrow_src.trim().is_empty() {
         // Only tag constructors, no other arrows.
-        parse_arrow_file(&tag_constructor_src)?
+        parse_arrow_file(lang, &tag_constructor_src)?
     } else if !tag_constructor_src.is_empty() {
         // Both tag constructors and regular arrows — parse separately
         // and merge into a single Named map. This avoids issues with
         // concatenating `name = expr` lines with a `{ ... }` record
         // literal, which parse_arrow_file cannot handle as a single
         // source.
-        let tag_file = parse_arrow_file(&tag_constructor_src)?;
-        let arrow_file = parse_arrow_file(&arrow_src)?;
+        let tag_file = parse_arrow_file(lang, &tag_constructor_src)?;
+        let arrow_file = parse_arrow_file(lang, &arrow_src)?;
         match (tag_file, arrow_file) {
             (ParsedFile::Named(mut tag_map), ParsedFile::Named(arrow_map)) => {
                 tag_map.extend(arrow_map);
@@ -451,16 +458,16 @@ fn parse_arrow_module_inner(src: &str) -> Result<ParsedModule, String> {
                 // This case is uncommon (tag decls + single expr).
                 // Re-parse with concatenation as a fallback.
                 let combined = format!("{}\n{}", tag_constructor_src, arrow_src);
-                parse_arrow_file(&combined)?
+                parse_arrow_file(lang, &combined)?
             }
             (ParsedFile::Single(_), _) => {
                 // Tag constructors didn't parse as Named — shouldn't happen.
                 let combined = format!("{}\n{}", tag_constructor_src, arrow_src);
-                parse_arrow_file(&combined)?
+                parse_arrow_file(lang, &combined)?
             }
         }
     } else {
-        parse_arrow_file(&arrow_src)?
+        parse_arrow_file(lang, &arrow_src)?
     };
 
     Ok(ParsedModule {
@@ -1021,13 +1028,12 @@ fn find_keyword(s: &str, keyword: &str) -> Option<usize> {
 /// treated as a single expression (not named arrows) because the arrow body
 /// may contain ` = ` in let-bindings (`cmp = expr in body`) that would
 /// falsely trigger the named-arrow heuristic.
-fn parse_arrow_file_data_driven(src: &str) -> Result<ParsedFile, String> {
-    let lang = arrow_language();
+fn parse_arrow_file_data_driven(lang: &Language, src: &str) -> Result<ParsedFile, String> {
     let trimmed = src.trim();
 
     // Simple rec form: `rec { body }` (without `( ... )` after `}`).
     // This is the v0.1 replacement for `loop(body)`.
-    if let Some(scheme) = try_parse_simple_rec(trimmed) {
+    if let Some(scheme) = try_parse_simple_rec(lang, trimmed) {
         return Ok(ParsedFile::Single(scheme));
     }
 
@@ -1083,7 +1089,7 @@ fn is_rich_loop(src: &str) -> bool {
 /// (with no `( ... )` after the closing `}`). Returns `None` if the source
 /// is not a simple rec form (e.g. it's a rich-loop `rec { state } ( body )`,
 /// or it doesn't start with `rec {`).
-fn try_parse_simple_rec(src: &str) -> Option<Term> {
+fn try_parse_simple_rec(lang: &Language, src: &str) -> Option<Term> {
     let trimmed = src.trim();
 
     // Must start with `rec` followed by whitespace and `{`.
@@ -1131,7 +1137,7 @@ fn try_parse_simple_rec(src: &str) -> Option<Term> {
 
     // Extract the body between `{` and `}` and parse it recursively.
     let body_src = rest[1..close_idx].trim();
-    let body_scheme = parse_arrow_expr(body_src).ok()?;
+    let body_scheme = parse_arrow_expr(lang, body_src).ok()?;
     Some(
         TermData::loop_feedback(TermData::from_term(&body_scheme))
             .to_term()
@@ -1163,7 +1169,7 @@ fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Term, Stri
 /// the expression part with the data-driven parser.
 fn parse_named_arrows_data_driven(
     src: &str,
-    _lang: &Language,
+    lang: &Language,
 ) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
 
@@ -1188,7 +1194,7 @@ fn parse_named_arrows_data_driven(
             // `parse_arrow_expr` covers the simple `rec { body }` form and
             // falls back to the legacy parser when the data-driven grammar
             // rejects the expression (e.g. arity-1 `rec`).
-            let scheme = parse_arrow_expr(expr_str)?;
+            let scheme = parse_arrow_expr(lang, expr_str)?;
             map.insert(name, scheme);
         }
     }
@@ -2488,7 +2494,7 @@ fn find_node_kind(ast: &Ast, idx: usize, kind: &str) -> Option<usize> {
 // ============================================================================
 
 /// Legacy: parse a `.hnl` arrow file using the ad-hoc recursive-descent parser.
-fn parse_arrow_file_legacy(src: &str) -> Result<ParsedFile, String> {
+fn parse_arrow_file_legacy(lang: &Language, src: &str) -> Result<ParsedFile, String> {
     let trimmed = src.trim();
 
     if trimmed.is_empty() {
@@ -2497,7 +2503,7 @@ fn parse_arrow_file_legacy(src: &str) -> Result<ParsedFile, String> {
 
     // Named arrows: lines with `name = expr`
     if has_named_arrows(trimmed) {
-        let map = parse_named_arrows(trimmed)?;
+        let map = parse_named_arrows(lang, trimmed)?;
         return Ok(ParsedFile::Named(map));
     }
 
@@ -2559,7 +2565,7 @@ fn has_named_arrows(src: &str) -> bool {
 }
 
 /// Legacy: parse named arrows: `name = expr` on each line.
-fn parse_named_arrows(src: &str) -> Result<HashMap<String, Term>, String> {
+fn parse_named_arrows(lang: &Language, src: &str) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
 
     for line in src.lines() {
@@ -2580,7 +2586,7 @@ fn parse_named_arrows(src: &str) -> Result<HashMap<String, Term>, String> {
             let expr_str = trimmed[eq_idx + sep_len..].trim();
             // `parse_arrow_expr` also handles `rec { body }` bodies — the
             // legacy tokenizer has no brace tokens.
-            let scheme = parse_arrow_expr(expr_str)?;
+            let scheme = parse_arrow_expr(lang, expr_str)?;
             map.insert(name, scheme);
         }
     }

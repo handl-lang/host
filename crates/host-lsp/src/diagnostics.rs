@@ -182,7 +182,7 @@ pub fn parse_diagnostics(source: &str) -> Vec<RefinementDiagnostic> {
                 message: e.to_string(),
             }]
         }
-        Ok(_) => match parse_arrow_file(source) {
+        Ok(_) => match parse_arrow_file(crate::refinement::arrow_lang(), source) {
             Ok(_) => Vec::new(),
             Err(msg) => {
                 let line = extract_line_from_message(&msg).unwrap_or(0);

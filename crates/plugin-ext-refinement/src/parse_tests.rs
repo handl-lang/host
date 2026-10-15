@@ -18,6 +18,20 @@ use crate::inference::infer_refinement;
 use crate::types::{Measure, Pred};
 
 // Embed the actual .hnl stdlib files for testing.
+/// The arrow-dialect [`Language`] for tests — canonical base from the
+/// dev-dep data crate plus the `arrow_language_for` overrides (tests may
+/// depend on `lang/` data; the library must not).
+fn arrow_lang() -> &'static handl_language::Language {
+    static LANG: std::sync::OnceLock<handl_language::Language> =
+        std::sync::OnceLock::new();
+    LANG.get_or_init(|| {
+        crate::arrow_lang::arrow_language_for(
+            &handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        )
+    })
+}
+
 const PRATT_HNL: &str = include_str!("../tests/fixtures/parse-pratt/pratt.hnl");
 
 // ============================================================================
@@ -157,7 +171,7 @@ fn test_from_axioms_matches_minimal_for_parse_consume() {
 
 #[test]
 fn test_parse_pratt_hnl() {
-    let parsed = parse_arrow_file(PRATT_HNL).expect("parse pratt.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), PRATT_HNL).expect("parse pratt.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop((parse.consume >>> parse.atom_value) >>>
@@ -173,7 +187,7 @@ fn test_parse_pratt_hnl() {
 
 #[test]
 fn test_parsed_pratt_matches_handbuilt() {
-    let parsed = parse_arrow_file(PRATT_HNL).expect("parse pratt.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), PRATT_HNL).expect("parse pratt.hnl");
     let handbuilt = pratt_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(
@@ -204,7 +218,7 @@ fn test_pratt_inference_succeeds() {
 #[test]
 fn test_pratt_inference_from_hnl() {
     let registry = ContractRegistry::minimal();
-    let parsed = parse_arrow_file(PRATT_HNL).expect("parse pratt.hnl");
+    let parsed = parse_arrow_file(arrow_lang(), PRATT_HNL).expect("parse pratt.hnl");
     let handbuilt = pratt_graph();
 
     if let ParsedFile::Single(scheme) = parsed {
@@ -316,7 +330,7 @@ fn test_load_pratt_from_disk() {
     let arrows_dir = format!("{}/tests/fixtures", manifest_dir);
     let pratt_path = format!("{}/parse-pratt/pratt.hnl", arrows_dir);
 
-    let scheme = load_arrow_file(&pratt_path).expect("load pratt from disk");
+    let scheme = load_arrow_file(arrow_lang(), &pratt_path).expect("load pratt from disk");
     assert!(
         matches!(scheme, Term::Loop { .. }),
         "pratt should be a Loop"
@@ -330,7 +344,7 @@ fn test_infer_pratt_from_disk() {
     let pratt_path = format!("{}/parse-pratt/pratt.hnl", arrows_dir);
     let registry = ContractRegistry::minimal();
 
-    let result = infer_file(&pratt_path, &registry).expect("infer pratt from disk");
+    let result = infer_file(arrow_lang(), &pratt_path, &registry).expect("infer pratt from disk");
 
     let pretty = result.guarantee.pretty();
     println!("pratt (from disk) guarantee: {}", pretty);
