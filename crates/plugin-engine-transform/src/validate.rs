@@ -96,6 +96,38 @@ pub fn validate_transforms(lang: &Language) -> Vec<Diagnostic> {
                     ),
                 ));
             }
+            TransformRule::Replace { path } => {
+                // ADR-0127. `path` starts at the matched node, so its first
+                // index is checked against the matched shape's roles —
+                // exactly as `KeepPath` is (later steps cannot be statically
+                // resolved to a child shape here).
+                if path.is_empty() {
+                    diags.push(Diagnostic::new(
+                        RULE,
+                        Severity::Error,
+                        Span::default(),
+                        format!(
+                            "rule {} Replace path is empty; a non-empty child-index path is required",
+                            def.id
+                        ),
+                    ));
+                } else if let Some(n) = shape_role_count(shape) {
+                    if path[0] >= n {
+                        diags.push(Diagnostic::new(
+                            RULE,
+                            Severity::Error,
+                            Span::default(),
+                            format!(
+                                "rule {} Replace first index {} is out of bounds for shape '{}' ({} declared roles)",
+                                def.id,
+                                path[0],
+                                shape.map(|s| s.node_kind.as_str()).unwrap_or("?"),
+                                n
+                            ),
+                        ));
+                    }
+                }
+            }
         }
 
         if let Some(cond) = &def.when {

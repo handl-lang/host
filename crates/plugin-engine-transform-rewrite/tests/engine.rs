@@ -184,6 +184,149 @@ fn step_keep_path() {
     assert_eq!(out.ast.get(AstRef::new(kept)).unwrap().payload, json!(5));
 }
 
+// --- TransformRule::Replace (ADR-0127) --------------------------------------
+
+#[test]
+fn rule_replace_returns_the_subterm_not_a_new_node() {
+    let mut lang = test_lang();
+    add_rule(
+        &mut lang,
+        TransformDef::new(
+            "t.replace",
+            "p",
+            "wrap",
+            TransformRule::Replace { path: vec![0] },
+        ),
+    );
+    let mut ast = Ast::new();
+    ast.push(leaf("lit", json!(7))); // 0
+    ast.push(node("a", &[0])); // 1 — the subterm at path [0]
+    ast.push(node("wrap", &[1, 1])); // 2 = wrap(a(lit), a(lit))
+    let out = RewriteEngine::new()
+        .apply_rule(&lang, &ast, AstRef::new(2), "t.replace")
+        .unwrap();
+
+    // The rewritten root IS the existing subterm — kind `a`, not `wrap`.
+    assert_eq!(out.ast.at(out.root).unwrap().kind, "a");
+    assert_eq!(out.trace.rewrites.len(), 1);
+    // No node of kind `wrap` was fabricated: `Replace` allocates nothing.
+    assert!(
+        out.ast.iter().all(|n| n.kind != "wrap"),
+        "Replace must not create a node of the matched kind"
+    );
+    // The subterm's own child (the `lit` leaf) came along.
+    let kids = out.ast.at(out.root).unwrap().payload["children"]
+        .as_array()
+        .unwrap()
+        .clone();
+    assert_eq!(kids.len(), 1);
+    let leaf_node = out
+        .ast
+        .get(AstRef::new(kids[0].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(leaf_node.payload, json!(7));
+}
+
+#[test]
+fn rule_replace_navigates_a_deep_path() {
+    let mut lang = test_lang();
+    add_rule(
+        &mut lang,
+        TransformDef::new(
+            "t.replace",
+            "p",
+            "wrap",
+            TransformRule::Replace { path: vec![1, 0] },
+        ),
+    );
+    let mut ast = Ast::new();
+    ast.push(leaf("lit", json!(3))); // 0
+    ast.push(node("c", &[0])); // 1 = c(lit)
+    ast.push(node("b", &[1])); // 2 = b(c(lit))
+    ast.push(node("wrap", &[0, 2])); // 3 = wrap(lit, b(c(lit)))
+    let out = RewriteEngine::new()
+        .apply_rule(&lang, &ast, AstRef::new(3), "t.replace")
+        .unwrap();
+    // path [1, 0]: child 1 = b(c(lit)), then child 0 = c(lit).
+    let r = out.ast.at(out.root).unwrap();
+    assert_eq!(r.kind, "c");
+    assert_eq!(r.payload["children"][0].as_u64().unwrap(), 0);
+    assert_eq!(
+        out.ast
+            .get(AstRef::new(r.payload["children"][0].as_u64().unwrap() as usize))
+            .unwrap()
+            .payload,
+        json!(3)
+    );
+}
+
+#[test]
+fn rule_replace_top_down_returns_the_subterm() {
+    let mut lang = test_lang();
+    add_rule(
+        &mut lang,
+        TransformDef::new(
+            "t.replace",
+            "p",
+            "wrap",
+            TransformRule::Replace { path: vec![0] },
+        ),
+    );
+    let mut ast = Ast::new();
+    ast.push(leaf("lit", json!(1))); // 0
+    ast.push(node("a", &[0])); // 1
+    ast.push(node("wrap", &[1, 1])); // 2
+    let out = RewriteEngine::new()
+        .with_traversal(Traversal::TopDown)
+        .run_pass(&lang, &ast, root(&ast), "p")
+        .unwrap();
+    assert_eq!(out.ast.at(out.root).unwrap().kind, "a");
+}
+
+#[test]
+fn rule_replace_out_of_range_path_is_an_error() {
+    let mut lang = test_lang();
+    add_rule(
+        &mut lang,
+        TransformDef::new(
+            "t.replace",
+            "p",
+            "wrap",
+            TransformRule::Replace { path: vec![9] },
+        ),
+    );
+    let mut ast = Ast::new();
+    ast.push(node("a", &[])); // 0
+    ast.push(node("wrap", &[0, 0])); // 1
+    let err = RewriteEngine::new()
+        .apply_rule(&lang, &ast, AstRef::new(1), "t.replace")
+        .unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("Replace path"), "missing path in: {msg}");
+    assert!(msg.contains("does not resolve"), "missing cause in: {msg}");
+}
+
+#[test]
+fn rule_replace_empty_path_is_an_error() {
+    let mut lang = test_lang();
+    add_rule(
+        &mut lang,
+        TransformDef::new(
+            "t.replace",
+            "p",
+            "wrap",
+            TransformRule::Replace { path: vec![] },
+        ),
+    );
+    let mut ast = Ast::new();
+    ast.push(node("a", &[]));
+    ast.push(node("wrap", &[0, 0]));
+    let err = RewriteEngine::new()
+        .apply_rule(&lang, &ast, AstRef::new(1), "t.replace")
+        .unwrap_err();
+    assert!(err.to_string().contains("does not resolve"), "{err}");
+}
+
 #[test]
 fn step_keep_rest() {
     let mut lang = test_lang();

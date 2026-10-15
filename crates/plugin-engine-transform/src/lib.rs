@@ -243,6 +243,47 @@ mod tests {
     }
 
     #[test]
+    fn validate_errors_replace_first_index_out_of_bounds() {
+        let mut lang = test_language();
+        // `old` declares one role; a first index of 1 is out of bounds.
+        lang.transforms
+            .merge(TransformDef::new(
+                "t.replace-oob",
+                "desugar",
+                "old",
+                TransformRule::Replace { path: vec![1] },
+            ))
+            .unwrap();
+        let diags = validate_transforms(&lang);
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains("Replace") && d.message.contains("out of bounds")),
+            "{diags:?}"
+        );
+    }
+
+    #[test]
+    fn validate_errors_replace_empty_path() {
+        let mut lang = test_language();
+        lang.transforms
+            .merge(TransformDef::new(
+                "t.replace-empty",
+                "desugar",
+                "old",
+                TransformRule::Replace { path: vec![] },
+            ))
+            .unwrap();
+        let diags = validate_transforms(&lang);
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains("Replace path is empty")),
+            "{diags:?}"
+        );
+    }
+
+    #[test]
     fn validate_errors_dangling_apply_rule_id() {
         let mut lang = test_language();
         lang.transforms

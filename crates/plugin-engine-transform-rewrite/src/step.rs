@@ -154,6 +154,40 @@ pub(crate) fn build_rewrite(
     Ok((ast_ref, fresh.counter))
 }
 
+/// The input-arena index of the descendant of `original` at child-index
+/// `path`, or `None` when `path` is empty or does not resolve to a node.
+///
+/// Shared by [`RewriteStep::KeepPath`] (which keeps the resolved child as a
+/// child) and
+/// [`TransformRule::Replace`](handl_language::TransformRule::Replace) (which
+/// returns it *as* the rewritten node) — both navigate the matched node's
+/// subtree the same way, so the navigation lives here once.
+pub(crate) fn descendant_index(ast: &Ast, original: &AstNode, path: &[usize]) -> Option<usize> {
+    let mut current_node = original;
+    let mut current_idx: Option<usize> = None;
+    for &step in path {
+        let children = current_node
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array());
+        let next_idx = children
+            .and_then(|arr| arr.get(step))
+            .and_then(|v| v.as_u64())
+            .map(|v| v as usize);
+        match next_idx {
+            Some(idx) => {
+                current_idx = Some(idx);
+                match ast.get(AstRef::new(idx)) {
+                    Some(n) => current_node = n,
+                    None => return None,
+                }
+            }
+            None => return None,
+        }
+    }
+    current_idx
+}
+
 /// Build the output children contributed by a single [`RewriteStep`].
 ///
 /// Returns a `Vec` because `KeepRest` and `Splice` expand to multiple
@@ -186,29 +220,7 @@ fn build_step(
         RewriteStep::KeepPath(path) => {
             // Navigate through the original AST's children by index path,
             // then resolve the final arena index.
-            let mut current_node = original;
-            let mut current_idx: Option<usize> = None;
-            for &step in path {
-                let children = current_node
-                    .payload
-                    .get("children")
-                    .and_then(|c| c.as_array());
-                let next_idx = children
-                    .and_then(|arr| arr.get(step))
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize);
-                match next_idx {
-                    Some(idx) => {
-                        current_idx = Some(idx);
-                        match ast.get(AstRef::new(idx)) {
-                            Some(n) => current_node = n,
-                            None => return Ok(vec![Value::Null]),
-                        }
-                    }
-                    None => return Ok(vec![Value::Null]),
-                }
-            }
-            match current_idx {
+            match descendant_index(ast, original, path) {
                 Some(idx) => Ok(vec![
                     resolver
                         .resolve(out, idx)?

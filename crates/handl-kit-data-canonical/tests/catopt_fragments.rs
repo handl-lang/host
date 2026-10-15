@@ -161,3 +161,51 @@ fn catopt_law_fires_through_the_rewrite_engine() {
     assert_eq!(out.ast.get(left_kids[1]).unwrap().kind, "b");
     assert_eq!(out.ast.get(top[1]).unwrap().kind, "c", "right child is c");
 }
+
+// --- plan 0030 step 3a: a root-ELIMINATING law returns the subterm --------
+//
+// `double_neg` is `neg(neg(a)) -> a`: the law *drops its root*. catopt emits
+// it as `!Replace { path: [0, 0] }` (handl ADR-0127) — the rewritten node IS
+// the existing descendant at `path`, nothing is created. Before ADR-0127 the
+// bank could not express this at all (and an early bridge emitted
+// `target_kind: null`, which serde_yaml coerced to the string `"null"`, so
+// the engine fabricated a node of kind `"null"`). This is the payoff: a real
+// catopt law, loaded from catopt's emitted data, eliminating its root through
+// handl's engine.
+
+#[test]
+fn catopt_root_eliminating_law_returns_the_subterm() {
+    let lang = language_from_dir(&full_bank_dir()).expect("the bank loads");
+
+    // neg(neg(a))
+    let mut ast = Ast::new();
+    ast.push(cnode("a", &[])); // 0
+    ast.push(cnode("neg", &[0])); // 1 = neg(a)
+    ast.push(cnode("neg", &[1])); // 2 = neg(neg(a))
+
+    let out = RewriteEngine::new()
+        .apply_rule(&lang, &ast, AstRef::new(2), "transform.catopt.double_neg")
+        .expect("catopt's root-eliminating law must fire");
+
+    assert_eq!(out.trace.rewrites.len(), 1, "exactly one rewrite");
+    let root = out.ast.get(out.root).expect("root");
+    assert_eq!(
+        root.kind, "a",
+        "the result is the subterm, not a fabricated node"
+    );
+    // No node was *fabricated*: in particular no node of kind `"null"` — the
+    // kind the old `target_kind: null` bug produced when serde_yaml coerced
+    // the YAML `null` scalar into the string `"null"`.
+    assert!(
+        out.ast.iter().all(|n| n.kind != "null"),
+        "Replace must not fabricate a node"
+    );
+    // `Replace` allocates nothing: the output arena cannot grow.
+    assert!(
+        out.ast.len() <= ast.len(),
+        "Replace allocated nodes: {} > {}",
+        out.ast.len(),
+        ast.len()
+    );
+}
+

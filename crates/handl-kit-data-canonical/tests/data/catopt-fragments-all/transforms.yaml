@@ -240,11 +240,9 @@
   pass: "catopt"
   node_kind: "add"
   rule:
-    !Declarative
-    target_kind: null
-    children:
-      - !KeepPath
-        - 0
+    !Replace
+    path:
+      - 0
   catopt:
     law:
       version: 2
@@ -279,11 +277,9 @@
   pass: "catopt"
   node_kind: "mul"
   rule:
-    !Declarative
-    target_kind: null
-    children:
-      - !KeepPath
-        - 0
+    !Replace
+    path:
+      - 0
   catopt:
     law:
       version: 2
@@ -318,12 +314,10 @@
   pass: "catopt"
   node_kind: "neg"
   rule:
-    !Declarative
-    target_kind: null
-    children:
-      - !KeepPath
-        - 0
-        - 0
+    !Replace
+    path:
+      - 0
+      - 0
   catopt:
     law:
       version: 2
@@ -907,11 +901,9 @@
   pass: "catopt"
   node_kind: "transpose"
   rule:
-    !Declarative
-    target_kind: null
-    children:
-      - !KeepPath
-        - 0
+    !Replace
+    path:
+      - 0
   catopt:
     law:
       version: 2
@@ -951,11 +943,9 @@
   pass: "catopt"
   node_kind: "chunk"
   rule:
-    !Declarative
-    target_kind: null
-    children:
-      - !KeepPath
-        - 0
+    !Replace
+    path:
+      - 0
   catopt:
     law:
       version: 2

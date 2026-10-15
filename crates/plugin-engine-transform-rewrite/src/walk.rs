@@ -393,6 +393,25 @@ impl<'a> PassRun<'a> {
                 Ok(r.index())
             }
             TransformRule::Native(name) => self.fire_native(name, i, node, out).map(|(idx, _)| idx),
+            TransformRule::Replace { path } => {
+                // ADR-0127: the rewritten node IS the descendant at `path`
+                // (a `KeepPath` promoted to the rule level) — nothing is
+                // allocated. An unresolvable path is an error, never a
+                // silently fabricated node (contrast the old `target_kind:
+                // null` behaviour the plan records).
+                let ast = self.ast;
+                let target = step::descendant_index(ast, node, path).ok_or_else(|| {
+                    LangError::engine(format!(
+                        "Replace path {path:?} does not resolve to a descendant of node kind '{}'",
+                        node.kind
+                    ))
+                })?;
+                self.resolve(out, target)?.ok_or_else(|| {
+                    LangError::engine(format!(
+                        "Replace path {path:?} resolved to node {target}, which the output arena did not produce"
+                    ))
+                })
+            }
         }
     }
 
