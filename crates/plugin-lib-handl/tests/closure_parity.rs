@@ -19,6 +19,21 @@ use handl_plugin_module::ModuleRegistry;
 use handl_runtime::Runtime;
 use serde_json::json;
 
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 const MAP_HNL: &str = include_str!("../../../handl-packages/transform/map.hnl");
 
 const MAKER_HNL: &str = r#"
@@ -60,11 +75,13 @@ fn assert_both_engines(src: &str, expected: Value) {
 /// `transform.map` takes an arrow as an argument.
 #[test]
 fn transform_map_with_arrow_arg() {
+        ensure_lang();
     assert_both_engines("transform.map([1, 2, 3], x ~> x * 2)", json!([2, 4, 6]));
 }
 
 /// `maker.make` returns a closure that closes over `x`.
 #[test]
 fn module_returns_closure() {
+        ensure_lang();
     assert_both_engines("2 >>> maker.make(5)", json!(7));
 }

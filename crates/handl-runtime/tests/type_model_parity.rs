@@ -26,6 +26,21 @@ use handl_plugin_lib_tag::TagModule;
 use plugin_engine::{AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 const TYPE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/type_model.hnl");
 const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arrow_model.hnl");
 
@@ -108,6 +123,7 @@ fn arrow_model_run(term: &Term, incoming: Value) -> Value {
 
 #[test]
 fn type_model_arr_is_constant_type() {
+        ensure_lang();
     // `Arr` in the type model is the constant type: the value IS the type
     // (HoTT: types are values), so the type of a pure value is the value
     // itself. This agrees with the arrow model.
@@ -119,6 +135,7 @@ fn type_model_arr_is_constant_type() {
 
 #[test]
 fn type_model_const_is_constant_type() {
+        ensure_lang();
     let term = to_term(TermData::const_value(json!(7)));
     let ty = type_model_run(&term, Value::Null);
     assert_eq!(ty, json!(7));
@@ -127,6 +144,7 @@ fn type_model_const_is_constant_type() {
 
 #[test]
 fn type_model_seq_is_compose_type() {
+        ensure_lang();
     // `Seq` in the type model is type composition: the composite type
     // `b ∘ a`. With non-function operands, `compose_type` builds a tagged
     // `Compose` type record (the type-level counterpart of execution-time
@@ -149,6 +167,7 @@ fn type_model_seq_is_compose_type() {
 
 #[test]
 fn type_model_path_is_identity_type() {
+        ensure_lang();
     // `Path a b` is the identity type `Id_A(a, b)`. The type model evaluates
     // the endpoints and constructs a `Path`-tagged type witnessing that the
     // two points are equal. (The witness field is not part of the identity
@@ -164,6 +183,7 @@ fn type_model_path_is_identity_type() {
 
 #[test]
 fn type_model_equiv_is_equivalence_type() {
+        ensure_lang();
     // `Equiv a b` is the equivalence type: a proposition (`type.bool`)
     // witnessing that `a ≃ b`. The type model evaluates the operands and
     // records the propositional witness `a == b`.
@@ -187,6 +207,7 @@ fn type_model_equiv_is_equivalence_type() {
 
 #[test]
 fn type_model_refine_yields_incoming_when_predicate_holds() {
+        ensure_lang();
     // `Refine` is a refinement type (subtype): a proposition over a type.
     // When the predicate holds, the refined type is the incoming (ambient)
     // type; otherwise it is a type error.
@@ -201,6 +222,7 @@ fn type_model_refine_yields_incoming_when_predicate_holds() {
 
 #[test]
 fn type_model_refine_is_type_error_when_predicate_fails() {
+        ensure_lang();
     let term = to_term(TermData::refine(
         TermData::arr(json!("Nat")),
         TermData::arr(json!(false)),
@@ -218,6 +240,7 @@ fn type_model_refine_is_type_error_when_predicate_fails() {
 
 #[test]
 fn type_model_rewrite_evaluates_target() {
+        ensure_lang();
     // `Rewrite` is a 2-cell; the type of a rewrite is the type of its
     // target. The type model evaluates the target sub-term. This agrees
     // with the arrow model, which also evaluates the target.
@@ -234,6 +257,7 @@ fn type_model_rewrite_evaluates_target() {
 
 #[test]
 fn type_model_cell_id_is_identity_cell() {
+        ensure_lang();
     // `CellId arrow` is the identity 2-cell: source = target = the arrow
     // itself. The type model constructs a `Cell2`-tagged cell. This agrees
     // with the arrow model.
@@ -253,6 +277,7 @@ fn type_model_cell_id_is_identity_cell() {
 
 #[test]
 fn type_model_src_is_source_face() {
+        ensure_lang();
     // `Src` projects the source face of a 2-cell type. With an identity cell
     // (`CellId`), the source face is the arrow itself.
     let term = to_term(TermData::src(TermData::cell_id(TermData::arr(json!(7)))));
@@ -262,6 +287,7 @@ fn type_model_src_is_source_face() {
 
 #[test]
 fn type_model_tgt_is_target_face() {
+        ensure_lang();
     let term = to_term(TermData::tgt(TermData::cell_id(TermData::arr(json!(7)))));
     let ty = type_model_run(&term, Value::Null);
     assert_eq!(ty, json!(7));
@@ -269,6 +295,7 @@ fn type_model_tgt_is_target_face() {
 
 #[test]
 fn type_model_cell_comp_v_composes_faces() {
+        ensure_lang();
     // `CellCompV` is vertical composition of 2-cells: the source of the
     // composite is the source of the first cell; the target is the target
     // of the second cell.
@@ -290,6 +317,7 @@ fn type_model_cell_comp_v_composes_faces() {
 
 #[test]
 fn type_model_whisker_attaches_arrow_to_cell() {
+        ensure_lang();
     // `Whisker` attaches an arrow to a 2-cell, composing the faces. With a
     // `Left` whisker, the arrow is composed on the left of both faces.
     use handl_language::Side;
@@ -319,6 +347,7 @@ fn type_model_whisker_attaches_arrow_to_cell() {
 
 #[test]
 fn type_model_univalence_produces_path_from_equiv() {
+        ensure_lang();
     // `Univalence` turns an equivalence into a path. The type model reads
     // the `Equiv`-tagged value and constructs a `Path` from its `a`/`b`/`path`
     // fields. Here the equiv sub-term evaluates to a bare boolean (the
@@ -337,6 +366,7 @@ fn type_model_univalence_produces_path_from_equiv() {
 
 #[test]
 fn type_model_cobind_is_graded_type() {
+        ensure_lang();
     // `Cobind` is a graded type (coeffect): attach the `__coeffects__` field
     // (the grade) to the body type. The grade sub-term is read raw (not
     // evaluated) by the type model, recording the grade term itself.
@@ -364,6 +394,7 @@ fn type_model_cobind_is_graded_type() {
 
 #[test]
 fn type_model_glue_returns_family_type() {
+        ensure_lang();
     // `Glue` glues a family along a path; the type model returns the family
     // type.
     let term = to_term(TermData::glue(
@@ -376,6 +407,7 @@ fn type_model_glue_returns_family_type() {
 
 #[test]
 fn type_model_fibrant_returns_base_type() {
+        ensure_lang();
     // `Fibrant` is fibrant replacement; the type model returns the base type.
     let term = to_term(TermData::fibrant(
         TermData::arr(json!("Base")),
@@ -387,6 +419,7 @@ fn type_model_fibrant_returns_base_type() {
 
 #[test]
 fn type_model_jelim_dispatches_on_path_tag() {
+        ensure_lang();
     // `JElim` is J-elimination: path-based motive dispatch. When the path
     // evaluates to a `Path`-tagged value, the motive is applied to the base;
     // otherwise the base is returned.
@@ -405,6 +438,7 @@ fn type_model_jelim_dispatches_on_path_tag() {
 
 #[test]
 fn type_model_record_proj_projects_field() {
+        ensure_lang();
     let term = to_term(TermData::record_proj(
         TermData::arr(json!({ "a": 1, "b": 2 })),
         "a",
@@ -415,6 +449,7 @@ fn type_model_record_proj_projects_field() {
 
 #[test]
 fn type_model_record_with_updates_field() {
+        ensure_lang();
     let term = to_term(TermData::record_with(
         TermData::arr(json!({ "a": 1, "b": 2 })),
         "a",
@@ -426,6 +461,7 @@ fn type_model_record_with_updates_field() {
 
 #[test]
 fn type_model_tag_wraps_value() {
+        ensure_lang();
     let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let ty = type_model_run(&term, Value::Null);
     assert_eq!(ty, json!({ "__tag__": "ok", "value": 42 }));
@@ -433,6 +469,7 @@ fn type_model_tag_wraps_value() {
 
 #[test]
 fn type_model_child_is_type_error() {
+        ensure_lang();
     // `Child` is AST recursion, which is the exec model's job, not the type
     // model's — so the type model reports a `TypeError`.
     let term = to_term(TermData::child("value"));
@@ -453,6 +490,7 @@ fn type_model_child_is_type_error() {
 
 #[test]
 fn type_and_arrow_models_agree_on_coincident_tags() {
+        ensure_lang();
     // The type model and the arrow model read the same `Term` tags through
     // different lenses (type judgment vs executable combinator). They agree
     // exactly on the tags whose type-level and exec-level semantics coincide:

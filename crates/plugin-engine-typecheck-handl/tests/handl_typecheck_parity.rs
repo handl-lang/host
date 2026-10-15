@@ -28,6 +28,21 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use serde_json::{Value, json};
 
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 const TYPECHECK_MODEL_HNL: &str =
     include_str!("../../../project/design/adr0103/typecheck_model.hnl");
 const SCOPE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/scope_model.hnl");
@@ -123,6 +138,7 @@ fn typecheck_model_module() -> HandlModule {
 /// warning — the adapter degrades to `NotImplemented` in that case.
 #[test]
 fn typecheck_model_loads_and_exports_typecheck() {
+        ensure_lang();
     let module = typecheck_model_module();
     if let Err(msg) = module_loaded(&module, TYPECHECK_MODEL_FUNCS) {
         eprintln!("{msg}; the adapter will return NotImplemented — this is acceptable");
@@ -140,6 +156,7 @@ fn typecheck_model_loads_and_exports_typecheck() {
 /// outcome means it did.
 #[test]
 fn typecheck_model_loads_via_adapter() {
+        ensure_lang();
     let engine = HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()));
     let lang = Language::new();
     let req = TypecheckRequest::new(Ast::new());
@@ -163,6 +180,7 @@ fn typecheck_model_loads_via_adapter() {
 /// are both acceptable.
 #[test]
 fn typecheck_simple_assign_via_adapter() {
+        ensure_lang();
     let lang = canonical_lang();
     let ast = parse("x = 42", &lang);
 
@@ -193,6 +211,7 @@ fn typecheck_simple_assign_via_adapter() {
 /// produce a non-null type or a diagnostic (no hang).
 #[test]
 fn typecheck_do_block_via_adapter() {
+        ensure_lang();
     let lang = canonical_lang();
     let ast = parse("do { x = 1; x }", &lang);
 
@@ -216,6 +235,7 @@ fn typecheck_do_block_via_adapter() {
 /// A simple `if` should typecheck without hanging and produce useful output.
 #[test]
 fn typecheck_if_via_adapter() {
+        ensure_lang();
     let lang = canonical_lang();
     let ast = parse("if true { 1 } else { 2 }", &lang);
 
@@ -239,6 +259,7 @@ fn typecheck_if_via_adapter() {
 /// A simple `return` inside a block should typecheck without hanging.
 #[test]
 fn typecheck_return_via_adapter() {
+        ensure_lang();
     let lang = canonical_lang();
     let ast = parse("do { return 1 }", &lang);
 
@@ -288,6 +309,7 @@ fn scope_model_module() -> HandlModule {
 /// an `ffi("parse", ...)` host capability — that is acceptable.
 #[test]
 fn scope_model_loads_and_exports_check_module() {
+        ensure_lang();
     let module = scope_model_module();
     if let Err(msg) = module_loaded(&module, SCOPE_MODEL_FUNCS) {
         eprintln!("{msg}; skipping scope model call test");
@@ -304,6 +326,7 @@ fn scope_model_loads_and_exports_check_module() {
 /// long as the call does not panic.
 #[test]
 fn scope_model_check_module_simple_source() {
+        ensure_lang();
     let module = scope_model_module();
     if module_loaded(&module, &["check_module"]).is_err() {
         eprintln!("scope model did not load; skipping check_module call");
@@ -354,6 +377,7 @@ fn totality_model_module() -> HandlModule {
 /// The totality model should load and export `check_totality`.
 #[test]
 fn totality_model_loads_and_exports_check_totality() {
+        ensure_lang();
     let module = totality_model_module();
     if let Err(msg) = module_loaded(&module, TOTALITY_MODEL_FUNCS) {
         eprintln!("{msg}; skipping totality model call test");
@@ -370,6 +394,7 @@ fn totality_model_loads_and_exports_check_totality() {
 /// record with `verdict` and `reason` fields.
 #[test]
 fn totality_model_check_totality_simple_ast() {
+        ensure_lang();
     let module = totality_model_module();
     if module_loaded(&module, &["check_totality"]).is_err() {
         eprintln!("totality model did not load; skipping check_totality call");
@@ -413,6 +438,7 @@ fn totality_model_check_totality_simple_ast() {
 /// `blocked` proof (empty ast).
 #[test]
 fn totality_model_check_totality_empty_ast() {
+        ensure_lang();
     let module = totality_model_module();
     if module_loaded(&module, &["check_totality"]).is_err() {
         eprintln!("totality model did not load; skipping empty-ast test");
@@ -462,6 +488,7 @@ fn type_model_module() -> HandlModule {
 /// The type model should load and export `run`.
 #[test]
 fn type_model_loads_and_exports_run() {
+        ensure_lang();
     let module = type_model_module();
     if let Err(msg) = module_loaded(&module, TYPE_MODEL_FUNCS) {
         eprintln!("{msg}; skipping type model call test");
@@ -478,6 +505,7 @@ fn type_model_loads_and_exports_run() {
 /// "Arr", value: 42}, null, {})` should return `42`.
 #[test]
 fn type_model_run_arr_returns_value() {
+        ensure_lang();
     let module = type_model_module();
     if module_loaded(&module, &["run"]).is_err() {
         eprintln!("type model did not load; skipping run test");
@@ -501,6 +529,7 @@ fn type_model_run_arr_returns_value() {
 /// Call `run` with a `Const` term — same semantics as `Arr`.
 #[test]
 fn type_model_run_const_returns_value() {
+        ensure_lang();
     let module = type_model_module();
     if module_loaded(&module, &["run"]).is_err() {
         eprintln!("type model did not load; skipping const test");
@@ -525,6 +554,7 @@ fn type_model_run_const_returns_value() {
 /// tagged type.
 #[test]
 fn type_model_run_seq_builds_compose_type() {
+        ensure_lang();
     let module = type_model_module();
     if module_loaded(&module, &["run"]).is_err() {
         eprintln!("type model did not load; skipping seq test");
@@ -557,6 +587,7 @@ fn type_model_run_seq_builds_compose_type() {
 /// type `Id_A(a, b)`.
 #[test]
 fn type_model_run_path_builds_identity_type() {
+        ensure_lang();
     let module = type_model_module();
     if module_loaded(&module, &["run"]).is_err() {
         eprintln!("type model did not load; skipping path test");
@@ -590,6 +621,7 @@ fn type_model_run_path_builds_identity_type() {
 /// output (a non-null type or diagnostic set).
 #[test]
 fn typecheck_canonical_hello_hnl_runs_and_returns_useful_output() {
+        ensure_lang();
     const HELLO_HNL: &str = include_str!("../../../examples/handl/lib-utils/hello.hnl");
     let lang = canonical_lang();
     let ast = parse(HELLO_HNL, &lang);
@@ -617,6 +649,7 @@ fn typecheck_canonical_hello_hnl_runs_and_returns_useful_output() {
 /// hanging and produces useful output (a non-null type or diagnostics).
 #[test]
 fn typecheck_field_access_runs_and_returns_useful_output() {
+        ensure_lang();
     let lang = canonical_lang();
     let ast = parse("rec.x", &lang);
 
@@ -641,6 +674,7 @@ fn typecheck_field_access_runs_and_returns_useful_output() {
 /// hanging and produces useful output (a non-null type or diagnostics).
 #[test]
 fn typecheck_call_runs_and_returns_useful_output() {
+        ensure_lang();
     let lang = canonical_lang();
     let ast = parse("f(1)", &lang);
 
@@ -770,6 +804,7 @@ fn std_chain() -> (Value, Value, Value, Value, Value) {
 /// (Hard assertion: a missing export would make every rule test vacuous.)
 #[test]
 fn subtype_model_exports_eval_scheme() {
+        ensure_lang();
     let module = subtype_model_module();
     assert!(
         module.function("eval_scheme").is_some(),
@@ -780,6 +815,7 @@ fn subtype_model_exports_eval_scheme() {
 /// `Int <: Number` — direct child of Number.
 #[test]
 fn subtype_int_is_number() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, number, int, _float, _nat) = std_chain();
     assert!(
@@ -791,6 +827,7 @@ fn subtype_int_is_number() {
 /// `Float <: Number` — direct child of Number.
 #[test]
 fn subtype_float_is_number() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, number, _int, float, _nat) = std_chain();
     assert!(
@@ -802,6 +839,7 @@ fn subtype_float_is_number() {
 /// `Nat <: Number` — transitive through `Int`.
 #[test]
 fn subtype_nat_is_number_transitive() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, number, _int, _float, nat) = std_chain();
     assert!(
@@ -813,6 +851,7 @@ fn subtype_nat_is_number_transitive() {
 /// `Nat <: Int` — immediate parent.
 #[test]
 fn subtype_nat_is_int() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, _number, int, _float, nat) = std_chain();
     assert!(
@@ -824,6 +863,7 @@ fn subtype_nat_is_int() {
 /// A nominal is a subtype of itself (reflexivity).
 #[test]
 fn subtype_nominal_is_itself() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, number, _int, _float, _nat) = std_chain();
     let number2 = number.clone();
@@ -836,6 +876,7 @@ fn subtype_nominal_is_itself() {
 /// `Number </: Float` — a parent is not a subtype of its child.
 #[test]
 fn subtype_number_is_not_float() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, number, _int, float, _nat) = std_chain();
     assert!(
@@ -847,6 +888,7 @@ fn subtype_number_is_not_float() {
 /// `Int </: Float` — siblings under `Number` are unrelated.
 #[test]
 fn subtype_siblings_int_is_not_float() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, _number, int, float, _nat) = std_chain();
     assert!(
@@ -859,6 +901,7 @@ fn subtype_siblings_int_is_not_float() {
 /// root (full transitive walk) and the root is not a subtype of the leaf.
 #[test]
 fn subtype_deep_chain_transitivity() {
+        ensure_lang();
     let module = subtype_model_module();
     const DEPTH: i64 = 64;
     let mut cur = nominal(1, "N0", Value::Null);
@@ -883,6 +926,7 @@ fn subtype_deep_chain_transitivity() {
 /// value unified with itself succeeds structurally.
 #[test]
 fn subtype_malformed_nominal_falls_back_to_unify() {
+        ensure_lang();
     let module = subtype_model_module();
 
     // Zero handle is not a valid identity.
@@ -948,6 +992,7 @@ fn subtype_malformed_nominal_falls_back_to_unify() {
 /// tags fail.
 #[test]
 fn subtype_legacy_tagged_equality_via_unify() {
+        ensure_lang();
     let module = subtype_model_module();
     let int_a = json!({ "__tag__": "int", "__registry__": "type", "kind": "primitive" });
     let int_b = json!({ "__tag__": "int", "__registry__": "type", "kind": "primitive" });
@@ -970,6 +1015,7 @@ fn subtype_legacy_tagged_equality_via_unify() {
 /// that non-nominal inputs keep their old behavior.
 #[test]
 fn subtype_nominal_vs_legacy_tag_delegates_to_unify() {
+        ensure_lang();
     let module = subtype_model_module();
     let (_obj, number, _int, _float, _nat) = std_chain();
     let tagged_number = json!({ "__tag__": "number", "__registry__": "type", "kind": "primitive" });

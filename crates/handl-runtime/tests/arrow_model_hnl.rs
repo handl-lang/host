@@ -11,6 +11,21 @@ use handl_plugin_lib_tag::TagModule;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use plugin_engine::TermData;
 
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 const ARROW_MODEL_HNL: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../project/design/adr0103/arrow_model.hnl"
@@ -18,6 +33,7 @@ const ARROW_MODEL_HNL: &str = include_str!(concat!(
 
 #[test]
 fn handl_arrow_model_evaluates_arr_const() {
+        ensure_lang();
     // Build the canonical language and add a tiny eval scheme that exposes
     // a concrete Term to the engine.
     let mut lang = assemble().unwrap().lang().clone();

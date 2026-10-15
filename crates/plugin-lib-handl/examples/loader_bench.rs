@@ -27,7 +27,19 @@ impl ModuleResolver for CharResolver {
 const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
 const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
 
+/// Install the canonical default language for the bridge runtimes
+/// (dev-dep data crate — examples may link `lang/` data).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 fn main() {
+    ensure_lang();
     // --- Repeated HandlFunction::call on a .hnl module -------------------
     let str_mod = build_str_handl_module(&CharResolver);
     let f = str_mod.function("length").expect("str.length");

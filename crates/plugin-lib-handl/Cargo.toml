@@ -9,7 +9,6 @@ handl-platform = { path = "../platform" }
 handl-language = { path = "../handl-language" }
 handl-runtime = { path = "../handl-runtime" }
 handl-value = { path = "../handl-value" }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
@@ -21,6 +20,7 @@ plugin-engine = { path = "../plugin-engine" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 handl-plugin-lib-char-native = { path = "../plugin-lib-char-native" }

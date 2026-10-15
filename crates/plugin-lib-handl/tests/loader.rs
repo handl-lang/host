@@ -16,6 +16,21 @@ use handl_plugin_lib_handl::{
 };
 
 /// Bootstrap implementations, re-exposed for parity checking.
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 mod bootstrap {
     pub fn strip_comment_lines(src: &str) -> String {
         src.lines()
@@ -629,6 +644,7 @@ const CORPUS: &[&str] = &[
 
 #[test]
 fn loader_parity() {
+        ensure_lang();
     install();
     for (i, src) in CORPUS.iter().enumerate() {
         assert_eq!(

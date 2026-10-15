@@ -29,6 +29,21 @@ use serde_json::json;
 
 /// Convert a `TermData` back to `Term` for passing to `Model::run` (which
 /// takes `&Term`). The conversion is lossless for all well-formed `TermData`.
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 fn to_term(td: TermData) -> Term {
     td.to_term().expect("TermData -> Term conversion failed")
 }
@@ -104,6 +119,7 @@ fn run_handl(term: &Term, incoming: Value) -> Value {
 /// constant arrow.
 #[test]
 fn handl_adapter_runs_arr_const() {
+        ensure_lang();
     let adapter = handl_adapter();
     let term = to_term(TermData::arr(json!(5)));
     let result = run_model(&adapter, &term, Value::Null);
@@ -113,6 +129,7 @@ fn handl_adapter_runs_arr_const() {
 /// `HandlModelAdapter` runs a sequential composition.
 #[test]
 fn handl_adapter_runs_seq() {
+        ensure_lang();
     let adapter = handl_adapter();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
@@ -125,6 +142,7 @@ fn handl_adapter_runs_seq() {
 /// `HandlModelAdapter` runs an arithmetic `Op`.
 #[test]
 fn handl_adapter_runs_op_add() {
+        ensure_lang();
     let adapter = handl_adapter();
     let term = to_term(TermData::op(
         "add",
@@ -139,6 +157,7 @@ fn handl_adapter_runs_op_add() {
 /// `HandlModelAdapter` agrees with the raw `HandlModel` on a constant.
 #[test]
 fn handl_adapter_matches_handl_model() {
+        ensure_lang();
     let adapter = handl_adapter();
     let term = to_term(TermData::arr(json!(42)));
     let adapter_result = run_model(&adapter, &term, Value::Null);
@@ -154,6 +173,7 @@ fn handl_adapter_matches_handl_model() {
 /// `is_hott_tag` returns `true` for HoTT-specific tags.
 #[test]
 fn is_hott_tag_true_for_hott_tags() {
+        ensure_lang();
     assert!(TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None,).is_hott_tag());
     assert!(TermData::equiv(TermData::arr(json!(1)), TermData::arr(json!(1)), None,).is_hott_tag());
     assert!(TermData::cell_id(TermData::arr(json!(1))).is_hott_tag());
@@ -169,6 +189,7 @@ fn is_hott_tag_true_for_hott_tags() {
 /// `is_hott_tag` returns `false` for core arrow-calculus tags.
 #[test]
 fn is_hott_tag_false_for_core_tags() {
+        ensure_lang();
     assert!(!TermData::arr(json!(5)).is_hott_tag());
     assert!(
         !TermData::seq(
@@ -185,6 +206,7 @@ fn is_hott_tag_false_for_core_tags() {
 /// matches the pure Rust model on a `Path` term.
 #[test]
 fn composite_delegates_hott_path() {
+        ensure_lang();
     let composite = composite_model();
     let rust = rust_model();
     let term = to_term(TermData::path(
@@ -204,6 +226,7 @@ fn composite_delegates_hott_path() {
 /// The composite model uses the Rust model for core tags (Seq + inc).
 #[test]
 fn composite_uses_rust_for_core_tags() {
+        ensure_lang();
     let composite = composite_model();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
@@ -217,6 +240,7 @@ fn composite_uses_rust_for_core_tags() {
 /// tag — confirming the delegated path produces the same value.
 #[test]
 fn composite_refine_matches_rust() {
+        ensure_lang();
     let composite = composite_model();
     let rust = rust_model();
     let term = to_term(TermData::seq(
@@ -239,6 +263,7 @@ fn composite_refine_matches_rust() {
 /// `TermData` round-trips for `Arr`.
 #[test]
 fn termdata_roundtrip_arr() {
+        ensure_lang();
     let data = TermData::arr(json!(5));
     assert_eq!(data.tag(), "Arr");
     assert_eq!(data.get("value"), Some(&json!(5)));
@@ -249,6 +274,7 @@ fn termdata_roundtrip_arr() {
 /// `TermData` round-trips for `Seq`.
 #[test]
 fn termdata_roundtrip_seq() {
+        ensure_lang();
     let data = TermData::seq(TermData::arr(json!(1)), TermData::arr(json!(2)));
     assert_eq!(data.tag(), "Seq");
     assert_eq!(data.get_term("fst").unwrap().tag(), "Arr");
@@ -259,6 +285,7 @@ fn termdata_roundtrip_seq() {
 /// `TermData` round-trips for `Op` (native, with args).
 #[test]
 fn termdata_roundtrip_op() {
+        ensure_lang();
     let data = TermData::op(
         "add",
         vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
@@ -275,6 +302,7 @@ fn termdata_roundtrip_op() {
 /// `TermData` round-trips for `Iter`.
 #[test]
 fn termdata_roundtrip_iter() {
+        ensure_lang();
     let data = TermData::iter(
         TermData::arr(json!(10)),
         TermData::op("is_pos", vec![], &ArrSource::Native, None),
@@ -290,6 +318,7 @@ fn termdata_roundtrip_iter() {
 /// `TermData` round-trips for `Path` (HoTT tag).
 #[test]
 fn termdata_roundtrip_path() {
+        ensure_lang();
     let data = TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None);
     assert_eq!(data.tag(), "Path");
     assert_eq!(data.get_term("from").unwrap().get("value"), Some(&json!(1)));
@@ -300,6 +329,7 @@ fn termdata_roundtrip_path() {
 /// `TermData` round-trips for `Tag`.
 #[test]
 fn termdata_roundtrip_tag() {
+        ensure_lang();
     let data = TermData::tag_value("ok", TermData::arr(json!(42)));
     assert_eq!(data.tag(), "Tag");
     assert_eq!(data.get_str("tag"), Some("ok"));
@@ -315,6 +345,7 @@ fn termdata_roundtrip_tag() {
 /// constant arrow.
 #[test]
 fn all_models_agree_arr_const() {
+        ensure_lang();
     let term = to_term(TermData::arr(json!(5)));
     let rust = run_model(&rust_model(), &term, Value::Null);
     let handl = run_handl(&term, Value::Null);
@@ -329,6 +360,7 @@ fn all_models_agree_arr_const() {
 /// All three models agree on `Seq` + `inc`.
 #[test]
 fn all_models_agree_seq_inc() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
         TermData::op("inc", vec![], &ArrSource::Native, None),
@@ -346,6 +378,7 @@ fn all_models_agree_seq_inc() {
 /// All three models agree on `add` over two constants.
 #[test]
 fn all_models_agree_op_add() {
+        ensure_lang();
     let term = to_term(TermData::op(
         "add",
         vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
@@ -365,6 +398,7 @@ fn all_models_agree_op_add() {
 /// All three models agree on `Iter` (countdown).
 #[test]
 fn all_models_agree_iter() {
+        ensure_lang();
     let term = to_term(TermData::iter(
         TermData::arr(json!(10)),
         TermData::op("is_pos", vec![], &ArrSource::Native, None),
@@ -385,6 +419,7 @@ fn all_models_agree_iter() {
 /// the Handl adapter, which matches the Rust model).
 #[test]
 fn all_models_agree_path() {
+        ensure_lang();
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
         TermData::arr(json!(2)),
@@ -408,6 +443,7 @@ fn all_models_agree_path() {
 /// `TermData::is_hott_tag()` returns `true` for HoTT-specific tags.
 #[test]
 fn termdata_is_hott_tag_true_for_hott_tags() {
+        ensure_lang();
     assert!(TermData::path(TermData::arr(json!(1)), TermData::arr(json!(2)), None).is_hott_tag());
     assert!(TermData::equiv(TermData::arr(json!(1)), TermData::arr(json!(1)), None).is_hott_tag());
     assert!(TermData::cell_id(TermData::arr(json!(1))).is_hott_tag());
@@ -454,6 +490,7 @@ fn termdata_is_hott_tag_true_for_hott_tags() {
 /// `TermData::is_hott_tag()` returns `false` for core arrow-calculus tags.
 #[test]
 fn termdata_is_hott_tag_false_for_core_tags() {
+        ensure_lang();
     assert!(!TermData::arr(json!(5)).is_hott_tag());
     assert!(
         !TermData::seq(
@@ -471,6 +508,7 @@ fn termdata_is_hott_tag_false_for_core_tags() {
 /// the empty string when the field is absent.
 #[test]
 fn termdata_tag_extracts_tag_string() {
+        ensure_lang();
     assert_eq!(TermData::arr(json!(5)).tag(), "Arr");
     assert_eq!(
         TermData::op("add", vec![], &ArrSource::Native, None).tag(),
@@ -545,6 +583,7 @@ fn data_ctx() -> CtxBundle {
 /// the primary when using `TermData::is_hott_tag` as the predicate.
 #[test]
 fn composite_data_model_delegates_hott_tags() {
+        ensure_lang();
     let composite = CompositeDataModel::new(PrimaryData, DelegateData, TermData::is_hott_tag);
 
     // HoTT tag → delegate.
@@ -580,6 +619,7 @@ fn composite_data_model_delegates_hott_tags() {
 /// non-HoTT tag, confirming the predicate is pluggable.
 #[test]
 fn composite_data_model_custom_predicate() {
+        ensure_lang();
     fn delegates_arr(term: &TermData) -> bool {
         term.is_tag("Arr")
     }

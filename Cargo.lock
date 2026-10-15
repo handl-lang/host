@@ -1627,6 +1627,7 @@ name = "handl-plugin-lib-stdlib"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-exec-tree-walk",

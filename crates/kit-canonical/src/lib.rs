@@ -2008,6 +2008,15 @@ impl Kit {
         dependencies: HashMap<String, PathBuf>,
         modules: Option<Vec<String>>,
     ) -> Result<Self, LangError> {
+        // ADR-0128 §"The 0.8 seam": `plugin-lib-handl` (stays in platform)
+        // no longer links `handl-kit-data-canonical` — its lazily-built
+        // `HandlModule` bridge runtimes resolve the host-installed default
+        // language instead. Installing here (every Kit constructor funnels
+        // through `build_kit`) preserves the old "canonical by default"
+        // behavior for all hosts. First install wins, matching
+        // `install_loader`.
+        let _ = handl_plugin_lib_handl::install_default_language(lang.clone());
+
         // Build the engine registry with all available engine impls
         // (ADR-0047 §2). The host (this crate) registers the engines;
         // handl-runtime names none.

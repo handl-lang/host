@@ -1280,15 +1280,57 @@ static NEXT_MODULE_ID: AtomicUsize = AtomicUsize::new(0);
 /// thread calls it independently to construct its own per-thread `Runtime`.
 type RuntimeBuilder = Arc<dyn Fn() -> Result<Runtime, handl_language::LangError> + Send + Sync>;
 
-thread_local! {
-    /// Per-thread cache of the canonical `Language`, shared by every
-    /// lazily-built [`HandlModule`] runtime. The assembled kit is identical
-    /// for all of them — only the engine registry, dependency modules and
-    /// globals differ — and re-assembling it per module made the first
-    /// `str.*`/`char.*` call (which pulls in `str-handl`'s per-arrow
-    /// modules) cost a full assembly each, minutes of CPU in total.
-    static CANONICAL_LANG: RefCell<Option<handl_language::Language>> =
-        const { RefCell::new(None) };
+/// The process-wide default [`Language`](handl_language::Language) for
+/// [`HandlModule`] bridge runtimes (ADR-0128 §"The 0.8 seam").
+///
+/// This crate is the generic `.hnl` module loader — machinery that stays in
+/// platform — so it must not link `handl-kit-data-canonical`: the language
+/// a `.hnl` module evaluates under is supplied by the host instead. Hosts
+/// install it once at startup ([`install_default_language`], e.g. inside
+/// `Kit::new`); a [`HandlModule`] may also carry an explicit per-module
+/// language via [`HandlModule::with_language`]. This mirrors the
+/// [`install_loader`] seam — process-wide, first-install-wins — for the
+/// same reason: `.hnl` modules are ambient machinery whose builders run
+/// lazily per thread.
+static DEFAULT_LANGUAGE: std::sync::OnceLock<Arc<handl_language::Language>> =
+    std::sync::OnceLock::new();
+
+/// Install the process-wide default [`Language`](handl_language::Language)
+/// used by lazily-built [`HandlModule`] runtimes.
+///
+/// The first installation wins; later calls return the rejected language.
+/// Typically invoked by kit assembly (`kit-canonical`'s `Kit::new` and
+/// friends) or by a test harness — e.g.
+/// `install_default_language(language_from_yaml()?)`.
+pub fn install_default_language(
+    lang: handl_language::Language,
+) -> Result<(), Arc<handl_language::Language>> {
+    DEFAULT_LANGUAGE.set(Arc::new(lang))
+}
+
+/// The installed default [`Language`](handl_language::Language), if any.
+pub fn default_language() -> Option<Arc<handl_language::Language>> {
+    DEFAULT_LANGUAGE.get().cloned()
+}
+
+/// Resolve the language a module's bridge runtime binds: the module's own
+/// [`HandlModule::with_language`] override when set, otherwise the
+/// process-wide [`default_language`].
+fn module_language(
+    override_lang: &Option<Arc<handl_language::Language>>,
+) -> Result<handl_language::Language, handl_language::LangError> {
+    match override_lang {
+        Some(lang) => Ok(lang.as_ref().clone()),
+        None => default_language()
+            .map(|lang| lang.as_ref().clone())
+            .ok_or_else(|| {
+                handl_language::LangError::engine(
+                    "handl module: no language available — install one with \
+                     `handl_plugin_lib_handl::install_default_language` or \
+                     `HandlModule::with_language`",
+                )
+            }),
+    }
 }
 
 thread_local! {
@@ -1354,28 +1396,20 @@ fn allocate_module_id() -> usize {
 /// Build a minimal runtime for evaluating `.hnl` sources, optionally with
 /// dependency modules registered in the module registry.
 ///
-/// Reuses the canonical `Language` (assembled via
-/// [`handl_kit_data_canonical`]) bound to the data lexer, Pratt parser, and
+/// Binds the injected `lang` ([`default_language`] or the module's
+/// [`HandlModule::with_language`] override) to the data lexer, Pratt parser, and
 /// tree-walk evaluator. If `dependencies` is non-empty, a
 /// [`ModuleRegistry`](handl_plugin_module::ModuleRegistry) is wired with the
 /// given modules and layered under the canonical `FpHostFunctions` (for
 /// field-access support). If no dependencies are needed, no module registry
 /// is wired (matching the `hello` bridge pattern).
 fn build_runtime(
+    lang: handl_language::Language,
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
     eval_name: &str,
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
     global_lookup: Option<Arc<dyn ModuleLookup + Send + Sync>>,
 ) -> Result<Runtime, handl_language::LangError> {
-    let lang = match CANONICAL_LANG.with(|cell| cell.borrow().clone()) {
-        Some(lang) => lang,
-        None => {
-            let kit = handl_kit_data_canonical::assemble()?;
-            let lang = kit.lang().clone();
-            CANONICAL_LANG.with(|cell| *cell.borrow_mut() = Some(lang.clone()));
-            lang
-        }
-    };
     let config = RuntimeConfig::new()
         .with_lex("data")
         .with_parse("pratt")
@@ -1555,7 +1589,7 @@ impl Function for HandlFunction {
         // `RefCell already borrowed`.
         let runtime = RUNTIME_CACHE.with(|cache| {
             std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
-                std::rc::Rc::new(builder().expect("canonical kit assembly should not fail"))
+                std::rc::Rc::new(builder().expect("handl module runtime build failed"))
             }))
         });
         let errf = |e: handl_language::LangError| {
@@ -1678,6 +1712,10 @@ pub struct HandlModule {
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
     /// The prepared `.hnl` source (for [`Module::value`] projections).
     source: String,
+    /// Optional per-module language override (ADR-0128 §"The 0.8 seam").
+    /// `None` resolves the process-wide [`default_language`] lazily at
+    /// first use.
+    language: Option<Arc<handl_language::Language>>,
     /// The current runtime builder (rebuilt by `rebuild_functions`).
     builder: RuntimeBuilder,
     /// The current module ID — key into `RUNTIME_CACHE`/`AST_CACHE`/
@@ -1711,7 +1749,10 @@ impl HandlModule {
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None, None));
+        let builder: RuntimeBuilder = Arc::new(|| {
+            module_language(&None)
+                .and_then(|lang| build_runtime(lang, Vec::new(), eval_name, None, None))
+        });
 
         let functions = func_names
             .iter()
@@ -1735,6 +1776,7 @@ impl HandlModule {
             global_lookup: None,
             eval_name,
             import_resolver: None,
+            language: None,
             source,
             builder,
             module_id,
@@ -1755,7 +1797,10 @@ impl HandlModule {
 
         // Initial builder with no dependencies. `with_dependency` will
         // replace this with a builder that includes the dependencies.
-        let builder: RuntimeBuilder = Arc::new(|| build_runtime(Vec::new(), eval_name, None, None));
+        let builder: RuntimeBuilder = Arc::new(|| {
+            module_language(&None)
+                .and_then(|lang| build_runtime(lang, Vec::new(), eval_name, None, None))
+        });
 
         let functions = func_names
             .iter()
@@ -1779,6 +1824,7 @@ impl HandlModule {
             global_lookup: None,
             eval_name,
             import_resolver: None,
+            language: None,
             source,
             builder,
             module_id,
@@ -1833,6 +1879,18 @@ impl HandlModule {
     /// dependency list (e.g. `plugin-lib-stdlib`'s `TableImportResolver`).
     pub fn with_import_resolver(mut self, resolver: Arc<dyn ImportResolver + Send + Sync>) -> Self {
         self.import_resolver = Some(resolver);
+        self.rebuild_functions();
+        self
+    }
+
+    /// Bind this module's bridge runtime to `lang` instead of the
+    /// process-wide [`default_language`] (ADR-0128 §"The 0.8 seam").
+    ///
+    /// Use this for modules authored in a non-canonical language: the
+    /// default covers the common case where the host installed the
+    /// canonical language once at startup.
+    pub fn with_language(mut self, lang: Arc<handl_language::Language>) -> Self {
+        self.language = Some(lang);
         self.rebuild_functions();
         self
     }
@@ -1895,13 +1953,17 @@ impl HandlModule {
         let eval_name = self.eval_name;
         let import_resolver = self.import_resolver.clone();
         let global_lookup = self.global_lookup.clone();
+        let language = self.language.clone();
         let builder: RuntimeBuilder = Arc::new(move || {
-            build_runtime(
-                deps.clone(),
-                eval_name,
-                import_resolver.clone(),
-                global_lookup.clone(),
-            )
+            module_language(&language).and_then(|lang| {
+                build_runtime(
+                    lang,
+                    deps.clone(),
+                    eval_name,
+                    import_resolver.clone(),
+                    global_lookup.clone(),
+                )
+            })
         });
         let module_id = allocate_module_id();
         for func in self.functions.values_mut() {
@@ -1937,7 +1999,7 @@ impl HandlModule {
         let builder = Arc::clone(&self.builder);
         let runtime = RUNTIME_CACHE.with(|cache| {
             std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
-                std::rc::Rc::new(builder().expect("canonical kit assembly should not fail"))
+                std::rc::Rc::new(builder().expect("handl module runtime build failed"))
             }))
         });
         let ast_key = (module_id, name.to_string());

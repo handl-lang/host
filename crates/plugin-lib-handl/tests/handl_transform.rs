@@ -11,6 +11,21 @@ use serde_json::json;
 
 /// A trivial .hnl transform module: rewrite any matched node into kind
 /// `bar`, keeping the matched node's child 0 and tagging the payload.
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 const T_HNL: &str = r#"
 -- t: test transform module
 export rewrite :: n ~> ({kind: "bar", payload: {origin: n.kind}, children: [{"__keep__": 0}]})
@@ -53,6 +68,7 @@ fn test_engine() -> RewriteEngine {
 
 #[test]
 fn handl_transform_rewrites_node() {
+        ensure_lang();
     let lang = test_lang();
     let engine = test_engine();
 
@@ -76,6 +92,7 @@ fn handl_transform_rewrites_node() {
 
 #[test]
 fn handl_transform_null_declines() {
+        ensure_lang();
     let lang = test_lang();
     let engine = test_engine();
 
@@ -96,6 +113,7 @@ fn handl_transform_null_declines() {
 
 #[test]
 fn handl_transform_unknown_module_errors() {
+        ensure_lang();
     let mut lang = Language::new();
     lang.merge_ast_fragment(AstShapeDef::new("ast.foo", "foo"))
         .unwrap();
@@ -124,6 +142,7 @@ fn handl_transform_unknown_module_errors() {
 
 #[test]
 fn handl_transform_falls_back_for_non_handl_names() {
+        ensure_lang();
     use handl_plugin_engine_transform::native::NativeRewriteRegistry;
 
     let mut fallback = NativeRewriteRegistry::new();

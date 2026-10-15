@@ -59,6 +59,21 @@ use handl_runtime::vm_primitives::VmPrimitivesModule;
 use plugin_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
+
+/// Install the canonical default language once per test binary.
+///
+/// `HandlModule` bridge runtimes resolve [`default_language`] lazily
+/// (ADR-0128 §"The 0.8 seam"); tests assemble it from the dev-dep data
+/// crate (dev-deps may link `lang/` data; the library must not).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 const EXEC_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/exec_model.hnl");
 const VALUE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/value_model.hnl");
 
@@ -213,6 +228,7 @@ fn number_value(value: i64, grades: &[&str]) -> Value {
 
 #[test]
 fn exec_model_number_add_array_of_two() {
+        ensure_lang();
     // number_add on an array of two tagged Numbers: untag, add, re-tag.
     let args = vec![json!([
         number_value(1, &["Addable"]),
@@ -224,6 +240,7 @@ fn exec_model_number_add_array_of_two() {
 
 #[test]
 fn exec_model_number_add_pair() {
+        ensure_lang();
     // number_add on a serialized pair: the second component is the operands
     // array.
     let args = vec![json!({
@@ -235,6 +252,7 @@ fn exec_model_number_add_pair() {
 
 #[test]
 fn exec_model_number_add_matches_value_model() {
+        ensure_lang();
     // The exec model's number_add should produce the same result as the
     // value_model's number_add (both use the tag.untag / tag.tag pattern).
     let operands = json!([number_value(7, &["Addable"]), number_value(8, &["Addable"])]);
@@ -259,6 +277,7 @@ fn exec_model_number_add_matches_value_model() {
 
 #[test]
 fn exec_model_record_construction() {
+        ensure_lang();
     // record: construct a record from field/value pairs.
     let args = vec![json!([["a", 1], ["b", 2], ["c", 3]])];
     let result = call_op("record", &args);
@@ -267,12 +286,14 @@ fn exec_model_record_construction() {
 
 #[test]
 fn exec_model_record_empty() {
+        ensure_lang();
     let result = call_op("record", &[json!([])]);
     assert_eq!(result, json!({}));
 }
 
 #[test]
 fn exec_model_field_access_record() {
+        ensure_lang();
     // field_access on a record (object): field lookup.
     let args = vec![json!({ "a": 1, "b": 2 }), json!("a")];
     let result = call_op("field_access", &args);
@@ -281,6 +302,7 @@ fn exec_model_field_access_record() {
 
 #[test]
 fn exec_model_field_access_record_missing() {
+        ensure_lang();
     // field_access on a record with an absent field: returns null.
     let args = vec![json!({ "a": 1 }), json!("z")];
     let result = call_op("field_access", &args);
@@ -289,6 +311,7 @@ fn exec_model_field_access_record_missing() {
 
 #[test]
 fn exec_model_field_access_array() {
+        ensure_lang();
     // field_access on an array: index lookup.
     let args = vec![json!([10, 20, 30]), json!(1)];
     let result = call_op("field_access", &args);
@@ -297,6 +320,7 @@ fn exec_model_field_access_array() {
 
 #[test]
 fn exec_model_field_access_non_record_non_array() {
+        ensure_lang();
     // field_access on a non-record/non-array value: returns null.
     let args = vec![json!(42), json!("a")];
     let result = call_op("field_access", &args);
@@ -305,6 +329,7 @@ fn exec_model_field_access_non_record_non_array() {
 
 #[test]
 fn exec_model_array_identity() {
+        ensure_lang();
     // array: identity — returns the elements as-is.
     let args = vec![json!([1, 2, 3])];
     let result = call_op("array", &args);
@@ -313,6 +338,7 @@ fn exec_model_array_identity() {
 
 #[test]
 fn exec_model_tag_construct() {
+        ensure_lang();
     // tag_construct: merge __tag__ with the payload fields (via tag.tag).
     let args = vec![json!("ok"), json!({ "value": 42 })];
     let result = call_op("tag_construct", &args);
@@ -321,6 +347,7 @@ fn exec_model_tag_construct() {
 
 #[test]
 fn exec_model_tag_construct_with_extra_fields() {
+        ensure_lang();
     // tag_construct merges all payload fields, not just "value".
     let args = vec![
         json!("Number"),
@@ -335,6 +362,7 @@ fn exec_model_tag_construct_with_extra_fields() {
 
 #[test]
 fn exec_model_arrow_field() {
+        ensure_lang();
     // arrow_field: project a named field from an arrow cell record.
     let arrow = json!({ "__tag__": "Arrow", "first": 1, "second": 2 });
     let result = call_op("arrow_field", &[arrow.clone(), json!("first")]);
@@ -346,6 +374,7 @@ fn exec_model_arrow_field() {
 
 #[test]
 fn exec_model_arrow_field_missing() {
+        ensure_lang();
     let result = call_op(
         "arrow_field",
         &[json!({ "__tag__": "Arrow", "first": 1 }), json!("second")],
@@ -359,6 +388,7 @@ fn exec_model_arrow_field_missing() {
 
 #[test]
 fn exec_model_proj_env_lookup_unbound() {
+        ensure_lang();
     // proj_env on an unbound name: lookup returns null.
     let result = call_op("proj_env", &[json!("nonexistent")]);
     assert_eq!(result, Value::Null);
@@ -366,6 +396,7 @@ fn exec_model_proj_env_lookup_unbound() {
 
 #[test]
 fn exec_model_extend_env_binds_value() {
+        ensure_lang();
     // extend_env: push scope, bind name→val, return val.
     let result = call_op("extend_env", &[json!("x"), json!(42)]);
     assert_eq!(result, json!(42));
@@ -373,6 +404,7 @@ fn exec_model_extend_env_binds_value() {
 
 #[test]
 fn exec_model_proj_env_after_extend_env() {
+        ensure_lang();
     // After extend_env binds "x"→42, proj_env("x") should find it.
     // Note: each call_op creates a fresh module, so bindings don't persist
     // across calls. This test verifies the bind+lookup sequence works within
@@ -387,6 +419,7 @@ fn exec_model_proj_env_after_extend_env() {
 
 #[test]
 fn exec_model_closure_creates_closure_record() {
+        ensure_lang();
     // closure: create a closure value via make_closure.
     let result = call_op("closure", &[json!(["x"]), json!(42), json!({})]);
     assert_eq!(
@@ -402,6 +435,7 @@ fn exec_model_closure_creates_closure_record() {
 
 #[test]
 fn exec_model_apply_closure_returns_body() {
+        ensure_lang();
     // apply on a closure record: call returns the body field (minimal).
     let closure = json!({
         "__closure__": true,
@@ -415,6 +449,7 @@ fn exec_model_apply_closure_returns_body() {
 
 #[test]
 fn exec_model_apply_non_callable_returns_null() {
+        ensure_lang();
     // apply on a non-callable value: call returns null.
     let result = call_op("apply", &[json!(42), json!([1])]);
     assert_eq!(result, Value::Null);
@@ -422,6 +457,7 @@ fn exec_model_apply_non_callable_returns_null() {
 
 #[test]
 fn exec_model_pattern_match_wildcard() {
+        ensure_lang();
     // pattern_match with wildcard "_": matches anything, returns empty bindings.
     let result = call_op("pattern_match", &[json!("_"), json!(42)]);
     assert_eq!(result, json!({}));
@@ -429,6 +465,7 @@ fn exec_model_pattern_match_wildcard() {
 
 #[test]
 fn exec_model_pattern_match_variable() {
+        ensure_lang();
     // pattern_match with a variable pattern: binds the variable to the value.
     let result = call_op("pattern_match", &[json!("x"), json!(42)]);
     assert_eq!(result, json!({ "x": 42 }));
@@ -436,6 +473,7 @@ fn exec_model_pattern_match_variable() {
 
 #[test]
 fn exec_model_pattern_match_literal_equal() {
+        ensure_lang();
     // pattern_match with a literal that equals the value: match success.
     let result = call_op("pattern_match", &[json!(42), json!(42)]);
     assert_eq!(result, json!({}));
@@ -443,6 +481,7 @@ fn exec_model_pattern_match_literal_equal() {
 
 #[test]
 fn exec_model_pattern_match_literal_not_equal() {
+        ensure_lang();
     // pattern_match with a literal that doesn't match: returns null.
     let result = call_op("pattern_match", &[json!(42), json!(43)]);
     assert_eq!(result, Value::Null);
@@ -450,6 +489,7 @@ fn exec_model_pattern_match_literal_not_equal() {
 
 #[test]
 fn exec_model_push_handler_adds_to_stack() {
+        ensure_lang();
     // push_handler: pushes a handler onto the context's handler stack.
     // Returns the new handler stack (via setfield returning the new value).
     let handler = json!({"impls": {"add": "native_add"}});
@@ -460,6 +500,7 @@ fn exec_model_push_handler_adds_to_stack() {
 
 #[test]
 fn exec_model_pop_handler_removes_from_stack() {
+        ensure_lang();
     // pop_handler: pops the top handler from the handler stack.
     // Since each call_op creates a fresh module, the stack starts empty.
     // pop_handler on an empty stack: array_drop_last([]) = [].
@@ -471,6 +512,7 @@ fn exec_model_pop_handler_removes_from_stack() {
 
 #[test]
 fn exec_model_call_op_ffi_fallback() {
+        ensure_lang();
     // call_op with no handler: falls back to ffi("native", name, args).
     // ffi("native", "add", [1, 2]) → 3.
     let result = call_op("call_op", &[json!("add"), json!([1, 2])]);
@@ -479,6 +521,7 @@ fn exec_model_call_op_ffi_fallback() {
 
 #[test]
 fn exec_model_call_op_mul_via_ffi() {
+        ensure_lang();
     // call_op with no handler: ffi("native", "mul", [3, 4]) → 12.
     let result = call_op("call_op", &[json!("mul"), json!([3, 4])]);
     assert_eq!(result, json!(12));
@@ -486,6 +529,7 @@ fn exec_model_call_op_mul_via_ffi() {
 
 #[test]
 fn exec_model_eval_arr_node() {
+        ensure_lang();
     // eval on an Arr node: lookup_eval_scheme("Arr") → "eval_scheme_Arr"
     // → eval_scheme_Arr(node) → node.value.
     let node = json!({"kind": "Arr", "value": 42});
@@ -495,6 +539,7 @@ fn exec_model_eval_arr_node() {
 
 #[test]
 fn exec_model_eval_const_node() {
+        ensure_lang();
     // eval on a Const node: lookup_eval_scheme("Const") → "eval_scheme_Const"
     // → eval_scheme_Const(node) → node.value.
     let node = json!({"kind": "Const", "value": 7});
@@ -504,6 +549,7 @@ fn exec_model_eval_const_node() {
 
 #[test]
 fn exec_model_proj_child_arr() {
+        ensure_lang();
     // proj_child: look up the child at a named role, then eval it.
     let node = json!({
         "children": {
@@ -516,6 +562,7 @@ fn exec_model_proj_child_arr() {
 
 #[test]
 fn exec_model_proj_child_or_with_child() {
+        ensure_lang();
     // proj_child_or: child exists → eval it.
     let node = json!({
         "children": {
@@ -528,6 +575,7 @@ fn exec_model_proj_child_or_with_child() {
 
 #[test]
 fn exec_model_proj_child_or_default() {
+        ensure_lang();
     // proj_child_or: child absent → return default.
     let node = json!({"children": {}});
     let result = call_op("proj_child_or", &[node, json!("missing"), json!(0)]);
@@ -536,6 +584,7 @@ fn exec_model_proj_child_or_default() {
 
 #[test]
 fn exec_model_eval_block_arr_children() {
+        ensure_lang();
     // eval_block: push scope, eval each child, pop scope, return last.
     let node = json!({
         "children": [
@@ -550,6 +599,7 @@ fn exec_model_eval_block_arr_children() {
 
 #[test]
 fn exec_model_eval_block_empty() {
+        ensure_lang();
     // eval_block with no children: array.last([]) → null.
     let node = json!({"children": []});
     let result = call_op("eval_block", &[node]);
@@ -558,6 +608,7 @@ fn exec_model_eval_block_empty() {
 
 #[test]
 fn exec_model_eval_block_const_children() {
+        ensure_lang();
     // eval_block with Const children.
     let node = json!({
         "children": [
@@ -571,6 +622,7 @@ fn exec_model_eval_block_const_children() {
 
 #[test]
 fn exec_model_import_module_returns_exports() {
+        ensure_lang();
     // import_module: ffi("module", "load", [spec]) → {} (empty exports),
     // then binds each export name. Returns the exports record.
     let result = call_op("import_module", &[json!("some_module")]);
@@ -579,6 +631,7 @@ fn exec_model_import_module_returns_exports() {
 
 #[test]
 fn exec_model_export_binding_returns_value() {
+        ensure_lang();
     // export_binding: registers name→value in the context's exports.
     // Returns the value.
     let result = call_op("export_binding", &[json!("my_export"), json!(42)]);
@@ -591,6 +644,7 @@ fn exec_model_export_binding_returns_value() {
 
 #[test]
 fn exec_model_run_arr() {
+        ensure_lang();
     let term = to_term(TermData::arr(json!(5)));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(5));
@@ -599,6 +653,7 @@ fn exec_model_run_arr() {
 
 #[test]
 fn exec_model_run_const() {
+        ensure_lang();
     let term = to_term(TermData::const_value(json!(7)));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!(7));
@@ -607,6 +662,7 @@ fn exec_model_run_const() {
 
 #[test]
 fn exec_model_run_seq() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
         TermData::op("inc", vec![], &ArrSource::Native, None),
@@ -618,6 +674,7 @@ fn exec_model_run_seq() {
 
 #[test]
 fn exec_model_run_tag() {
+        ensure_lang();
     let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(result, json!({ "__tag__": "ok", "value": 42 }));
@@ -626,6 +683,7 @@ fn exec_model_run_tag() {
 
 #[test]
 fn exec_model_run_record_proj() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
         TermData::record_proj(TermData::op("id", vec![], &ArrSource::Native, None), "a"),
@@ -637,6 +695,7 @@ fn exec_model_run_record_proj() {
 
 #[test]
 fn exec_model_run_record_with() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
         TermData::record_with(
@@ -652,6 +711,7 @@ fn exec_model_run_record_with() {
 
 #[test]
 fn exec_model_run_op_add() {
+        ensure_lang();
     let term = to_term(TermData::op(
         "add",
         vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
@@ -665,6 +725,7 @@ fn exec_model_run_op_add() {
 
 #[test]
 fn exec_model_run_op_mul() {
+        ensure_lang();
     let term = to_term(TermData::op(
         "mul",
         vec![TermData::arr(json!(3)), TermData::arr(json!(4))],
@@ -678,6 +739,7 @@ fn exec_model_run_op_mul() {
 
 #[test]
 fn exec_model_run_op_is_pos() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(3)),
         TermData::op("is_pos", vec![], &ArrSource::Native, None),
@@ -689,6 +751,7 @@ fn exec_model_run_op_is_pos() {
 
 #[test]
 fn exec_model_run_op_inc() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
         TermData::op("inc", vec![], &ArrSource::Native, None),
@@ -700,6 +763,7 @@ fn exec_model_run_op_inc() {
 
 #[test]
 fn exec_model_run_path() {
+        ensure_lang();
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
         TermData::arr(json!(2)),
@@ -720,6 +784,7 @@ fn exec_model_run_path() {
 
 #[test]
 fn exec_model_run_equiv_bool() {
+        ensure_lang();
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
         TermData::arr(json!(1)),
@@ -732,6 +797,7 @@ fn exec_model_run_equiv_bool() {
 
 #[test]
 fn exec_model_run_cell_id() {
+        ensure_lang();
     let term = to_term(TermData::cell_id(TermData::arr(json!(7))));
     let result = exec_model_run(&term, Value::Null);
     assert_eq!(
@@ -748,6 +814,7 @@ fn exec_model_run_cell_id() {
 
 #[test]
 fn exec_model_run_rewrite() {
+        ensure_lang();
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -764,6 +831,7 @@ fn exec_model_run_rewrite() {
 
 #[test]
 fn exec_model_run_refine() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
         TermData::refine(
@@ -778,6 +846,7 @@ fn exec_model_run_refine() {
 
 #[test]
 fn exec_model_run_cobind() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(99)),
         TermData::cobind(
@@ -792,6 +861,7 @@ fn exec_model_run_cobind() {
 
 #[test]
 fn exec_model_run_iter() {
+        ensure_lang();
     let term = to_term(TermData::iter(
         TermData::arr(json!(10)),
         TermData::op("is_pos", vec![], &ArrSource::Native, None),
@@ -805,6 +875,7 @@ fn exec_model_run_iter() {
 
 #[test]
 fn exec_model_run_first() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "__pair__": [1, 2] })),
         TermData::first(TermData::op("inc", vec![], &ArrSource::Native, None)),
@@ -816,6 +887,7 @@ fn exec_model_run_first() {
 
 #[test]
 fn exec_model_run_choice_left() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "__either__": "left", "value": 5 })),
         TermData::choice(
@@ -830,6 +902,7 @@ fn exec_model_run_choice_left() {
 
 #[test]
 fn exec_model_run_choice_right() {
+        ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "__either__": "right", "value": 5 })),
         TermData::choice(
@@ -844,6 +917,7 @@ fn exec_model_run_choice_right() {
 
 #[test]
 fn exec_model_run_app_tag() {
+        ensure_lang();
     let term = to_term(TermData::app(
         TermData::arr(json!("tag.tag")),
         vec![
@@ -858,6 +932,7 @@ fn exec_model_run_app_tag() {
 
 #[test]
 fn exec_model_run_handle_number_add() {
+        ensure_lang();
     let handler_impl = serde_json::to_value(&to_term(TermData::op(
         "number_add",
         vec![],
@@ -897,6 +972,7 @@ fn exec_model_run_handle_number_add() {
 
 #[test]
 fn exec_model_parity_with_value_model_and_rust() {
+        ensure_lang();
     // A batch of terms where the exec model, value_model.hnl, and the Rust
     // tree-walk engine all agree — confirming the exec model's `run` is a
     // faithful member of the model family on the overlapping tags.
@@ -972,6 +1048,7 @@ fn exec_model_parity_with_value_model_and_rust() {
 
 #[test]
 fn exec_model_module_loads_all_ops() {
+        ensure_lang();
     // Verify that the module loads and all structural op functions are
     // resolvable — even the spec-only ones that require VM primitives.
     // (They parse and are defined; calling them would fail at runtime.)
@@ -987,6 +1064,7 @@ fn exec_model_module_loads_all_ops() {
 
 #[test]
 fn exec_model_adapter_is_model() {
+        ensure_lang();
     // The HandlModelAdapter wrapping the exec model satisfies the Model
     // trait and can run terms.
     let term = to_term(TermData::arr(json!(42)));
