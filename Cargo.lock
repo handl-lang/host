@@ -873,6 +873,7 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-transform",
+ "handl-plugin-engine-transform-rewrite",
  "handl-plugin-ext-diag",
  "handl-runtime",
  "serde_json",
