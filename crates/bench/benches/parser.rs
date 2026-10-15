@@ -4,7 +4,12 @@
 //! tokens-only (isolating parse cost) and lex+parse (the full front end).
 
 use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
-use handl_bench::{SAMPLE, canonical_lang};
+use handl_bench::SAMPLE;
+
+/// The canonical language, assembled from the embedded YAML fragments.
+fn canonical_lang() -> handl_language::Language {
+    handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles")
+}
 use handl_language::Source;
 use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
 use handl_plugin_engine_lex_pattern::DataLexerEngine;

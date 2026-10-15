@@ -8,8 +8,6 @@
 //! of the six original benches are restored and which still need an API
 //! mapping decision.
 
-use handl_language::Language;
-
 /// A representative canonical statement: member access, a call, and literal
 /// arguments (number, negative float, string, array, record).
 ///
@@ -44,8 +42,3 @@ pub const EVAL_SAMPLE: &str = "f = x ~> x; f 1";
 /// shape `handl-typecheck-infer` used to be measured on. Validated against
 /// `hnl typecheck` (`<path>: ok`).
 pub const INFERENCE_SAMPLE: &str = "f = x ~> x; g = y ~> f y; h = z ~> g z; h 1";
-
-/// The canonical language, assembled from the embedded YAML fragments.
-pub fn canonical_lang() -> Language {
-    handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles")
-}
