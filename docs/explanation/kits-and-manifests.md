@@ -67,3 +67,53 @@ To create a new kit:
 4. Publish the crate or use it as a path dependency.
 
 A kit should be a closed manifest. The host should not discover plugins on disk at runtime.
+
+## Loading a language from a data directory (per-file kits)
+
+A kit can also be assembled from **authored YAML files** rather than from
+plugin ids — the per-file path of ADR 0003:
+
+```rust
+use handl_kit_data_canonical::language_from_dir;
+let lang = language_from_dir(std::path::Path::new("my-language/"))?;
+```
+
+`language_from_dir` reads ten files from the directory and merges them the
+same way `language_from_yaml` merges the embedded canonical files:
+
+| file | required |
+| --- | --- |
+| `tokens.yaml`, `grammar.yaml`, `eval.yaml`, `types.yaml`, `ast.yaml`, `caps.yaml`, `options.yaml`, `lexer_rules.yaml` | yes (empty `[]` is valid) |
+| `transforms.yaml`, `lints.yaml`, `lsp.yaml` | optional (absent = none) |
+
+Two things bite when writing these files by hand or from another tool:
+
+- **Enum variants are YAML *tags*, not maps.** `serde_yaml` spells a
+  variant as `!Declarative` / `!Create` / `!KeepPath` / `!KindAt` / `!And`,
+  where `serde_json` spells it `{"Declarative": …}`. A map in a tagged
+  position fails with *"invalid type: map, expected a YAML tag starting
+  with '!'"*.
+- **Each file is one sequence.** A fragment file is a YAML list of rows
+  (`- id: …`), not a bare mapping.
+
+### Worked external example: catopt
+
+The `catopt` project (categorical optimization of computation graphs)
+emits its vocabulary in exactly this layout and loads it back:
+
+- generator: `catopt`'s `lab/handl-spike/dump_fragments.py`;
+- fixture: `crates/handl-kit-data-canonical/tests/data/catopt-fragments/`
+  (eight empty shell files plus `ast.yaml` and `transforms.yaml`);
+- test: `crates/handl-kit-data-canonical/tests/catopt_fragments.rs`.
+
+That is the spike that established the boundary: a foreign project's laws
+land in `lang.transforms` with their fields intact. Rows may carry extra
+keys — serde ignores unknown fields — so a producer can ride its own
+authoritative record alongside the handl-shaped view (catopt uses a
+`catopt:` key for this).
+
+**Not yet reachable from the CLI.** `hnl` selects kits through
+*registered emitters*; a data directory is reachable through this API (or
+a host that calls it). `FragmentSource::DataFile` is modeled in
+`handl-kit-data` but returns `LangError::NotImplemented` — the runtime
+half of the seam is still to come.
