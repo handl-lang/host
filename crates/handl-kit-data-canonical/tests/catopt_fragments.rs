@@ -69,35 +69,31 @@ fn full_bank_dir() -> std::path::PathBuf {
 
 /// The whole shipped bank (every rule), not the one-law slice.
 ///
-/// **This test pins a known gap.**  The slice above loads because
-/// `assoc_add` is purely structural; the full bank does not, because
-/// some law's right-hand side contains a *leaf* — catopt spells it
-/// `{"catopt:leaf": …}`, and handl's `RewriteStep` vocabulary has no
-/// counterpart for a literal (or a variable) child.  The bridge emits a
-/// map there, which is not a YAML tag, so the load fails.
+/// This was written as a *pinned gap*: the bank used to fail to load
+/// because a right-hand-side leaf had no `RewriteStep` counterpart
+/// (`{"catopt:leaf": ...}` — a map where serde expects a tag) and because
+/// handl's rule identity is `pass:node_kind:priority`, so many laws per
+/// node kind collided.
 ///
-/// So the honest statement of Q0's result is: catopt's vocabulary is
-/// expressible as handl data **for structural laws**; leaf-bearing laws
-/// need a mapping first — candidates are `Create` with the value in the
-/// node's `payload` (for constants) and `Fresh(hint)` (for variables).
-///
-/// When that mapping lands, this test flips: assert `Ok` and the full
-/// transform count instead of the failure.
+/// Both are now closed on the producer's side — catopt maps a leaf to
+/// `!Fresh` (an unbound pattern variable) or a `!Create` of a declared
+/// `catopt:const` / `catopt:var` / `catopt:data` kind, and assigns
+/// distinct priorities per `(pass, node_kind)` — so the bank loads and
+/// this asserts success, with the count pinned so a silently dropped law
+/// fails the test.
 #[test]
-fn catopt_full_bank_leaf_gap_is_pinned() {
-    match language_from_dir(&full_bank_dir()) {
-        Ok(lang) => panic!(
-            "the full bank now loads ({} transforms) — the leaf gap is closed; \
-             flip this test to assert success",
-            lang.transforms.iter().count()
-        ),
-        Err(e) => {
-            let msg = format!("{e}");
-            assert!(
-                msg.contains("expected a YAML tag"),
-                "expected the leaf gap, got: {msg}"
-            );
-            println!("full bank load fails as recorded: {msg}");
-        }
+fn catopt_full_bank_loads() {
+    let lang = language_from_dir(&full_bank_dir())
+        .expect("the whole catopt bank must assemble into a Language");
+    let n = lang.transforms.iter().count();
+    assert_eq!(n, 83, "every catopt law must land in lang.transforms");
+
+    // The leaf kinds the bridge mints must be declared, or a rewrite that
+    // creates one cannot be resolved by an engine.
+    for kind in ["catopt:const", "catopt:var", "catopt:data"] {
+        assert!(
+            lang.ast.get_by_id(&format!("ast.{}", kind.replace(':', "."))).is_some(),
+            "leaf shape for {kind} must be declared"
+        );
     }
 }
