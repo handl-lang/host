@@ -192,6 +192,49 @@ handle as a parameter and the concrete canonical kit is assembled by
 the host (the `cli/`/`lsp/` repos git-depend on `lang/`). This
 injection is Phase-0 work, not a `lang/`-phase surprise.
 
+**The `0.8` seam, concretely** (measured against the real call sites,
+2026-10-15):
+
+- **`Plugin: Send + Sync` is the binding constraint.** A `Kit` holds
+  `RefCell`s and is `!Sync`, so no plugin struct may hold one — today
+  or ever. Injection therefore cannot be "store the kit"; it is:
+  - a **`&Language`/`Arc<Language>`** where the consumer only reads the
+    language definition (`Language: Send + Sync` — proven by the
+    existing `static LANG: OnceLock<Language>` in `plugin-ext-lint`), or
+  - an **`Arc<dyn Fn(...) -> ... + Send + Sync>` capability closure**
+    where the consumer needs kit *behavior* (e.g.
+    `kit.typecheck_handl_with_prelude`,
+    `kit.handl_lint_adapter().resolver()`, `kit.lex_with_spans`).
+  - The host keeps today's per-thread memoization: it owns a
+    `thread_local! RefCell<Option<Kit>>` and injects a *capture-less*
+    closure (`|src, p| KIT.with(|k| …)`) — capture-free, so the
+    closure is `Send + Sync` while the kit stays thread-local. The
+    plugin becomes a pure adapter with no kit types in its signature.
+- **`plugin-engine-test` needs a factory, not a value.** Scheduler
+  workers each build their own `Runtime` on-thread (`thread_local!`,
+  because `Rc<dyn ModuleLookup>` cannot cross threads), so the runner
+  must receive something it can invoke *inside* the job closure:
+  `Arc<dyn Fn() -> Result<Runtime, String> + Send + Sync>`. `HandlModule`
+  and `with_loader_disabled` already live in `plugin-lib-handl` (the kit
+  merely re-exports them) — those imports just change paths.
+- **`host-tooling` is the worst current shape:** `BasicSemanticTokens::
+  run` assembles `Kit::new()` **per LSP request**. The plugin must hold
+  the injected lex capability from construction; `SpannedToken`/
+  `TokenClasses` are kit-defined types and either move to a lower crate
+  or the injection is closure-shaped over them.
+- **`dev-dependencies` on `kit-canonical` are legal and stay.** Cargo
+  permits cyclic dev-deps, and these four crates' tests genuinely want
+  the canonical kit. Only *normal* deps create the platform↔lang cycle;
+  the work is severing exactly those four.
+- **Hosts keep their normal dep.** `host-cli`/`host-lsp` move to
+  `cli/`/`lsp/` anyway, where a git dep on `lang/` is the intended
+  direction — they are the assembly point that injects.
+- **Precedent already exists:** `plugin-ext-fmt`'s
+  `*_with_language(lang, src)` variants and
+  `lint_source_with_language`/`lint_source_with_prelude_and_language`
+  are the same seam in miniature. The 0.8 change extends that
+  convention to the whole surface rather than inventing a new one.
+
 **Deferred.** `plugin-loader-native` dylib registration (true
 zero-repackage); the `FragmentSource::DataFile` module-chain seam (still
 `NotImplemented`) for `.hnl`-only packages that live outside any crate;

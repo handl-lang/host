@@ -34,7 +34,14 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       `plugin-ext-lint`, `plugin-ext-typecheck`, `host-tooling` take a
       `&Language`/kit handle instead of linking `kit-canonical`
       directly — their normal deps on it would otherwise create a
-      platform↔lang cycle in Phase 9.
+      platform↔lang cycle in Phase 9. **Mechanism** (see ADR-0128 §"The
+      0.8 seam, concretely"): `Plugin: Send + Sync` forbids holding a
+      `Kit` — inject `Arc<dyn Fn + Send + Sync>` capability closures or
+      `&Language`/`Arc<Language>`; the host owns `thread_local` kit
+      caches and injects capture-less closures; `plugin-engine-test`
+      needs a runtime *factory* (workers build thread-local runtimes);
+      `host-tooling` must stop assembling `Kit::new()` per LSP request;
+      dev-deps stay, only normal deps sever.
 - [ ] **0.9 `plugin-ffi` de-coupling**: `kit-canonical`'s dep on it is
       the only normal edge — keep it, but make the ffi-capable kit a
       declared feature so platform's default build drops
