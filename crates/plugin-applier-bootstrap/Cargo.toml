@@ -7,3 +7,7 @@ edition.workspace = true
 handl-platform = { path = "../platform" }
 handl-plugin-applier = { path = "../plugin-applier" }
 handl-plugin-applier-default = { path = "../plugin-applier-default" }
+handl-plugin-ext-kit = { path = "../plugin-ext-kit" }
+
+[dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

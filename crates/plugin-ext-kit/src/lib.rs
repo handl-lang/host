@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_kit_data::{LibraryPlugin, LibraryRegistry};
@@ -337,16 +337,31 @@ impl Plugin for BasicKit {
     }
 }
 
+/// Resolves a built-in kit *name* (e.g. `"stdlib"`, `"server"`) to its
+/// flattened, ordered library-module names — following the manifest's
+/// `extends` chain.
+///
+/// Injected by the host (ADR-0128 §"The 0.8 seam"): the embedded kit
+/// manifests live in `handl-kit-data-canonical` (the `lang/` repo), which
+/// this crate must not link. A host wires
+/// `handl_kit_data_canonical::kit_module_names` in as a capture-less
+/// closure; other languages supply their own manifest tables.
+pub type KitModuleNames = Arc<dyn Fn(&str) -> Result<Vec<String>, String> + Send + Sync>;
+
 /// A plugin that exposes the built-in kit loader as a `kit/load` capability.
 pub struct BasicKitLoaderPlugin {
     capabilities: Vec<CapabilityId>,
+    /// Host-injected resolver from kit name to module names.
+    module_names: KitModuleNames,
 }
 
 impl BasicKitLoaderPlugin {
-    /// Creates a new `BasicKitLoaderPlugin`.
-    pub fn new() -> Self {
+    /// Creates a new `BasicKitLoaderPlugin` bound to the host's kit-manifest
+    /// resolver.
+    pub fn new(module_names: KitModuleNames) -> Self {
         Self {
             capabilities: vec![CapabilityId::from("kit/load")],
+            module_names,
         }
     }
 
@@ -356,12 +371,12 @@ impl BasicKitLoaderPlugin {
             return Ok(BasicKit::Manifest(ManifestKit::new(manifest)));
         }
 
-        // Kit composition is data: load the embedded manifest for the kit
-        // name (`handl-kit-data-canonical/data/kits/<name>.yaml`), then
-        // resolve each listed library module through the populated
-        // `LibraryRegistry`.
-        let module_names = handl_kit_data_canonical::kit_module_names(name_or_path)
-            .map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
+        // Kit composition is data: resolve the kit name through the injected
+        // manifest lookup (`handl-kit-data-canonical/data/kits/<name>.yaml`
+        // in the canonical host), then resolve each listed library module
+        // through the populated `LibraryRegistry`.
+        let module_names = (self.module_names)(name_or_path)
+            .map_err(PlatformError::InvalidMetadata)?;
         let mut registry = LibraryRegistry::new();
         library_registry::populate(&mut registry);
         let mut modules = Vec::with_capacity(module_names.len());
@@ -375,11 +390,7 @@ impl BasicKitLoaderPlugin {
     }
 }
 
-impl Default for BasicKitLoaderPlugin {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+
 
 impl Plugin for BasicKitLoaderPlugin {
     fn id(&self) -> &str {
@@ -434,7 +445,9 @@ mod tests {
     /// `stats`) now built from `handl-plugin-lib-stdlib`'s package table.
     #[test]
     fn builtin_kit_module_names_resolve() {
-        let loader = BasicKitLoaderPlugin::new();
+        let loader = BasicKitLoaderPlugin::new(std::sync::Arc::new(|name: &str| {
+            handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
+        }));
         for kit in ["hello", "stdlib", "cli", "config", "server"] {
             loader
                 .load(kit)

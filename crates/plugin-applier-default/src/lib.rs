@@ -3,11 +3,25 @@ use handl_platform::{
     HostConfig, OptionsPlugin, PlatformError, Plugin, PluginContext, PluginManifest,
 };
 use handl_plugin_applier::ApplierFactory;
-use handl_plugin_ext_kit::BasicKitLoaderPlugin;
+use handl_plugin_ext_kit::{BasicKitLoaderPlugin, KitModuleNames};
 use handl_plugin_load::LoaderHostPlugin;
 
 /// Factory for the default applier, selected by `--applier applier.default`.
-pub struct DefaultApplierFactory;
+///
+/// Carries the host-injected kit-manifest resolver (ADR-0128 §"The 0.8
+/// seam"): the applier registers a [`BasicKitLoaderPlugin`], which needs a
+/// kit-name → module-names lookup it cannot source itself (the embedded
+/// manifests live in `handl-kit-data-canonical`, a `lang/` crate).
+pub struct DefaultApplierFactory {
+    module_names: KitModuleNames,
+}
+
+impl DefaultApplierFactory {
+    /// Create the factory with the host's kit-manifest resolver.
+    pub fn new(module_names: KitModuleNames) -> Self {
+        Self { module_names }
+    }
+}
 
 impl ApplierFactory for DefaultApplierFactory {
     fn id(&self) -> &str {
@@ -20,20 +34,27 @@ impl ApplierFactory for DefaultApplierFactory {
         config_path: &str,
         fallback_kit: &str,
     ) -> Result<(), PlatformError> {
-        ctx.register_plugin(DefaultApplierPlugin::new(config_path).with_fallback_kit(fallback_kit))
+        ctx.register_plugin(
+            DefaultApplierPlugin::new(config_path, self.module_names.clone())
+                .with_fallback_kit(fallback_kit),
+        )
     }
 }
 
 pub struct DefaultApplierPlugin {
     config_source: String,
     fallback_kit: Option<String>,
+    /// Host-injected kit-name → module-names resolver for the registered
+    /// [`BasicKitLoaderPlugin`].
+    module_names: KitModuleNames,
 }
 
 impl DefaultApplierPlugin {
-    pub fn new(config_source: impl Into<String>) -> Self {
+    pub fn new(config_source: impl Into<String>, module_names: KitModuleNames) -> Self {
         Self {
             config_source: config_source.into(),
             fallback_kit: None,
+            module_names,
         }
     }
 
@@ -68,7 +89,7 @@ impl Plugin for DefaultApplierPlugin {
         };
 
         if ctx.get_plugin_mut::<BasicKitLoaderPlugin>().is_none() {
-            ctx.register_plugin(BasicKitLoaderPlugin::new())?;
+            ctx.register_plugin(BasicKitLoaderPlugin::new(self.module_names.clone()))?;
         }
 
         if ctx.get_plugin_mut::<LoaderHostPlugin>().is_none() {

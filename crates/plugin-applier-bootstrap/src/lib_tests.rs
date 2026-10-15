@@ -1,6 +1,15 @@
 use super::*;
 use handl_platform::{CallableLookup, DefaultHost};
 use std::fs;
+use std::sync::Arc;
+
+/// The canonical kit-manifest resolver for tests — assembled from the
+/// dev-dep data crate.
+fn kit_module_names() -> KitModuleNames {
+    Arc::new(|name: &str| {
+        handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
+    })
+}
 
 #[test]
 fn bootstrap_loads_kit_via_applier() {
@@ -13,6 +22,7 @@ fn bootstrap_loads_kit_via_applier() {
         path.as_path().to_str().unwrap(),
         "canonical",
         "applier.default",
+        kit_module_names(),
     ));
     host.load().unwrap();
 
@@ -33,6 +43,7 @@ fn bootstrap_rejects_unknown_applier() {
         ".handl.toml",
         "hello",
         "applier.custom",
+        kit_module_names(),
     ));
     let result = host.load();
     assert!(result.is_err());

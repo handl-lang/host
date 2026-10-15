@@ -9,3 +9,6 @@ handl-plugin-applier = { path = "../plugin-applier" }
 handl-plugin-ext-kit = { path = "../plugin-ext-kit" }
 handl-plugin-load = { path = "../plugin-load" }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }

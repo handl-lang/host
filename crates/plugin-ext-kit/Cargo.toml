@@ -6,7 +6,6 @@ edition.workspace = true
 [dependencies]
 handl-platform = { path = "../platform" }
 handl-kit-data = { workspace = true }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-module = { workspace = true }
 handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-crypto = { workspace = true }
@@ -16,4 +15,5 @@ handl-plugin-lib-otlp-std = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 serde_json = { workspace = true }

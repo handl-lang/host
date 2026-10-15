@@ -4,6 +4,7 @@ use handl_platform::{
 };
 use handl_plugin_applier::ApplierFactory;
 use handl_plugin_applier_default::DefaultApplierFactory;
+use handl_plugin_ext_kit::KitModuleNames;
 
 pub struct BootstrapPlugin {
     config_path: String,
@@ -17,12 +18,13 @@ impl BootstrapPlugin {
         config_path: impl Into<String>,
         fallback_kit: impl Into<String>,
         applier_id: impl Into<String>,
+        module_names: KitModuleNames,
     ) -> Self {
         Self {
             config_path: config_path.into(),
             fallback_kit: fallback_kit.into(),
             applier_id: applier_id.into(),
-            factories: vec![Box::new(DefaultApplierFactory)],
+            factories: vec![Box::new(DefaultApplierFactory::new(module_names))],
         }
     }
 

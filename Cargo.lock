@@ -923,15 +923,18 @@ dependencies = [
 name = "handl-plugin-applier-bootstrap"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-applier-default",
+ "handl-plugin-ext-kit",
 ]
 
 [[package]]
 name = "handl-plugin-applier-default"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-data-canonical",
  "handl-platform",
  "handl-plugin-applier",
  "handl-plugin-ext-kit",
