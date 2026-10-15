@@ -112,6 +112,7 @@ other `plugin-lib-*` moves to `stdlib/`.
 | `handl-kit-data-canonical` + canonical `data/*.yaml` + `handl-packages/` remainder | `lang/` | Handl-the-language as data (ADR-0044 made literal) |
 | `kit-canonical` | `kit-canonical/crates/kit-canonical` | the canonical *kit assembly* — wires language data + stdlib + engines into a `Kit`; consumed by hosts |
 | `handl-defining-handl`, `plugin-engine-typecheck-nbe` | `meta/crates/` | self-hosting/NbE experiments — zero-consumer leaves |
+| `docs/` (VitePress site) + the sibling `handl-lang/docs/` (top-level ADRs, outside the platform repo) | `docs/` | documentation hub; each repo's API reference is generated from its workspace tree and published into `docs/` |
 
 `plugin-compile-handl` moves to **`handl/`** — the repo for Handl as a
 target — under strict target-per-repo consistency. **Naming:** the
@@ -183,6 +184,13 @@ multi-PR atomic change plus a git rev bump — mitigated by
 `stdlib/` — a deliberate inversion: the platform now depends on the
 stdlib package, not vice versa. Shared `.hnl` sources pinned by multiple
 crates need the `pub const` re-export rule before any move.
+
+**Private-repo auth.** All target repos are private except `platform/`
+and `cli/`. Git deps bypass registries entirely — `cargo` just clones —
+so consumers need `CARGO_NET_GIT_FETCH_WITH_CLI=1` (or
+`net.git-fetch-with-cli` in `.cargo/config.toml`) for ssh auth, and each
+repo's CI needs a read credential for its sibling deps. Cheap today;
+flip to public when the "external contributor" motivation becomes real.
 
 **The `lang/` cycle.** `plugin-engine-test`, `plugin-ext-lint`,
 `plugin-ext-typecheck` and `host-tooling` have *normal* deps on
