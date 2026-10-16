@@ -1261,6 +1261,30 @@ pub fn apply_native_op(
             let val = ctx.eval_node(AstRef::new(arena_idx as usize))?;
             Ok((val, false))
         }
+        // `elem` — index `lit` into the incoming value (array or pair).
+        // This is the *term-level* projection the arrow lowering emits —
+        // distinct from `proj_child`, which remains the scheme placeholder
+        // evaluating AST children of the ambient node.
+        "elem" => {
+            let idx = lit
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| LangError::engine("elem: missing index literal".to_string()))?
+                as usize;
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            let out = match &v {
+                TaggedValue::Arr(a) => a.get(idx).cloned(),
+                other => match idx {
+                    0 => pair_fst(other).cloned(),
+                    1 => pair_snd(other).cloned(),
+                    _ => None,
+                },
+            };
+            out.map(|v| (v, false)).ok_or_else(|| {
+                LangError::engine(format!("elem: index {idx} out of bounds"))
+            })
+        }
         "paren" => {
             if !ctx.supports(OpService::EvalNode) {
                 return Ok(None);

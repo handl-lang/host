@@ -68,7 +68,7 @@ fn lower_node(
                     Ok(Term::op_native("id", vec![]))
                 } else {
                     // Multi-parameter function: project the n-th component.
-                    Ok(Term::op_native_lit("proj_child", vec![], pos as i64))
+                    Ok(Term::op_native_lit("elem", vec![], pos as i64))
                 }
             } else if let Some(entry) = env.get(name) {
                 Ok(entry.term.clone())
@@ -119,7 +119,7 @@ fn lower_node(
                         if params.len() == 1 {
                             Term::op_native("id", vec![])
                         } else {
-                            Term::op_native_lit("proj_child", vec![], *outer_pos as i64)
+                            Term::op_native_lit("elem", vec![], *outer_pos as i64)
                         }
                     })
                     .collect();
@@ -903,7 +903,7 @@ fn lower_block(
                 let stmt = lower_node(ast, lang, idx, &env, params)?;
                 let step = Term::seq(
                     Term::op_native("product", vec![stmt, Term::op_native("id", vec![])]),
-                    Term::op_native_lit("proj_child", vec![], 1),
+                    Term::op_native_lit("elem", vec![], 1),
                 );
                 prefix = Some(match prefix {
                     Some(p) => Term::seq(p, step),
@@ -1275,7 +1275,7 @@ fn lower_call(
             let callee_term = if params.len() == 1 {
                 Term::op_native("id", vec![])
             } else {
-                Term::op_native_lit("proj_child", vec![], pos as i64)
+                Term::op_native_lit("elem", vec![], pos as i64)
             };
             return Ok(sequential_app(callee_term, arg_terms));
         }
@@ -1655,14 +1655,14 @@ fn lower_loop(
             // `(in, state)` components, so `__term__` runs on
             // `__bound__ ++ [v0, state]` — the `fold_step` protocol.
             let get_record = Term::seq(
-                Term::op_native_lit("proj_child", vec![], 0),
-                Term::op_native_lit("proj_child", vec![], 1),
+                Term::op_native_lit("elem", vec![], 0),
+                Term::op_native_lit("elem", vec![], 1),
             );
             let arg_in = Term::seq(
-                Term::op_native_lit("proj_child", vec![], 0),
-                Term::op_native_lit("proj_child", vec![], 0),
+                Term::op_native_lit("elem", vec![], 0),
+                Term::op_native_lit("elem", vec![], 0),
             );
-            let arg_st = Term::op_native_lit("proj_child", vec![], 1);
+            let arg_st = Term::op_native_lit("elem", vec![], 1);
             let body = Term::app(get_record, vec![arg_in, arg_st]);
             return Ok(Term::seq(
                 Term::op_native("product", vec![input, step]),
@@ -1717,7 +1717,7 @@ fn lower_while(
     let init_t = lower_node(ast, lang, init_idx, env, params)?;
     let step_t = lower_node(ast, lang, step_idx, env, params)?;
 
-    let proj = |i: i64| Term::op_native_lit("proj_child", vec![], i);
+    let proj = |i: i64| Term::op_native_lit("elem", vec![], i);
     let id = Term::op_native("id", vec![]);
     let null = Term::const_value(Value::Null);
     // `pair -> (st == null)` — the Loop body's second component.
@@ -1921,7 +1921,7 @@ fn lower_match(
     }
 
     let scrut_t = lower_node(ast, lang, scrut_idx, env, params)?;
-    let proj = |i: i64| Term::op_native_lit("proj_child", vec![], i);
+    let proj = |i: i64| Term::op_native_lit("elem", vec![], i);
     let id = Term::op_native("id", vec![]);
 
     // Rebasing for arm bodies: enclosing param `params[i]` at position i
