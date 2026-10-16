@@ -165,8 +165,11 @@ This phase validates the whole template on a 1-crate port surface with
 - [ ] `web/modules/compile-js` ← `plugin-compile-js` (target `js`).
 - [ ] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs.
       (`editor-support/` → `extension-vscode` + `extension-neovim`;
-      `playground/` → `playground`; `bench/` → `bench`. All three are
-      already gone; `crates/bench` — the criterion suite — stays here.)
+      `playground/` → `playground`; `bench/` → `bench`;
+      `examples/handl/` → `handl/examples/` (redesigned into
+      `basics/ recursion/ algorithms/ lists/ modules/`); `examples/http/` →
+      `web/examples/http/`. All are already gone; `crates/bench` — the
+      criterion suite — stays here.)
 
 ## Phase 6 — `native/`
 
