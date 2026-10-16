@@ -185,9 +185,10 @@ multi-PR atomic change plus a git rev bump — mitigated by
 stdlib package, not vice versa. Shared `.hnl` sources pinned by multiple
 crates need the `pub const` re-export rule before any move.
 
-**Private-repo auth.** All target repos are private except `platform/`
-and `cli/`. Git deps bypass registries entirely — `cargo` just clones —
-so consumers need `CARGO_NET_GIT_FETCH_WITH_CLI=1` (or
+**Private-repo auth.** Every repo is private except **`docs/`** (the published
+hub). `platform/` was public during the transition and `cli/` was created
+public; both are private now. Git deps bypass registries entirely —
+`cargo` just clones — so consumers need `CARGO_NET_GIT_FETCH_WITH_CLI=1` (or
 `net.git-fetch-with-cli` in `.cargo/config.toml`) for ssh auth, and each
 repo's CI needs a read credential for its sibling deps. Cheap today;
 flip to public when the "external contributor" motivation becomes real.
