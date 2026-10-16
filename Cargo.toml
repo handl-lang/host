@@ -55,10 +55,6 @@ members = [
   "crates/plugin-engine-fmt",
   "crates/plugin-engine-lint",
   "crates/plugin-compile",
-  "crates/plugin-compile-handl",
-  "crates/plugin-compile-term",
-  "crates/plugin-compile-dot",
-  "crates/plugin-compile-sexp",
   "crates/handl-runtime",
   "crates/handl-emitters",
   "crates/handl-kit-data",
@@ -150,10 +146,10 @@ handl-plugin-compile-js = { git = "https://github.com/handl-lang/web", rev = "f1
 # ADR-0128 Phase 6: the native engines/compilers live in the native
 # repo; local development resolves them from the sibling checkout.
 handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/native", rev = "0bc91da548697c78bc59ebef6080aed6370c4264" }
-handl-plugin-compile-handl = { path = "crates/plugin-compile-handl" }
-handl-plugin-compile-term = { path = "crates/plugin-compile-term" }
-handl-plugin-compile-dot = { path = "crates/plugin-compile-dot" }
-handl-plugin-compile-sexp = { path = "crates/plugin-compile-sexp" }
+handl-plugin-compile-handl = { git = "https://github.com/handl-lang/handl", rev = "af850fb7c3fb5d203681c74045154c348ae3b0b5" }
+handl-plugin-compile-term = { git = "https://github.com/handl-lang/term", rev = "99142ba3c0d590961eec4f0d0fa6e5a8caaa15de" }
+handl-plugin-compile-dot = { git = "https://github.com/handl-lang/dot", rev = "5dbeb7dba7b32eb64bb26db428f50cbaff98e6cc" }
+handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/sexp", rev = "2726a8ac740433f149f68860d4101540a71d510e" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 plugin-engine = { path = "crates/plugin-engine" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
@@ -229,6 +225,20 @@ handl-plugin-sdkgen-backend-webidl = { path = "../web/modules/sdkgen-webidl" }
 [patch."https://github.com/handl-lang/native"]
 handl-plugin-compile-llvm = { path = "../native/modules/compile-llvm" }
 handl-plugin-engine-exec-cranelift = { path = "../native/modules/exec-cranelift" }
+
+# ADR-0128 Phase 7: the dot/term/sexp/handl compiler targets each live in
+# their own repo; local development resolves them from sibling checkouts.
+[patch."https://github.com/handl-lang/dot"]
+handl-plugin-compile-dot = { path = "../dot/modules/compile-dot" }
+
+[patch."https://github.com/handl-lang/term"]
+handl-plugin-compile-term = { path = "../term/modules/compile-term" }
+
+[patch."https://github.com/handl-lang/sexp"]
+handl-plugin-compile-sexp = { path = "../sexp/modules/compile-sexp" }
+
+[patch."https://github.com/handl-lang/handl"]
+handl-plugin-compile-handl = { path = "../handl/modules/compile-handl" }
 
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }

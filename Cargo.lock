@@ -733,6 +733,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-kit-arrow-lower"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/platform?rev=823b62ba272d0fe44d32bad521f30bcdf27067f6#823b62ba272d0fe44d32bad521f30bcdf27067f6"
+dependencies = [
+ "handl-language",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
@@ -859,13 +868,9 @@ dependencies = [
 name = "handl-plugin-compile-handl"
 version = "0.1.0"
 dependencies = [
- "handl-kit-arrow-lower",
- "handl-kit-data-canonical",
+ "handl-kit-arrow-lower 0.1.0 (git+https://github.com/handl-lang/platform?rev=823b62ba272d0fe44d32bad521f30bcdf27067f6)",
  "handl-language",
  "handl-plugin-compile",
- "handl-plugin-engine-lex-pattern",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
  "serde_json",
 ]
 
@@ -904,7 +909,7 @@ dependencies = [
 name = "handl-plugin-compile-term"
 version = "0.1.0"
 dependencies = [
- "handl-kit-arrow-lower",
+ "handl-kit-arrow-lower 0.1.0 (git+https://github.com/handl-lang/platform?rev=823b62ba272d0fe44d32bad521f30bcdf27067f6)",
  "handl-plugin-compile",
  "serde_json",
 ]
@@ -1615,7 +1620,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
- "handl-kit-arrow-lower",
+ "handl-kit-arrow-lower 0.1.0",
  "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
