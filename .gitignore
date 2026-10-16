@@ -39,14 +39,9 @@ Thumbs.db
 # Logs
 *.log
 
-# Node / VitePress
+# Node / VitePress — the docs site lives in the `docs` repo now (ADR-0128
+# Phase 12 / ADR-0129 5.3).
 node_modules
-/docs/.vitepress/dist
-/docs/.vitepress/cache
-
-# Generated Rust API docs
-/docs/api
-/docs/reference
 
 # Local project plans/notes
 #/project/

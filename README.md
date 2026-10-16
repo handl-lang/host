@@ -72,7 +72,8 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 - `crates/host-*` — `host-cli` (the `hnl` binary), `host-lsp` (the LSP server), `host-tooling` (the shared tooling/LSP host contract); `plugin-lsp` / `plugin-lsp-std` — LSP provider plugins.
 - `crates/bench` / `ext-tests` — criterion benchmarks and integration-test scaffolding.
 - `handl-packages/` — `.hnl` packages and contracts; `data/` — YAML language fragments.
-- `docs/` — language and runtime design docs.
+- `docs/` — moved to the sibling **`docs`** repo (the VitePress hub): the site,
+  the published ADR index, and the aggregated per-repo reference/rustdoc.
 - `project/` — project notes and ADRs.
 
 ## Current status
@@ -82,4 +83,6 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 - `handl-tooling` / `handl-host-lsp` provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
 - Many compiler-pass, capability, and VM crates are partially implemented or still stubs; the workspace is in active construction.
 
-See `.devin/AGENTS.md` for commands and `docs/LANG.md` / `docs/RUNTIME.md` for language and runtime details.
+See `.devin/AGENTS.md` for commands. Language and runtime details live in the
+sibling `docs` repo (`LANG.md`, `RUNTIME.md`, `PAPER.md`, `SAE.md`); project
+notes and ADRs are on the `project` branch, mounted at `project/` (ADR-0129).
