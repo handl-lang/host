@@ -22,58 +22,103 @@ splits:
     stays: platform
     targets:
       - repo: lang
+        number: "0130"
+        slug: language-data-assembly
+        title: "Language data assembly in the lang repo"
         topic: "language data assembly (data/*.yaml + pinned handl-packages)"
   - parent: adrs/0077-stdlib-migration-to-handl.md
     stays: platform
     targets:
       - repo: stdlib
+        number: "0131"
+        slug: stdlib-package-table
+        title: "The stdlib package table and its .hnl impls"
         topic: "stdlib package table + .hnl impls"
   - parent: adrs/0083-ffi-native-stdlib.md
     stays: platform
     targets:
       - repo: stdlib
+        number: "0132"
+        slug: ffi-native-stdlib-packages
+        title: "FFI-native stdlib packages"
         topic: "FFI-native stdlib packages"
       - repo: ffi
+        number: "0133"
+        slug: c-abi-marshalling-backend
+        title: "The C-ABI marshalling backend"
         topic: "C-ABI marshalling backend"
   - parent: adrs/0092-test-framework-in-handl.md
     stays: platform
     targets:
       - repo: kit-canonical
+        number: "0134"
+        slug: test-framework-package-ownership
+        title: "Test-framework package ownership in kit-canonical"
         topic: "handl-packages/test ownership + registration"
   - parent: adrs/0093-string-char-unicode-layering.md
     stays: platform
     targets:
       - repo: stdlib
+        number: "0135"
+        slug: str-handl-and-char-backends
+        title: "str-handl and the char backends"
         topic: "str-handl / char backends"
   - parent: adrs/0107-handl-sdk-generator.md
     stays: platform
     targets:
       - repo: c
+        number: "0136"
+        slug: sdkgen-c-backend-ownership
+        title: "sdkgen-c backend ownership"
         topic: "sdkgen-c backend"
       - repo: web
+        number: "0137"
+        slug: sdkgen-webidl-and-js-emitters
+        title: "sdkgen-webidl backend and the JS emitters"
         topic: "sdkgen-webidl backend + JS emitters"
       - repo: python
+        number: "0138"
+        slug: sdkgen-python-emitter
+        title: "The sdkgen-python emitter"
         topic: "sdkgen-python emitter"
   - parent: adrs/0114-handl-compile-plugin-architecture.md
     stays: platform
     targets:
       - repo: dot
+        number: "0139"
+        slug: compile-dot-target
+        title: "compile-dot target"
         topic: "compile-dot target"
       - repo: term
+        number: "0140"
+        slug: compile-term-target
+        title: "compile-term target"
         topic: "compile-term target"
       - repo: sexp
+        number: "0141"
+        slug: compile-sexp-target
+        title: "compile-sexp target"
         topic: "compile-sexp target"
       - repo: handl
+        number: "0142"
+        slug: compile-handl-target
+        title: "compile-handl target"
         topic: "compile-handl target"
       - repo: web
+        number: "0143"
+        slug: compile-js-target
+        title: "compile-js target"
         topic: "compile-js target"
       - repo: native
+        number: "0144"
+        slug: compile-llvm-target
+        title: "compile-llvm target"
         topic: "compile-llvm target"
   - parent: adrs/0128-target-repos.md
     stays: platform
     targets:
       - repo: "each target repo"
-        topic: "that repo's extraction plan (its Phase row, expanded)"
+        topic: "that repo's extraction plan (its Phase row, expanded) as a task"
 
 repos:
   platform:
