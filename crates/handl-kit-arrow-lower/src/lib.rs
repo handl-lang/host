@@ -304,6 +304,20 @@ fn lower_node(
         // `body` reproduces the `loop_step` protocol in combinators.
         "while" => lower_while(ast, lang, node, env, params),
 
+        // `eval.ternary`/`eval.nullish` — `Seq[…, tag] >>> Choice` shapes
+        // whose `Choice` arms hold child placeholders fed the *condition*
+        // value, not the node input: non-input positions, they decline.
+        // The `product`/`pair_tag` plumbing (`lower_if` precedent) hands
+        // the arms the input instead.
+        "ternary" => lower_ternary(ast, lang, node, env, params),
+        "nullish" => lower_nullish(ast, lang, node, env, params),
+
+        // `eval.dimension` is the `eval.call` routing shape verbatim
+        // (`f<X>` applies the target to its dimension args, children laid
+        // out `[target, args…]` like `call`'s `[callee, args…]`) — same
+        // decline, same lowering.
+        "dimension" => lower_call(ast, lang, node, env, params),
+
         // `return` is early-exit control flow the substitution model
         // cannot express. `eval.return` declares only the plain value
         // path (`proj_child 0`) — the early exit lives in `eval_rec`'s
@@ -1787,6 +1801,73 @@ fn lower_while(
         ),
     );
     Ok(Term::seq(init_t, Term::loop_feedback(body)))
+}
+
+/// `cond ? then : else` — the same `product`/`pair_tag` shape as
+/// `lower_if` (ADR-0147): `pair_tag` turns `[cond_v, input]` into
+/// `Either input`, so the selected arm still sees the node input.
+fn lower_ternary(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    let ch = children(node);
+    if ch.len() < 3 {
+        return Err(format!(
+            "ternary at {} needs 3 children, got {}",
+            node_index(node),
+            ch.len()
+        ));
+    }
+    let cond = lower_node(ast, lang, ch[0], env, params)?;
+    let then_ = lower_node(ast, lang, ch[1], env, params)?;
+    let else_ = lower_node(ast, lang, ch[2], env, params)?;
+    Ok(Term::seq(
+        Term::op_native("product", vec![cond, Term::op_native("id", vec![])]),
+        Term::seq(
+            Term::op_native("pair_tag", vec![]),
+            Term::choice(then_, else_),
+        ),
+    ))
+}
+
+/// `a ?? b` — left when `a` is null, `a` otherwise. `Seq[a, eq(id, null)]`
+/// computes the discriminant while `id` keeps the input for the arms
+/// (each arm re-evaluates its child, matching the interpreter's
+/// `proj_child` semantics).
+fn lower_nullish(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    let ch = children(node);
+    if ch.len() < 2 {
+        return Err(format!(
+            "nullish at {} needs 2 children, got {}",
+            node_index(node),
+            ch.len()
+        ));
+    }
+    let a = lower_node(ast, lang, ch[0], env, params)?;
+    let b = lower_node(ast, lang, ch[1], env, params)?;
+    let is_null = Term::seq(
+        a.clone(),
+        Term::op_native(
+            "eq",
+            vec![Term::op_native("id", vec![]), Term::const_value(Value::Null)],
+        ),
+    );
+    Ok(Term::seq(
+        Term::op_native("product", vec![is_null, Term::op_native("id", vec![])]),
+        Term::seq(
+            Term::op_native("pair_tag", vec![]),
+            Term::choice(b, a),
+        ),
+    ))
 }
 
 fn lower_field_access(
