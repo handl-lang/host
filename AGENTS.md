@@ -57,6 +57,17 @@ sibling `handl-lang/kit-canonical` repo now (git dep, patched to
 `../kit-canonical` for local dev). Its tests no longer run here — run them
 there with `CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical`.
 
+**Cross-repo dep policy — float on `main`, pin at release.** Every
+`git = "https://github.com/handl-lang/<repo>"` dependency declares
+`branch = "main"` day to day, so `cargo update` in any repo bumps siblings
+to their current `main` HEAD and `Cargo.lock` records the resolved sha.
+At release time `scripts/pin-git-revs.py` rewrites each `branch`/`rev`
+selector to `rev = "<HEAD sha>"` (immutable; `--check` reports drift);
+reproduce a pinned build with `cargo build --locked`. The workspace-root
+`[patch."https://github.com/handl-lang/<repo>"]` tables keep resolving
+siblings from local checkouts during development — CI strips them and
+resolves the declared git selector instead.
+
 Measured after the fix: the whole crate is **252/252 in 648 s single-threaded**
 (`rand_c` 29 tests in 7.65 s, `tagged_values` 8 in 1.22 s, `intl_c` 13 in
 2.59 s).

@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Pin cross-repo Cargo git dependencies to a `rev` (ADR-0128 §Resolution).
 
-For every sibling repo, rewrite `git = "https://github.com/handl-lang/<dep>"`
-in its `Cargo.toml`s to add `rev = "<dep's current HEAD sha>"`. A tag is not
-needed — `rev` is immutable and Cargo resolves it exactly.
+Day to day, sibling deps *float* on `branch = "main"`; run this at release
+time to pin. For every sibling repo, rewrite
+`git = "https://github.com/handl-lang/<dep>"` in its `Cargo.toml`s to carry
+`rev = "<dep's current HEAD sha>"`, replacing any `branch`/`rev` selector
+already present. A tag is not needed — `rev` is immutable and Cargo resolves
+it exactly.
 
     scripts/pin-git-revs.py            pin (rewrite in place)
     scripts/pin-git-revs.py --check    report unpinned/out-of-date only
@@ -23,7 +26,7 @@ ORG = Path(__file__).resolve().parent.parent.parent
 BASE = "https://github.com/handl-lang/"
 PAT = re.compile(
     r'git = "' + re.escape(BASE) + r'(?P<repo>[A-Za-z0-9._-]+)"'
-    r'(?:, rev = "(?P<rev>[0-9a-f]+)")?'
+    r'(?:, (?:rev|branch) = "(?P<pin>[^"]+)")?'
 )
 
 
@@ -62,7 +65,7 @@ def main(argv: list[str]) -> int:
                 if sha is None:
                     unpinned.append(f"{toml}: dep '{dep}' has no local checkout")
                     return m.group(0)
-                if m.group("rev") == sha:
+                if m.group("pin") == sha:
                     return m.group(0)
                 return f'git = "{BASE}{dep}", rev = "{sha}"'
 

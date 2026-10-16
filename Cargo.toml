@@ -107,25 +107,25 @@ handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 # ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
 # repo, `handl-kit-data-canonical` in `lang`; local development resolves
 # them from the sibling checkouts via the `[patch]` tables below.
-handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "bd1460938e49152783c3b923721e6aafe658a12c" }
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", branch = "main" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
-handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
+handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
-handl-plugin-lib-encoding = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
+handl-plugin-lib-encoding = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
-handl-plugin-lib-kv = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
+handl-plugin-lib-kv = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
 # ADR-0128 Phase 4: the otlp modules live in the `otlp` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
-handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/otlp", rev = "1764c028e0c685820ff8f440d3760f12d97d1468" }
-handl-plugin-lib-parse = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
+handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/otlp", branch = "main" }
+handl-plugin-lib-parse = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
 
 handl-plugin-applier-bootstrap = { path = "crates/plugin-applier-bootstrap" }
 handl-plugin-applier-default = { path = "crates/plugin-applier-default" }
-handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
+handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
 handl-plugin-lib-scheduler = { path = "crates/plugin-lib-scheduler" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-platform = { path = "crates/platform" }
@@ -138,14 +138,14 @@ handl-plugin-compile = { path = "crates/plugin-compile" }
 # ADR-0128 Phase 5: the js compiler + webidl backend live in the `web`
 # repo; local development resolves them from the sibling checkout via
 # `[patch]` below.
-handl-plugin-compile-js = { git = "https://github.com/handl-lang/web", rev = "1fdc53cb271686da20baaf830af1f71913686f36" }
+handl-plugin-compile-js = { git = "https://github.com/handl-lang/web", branch = "main" }
 # ADR-0128 Phase 6: the native engines/compilers live in the native
 # repo; local development resolves them from the sibling checkout.
-handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/native", rev = "1ad25248844138fac66bea82bde6029894fb1611" }
-handl-plugin-compile-handl = { git = "https://github.com/handl-lang/handl", rev = "af850fb7c3fb5d203681c74045154c348ae3b0b5" }
-handl-plugin-compile-term = { git = "https://github.com/handl-lang/term", rev = "99142ba3c0d590961eec4f0d0fa6e5a8caaa15de" }
-handl-plugin-compile-dot = { git = "https://github.com/handl-lang/dot", rev = "5dbeb7dba7b32eb64bb26db428f50cbaff98e6cc" }
-handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/sexp", rev = "2726a8ac740433f149f68860d4101540a71d510e" }
+handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/native", branch = "main" }
+handl-plugin-compile-handl = { git = "https://github.com/handl-lang/handl", branch = "main" }
+handl-plugin-compile-term = { git = "https://github.com/handl-lang/term", branch = "main" }
+handl-plugin-compile-dot = { git = "https://github.com/handl-lang/dot", branch = "main" }
+handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/sexp", branch = "main" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 plugin-engine = { path = "crates/plugin-engine" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
@@ -158,7 +158,7 @@ handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
 handl-plugin-engine-test = { path = "crates/plugin-engine-test" }
 handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", rev = "1ad25248844138fac66bea82bde6029894fb1611" }
+handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", branch = "main" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }
 handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
 handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
@@ -166,20 +166,20 @@ handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
-handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", rev = "303d13987b4f4633c0c014b9b365de8b5616a3cf" }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
 handl-value = { path = "crates/handl-value" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
-handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-lang-eval = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-lang-lex = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-lang-parse = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-lang-run-compiled = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
-handl-plugin-lib-lang-typecheck = { git = "https://github.com/handl-lang/stdlib", rev = "233a0e77944ce01ca054c85b3c974c21fecf62fe" }
+handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-lang-eval = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-lang-lex = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-lang-parse = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-lang-run-compiled = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-lang-typecheck = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
 [features]
 default = []
 
