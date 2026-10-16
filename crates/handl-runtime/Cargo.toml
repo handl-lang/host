@@ -27,7 +27,7 @@ handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
 handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
 handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = { path = "../plugin-engine-exec-cranelift" }
+handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", rev = "0bc91da548697c78bc59ebef6080aed6370c4264" }
 handl-plugin-module = { path = "../plugin-module" }
 handl-kit-data-canonical = { workspace = true }
 handl-kit-canonical = { workspace = true }

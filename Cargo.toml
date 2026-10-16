@@ -52,11 +52,9 @@ members = [
   "crates/plugin-engine-transform",
   "crates/plugin-engine-transform-rewrite",
   "crates/plugin-engine-exec-bytecode",
-  "crates/plugin-engine-exec-cranelift",
   "crates/plugin-engine-fmt",
   "crates/plugin-engine-lint",
   "crates/plugin-compile",
-  "crates/plugin-compile-llvm",
   "crates/plugin-compile-handl",
   "crates/plugin-compile-term",
   "crates/plugin-compile-dot",
@@ -117,7 +115,7 @@ handl-plugin-ffi = { path = "crates/plugin-ffi" }
 # ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
 # repo, `handl-kit-data-canonical` in `lang`; local development resolves
 # them from the sibling checkouts via the `[patch]` tables below.
-handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "a7392e49efb729021234b094df02155796d50f4c" }
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "c3b1a6a0f13bf58d149b6ba4ae544502e063b6d9" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
@@ -149,7 +147,9 @@ handl-plugin-compile = { path = "crates/plugin-compile" }
 # repo; local development resolves them from the sibling checkout via
 # `[patch]` below.
 handl-plugin-compile-js = { git = "https://github.com/handl-lang/web", rev = "f1b92777eeba1773a340c9e34ab9f2e3f67bdd69" }
-handl-plugin-compile-llvm = { path = "crates/plugin-compile-llvm" }
+# ADR-0128 Phase 6: the native engines/compilers live in the native
+# repo; local development resolves them from the sibling checkout.
+handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/native", rev = "0bc91da548697c78bc59ebef6080aed6370c4264" }
 handl-plugin-compile-handl = { path = "crates/plugin-compile-handl" }
 handl-plugin-compile-term = { path = "crates/plugin-compile-term" }
 handl-plugin-compile-dot = { path = "crates/plugin-compile-dot" }
@@ -166,7 +166,7 @@ handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
 handl-plugin-engine-test = { path = "crates/plugin-engine-test" }
 handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = { path = "crates/plugin-engine-exec-cranelift" }
+handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", rev = "0bc91da548697c78bc59ebef6080aed6370c4264" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }
 handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
 handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
@@ -226,6 +226,10 @@ handl-plugin-lib-otlp-std = { path = "../otlp/modules/lib-otlp-std" }
 handl-plugin-compile-js = { path = "../web/modules/compile-js" }
 handl-plugin-sdkgen-backend-webidl = { path = "../web/modules/sdkgen-webidl" }
 
+[patch."https://github.com/handl-lang/native"]
+handl-plugin-compile-llvm = { path = "../native/modules/compile-llvm" }
+handl-plugin-engine-exec-cranelift = { path = "../native/modules/exec-cranelift" }
+
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 
@@ -256,7 +260,6 @@ handl-language = { path = "crates/handl-language" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-engine-exec = { path = "crates/plugin-engine-exec" }
 handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = { path = "crates/plugin-engine-exec-cranelift" }
 handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
 handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
@@ -264,6 +267,7 @@ handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
 handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform-rewrite" }
 handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
+handl-test-utils = { path = "crates/handl-test-utils" }
 handl-plugin-engine-typecheck-handl = { path = "crates/plugin-engine-typecheck-handl" }
 handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
