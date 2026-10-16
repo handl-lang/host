@@ -125,10 +125,15 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 2 — `c/`
 
-- [ ] `c/modules/sdkgen-c` ← `plugin-sdkgen-backend-c` (`clang-sys` leaves
+- [x] `c/modules/sdkgen-c` ← `plugin-sdkgen-backend-c` (`clang-sys` leaves
       the platform lock/build).
+      **Done:** subtree-split import; `plugin-ext-sdkgen` takes it via a
+      pinned git dep + `[patch."https://github.com/handl-lang/c"]` →
+      `../c/modules/sdkgen-c`. 88 tests green in the new repo.
 - [ ] Decide the C-ABI package block: `-c` packages and 6
       `generated/*-c-linux-x86_64/` dirs follow or stay (item 7).
+      (Deferred — ADR-0128 defers this to the item-7 scope decision;
+      they stay in platform for now.)
 
 ## Phase 3 — `stdlib/`
 
