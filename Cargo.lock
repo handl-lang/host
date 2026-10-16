@@ -1511,7 +1511,7 @@ dependencies = [
  "handl-plugin-lib-parse",
  "handl-plugin-lib-serialize",
  "handl-plugin-module",
- "handl-value 0.1.0 (git+https://github.com/handl-lang/platform)",
+ "handl-value 0.1.0 (git+https://github.com/handl-lang/platform?rev=fda7eda807912fdf49d22986accb3d380cca74f3)",
  "hex",
  "iri-string",
  "serde_json",
@@ -1670,7 +1670,7 @@ dependencies = [
 [[package]]
 name = "handl-value"
 version = "0.1.0"
-source = "git+https://github.com/handl-lang/platform#fe452ef3eaa074d93c0078256d0ad85e78eaf846"
+source = "git+https://github.com/handl-lang/platform?rev=fda7eda807912fdf49d22986accb3d380cca74f3#fda7eda807912fdf49d22986accb3d380cca74f3"
 dependencies = [
  "rustc-hash 2.1.3",
  "serde_json",

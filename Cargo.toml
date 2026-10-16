@@ -73,7 +73,6 @@ members = [
   "crates/plugin-sdkgen-backend-c",
   "crates/plugin-sdkgen-backend-webidl",
   "crates/plugin-sdkgen-emitter-file",
-  "crates/plugin-sdkgen-emitter-python",
   "crates/plugin-ext-sdkgen",
 ]
 resolver = "3"
@@ -216,6 +215,9 @@ serde_json = "1"
 [patch."https://github.com/handl-lang/lang"]
 handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
 
+[patch."https://github.com/handl-lang/python"]
+handl-plugin-sdkgen-emitter-python = { path = "../python/modules/sdkgen-python" }
+
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 
@@ -268,6 +270,7 @@ handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-plugin-module = { path = "crates/plugin-module" }
+handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-runtime = { path = "crates/handl-runtime" }
 
 [profile.release]
