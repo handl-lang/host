@@ -710,15 +710,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-kit-arrow-lower"
-version = "0.1.0"
-source = "git+https://github.com/handl-lang/platform?rev=823b62ba272d0fe44d32bad521f30bcdf27067f6#823b62ba272d0fe44d32bad521f30bcdf27067f6"
-dependencies = [
- "handl-language",
- "serde_json",
-]
-
-[[package]]
 name = "handl-kit-canonical"
 version = "0.1.0"
 dependencies = [
@@ -848,7 +839,7 @@ dependencies = [
 name = "handl-plugin-compile-handl"
 version = "0.1.0"
 dependencies = [
- "handl-kit-arrow-lower 0.1.0 (git+https://github.com/handl-lang/platform?rev=823b62ba272d0fe44d32bad521f30bcdf27067f6)",
+ "handl-kit-arrow-lower",
  "handl-language",
  "handl-plugin-compile",
  "serde_json",
@@ -889,7 +880,7 @@ dependencies = [
 name = "handl-plugin-compile-term"
 version = "0.1.0"
 dependencies = [
- "handl-kit-arrow-lower 0.1.0 (git+https://github.com/handl-lang/platform?rev=823b62ba272d0fe44d32bad521f30bcdf27067f6)",
+ "handl-kit-arrow-lower",
  "handl-plugin-compile",
  "serde_json",
 ]
@@ -1579,7 +1570,7 @@ dependencies = [
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
- "handl-kit-arrow-lower 0.1.0",
+ "handl-kit-arrow-lower",
  "handl-kit-canonical",
  "handl-kit-data-canonical",
  "handl-language",
@@ -2951,3 +2942,11 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[patch.unused]]
+name = "handl-plugin-applier-bootstrap"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-default"
+version = "0.1.0"

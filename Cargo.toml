@@ -201,99 +201,102 @@ serde_json = "1"
 #   GIT_CONFIG_KEY_1="url.file:///home/luis/GitHub/handl-lang/kit-canonical.insteadOf" \
 #   GIT_CONFIG_VALUE_1="https://github.com/handl-lang/kit-canonical" \
 #   cargo check --workspace
-[patch."https://github.com/handl-lang/lang"]
-handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
-
-[patch."https://github.com/handl-lang/python"]
-handl-plugin-sdkgen-emitter-python = { path = "../python/modules/sdkgen-python" }
-
+# dev-link: begin
 [patch."https://github.com/handl-lang/c"]
 handl-plugin-sdkgen-backend-c = { path = "../c/modules/sdkgen-c" }
-
-[patch."https://github.com/handl-lang/otlp"]
-handl-plugin-lib-otlp-std = { path = "../otlp/modules/lib-otlp-std" }
-
-[patch."https://github.com/handl-lang/web"]
-handl-plugin-compile-js = { path = "../web/modules/compile-js" }
-handl-plugin-sdkgen-backend-webidl = { path = "../web/modules/sdkgen-webidl" }
-
+[patch."https://github.com/handl-lang/dot"]
+handl-plugin-compile-dot = { path = "../dot/modules/compile-dot" }
+[patch."https://github.com/handl-lang/ffi"]
+handl-plugin-ffi = { path = "../ffi/modules/ffi" }
+[patch."https://github.com/handl-lang/handl"]
+handl-plugin-compile-handl = { path = "../handl/modules/compile-handl" }
+[patch."https://github.com/handl-lang/kit-canonical"]
+handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
+[patch."https://github.com/handl-lang/lang"]
+handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
 [patch."https://github.com/handl-lang/native"]
 handl-plugin-compile-llvm = { path = "../native/modules/compile-llvm" }
 handl-plugin-engine-exec-cranelift = { path = "../native/modules/exec-cranelift" }
-
-# ADR-0128 Phase 7: the dot/term/sexp/handl compiler targets each live in
-# their own repo; local development resolves them from sibling checkouts.
-[patch."https://github.com/handl-lang/dot"]
-handl-plugin-compile-dot = { path = "../dot/modules/compile-dot" }
-
-[patch."https://github.com/handl-lang/term"]
-handl-plugin-compile-term = { path = "../term/modules/compile-term" }
-
+[patch."https://github.com/handl-lang/otlp"]
+handl-plugin-lib-otlp = { path = "../otlp/modules/lib-otlp" }
+handl-plugin-lib-otlp-std = { path = "../otlp/modules/lib-otlp-std" }
+[patch."https://github.com/handl-lang/platform"]
+handl-bench = { path = "../platform/crates/bench" }
+handl-ext-tests = { path = "../platform/crates/ext-tests" }
+handl-emitters = { path = "../platform/crates/handl-emitters" }
+handl-kit-arrow-lower = { path = "../platform/crates/handl-kit-arrow-lower" }
+handl-kit-data = { path = "../platform/crates/handl-kit-data" }
+handl-language = { path = "../platform/crates/handl-language" }
+handl-runtime = { path = "../platform/crates/handl-runtime" }
+handl-test-utils = { path = "../platform/crates/handl-test-utils" }
+handl-value = { path = "../platform/crates/handl-value" }
+handl-host-tooling = { path = "../platform/crates/host-tooling" }
+handl-platform = { path = "../platform/crates/platform" }
+handl-platform-tests = { path = "../platform/crates/platform-tests" }
+handl-plugin-applier = { path = "../platform/crates/plugin-applier" }
+handl-plugin-applier-bootstrap = { path = "../platform/crates/plugin-applier-bootstrap" }
+handl-plugin-applier-default = { path = "../platform/crates/plugin-applier-default" }
+handl-plugin-compile = { path = "../platform/crates/plugin-compile" }
+plugin-engine = { path = "../platform/crates/plugin-engine" }
+handl-plugin-engine-exec = { path = "../platform/crates/plugin-engine-exec" }
+handl-plugin-engine-exec-bytecode = { path = "../platform/crates/plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-tree-walk = { path = "../platform/crates/plugin-engine-exec-tree-walk" }
+handl-plugin-engine-fmt = { path = "../platform/crates/plugin-engine-fmt" }
+handl-plugin-engine-lex = { path = "../platform/crates/plugin-engine-lex" }
+handl-plugin-engine-lex-pattern = { path = "../platform/crates/plugin-engine-lex-pattern" }
+handl-plugin-engine-lint = { path = "../platform/crates/plugin-engine-lint" }
+handl-plugin-engine-parse = { path = "../platform/crates/plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = { path = "../platform/crates/plugin-engine-parse-pratt" }
+handl-plugin-engine-test = { path = "../platform/crates/plugin-engine-test" }
+handl-plugin-engine-transform = { path = "../platform/crates/plugin-engine-transform" }
+handl-plugin-engine-transform-rewrite = { path = "../platform/crates/plugin-engine-transform-rewrite" }
+handl-plugin-engine-typecheck = { path = "../platform/crates/plugin-engine-typecheck" }
+handl-plugin-engine-typecheck-handl = { path = "../platform/crates/plugin-engine-typecheck-handl" }
+handl-plugin-exec-cache = { path = "../platform/crates/plugin-exec-cache" }
+handl-plugin-ext-compile = { path = "../platform/crates/plugin-ext-compile" }
+handl-plugin-ext-diag = { path = "../platform/crates/plugin-ext-diag" }
+handl-plugin-ext-eval = { path = "../platform/crates/plugin-ext-eval" }
+handl-plugin-ext-fmt = { path = "../platform/crates/plugin-ext-fmt" }
+handl-plugin-ext-kit = { path = "../platform/crates/plugin-ext-kit" }
+handl-plugin-ext-lint = { path = "../platform/crates/plugin-ext-lint" }
+handl-plugin-ext-plugin = { path = "../platform/crates/plugin-ext-plugin" }
+handl-plugin-ext-refinement = { path = "../platform/crates/plugin-ext-refinement" }
+handl-plugin-ext-sdkgen = { path = "../platform/crates/plugin-ext-sdkgen" }
+handl-plugin-ext-test = { path = "../platform/crates/plugin-ext-test" }
+handl-plugin-ext-typecheck = { path = "../platform/crates/plugin-ext-typecheck" }
+handl-plugin-lib-handl = { path = "../platform/crates/plugin-lib-handl" }
+handl-plugin-lib-scheduler = { path = "../platform/crates/plugin-lib-scheduler" }
+handl-plugin-lib-tag = { path = "../platform/crates/plugin-lib-tag" }
+handl-plugin-load = { path = "../platform/crates/plugin-load" }
+handl-plugin-loader-native = { path = "../platform/crates/plugin-loader-native" }
+handl-plugin-module = { path = "../platform/crates/plugin-module" }
+handl-plugin-sdkgen = { path = "../platform/crates/plugin-sdkgen" }
+handl-plugin-sdkgen-emitter-file = { path = "../platform/crates/plugin-sdkgen-emitter-file" }
+[patch."https://github.com/handl-lang/python"]
+handl-plugin-sdkgen-emitter-python = { path = "../python/modules/sdkgen-python" }
 [patch."https://github.com/handl-lang/sexp"]
 handl-plugin-compile-sexp = { path = "../sexp/modules/compile-sexp" }
-
-[patch."https://github.com/handl-lang/handl"]
-handl-plugin-compile-handl = { path = "../handl/modules/compile-handl" }
-
-[patch."https://github.com/handl-lang/ffi"]
-handl-plugin-ffi = { path = "../ffi/modules/ffi" }
-
-[patch."https://github.com/handl-lang/kit-canonical"]
-handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
-
-# The moved crates' manifests dep on platform crates over the platform git
-# source; unify them with the in-tree copies so this workspace never builds
-# a platform crate twice (a path `handl-runtime` and a git `handl-runtime`
-# would be distinct, incompatible packages).
 [patch."https://github.com/handl-lang/stdlib"]
 handl-plugin-lib-stdlib = { path = "../stdlib/crates/plugin-lib-stdlib" }
-handl-plugin-lib-kv = { path = "../stdlib/modules/kv" }
-handl-plugin-lib-kv-hashmap = { path = "../stdlib/modules/kv-hashmap" }
+handl-plugin-lib-char-native = { path = "../stdlib/modules/char-native" }
 handl-plugin-lib-crypto = { path = "../stdlib/modules/crypto" }
 handl-plugin-lib-encoding = { path = "../stdlib/modules/encoding" }
-handl-plugin-lib-parse = { path = "../stdlib/modules/parse" }
-handl-plugin-lib-serialize = { path = "../stdlib/modules/serialize" }
-handl-plugin-lib-char-native = { path = "../stdlib/modules/char-native" }
+handl-plugin-lib-kv = { path = "../stdlib/modules/kv" }
+handl-plugin-lib-kv-hashmap = { path = "../stdlib/modules/kv-hashmap" }
+handl-plugin-lib-lang-compile = { path = "../stdlib/modules/lib-lang-compile" }
+handl-plugin-lib-lang-eval = { path = "../stdlib/modules/lib-lang-eval" }
 handl-plugin-lib-lang-lex = { path = "../stdlib/modules/lib-lang-lex" }
 handl-plugin-lib-lang-parse = { path = "../stdlib/modules/lib-lang-parse" }
-handl-plugin-lib-lang-eval = { path = "../stdlib/modules/lib-lang-eval" }
-handl-plugin-lib-lang-typecheck = { path = "../stdlib/modules/lib-lang-typecheck" }
-handl-plugin-lib-lang-compile = { path = "../stdlib/modules/lib-lang-compile" }
 handl-plugin-lib-lang-run-compiled = { path = "../stdlib/modules/lib-lang-run-compiled" }
-
-[patch."https://github.com/handl-lang/platform"]
-handl-emitters = { path = "crates/handl-emitters" }
-handl-kit-data = { path = "crates/handl-kit-data" }
-handl-language = { path = "crates/handl-language" }
-handl-platform = { path = "crates/platform" }
-handl-plugin-engine-exec = { path = "crates/plugin-engine-exec" }
-handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
-handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
-handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
-handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
-handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
-handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform-rewrite" }
-handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
-handl-test-utils = { path = "crates/handl-test-utils" }
-handl-plugin-engine-typecheck-handl = { path = "crates/plugin-engine-typecheck-handl" }
-handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
-
-
-handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
-
-
-
-
-
-
-handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
-handl-plugin-module = { path = "crates/plugin-module" }
-handl-plugin-compile = { path = "crates/plugin-compile" }
-handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
-plugin-engine = { path = "crates/plugin-engine" }
-handl-runtime = { path = "crates/handl-runtime" }
-handl-value = { path = "crates/handl-value" }
+handl-plugin-lib-lang-typecheck = { path = "../stdlib/modules/lib-lang-typecheck" }
+handl-plugin-lib-parse = { path = "../stdlib/modules/parse" }
+handl-plugin-lib-serialize = { path = "../stdlib/modules/serialize" }
+[patch."https://github.com/handl-lang/term"]
+handl-plugin-compile-term = { path = "../term/modules/compile-term" }
+[patch."https://github.com/handl-lang/web"]
+handl-plugin-compile-js = { path = "../web/modules/compile-js" }
+handl-plugin-sdkgen-backend-webidl = { path = "../web/modules/sdkgen-webidl" }
+# dev-link: end
 
 [profile.release]
 lto = "fat"
