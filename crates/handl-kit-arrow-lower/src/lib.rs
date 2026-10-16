@@ -297,6 +297,13 @@ fn lower_node(
         // quoted step function is unquoted back into its body scheme.
         "loop" => lower_loop(ast, lang, node, env, params),
 
+        // `eval.while` is `Seq[proj_child 0, Loop[loop_step(proj_child 1)]]`
+        // — the step placeholder sits in `Loop.body`, a non-input
+        // position, so the scheme declines. Lowered here instead
+        // (ADR-0147): `while init step` → `Seq[init, Loop[body]]` where
+        // `body` reproduces the `loop_step` protocol in combinators.
+        "while" => lower_while(ast, lang, node, env, params),
+
         // `return` is early-exit control flow the substitution model
         // cannot express. `eval.return` declares only the plain value
         // path (`proj_child 0`) — the early exit lives in `eval_rec`'s
@@ -489,7 +496,8 @@ fn instantiate_scheme(
         Term::Child { role } => {
             if !input_faithful {
                 return Err(format!(
-                    "lower: `Child` placeholder for role `{role}` sits in a non-input position"
+                    "lower: `Child` placeholder for role `{role}` sits in a non-input position (kind `{}`)",
+                    ctx.node.kind
                 ));
             }
             lower_role_child(role, ctx)
@@ -635,7 +643,9 @@ fn instantiate_op(
         "proj_child" | "proj_child_or" => {
             if !input_faithful {
                 return Err(format!(
-                    "lower: `{name}` placeholder sits in a non-input position"
+                    "lower: `{name}` placeholder sits in a non-input position (kind `{}`, child {})",
+                    ctx.node.kind,
+                    lit.and_then(Value::as_u64).map(|i| i.to_string()).unwrap_or_default()
                 ));
             }
             let i = lit
@@ -656,7 +666,10 @@ fn instantiate_op(
         }
         "proj_rest" => {
             if !input_faithful {
-                return Err("lower: `proj_rest` placeholder sits in a non-input position".into());
+                return Err(format!(
+                    "lower: `proj_rest` placeholder sits in a non-input position (kind `{}`)",
+                    ctx.node.kind
+                ));
             }
             // Pack children 1..N into one array value, mirroring the
             // `proj_rest` eval op: each lowered child runs on the input
@@ -1637,6 +1650,143 @@ fn lower_loop(
         }
     }
     Ok(Term::seq(input, Term::loop_feedback(unquote_term(step))))
+}
+
+/// `while init { step }` — the state-fold surface (ADR-0052). `eval.while`
+/// (`Seq[proj_child 0, Loop[loop_step(proj_child 1)]]`) cannot
+/// instantiate: the step placeholder sits in `Loop.body`, a non-input
+/// position, so the scheme declines. The lowering spells the `loop_step`
+/// protocol out in combinators instead (ADR-0147).
+///
+/// `Loop`'s body runs on the `[in, st]` pair (a 2-array — `proj_child`
+/// projects it): `current = st == null ? in : st`, the step arrow is
+/// applied to the state destructured by param name, and `loop_outcome`
+/// maps `{state: v}` → right(v) / `{out: v}` → left(v) — exactly
+/// `loop_step_outcome`.
+///
+/// A step that *captures* enclosing parameters (`p` in
+/// `drop_where := (xs, p) ~> while .. { (xs, acc) ~> .. p(x) .. }`)
+/// lowers to a bound-record producer whose `__bound__` projects the
+/// *enclosing* input — so it is hoisted out of the loop via
+/// `product(init, step)` (the `lower_loop` precedent) and the body
+/// applies the materialized record instead.
+fn lower_while(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    let init_idx = child_at_role_or_pos(node, lang, "init", 0)
+        .or_else(|| children(node).first().copied())
+        .ok_or_else(|| format!("while at {} missing init child", node_index(node)))?;
+    let step_idx = child_at_role_or_pos(node, lang, "step", 1)
+        .or_else(|| children(node).get(1).copied())
+        .ok_or_else(|| format!("while at {} missing step child", node_index(node)))?;
+    let step_node = ast
+        .get(AstRef::new(step_idx))
+        .ok_or_else(|| format!("while step {} out of bounds", step_idx))?;
+    if step_node.kind != "function" {
+        return Err(format!(
+            "lower: `while` step must be a function literal, got `{}`",
+            step_node.kind
+        ));
+    }
+    let step_params = function_params(ast, lang, step_node)?;
+    let init_t = lower_node(ast, lang, init_idx, env, params)?;
+    let step_t = lower_node(ast, lang, step_idx, env, params)?;
+
+    let proj = |i: i64| Term::op_native_lit("proj_child", vec![], i);
+    let id = Term::op_native("id", vec![]);
+    let null = Term::const_value(Value::Null);
+    // `pair -> (st == null)` — the Loop body's second component.
+    let is_st_null = Term::op_native("eq", vec![proj(1), null.clone()]);
+    // A field projection on the `Seq`-preceded input: `seq(t, field_access
+    // p)` evaluates `t` then reads field `p` of its result.
+    let field = |t: Term, name: &str| {
+        Term::seq(
+            t,
+            Term::op_native_lit("field_access", vec![id.clone()], Value::from(name)),
+        )
+    };
+
+    // Bound-arrow record producer (`{__term__, __bound__}`) — the step
+    // captured enclosing parameters, so it must be materialized on the
+    // *outer* input before the loop starts (`product(init, step)` → the
+    // Loop input is `[init_v, rec]`).
+    let captures = matches!(
+        &step_t,
+        Term::Op { name, lit: Some(Value::Array(keys)), .. }
+            if name == "record" && keys.iter().any(|k| k.as_str() == Some("__term__"))
+    );
+
+    if captures {
+        // Loop input = `[init_v, rec]`; body input = `[[init_v, rec], st]`.
+        let rec = Term::seq(proj(0), proj(1));
+        let init_v = Term::seq(proj(0), proj(0));
+        let cur = Term::seq(
+            Term::op_native("product", vec![is_st_null, id.clone()]),
+            Term::seq(
+                Term::op_native("pair_tag", vec![]),
+                Term::choice(init_v, proj(1)),
+            ),
+        );
+        // App args: one per own param — `cur` destructured by name for
+        // multi-param, `cur` itself for a single param (the flat `__bound__
+        // ++ args` convention on both apply paths).
+        let arg_terms: Vec<Term> = if step_params.len() > 1 {
+            step_params
+                .iter()
+                .map(|p| field(cur.clone(), p))
+                .collect()
+        } else {
+            vec![cur]
+        };
+        let body = Term::seq(
+            Term::app(rec, arg_terms),
+            Term::op_native("loop_outcome", vec![]),
+        );
+        return Ok(Term::seq(
+            Term::op_native("product", vec![init_t, step_t]),
+            Term::loop_feedback(body),
+        ));
+    }
+
+    // Non-capturing: unquote the step and run its body on the packed
+    // argument tuple.
+    let step_body = unquote_term(step_t);
+    let cur = Term::seq(
+        Term::op_native("product", vec![is_st_null, id.clone()]),
+        Term::seq(
+            Term::op_native("pair_tag", vec![]),
+            Term::choice(proj(0), proj(1)),
+        ),
+    );
+    let pack = if step_params.len() > 1 {
+        Term::op_native(
+            "array",
+            step_params
+                .iter()
+                .map(|p| {
+                    Term::op_native_lit(
+                        "field_access",
+                        vec![id.clone()],
+                        Value::from(p.as_str()),
+                    )
+                })
+                .collect(),
+        )
+    } else {
+        id
+    };
+    let body = Term::seq(
+        cur,
+        Term::seq(
+            pack,
+            Term::seq(step_body, Term::op_native("loop_outcome", vec![])),
+        ),
+    );
+    Ok(Term::seq(init_t, Term::loop_feedback(body)))
 }
 
 fn lower_field_access(

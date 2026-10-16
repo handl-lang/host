@@ -1534,6 +1534,18 @@ pub fn apply_native_op(
             let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
             Ok((pair(left, right), false))
         }
+        // `loop_outcome` — the arrow-lowering counterpart of the
+        // `loop_step` op's outcome mapping: `{state: v}` → right(v),
+        // `{out: v}` → left(v), anything else → left(v). Lowered `while`
+        // terms emit it as the Loop body's tail so a serialized term
+        // interpreted here (embedded `__term__`/handler impls) keeps the
+        // same contract.
+        "loop_outcome" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            Ok((loop_step_outcome(v), false))
+        }
         "sum" => {
             if !ctx.supports(OpService::ApplyArrow) {
                 return Ok(None);
