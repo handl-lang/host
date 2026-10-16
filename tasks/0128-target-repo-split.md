@@ -33,8 +33,18 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       `runtime_for_lang_with_registry` are the injection seam for hosts
       that opt out and wire their own exec engine. The LSP closure
       shrink lands with 0.9 (`plugin-ffi` also pulls cranelift crates).
-- [ ] **0.6 Manifests**: add `license`, `description`, `repository` to
+- [x] **0.6 Manifests**: add `license`, `description`, `repository` to
       every crate; git-tag `v0.1.0`.
+      **Done (manifests; tag deferred to the user):** `[workspace.package]`
+      declares `license = "MIT OR Apache-2.0"` +
+      `repository = "https://github.com/handl-lang/platform"`; all 90
+      packages (89 `crates/**/Cargo.toml` + the root `handl` package)
+      inherit via `license.workspace`/`repository.workspace` and carry a
+      `description` (extracted from each crate's `//!` doc line;
+      hand-written for the 9 undocumented crates). Ready for `v0.1.0` —
+      **note:** no `LICENSE` files exist in the repo yet; the declared
+      SPDX expression assumes the intended dual license and the files
+      should be added before crates.io publishing.
 - [ ] **0.7 `pub const` re-export rule**: each `include_str!`ed package
       gets exactly one owner; other consumers take `pub const`. Apply to
       `hello`, `transform`, `stats` first (each pinned by ≥2 crates).
