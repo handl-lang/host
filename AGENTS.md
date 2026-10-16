@@ -81,6 +81,44 @@ Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
 (12 flagged slow). Note nextest does not run doctests — `cargo test --doc
 --workspace` is the separate check for those.
 
+## CI — Dagger, not GHA
+
+CI is a Dagger module (`dagger/src/ci/main.py`, Python SDK — Go has no
+SDK advantage here and Python needs no toolchain beyond uv, which the
+module brings itself). One definition runs locally and on any box with
+docker + the dagger CLI; there is no GitHub Actions config.
+
+```bash
+dagger functions               # list pipeline functions
+dagger call doctor             # smoke-test image + dev-link, no compile
+dagger call test               # nextest + doctests (default 1 shard, -j 2)
+dagger call test --shards 8    # scale out: 8 parallel nextest partitions
+dagger call coverage-report export --path=coverage
+dagger call coverage-gate      # blocking: 100% lines on tooling crates
+dagger call dogfood --cli-source ../cli        # local sibling checkout
+dagger call dogfood --token env://HANDL_TOKEN  # cloud: fetches cli@main
+dagger call ci --token env://HANDL_TOKEN       # the whole gate
+```
+
+- **Auth**: all handl-lang dep repos are private → pass a GitHub token as
+  `--token` for anything that compiles. The token mounts as a secret; the
+  `insteadOf` rewrite runs inside the same exec, so it never lands in an
+  image layer.
+- **dev-link in the container**: `_workspace` mounts the source at
+  `/work/platform` and runs `scripts/dev-link.sh`, which rewrites the
+  `[patch]` block to only the siblings present — everything else resolves
+  from `main` (the float policy; same thing GHA did by "stripping").
+- **Sharding, not sizing**: `-j` stays low (memory-bound suites — see
+  above); scale out with `--shards N`.
+- **Trigger**: `scripts/ci-watch.sh` polls `origin/main`, runs `dagger
+  call ci` in a detached worktree per new sha, appends to
+  `ci-watch.log`, and optionally posts commit statuses
+  (`CI_POST_STATUS=1`, needs `gh` auth). Deploy = run that script on a
+  box; a systemd unit or tmux is enough.
+
+The retired `.github/workflows/` (test / coverage / dogfood-gate) were
+removed in the same change that added the module.
+
 ## Bootstrap Tooling (ADRs 0085-0091)
 
 The canonical toolchain is implemented in Rust on the generic plugin substrate.
@@ -183,7 +221,8 @@ lexer to strip).
 
 The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate over
 `handl-packages/` is scripted in `scripts/dogfood-gate.sh`
-and wired in `.github/workflows/dogfood-gate.yml` as a **blocking** CI job
+and wired as a **blocking** step in the Dagger CI pipeline
+(`dagger call dogfood` / `dagger call ci`, see `dagger/src/ci/main.py`)
 (the gate is green; `continue-on-error` was removed).
 
 All four phases are clean over the 177-file corpus:
