@@ -27,8 +27,6 @@ members = [
   "crates/plugin-loader-native/tests/fixtures/native-echo",
   "crates/plugin-lib-handl",
 
-  "crates/plugin-lib-otlp",
-  "crates/plugin-lib-otlp-std",
 
   "crates/plugin-lib-scheduler",
   "crates/plugin-lib-tag",
@@ -132,8 +130,9 @@ handl-plugin-lib-encoding = { git = "https://github.com/handl-lang/stdlib", rev 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 handl-plugin-lib-kv = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
-handl-plugin-lib-otlp = { path = "crates/plugin-lib-otlp" }
-handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
+# ADR-0128 Phase 4: the otlp modules live in the `otlp` repo; local
+# development resolves them from the sibling checkout via `[patch]` below.
+handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/otlp", rev = "1764c028e0c685820ff8f440d3760f12d97d1468" }
 handl-plugin-lib-parse = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 
 handl-plugin-applier-bootstrap = { path = "crates/plugin-applier-bootstrap" }
@@ -219,6 +218,9 @@ handl-plugin-sdkgen-emitter-python = { path = "../python/modules/sdkgen-python" 
 [patch."https://github.com/handl-lang/c"]
 handl-plugin-sdkgen-backend-c = { path = "../c/modules/sdkgen-c" }
 
+[patch."https://github.com/handl-lang/otlp"]
+handl-plugin-lib-otlp-std = { path = "../otlp/modules/lib-otlp-std" }
+
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 
@@ -273,6 +275,7 @@ handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-plugin-module = { path = "crates/plugin-module" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-runtime = { path = "crates/handl-runtime" }
+handl-value = { path = "crates/handl-value" }
 
 [profile.release]
 lto = "fat"
