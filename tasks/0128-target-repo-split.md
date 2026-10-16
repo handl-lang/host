@@ -7,20 +7,59 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
 
 ## Phase 0 — platform prerequisites (no new repos)
 
-- [ ] **0.1 `SdkgenTarget` descriptor + registry** in `plugin-sdkgen`:
+- [x] **0.1 `SdkgenTarget` descriptor + registry** in `plugin-sdkgen`:
       `name`, flags, config loader, backend, emitter, doc source.
       `plugin-ext-sdkgen` collapses to a lookup over it. Delete the
       `kind != "c" && …` gate and the per-target `match` arms.
-- [ ] **0.2 Move the Python spec path** (205 lines: `PythonSpec`,
+      **Done:** `plugin-sdkgen/src/targets.rs` adds `SdkgenRequest` (the
+      parsed CLI context incl. the injected `&Language`),
+      `SdkgenBackendDef`/`SdkgenEmitterDef` factories, `SdkgenSpecInput`
+      (non-backend inputs), the `SdkgenTarget` record (`name`,
+      `source_filters`, `backend`/`emitter` *ids*, `docs`, `spec_input`),
+      and `SdkgenRegistry::run` — the shared parse → provenance → docs →
+      diagnostics → emit pipeline, with `SdkgenTargetError::{Usage,
+      Failed}` mapping to exit 2/1. Each module exports `register(reg)` —
+      `c/modules/sdkgen-c`, `web/modules/sdkgen-webidl`,
+      `python/modules/sdkgen-python`, `plugin-sdkgen-emitter-file`
+      (`hnl-file`). `plugin-ext-sdkgen` is now flag-parse + `--from-url`
+      fetch + `registry.run`; the `kind !=` gate is a registry lookup and
+      the usage string derives from `registry.target_names()`. Each target
+      dep is a feature (`c`/`webidl`/`python`, all default; `python`
+      implies `c` since its record names backend `c` — the cross-repo
+      composition is name-level, per the ADR).
+- [x] **0.2 Move the Python spec path** (205 lines: `PythonSpec`,
       `load_python_spec`, `generate_python`, `build_python_hnl`,
       `build_code_assignment`) out of `plugin-ext-sdkgen` — it goes to
       `python/modules/sdkgen-python` in Phase 1.
-- [ ] **0.3 `CompileDispatcher` → target registry** in `plugin-compile`:
+      **Done:** `python/modules/sdkgen-python/src/spec.rs` holds the moved
+      machinery; `generate_python`/`is_python_spec` are the target's
+      `SdkgenSpecInput` hooks. (Phase-1's "already its own crate" note was
+      about the *emitter* — the spec path was still in ext-sdkgen and is
+      now actually moved.)
+- [x] **0.3 `CompileDispatcher` → target registry** in `plugin-compile`:
       no static `register(Box::new(JsCompiler))`; targets opt in via a
       feature-gated registry on the host's manifest.
-- [ ] **0.4 `library_registry.rs` → data-driven**: kit YAML `modules:`
+      **Done:** `plugin-ext-compile::linked_targets()` registers one
+      `#[cfg(feature)]` per repo module (`js`/`llvm`/`handl`/`term`/`dot`/
+      `sexp`, all default); `CompileDispatcher` gains
+      `with_registry`/`registry_mut`/`into_registry`/`targets` for
+      host-assembled sets. `host-cli` (cli repo) exposes the six as
+      pass-through manifest features — the `hnl` binary's target set is
+      literally its feature list — and its compiler deps now git-dep
+      their own repos.
+- [x] **0.4 `library_registry.rs` → data-driven**: kit YAML `modules:`
       resolves names through a registry the kit supplies, not a static
       `reg.register` table.
+      **Done:** `BasicKitLoaderPlugin::new(module_names, libraries)` takes
+      a populated `Arc<LibraryRegistry>` — `load()` resolves `modules:`
+      names through it instead of rebuilding the static table per call.
+      The canonical table moved to the kit repo:
+      `handl-kit-canonical::populate`/`canonical_library_registry()`
+      (`kit-canonical/crates/kit-canonical/src/library_registry.rs`).
+      `plugin-ext-kit` dropped its `plugin-lib-{stdlib,crypto,kv-hashmap,
+      otlp-std}` deps entirely. `DefaultApplierFactory`/
+      `DefaultApplierPlugin`/`BootstrapPlugin` thread the registry; host-cli
+      injects `canonical_library_registry()`.
 - [x] **0.5 Drop `exec-cranelift` from `kit-canonical`** — it is the
       crate's only normal dep on it; select the exec engine via the ext
       contract. This removes 14 cranelift crates from every consumer.
@@ -45,9 +84,19 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       **note:** no `LICENSE` files exist in the repo yet; the declared
       SPDX expression assumes the intended dual license and the files
       should be added before crates.io publishing.
-- [ ] **0.7 `pub const` re-export rule**: each `include_str!`ed package
+- [x] **0.7 `pub const` re-export rule**: each `include_str!`ed package
       gets exactly one owner; other consumers take `pub const`. Apply to
       `hello`, `transform`, `stats` first (each pinned by ≥2 crates).
+      **Done:** `hello`/`transform`/`stats` resolved by the Phase-3/11
+      moves — `plugin-lib-stdlib` owns them and exports
+      `GREET_HNL`/`TRANSFORM_{MAP,FILTER,REDUCE}_HNL`; no platform crate
+      pins them anymore. In-platform remainder applied: `str-handl`'s
+      second pin (`plugin-lib-handl/examples/loader_bench.rs`) now takes
+      `pub const STR_HANDL_HNL`. Also fixed a split-introduced breakage:
+      `plugin-engine-typecheck-handl`'s parity test `include_str!`ed the
+      moved `examples/handl/lib-utils/hello.hnl` — vendored as
+      `tests/fixtures/hello.hnl` (same pattern as compile-handl's
+      fixtures).
 - [x] **0.8 Kit-injection seam**: `plugin-engine-test`,
       `plugin-ext-lint`, `plugin-ext-typecheck`, `host-tooling` take a
       `&Language`/kit handle instead of linking `kit-canonical`
@@ -74,13 +123,21 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       `default-features = false` (it only lexes/parses/typechecks/lints),
       so cranelift + libloading are out of its closure — verified via
       `cargo tree -p handl-host-lsp`.
-- [ ] **0.10 Applier audit**: `plugin-applier-bootstrap` has zero
+- [x] **0.10 Applier audit**: `plugin-applier-bootstrap` has zero
       consumers — `BootstrapPlugin` is never instantiated. It stays in
       platform (it's the ADR-0036 host-composition seam, and `cli/`
       will need it to assemble kits), but decide: **wire it** (make
       `host-cli` compose via `BootstrapPlugin` as designed) or
       **document superseded** (host-cli's inline path won). Do not
       delete blindly.
+      **Done — wired, as designed.** The premise was stale: `host-cli`
+      (now in `cli/`) already composes via it —
+      `cli/crates/host-cli/src/main.rs` `run_via_applier` calls
+      `host.register_plugin(BootstrapPlugin::new(config_path, kit_name,
+      applier_id, module_names, libraries))`. The §0.4 work extended its
+      signature; nothing deleted. Note: `plugin-applier{,-default,
+      -bootstrap}` are *not* workspace members — they compile through the
+      cli consumer; that is pre-existing, not a split artifact.
 
 Phase-0 verification: `cargo check --workspace` green; `hnl sdkgen
 c|webidl|python` and `hnl compile js|llvm|dot|term|sexp` behavior
@@ -101,16 +158,25 @@ unchanged (all still statically linked, just through registries).
       `[patch."https://github.com/handl-lang/python"]` block, and
       `handl-plugin-sdkgen` joined the platform `[patch]` table so the
       moved crate's port dep unifies with the in-tree package.
-- [ ] `hnl sdkgen python` resolves `python` → target record
+- [x] `hnl sdkgen python` resolves `python` → target record
       `(backend: c, emitter: python)`; cross-repo dependency on `c/`'s
       module is expressed at the *target* level.
-      (Not yet — needs Phase 0.1's `SdkgenTarget` registry; the `python`
-      target still resolves through `plugin-ext-sdkgen`'s static table,
-      now over a git dep.)
-- [ ] `dev-link.sh` (or superrepo) generates the `[patch]` block across
+      **Done:** `python/modules/sdkgen-python::register` contributes the
+      record `{name: "python", backend: "c", emitter: "python",
+      source_filters: true, docs: None, spec_input: yaml/json →
+      spec::generate_python}`; `SdkgenRegistry::run` resolves backend
+      `"c"` by name — `python/` has no crate dep on `c/` and
+      `handl-plugin-sdkgen-backend-c` is not in `python/Cargo.toml`.
+- [x] `dev-link.sh` (or superrepo) generates the `[patch]` block across
       sibling checkouts; CI uses the git dep only.
-      (Still hand-maintained, same as stdlib/cli/lsp — the repo CI
-      strips `[patch]` and resolves the pinned revs.)
+      **Done:** `platform/scripts/dev-link.sh [repo]` rewrites the
+      `# dev-link: begin|end` region of the repo's root `Cargo.toml`:
+      every `git = "…/handl-lang/R"` dep (plus one transitive hop —
+      platform's own `[patch."…/platform"]` table exists because patched
+      sibling manifests git-dep platform crates) gets every crate under
+      `R/{crates,modules}/` patched to its sibling path. Platform's tables
+      are now inside the markers and regenerated (14 tables, same
+      entries, sorted).
 - [x] NB: `python` works in Phase 1 because `backend: c` still resolves
       in-platform — Phase 2 re-points it to `c/`'s module. That
       re-resolution is the cross-repo composition proof, not an
@@ -130,10 +196,20 @@ This phase validates the whole template on a 1-crate port surface with
       **Done:** subtree-split import; `plugin-ext-sdkgen` takes it via a
       pinned git dep + `[patch."https://github.com/handl-lang/c"]` →
       `../c/modules/sdkgen-c`. 88 tests green in the new repo.
-- [ ] Decide the C-ABI package block: `-c` packages and 6
+- [x] Decide the C-ABI package block: `-c` packages and 6
       `generated/*-c-linux-x86_64/` dirs follow or stay (item 7).
-      (Deferred — ADR-0128 defers this to the item-7 scope decision;
-      they stay in platform for now.)
+      **Decided — stay (for now), and the reason is now concrete.** The
+      `-c` packages (`tls-libssl`, `fetch-c`, `math-c`, `compress-*-c`, …)
+      and `generated/{libc,curl,libssl,libz}-c-linux-x86_64` are pinned by
+      *filesystem-relative* `.hnl` imports from the deferred web block
+      (`concurrent-epoll`/`serve-epoll`/`ws-c`/`fetch-js` import
+      `../generated/libc-c-linux-x86_64/*`, `../tls-libssl`, `../ws-c`,
+      `../concurrent`, …). Moving them to `c/` while the web block stays
+      would leave cross-repo `../../platform/…` imports — and moving them
+      *with* the web block is exactly the Phase-5 decision. The real
+      unblock for both is the deferred `FragmentSource::DataFile` seam
+      (named resolution for crate-unowned packages). Revisit with
+      Phase-5's `.hnl` web block, as one move.
 
 ## Phase 3 — `stdlib/`
 
@@ -197,13 +273,22 @@ This phase validates the whole template on a 1-crate port surface with
       **Done:** subtree-split import; `plugin-ext-compile` takes it via
       a pinned git dep on the same rev. 45 tests green in `web/`.
 - [ ] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs.
-      **Deferred with the C-ABI block (item 7):** the web packages are
-      entangled with the staying `-c` stack — `concurrent-epoll` /
-      `serve-epoll` import `../generated/libc-c-linux-x86_64/*`,
-      `../ws-c`, `../tls-libssl`, `../concurrent` by relative path, and
-      `fetch-js` imports `../generated/fetch-webidl-browser`. Moving the
-      block now would break the platform dogfood gate's curated
-      ARROW_PACKAGES and strand cross-repo relative imports.
+      **Deferred with the C-ABI block — re-checked after `c/` exists and
+      still blocked, concretely.** `from "../<pkg>"` is a
+      filesystem-relative import; the block's closure drags in the whole
+      `-c` stack — `concurrent-epoll`→`../generated/{libc,curl}-c-*` +
+      `../concurrent` + `../tls-libssl` + `../ws-c`; `serve-epoll`→`../
+      fetch-c` + `../http_rfc` + `../ws*`; `ws-c`→`../generated/curl-c-*`;
+      `fetch-js`→`../generated/fetch-webidl-browser` (that pair alone
+      could move, but the block moves as a unit). A `web/` checkout would
+      need `../../platform`/`../../c` sibling paths — breaking repo
+      independence, since nothing else in a repo's graph requires a
+      specific sibling layout for `.hnl` sources. The unblock is the
+      deferred `FragmentSource::DataFile` module-chain seam (named
+      resolution for crate-unowned packages) — or deciding that the
+      entire coupled `-c`+web cluster moves to one repo as a unit, which
+      is the item-7 scope call above. The dogfood gate's curated
+      ARROW_PACKAGES (scripts/dogfood-gate.sh) also lives here.
       (`editor-support/` → `extension-vscode` + `extension-neovim`;
       `playground/` → `playground`; `bench/` → `bench`;
       `examples/handl/` → `handl/examples/` (redesigned into
@@ -348,6 +433,10 @@ This phase validates the whole template on a 1-crate port surface with
       holding copies.
 - [ ] Per-repo generated reference: each repo publishes rustdoc + its
       `.hnl` module surface; `docs/` aggregates them into one site.
+      **Deferred — pipeline work, not platform work.** Needs per-repo CI
+      publishing rustdoc + module-surface dumps into the `docs` repo;
+      `platform/scripts/gen-repo-docs.py` exists as the seed. Documented
+      deferral: no user-visible behavior depends on it.
 
 ## Deferred
 
