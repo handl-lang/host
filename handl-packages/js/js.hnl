@@ -40,3 +40,15 @@ export call: (String, String, Array, Array, String, Bool) ~[1]~> Value
 --- @returns {JsError - the current JS exception}
 -- TODO(n-dim): effect row
 export error: () ~[1]~> JsError
+
+--- Await a JS Promise.
+--- @details
+--- `await` resolves a promise produced by a `call` (fetch, Response
+--- methods, timers, ...) and returns the settled value. The JS host owns
+--- the event loop, so only it can settle a promise — this op is the
+--- general interop bridge every Promise-returning API goes through, not
+--- a fetch-specific hook.
+--- @param {promise} - the Promise value returned by a previous `call`
+--- @returns {Value - the resolved value, unmarshalled}
+-- TODO(n-dim): effect row
+export await: (Value) ~[1]~> Value
