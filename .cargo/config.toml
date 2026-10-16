@@ -24,7 +24,9 @@ jobs = 4
 # Fast test runner using cargo-nextest (parallel within binaries, cached
 # compilations). Install with: cargo install cargo-nextest
 t = "nextest run --workspace"
-te = "nextest run --workspace --exclude handl-host-lsp"
+# `handl-host-lsp` moved to the lsp repo (ADR-0128 Phase 8); `te` used to
+# exclude its suite, which no longer exists here.
+te = "nextest run --workspace"
 
 # Print a per-crate coverage summary to the terminal (fast feedback).
 cov = "llvm-cov --workspace --summary-only"

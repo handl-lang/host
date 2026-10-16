@@ -16,6 +16,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: platform
+
+      # ADR-0128 Phase 8: `hnl` lives in the `cli` repo; the gate builds it
+      # from the sibling checkout (`../cli`, relative to the platform
+      # workspace). Needs a token that can read the private cli repo.
+      - uses: actions/checkout@v4
+        with:
+          repository: handl-lang/cli
+          path: cli
+          token: ${{ secrets.HANDL_CROSS_REPO_TOKEN }}
+
+      # cli's manifests git-depend on the other private handl-lang repos;
+      # rewrite https fetches through the token so cargo can resolve them.
+      - name: Authenticate private git deps
+        run: |
+          git config --global \
+            url."https://x-access-token:${{ secrets.HANDL_CROSS_REPO_TOKEN }}@github.com/".insteadOf \
+            "https://github.com/"
 
       - name: Install Rust toolchain
         run: |
@@ -32,8 +51,6 @@ jobs:
           key: dogfood-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: dogfood-cargo-${{ runner.os }}-
 
-      - name: Build hnl
-        run: cargo build -p handl-host-cli
-
       - name: Run dogfood gate
+        working-directory: platform
         run: ./scripts/dogfood-gate.sh

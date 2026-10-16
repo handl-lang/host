@@ -6,7 +6,8 @@
 cargo check                          # workspace check
 cargo test --workspace               # full test suite
 cargo test -p <crate-name>           # single crate
-cargo build -p handl-host-cli        # build the hnl binary
+# `hnl` moved to the sibling `cli` repo (ADR-0128 Phase 8):
+(cd ../cli && cargo build -p handl-host-cli)   # ../cli/target/debug/hnl
 ```
 
 `cargo test --workspace` is **green**: 357 suites / 4,298 tests passed,
@@ -73,7 +74,9 @@ Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
 
 The canonical toolchain is implemented in Rust on the generic plugin substrate.
 All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
-`hnl` CLI in `host-cli`.
+`hnl` CLI in `host-cli` (sibling **`cli`** repo since ADR-0128 Phase 8; the
+LSP crates `host-lsp`/`plugin-lsp`/`plugin-lsp-std`/`plugin-ext-lsp` moved
+to the **`lsp`** repo in the same phase).
 
 ### Crate map
 

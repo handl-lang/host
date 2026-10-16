@@ -18,11 +18,11 @@
 - `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments.
 - `crates/handl-kit-*` / `kit-canonical` — canonical language data assembly and ready-made kit loading.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
-- `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `fmt`, `lint`, `kit`, `cli`, `lsp`, `eval`, `refinement`, `compile`, `plugin`.
+- `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin` (`cli`/`lsp` moved to their host repos in ADR-0128 Phase 8).
 - `crates/plugin-engine-*` — concrete tooling engines: `lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform` (`transform-rewrite`), `exec` (`tree-walk`, `bytecode`, `cranelift`).
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `compress`, `kv`, `http`, `os`, `unicode`, `rand`, `time`, `tls`, `ws`, etc.).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and plugin loaders (`native`, `wasm`, `web`).
-- `crates/host-*` — end-user hosts: `host-cli` (`hnl`), `host-lsp` (LSP server), `host-tooling` (semantic tokens and LSP helpers).
+- `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`cli`** repo, `host-lsp` (LSP server) in **`lsp`**.
 - `crates/handl-value` / `handl-emitters` / `handl-test-utils` / `handl-defining-handl` — shared value model, emitters, conformance corpus, and language-in-handl experiments.
 - `crates/crate-*` — vendored ICU/ECMA-402 utility crates.
 - `handl-packages/` — pure-handl contracts and implementations (`.hnl` source). `data/` — YAML language fragments.
@@ -32,12 +32,14 @@
 ```bash
 cargo check --workspace
 cargo test --workspace
-cargo build -p handl-host-cli   # produces ./target/debug/hnl
+# `hnl` moved to the sibling `cli` repo (ADR-0128 Phase 8):
+(cd ../cli && cargo build -p handl-host-cli)   # produces ../cli/target/debug/hnl
 ```
 
 ## The `hnl` CLI
 
-`crates/host-cli` builds the `hnl` binary. Subcommands:
+The `hnl` binary lives in the sibling **`cli`** repo (`crates/host-cli`).
+Subcommands:
 
 ```text
 hnl fmt        [--check] [--write] [paths...]
@@ -69,7 +71,7 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 - `crates/plugin-sdkgen*` — SDK generators (and their back ends/emitters).
 - `crates/plugin-lib-*` / `crate-*` — standard library, native ops, and utility libraries.
 - `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-native` — applier composition and the native loader; `plugin-module` — module plumbing.
-- `crates/host-*` — `host-cli` (the `hnl` binary), `host-lsp` (the LSP server), `host-tooling` (the shared tooling/LSP host contract); `plugin-lsp` / `plugin-lsp-std` — LSP provider plugins.
+- `crates/host-*` — `host-tooling` (the shared tooling/LSP host contract). `host-cli` + `plugin-ext-cli` moved to the **`cli`** repo; `host-lsp` + `plugin-lsp` + `plugin-lsp-std` + `plugin-ext-lsp` moved to the **`lsp`** repo (ADR-0128 Phase 8).
 - `crates/bench` / `ext-tests` — criterion benchmarks and integration-test scaffolding.
 - `handl-packages/` — `.hnl` packages and contracts; `data/` — YAML language fragments.
 - `docs/` — moved to the sibling **`docs`** repo (the VitePress hub): the site,
@@ -80,7 +82,7 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 
 - The pluggable expression pipeline and canonical kit are functional: lexing, parsing, error recovery, statement modules, formatting, and diagnostics all have working tests.
 - `handl-kit-canonical` ships with optional typecheck and runtime plugin slots; the default `CanonicalKit` loads the canonical parser but does not enable full typecheck/runtime implementations unless they are configured.
-- `handl-tooling` / `handl-host-lsp` provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
+- `handl-tooling` / `handl-host-lsp` (latter in the `lsp` repo) provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
 - Many compiler-pass, capability, and VM crates are partially implemented or still stubs; the workspace is in active construction.
 
 See `.devin/AGENTS.md` for commands. Language and runtime details live in the

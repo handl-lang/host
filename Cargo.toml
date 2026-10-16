@@ -11,21 +11,17 @@ members = [
   "crates/bench",
   "crates/ext-tests",
   "crates/platform-tests",
-  "crates/plugin-ext-cli",
   "crates/plugin-ext-diag",
   "crates/plugin-ext-compile",
   "crates/plugin-ext-eval",
   "crates/plugin-ext-fmt",
   "crates/plugin-ext-kit",
   "crates/plugin-ext-lint",
-  "crates/plugin-ext-lsp",
   "crates/plugin-ext-plugin",
   "crates/plugin-ext-refinement",
   "crates/plugin-ext-test",
   "crates/plugin-ext-typecheck",
   "crates/plugin-ffi",
-  "crates/host-cli",
-  "crates/host-lsp",
   "crates/plugin-load",
   "crates/plugin-loader-native",
   "crates/plugin-loader-native/tests/fixtures/native-echo",
@@ -38,8 +34,6 @@ members = [
   "crates/plugin-lib-tag",
   "crates/plugin-applier",
   "crates/platform",
-  "crates/plugin-lsp",
-  "crates/plugin-lsp-std",
   "crates/plugin-exec-cache",
   "crates/plugin-module",
   "crates/host-tooling",
@@ -114,7 +108,6 @@ glob = "0.3"
 heck = "0.5"
 target-lexicon = "0.12"
 
-handl-plugin-ext-cli = { path = "crates/plugin-ext-cli" }
 handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
 handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
 handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
@@ -122,14 +115,11 @@ handl-plugin-ext-fmt = { path = "crates/plugin-ext-fmt" }
 handl-plugin-applier = { path = "crates/plugin-applier" }
 handl-plugin-ext-kit = { path = "crates/plugin-ext-kit" }
 handl-plugin-ext-lint = { path = "crates/plugin-ext-lint" }
-handl-plugin-ext-lsp = { path = "crates/plugin-ext-lsp" }
 handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "crates/plugin-ext-refinement" }
 handl-plugin-ext-test = { path = "crates/plugin-ext-test" }
 handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
-handl-host-cli = { path = "crates/host-cli" }
-handl-host-lsp = { path = "crates/host-lsp" }
 # ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
 # repo, `handl-kit-data-canonical` in `lang`; local development resolves
 # them from the sibling checkouts via the `[patch]` tables below.
@@ -154,8 +144,6 @@ handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/stdlib" }
 handl-plugin-lib-scheduler = { path = "crates/plugin-lib-scheduler" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-platform = { path = "crates/platform" }
-handl-plugin-lsp = { path = "crates/plugin-lsp" }
-handl-plugin-lsp-std = { path = "crates/plugin-lsp-std" }
 handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
 handl-plugin-module = { path = "crates/plugin-module" }
 handl-host-tooling = { path = "crates/host-tooling" }

@@ -516,12 +516,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
-name = "fastrand"
-version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
-
-[[package]]
 name = "filetime"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -616,19 +610,8 @@ checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
  "libc",
- "r-efi 5.3.0",
+ "r-efi",
  "wasip2",
-]
-
-[[package]]
-name = "getrandom"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
-dependencies = [
- "cfg-if",
- "libc",
- "r-efi 6.0.0",
 ]
 
 [[package]]
@@ -723,65 +706,6 @@ dependencies = [
  "handl-plugin-ext-kit",
  "handl-plugin-ext-plugin",
  "serde_json",
-]
-
-[[package]]
-name = "handl-host-cli"
-version = "0.1.0"
-dependencies = [
- "handl-host-tooling",
- "handl-kit-arrow-lower",
- "handl-kit-canonical",
- "handl-kit-data",
- "handl-kit-data-canonical",
- "handl-language",
- "handl-platform",
- "handl-plugin-applier-bootstrap",
- "handl-plugin-compile",
- "handl-plugin-compile-dot",
- "handl-plugin-compile-handl",
- "handl-plugin-compile-js",
- "handl-plugin-compile-llvm",
- "handl-plugin-compile-sexp",
- "handl-plugin-compile-term",
- "handl-plugin-engine-fmt",
- "handl-plugin-engine-lex-pattern",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "handl-plugin-engine-test",
- "handl-plugin-engine-transform",
- "handl-plugin-engine-transform-rewrite",
- "handl-plugin-engine-typecheck",
- "handl-plugin-ext-cli",
- "handl-plugin-ext-compile",
- "handl-plugin-ext-diag",
- "handl-plugin-ext-fmt",
- "handl-plugin-ext-lint",
- "handl-plugin-ext-refinement",
- "handl-plugin-ext-sdkgen",
- "handl-plugin-ext-test",
- "handl-plugin-ext-typecheck",
- "handl-runtime",
- "serde_json",
-]
-
-[[package]]
-name = "handl-host-lsp"
-version = "0.1.0"
-dependencies = [
- "handl-host-tooling",
- "handl-kit-canonical",
- "handl-language",
- "handl-platform",
- "handl-plugin-ext-diag",
- "handl-plugin-ext-fmt",
- "handl-plugin-ext-lint",
- "handl-plugin-ext-lsp",
- "handl-plugin-ext-refinement",
- "handl-plugin-lsp-std",
- "serde",
- "serde_json",
- "tempfile",
 ]
 
 [[package]]
@@ -908,29 +832,6 @@ name = "handl-plugin-applier"
 version = "0.1.0"
 dependencies = [
  "handl-platform",
-]
-
-[[package]]
-name = "handl-plugin-applier-bootstrap"
-version = "0.1.0"
-dependencies = [
- "handl-kit-data-canonical",
- "handl-platform",
- "handl-plugin-applier",
- "handl-plugin-applier-default",
- "handl-plugin-ext-kit",
-]
-
-[[package]]
-name = "handl-plugin-applier-default"
-version = "0.1.0"
-dependencies = [
- "handl-kit-data-canonical",
- "handl-platform",
- "handl-plugin-applier",
- "handl-plugin-ext-kit",
- "handl-plugin-load",
- "serde_json",
 ]
 
 [[package]]
@@ -1245,14 +1146,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-ext-cli"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-ext-compile"
 version = "0.1.0"
 dependencies = [
@@ -1332,14 +1225,6 @@ dependencies = [
  "handl-plugin-engine-typecheck",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-ext-lsp"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
  "serde_json",
 ]
 
@@ -1672,34 +1557,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lsp"
-version = "0.1.0"
-dependencies = [
- "handl-host-tooling",
- "handl-kit-data-canonical",
- "handl-language",
- "handl-platform",
- "handl-plugin-engine-lex-pattern",
- "handl-plugin-engine-parse",
- "handl-plugin-engine-parse-pratt",
- "handl-plugin-engine-transform",
- "handl-plugin-engine-transform-rewrite",
- "handl-plugin-ext-diag",
- "serde_json",
-]
-
-[[package]]
-name = "handl-plugin-lsp-std"
-version = "0.1.0"
-dependencies = [
- "handl-host-tooling",
- "handl-kit-data-canonical",
- "handl-language",
- "handl-platform",
- "handl-plugin-lsp",
 ]
 
 [[package]]
@@ -2271,12 +2128,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
-name = "r-efi"
-version = "6.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
-
-[[package]]
 name = "rand"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2648,19 +2499,6 @@ name = "target-lexicon"
 version = "0.12.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
-
-[[package]]
-name = "tempfile"
-version = "3.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
-dependencies = [
- "fastrand",
- "getrandom 0.4.3",
- "once_cell",
- "rustix",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "thiserror"

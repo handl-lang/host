@@ -10,7 +10,6 @@ cargo check --workspace
 cargo test -p handl-language
 cargo test -p handl-kit-data-canonical
 cargo test -p handl-kit-canonical     # kit-canonical (legacy Kit wrapper)
-cargo test -p handl-host-lsp
 cargo test -p handl-host-tooling
 cargo test -p handl-plugin-engine-exec-tree-walk
 cargo test -p handl-plugin-engine-exec-bytecode   # v1 + v2 bytecode VM
@@ -104,10 +103,12 @@ handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
   classification uses string-based `token.kind` matching via `kit-canonical`'s
   `is_*_kind()` helpers (not typed `DynKind` — that system is deleted).
 
-- **`host-lsp`** — LSP adapter: maps LSP requests to `ToolingHost` calls and
-  converts results to `lsp-types`.
+- **`host-lsp`** — moved to the sibling `lsp` repo (ADR-0128 Phase 8). LSP
+  adapter: maps LSP requests to `ToolingHost` calls and converts results to
+  `lsp-types`.
 
-- **`host-cli`** — CLI host.
+- **`host-cli`** — moved to the sibling `cli` repo (ADR-0128 Phase 8). CLI
+  host (`hnl`).
 
 ### Engine crates (`plugin-engine-*`)
 
