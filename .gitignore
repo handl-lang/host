@@ -68,3 +68,4 @@ __pycache__/
 # Runtime caches written relative to the CWD (e.g. `hnl test --cache` ->
 # .handl/cache/test-runner/cache.json).
 /.handl/
+/project/
