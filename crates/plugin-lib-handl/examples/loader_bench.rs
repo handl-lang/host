@@ -9,8 +9,8 @@ use std::time::Instant;
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
-    HandlLoader, ModuleResolver, build_str_handl_module, install_loader, strip_declaration_lines,
-    transform_export_to_object,
+    DEDENT_HNL, HandlLoader, ModuleResolver, build_str_handl_module, install_loader,
+    strip_declaration_lines, transform_export_to_object,
 };
 
 struct CharResolver;
@@ -24,7 +24,6 @@ impl ModuleResolver for CharResolver {
     }
 }
 
-const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
 const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
 
 /// Install the canonical default language for the bridge runtimes

@@ -77,14 +77,16 @@ use std::sync::Arc;
 // expression is lexed/parsed/evaluated per call.
 
 /// The handl source defining `greet` — the single source of truth for the
-/// greeting logic. Loaded at compile time from the kit-stdlib data dir.
-const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
+/// greeting logic. Owned (pinned) by `handl-plugin-lib-stdlib` per the
+/// ADR-0128 §".hnl ownership" rule; consumed here as a `pub const` re-export.
+const GREET_HNL: &str = handl_plugin_lib_stdlib::GREET_HNL;
 
 // ---------------------------------------------------------------------------
 // dedent module (pure Handl — loaded via generic HandlModule)
 // ---------------------------------------------------------------------------
 
-const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
+// Owned (pinned) by `handl-plugin-lib-handl` per ADR-0128 §".hnl ownership".
+const DEDENT_HNL: &str = handl_plugin_lib_handl::DEDENT_HNL;
 const DEDENT_FUNCS: &[&str] = &["dedent", "debug_common"];
 
 // ---------------------------------------------------------------------------
@@ -1415,11 +1417,13 @@ impl TransformModule {
         overrides.insert("filter".to_string(), std::sync::Arc::new(TransformFilter));
         overrides.insert("reduce".to_string(), std::sync::Arc::new(TransformReduce));
 
+        // The `transform/` package dir is owned (pinned) by
+        // `handl-plugin-lib-stdlib` — ADR-0128 §".hnl ownership".
         functions.insert(
             "map".to_string(),
             HandlModule::new(
                 "transform",
-                include_str!("../../../handl-packages/transform/map.hnl"),
+                handl_plugin_lib_stdlib::TRANSFORM_MAP_HNL,
                 &["map"],
             ),
         );
@@ -1427,7 +1431,7 @@ impl TransformModule {
             "filter".to_string(),
             HandlModule::new(
                 "transform",
-                include_str!("../../../handl-packages/transform/filter.hnl"),
+                handl_plugin_lib_stdlib::TRANSFORM_FILTER_HNL,
                 &["filter"],
             ),
         );
@@ -1435,7 +1439,7 @@ impl TransformModule {
             "reduce".to_string(),
             HandlModule::new(
                 "transform",
-                include_str!("../../../handl-packages/transform/reduce.hnl"),
+                handl_plugin_lib_stdlib::TRANSFORM_REDUCE_HNL,
                 &["reduce"],
             ),
         );

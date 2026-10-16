@@ -27,3 +27,7 @@ handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 handl-plugin-lib-char-native = { path = "../plugin-lib-char-native" }
+# Cyclic dev-dep (stdlib's normal deps include this crate): tests consume the
+# `TRANSFORM_*_HNL` `pub const` re-exports of `handl-packages/transform/`,
+# which stdlib owns per ADR-0128 §".hnl ownership".
+handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }

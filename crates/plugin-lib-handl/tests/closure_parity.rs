@@ -34,7 +34,9 @@ fn ensure_lang() {
     }
 }
 
-const MAP_HNL: &str = include_str!("../../../handl-packages/transform/map.hnl");
+// `transform/map.hnl` is owned by `handl-plugin-lib-stdlib` (ADR-0128
+// §".hnl ownership"); consumers take the `pub const` re-export.
+const MAP_HNL: &str = handl_plugin_lib_stdlib::TRANSFORM_MAP_HNL;
 
 const MAKER_HNL: &str = r#"
 export make :: x ~> (y ~> x + y)

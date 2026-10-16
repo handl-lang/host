@@ -2069,6 +2069,12 @@ impl Module for HandlModule {
 /// The handl source implementing the `str` contract as pure handl over `char`.
 const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
 
+/// The handl source of `handl-packages/dedent/dedent.hnl` — owned by this
+/// crate (ADR-0128 §".hnl ownership": one `include_str!` per package, in the
+/// crate that owns it; other consumers — `handl-kit-canonical` in the
+/// `kit-canonical/` repo — take this `pub const`).
+pub const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
+
 /// The canonical text-transform loader source (ADR-0094).
 ///
 /// Loaded raw via [`HandlModule::new_raw`] by [`HandlLoader::new`]; once
