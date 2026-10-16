@@ -131,7 +131,23 @@ impl RewriteEngine {
     /// taking precedence. (`while`, `do-while`, `for`, `nullish`, and
     /// `opt-chain` desugar declaratively via `transforms.yaml`.)
     pub fn with_desugar_natives(self) -> Self {
-        let mut engine = self.with_native_registry(Arc::new(native::desugar_native_registry()));
+        // When a host installed the transform overlay (e.g.
+        // `plugin-lib-handl::transform::install_desugar_overlay`), layer
+        // it over the Rust desugar registry: `handl:desugar.*` names the
+        // overlay provides go to the `.hnl` rewrites, everything else to
+        // the Rust natives (which stay registered under the same names as
+        // the bootstrap/fallback layer).
+        let base: Arc<dyn NativeRewrite> = Arc::new(native::desugar_native_registry());
+        let natives: Arc<dyn NativeRewrite> =
+            match handl_plugin_engine_transform::native::transform_overlay() {
+                Some(overlay) => Arc::new(
+                    handl_plugin_engine_transform::native::ChainedRewrite::new(vec![
+                        overlay, base,
+                    ]),
+                ),
+                None => base,
+            };
+        let mut engine = self.with_native_registry(natives);
         for (kind, name) in native::DESUGAR_NATIVES {
             engine
                 .native_fallback

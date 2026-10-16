@@ -1305,7 +1305,15 @@ static DEFAULT_LANGUAGE: std::sync::OnceLock<Arc<handl_language::Language>> =
 pub fn install_default_language(
     lang: handl_language::Language,
 ) -> Result<(), Arc<handl_language::Language>> {
-    DEFAULT_LANGUAGE.set(Arc::new(lang))
+    let r = DEFAULT_LANGUAGE.set(Arc::new(lang));
+    // The canonical `desugar` rewrites are `.hnl`-authored
+    // (`handl-packages/desugar/desugar.hnl`, ADR-0094): installing the
+    // canonical language also installs the `handl:desugar.*` transform
+    // overlay so `Runtime::parse`'s desugar pass resolves them. The Rust
+    // `desugar.*` natives remain the bootstrap/fallback layer for hosts
+    // that never call this (mirroring loader.hnl vs `bootstrap`).
+    crate::transform::install_desugar_overlay();
+    r
 }
 
 /// The installed default [`Language`](handl_language::Language), if any.

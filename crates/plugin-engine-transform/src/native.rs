@@ -8,6 +8,7 @@
 //! [`NativeRewrite`] trait almost verbatim.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language};
 use serde_json::Value;
@@ -29,6 +30,83 @@ pub trait NativeRewrite: Send + Sync {
     /// Returns [`LangError`] on failure (unknown native, bad child shape,
     /// allocation error, etc.).
     fn rewrite(&self, name: &str, ctx: &mut RewriteCtx<'_>) -> Result<AstRef, LangError>;
+
+    /// Whether this rewrite claims `name` — used by layered dispatch
+    /// ([`ChainedRewrite`]) to route a name to the first layer that
+    /// provides it rather than sniffing error messages.
+    ///
+    /// The default returns `false`: existing impls that only ever serve
+    /// through a plain [`NativeRewrite::rewrite`] need no change.
+    fn provides(&self, name: &str) -> bool {
+        let _ = name;
+        false
+    }
+}
+
+/// A [`NativeRewrite`] that tries a list of rewrites in order: the first
+/// layer whose [`NativeRewrite::provides`] claims `name` handles it.
+///
+/// This is the generic layering combinator — e.g. a handl-authored
+/// (`handl:`) overlay over a Rust fallback registry — with no knowledge
+/// of what either layer is. If no layer provides `name`, the *last* layer
+/// still receives the call so its "unknown native" error text reaches the
+/// caller (registries report their own name sets).
+pub struct ChainedRewrite {
+    layers: Vec<Arc<dyn NativeRewrite>>,
+}
+
+impl ChainedRewrite {
+    /// Build a chain; later layers are fallbacks for names earlier layers
+    /// do not provide. The chain must be non-empty.
+    pub fn new(layers: Vec<Arc<dyn NativeRewrite>>) -> Self {
+        assert!(!layers.is_empty(), "ChainedRewrite requires >= 1 layer");
+        Self { layers }
+    }
+}
+
+impl NativeRewrite for ChainedRewrite {
+    fn rewrite(&self, name: &str, ctx: &mut RewriteCtx<'_>) -> Result<AstRef, LangError> {
+        let target = self
+            .layers
+            .iter()
+            .find(|l| l.provides(name))
+            .unwrap_or_else(|| self.layers.last().expect("non-empty"));
+        target.rewrite(name, ctx)
+    }
+
+    fn provides(&self, name: &str) -> bool {
+        self.layers.iter().any(|l| l.provides(name))
+    }
+}
+
+/// The process-wide transform overlay (ADR-0094): a [`NativeRewrite`]
+/// consulted **ahead of** the built-in native registries by
+/// `RewriteEngine::with_desugar_natives`.
+///
+/// This is the seam that lets a host layer `.hnl`-authored rewrites
+/// (`handl:<mod>.<fn>` names) over the Rust native implementations
+/// *without* a dependency edge from the transform engine to the `.hnl`
+/// loader (`plugin-lib-handl` is upstream of this crate): the host
+/// installs its adapter once at startup, engines pick it up everywhere —
+/// including `handl_runtime::desugar_pass::apply_desugar` inside
+/// `Runtime::parse`.
+///
+/// First install wins (`OnceLock`), matching `install_default_language` /
+/// `install_loader` in `plugin-lib-handl`.
+static TRANSFORM_OVERLAY: std::sync::OnceLock<Arc<dyn NativeRewrite>> =
+    std::sync::OnceLock::new();
+
+/// Install the process-wide transform overlay. The first installation
+/// wins; later calls return the rejected overlay.
+pub fn install_transform_overlay(
+    overlay: Arc<dyn NativeRewrite>,
+) -> Result<(), Arc<dyn NativeRewrite>> {
+    TRANSFORM_OVERLAY.set(overlay)
+}
+
+/// The installed transform overlay, if any.
+pub fn transform_overlay() -> Option<Arc<dyn NativeRewrite>> {
+    TRANSFORM_OVERLAY.get().cloned()
 }
 
 /// Helper context passed to native rewrites.
@@ -118,6 +196,42 @@ impl<'a> RewriteCtx<'a> {
     pub fn remap_child(&self, i: usize) -> Option<usize> {
         self.child_ref(i)
             .and_then(|idx| self.remap.get(idx).copied().flatten())
+    }
+
+    /// The remapped new arena index of the descendant at `path` — a list
+    /// of child positions walked through the *input* arena from the input
+    /// node (`[i, j]` = child `j` of child `i` of the matched node), then
+    /// remapped. This is the `KeepPath`-family lookup natives need to
+    /// reuse a deep subtree (e.g. a `match` arm's body two levels down).
+    ///
+    /// Returns `None` if the path does not resolve or the final node was
+    /// not remapped.
+    pub fn remap_path(&self, path: &[usize]) -> Option<usize> {
+        let mut node = self.node;
+        for (depth, &pos) in path.iter().enumerate() {
+            let children = node.payload.get("children")?.as_array()?;
+            let idx = children.get(pos)?.as_u64()? as usize;
+            if depth + 1 == path.len() {
+                return self.remap.get(idx).copied().flatten();
+            }
+            node = self.ast.get(AstRef::new(idx))?;
+        }
+        None
+    }
+
+    /// The input-arena index of the descendant at `path` (child positions
+    /// walked from the input node), without remapping. Useful when a
+    /// native needs to inspect an arbitrary descendant's kind/payload.
+    pub fn descendant_ref(&self, path: &[usize]) -> Option<usize> {
+        let mut node = self.node;
+        let mut idx = None;
+        for &pos in path {
+            let children = node.payload.get("children")?.as_array()?;
+            let i = children.get(pos)?.as_u64()? as usize;
+            node = self.ast.get(AstRef::new(i))?;
+            idx = Some(i);
+        }
+        idx
     }
 
     /// The remapped new arena indices of all children from `start` onward.
@@ -245,5 +359,9 @@ impl NativeRewrite for NativeRewriteRegistry {
             Some(f) => f(ctx),
             None => Err(LangError::engine(format!("unknown native rewrite: {name}"))),
         }
+    }
+
+    fn provides(&self, name: &str) -> bool {
+        self.fns.contains_key(name)
     }
 }

@@ -137,7 +137,12 @@ fn handl_transform_unknown_module_errors() {
     let err = engine
         .run_pass(&lang, &ast, AstRef::new(0), "mypass")
         .unwrap_err();
-    assert!(format!("{err}").contains("no HandlModule registered under 'missing'"));
+    // Unresolvable `handl:` names delegate to the fallback registry
+    // (the desugar overlay relies on this — `handl:desugar.*` falls back
+    // to the Rust `desugar.*` impls when no `.hnl` module is installed).
+    // With no fallback capable of serving `handl:missing.f`, the error
+    // comes from the registry's unknown-name path.
+    assert!(format!("{err}").contains("unknown native rewrite"));
 }
 
 #[test]

@@ -19,12 +19,16 @@ handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" 
 handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
 handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
+handl-plugin-lib-char-native = { workspace = true }
 plugin-engine = { path = "../plugin-engine" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 handl-kit-data-canonical = { workspace = true }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
+handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
+handl-plugin-engine-lex = { path = "../plugin-engine-lex" }
+handl-runtime = { path = "../handl-runtime" }
 handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
 handl-plugin-lib-char-native = { workspace = true }
 # Cyclic dev-dep (stdlib's normal deps include this crate): tests consume the

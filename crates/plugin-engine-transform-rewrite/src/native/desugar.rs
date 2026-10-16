@@ -2080,9 +2080,16 @@ fn desugar_registry() -> &'static HashMap<&'static str, DesugarFn> {
 /// (`while`/`do-while`/`for`/`nullish`/`opt-chain`) are declarative
 /// `TransformDef`s in `data/transforms.yaml`; `if` stays surface-level
 /// (see [`desugar_registry`]).
+/// The `handl:` spellings are the canonical names: a `.hnl`-authored
+/// overlay (`handl:desugar.data`, `handl:desugar.match_recursor` —
+/// `handl-packages/desugar/desugar.hnl` via the process-wide transform
+/// overlay, `plugin-lib-handl::transform::install_desugar_overlay`)
+/// resolves them first; the Rust implementations below stay registered
+/// under the same names as the bootstrap/fallback layer for hosts that
+/// never install the overlay (mirroring `loader.hnl` vs `bootstrap`).
 pub static DESUGAR_NATIVES: &[(&str, &str)] = &[
-    ("data", "desugar.data"),
-    ("match", "desugar.match_recursor"),
+    ("data", "handl:desugar.data"),
+    ("match", "handl:desugar.match_recursor"),
     ("assign", "desugar.generic_assign"),
 ];
 
@@ -2120,6 +2127,12 @@ pub fn desugar_native_registry() -> NativeRewriteRegistry {
         let f = *desugar_registry()
             .get(kind)
             .expect("DESUGAR_NATIVES kind must have a handler");
+        if let Some(rest) = name.strip_prefix("handl:") {
+            // Register the Rust impl under the stripped `desugar.*` name
+            // as well: a `handl:` overlay's fallback delegation strips the
+            // prefix when it cannot resolve the `.hnl` function.
+            reg.register(rest, adapt(f));
+        }
         reg.register(*name, adapt(f));
     }
     reg
