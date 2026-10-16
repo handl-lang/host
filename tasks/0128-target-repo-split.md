@@ -267,8 +267,15 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 9 — `meta/` (anytime; zero-consumer leaves)
 
-- [ ] `meta/crates/defining-handl` ← `handl-defining-handl`.
-- [ ] `meta/crates/typecheck-nbe` ← `plugin-engine-typecheck-nbe`.
+- [x] `meta/crates/defining-handl` ← `handl-defining-handl`.
+- [x] `meta/crates/typecheck-nbe` ← `plugin-engine-typecheck-nbe`.
+      **Done:** subtree-split imports; both are zero-consumer leaves so
+      no consumer rewiring was needed. `defining-handl`'s manifest now
+      git-deps platform + lang + stdlib + native + kit-canonical with
+      full `[patch]` coverage. **Note:** 18 `typecheck-nbe` tests fail
+      identically on main before the move (pre-existing "unbound
+      variable true/false" drift in the leaf) — carried over, not
+      introduced.
 
 ## Phase 10 — `ffi/`
 
