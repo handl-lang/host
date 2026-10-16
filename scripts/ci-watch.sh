@@ -41,6 +41,26 @@ post_status() { # state description
     --silent 2>/dev/null || log "status post failed ($2 $3)"
 }
 
+# Optional coverage upload (CI_COVERAGE=1): reuses the warm dagger caches
+# to produce lcov.info, then uploads with the codecov uploader if
+# CODECOV_TOKEN is set and a `codecov` binary is on PATH (one-time:
+# curl -Os https://uploader.codecov.io/latest/linux/codecov).
+upload_coverage() {
+  [ "${CI_COVERAGE:-0}" = "1" ] || return 0
+  local wt="$1" sha="$2"
+  log "coverage export ${sha:0:12}"
+  (cd "$wt" && dagger call coverage-report \
+      ${HANDL_TOKEN:+--token env://HANDL_TOKEN} \
+      export --path "$wt/coverage") >>"$LOG_FILE" 2>&1 || {
+    log "coverage export failed"; return 1; }
+  if [ -n "${CODECOV_TOKEN:-}" ] && command -v codecov >/dev/null; then
+    (cd "$wt" && codecov -t "$CODECOV_TOKEN" -f coverage/lcov.info -C "$sha") \
+      >>"$LOG_FILE" 2>&1 || log "codecov upload failed"
+  else
+    log "coverage exported to $wt/coverage (no codecov upload)"
+  fi
+}
+
 run_ci() {
   local sha="$1" wt="$WORKTREE_BASE-${sha:0:12}" rc=0
   rm -rf "$wt"
@@ -59,6 +79,7 @@ run_ci() {
   if [ "$rc" -eq 0 ]; then
     log "ci PASS ${sha:0:12}"
     post_status "$sha" success "ci passed"
+    upload_coverage "$wt" "$sha"
   else
     log "ci FAIL ${sha:0:12} (exit $rc)"
     post_status "$sha" failure "ci failed"
