@@ -238,6 +238,7 @@ repos:
       - ast-based-inlining.md
       - module-async-operations.md
       - rust-to-handl.md
+      - split-branches.md
       - tree-shaking.md
     reports:
       - 2026-02-language-cleanup.md
