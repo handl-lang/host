@@ -44,7 +44,6 @@ members = [
   "crates/plugin-engine-parse",
   "crates/plugin-engine-exec",
   "crates/plugin-engine-typecheck",
-  "crates/plugin-engine-typecheck-nbe",
   "crates/plugin-engine-typecheck-handl",
   "crates/plugin-engine-parse-pratt",
   "crates/plugin-engine-exec-tree-walk",
@@ -58,7 +57,6 @@ members = [
   "crates/handl-runtime",
   "crates/handl-emitters",
   "crates/handl-kit-data",
-  "crates/handl-defining-handl",
   "crates/handl-value",
   "crates/plugin-sdkgen",
   "crates/plugin-sdkgen-emitter-file",
@@ -171,7 +169,6 @@ handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", rev = "4f0f2faa4f70381552491cb3f25fd6a82d819937" }
-handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
