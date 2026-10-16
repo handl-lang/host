@@ -19,7 +19,11 @@ use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use serde_json::json;
 
 fn canonical_lang() -> Language {
-    language_from_yaml().expect("canonical language should assemble")
+    let lang = language_from_yaml().expect("canonical language should assemble");
+    // Also install it process-wide: the HandlTypecheckEngine's HandlModule
+    // bridge runtime resolves `default_language` lazily (ADR-0128 §0.8).
+    let _ = handl_plugin_lib_handl::install_default_language(lang.clone());
+    lang
 }
 
 /// Parse a single statement.

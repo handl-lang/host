@@ -26,7 +26,11 @@ impl ModuleLookup for EmptyLookup {
 
 /// Build the canonical `Language` from the embedded YAML fragments.
 fn canonical_lang() -> handl_language::Language {
-    language_from_yaml().expect("canonical language should assemble")
+    let lang = language_from_yaml().expect("canonical language should assemble");
+    // Also install it process-wide: the HandlTypecheckEngine's HandlModule
+    // bridge runtime resolves `default_language` lazily (ADR-0128 §0.8).
+    let _ = handl_plugin_lib_handl::install_default_language(lang.clone());
+    lang
 }
 
 /// Lex + parse a source string into an `Ast` using the canonical language.

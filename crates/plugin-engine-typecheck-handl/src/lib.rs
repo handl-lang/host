@@ -453,6 +453,14 @@ mod tests {
     use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 
     fn engine() -> HandlTypecheckEngine {
+        // HandlModule bridge runtimes resolve the process-wide default
+        // language lazily (ADR-0128 §"The 0.8 seam").
+        if handl_plugin_lib_handl::default_language().is_none() {
+            let _ = handl_plugin_lib_handl::install_default_language(
+                handl_kit_data_canonical::language_from_yaml()
+                    .expect("canonical language assembles"),
+            );
+        }
         HandlTypecheckEngine::new(Box::new(TreeWalkEngine::new()))
     }
 
