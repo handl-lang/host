@@ -56,7 +56,6 @@ members = [
   "crates/plugin-engine-fmt",
   "crates/plugin-engine-lint",
   "crates/plugin-compile",
-  "crates/plugin-compile-js",
   "crates/plugin-compile-llvm",
   "crates/plugin-compile-handl",
   "crates/plugin-compile-term",
@@ -68,7 +67,6 @@ members = [
   "crates/handl-defining-handl",
   "crates/handl-value",
   "crates/plugin-sdkgen",
-  "crates/plugin-sdkgen-backend-webidl",
   "crates/plugin-sdkgen-emitter-file",
   "crates/plugin-ext-sdkgen",
 ]
@@ -147,7 +145,10 @@ handl-host-tooling = { path = "crates/host-tooling" }
 handl-language = { path = "crates/handl-language" }
 handl-kit-arrow-lower = { path = "crates/handl-kit-arrow-lower" }
 handl-plugin-compile = { path = "crates/plugin-compile" }
-handl-plugin-compile-js = { path = "crates/plugin-compile-js" }
+# ADR-0128 Phase 5: the js compiler + webidl backend live in the `web`
+# repo; local development resolves them from the sibling checkout via
+# `[patch]` below.
+handl-plugin-compile-js = { git = "https://github.com/handl-lang/web", rev = "f1b92777eeba1773a340c9e34ab9f2e3f67bdd69" }
 handl-plugin-compile-llvm = { path = "crates/plugin-compile-llvm" }
 handl-plugin-compile-handl = { path = "crates/plugin-compile-handl" }
 handl-plugin-compile-term = { path = "crates/plugin-compile-term" }
@@ -221,6 +222,10 @@ handl-plugin-sdkgen-backend-c = { path = "../c/modules/sdkgen-c" }
 [patch."https://github.com/handl-lang/otlp"]
 handl-plugin-lib-otlp-std = { path = "../otlp/modules/lib-otlp-std" }
 
+[patch."https://github.com/handl-lang/web"]
+handl-plugin-compile-js = { path = "../web/modules/compile-js" }
+handl-plugin-sdkgen-backend-webidl = { path = "../web/modules/sdkgen-webidl" }
+
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 
@@ -273,7 +278,9 @@ handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-plugin-module = { path = "crates/plugin-module" }
+handl-plugin-compile = { path = "crates/plugin-compile" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
+plugin-engine = { path = "crates/plugin-engine" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-value = { path = "crates/handl-value" }
 
