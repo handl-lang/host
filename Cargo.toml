@@ -107,7 +107,7 @@ handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 # ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
 # repo, `handl-kit-data-canonical` in `lang`; local development resolves
 # them from the sibling checkouts via the `[patch]` tables below.
-handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "fd3cee17e4554ed22c84d7c247c0aec39665c866" }
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "bd1460938e49152783c3b923721e6aafe658a12c" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }

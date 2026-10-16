@@ -3,7 +3,9 @@ use handl_platform::{
     HostConfig, OptionsPlugin, PlatformError, Plugin, PluginContext, PluginManifest,
 };
 use handl_plugin_applier::ApplierFactory;
+use handl_kit_data::LibraryRegistry;
 use handl_plugin_ext_kit::{BasicKitLoaderPlugin, KitModuleNames};
+use std::sync::Arc;
 use handl_plugin_load::LoaderHostPlugin;
 
 /// Factory for the default applier, selected by `--applier applier.default`.
@@ -14,12 +16,17 @@ use handl_plugin_load::LoaderHostPlugin;
 /// manifests live in `handl-kit-data-canonical`, a `lang/` crate).
 pub struct DefaultApplierFactory {
     module_names: KitModuleNames,
+    libraries: Arc<LibraryRegistry>,
 }
 
 impl DefaultApplierFactory {
-    /// Create the factory with the host's kit-manifest resolver.
-    pub fn new(module_names: KitModuleNames) -> Self {
-        Self { module_names }
+    /// Create the factory with the host's kit-manifest resolver and the
+    /// kit's library-module registry (ADR-0128 §0.4).
+    pub fn new(module_names: KitModuleNames, libraries: Arc<LibraryRegistry>) -> Self {
+        Self {
+            module_names,
+            libraries,
+        }
     }
 }
 
@@ -35,8 +42,12 @@ impl ApplierFactory for DefaultApplierFactory {
         fallback_kit: &str,
     ) -> Result<(), PlatformError> {
         ctx.register_plugin(
-            DefaultApplierPlugin::new(config_path, self.module_names.clone())
-                .with_fallback_kit(fallback_kit),
+            DefaultApplierPlugin::new(
+                config_path,
+                self.module_names.clone(),
+                self.libraries.clone(),
+            )
+            .with_fallback_kit(fallback_kit),
         )
     }
 }
@@ -47,14 +58,21 @@ pub struct DefaultApplierPlugin {
     /// Host-injected kit-name → module-names resolver for the registered
     /// [`BasicKitLoaderPlugin`].
     module_names: KitModuleNames,
+    /// The kit-supplied library-module registry for the loader.
+    libraries: Arc<LibraryRegistry>,
 }
 
 impl DefaultApplierPlugin {
-    pub fn new(config_source: impl Into<String>, module_names: KitModuleNames) -> Self {
+    pub fn new(
+        config_source: impl Into<String>,
+        module_names: KitModuleNames,
+        libraries: Arc<LibraryRegistry>,
+    ) -> Self {
         Self {
             config_source: config_source.into(),
             fallback_kit: None,
             module_names,
+            libraries,
         }
     }
 
@@ -89,7 +107,10 @@ impl Plugin for DefaultApplierPlugin {
         };
 
         if ctx.get_plugin_mut::<BasicKitLoaderPlugin>().is_none() {
-            ctx.register_plugin(BasicKitLoaderPlugin::new(self.module_names.clone()))?;
+            ctx.register_plugin(BasicKitLoaderPlugin::new(
+                self.module_names.clone(),
+                self.libraries.clone(),
+            ))?;
         }
 
         if ctx.get_plugin_mut::<LoaderHostPlugin>().is_none() {

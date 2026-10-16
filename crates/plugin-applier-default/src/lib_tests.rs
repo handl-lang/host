@@ -1,4 +1,5 @@
 use super::*;
+use handl_kit_data::LibraryRegistry;
 use handl_platform::{CallableLookup, DefaultHost};
 use handl_plugin_load::LoaderHostPlugin;
 use std::fs;
@@ -13,6 +14,12 @@ fn kit_module_names() -> KitModuleNames {
     })
 }
 
+/// The canonical library-module table for tests — supplied by the kit
+/// (ADR-0128 §0.4), not by the loader.
+fn libraries() -> Arc<LibraryRegistry> {
+    handl_kit_canonical::canonical_library_registry()
+}
+
 #[test]
 fn applier_loads_kit_from_config() {
     let mut path = std::env::temp_dir();
@@ -20,10 +27,10 @@ fn applier_loads_kit_from_config() {
     fs::write(&path, "[[kit]]\ninclude = \"hello\"\n").unwrap();
 
     let mut host = DefaultHost::new();
-    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names()));
+    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names(), libraries()));
     host.register_plugin(LoaderHostPlugin::default());
     host.register_plugin(
-        DefaultApplierPlugin::new(path.as_path().to_str().unwrap(), kit_module_names()).with_fallback_kit("canonical"),
+        DefaultApplierPlugin::new(path.as_path().to_str().unwrap(), kit_module_names(), libraries()).with_fallback_kit("canonical"),
     );
     host.load().unwrap();
 
@@ -53,10 +60,10 @@ register = "lib.hello"
     .unwrap();
 
     let mut host = DefaultHost::new();
-    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names()));
+    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names(), libraries()));
     host.register_plugin(LoaderHostPlugin::default());
     host.register_plugin(
-        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names())
+        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names(), libraries())
             .with_fallback_kit("canonical"),
     );
     host.load().unwrap();
@@ -82,10 +89,10 @@ register = "nonexistent.plugin.id"
     .unwrap();
 
     let mut host = DefaultHost::new();
-    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names()));
+    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names(), libraries()));
     host.register_plugin(LoaderHostPlugin::default());
     host.register_plugin(
-        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names())
+        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names(), libraries())
             .with_fallback_kit("hello"),
     );
     let result = host.load();
@@ -113,10 +120,10 @@ exclude = ["lib.hello"]
     .unwrap();
 
     let mut host = DefaultHost::new();
-    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names()));
+    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names(), libraries()));
     host.register_plugin(LoaderHostPlugin::default());
     host.register_plugin(
-        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names())
+        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names(), libraries())
             .with_fallback_kit("canonical"),
     );
     host.load().unwrap();
@@ -149,10 +156,10 @@ exclude = ["lib.hello"]
     .unwrap();
 
     let mut host = DefaultHost::new();
-    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names()));
+    host.register_plugin(BasicKitLoaderPlugin::new(kit_module_names(), libraries()));
     host.register_plugin(LoaderHostPlugin::default());
     host.register_plugin(
-        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names())
+        DefaultApplierPlugin::new(config_path.as_path().to_str().unwrap(), kit_module_names(), libraries())
             .with_fallback_kit("canonical"),
     );
     host.load().unwrap();

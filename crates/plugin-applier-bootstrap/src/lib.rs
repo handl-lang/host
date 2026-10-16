@@ -3,8 +3,10 @@ use handl_platform::{
     PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_applier::ApplierFactory;
+use handl_kit_data::LibraryRegistry;
 use handl_plugin_applier_default::DefaultApplierFactory;
 use handl_plugin_ext_kit::KitModuleNames;
+use std::sync::Arc;
 
 pub struct BootstrapPlugin {
     config_path: String,
@@ -19,12 +21,13 @@ impl BootstrapPlugin {
         fallback_kit: impl Into<String>,
         applier_id: impl Into<String>,
         module_names: KitModuleNames,
+        libraries: Arc<LibraryRegistry>,
     ) -> Self {
         Self {
             config_path: config_path.into(),
             fallback_kit: fallback_kit.into(),
             applier_id: applier_id.into(),
-            factories: vec![Box::new(DefaultApplierFactory::new(module_names))],
+            factories: vec![Box::new(DefaultApplierFactory::new(module_names, libraries))],
         }
     }
 

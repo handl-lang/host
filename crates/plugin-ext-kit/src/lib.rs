@@ -2,12 +2,15 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_kit_data::{LibraryPlugin, LibraryRegistry};
+// §0.4: the registry itself is injected — this crate no longer links any
+// `plugin-lib-*` module crate; the kit supplies its own module table.
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Kit, KitManifest, PlatformError, Plugin, PluginContext,
 };
 
-pub mod library_registry;
+// ADR-0128 §0.4: `library_registry::populate` moved to the kit repo —
+// `handl_kit_canonical::populate` / `canonical_library_registry()`.
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -353,15 +356,21 @@ pub struct BasicKitLoaderPlugin {
     capabilities: Vec<CapabilityId>,
     /// Host-injected resolver from kit name to module names.
     module_names: KitModuleNames,
+    /// The kit-supplied module table — `modules:` names resolve through
+    /// it, not through a static `reg.register` table here.
+    libraries: Arc<LibraryRegistry>,
 }
 
 impl BasicKitLoaderPlugin {
-    /// Creates a new `BasicKitLoaderPlugin` bound to the host's kit-manifest
-    /// resolver.
-    pub fn new(module_names: KitModuleNames) -> Self {
+    /// Creates a new `BasicKitLoaderPlugin` bound to the host's
+    /// kit-manifest resolver and the kit's library-module registry
+    /// (`handl_kit_canonical::canonical_library_registry()` for the
+    /// canonical kit; other kits supply their own).
+    pub fn new(module_names: KitModuleNames, libraries: Arc<LibraryRegistry>) -> Self {
         Self {
             capabilities: vec![CapabilityId::from("kit/load")],
             module_names,
+            libraries,
         }
     }
 
@@ -377,14 +386,12 @@ impl BasicKitLoaderPlugin {
         // through the populated `LibraryRegistry`.
         let module_names = (self.module_names)(name_or_path)
             .map_err(PlatformError::InvalidMetadata)?;
-        let mut registry = LibraryRegistry::new();
-        library_registry::populate(&mut registry);
         let mut modules = Vec::with_capacity(module_names.len());
-        for name in module_names {
-            let plugin = registry.resolve(&name).ok_or_else(|| {
+        for name in &module_names {
+            let plugin = self.libraries.resolve(name).ok_or_else(|| {
                 PlatformError::InvalidMetadata(format!("unknown library plugin: {name}"))
             })?;
-            modules.push((name, plugin));
+            modules.push((name.clone(), plugin));
         }
         Ok(BasicKit::Modules(ModuleKit::new(name_or_path, modules)))
     }
@@ -445,9 +452,12 @@ mod tests {
     /// `stats`) now built from `handl-plugin-lib-stdlib`'s package table.
     #[test]
     fn builtin_kit_module_names_resolve() {
-        let loader = BasicKitLoaderPlugin::new(std::sync::Arc::new(|name: &str| {
-            handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
-        }));
+        let loader = BasicKitLoaderPlugin::new(
+            std::sync::Arc::new(|name: &str| {
+                handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
+            }),
+            handl_kit_canonical::canonical_library_registry(),
+        );
         for kit in ["hello", "stdlib", "cli", "config", "server"] {
             loader
                 .load(kit)
@@ -455,8 +465,7 @@ mod tests {
         }
         // The table-driven packages resolve to PackagePlugins with the
         // same ids/names as the deleted per-crate shells.
-        let mut registry = LibraryRegistry::new();
-        library_registry::populate(&mut registry);
+        let registry = handl_kit_canonical::canonical_library_registry();
         let utils = registry.resolve("utils").expect("utils plugin");
         assert_eq!(utils.id(), "lib.utils");
         assert_eq!(utils.name(), "lib-utils");

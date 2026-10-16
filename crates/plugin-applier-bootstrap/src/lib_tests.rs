@@ -1,4 +1,5 @@
 use super::*;
+use handl_kit_data::LibraryRegistry;
 use handl_platform::{CallableLookup, DefaultHost};
 use std::fs;
 use std::sync::Arc;
@@ -9,6 +10,11 @@ fn kit_module_names() -> KitModuleNames {
     Arc::new(|name: &str| {
         handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
     })
+}
+
+/// The canonical library-module table for tests (ADR-0128 §0.4).
+fn libraries() -> Arc<LibraryRegistry> {
+    handl_kit_canonical::canonical_library_registry()
 }
 
 #[test]
@@ -23,6 +29,7 @@ fn bootstrap_loads_kit_via_applier() {
         "canonical",
         "applier.default",
         kit_module_names(),
+        libraries(),
     ));
     host.load().unwrap();
 
@@ -44,6 +51,7 @@ fn bootstrap_rejects_unknown_applier() {
         "hello",
         "applier.custom",
         kit_module_names(),
+        libraries(),
     ));
     let result = host.load();
     assert!(result.is_err());

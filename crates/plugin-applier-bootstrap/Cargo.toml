@@ -13,4 +13,6 @@ handl-plugin-applier-default = { path = "../plugin-applier-default" }
 handl-plugin-ext-kit = { path = "../plugin-ext-kit" }
 
 [dev-dependencies]
+handl-kit-canonical = { workspace = true }
+handl-kit-data = { workspace = true }
 handl-kit-data-canonical = { workspace = true }
