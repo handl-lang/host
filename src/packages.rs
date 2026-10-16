@@ -88,6 +88,34 @@ const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
     registry: None,
 };
 
+// ---------------------------------------------------------------------------
+// Owned `.hnl` pins re-exported for external consumers (ADR-0128 §".hnl
+// ownership": one `include_str!` per package, in the crate that owns it;
+// every other consumer takes a `pub const`). This crate owns the `hello` and
+// `transform` package dirs (they are rows in the `PACKAGES`/`MODULES` tables
+// below and move with `stdlib/` in Phase 3), so the pins live here;
+// `handl-kit-canonical` (in the `kit-canonical/` repo) and
+// `plugin-lib-handl`'s tests consume these consts instead of their own
+// `include_str!`s.
+// ---------------------------------------------------------------------------
+
+/// Raw source of `handl-packages/hello/greet.hnl` — a bare arrow
+/// (`name ~> "Hello, " + name + "!"`), consumed by `handl-kit-canonical`'s
+/// `greet` bridge.
+pub const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
+
+/// Source of `handl-packages/transform/map.hnl`.
+pub const TRANSFORM_MAP_HNL: &str =
+    include_str!("../../../handl-packages/transform/map.hnl");
+
+/// Source of `handl-packages/transform/filter.hnl`.
+pub const TRANSFORM_FILTER_HNL: &str =
+    include_str!("../../../handl-packages/transform/filter.hnl");
+
+/// Source of `handl-packages/transform/reduce.hnl`.
+pub const TRANSFORM_REDUCE_HNL: &str =
+    include_str!("../../../handl-packages/transform/reduce.hnl");
+
 /// All table-built modules, keyed by module name.
 pub static MODULES: &[ModuleSpec] = &[
     CLOCK_GETTIME_MODULE,
