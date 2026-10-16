@@ -37,6 +37,7 @@ use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_typecheck::TypecheckEngine;
 use handl_plugin_engine_typecheck_handl::HandlTypecheckEngine;
 use handl_plugin_ext_diag::Severity;
+#[cfg(feature = "ffi")]
 use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno, FfiLoad, FfiRead, FfiSym};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
@@ -1181,6 +1182,7 @@ const FFI_OPS: &[&str] = &[
     "ffi.sym",
 ];
 
+#[cfg(feature = "ffi")]
 fn ffi_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
     registry.register("ffi.call", std::sync::Arc::new(FfiCall));
@@ -1189,6 +1191,58 @@ fn ffi_op_registry() -> OpRegistry {
     registry.register("ffi.load", std::sync::Arc::new(FfiLoad));
     registry.register("ffi.read", std::sync::Arc::new(FfiRead));
     registry.register("ffi.sym", std::sync::Arc::new(FfiSym));
+    registry
+}
+
+/// Stub `ffi.*` ops for builds without the `ffi` feature (ADR-0128 §0.9).
+///
+/// The `ffi` module stays registered and resolvable — what changes is the
+/// ops' behavior: capability ops (`call`/`bind`/`read`/`errno`) raise a
+/// clear "not compiled in" error, while the non-raising probes (`load`/
+/// `sym`) keep their `{__tag__: "err", value: msg}` contract so soname/
+/// versioned probes in dependent packages (`unicode_c`, `intl_c`,
+/// `entropy`) degrade to their fallback paths instead of propagating.
+#[cfg(not(feature = "ffi"))]
+mod ffi_stubs {
+    use handl_platform::{EvalContext, EvalError, Function};
+    use serde_json::{Value as JsonValue, json};
+
+    /// The reason every stub op reports.
+    const DISABLED: &str =
+        "ffi unavailable: handl-kit-canonical was built without the `ffi` feature";
+
+    /// Capability op stub (`ffi.call`/`ffi.bind`/`ffi.read`/`ffi.errno`):
+    /// cannot fabricate a result, so it raises.
+    pub struct FfiUnsupported(pub &'static str);
+
+    impl Function for FfiUnsupported {
+        fn call(&self, _args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+            Err(EvalError::Other(format!("{}: {DISABLED}", self.0)))
+        }
+    }
+
+    /// Non-raising probe stub (`ffi.load`/`ffi.sym`): preserves the
+    /// `{"__tag__": "err", "value": msg}` return contract so `is_ok(...)`
+    /// probes in `.hnl` packages keep working.
+    pub struct FfiProbeUnsupported(pub &'static str);
+
+    impl Function for FfiProbeUnsupported {
+        fn call(&self, _args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+            Ok(json!({"__tag__": "err", "value": format!("{}: {DISABLED}", self.0)}))
+        }
+    }
+}
+
+#[cfg(not(feature = "ffi"))]
+fn ffi_op_registry() -> OpRegistry {
+    use ffi_stubs::{FfiProbeUnsupported, FfiUnsupported};
+    let mut registry = OpRegistry::new();
+    registry.register("ffi.call", std::sync::Arc::new(FfiUnsupported("ffi.call")));
+    registry.register("ffi.bind", std::sync::Arc::new(FfiUnsupported("ffi.bind")));
+    registry.register("ffi.errno", std::sync::Arc::new(FfiUnsupported("ffi.errno")));
+    registry.register("ffi.load", std::sync::Arc::new(FfiProbeUnsupported("ffi.load")));
+    registry.register("ffi.read", std::sync::Arc::new(FfiUnsupported("ffi.read")));
+    registry.register("ffi.sym", std::sync::Arc::new(FfiProbeUnsupported("ffi.sym")));
     registry
 }
 

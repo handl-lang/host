@@ -11,7 +11,13 @@ path = "src/main.rs"
 handl-platform.workspace = true
 handl-plugin-ext-lsp.workspace = true
 handl-plugin-ext-refinement.workspace = true
-handl-kit-canonical.workspace = true
+# The LSP only lexes/parses/typechecks/lints — it never evals or compiles
+# handl code, so it opts out of the kit's `cranelift`/`ffi` features
+# (ADR-0128 §0.5/§0.9): 14 cranelift crates + libloading leave this
+# host's build. The `ffi` module stays resolvable with stub ops.
+# (`workspace = true` cannot override `default-features`, so this is a
+# path dep like `handl-plugin-lib-stdlib` is for kit-canonical.)
+handl-kit-canonical = { path = "../kit-canonical", default-features = false }
 handl-language.workspace = true
 handl-host-tooling.workspace = true
 handl-plugin-ext-diag.workspace = true
