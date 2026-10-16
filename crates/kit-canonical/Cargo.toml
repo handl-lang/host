@@ -3,6 +3,17 @@ name = "handl-kit-canonical"
 version = "0.1.0"
 edition = "2024"
 
+# ADR-0128 §0.5: the cranelift exec engine is a Cargo feature, not a hard
+# link — `handl-plugin-engine-exec-cranelift` pulls 14 cranelift crates into
+# every consumer (the LSP host, `plugin-compile-js`, parse-only embedders).
+# `default = ["cranelift"]` keeps today's behavior; consumers opt out with
+# `default-features = false` and can still wire an exec engine through the
+# `EngineRegistry` contract (`Kit::new_with_registry` /
+# `runtime_for_lang_with_registry`).
+[features]
+default = ["cranelift"]
+cranelift = ["dep:handl-plugin-engine-exec-cranelift"]
+
 [dependencies]
 handl-kit-data-canonical = { workspace = true }
 handl-runtime = { workspace = true }
@@ -13,7 +24,7 @@ handl-plugin-engine-parse = { workspace = true }
 handl-plugin-engine-parse-pratt = { workspace = true }
 handl-plugin-engine-exec-tree-walk = { workspace = true }
 handl-plugin-engine-exec-bytecode = { workspace = true }
-handl-plugin-engine-exec-cranelift = { workspace = true }
+handl-plugin-engine-exec-cranelift = { workspace = true, optional = true }
 handl-plugin-engine-typecheck = { workspace = true }
 handl-plugin-engine-typecheck-handl = { workspace = true }
 handl-plugin-ext-diag = { workspace = true }

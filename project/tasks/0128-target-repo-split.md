@@ -21,10 +21,18 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
 - [ ] **0.4 `library_registry.rs` → data-driven**: kit YAML `modules:`
       resolves names through a registry the kit supplies, not a static
       `reg.register` table.
-- [ ] **0.5 Drop `exec-cranelift` from `kit-canonical`** — it is the
+- [x] **0.5 Drop `exec-cranelift` from `kit-canonical`** — it is the
       crate's only normal dep on it; select the exec engine via the ext
       contract. This removes 14 cranelift crates from every consumer.
       Verify `plugin-lsp-std`'s closure shrinks accordingly.
+      **Done:** the dep is now `optional`, behind the `cranelift` feature
+      (`default = ["cranelift"]` keeps today's behavior). Engine
+      selection already ran through the `EngineRegistry` name contract —
+      the two duplicated registration tables are deduplicated into
+      `canonical_engine_registry()`, and `Kit::new_with_registry` /
+      `runtime_for_lang_with_registry` are the injection seam for hosts
+      that opt out and wire their own exec engine. The LSP closure
+      shrink lands with 0.9 (`plugin-ffi` also pulls cranelift crates).
 - [ ] **0.6 Manifests**: add `license`, `description`, `repository` to
       every crate; git-tag `v0.1.0`.
 - [ ] **0.7 `pub const` re-export rule**: each `include_str!`ed package

@@ -1845,11 +1845,44 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("handl");
-        Self::build_kit(lang, config, None, HashMap::new(), None)
+        Self::build_kit(
+            lang,
+            config,
+            None,
+            HashMap::new(),
+            None,
+            canonical_engine_registry(),
+        )
+    }
+
+    /// Build the canonical kit over a caller-supplied [`EngineRegistry`].
+    ///
+    /// Otherwise identical to [`Kit::new`]. This is the injection seam for
+    /// engines the kit does not statically link (ADR-0128 §0.5): a host
+    /// that disables the `cranelift` Cargo feature — or that wants an
+    /// exec/compile engine this crate has never heard of — builds on
+    /// [`canonical_engine_registry`] (or a fresh [`EngineRegistry`]),
+    /// registers its impls, and passes the result here:
+    ///
+    /// ```ignore
+    /// let mut registry = canonical_engine_registry();
+    /// registry.register_eval("my-jit", Box::new(MyJit::new()));
+    /// let kit = Kit::new_with_registry(registry)?;
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if fragment assembly or engine binding fails.
+    pub fn new_with_registry(registry: EngineRegistry) -> Result<Self, LangError> {
+        let kit = handl_kit_data_canonical::assemble()?;
+        let lang = kit.lang().clone();
+        let config = kit.runtime_config().clone().with_typecheck("handl");
+        Self::build_kit(lang, config, None, HashMap::new(), None, registry)
     }
 
     /// Build the canonical kit with a specific eval engine name
-    /// (e.g. `"tree-walk"`, `"bytecode"`, `"cranelift"`).
+    /// (e.g. `"tree-walk"`, `"bytecode"`, `"cranelift"` — the last only
+    /// under the `cranelift` Cargo feature, on by default).
     ///
     /// Otherwise identical to [`Kit::new`].
     ///
@@ -1864,7 +1897,14 @@ impl Kit {
             .clone()
             .with_eval(eval_name)
             .with_typecheck("handl");
-        Self::build_kit(lang, config, None, HashMap::new(), None)
+        Self::build_kit(
+            lang,
+            config,
+            None,
+            HashMap::new(),
+            None,
+            canonical_engine_registry(),
+        )
     }
 
     /// Build the canonical kit with a `module_root` directory for resolving
@@ -1879,7 +1919,14 @@ impl Kit {
         let kit = handl_kit_data_canonical::assemble()?;
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("handl");
-        Self::build_kit(lang, config, Some(module_root), HashMap::new(), None)
+        Self::build_kit(
+            lang,
+            config,
+            Some(module_root),
+            HashMap::new(),
+            None,
+            canonical_engine_registry(),
+        )
     }
 
     /// Build the canonical kit for a project directory: reads
@@ -1902,7 +1949,14 @@ impl Kit {
         let lang = kit.lang().clone();
         let config = kit.runtime_config().clone().with_typecheck("handl");
         let deps = load_project_dependencies(&project_root)?;
-        Self::build_kit(lang, config, Some(project_root), deps, None)
+        Self::build_kit(
+            lang,
+            config,
+            Some(project_root),
+            deps,
+            None,
+            canonical_engine_registry(),
+        )
     }
 
     /// Build the canonical kit for a project, discovering its `.handl.toml`
@@ -1965,7 +2019,14 @@ impl Kit {
         let deps = manifest_dir
             .map(|root| load_project_dependencies(&root))
             .unwrap_or_else(|| Ok(HashMap::new()))?;
-        Self::build_kit(lang, config, Some(start_dir), deps, None)
+        Self::build_kit(
+            lang,
+            config,
+            Some(start_dir),
+            deps,
+            None,
+            canonical_engine_registry(),
+        )
     }
 
     /// Build a [`HandlNativeLint`] (ADR-0097) from the kit's registered
@@ -1990,13 +2051,17 @@ impl Kit {
         self.handl_modules.rewrite_adapter()
     }
 
-    /// Build a [`Kit`] from a caller-supplied [`Language`] and
-    /// [`RuntimeConfig`], wiring the canonical engine registry, the
+    /// Build a [`Kit`] from a caller-supplied [`Language`],
+    /// [`RuntimeConfig`], and [`EngineRegistry`], wiring the
     /// stdlib/fp/hello/meta module chain, and the `self`/`hello` globals.
     ///
     /// This is the shared assembly step used by both [`Kit::new`] (which
     /// feeds it the compiled-in canonical language) and [`Kit::from_path`]
     /// (which feeds it a language loaded from a directory of YAML files).
+    /// `registry` is the ext contract for engine selection (ADR-0047 §2,
+    /// ADR-0128 §0.5): callers pass [`canonical_engine_registry`] for the
+    /// statically-linked engine set, or register additional impls on it
+    /// first — see [`Kit::new_with_registry`].
     ///
     /// # Errors
     ///
@@ -2007,6 +2072,7 @@ impl Kit {
         module_root: Option<PathBuf>,
         dependencies: HashMap<String, PathBuf>,
         modules: Option<Vec<String>>,
+        registry: EngineRegistry,
     ) -> Result<Self, LangError> {
         // ADR-0128 §"The 0.8 seam": `plugin-lib-handl` (stays in platform)
         // no longer links `handl-kit-data-canonical` — its lazily-built
@@ -2017,44 +2083,6 @@ impl Kit {
         // `install_loader`.
         let _ = handl_plugin_lib_handl::install_default_language(lang.clone());
 
-        // Build the engine registry with all available engine impls
-        // (ADR-0047 §2). The host (this crate) registers the engines;
-        // handl-runtime names none.
-        let mut registry = EngineRegistry::new();
-        registry.register_lex(
-            "data",
-            Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
-        );
-        registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
-        registry.register_eval(
-            "tree-walk",
-            Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
-        );
-        registry.register_eval(
-            "bytecode",
-            Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
-        );
-        registry.register_eval(
-            "cranelift",
-            Box::new(handl_plugin_engine_exec_cranelift::CraneliftEngine::new()),
-        );
-        registry.register_compile(
-            "bytecode",
-            Box::new(handl_plugin_engine_exec_bytecode::BytecodeCompileEngine::new()),
-        );
-        registry.register_compile(
-            "native",
-            Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
-        );
-        registry.register_typecheck(
-            "handl",
-            Box::new(
-                HandlTypecheckEngine::new(Box::new(
-                    handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-                ))
-                .with_prelude(canonical_wire_names()),
-            ),
-        );
         let registry = Rc::new(registry);
 
         // Build the module-registry chain (outermost first):
@@ -2281,7 +2309,16 @@ impl Kit {
                 .clone()
                 .with_typecheck("handl");
             match handl_kit_data_canonical::language_from_yaml() {
-                Ok(lang) => return Self::build_kit(lang, config, None, HashMap::new(), None),
+                Ok(lang) => {
+                    return Self::build_kit(
+                        lang,
+                        config,
+                        None,
+                        HashMap::new(),
+                        None,
+                        canonical_engine_registry(),
+                    );
+                }
                 Err(e) => {
                     eprintln!(
                         "kit-canonical: from_path: failed to load canonical language: {}; \
@@ -2646,6 +2683,68 @@ impl Default for Kit {
 }
 
 // ---------------------------------------------------------------------------
+// canonical_engine_registry — the name→engine map wired into every runtime
+// ---------------------------------------------------------------------------
+
+/// Build the canonical [`EngineRegistry`] — the name→engine map
+/// [`Kit::build_kit`](Kit::new) and [`runtime_for_lang`] wire into every
+/// runtime (ADR-0047 §2).
+///
+/// Statically registered: `data` lex, `pratt` parse, `tree-walk` and
+/// `bytecode` eval, `bytecode` compile, and the `handl` typecheck engine —
+/// plus, under the `cranelift` Cargo feature (on by default), the
+/// `cranelift` eval engine and the `native` compile engine backed by
+/// `handl-plugin-engine-exec-cranelift`.
+///
+/// The registry is the ext contract for exec engines (ADR-0128 §0.5):
+/// engines are selected *by name* through `RuntimeConfig`, never
+/// dispatched statically, so a consumer that builds this crate with
+/// `default-features = false` can register its own implementations on the
+/// returned map and pass it to [`Kit::new_with_registry`] or
+/// [`runtime_for_lang_with_registry`].
+pub fn canonical_engine_registry() -> EngineRegistry {
+    let mut registry = EngineRegistry::new();
+    registry.register_lex(
+        "data",
+        Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
+    );
+    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+    registry.register_eval(
+        "tree-walk",
+        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
+    );
+    registry.register_eval(
+        "bytecode",
+        Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
+    );
+    registry.register_compile(
+        "bytecode",
+        Box::new(handl_plugin_engine_exec_bytecode::BytecodeCompileEngine::new()),
+    );
+    #[cfg(feature = "cranelift")]
+    {
+        registry.register_eval(
+            "cranelift",
+            Box::new(handl_plugin_engine_exec_cranelift::CraneliftEngine::new()),
+        );
+        registry.register_compile(
+            "native",
+            Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
+        );
+    }
+    registry.register_typecheck(
+        "handl",
+        Box::new(
+            HandlTypecheckEngine::new(Box::new(
+                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+            ))
+            .with_prelude(canonical_wire_names()),
+        ),
+    );
+    registry
+}
+
+// ---------------------------------------------------------------------------
 // runtime_for_lang — build a Runtime for an arbitrary Language with the
 // canonical engine registry + meta chain (for tests / custom-language hosts)
 // ---------------------------------------------------------------------------
@@ -2663,48 +2762,25 @@ impl Default for Kit {
 ///
 /// Returns [`LangError`] if engine binding fails.
 pub fn runtime_for_lang(lang: handl_language::Language) -> Result<Runtime, LangError> {
+    runtime_for_lang_with_registry(lang, canonical_engine_registry())
+}
+
+/// Like [`runtime_for_lang`], but over a caller-supplied
+/// [`EngineRegistry`] — the injection seam for engines the kit does not
+/// statically link (ADR-0128 §0.5). See [`Kit::new_with_registry`].
+///
+/// # Errors
+///
+/// Returns [`LangError`] if engine binding fails.
+pub fn runtime_for_lang_with_registry(
+    lang: handl_language::Language,
+    registry: EngineRegistry,
+) -> Result<Runtime, LangError> {
     let config = handl_kit_data_canonical::manifest()
         .runtime
         .clone()
         .with_typecheck("handl");
 
-    // Build the engine registry with all available engine impls
-    // (ADR-0047 §2).
-    let mut registry = EngineRegistry::new();
-    registry.register_lex(
-        "data",
-        Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
-    );
-    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
-    registry.register_eval(
-        "tree-walk",
-        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
-    );
-    registry.register_eval(
-        "bytecode",
-        Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
-    );
-    registry.register_eval(
-        "cranelift",
-        Box::new(handl_plugin_engine_exec_cranelift::CraneliftEngine::new()),
-    );
-    registry.register_compile(
-        "bytecode",
-        Box::new(handl_plugin_engine_exec_bytecode::BytecodeCompileEngine::new()),
-    );
-    registry.register_compile(
-        "native",
-        Box::new(handl_plugin_engine_exec_cranelift::CraneliftCompileEngine::new()),
-    );
-    registry.register_typecheck(
-        "handl",
-        Box::new(
-            HandlTypecheckEngine::new(Box::new(
-                handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
-            ))
-            .with_prelude(canonical_wire_names()),
-        ),
-    );
     let registry = Rc::new(registry);
 
     // Build the meta chain from the 6 plugin-lib-lang-* crates
