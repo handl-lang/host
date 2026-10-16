@@ -1018,6 +1018,7 @@ fn bind_stmt(
         check_rebind(&name, env, local, params)?;
         let value_idx = child_at_role_or_pos(child, lang, "value", 1)
             .ok_or_else(|| format!("assign at {} missing value child", idx))?;
+        decline_self_reference(ast, &name, value_idx)?;
         let bound = if is_op_graded_arrow(ast, lang, value_idx)? {
             op_term_from_graded_arrow(ast, lang, &name, value_idx)?
         } else {
@@ -1038,6 +1039,7 @@ fn bind_stmt(
         let value_idx = child_at_role_or_pos(child, lang, "value", 0)
             .or_else(|| children(child).first().copied())
             .ok_or_else(|| format!("bind at {} missing value child", idx))?;
+        decline_self_reference(ast, &name, value_idx)?;
         let bound = if is_op_graded_arrow(ast, lang, value_idx)? {
             op_term_from_graded_arrow(ast, lang, &name, value_idx)?
         } else {
@@ -1055,6 +1057,7 @@ fn bind_stmt(
             .ok_or_else(|| format!("{} at {} missing payload.name", child.kind, idx))?
             .to_string();
         check_rebind(&name, env, local, params)?;
+        decline_self_reference(ast, &name, idx)?;
         let bound = lower_node(ast, lang, idx, env, params)?;
         let entry = EnvEntry {
             term: bound.clone(),
@@ -1067,6 +1070,28 @@ fn bind_stmt(
     } else {
         Ok(None)
     }
+}
+
+/// A bound name appearing anywhere in its own RHS is a self-recursive
+/// call — not a calculus construct (recursion is λ; the arrow calculus
+/// has feedback via `Loop`, not self-application). `var f` would emit
+/// `Op{f}` → `call_host` → "function 'f' not found" at runtime, so
+/// decline: the env engines' `eval_rec` resolves it correctly instead.
+/// The name scan over-collects (binder names count as references) —
+/// over-decline is safe, it only ever takes the AST fallback.
+fn decline_self_reference(ast: &Ast, name: &str, value_idx: usize) -> Result<(), String> {
+    if handl_language::subtree_name_candidates(
+        |r| ast.get(r).map(|n| n.payload.clone()),
+        AstRef::new(value_idx),
+    )
+    .is_some_and(|names| names.contains(name))
+    {
+        return Err(format!(
+            "lower: self-recursive call to `{name}` — the arrow calculus has no \
+             recursion; express it as a `while`/`loop` fold"
+        ));
+    }
+    Ok(())
 }
 
 /// Reject a binding of `name` when it would mutate state the pure arrow
