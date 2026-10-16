@@ -133,6 +133,7 @@ repos:
       - 0001-library-crates-are-platform-plugins.md
       - 0002-handl-platform-composable-host-remaining.md
       - 0002-platform-is-agnostic.md
+      - 0009-strategy-c-runtime-module-loading.md
       - 0010-package-manager.md
       - 0012-versioning.md
       - 0014-formatter.md
@@ -394,4 +395,19 @@ repos:
       - principles.md
     adrs:
       - 0080-handl-press-docs-framework.md
+
+# ADRs written directly in a repo (not split children of a platform ADR).
+# The registry lists them so a number is never reused across repos.
+local_adrs:
+  - repo: extension-neovim
+    number: "0145"
+    slug: handl-lsp-integration
+    title: "LSP-only Neovim integration"
+    file: adrs/0145-handl-lsp-integration.md
+  - repo: lang
+    number: "0146"
+    slug: generic-arrow-calculus-any-dimension
+    title: "Generic Arrow Calculus for Any Dimension"
+    file: adrs/0146-generic-arrow-calculus-any-dimension.md
+
 

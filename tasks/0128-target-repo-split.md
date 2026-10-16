@@ -225,8 +225,13 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 12 — `docs/` (independent, anytime)
 
-- [ ] `docs/` repo ← platform `docs/` (VitePress) + sibling
-      `handl-lang/docs/` top-level ADRs.
+- [ ] `docs/` repo ← platform `docs/` (VitePress). **Done** (ADR-0129 5.3).
+      The platform `adrs/` top-level dir is gone: its 9 ADRs were distributed
+      to the repos that own them (`extension-vscode` 0001–0004/0006, `cli`
+      0005, `web` 0007, `lsp` 0008, `platform` 0009, `lang` the n-dim
+      calculus ADR renumbered 0146) and live on each repo's `project` branch
+      under `project/adrs/`. The hub publishes the aggregate instead of
+      holding copies.
 - [ ] Per-repo generated reference: each repo publishes rustdoc + its
       `.hnl` module surface; `docs/` aggregates them into one site.
 
