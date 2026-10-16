@@ -213,10 +213,18 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 6 — `native/`
 
-- [ ] `native/modules/exec-cranelift` ← `plugin-engine-exec-cranelift`
+- [x] `native/modules/exec-cranelift` ← `plugin-engine-exec-cranelift`
       (feature-gated).
-- [ ] `native/modules/compile-llvm` ← `plugin-compile-llvm`, **blocked
+      **Done:** subtree-split import; `kit-canonical`'s optional
+      `cranelift` dep now pins the native repo; `handl-runtime` +
+      `handl-defining-handl` dev-deps follow via git deps + `[patch]`.
+      ~95 tests green in `native/` (incl. `standalone_bootstrap`).
+- [x] `native/modules/compile-llvm` ← `plugin-compile-llvm`, **blocked
       until `inkwell` is actually enabled** — today it emits nothing.
+      **Done anyway:** the move is mechanical — `inkwell` stays an
+      optional, default-off feature; `plugin-ext-compile` consumes the
+      crate via a pinned git dep. Enabling the backend remains its own
+      task.
 
 ## Phase 7 — `dot/`, `term/`, `sexp/`, `handl/` (four repos)
 
