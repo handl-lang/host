@@ -1,0 +1,291 @@
+--- meta_model.hnl
+---
+--- ADR-0103: "The Kernel is the Evaluator, Not the Calculus".
+---
+--- This is the *meta-model* — the model that interprets models themselves.
+--- A model is a `Term` value: a record of handlers (at minimum a `run`
+--- handler accepting `(term, incoming, ctx)`). The meta-model treats
+--- models as *data* — loadable, validatable, composable, and runnable
+--- inside the language. This is what makes the stack bootstrappable:
+--- the kernel runs models, and one of the models it runs is the
+--- meta-model that knows how to run other models.
+---
+--- Like every other model in this directory, the meta-model is Handl
+--- code (data) compiled to bytecode and run on the VM (ADR-0103). The
+--- kernel is the bytecode VM plus the hardware boundary — fixed,
+--- minimal, and agnostic of what any tag means. It does not know what
+--- a "model" is; the meta-model does.
+---
+--- The categorical picture (from the ADR):
+---   - Kernel (Rust)  = the bytecode VM + hardware boundary. Fixed,
+---                       minimal, doesn't know what any tag means.
+---   - Arrow calculus  = a Freyd category with algebraic effects and
+---                       handlers (Sanada's semantics). The
+---                       computational model — one interpretation
+---                       among many (`arrow_model.hnl`).
+---   - Type model      = types as spaces, values as points, equality as
+---                       paths (HoTT). Another interpretation of the
+---                       same data (`type_model.hnl`).
+---   - Meta-model      = models as data, composable and bootstrappable
+---                       (this file).
+---
+--- "One language, multiple interpreters" is *literal*: the interpreters
+--- are models, and the kernel runs them. The arrow calculus is not the
+--- kernel — it is the *first* model. The kernel runs models; models are
+--- data. The meta-model is the model that operates on that data.
+---
+--- The meta-model can load, validate, compose, and run models:
+---   `load_model(path)`           — read a model's source from a file
+---                                   path via the host `fs` capability
+---                                   and parse it into a model value.
+---   `compose(model_a, model_b)`  — compose two models: return a new
+---                                   model whose `run` pipes model_a's
+---                                   output into model_b's input.
+---   `run_model(model, term, ..)` — run a model on a term with an
+---                                   incoming value and context.
+---   `validate_model(model)`      — check a model has the required
+---                                   structure (a `run` handler).
+---   `identity_model()`           — the identity model (run = identity).
+---   `model_handler(model, tag)`  — look up the handler for a tag.
+---   `available_tags(model)`     — list all tags a model handles.
+---   `model_name(model)`         — get a model's name, if it has one.
+---   `register_model(name, ..)`   — register a model by name in a
+---                                   registry.
+---   `lookup_model(name, reg)`   — look up a model by name.
+---   `pipeline(models)`          — fold-compose a list of models
+---                                   left-to-right into one model.
+---   `parallel(model_a, model_b)`— run two models on the same input,
+---                                   return a pair of results.
+---   `trace_model(model, ..)`    — run a model recording each tag
+---                                   dispatch at the model boundary.
+---
+--- This module depends on the host `tag` capability and on the runtime
+--- `hash_map`, `array`, and `typeof` modules. `load_model` additionally
+--- uses the kernel `ffi` (host capability call) and `parse` (source ->
+--- model value) primitives, per the ADR spec.
+
+do {
+  --- tget: field access with a null default (total projection).
+  --- Used everywhere the ADR spec writes `getfield(term, "field")` or
+  --- `model.run`. A model is a record of handlers, so handler lookup
+  --- is just `tget(model, "run")`.
+  tget :: [obj, key] ~> hash_map.get(obj, key, null)
+
+  --- is_obj: true iff `v` is a runtime object (hash map) value.
+  --- A model is always an object (a record of handlers).
+  is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+
+  --- is_fn: true iff `v` is a function value. A model's `run` handler
+  --- must be a function accepting `(term, incoming, ctx)`. Runtime
+  --- closures are JSON objects stamped with `"__arrow__": true`, so we
+  --- detect them by that marker rather than `typeof.type_of` (which
+  --- reports `"obj"` for all objects, closures included).
+  is_fn :: v ~> if typeof.type_of(v) == "obj" {
+    if hash_map.get_or(v, "__arrow__", false) == true { true } else { false }
+  } else { false }
+
+  --- model_error: construct a `ModelError`-tagged value carrying a
+  --- diagnostic message. Returned by validation / lookup failures so
+  --- callers can pattern-match on `__tag__ == "ModelError"`.
+  model_error :: message ~> tag.tag("ModelError", hash_map.set({}, "message", message))
+
+  --- load_model: load a model from a file path.
+  ---
+  --- Reads the model source via the host `fs` capability through the
+  --- kernel `ffi` primitive, then parses the source into a model value
+  --- (a record of handlers) via the kernel `parse` primitive. This is
+  --- the ADR-0103 spec verbatim: models live on disk as Handl source,
+  --- and the meta-model knows how to materialize them.
+  load_model :: [path] ~> do {
+    source :: ffi("fs", "read", [path])
+    parse(source)
+  }
+
+  --- compose: compose two models into one.
+  ---
+  --- Returns a new model whose `run` pipes model_a's output into
+  --- model_b's input, per the ADR-0103 spec:
+  ---   compose(a, b).run(term, incoming, ctx) =
+  ---     b.run(a.run(term, incoming, ctx), incoming, ctx)
+  --- The `incoming` and `ctx` are threaded through to `b` so the call
+  --- matches the `(term, incoming, ctx)` run-handler signature that
+  --- `run_model` (and every model's `run`) expects. The composed model is
+  --- itself a first-class model (a record with a `run` handler), so
+  --- composition is associative and bootstrappable.
+  compose :: [model_a, model_b] ~> do {
+    run_a :: tget(model_a, "run")
+    run_b :: tget(model_b, "run")
+    hash_map.set({}, "run", [term, incoming, ctx] ~> run_b(run_a(term, incoming, ctx), incoming, ctx))
+  }
+
+  --- run_model: run a model on a term with an incoming value and
+  --- context. This is the ADR-0103 spec verbatim — direct dispatch to
+  --- the model's `run` handler. The kernel doesn't know what `run`
+  --- means; the meta-model does.
+  run_model :: [model, term, incoming, ctx] ~> tget(model, "run")(term, incoming, ctx)
+
+  --- validate_model: validate that a model has the required structure.
+  ---
+  --- A valid model is an object (a record of handlers) possessing a
+  --- `run` handler that is a function (it will be called with
+  --- `(term, incoming, ctx)`). Returns `true` on success, or a
+  --- `ModelError`-tagged value describing the failure so callers can
+  --- branch on the diagnostic.
+  validate_model :: [model] ~> if is_obj(model) {
+    do {
+      run :: tget(model, "run")
+      if run == null {
+        model_error("validate_model: model has no 'run' handler")
+      } else {
+        if is_fn(run) {
+          true
+        } else {
+          model_error("validate_model: 'run' handler is not a function")
+        }
+      }
+    }
+  } else {
+    model_error("validate_model: model is not a record of handlers")
+  }
+
+  --- identity_model: the identity model.
+  ---
+  --- Its `run` is the identity function on the term — `run(term,
+  --- incoming, ctx) = term`. This is the left/right unit of `compose`:
+  ---   compose(identity_model(), m)  runs m on the term unchanged,
+  ---   compose(m, identity_model())  returns m's output unchanged.
+  identity_model :: [] ~> hash_map.set({}, "run", [term, incoming, ctx] ~> term)
+
+  --- model_handler: look up the handler for a specific tag in a model.
+  ---
+  --- A model is a record of handlers keyed by tag name (e.g. `"run"`,
+  --- or any custom handler tag the model exposes). This is the total
+  --- projection — returns `null` if the model handles no such tag.
+  model_handler :: [model, tag_name] ~> tget(model, tag_name)
+
+  --- available_tags: list all tags a model handles.
+  ---
+  --- Returns the keys of the model's handler record (the tags the
+  --- model dispatches on). This is the model's *interface* — the set
+  --- of operations it accepts.
+  available_tags :: [model] ~> if is_obj(model) {
+    hash_map.keys(model)
+  } else {
+    []
+  }
+
+  --- model_name: get a model's name, if it has one.
+  ---
+  --- Models may carry a `"name"` field (e.g. set by `register_model` or
+  --- authored in the model source). Returns `null` if the model is
+  --- anonymous.
+  model_name :: [model] ~> if is_obj(model) {
+    tget(model, "name")
+  } else {
+    null
+  }
+
+  --- register_model: register a model by name in a model registry.
+  ---
+  --- A registry is an ordinary hash map from name to model. Returns a
+  --- *new* registry with the binding added (immutable update), so
+  --- registries compose functionally. The model is also stamped with
+  --- its `name` so `model_name` round-trips through the registry.
+  register_model :: [name, model, registry] ~> do {
+    base :: if is_obj(registry) { registry } else { {} }
+    stamped :: if is_obj(model) { hash_map.set(model, "name", name) } else { model }
+    hash_map.set(base, name, stamped)
+  }
+
+  --- lookup_model: look up a model by name from a registry.
+  ---
+  --- Returns the model registered under `name`, or `null` if no such
+  --- model is registered. The registry is the hash map built by
+  --- `register_model`.
+  lookup_model :: [name, registry] ~> if is_obj(registry) {
+    tget(registry, name)
+  } else {
+    null
+  }
+
+  --- pipeline: compose a list of models left-to-right into one model.
+  ---
+  --- A `while` fold over the model list, threading an accumulator that
+  --- starts at the identity model and applies `compose` for each
+  --- model in order. `pipeline([a, b, c])` = `compose(compose(a, b),
+  --- c)`, so data flows a -> b -> c. The empty pipeline is the
+  --- identity model.
+  pipeline :: [models] ~> while { acc: identity_model(), remaining: models } {
+    [state] ~> if array.is_empty(state.remaining) {
+      { out: state.acc }
+    } else {
+      do {
+        head :: array.first(state.remaining)
+        { state: { acc: compose(state.acc, head), remaining: array.drop(state.remaining, 1) } }
+      }
+    }
+  }
+
+  --- parallel: run two models in parallel on the same input.
+  ---
+  --- Returns a model whose `run` invokes both `model_a` and
+  --- `model_b` on the same `(term, incoming, ctx)` and yields a pair
+  --- of their results. This is the categorical product of models:
+  ---   parallel(a, b).run(t, i, c) = (a.run(t, i, c), b.run(t, i, c)).
+  parallel :: [model_a, model_b] ~> do {
+    run_a :: tget(model_a, "run")
+    run_b :: tget(model_b, "run")
+    hash_map.set(
+      {},
+      "run",
+      [term, incoming, ctx] ~> do {
+        ra :: run_a(term, incoming, ctx)
+        rb :: run_b(term, incoming, ctx)
+        hash_map.set({}, "__pair__", [ra, rb])
+      }
+    )
+  }
+
+  --- trace_model: run a model with execution tracing.
+  ---
+  --- Records each tag dispatch *at the model boundary* — i.e. the
+  --- `__tag__` of the term handed to the model's `run` handler, plus
+  --- whether the run succeeded. (Internal per-tag dispatch lives
+  --- inside the model's own `run`, which is opaque to the meta-model;
+  --- the meta-model traces the invocation boundary, which is the
+  --- level at which it can observe models as data.) Returns a record
+  --- `{ result, trace }` where `trace` is an array of
+  --- `{ tag, ok }` entries.
+  trace_model :: [model, term, incoming, ctx] ~> do {
+    run :: tget(model, "run")
+    tag_name :: if is_obj(term) { tget(term, "__tag__") } else { null }
+    result :: run(term, incoming, ctx)
+    ok :: if is_obj(result) {
+      if hash_map.get_or(result, "__tag__", "") == "ModelError" { false } else { true }
+    } else {
+      true
+    }
+    entry :: hash_map.set(hash_map.set({}, "tag", tag_name), "ok", ok)
+    hash_map.set(
+      hash_map.set({}, "result", result),
+      "trace",
+      [entry]
+    )
+  }
+
+  {
+    load_model: load_model,
+    compose: compose,
+    run_model: run_model,
+    validate_model: validate_model,
+    identity_model: identity_model,
+    model_handler: model_handler,
+    available_tags: available_tags,
+    model_name: model_name,
+    register_model: register_model,
+    lookup_model: lookup_model,
+    pipeline: pipeline,
+    parallel: parallel,
+    trace_model: trace_model
+  }
+}

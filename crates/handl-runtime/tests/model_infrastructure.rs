@@ -48,7 +48,7 @@ fn to_term(td: TermData) -> Term {
     td.to_term().expect("TermData -> Term conversion failed")
 }
 
-const ARROW_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/arrow_model.hnl");
+const ARROW_MODEL_HNL: &str = include_str!("fixtures/arrow_model.hnl");
 
 /// Build a `HandlModule` for the arrow model.
 fn arrow_module() -> HandlModule {

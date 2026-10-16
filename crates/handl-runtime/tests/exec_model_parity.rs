@@ -74,8 +74,8 @@ fn ensure_lang() {
     }
 }
 
-const EXEC_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/exec_model.hnl");
-const VALUE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/value_model.hnl");
+const EXEC_MODEL_HNL: &str = include_str!("fixtures/exec_model.hnl");
+const VALUE_MODEL_HNL: &str = include_str!("fixtures/value_model.hnl");
 
 /// Convert a `TermData` back to `Term` for passing to `Model::run` (which
 /// takes `&Term`). The conversion is lossless for all well-formed `TermData`.

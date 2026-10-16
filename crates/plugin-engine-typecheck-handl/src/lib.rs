@@ -36,7 +36,7 @@ use plugin_engine::{Term, TermData};
 
 /// The embedded typecheck model source (ADR-0103/0105).
 const TYPECHECK_MODEL_HNL: &str =
-    include_str!("../../../project/design/adr0103/typecheck_model.hnl");
+    include_str!("models/typecheck_model.hnl");
 
 /// The function names exported by the typecheck model record.
 const TYPECHECK_MODEL_FUNCS: &[&str] = &["typecheck"];

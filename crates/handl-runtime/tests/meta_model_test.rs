@@ -43,7 +43,7 @@ fn ensure_lang() {
     }
 }
 
-const META_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/meta_model.hnl");
+const META_MODEL_HNL: &str = include_str!("fixtures/meta_model.hnl");
 
 /// The exported function names of the meta-model.
 const META_FUNCS: &[&str] = &[

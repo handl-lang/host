@@ -1,0 +1,905 @@
+--- exec_model.hnl
+---
+--- ADR-0103: "The Kernel is the Evaluator, Not the Calculus".
+---
+--- The exec model defines *how to evaluate AST nodes*. It is the first
+--- layer of Handl code on top of the VM: the structural ops that recurse
+--- through the AST and the eval-scheme dispatch that selects, for each
+--- node kind, the Handl function that evaluates it.
+---
+--- Per ADR-0103, this file is Handl code compiled to bytecode and run on
+--- the VM. The kernel is *not* a set of named structural ops — the kernel
+--- is just the bytecode VM loop (fetch-decode-execute) plus the hardware
+--- boundary (arithmetic, memory, ffi). Everything above that is bytecode
+--- or Handl. The structural ops defined here are NOT kernel native ops;
+--- they are Handl functions that orchestrate the VM's instruction set to
+--- evaluate AST nodes.
+---
+--- The VM primitives this module calls — `push_scope`, `pop_scope`,
+--- `bind`, `lookup`, `call`, `ffi`, `pattern_match`, `make_closure` —
+--- are the hardware boundary / VM instruction set defined in Phase 1.
+--- They are the irreducible machine: `getfield`/`setfield` are load/store
+--- over records, `call`/`ret` are the call stack, `ffi` is the OS
+--- boundary, `pattern_match` is bytecode orchestration over
+--- load/store/call. Everything above them is Handl.
+---
+--- Structural ops provided by this module (grouped by concern):
+---
+---   AST recursion:
+---     proj_child      — evaluate the child at a named role.
+---     proj_child_or   — evaluate the child at a named role, or a default.
+---     proj_rest       — evaluate the children after a named role.
+---
+---   Block / fixpoint evaluation:
+---     eval_block      — push scope, eval each child, pop scope, return last.
+---     eval_rec        — fixpoint: iterate the body until bindings converge.
+---
+---   Environment management:
+---     proj_env        — look up a name in the current environment.
+---     extend_env      — push a scope and bind a name to a value.
+---     closure         — capture a function body with its environment.
+---
+---   Control:
+---     pattern_match   — match a value against a pattern (wraps the VM
+---                        primitive; the `match` op orchestrates arms with it).
+---     push_handler    — push a handler onto the context's handler stack.
+---     pop_handler     — pop the top handler from the handler stack.
+---     apply           — apply a callee to evaluated arguments.
+---
+---   Data:
+---     record          — construct a record from a list of field/value pairs.
+---     field_access    — project a field from a record (or index an array).
+---     array           — construct an array from a list of elements.
+---     tag_construct   — construct a tagged value (tag + payload).
+---     arrow_field     — project a named field from an arrow cell.
+---
+---   Host / module dispatch:
+---     call_op         — handler-interceptable op dispatch: search the
+---                        handler stack for a handler providing the op,
+---                        fall back to native/ffi dispatch.
+---     import_module   — load and splice a module's exports into the env.
+---     export_binding  — register a name/value in the current module's exports.
+---
+---   Exec semantics (not kernel):
+---     number_add      — tagged Number arithmetic: untag, add, re-tag.
+---
+---   Eval dispatch:
+---     eval            — look up a node's kind, find its eval scheme,
+---                        and apply it. This is the core of the exec model.
+---     run             — Model-trait entry point: dispatch on `__tag__`
+---                        using the structural ops where available. Tags
+---                        that require VM primitives not yet implemented
+---                        return a LangError.
+---
+--- The VM auto-pops scopes and handlers on failure (ADR-0103 §"Cleanup on
+--- failure — VM manages"), so the structural ops here do not need
+--- explicit cleanup in error paths.
+---
+--- ADAPTATION NOTE: This file was adapted from the design specification
+--- to be loadable and testable on the current tree-walk runtime. The
+--- following changes were made:
+---   - The `foreach x in xs { body }` pseudocode was replaced with `while`
+---     loops (the Handl iteration form).
+---   - Bare data VM primitives (`getfield`, `setfield`, `typeof_tag`,
+---     `array_at`, `array_len`, `array_slice`, `tag_untag`) were replaced
+---     with their stdlib module equivalents (`hash_map`, `array`,
+---     `typeof`, `tag`).
+---   - `tag_construct` was fixed to merge the payload via `tag.tag`
+---     (matching `value_model.hnl`'s `number_add` semantics) instead of
+---     nesting it under a `"value"` key.
+---   - `import`/`export` function names were renamed to `import_module`/
+---     `export_binding` to avoid reserved-keyword parse errors.
+---   - A `run(term, incoming, ctx)` arrow was added for Model-trait
+---     integration (ADR-0103 Phase 8).
+--- The genuine VM instruction-set primitives (`push_scope`, `pop_scope`,
+--- `bind`, `lookup`, `call`, `ffi`, `make_closure`, `vm_pattern_match`,
+--- `lookup_eval_scheme`, `setfield`, `ctx`) are now wired as host functions
+--- via the `VmPrimitivesModule` (crates/handl-runtime/src/vm_primitives.rs),
+--- making the structural ops that depend on them executable on the tree-walk
+--- runtime for testing. The implementations are minimal — they handle the
+--- common cases needed by the exec model parity tests. The `pattern_match`
+--- Handl wrapper calls `vm_pattern_match` (renamed from the bare
+--- `pattern_match` VM primitive to avoid infinite recursion with the
+--- same-named Handl wrapper). The `ctx` binding is exposed as a zero-arg
+--- `ctx()` host function call (bare `ctx` would evaluate to the string
+--- `"ctx"` on the tree-walk runtime).
+
+do {
+  ------------------------------------------------------------------
+  -- Shared helpers (replaces bare VM data primitives with stdlib)
+  ------------------------------------------------------------------
+
+  --- tget: field access with a null default (total projection).
+  --- Replaces the spec's bare `getfield(obj, key)`.
+  tget :: [obj, key] ~> hash_map.get_or(obj, key, null)
+
+  --- is_obj: true iff `v` is a runtime object (hash map) value.
+  is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+
+  --- is_pair: true iff `v` is a serialized pair (`__pair__` marker).
+  is_pair :: v ~> if is_obj(v) {
+    if hash_map.get_or(v, "__pair__", null) != null { true } else { false }
+  } else {
+    false
+  }
+
+  --- pair_fst / pair_snd: destructure a serialized pair.
+  pair_fst :: v ~> array.first(hash_map.get_or(v, "__pair__", []))
+  pair_snd :: v ~> array.at(hash_map.get_or(v, "__pair__", []), 1)
+
+  --- pair: construct a serialized pair.
+  pair :: [a, b] ~> hash_map.set({}, "__pair__", [a, b])
+
+  --- is_either: true iff `v` is a serialized Either (`__either__` marker).
+  is_either :: v ~> if is_obj(v) {
+    if hash_map.get_or(v, "__either__", null) != null { true } else { false }
+  } else {
+    false
+  }
+
+  either_value :: v ~> hash_map.get_or(v, "value", null)
+  either_left :: v ~> hash_map.set(hash_map.set({}, "__either__", "left"), "value", v)
+  either_right :: v ~> hash_map.set(hash_map.set({}, "__either__", "right"), "value", v)
+
+  arrow_compose :: [a, b] ~> tag.tag("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
+
+  --- has_field: true iff the record has a field named `name`.
+  has_field :: [record, name] ~> hash_map.get_or(record, name, null) != null
+
+  ------------------------------------------------------------------
+  -- AST recursion
+  ------------------------------------------------------------------
+
+  --- proj_child: evaluate the child of `node` at the named `role`.
+  ---
+  --- Looks up the role in the node's children map (resolved by the VM
+  --- from `AstShapeDef.children`), then evaluates the resulting child
+  --- node via `eval`. This is the primary recursion primitive of the
+  --- exec model — eval schemes call it to descend into sub-nodes.
+  ---
+  --- NOTE: Requires `eval` / `lookup_eval_scheme` (VM primitives not yet
+  --- available on the tree-walk runtime). Defined but not executable.
+  proj_child :: [node, role] ~> do {
+    children :: tget(node, "children")
+    idx :: tget(children, role)
+    eval(idx)
+  }
+
+  --- proj_child_or: like `proj_child`, but return `default` when the
+  --- role is absent (the child map has no entry for `role`). Used by
+  --- eval schemes for optional children (e.g. `else` branches,
+  --- `witness` fields).
+  ---
+  --- NOTE: Requires `eval` / `lookup_eval_scheme` (VM primitives not yet
+  --- available). Defined but not executable.
+  proj_child_or :: [node, role, default] ~> do {
+    children :: tget(node, "children")
+    idx :: tget(children, role)
+    if idx == null { default } else { eval(idx) }
+  }
+
+  --- proj_rest: evaluate the children of `node` *after* the named
+  --- `role` — the "rest" children following a distinguished child.
+  --- Returns an array of evaluated results. Used by eval schemes where
+  --- a node has a fixed prefix child plus a variadic tail (e.g. `data`
+  --- constructors, `match` arms).
+  ---
+  --- NOTE: Requires `eval` / `lookup_eval_scheme` (VM primitives not yet
+  --- available). Defined but not executable.
+  proj_rest :: [node, role] ~> do {
+    children :: tget(node, "children")
+    rest :: tget(children, "__rest__")
+    if rest == null {
+      []
+    } else {
+      while { result: [], remaining: rest } {
+        [state] ~> if array.is_empty(state.remaining) {
+          { out: state.result }
+        } else {
+          do {
+            head_val :: eval(array.first(state.remaining))
+            { state: { result: [...state.result, head_val], remaining: array.drop(state.remaining, 1) } }
+          }
+        }
+      }
+    }
+  }
+
+  ------------------------------------------------------------------
+  -- Block / fixpoint evaluation
+  ------------------------------------------------------------------
+
+  --- eval_block: evaluate a block node — push a fresh scope, evaluate
+  --- each child statement in sequence, pop the scope, and return the
+  --- last result. The scope is block-local: bindings made inside the
+  --- block do not leak to the enclosing scope. The VM auto-pops the
+  --- scope on failure, so `pop_scope` only runs on the success path.
+  ---
+  --- NOTE: Requires `push_scope`/`pop_scope`/`eval` (VM primitives not
+  --- yet available). Defined but not executable.
+  eval_block :: node ~> do {
+    push_scope()
+    result :: while { result: [], remaining: tget(node, "children") } {
+      [state] ~> if array.is_empty(state.remaining) {
+        { out: state.result }
+      } else {
+        do {
+          head_val :: eval(array.first(state.remaining))
+          { state: { result: [...state.result, head_val], remaining: array.drop(state.remaining, 1) } }
+        }
+      }
+    }
+    pop_scope()
+    array.last(result)
+  }
+
+  --- eval_rec: fixpoint evaluation — iterate the body until the
+  --- bindings converge (stop changing). This implements `rec` regions:
+  --- the body is evaluated repeatedly, and after each pass the
+  --- rec-region bindings are compared to their values from the
+  --- previous pass. When no binding changed, the fixpoint is reached
+  --- and the last body result is returned. A fuel counter guards
+  --- against non-terminating fixpoints.
+  ---
+  --- The scope stack is managed explicitly: a scope is pushed for the
+  --- rec region, the body rebinds into it on each pass, and the scope
+  --- is popped on convergence (or auto-popped by the VM on failure).
+  ---
+  --- NOTE: Requires `push_scope`/`pop_scope`/`eval` (VM primitives not
+  --- yet available). Defined but not executable.
+  eval_rec :: node ~> do {
+    body :: tget(node, "body")
+    fuel :: tget(node, "fuel")
+    push_scope()
+    result :: while { pass: 0, prev: {}, converged: false } {
+      [state] ~> if state.converged {
+        { out: state.prev }
+      } else {
+        if state.pass > fuel {
+          { out: state.prev }
+        } else {
+          do {
+            bindings :: eval(body)
+            changed :: bindings != state.prev
+            { state: { pass: state.pass + 1, prev: bindings, converged: if changed { false } else { true } } }
+          }
+        }
+      }
+    }
+    pop_scope()
+    result
+  }
+
+  ------------------------------------------------------------------
+  -- Environment management
+  ------------------------------------------------------------------
+
+  --- proj_env: look up `name` in the current environment (the scope
+  --- stack). Returns the bound value, or null if unbound. This is the
+  --- variable-resolution primitive — eval schemes for `var`/`ref` nodes
+  --- call it to resolve identifiers.
+  ---
+  --- NOTE: Requires `lookup` (VM primitive not yet available). Defined
+  --- but not executable.
+  proj_env :: name ~> lookup(name)
+
+  --- extend_env: push a fresh scope, bind `name` to `val` in it, and
+  --- return `val`. The binding is visible to subsequent evaluations in
+  --- the same scope chain. Used by eval schemes for `assign`/`bind`
+  --- nodes to introduce or update a binding.
+  ---
+  --- NOTE: Requires `push_scope`/`bind` (VM primitives not yet
+  --- available). Defined but not executable.
+  extend_env :: [name, val] ~> do {
+    push_scope()
+    bind(name, val)
+    val
+  }
+
+  --- closure: capture a function body together with the current
+  --- environment, producing a callable closure. When the closure is
+  --- later applied (via `apply`), the VM pushes a new scope, binds the
+  --- parameters, and evaluates the body in the captured environment
+  --- extended with the parameter bindings.
+  ---
+  --- NOTE: Requires `make_closure` (VM primitive not yet available).
+  --- Defined but not executable.
+  closure :: [params, body, env] ~> make_closure(params, body, env)
+
+  ------------------------------------------------------------------
+  -- Control
+  ------------------------------------------------------------------
+
+  --- pattern_match: match `value` against `pattern`, returning a
+  --- binding record on success or null on failure. This wraps the VM's
+  --- `pattern_match` primitive (bytecode orchestration over
+  --- load/store/call). The `match` op (eval scheme) orchestrates arm
+  --- iteration by calling this primitive for each arm's pattern until
+  --- one succeeds, then evaluating the arm body in the resulting
+  --- bindings.
+  ---
+  --- NOTE: Requires the VM `pattern_match` primitive (not yet
+  --- available). Defined but not executable.
+  pattern_match :: [pattern, value] ~> vm_pattern_match(pattern, value)
+
+  --- push_handler: push `handler` onto the context's handler stack.
+  --- The handler stack is the algebraic-effect handler chain: `call_op`
+  --- searches it (innermost-first) to find a handler providing an op.
+  --- The VM auto-pops handlers on failure, so explicit `pop_handler`
+  --- only runs on the success path.
+  ---
+  --- NOTE: Requires `ctx` binding (VM context, not yet available).
+  --- Defined but not executable.
+  push_handler :: handler_val ~> do {
+    stack :: tget(ctx(), "handler_stack")
+    setfield(ctx(), "handler_stack", array.concat(stack, [handler_val]))
+  }
+
+  --- pop_handler: pop the top handler from the context's handler stack.
+  --- Called on the success path after a `handle` body completes; the
+  --- VM auto-pops on failure.
+  ---
+  --- NOTE: Requires `ctx` binding (VM context, not yet available).
+  --- Defined but not executable.
+  pop_handler :: unit ~> do {
+    stack :: tget(ctx(), "handler_stack")
+    setfield(ctx(), "handler_stack", array_drop_last(stack))
+  }
+
+  --- apply: apply `callee` to the evaluated `args`. This is the
+  --- structural op for function application — the VM's `call`
+  --- instruction under the hood. The arrow-calculus `App` combinator
+  --- (ArrowApply, in `arrow_model.hnl`) is a model op that calls this.
+  --- `apply` is exec model, not kernel: it's Handl code that invokes
+  --- the `call` VM primitive.
+  ---
+  --- NOTE: Requires `call` (VM primitive not yet available). Defined
+  --- but not executable.
+  apply :: [callee, args] ~> call(callee, args)
+
+  ------------------------------------------------------------------
+  -- Data
+  ------------------------------------------------------------------
+
+  --- record: construct a record from a list of field/value pairs.
+  --- Each pair is a two-element array `[name, value]`. Returns a fresh
+  --- record (hash map) with all fields set. This is the data
+  --- constructor for record literals.
+  record :: fields ~> while { result: {}, remaining: fields } {
+    [state] ~> if array.is_empty(state.remaining) {
+      { out: state.result }
+    } else {
+      do {
+        p :: array.first(state.remaining)
+        key :: array.at(p, 0)
+        val :: array.at(p, 1)
+        new_result :: hash_map.set(state.result, key, val)
+        { state: { result: new_result, remaining: array.drop(state.remaining, 1) } }
+      }
+    }
+  }
+
+  --- field_access: project `field` from `record`. If the value is a
+  --- record (object), this is a field lookup; if it is an array, this
+  --- is an index lookup. Returns null if the field is absent. This is
+  --- the data projection for record/array access expressions.
+  field_access :: [record, field] ~> do {
+    tag_name :: typeof.type_of(record)
+    if tag_name == "obj" {
+      hash_map.get_or(record, field, null)
+    } else {
+      if tag_name == "arr" {
+        array.at(record, field)
+      } else {
+        null
+      }
+    }
+  }
+
+  --- array: construct an array from a list of evaluated elements.
+  --- Returns a fresh array containing the elements in order. This is
+  --- the data constructor for array literals.
+  make_array :: elements ~> elements
+
+  --- tag_construct: construct a tagged value — a value carrying a
+  --- `__tag__` label and a payload. Tagged values are the universal
+  --- data representation in the exec model (ADR-0103: `Term` is
+  --- `serde_json::Value`, tagged records). This merges the payload's
+  --- fields with `__tag__` set to `tag` (via `tag.tag`), matching the
+  --- `value_model.hnl` prototype pattern.
+  tag_construct :: [tag_name, payload] ~> tag.tag(tag_name, payload)
+
+  --- arrow_field: project a named `field` from an arrow cell. Arrow
+  --- cells are tagged `Arrow` records composed of sub-arrows (e.g.
+  --- `first`/`second` for composition). This is the data projection for
+  --- arrow-cell inspection.
+  arrow_field :: [arrow, field] ~> hash_map.get_or(arrow, field, null)
+
+  ------------------------------------------------------------------
+  -- Host / module dispatch
+  ------------------------------------------------------------------
+
+  --- call_op: handler-interceptable op dispatch. Given an op `name`
+  --- and evaluated `args`, search the context's handler stack
+  --- (innermost-first) for a handler that provides the op. If found,
+  --- invoke the handler implementation with the args. If no handler
+  --- provides the op, fall back to native/ffi dispatch via `ffi`.
+  ---
+  --- This is the algebraic-effect operation dispatch of Sanada's
+  --- calculus: ops are intercepted by the nearest enclosing handler
+  --- that implements them, and only reach the native substrate if no
+  --- handler intercepts. `call_op` is a structural op (exec model),
+  --- not a kernel primitive — `ffi` is the kernel's hardware boundary.
+  ---
+  --- NOTE: Requires `ctx`/`ffi`/`apply` (VM primitives not yet
+  --- available). Defined but not executable.
+  call_op :: [name, args] ~> do {
+    stack :: tget(ctx(), "handler_stack")
+    h_impl :: find_op_handler(stack, name)
+    if h_impl != null {
+      apply(h_impl, args)
+    } else {
+      ffi("native", name, args)
+    }
+  }
+
+  --- find_op_handler: walk the handler stack (innermost-first) and
+  --- return the first handler implementation providing op `name`, or
+  --- null if none matches. A handler provides an op if its `impls`
+  --- record has a field named `name`.
+  find_op_handler :: [stack, name] ~> while stack {
+    xs ~> if array.is_empty(xs) {
+      { out: null }
+    } else {
+      do {
+        h :: array.first(xs)
+        impls :: tget(h, "impls")
+        has_op :: if is_obj(impls) { has_field(impls, name) } else { false }
+        if has_op {
+          { out: tget(impls, name) }
+        } else {
+          { state: array.drop(xs, 1) }
+        }
+      }
+    }
+  }
+
+  --- import_module: load a module by `spec` and splice its exports
+  --- into the current environment. A `spec` resolving to a file is the
+  --- executable import op: the module's exports are bound into the
+  --- scope. A bare host-module name denotes a module on the host chain
+  --- (auto-wired). This is the module-dispatch structural op.
+  ---
+  --- (Renamed from `import` to avoid a reserved-keyword parse error.)
+  ---
+  --- NOTE: Requires `ffi`/`bind` (VM primitives not yet available).
+  --- Defined but not executable.
+  import_module :: spec ~> do {
+    exports :: ffi("module", "load", [spec])
+    while { remaining: hash_map.get_or(exports, "__keys__", []) } {
+      [state] ~> if array.is_empty(state.remaining) {
+        { out: exports }
+      } else {
+        do {
+          name :: array.first(state.remaining)
+          bind(name, tget(exports, name))
+          { state: { remaining: array.drop(state.remaining, 1) } }
+        }
+      }
+    }
+  }
+
+  --- export_binding: register `name` mapped to `value` in the current
+  --- module's export record. The export record is what `import_module`
+  --- splices into a downstream module's environment. This is the
+  --- module-dispatch structural op for declaring public bindings.
+  ---
+  --- (Renamed from `export` to avoid a reserved-keyword parse error.)
+  ---
+  --- NOTE: Requires `ctx` binding (VM context, not yet available).
+  --- Defined but not executable.
+  export_binding :: [name, value] ~> do {
+    exports :: tget(ctx(), "exports")
+    setfield(ctx(), "exports", hash_map.set(exports, name, value))
+    value
+  }
+
+  ------------------------------------------------------------------
+  -- Exec semantics (not kernel)
+  ------------------------------------------------------------------
+
+  --- number_add: tagged Number arithmetic. Given a pair or array of
+  --- tagged-Number operands, untag each, sum their `.value` fields, and
+  --- re-tag the result as `Number`. This is exec-model semantics, not a
+  --- kernel primitive — the kernel only provides raw arithmetic
+  --- (`add` on the ALU); the tagging/untagging is Handl orchestration.
+  ---
+  --- Follows the prototype pattern from `value_model.hnl`: the input
+  --- may be a serialized pair (`__pair__`), an array of operands, or a
+  --- single value. The operands are untagged via `tag.untag`, their
+  --- `.value` fields are added, and the result is re-tagged as `Number`
+  --- via `tag_construct`.
+  number_add :: v ~> do {
+    inc :: v
+    snd :: if is_pair(inc) { pair_snd(inc) } else { inc }
+    operands :: if typeof.type_of(snd) == "arr" {
+      snd
+    } else {
+      if typeof.type_of(inc) == "arr" { inc } else { [snd] }
+    }
+    a :: array.first(operands)
+    b :: array.at(operands, 1)
+    payload :: tag.untag(a)
+    tag_construct("Number", hash_map.set(payload, "value", a.value + b.value))
+  }
+
+  ------------------------------------------------------------------
+  -- Eval dispatch
+  ------------------------------------------------------------------
+
+  --- eval: the main eval dispatch — the core of the exec model. Look
+  --- up the node's `kind`, find the eval scheme registered for that
+  --- kind (from `eval.yaml`, compiled to a Handl function), and apply
+  --- it to the node. The eval scheme is a Handl function that calls
+  --- the structural ops (`proj_child`, `extend_env`, `eval_block`, ...)
+  --- to evaluate the node's children and produce a value.
+  ---
+  --- This is how the exec model evaluates *any* AST node: the kind
+  --- determines the scheme, the scheme determines the structural-op
+  --- orchestration, and the structural ops recurse via `eval`. The VM
+  --- runs the compiled bytecode; it does not know what any kind means.
+  ---
+  --- NOTE: Requires `lookup_eval_scheme` (VM primitive not yet
+  --- available). Defined but not executable.
+  eval :: node ~> do {
+    kind :: tget(node, "kind")
+    scheme :: lookup_eval_scheme(kind)
+    scheme(node)
+  }
+
+  ------------------------------------------------------------------
+  -- Helpers (internal, not exported)
+  ------------------------------------------------------------------
+
+  --- array_drop_last: return the array without its last element.
+  array_drop_last :: xs ~> array.slice(xs, 0, array.len(xs) - 1)
+
+  ------------------------------------------------------------------
+  -- run: Model-trait entry point (ADR-0103 Phase 8)
+  ------------------------------------------------------------------
+  ---
+  --- Dispatch on the serialized Term's `__tag__` field, using the
+  --- structural ops where available. Tags that require VM primitives
+  --- not yet implemented (Child, import/export, closure/apply,
+  --- pattern_match, push/pop_handler, call_op, eval) return a
+  --- LangError. The implemented tags overlap with `value_model.hnl`
+  --- and `arrow_model.hnl`, enabling parity comparison.
+
+  eval_args :: [self, args, incoming, ctx] ~> while { result: [], remaining: args } {
+    [state] ~> if array.is_empty(state.remaining) {
+      { out: state.result }
+    } else {
+      do {
+        head_val :: self(self, array.first(state.remaining), incoming, ctx)
+        { state: { result: [...state.result, head_val], remaining: array.drop(state.remaining, 1) } }
+      }
+    }
+  }
+
+  grades_overlap :: [glist, inc_grades] ~> while glist {
+    xs ~> if array.is_empty(xs) {
+      { out: false }
+    } else {
+      if array.contains(inc_grades, array.first(xs)) {
+        { out: true }
+      } else {
+        { state: array.drop(xs, 1) }
+      }
+    }
+  }
+
+  handler_matches :: [h, op_name, incoming] ~> do {
+    impls :: hash_map.get_or(h, "impls", {})
+    has_op :: if is_obj(impls) { hash_map.has(impls, op_name) } else { false }
+    if has_op {
+      inc_grades :: if is_obj(incoming) { hash_map.get_or(incoming, "grades", []) } else { [] }
+      h_grades :: hash_map.get_or(h, "grades", [])
+      grades_overlap(h_grades, inc_grades)
+    } else {
+      false
+    }
+  }
+
+  find_handler :: [stack, op_name, incoming] ~> while stack {
+    xs ~> if array.is_empty(xs) {
+      { out: null }
+    } else {
+      do {
+        h :: array.first(xs)
+        if handler_matches(h, op_name, incoming) {
+          { out: hash_map.get_or(hash_map.get_or(h, "impls", {}), op_name, null) }
+        } else {
+          { state: array.drop(xs, 1) }
+        }
+      }
+    }
+  }
+
+  run_ :: [self, term, incoming, ctx] ~> match tget(term, "__tag__") {
+    "Arr": tget(term, "value"),
+    "Const": tget(term, "value"),
+    "Seq": self(self, tget(term, "snd"), self(self, tget(term, "fst"), incoming, ctx), ctx),
+    "First": pair(
+      self(self, tget(term, "inner"), pair_fst(incoming), ctx),
+      pair_snd(incoming)
+    ),
+    "Choice": if is_either(incoming) {
+      if hash_map.get_or(incoming, "__either__", "") == "left" {
+        self(self, tget(term, "l"), either_value(incoming), ctx)
+      } else {
+        self(self, tget(term, "r"), either_value(incoming), ctx)
+      }
+    } else {
+      tag.tag("LangError", hash_map.set({}, "message", "Choice: incoming is not an Either"))
+    },
+    "Loop": while { state: incoming, count: 0 } {
+      [state, count] ~> if count > 100000 {
+        { out: tag.tag("LangError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
+      } else {
+        do {
+          body_val :: self(self, tget(term, "body"), state, ctx)
+          if is_pair(body_val) {
+            { out: pair_fst(body_val) }
+          } else {
+            if is_either(body_val) {
+              if hash_map.get_or(body_val, "__either__", "") == "left" {
+                { out: either_value(body_val) }
+              } else {
+                { state: { state: either_value(body_val), count: count + 1 } }
+              }
+            } else {
+              { out: tag.tag("LangError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
+            }
+          }
+        }
+      }
+    },
+    "App": do {
+      callee_val :: self(self, tget(term, "callee"), incoming, ctx)
+      arg_vals :: eval_args(self, tget(term, "args"), incoming, ctx)
+      match arg_vals {
+        []: callee_val(),
+        [a]: callee_val(a),
+        [a, b]: callee_val(a, b),
+        [a, b, c]: callee_val(a, b, c),
+        _: tag.tag("LangError", hash_map.set({}, "message", "App: too many arguments"))
+      }
+    },
+    "Iter": do {
+      fuel_val :: self(self, tget(term, "fuel"), incoming, ctx)
+      init_val :: self(self, tget(term, "initial"), incoming, ctx)
+      while { fuel: fuel_val, value: init_val } {
+        [fuel, value] ~> if fuel <= 0 {
+          { out: value }
+        } else {
+          do {
+            pred_val :: self(self, tget(term, "predicate"), value, ctx)
+            if pred_val {
+              step_val :: self(self, tget(term, "step"), value, ctx)
+              { state: { fuel: fuel - 1, value: step_val } }
+            } else {
+              { out: value }
+            }
+          }
+        }
+      }
+    },
+    "Child": tag.tag("LangError", hash_map.set({}, "message", "Child: AST recursion requires VM eval primitives not yet available")),
+    "Handle": do {
+      handler_val :: self(self, tget(term, "impl_"), incoming, ctx)
+      new_stack :: array.concat(hash_map.get_or(ctx, "handler_stack", []), [handler_val])
+      new_ctx :: hash_map.set(ctx, "handler_stack", new_stack)
+      self(self, tget(term, "body"), incoming, new_ctx)
+    },
+    "Rewrite": self(self, tget(term, "target"), incoming, ctx),
+    "Path": do {
+      a_val :: self(self, tget(term, "from"), incoming, ctx)
+      b_val :: self(self, tget(term, "to"), incoming, ctx)
+      w_val :: if tget(term, "witness") == null {
+        null
+      } else {
+        self(self, tget(term, "witness"), incoming, ctx)
+      }
+      tag_construct("Path", hash_map.set(hash_map.set(hash_map.set({}, "from", a_val), "to", b_val), "witness", w_val))
+    },
+    "Equiv": do {
+      a_val :: self(self, tget(term, "a"), incoming, ctx)
+      b_val :: self(self, tget(term, "b"), incoming, ctx)
+      eq_val :: a_val == b_val
+      path_val :: if tget(term, "path") == null { null } else { self(self, tget(term, "path"), incoming, ctx) }
+      result :: if is_obj(path_val) {
+        if hash_map.get_or(path_val, "__tag__", "") == "Path" {
+          if hash_map.get_or(path_val, "from", null) == a_val {
+            if hash_map.get_or(path_val, "to", null) == b_val { true } else { eq_val }
+          } else {
+            eq_val
+          }
+        } else {
+          eq_val
+        }
+      } else {
+        eq_val
+      }
+      result
+    },
+    "Src": do {
+      cell_val :: self(self, tget(term, "cell"), incoming, ctx)
+      if is_obj(cell_val) { hash_map.get_or(cell_val, "__src__", cell_val) } else { cell_val }
+    },
+    "Tgt": do {
+      cell_val :: self(self, tget(term, "cell"), incoming, ctx)
+      if is_obj(cell_val) { hash_map.get_or(cell_val, "__tgt__", cell_val) } else { cell_val }
+    },
+    "CellId": do {
+      arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
+      tag_construct("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", arrow_val), "__tgt__", arrow_val), "value", arrow_val))
+    },
+    "CellCompV": do {
+      first_val :: self(self, tget(term, "first"), incoming, ctx)
+      second_val :: self(self, tget(term, "second"), incoming, ctx)
+      src :: if is_obj(first_val) { hash_map.get_or(first_val, "__src__", first_val) } else { first_val }
+      tgt :: if is_obj(second_val) { hash_map.get_or(second_val, "__tgt__", second_val) } else { second_val }
+      value :: if is_obj(second_val) { hash_map.get_or(second_val, "value", second_val) } else { second_val }
+      tag_construct("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", src), "__tgt__", tgt), "value", value))
+    },
+    "Whisker": do {
+      arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
+      cell_val :: self(self, tget(term, "cell"), incoming, ctx)
+      src :: if is_obj(cell_val) { hash_map.get_or(cell_val, "__src__", cell_val) } else { cell_val }
+      tgt :: if is_obj(cell_val) { hash_map.get_or(cell_val, "__tgt__", cell_val) } else { cell_val }
+      value :: if is_obj(cell_val) { hash_map.get_or(cell_val, "value", cell_val) } else { cell_val }
+      new_src :: if tget(term, "side") == "Right" {
+        arrow_compose(src, arrow_val)
+      } else {
+        arrow_compose(arrow_val, src)
+      }
+      new_tgt :: if tget(term, "side") == "Right" {
+        arrow_compose(tgt, arrow_val)
+      } else {
+        arrow_compose(arrow_val, tgt)
+      }
+      tag_construct("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", new_src), "__tgt__", new_tgt), "value", value))
+    },
+    "Univalence": do {
+      equiv_val :: self(self, tget(term, "equiv"), incoming, ctx)
+      if is_obj(equiv_val) {
+        if hash_map.get_or(equiv_val, "__tag__", "") == "Equiv" {
+          tag_construct("Path", hash_map.set(
+            hash_map.set(
+              hash_map.set({}, "a", hash_map.get_or(equiv_val, "a", null)),
+              "b",
+              hash_map.get_or(equiv_val, "b", null)
+            ),
+            "path",
+            hash_map.get_or(equiv_val, "path", null)
+          ))
+        } else {
+          equiv_val
+        }
+      } else {
+        equiv_val
+      }
+    },
+    "Glue": do {
+      path_val :: self(self, tget(term, "path"), incoming, ctx)
+      family_val :: self(self, tget(term, "family"), incoming, ctx)
+      family_val
+    },
+    "Fibrant": do {
+      family_val :: self(self, tget(term, "family"), incoming, ctx)
+      base_val :: self(self, tget(term, "base"), incoming, ctx)
+      base_val
+    },
+    "JElim": do {
+      path_val :: self(self, tget(term, "path"), incoming, ctx)
+      base_val :: self(self, tget(term, "base"), incoming, ctx)
+      path_tag :: if is_obj(path_val) { hash_map.get_or(path_val, "__tag__", "") } else { "" }
+      if path_tag == "Path" {
+        self(self, tget(term, "motive"), base_val, ctx)
+      } else {
+        if path_tag == "Rewrite" {
+          self(self, tget(term, "motive"), base_val, ctx)
+        } else {
+          base_val
+        }
+      }
+    },
+    "RecordProj": field_access(self(self, tget(term, "record"), incoming, ctx), tget(term, "field")),
+    "RecordWith": do {
+      record_val :: self(self, tget(term, "record"), incoming, ctx)
+      value_val :: self(self, tget(term, "value"), incoming, ctx)
+      base :: if is_obj(record_val) { record_val } else { {} }
+      hash_map.set(base, tget(term, "field"), value_val)
+    },
+    "Tag": tag_construct(tget(term, "tag"), self(self, tget(term, "value"), incoming, ctx)),
+    "Refine": if self(self, tget(term, "predicate"), incoming, ctx) {
+      incoming
+    } else {
+      tag.tag("LangError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
+    },
+    "Cobind": self(self, tget(term, "body"), incoming, ctx),
+    "Op": do {
+      arg_vals :: eval_args(self, tget(term, "args"), incoming, ctx)
+      op_name :: tget(term, "name")
+      handler_impl :: find_handler(hash_map.get_or(ctx, "handler_stack", []), op_name, incoming)
+      if handler_impl != null {
+        do {
+          handler_in :: if array.len(arg_vals) == 0 {
+            incoming
+          } else {
+            hash_map.set({}, "__pair__", [incoming, arg_vals])
+          }
+          handler_term :: hash_map.set(hash_map.get_or(handler_impl, "Op", handler_impl), "__tag__", "Op")
+          self(self, handler_term, handler_in, ctx)
+        }
+      } else {
+        do {
+          arg0 :: array.first(arg_vals)
+          arg1 :: if array.len(arg_vals) > 1 { array.at(arg_vals, 1) } else { incoming }
+          match op_name {
+            "const": tget(term, "lit"),
+            "id": incoming,
+            "add": arg0 + arg1,
+            "sub": arg0 - arg1,
+            "mul": arg0 * arg1,
+            "div": arg0 / arg1,
+            "mod": arg0 % arg1,
+            "neg": 0 - arg0,
+            "eq": arg0 == arg1,
+            "neq": arg0 != arg1,
+            "lt": arg0 < arg1,
+            "gt": arg0 > arg1,
+            "lte": arg0 <= arg1,
+            "gte": arg0 >= arg1,
+            "not": if arg0 { false } else { true },
+            "and": if arg0 { if arg1 { true } else { false } } else { false },
+            "or": if arg0 { true } else { if arg1 { true } else { false } },
+            "is_pos": incoming > 0,
+            "dec": incoming - 1,
+            "inc": incoming + 1,
+            "number_add": if array.len(arg_vals) > 1 { number_add(arg_vals) } else { number_add(incoming) },
+            "field_access": field_access(arg0, arg1),
+            _: tag.tag("LangError", hash_map.set({}, "message", "Op " + op_name + " not implemented"))
+          }
+        }
+      }
+    },
+    _: tag.tag("LangError", hash_map.set({}, "message", "exec model: unimplemented term tag: " + tget(term, "__tag__")))
+  }
+
+  {
+    proj_child: proj_child,
+    proj_child_or: proj_child_or,
+    proj_rest: proj_rest,
+    eval_block: eval_block,
+    eval_rec: eval_rec,
+    proj_env: proj_env,
+    extend_env: extend_env,
+    closure: closure,
+    pattern_match: pattern_match,
+    push_handler: push_handler,
+    pop_handler: pop_handler,
+    apply: apply,
+    record: record,
+    field_access: field_access,
+    array: make_array,
+    tag_construct: tag_construct,
+    arrow_field: arrow_field,
+    call_op: call_op,
+    import_module: import_module,
+    export_binding: export_binding,
+    number_add: number_add,
+    eval: eval,
+    run: [term, incoming, ctx] ~> run_(run_, term, incoming, ctx)
+  }
+}

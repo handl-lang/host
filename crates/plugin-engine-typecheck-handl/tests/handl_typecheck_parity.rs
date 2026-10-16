@@ -44,10 +44,10 @@ fn ensure_lang() {
 }
 
 const TYPECHECK_MODEL_HNL: &str =
-    include_str!("../../../project/design/adr0103/typecheck_model.hnl");
-const SCOPE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/scope_model.hnl");
-const TOTALITY_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/totality_model.hnl");
-const TYPE_MODEL_HNL: &str = include_str!("../../../project/design/adr0103/type_model.hnl");
+    include_str!("fixtures/typecheck_model.hnl");
+const SCOPE_MODEL_HNL: &str = include_str!("fixtures/scope_model.hnl");
+const TOTALITY_MODEL_HNL: &str = include_str!("fixtures/totality_model.hnl");
+const TYPE_MODEL_HNL: &str = include_str!("fixtures/type_model.hnl");
 
 /// Function names exported by the typecheck model record.
 const TYPECHECK_MODEL_FUNCS: &[&str] = &["typecheck"];
