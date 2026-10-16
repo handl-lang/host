@@ -2,7 +2,8 @@
 """project/docs-split.yaml tooling (ADR-0129 Phase 2).
 
 Modes:
-  check                    verify every file under project/ is assigned once
+  check                    pre-split: every file under project/ assigned once
+  verify                   post-split: platform/project == platform-owned set
   paths <repo>             print `project/<path>` lines for `--paths-from-file`
   paths-all <dir>          write <dir>/paths-<repo>.txt for every non-empty repo
 
@@ -51,15 +52,23 @@ def repo_paths(data: dict, repo: str) -> list[str]:
     return sorted(out)
 
 
+def _files() -> set[str]:
+    """Files under project/, excluding the worktree's own .git file."""
+    return {
+        str(p.relative_to(PROJECT))
+        for p in PROJECT.rglob("*")
+        if p.is_file() and ".git" not in p.parts
+    }
+
+
 def check(data: dict) -> int:
+    """Pre-split invariant: every file under project/ is assigned once."""
     assigned: dict[str, list[str]] = {}
     for repo in (data.get("repos") or {}):
         for rel in repo_paths(data, repo):
             assigned.setdefault(rel.removeprefix("project/"), []).append(repo)
 
-    actual = {
-        str(p.relative_to(PROJECT)) for p in PROJECT.rglob("*") if p.is_file()
-    }
+    actual = _files()
 
     unmapped = sorted(actual - set(assigned))
     phantom = sorted(set(assigned) - actual)
@@ -80,10 +89,31 @@ def check(data: dict) -> int:
     return 0 if ok else 1
 
 
+def verify(data: dict) -> int:
+    """Post-split: platform/project/ holds exactly the platform-owned set."""
+    want = {p.removeprefix("project/") for p in repo_paths(data, "platform")}
+    have = _files()
+    missing = sorted(want - have)
+    extra = sorted(have - want)
+    for rel in missing:
+        print(f"MISSING    {rel}")
+    for rel in extra:
+        print(f"EXTRA      {rel}")
+    ok = not (missing or extra)
+    print(
+        f"\nplatform/project: {len(have)} files, {len(want)} expected "
+        f"-> {'OK' if ok else 'FAIL'}"
+    )
+    return 0 if ok else 1
+
+
 def main(argv: list[str]) -> int:
     data = load()
     if not argv or argv[0] == "check":
         return check(data)
+
+    if argv[0] == "verify":
+        return verify(data)
 
     if argv[0] == "paths":
         if len(argv) != 2:
