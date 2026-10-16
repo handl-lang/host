@@ -7,11 +7,11 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-plugin-module = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-value = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-language = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-platform = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
+handl-plugin-module = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-value = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-language = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-platform = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-encoding = { path = "../../modules/encoding" }
 handl-plugin-lib-parse = { path = "../../modules/parse" }
 handl-plugin-lib-serialize = { path = "../../modules/serialize" }
@@ -25,13 +25,13 @@ toml = "0.8"
 url = "2"
 
 [dev-dependencies]
-handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", rev = "303d13987b4f4633c0c014b9b365de8b5616a3cf" }
-handl-language = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-platform = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-plugin-engine-exec-tree-walk = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
-handl-plugin-lib-tag = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
+handl-language = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-platform = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-plugin-engine-exec-tree-walk = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-plugin-lib-tag = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-parse = { path = "../../modules/parse" }
 handl-plugin-lib-serialize = { path = "../../modules/serialize" }
-plugin-engine = { git = "https://github.com/handl-lang/platform", rev = "9d34281cc717e007588e31a0f908ef55c81e7deb" }
+plugin-engine = { git = "https://github.com/handl-lang/platform", branch = "main" }
 serde_json = "1"
