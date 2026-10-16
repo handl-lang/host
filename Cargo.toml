@@ -2,6 +2,9 @@
 name = "handl"
 version = "0.1.0"
 edition = "2024"
+description = "`handl` is the root facade for the Handl language platform."
+license.workspace = true
+repository.workspace = true
 
 [workspace]
 members = [
@@ -100,7 +103,8 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/handl-lang/platform"
 [workspace.dependencies]
 serde = "1"
 serde_json = "1"

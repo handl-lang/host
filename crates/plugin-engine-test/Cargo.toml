@@ -2,6 +2,9 @@
 name = "handl-plugin-engine-test"
 version.workspace = true
 edition.workspace = true
+description = "Bootstrap test runner (ADR-0089)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

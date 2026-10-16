@@ -2,6 +2,9 @@
 name = "handl-kit-data-canonical"
 version.workspace = true
 edition.workspace = true
+description = "The **data-driven canonical kit** — the ADR-0044 §6 end state."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

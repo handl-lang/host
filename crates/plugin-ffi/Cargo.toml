@@ -2,6 +2,9 @@
 name = "handl-plugin-ffi"
 version.workspace = true
 edition.workspace = true
+description = "Generic FFI dispatcher for handl."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform.workspace = true

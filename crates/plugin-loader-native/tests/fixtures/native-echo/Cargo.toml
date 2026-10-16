@@ -3,6 +3,9 @@ name = "handl-plugin-loader-native-fixture-echo"
 version.workspace = true
 edition.workspace = true
 publish = false
+description = "cdylib test fixture for handl-plugin-loader-native."
+license.workspace = true
+repository.workspace = true
 
 [lib]
 # `cdylib` is what the loader tests load; `rlib` exists so the fixture can also be

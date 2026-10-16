@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-refinement"
 version.workspace = true
 edition.workspace = true
+description = "`handl-plugin-ext-refinement` -- annotation-free refinement inference for handl's `Term` IR."
+license.workspace = true
+repository.workspace = true
 
 [features]
 default = []

@@ -2,6 +2,9 @@
 name = "handl-runtime"
 version.workspace = true
 edition.workspace = true
+description = "Binds a [`Language`] to engine impls and exposes staged `lex`/`parse`/`eval` plus `compile`/`run_compiled` over a `Language` + stage inputs (ADR-0044 §3, §7; ADR-0047 §2)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

@@ -2,6 +2,9 @@
 name = "handl-plugin-engine-exec-tree-walk"
 version.workspace = true
 edition.workspace = true
+description = "The **reference interpreter** for the eval operation (ADR-0044 §3, §4, ADR-0052). Interprets the arrow-calculus [`handl_language::Term`] kernel directly via tree-walking: it looks ..."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

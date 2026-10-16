@@ -2,6 +2,9 @@
 name = "handl-plugin-lib-kv-hashmap"
 version.workspace = true
 edition.workspace = true
+description = "In-memory [`HashMap`]-backed [`KeyValueStore`] implementation."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-plugin-lib-handl = { workspace = true }

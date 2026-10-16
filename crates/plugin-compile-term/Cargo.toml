@@ -2,6 +2,9 @@
 name = "handl-plugin-compile-term"
 version.workspace = true
 edition.workspace = true
+description = "Term JSON compiler for canonical Handl sources (ADR-0114)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-plugin-compile = { path = "../plugin-compile" }

@@ -2,6 +2,9 @@
 name = "handl-kit-canonical"
 version = "0.1.0"
 edition = "2024"
+description = "Canonical kit backed by the data-driven runtime."
+license.workspace = true
+repository.workspace = true
 
 # ADR-0128 §0.5/§0.9: the cranelift exec engine and the FFI surface are
 # Cargo features, not hard links — `handl-plugin-engine-exec-cranelift`

@@ -2,6 +2,9 @@
 name = "handl-plugin-compile-js"
 version.workspace = true
 edition.workspace = true
+description = "JavaScript compiler for the Handl arrow calculus (ADR-0114 Phase 3)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-plugin-compile = { path = "../plugin-compile" }

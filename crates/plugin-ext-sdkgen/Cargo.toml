@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-sdkgen"
 version.workspace = true
 edition.workspace = true
+description = "`hnl sdkgen` CLI extension (ADR-0107)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

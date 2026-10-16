@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-eval"
 version.workspace = true
 edition.workspace = true
+description = "Generic evaluation extension point."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

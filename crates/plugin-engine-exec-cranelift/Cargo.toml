@@ -2,6 +2,9 @@
 name = "handl-plugin-engine-exec-cranelift"
 version.workspace = true
 edition.workspace = true
+description = "The **cranelift eval engine** for the eval operation (ADR-0044 §4, §7)."
+license.workspace = true
+repository.workspace = true
 
 [lib]
 crate-type = ["lib", "staticlib"]

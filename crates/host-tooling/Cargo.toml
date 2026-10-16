@@ -2,6 +2,9 @@
 name = "handl-host-tooling"
 version.workspace = true
 edition.workspace = true
+description = "Tooling / LSP host: the plugin-host contract for tooling capabilities."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language.workspace = true

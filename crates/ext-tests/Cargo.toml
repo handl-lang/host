@@ -3,6 +3,9 @@ name = "handl-ext-tests"
 version.workspace = true
 edition.workspace = true
 publish = false
+description = "End-to-end tests for the extension (management) capability plugins."
+license.workspace = true
+repository.workspace = true
 
 [dev-dependencies]
 handl-platform = { workspace = true }

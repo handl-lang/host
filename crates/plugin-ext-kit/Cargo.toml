@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-kit"
 version.workspace = true
 edition.workspace = true
+description = "Kit extension — the `kit` capability adapter (library registry + kit-manifest resolution)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

@@ -2,6 +2,9 @@
 name = "handl-plugin-lsp-std"
 version.workspace = true
 edition.workspace = true
+description = "Canonical handl adapter for the generic `plugin-lsp` engine (ADR-0100)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-host-tooling.workspace = true

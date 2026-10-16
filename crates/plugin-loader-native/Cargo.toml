@@ -2,6 +2,9 @@
 name = "handl-plugin-loader-native"
 version.workspace = true
 edition.workspace = true
+description = "Native (.so/.dylib) plugin loader — ADR-0004 zero-repackage plugin delivery."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-value = { path = "../handl-value" }

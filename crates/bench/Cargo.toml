@@ -3,6 +3,9 @@ name = "handl-bench"
 version.workspace = true
 edition.workspace = true
 publish = false
+description = "Shared fixtures for the handl benchmark suite."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }

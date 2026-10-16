@@ -2,6 +2,9 @@
 name = "handl-plugin-lsp"
 version.workspace = true
 edition.workspace = true
+description = "Generic, data-driven LSP engine (ADR-0100)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-host-tooling.workspace = true

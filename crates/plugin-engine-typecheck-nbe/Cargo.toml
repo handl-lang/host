@@ -2,6 +2,9 @@
 name = "handl-plugin-engine-typecheck-nbe"
 version.workspace = true
 edition.workspace = true
+description = "A **data-driven, normalization-based typecheck engine** implementing the [`TypecheckEngine`] trait (ADR-0054 — Generic Typecheck Engine)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = {path = "../handl-language" }

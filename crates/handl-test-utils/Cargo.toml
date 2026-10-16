@@ -2,6 +2,9 @@
 name = "handl-test-utils"
 version.workspace = true
 edition.workspace = true
+description = "Test mocks, stubs, and helpers for the eval / module / exec-control infrastructure introduced by ADR 0040."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

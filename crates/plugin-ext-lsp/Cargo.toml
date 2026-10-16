@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-lsp"
 version.workspace = true
 edition.workspace = true
+description = "LSP extension — the `lsp` capability adapter."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

@@ -2,6 +2,9 @@
 name = "handl-plugin-module"
 version.workspace = true
 edition.workspace = true
+description = "Function registration mechanism for the platform, per ADR 0040."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

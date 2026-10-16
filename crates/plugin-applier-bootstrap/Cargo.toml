@@ -2,6 +2,9 @@
 name = "handl-plugin-applier-bootstrap"
 version.workspace = true
 edition.workspace = true
+description = "Bootstrap applier — chooses the first applier and wires applier factories (ADR-0036)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

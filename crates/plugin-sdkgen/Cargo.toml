@@ -2,6 +2,9 @@
 name = "handl-plugin-sdkgen"
 version.workspace = true
 edition.workspace = true
+description = "Handl SDK generator core IR and traits (ADR-0107)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }

@@ -2,6 +2,9 @@
 name = "handl-plugin-compile-sexp"
 version.workspace = true
 edition.workspace = true
+description = "S-expression compiler for `Term` arrow graphs (ADR-0114)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-plugin-compile = { path = "../plugin-compile" }

@@ -2,6 +2,9 @@
 name = "handl-emitters"
 version.workspace = true
 edition.workspace = true
+description = "The emitter infrastructure framework for ADR-0044 Phase 4."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

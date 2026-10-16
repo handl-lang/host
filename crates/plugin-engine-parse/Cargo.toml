@@ -2,6 +2,9 @@
 name = "handl-plugin-engine-parse"
 version.workspace = true
 edition.workspace = true
+description = "The **abstraction** crate for the parse operation (ADR-0044 §3)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

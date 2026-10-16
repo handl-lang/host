@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-typecheck"
 version.workspace = true
 edition.workspace = true
+description = "`handl-plugin-ext-typecheck` — the `typecheck` capability adapter."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

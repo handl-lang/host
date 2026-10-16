@@ -2,6 +2,9 @@
 name = "handl-host-lsp"
 version.workspace = true
 edition.workspace = true
+description = "The handl LSP server binary."
+license.workspace = true
+repository.workspace = true
 
 [[bin]]
 name = "handl-host-lsp"

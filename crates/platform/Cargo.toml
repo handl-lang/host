@@ -2,6 +2,9 @@
 name = "handl-platform"
 version.workspace = true
 edition.workspace = true
+description = "The `handl-platform` crate provides shared platform abstractions for the HAndL language toolchain, including plugins, capabilities, manifests, resolution, hosts, and boundaries."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }

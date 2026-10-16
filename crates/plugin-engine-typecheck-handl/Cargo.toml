@@ -2,6 +2,9 @@
 name = "handl-plugin-engine-typecheck-handl"
 version.workspace = true
 edition.workspace = true
+description = "A thin Rust adapter that implements the [`TypecheckEngine`] trait by loading and calling the Handl-authored typecheck model (`project/design/adr0103/typecheck_model.hnl`)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }

@@ -2,6 +2,9 @@
 name = "handl-plugin-lib-serialize"
 version.workspace = true
 edition.workspace = true
+description = "Format-agnostic serialization framework."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }

@@ -2,6 +2,9 @@
 name = "handl-plugin-applier-default"
 version.workspace = true
 edition.workspace = true
+description = "Factory for the default applier, selected by `--applier applier.default`."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

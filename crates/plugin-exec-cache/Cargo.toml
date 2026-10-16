@@ -2,6 +2,9 @@
 name = "handl-plugin-exec-cache"
 version.workspace = true
 edition.workspace = true
+description = "`ExecControl` rule that memoises evaluation results."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

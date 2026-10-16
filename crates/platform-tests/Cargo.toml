@@ -3,6 +3,9 @@ name = "handl-platform-tests"
 version.workspace = true
 edition.workspace = true
 publish = false
+description = "Integration-test support for the `handl-platform` host: a recording mock plugin, a manifest builder, and a request helper."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }

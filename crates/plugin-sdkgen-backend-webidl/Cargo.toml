@@ -2,6 +2,9 @@
 name = "handl-plugin-sdkgen-backend-webidl"
 version.workspace = true
 edition.workspace = true
+description = "WebIDL backend for the Handl SDK generator (ADR-0113)."
+license.workspace = true
+repository.workspace = true
 
 
 [dependencies]

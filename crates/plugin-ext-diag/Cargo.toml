@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-diag"
 version.workspace = true
 edition.workspace = true
+description = "Shared diagnostics infrastructure for handl tooling."
+license.workspace = true
+repository.workspace = true
 
 [features]
 # Enables conversions from `handl_language::Span` (a low-level data crate).

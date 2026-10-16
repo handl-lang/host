@@ -2,6 +2,9 @@
 name = "handl-plugin-ext-lint"
 version.workspace = true
 edition.workspace = true
+description = "`handl-plugin-ext-lint` — bootstrap linter for the v0.1 arrow surface syntax (ADR-0087, rules-as-data per ADR-0097)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }

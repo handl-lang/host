@@ -2,6 +2,9 @@
 name = "handl-kit-arrow-lower"
 version.workspace = true
 edition.workspace = true
+description = "Shared canonical AST to arrow-calculus `Term` lowerer (ADR-0100)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }
