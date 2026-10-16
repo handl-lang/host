@@ -272,29 +272,29 @@ This phase validates the whole template on a 1-crate port surface with
 - [x] `web/modules/compile-js` ← `plugin-compile-js` (target `js`).
       **Done:** subtree-split import; `plugin-ext-compile` takes it via
       a pinned git dep on the same rev. 45 tests green in `web/`.
-- [ ] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs.
-      **Deferred with the C-ABI block — re-checked after `c/` exists and
-      still blocked, concretely.** `from "../<pkg>"` is a
-      filesystem-relative import; the block's closure drags in the whole
-      `-c` stack — `concurrent-epoll`→`../generated/{libc,curl}-c-*` +
-      `../concurrent` + `../tls-libssl` + `../ws-c`; `serve-epoll`→`../
-      fetch-c` + `../http_rfc` + `../ws*`; `ws-c`→`../generated/curl-c-*`;
-      `fetch-js`→`../generated/fetch-webidl-browser` (that pair alone
-      could move, but the block moves as a unit). A `web/` checkout would
-      need `../../platform`/`../../c` sibling paths — breaking repo
-      independence, since nothing else in a repo's graph requires a
-      specific sibling layout for `.hnl` sources. The unblock is the
-      deferred `FragmentSource::DataFile` module-chain seam (named
-      resolution for crate-unowned packages) — or deciding that the
-      entire coupled `-c`+web cluster moves to one repo as a unit, which
-      is the item-7 scope call above. The dogfood gate's curated
-      ARROW_PACKAGES (scripts/dogfood-gate.sh) also lives here.
-      (`editor-support/` → `extension-vscode` + `extension-neovim`;
-      `playground/` → `playground`; `bench/` → `bench`;
-      `examples/handl/` → `handl/examples/` (redesigned into
-      `basics/ recursion/ algorithms/ lists/ modules/`); `examples/http/` →
-      `web/examples/http/`. All are already gone; `crates/bench` — the
-      criterion suite — stays here.)
+- [x] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs.
+      **Done — the seam is `.handl.toml` `[dependencies]` name
+      resolution** (Phase-9.5 package management), not a new
+      module-chain registry: `from "ws-c"` / `from "libc/socket"`
+      resolve the first segment through the manifest's name → dir map.
+      Platform side: `handl-platform` gained `discover_manifest_dir` /
+      `resolve_dependencies` / `discover_dependencies`; the runner's
+      `import_preamble` and `host-cli`'s strip/seed helpers now consult
+      the dep table, and the tooling kit is project-aware
+      (`Kit::discover`). Moved: `web/` holds the web block
+      (`js`, `fetch-js`, `ws_frame{,-handl}`, `ws-whatwg-c`,
+      `ws_whatwg_wasm`, `http_rfc`, `serve{,-epoll}`, `concurrent-epoll`)
+      + the `*-webidl-browser` adapters, their `generated/<spec>` ports,
+      `.idl` inputs and webidl `*.sdkgen.yaml`; `c/` holds
+      `concurrent`, `ws-c`, `tls-libssl`, `fetch-c`, `compress{,-gzip-c,
+      -zlib-c}` and `generated/{libc,curl,libz,libssl}` ports+adapters,
+      `curl-spec/` and the four c `*.sdkgen.yaml`. Cross-repo specs
+      rewritten to dep names (`from "libc/socket"`, `from "ws-c"`,
+      `from "concurrent-epoll"`); in-repo `../` imports unchanged.
+      `math-c` stayed (its only edge is `../math`, still in platform);
+      `generated/icu{,-uc}*` configs stayed (they generate stdlib-owned
+      adapters — follow-up). dogfood-gate's ARROW_PACKAGES emptied —
+      each repo gates its own packages.
 
 ## Phase 6 — `native/`
 
@@ -440,6 +440,106 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Deferred
 
-- `plugin-loader-native` dylib registration; `FragmentSource::DataFile`
-  module-chain seam for crate-unowned `.hnl` packages; `graphql/`,
-  `pg/`, `sqlite/` repos once a first module exists.
+- `plugin-loader-native` dylib registration; `graphql/`, `pg/`, `sqlite/`
+  repos once a first module exists.
+
+## Resolved
+
+- **`FragmentSource::DataFile` (ADR-0128 §Deferred) — implemented.**
+  `handl-kit-data` now reads a serialized `Language` from a data file
+  (`FragmentSource::DataFile`; parser chosen by extension — JSON / YAML /
+  TOML) and loads a kit manifest from a file or inline text
+  (`DataKitManifest::load` / `DataKitManifest::load_from_text`). Read and
+  parse failures name the file. A module repo can therefore ship fragment
+  data and kit manifests *as data* instead of `include_str!`-pinning them
+  into another crate.
+- **The module-name import fallback the `.hnl` moves need — already
+  implemented; no platform work required.** Verified by
+  `crates/handl-runtime/tests/bare_module_import.rs` (2 tests): a module
+  file containing `from "libc" import socket` resolves, and applying the
+  module's exported arrow reaches `libc.socket` through the module chain.
+  - File-loader path: `ModuleLoader::strip_module_decl_lines`
+    (`handl-runtime/src/lib.rs:1805`) lowers a non-file-resolving
+    `from "<name>" import <fn>` to `<fn> := "<name>.<fn>"` via
+    `module_prep::host_import_bindings` (`module_prep.rs:494`); the string
+    callee dispatches through `ModuleLookup`.
+  - `HandlModule` path: `DependencyImportResolver`
+    (`plugin-lib-handl/src/lib.rs:194`) is auto-wired when a `HandlModule`
+    has deps (`lib.rs:1449`), and `TableImportResolver`
+    (`stdlib/.../packages.rs:1142`) does the same over the package table.
+  - So the only requirements are **registration + spec rewrite**, below.
+
+## The `.hnl` move — landed via `[dependencies]` name resolution
+
+The prescribed module-registration route (`c/modules/lib-c`, wire-name
+additions) was superseded by the lighter, already-built Phase-9.5 seam:
+`.handl.toml` `[dependencies]` maps an import name to a package directory
+and `ModuleLoader` resolves first-segment matches into it — so the specs
+became `from "libc/socket"` / `from "ws-c"` / `from "concurrent-epoll"`
+and the repo boundary is a manifest dep. `c/` and `web/` each hold a
+`handl-packages/` subtree split pruned to their keep sets plus a manifest;
+the ws-c↔concurrent-epoll cross-repo cycle resolves both ways via the two
+manifests (`c` self-declares its own names because dep files loaded under
+its context carry name specs). `import_preamble` (`plugin-engine-test`)
+and `host-cli`'s decl-stripping/splice-seeding gained dep awareness; the
+tooling kit is `Kit::discover`-based. Regression:
+`handl-runtime/tests/dependency_import.rs`.
+
+Residual, if module-chain registration is ever wanted on top: dep names
+take precedence over module lowering by design, so registering `libc` et
+al. as modules remains compatible. `math-c` and `generated/icu{,-uc}*`
+stay in platform (uncoupled / stdlib-owned artifacts); per-repo dogfood
+gates for the moved packages are a `c/`/`web/` follow-up.
+
+
+
+**Finding 1 — the generated dirs are build artifacts, not source.** Every
+`handl-packages/generated/<lib>/` *port* and `<lib>-<backend>-<target>/`
+*adapter* is produced by `hnl sdkgen` from a `*.sdkgen.yaml` config plus spec
+inputs (`*.idl`, `curl-spec/curl.h`). The `c` backends already live in `c/`
+and the `webidl`/js ones in `web/`. So the moved trees are **regenerated in
+the target repo**, not hand-rewritten:
+`hnl sdkgen c handl-packages/generated/libc.sdkgen.yaml --output c/handl-packages/generated`.
+
+**Finding 2 — the web and `-c` blocks are one unit.** `fetch-c` and `ws-c`
+import `../concurrent-epoll/concurrent-epoll`, and `concurrent-epoll` imports
+`../generated/libc-c-*`, `../generated/curl-c-*`, `../tls-libssl`, `../ws-c`.
+That is a cycle across the two "blocks" — they cannot move independently.
+(They *decouple* once the specs are names: `c/`'s modules import `"concurrent"`
+and `web/` registers it.)
+
+**Blocker:** the move needs `git subtree split`, which needs a clean tree —
+`platform` currently has uncommitted WIP (`plugin-lib-handl/src/transform.rs`,
+`handl-kit-arrow-lower/src/lib.rs`, `handl-packages/desugar/`, …). Commit or
+stash first.
+
+### Inventory (module name ← source spec)
+
+| source spec (today) | module name | owning repo |
+|---|---|---|
+| `../generated/libc-c-linux-x86_64/<f>` | `libc` (18 adapter files: `socket`, `unistd`, `epoll`, `fcntl`, `errno`, `time`, `inet`, `un`, `stdio`, `stdlib`, `random`, …) | `c/` |
+| `../generated/curl-c-linux-x86_64/curl` | `curl` | `c/` |
+| `../generated/libz-c-linux-x86_64/zlib` | `libz` | `c/` |
+| `../generated/libssl-c-linux-x86_64/ssl` | `libssl` | `c/` |
+| `../tls-libssl/tls-libssl` | `tls` | `c/` |
+| `../compress` | `compress` | `stdlib` (platform fallback today) |
+| `../math/<f>` (`Acosh`, …) | `math` | `stdlib` (platform fallback today) |
+| `../ws-c/ws-c` | `wsc` | `c/` |
+| `../ws-whatwg-c/http` | `ws_http` | `web/` |
+| `../ws_frame` / `../ws_frame-handl/frame` | `ws_frame` | `web/` |
+| already bare: `type`, `bytes`, `str`, `math`, `option`, `char`, `result` | — | chain |
+
+Names must be **single-segment** — `module_prep::is_module_name_spec` rejects
+any spec containing `/`, so `libc/socket` is not addressable; register the
+`libc` module (all 18 adapters behind one name) or per-file `libc_socket`
+style names.
+
+### Sequence
+
+1. Commit/stash the WIP (unblocks subtree split).
+2. `c/`: `git subtree split` the `-c` packages + `generated/{libc,curl,libz,libssl,*-c-linux-x86_64}` + the four `*.sdkgen.yaml` + `curl-spec/`; add `c/modules/lib-c` registering them by name; regenerate the generated trees there.
+3. `web/`: same for the web block + 15 `generated/*-webidl-browser/` + the webidl configs; add `web/modules/lib-web`.
+4. Rewrite specs to names (the table above); register the names in
+   `kit-canonical::canonical_wire_names()`.
+5. git deps + `[patch]`; prune `dogfood-gate.sh` `ARROW_PACKAGES` (163-177);
+   flip the ADR-0128 Phase 2 / Phase 5 statuses.

@@ -246,11 +246,35 @@ the `kit-canonical/` repo (which `cli/`/`lsp/` git-depend on alongside
   convention to the whole surface rather than inventing a new one.
 
 **Deferred.** `plugin-loader-native` dylib registration (true
-zero-repackage); the `FragmentSource::DataFile` module-chain seam (still
-`NotImplemented`) for `.hnl`-only packages that live outside any crate;
-`c/`'s 6 generated `*-c-linux-x86_64/` dirs and the remaining `-c`
-package block pending item-7 scope; `graphql/`/`pg/`/`sqlite/` as
-greenfield repos once a first module exists.
+zero-repackage); `c/`'s 6 generated `*-c-linux-x86_64/` dirs and the
+remaining `-c` package block pending item-7 scope; `graphql/`/`pg/`/
+`sqlite/` as greenfield repos once a first module exists.
+
+**Landed — the `FragmentSource::DataFile` seam.** `handl-kit-data` now
+reads a serialized `Language` from a data file (`FragmentSource::DataFile`)
+and loads a kit manifest from a file or inline text
+(`DataKitManifest::load` / `load_from_text`); the parser is chosen by
+extension (JSON / YAML / TOML) and failures name the file. A module repo can
+now ship fragment data and kit manifests as *data* rather than
+`include_str!`-pinning them.
+
+**Landed — the `.hnl` name-resolution seam.** `.hnl` packages now import
+each other *by package name* through the `.handl.toml` `[dependencies]`
+table instead of `../` filesystem paths: `from "ws-c" import …` and
+`from "libc/socket" import …` resolve the first path segment through the
+manifest's name → package-dir map (`ModuleLoader::resolve_path` /
+`resolve_spec_to_file` already consulted it; the blind spots were the
+*declaration* paths — `hnl run`/`typecheck`/`lint`'s import stripping and
+splice-name seeding in `host-cli`, and `plugin-engine-test`'s
+`import_preamble` — which now discover the manifest and resolve dep specs
+themselves). `host-cli`'s tooling kit is project-aware (`Kit::discover`
+on the CWD) so `hnl test` wires the deps into the module loader too.
+Coverage: `crates/handl-runtime/tests/dependency_import.rs` (dep-name
+specs, bare-name → `<name>.hnl`, shadowing precedence, in-dep relative
+imports) alongside `bare_module_import.rs` (module-chain lowering).
+A consuming repo declares the dep once in its `.handl.toml` — the
+repo boundary is a manifest dep, not a `../` path — and in-repo relative
+imports are unchanged.
 
 ## Status
 
