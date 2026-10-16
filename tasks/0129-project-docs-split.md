@@ -88,11 +88,13 @@ Seed each repo's `project` branch in the same PR that extracts its code:
 
 ## Verification
 
-- `scripts/docs_split.py check` — 204/204 assigned, no duplicates.
+- `scripts/docs_split.py check` — **pre-split**: 204/204 assigned, no
+  duplicates (run before the tree is converted).
+- `scripts/docs_split.py verify` — **post-split**: `platform/project` holds
+  exactly the 125 platform-owned files.
 - `git ls-files project/` in `platform` is empty on `main`; `project/` is
   gitignored and mounted on branch `project`.
-- All three live repos: `git worktree list` shows `main` + `project`;
-  `cargo check --workspace` green.
+- All three live repos: `git worktree list` shows `main` + `project`.
 - `INDEX.md` has no duplicate numbers and no entry pointing at a missing
   file.
 
