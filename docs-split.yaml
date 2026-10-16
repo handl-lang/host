@@ -351,6 +351,9 @@ repos:
 
   otlp: {}
 
+  extension-vscode: {}
+  extension-neovim: {}
+
   cli:
     adrs:
       - 0029-cli-as-capability-orchestrator.md
