@@ -761,6 +761,8 @@ dependencies = [
  "handl-runtime",
  "serde",
  "serde_json",
+ "serde_yaml",
+ "toml",
 ]
 
 [[package]]
@@ -849,9 +851,15 @@ dependencies = [
 name = "handl-plugin-compile-js"
 version = "0.1.0"
 dependencies = [
+ "handl-kit-arrow-lower",
  "handl-language",
  "handl-plugin-compile",
+ "handl-plugin-engine-lex-pattern",
+ "handl-plugin-engine-parse",
+ "handl-plugin-engine-parse-pratt",
+ "handl-plugin-engine-transform-rewrite",
  "handl-plugin-engine-typecheck",
+ "handl-plugin-ext-diag",
  "plugin-engine",
  "serde_json",
 ]
@@ -1290,8 +1298,10 @@ dependencies = [
  "handl-plugin-engine-exec",
  "handl-plugin-engine-exec-bytecode",
  "handl-plugin-engine-exec-tree-walk",
+ "handl-plugin-engine-lex",
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-lint",
+ "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
  "handl-plugin-engine-transform",
  "handl-plugin-engine-transform-rewrite",

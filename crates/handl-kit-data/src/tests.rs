@@ -590,16 +590,166 @@ fn extends_chain_union_of_capabilities() {
 }
 
 // ---------------------------------------------------------------------------
-// Data-file source (not yet implemented)
+// Data-file source (ADR-0044 §6 end state)
+// ---------------------------------------------------------------------------
+
+/// A one-token language, used as the round-trip fixture.
+fn sample_language() -> Language {
+    TokenEmitter {
+        id: "token.x".into(),
+    }
+    .emit()
+    .unwrap()
+}
+
+/// Write `contents` to a unique temp file named `<name>.<ext>` and return its
+/// path. The workspace has no `tempfile` dev-dependency; the convention is
+/// `std::env::temp_dir()` plus the process id (see `handl-runtime/tests`).
+fn temp_file(name: &str, ext: &str, contents: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("handl-kit-data-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("{name}.{ext}"));
+    std::fs::write(&path, contents).unwrap();
+    path
+}
+
+/// The minimal TOML document that deserializes to an *empty* [`Language`]:
+/// the nine non-defaulted fragment sets as empty inline tables plus the
+/// required `scheme_version`. (`ops`/`hands`/`lints`/… carry `serde(default)`.)
+fn empty_language_toml() -> String {
+    let mut s = String::from("scheme_version = \"v2\"\n");
+    for set in [
+        "tokens",
+        "grammar",
+        "eval",
+        "types",
+        "ast",
+        "transforms",
+        "caps",
+        "options",
+        "lexer_rules",
+    ] {
+        s.push_str(&format!(
+            "\n[{set}]\nby_key = {{}}\nid_index = {{}}\noverride_chain = []\n"
+        ));
+    }
+    s
+}
+
+#[test]
+fn data_file_json_source_loads_language() {
+    let lang = sample_language();
+    let path = temp_file("lang", "json", &serde_json::to_string(&lang).unwrap());
+    let reg = EmitterRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 1);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn data_file_yaml_source_loads_language() {
+    let lang = sample_language();
+    let path = temp_file("lang", "yaml", &serde_yaml::to_string(&lang).unwrap());
+    let reg = EmitterRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 1);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn data_file_toml_source_loads_language() {
+    let path = temp_file("empty", "toml", &empty_language_toml());
+    let reg = EmitterRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 0);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn data_file_unknown_extension_falls_back_to_json() {
+    let lang = sample_language();
+    let path = temp_file("lang", "fragment", &serde_json::to_string(&lang).unwrap());
+    let reg = EmitterRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 1);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn data_file_missing_file_errors_with_path() {
+    let missing = std::env::temp_dir().join("handl-kit-data-does-not-exist.json");
+    let reg = EmitterRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", missing.clone()));
+    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+    assert!(matches!(err, LangError::Engine { .. }));
+    assert!(
+        format!("{err}").contains("handl-kit-data-does-not-exist.json"),
+        "error should name the file: {err}"
+    );
+}
+
+#[test]
+fn data_file_unparseable_errors_with_path() {
+    let path = temp_file("garbage", "json", "{ not json");
+    let reg = EmitterRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+    assert!(matches!(err, LangError::Engine { .. }));
+    assert!(format!("{err}").contains("garbage.json"), "{err}");
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn data_file_merges_with_emitter_fragments() {
+    // A data file participates in the same ordered merge as an emitter: the
+    // data file's `token.x` and the emitter's `token.A` coexist.
+    let lang = sample_language();
+    let path = temp_file("merge", "json", &serde_json::to_string(&lang).unwrap());
+    let mut reg = EmitterRegistry::new();
+    reg.register_emitter("a", || Box::new(TokenAEmitter));
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()))
+        .with_fragment(FragmentSourceEntry::emitter("a", "a"));
+    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 2);
+    let _ = std::fs::remove_file(path);
+}
+
+// ---------------------------------------------------------------------------
+// Kit-manifest data files (`DataKitManifest::load`)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn data_file_source_returns_not_implemented_style_error() {
-    let reg = EmitterRegistry::new();
-    let manifest =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", "x.toml"));
-    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+fn kit_manifest_loads_from_yaml_file() {
+    let manifest = DataKitManifest::new().with_extends("canonical");
+    let path = temp_file("kit", "yaml", &serde_yaml::to_string(&manifest).unwrap());
+    let back = DataKitManifest::load(&path).unwrap();
+    assert_eq!(back, manifest);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn kit_manifest_load_from_text_yaml() {
+    let m = DataKitManifest::load_from_text("extends: canonical\n", "yaml").unwrap();
+    assert_eq!(m.extends, Some("canonical".into()));
+}
+
+#[test]
+fn kit_manifest_load_missing_file_errors_with_path() {
+    let missing = std::env::temp_dir().join("handl-kit-data-no-such-kit.yaml");
+    let err = DataKitManifest::load(&missing).unwrap_err();
     assert!(matches!(err, LangError::Engine { .. }));
+    assert!(format!("{err}").contains("handl-kit-data-no-such-kit.yaml"));
 }
 
 // ---------------------------------------------------------------------------

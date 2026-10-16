@@ -17,6 +17,16 @@
 //! [`EmitterRegistry`] bridges data (manifest names) to Rust (emitter
 //! constructors), so the assembler never hardcodes a specific emitter.
 //!
+//! ## Data-file sources
+//!
+//! [`FragmentSource::DataFile`] is live (ADR-0044 §6 end state): a fragment
+//! source may be a serialized [`Language`] on disk, read at assembly time.
+//! [`DataKitManifest::load`] / [`DataKitManifest::load_from_text`] do the same
+//! for a kit manifest. Both dispatch on extension — JSON, YAML (canonical) or
+//! TOML — and fail with an error naming the file. This lets the module that
+//! owns a set of fragments or a kit manifest *ship it as data* instead of
+//! `include_str!`-pinning it into another crate (ADR-0128 §Deferred).
+//!
 //! ## Include/exclude
 //!
 //! Per ADR §1, include/exclude operate at the **fragment level** (by fragment
@@ -64,10 +74,10 @@ pub enum FragmentSource {
     /// An emitter that produces a [`Language`] at load time (migration
     /// scaffold, ADR §6).
     Emitter(Box<dyn Emitter>),
-    /// A path to a data file (TOML/JSON) loaded at runtime. For Phase 5 the
-    /// emitters are the active path; data-file loading is modeled as a type
-    /// but returns [`LangError::NotImplemented`] when resolved, since the
-    /// authored-data end state arrives after migration completes.
+    /// A path to a data-file holding a serialized [`Language`] (ADR-0044 §6
+    /// end state: "authored data files are canonical"). Read and deserialized
+    /// at assembly time; JSON, YAML and TOML are accepted, dispatched on the
+    /// file extension.
     DataFile(PathBuf),
 }
 
@@ -93,7 +103,8 @@ pub enum FragmentSourceSerde {
     /// Reference to a registered emitter by name (resolved via
     /// [`EmitterRegistry::resolve_emitter`]).
     Emitter(String),
-    /// Path to a data file (TOML/JSON) to load at runtime.
+    /// Path to a data file (JSON/YAML/TOML) holding a serialized [`Language`]
+    /// to load at runtime.
     DataFile(PathBuf),
 }
 
@@ -222,6 +233,38 @@ impl DataKitManifest {
         self.modules = modules;
         self
     }
+
+    /// Load a kit manifest from a data file at `path`.
+    ///
+    /// This is the manifest half of the [`FragmentSource::DataFile`] seam
+    /// (ADR-0128 §Deferred): a module repo can *ship* its kit manifest
+    /// (`kits/<name>.yaml`, say) instead of `include_str!`-pinning it into
+    /// another crate. Format is chosen by extension — see
+    /// [`DataKitManifest::load_from_text`] for the parser rules.
+    ///
+    /// The returned manifest's relative [`FragmentSourceSerde::DataFile`] and
+    /// [`FragmentSourceSerde::Emitter`] references are *not* resolved here;
+    /// callers resolve them against the manifest's directory and an
+    /// [`EmitterRegistry`] when assembling (see [`DataKit::assemble`]).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::Engine`] if the file cannot be read or parsed.
+    pub fn load(path: &std::path::Path) -> Result<Self, LangError> {
+        read_data_file(path)
+    }
+
+    /// Parse a kit manifest from `text`, choosing the parser from `ext`
+    /// (`json`, `yaml`/`yml`, `toml`; anything else is tried as JSON then
+    /// YAML). Exposed for callers that already hold the manifest source —
+    /// e.g. `include_str!`-embedded kit data.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::Engine`] if no parser accepts `text`.
+    pub fn load_from_text(text: &str, ext: &str) -> Result<Self, LangError> {
+        parse_data::<Self>(text, ext, "<inline>")
+    }
 }
 
 impl Default for DataKitManifest {
@@ -285,8 +328,8 @@ impl EmitterRegistry {
     /// Resolve a [`FragmentSourceSerde`] to a runtime [`FragmentSource`].
     ///
     /// `Emitter(name)` looks up the registered constructor; `DataFile(path)`
-    /// is returned as-is (loading is deferred to assembly, where it currently
-    /// returns [`LangError::NotImplemented`]).
+    /// is returned as-is — the file is read and deserialized at assembly time
+    /// by [`produce_language`].
     ///
     /// # Errors
     ///
@@ -443,21 +486,72 @@ impl DataKit {
 
 /// Produce a [`Language`] from a resolved [`FragmentSource`].
 ///
-/// Emitters call `.emit()`; data files are not yet implemented (ADR §6 end
-/// state arrives after migration).
+/// Emitters call `.emit()`; a data-file source is read from disk and
+/// deserialized into a [`Language`] (ADR-0044 §6 — authored data files are the
+/// end state, emitters the migration scaffold).
 fn produce_language(source: &FragmentSource) -> Result<Language, LangError> {
     match source {
         FragmentSource::Emitter(emitter) => emitter.emit(),
-        FragmentSource::DataFile(path) => {
-            // Phase 5 models the type but does not implement file loading —
-            // the emitters are the active path during migration. Surfacing a
-            // clear error keeps the data-file branch honest.
-            Err(LangError::engine(format!(
-                "data-file fragment sources are not implemented yet: {}",
-                path.display()
-            )))
-        }
+        FragmentSource::DataFile(path) => read_data_file(path),
     }
+}
+
+/// Read and deserialize the data file at `path` into `T`.
+///
+/// The parser is chosen by extension — see [`parse_data`] for the rules. A
+/// read or parse failure surfaces as [`LangError::Engine`] naming the file, so
+/// a misconfigured kit manifest or fragment source fails loudly rather than
+/// silently assembling an empty language.
+///
+/// This is the loading half of the `FragmentSource::DataFile` seam
+/// (ADR-0128 §Deferred): fragments and kit manifests can be *shipped as data*
+/// by the module that owns them, rather than `include_str!`-pinned into a
+/// crate. See also [`DataKitManifest::load`].
+///
+/// # Errors
+///
+/// Returns [`LangError::Engine`] if the file cannot be read, or if no parser
+/// accepts its contents.
+fn read_data_file<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T, LangError> {
+    let text = std::fs::read_to_string(path).map_err(|e| {
+        LangError::engine(format!("cannot read data file {}: {e}", path.display()))
+    })?;
+    parse_data(&text, &extension_of(path), &path.display().to_string())
+}
+
+/// Parse `text` as `T`, selecting the parser from `ext`.
+///
+/// `json` → `serde_json`, `yaml`/`yml` → `serde_yaml` (the canonical
+/// fragment/kit format), `toml` → `toml`. An unrecognized extension is tried
+/// as JSON, then YAML. `label` names the source in error messages (a path, or
+/// `"<inline>"`).
+///
+/// # Errors
+///
+/// Returns [`LangError::Engine`] if no parser accepts `text`.
+fn parse_data<T: serde::de::DeserializeOwned>(
+    text: &str,
+    ext: &str,
+    label: &str,
+) -> Result<T, LangError> {
+    let parsed: Result<T, String> = match ext {
+        "json" => serde_json::from_str(text).map_err(|e| e.to_string()),
+        "yaml" | "yml" => serde_yaml::from_str(text).map_err(|e| e.to_string()),
+        "toml" => toml::from_str(text).map_err(|e| e.to_string()),
+        _ => serde_json::from_str(text)
+            .map_err(|e| e.to_string())
+            .or_else(|_| serde_yaml::from_str(text).map_err(|e| e.to_string())),
+    };
+
+    parsed.map_err(|e| LangError::engine(format!("cannot parse data file {label}: {e}")))
+}
+
+/// The lowercased extension of `path` (`""` when it has none).
+fn extension_of(path: &std::path::Path) -> String {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase()
 }
 
 /// Merge `fragment_lang`'s fragments into `lang`, applying the include/exclude
