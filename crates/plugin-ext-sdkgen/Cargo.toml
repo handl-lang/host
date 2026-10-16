@@ -6,18 +6,25 @@ description = "`hnl sdkgen` CLI extension (ADR-0107)."
 license.workspace = true
 repository.workspace = true
 
+# ADR-0128 §0.1: each target is a feature — the host opts repo modules in
+# on its own manifest. `python` implies `c`: the `python` target record
+# names backend `c` (resolved through the registry, not a crate dep).
+[features]
+default = ["c", "webidl", "python"]
+c = ["dep:handl-plugin-sdkgen-backend-c", "dep:handl-plugin-sdkgen-emitter-file"]
+webidl = ["dep:handl-plugin-sdkgen-backend-webidl", "dep:handl-plugin-sdkgen-emitter-file"]
+python = ["c", "dep:handl-plugin-sdkgen-emitter-python"]
+
 [dependencies]
 handl-language = { path = "../handl-language" }
 handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
 # ADR-0128 Phase 2: the c backend lives in the `c` repo; the root
 # `[patch]` resolves the sibling checkout for local dev.
-handl-plugin-sdkgen-backend-c = { git = "https://github.com/handl-lang/c", rev = "c24afa2e47717d00eccad9542b558e7c38a29f2e" }
+handl-plugin-sdkgen-backend-c = { git = "https://github.com/handl-lang/c", rev = "4c269759a0025649f36445630d2c52d111a6c7c5", optional = true }
 # ADR-0128 Phase 5: the webidl backend lives in the `web` repo; the root
 # `[patch]` resolves the sibling checkout for local dev.
-handl-plugin-sdkgen-backend-webidl = { git = "https://github.com/handl-lang/web", rev = "f1b92777eeba1773a340c9e34ab9f2e3f67bdd69" }
-handl-plugin-sdkgen-emitter-file = { path = "../plugin-sdkgen-emitter-file" }
+handl-plugin-sdkgen-backend-webidl = { git = "https://github.com/handl-lang/web", rev = "1fdc53cb271686da20baaf830af1f71913686f36", optional = true }
+handl-plugin-sdkgen-emitter-file = { path = "../plugin-sdkgen-emitter-file", optional = true }
 # ADR-0128 Phase 1: the python emitter lives in the `python` repo;
 # the root `[patch]` resolves the sibling checkout for local dev.
-handl-plugin-sdkgen-emitter-python = { git = "https://github.com/handl-lang/python", rev = "c657921402adcfc2da17a11e24f1d6882a47276b" }
-serde = { workspace = true, features = ["derive"] }
-serde_yaml = { workspace = true }
+handl-plugin-sdkgen-emitter-python = { git = "https://github.com/handl-lang/python", rev = "dd82b3a52dd45c7c81598cc63d61b6c5928819ac", optional = true }

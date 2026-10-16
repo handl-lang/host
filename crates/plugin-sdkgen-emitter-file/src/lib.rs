@@ -1,7 +1,9 @@
 //! File emitter for the Handl SDK generator (ADR-0107).
 
 use handl_language::Language;
-use handl_plugin_sdkgen::{Emitter, SdkgenError, SdkgenModule};
+use handl_plugin_sdkgen::{
+    Emitter, SdkgenEmitterDef, SdkgenError, SdkgenModule, SdkgenRegistry,
+};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -19,6 +21,16 @@ impl FileEmitter {
     pub fn new(lang: Arc<Language>) -> Self {
         Self { lang }
     }
+}
+
+/// Register the `hnl-file` emitter on `reg` (ADR-0128 §0.1): the emitter
+/// id the `c`/`webidl` target records reference. The request's `lang` is
+/// cloned per emit — `FileEmitter` owns it behind an `Arc`.
+pub fn register(reg: &mut SdkgenRegistry) {
+    reg.register_emitter(SdkgenEmitterDef {
+        name: "hnl-file",
+        make: |req| Ok(Box::new(FileEmitter::new(Arc::new(req.lang.clone())))),
+    });
 }
 
 impl Emitter for FileEmitter {

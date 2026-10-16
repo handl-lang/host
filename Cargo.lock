@@ -1222,8 +1222,6 @@ dependencies = [
  "handl-plugin-sdkgen-backend-webidl",
  "handl-plugin-sdkgen-emitter-file",
  "handl-plugin-sdkgen-emitter-python",
- "serde",
- "serde_yaml",
 ]
 
 [[package]]
@@ -1528,6 +1526,7 @@ dependencies = [
 name = "handl-plugin-sdkgen"
 version = "0.1.0"
 dependencies = [
+ "handl-language",
  "serde",
  "serde_json",
  "ureq",
@@ -1572,6 +1571,8 @@ name = "handl-plugin-sdkgen-emitter-python"
 version = "0.1.0"
 dependencies = [
  "handl-plugin-sdkgen",
+ "serde",
+ "serde_yaml",
 ]
 
 [[package]]
