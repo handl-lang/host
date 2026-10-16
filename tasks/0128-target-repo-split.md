@@ -279,9 +279,20 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 10 — `ffi/`
 
-- [ ] `ffi/modules/ffi` ← `plugin-ffi` (cranelift + libloading leave
+- [x] `ffi/modules/ffi` ← `plugin-ffi` (cranelift + libloading leave
       platform's lock entirely). `lang/` git-depends on `ffi/` since
       `kit-canonical` is its only normal consumer.
+      **Done:** `handl-lang/ffi` holds `modules/ffi` (subtree-split
+      history; 53 tests green). Consumers rewired: `native`'s
+      exec-cranelift and `kit-canonical`'s optional `ffi` feature now
+      pin the ffi repo (their revs bumped here); `meta` repointed its
+      dep + patch. `cli`'s patch table was refreshed for Phases 1–10
+      (stale `../platform/crates/*` paths repointed + per-repo blocks
+      for the new git sources); `lsp` needs none (its closure never
+      reaches the moved crates). No platform member deps on
+      `handl-plugin-ffi`, so the workspace dep entry went away; a
+      `[patch.".../ffi"]` block covers the dev-dep path through
+      kit-canonical.
 
 ## Phase 11 — `lang/` + `kit-canonical/` (needs 0.8 first)
 
@@ -328,7 +339,7 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 12 — `docs/` (independent, anytime)
 
-- [ ] `docs/` repo ← platform `docs/` (VitePress). **Done** (ADR-0129 5.3).
+- [x] `docs/` repo ← platform `docs/` (VitePress). **Done** (ADR-0129 5.3).
       The platform `adrs/` top-level dir is gone: its 9 ADRs were distributed
       to the repos that own them (`extension-vscode` 0001–0004/0006, `cli`
       0005, `web` 0007, `lsp` 0008, `platform` 0009, `lang` the n-dim
