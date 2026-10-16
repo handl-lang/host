@@ -356,6 +356,7 @@ repos:
   extension-vscode: {}
   extension-neovim: {}
   playground: {}
+  bench: {}
 
   cli:
     adrs:
