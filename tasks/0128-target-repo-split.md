@@ -228,12 +228,18 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 7 — `dot/`, `term/`, `sexp/`, `handl/` (four repos)
 
-- [ ] `dot/modules/compile-dot` ← `plugin-compile-dot` (target `dot`).
-- [ ] `term/modules/compile-term` ← `plugin-compile-term` (target `term`).
-- [ ] `sexp/modules/compile-sexp` ← `plugin-compile-sexp` (target `sexp`).
-- [ ] `handl/modules/compile-handl` ← `plugin-compile-handl` (target
+- [x] `dot/modules/compile-dot` ← `plugin-compile-dot` (target `dot`).
+- [x] `term/modules/compile-term` ← `plugin-compile-term` (target `term`).
+- [x] `sexp/modules/compile-sexp` ← `plugin-compile-sexp` (target `sexp`).
+- [x] `handl/modules/compile-handl` ← `plugin-compile-handl` (target
       `handl`). **Repo naming:** the platform repo is renamed
       `platform/` so `handl/` unambiguously means the language target.
+      **Done (all four):** subtree-split imports into the four target
+      repos; `plugin-ext-compile` consumes them via pinned git deps +
+      per-repo `[patch]` tables. `compile-handl`'s roundtrip test
+      fixtures (`playground/composition-{hughes,emidio}.hnl`) were
+      vendored into `handl/modules/compile-handl/tests/fixtures/` —
+      `playground/` is its own repo now.
 
 ## Phase 8 — hosts out (last: they sit at the top of the fan)
 
