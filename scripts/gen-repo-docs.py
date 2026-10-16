@@ -44,7 +44,29 @@ REF_BY_REPO = {
 }
 
 
-def main(argv: list[str]) -> int:
+def emit(path: Path, text: str, force: bool) -> str:
+    """Write `path` unless it already exists and `force` is off.
+
+    Existing files may be hand-edited (a curated `references.md`, ticked-off
+    extraction steps) — regenerating is opt-in via `--force`.
+    """
+    if path.exists() and not force:
+        return f"kept   {path}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return f"wrote  {path}"
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--repo", action="append", default=None,
+                    help="only this repo (repeatable); default: all with a project worktree")
+    ap.add_argument("--force", action="store_true",
+                    help="overwrite existing files (default: never clobber hand-edited docs)")
+    args = ap.parse_args(argv)
+
     data = yaml.safe_load(MANIFEST.read_text())
     repos = data.get("repos") or {}
     splits = data.get("splits") or []
@@ -63,9 +85,11 @@ def main(argv: list[str]) -> int:
             if t.get("number"):
                 owned.setdefault(repo, []).append(t)
 
-    written = 0
+    results: list[str] = []
     for repo in repos:
         if repo == "platform":
+            continue
+        if args.repo and repo not in args.repo:
             continue
         proj = ORG / repo / "project"
         if not proj.is_dir():
@@ -97,8 +121,7 @@ def main(argv: list[str]) -> int:
             lines += ["", "## Split parents (stay in platform)", ""]
             for p in sorted(parents[repo]):
                 lines.append(f"- `{p}`")
-        (proj / "references.md").write_text("\n".join(lines) + "\n")
-        written += 1
+        results.append(emit(proj / "references.md", "\n".join(lines) + "\n", args.force))
 
         phase = PHASE.get(repo)
         if phase is None:
@@ -128,10 +151,10 @@ def main(argv: list[str]) -> int:
             "      code actually moves.",
             "",
         ]
-        (proj / "tasks" / "0128-extraction.md").write_text("\n".join(task))
-        written += 1
-
-    print(f"wrote {written} files")
+        results.append(emit(proj / "tasks" / "0128-extraction.md", "\n".join(task), args.force))
+    print("\n".join(results))
+    print(f"\n{sum(1 for r in results if r.startswith('wrote'))} written, "
+          f"{sum(1 for r in results if r.startswith('kept'))} kept (use --force to overwrite)")
     return 0
 
 
