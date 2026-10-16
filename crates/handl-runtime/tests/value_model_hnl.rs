@@ -26,10 +26,7 @@ fn ensure_lang() {
     }
 }
 
-const VALUE_MODEL_HNL: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../project/design/adr0103/value_model.hnl"
-));
+const VALUE_MODEL_HNL: &str = include_str!("fixtures/value_model.hnl");
 
 #[test]
 fn handl_value_model_evaluates_arr_const() {

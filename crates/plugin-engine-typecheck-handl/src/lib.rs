@@ -2,7 +2,7 @@
 //!
 //! A thin Rust adapter that implements the [`TypecheckEngine`] trait by
 //! loading and calling the Handl-authored typecheck model
-//! (`project/design/adr0103/typecheck_model.hnl`).
+//! (`crates/plugin-engine-typecheck-handl/src/models/typecheck_model.hnl`).
 //!
 //! This is the ADR-0105 seam: the Rust NBE typechecker is slated for
 //! deletion, replaced by Handl-authored models. The adapter stays thin —

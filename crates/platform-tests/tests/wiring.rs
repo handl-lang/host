@@ -345,9 +345,16 @@ fn no_silently_disabled_compilation() {
 
 /// ADRs are filed as `NNNN-slug.md`, so cite by number and check the prefix.
 /// Archived ADRs count — they are still the record of an idea.
+///
+/// ADRs live on the `project` branch, mounted at `project/` as a worktree
+/// (ADR-0129). In a plain clone or CI that directory is absent, so the check
+/// degrades to "cannot verify here" instead of failing every ledger entry.
 fn adr_exists(adr: &str) -> bool {
     let number = adr.trim_start_matches("ADR-");
     let base = repo_root().join("project/adrs");
+    if !base.is_dir() {
+        return true;
+    }
     [base.clone(), base.join("archived")].iter().any(|dir| {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return false;

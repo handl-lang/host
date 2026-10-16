@@ -26,10 +26,7 @@ fn ensure_lang() {
     }
 }
 
-const ARROW_MODEL_HNL: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../project/design/adr0103/arrow_model.hnl"
-));
+const ARROW_MODEL_HNL: &str = include_str!("fixtures/arrow_model.hnl");
 
 #[test]
 fn handl_arrow_model_evaluates_arr_const() {
