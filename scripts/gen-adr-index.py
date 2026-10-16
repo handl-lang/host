@@ -98,15 +98,29 @@ def main() -> int:
 
     splits = data.get("splits") or []
     if splits:
-        out += ["", "## Pending split children (allocate numbers)", ""]
-        out.append("| parent | stays | new child repo | topic |")
-        out.append("|---|---|---|---|")
+        out += [
+            "",
+            "## Split children (ADR-0129 §2)",
+            "",
+            "Allocated numbers for the non-canonical half of a split ADR. A `—`",
+            "number is not yet allocated (the target repo does not exist yet).",
+            "",
+            "| # | title | repo | file | parent |",
+            "|---|---|---|---|---|",
+        ]
         for s in splits:
             parent = s["parent"].split("/", 1)[1]
             for t in s.get("targets") or []:
-                out.append(
-                    f"| `{parent}` | `{s['stays']}` | `{t['repo']}` | {t['topic']} |"
-                )
+                num, slug = t.get("number"), t.get("slug")
+                if not num or not slug:
+                    out.append(
+                        f"| — | {t['topic']} | `{t['repo']}` | — | `{parent}` |"
+                    )
+                else:
+                    out.append(
+                        f"| {num} | {t['title']} | `{t['repo']}` | "
+                        f"`adrs/{num}-{slug}.md` | `{parent}` |"
+                    )
 
     out.append("")
     OUT.write_text("\n".join(out), encoding="utf-8")

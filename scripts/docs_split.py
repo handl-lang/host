@@ -115,6 +115,11 @@ def main(argv: list[str]) -> int:
     if argv[0] == "verify":
         return verify(data)
 
+    if argv[0] == "repos":
+        for repo in (data.get("repos") or {}):
+            print(repo)
+        return 0
+
     if argv[0] == "paths":
         if len(argv) != 2:
             raise SystemExit("usage: docs_split.py paths <repo>")

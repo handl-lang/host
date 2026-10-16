@@ -54,6 +54,27 @@ emit() {
 seed() {
   local repo=$1 target=$2
   [ -f "$STAGE/$repo.bundle" ] || emit "$repo"
+
+  if [ ! -d "$target/.git" ]; then
+    mkdir -p "$target"
+    git -C "$target" init -q -b main
+    cat > "$target/README.md" <<EOF
+# $repo
+
+Part of the \`handl-lang\` org split (ADR-0128). Code for this repo lands with
+its ADR-0128 phase; the project docs are already on the \`project\` branch,
+mounted at \`project/\` (ADR-0129).
+
+\`\`\`bash
+git worktree list        # main + project
+git -C project log       # docs history
+\`\`\`
+EOF
+    git -C "$target" add -A
+    git -C "$target" commit -q -m "chore: initialize $repo (ADR-0128)"
+    echo "   -> initialized $target"
+  fi
+
   (
     cd "$target"
     git fetch --quiet "$STAGE/$repo.bundle" main:project
