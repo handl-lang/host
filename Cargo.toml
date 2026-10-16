@@ -123,24 +123,24 @@ handl-plugin-ffi = { path = "crates/plugin-ffi" }
 # ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
 # repo, `handl-kit-data-canonical` in `lang`; local development resolves
 # them from the sibling checkouts via the `[patch]` tables below.
-handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical" }
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "a7392e49efb729021234b094df02155796d50f4c" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
-handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib" }
+handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
-handl-plugin-lib-encoding = { git = "https://github.com/handl-lang/stdlib" }
+handl-plugin-lib-encoding = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
-handl-plugin-lib-kv = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/stdlib" }
+handl-plugin-lib-kv = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 handl-plugin-lib-otlp = { path = "crates/plugin-lib-otlp" }
 handl-plugin-lib-otlp-std = { path = "crates/plugin-lib-otlp-std" }
-handl-plugin-lib-parse = { git = "https://github.com/handl-lang/stdlib" }
+handl-plugin-lib-parse = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 
 handl-plugin-applier-bootstrap = { path = "crates/plugin-applier-bootstrap" }
 handl-plugin-applier-default = { path = "crates/plugin-applier-default" }
-handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/stdlib" }
+handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 handl-plugin-lib-scheduler = { path = "crates/plugin-lib-scheduler" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-platform = { path = "crates/platform" }
@@ -176,7 +176,7 @@ handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
-handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang" }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", rev = "4f0f2faa4f70381552491cb3f25fd6a82d819937" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
@@ -184,14 +184,14 @@ handl-plugin-sdkgen-backend-c = { path = "crates/plugin-sdkgen-backend-c" }
 handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
-handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-lang-eval = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-lang-lex = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-lang-parse = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-lang-run-compiled = { git = "https://github.com/handl-lang/stdlib" }
-handl-plugin-lib-lang-typecheck = { git = "https://github.com/handl-lang/stdlib" }
+handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-lang-eval = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-lang-lex = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-lang-parse = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-lang-run-compiled = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
+handl-plugin-lib-lang-typecheck = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
 [features]
 default = []
 
