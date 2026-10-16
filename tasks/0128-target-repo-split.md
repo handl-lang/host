@@ -189,10 +189,21 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 5 — `web/`
 
-- [ ] `web/modules/sdkgen-webidl` ← `plugin-sdkgen-backend-webidl`
+- [x] `web/modules/sdkgen-webidl` ← `plugin-sdkgen-backend-webidl`
       (target `webidl`; CLI keeps the name).
-- [ ] `web/modules/compile-js` ← `plugin-compile-js` (target `js`).
+      **Done:** subtree-split import; `plugin-ext-sdkgen` takes it via a
+      pinned git dep + `[patch."https://github.com/handl-lang/web"]`.
+- [x] `web/modules/compile-js` ← `plugin-compile-js` (target `js`).
+      **Done:** subtree-split import; `plugin-ext-compile` takes it via
+      a pinned git dep on the same rev. 45 tests green in `web/`.
 - [ ] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs.
+      **Deferred with the C-ABI block (item 7):** the web packages are
+      entangled with the staying `-c` stack — `concurrent-epoll` /
+      `serve-epoll` import `../generated/libc-c-linux-x86_64/*`,
+      `../ws-c`, `../tls-libssl`, `../concurrent` by relative path, and
+      `fetch-js` imports `../generated/fetch-webidl-browser`. Moving the
+      block now would break the platform dogfood gate's curated
+      ARROW_PACKAGES and strand cross-repo relative imports.
       (`editor-support/` → `extension-vscode` + `extension-neovim`;
       `playground/` → `playground`; `bench/` → `bench`;
       `examples/handl/` → `handl/examples/` (redesigned into
