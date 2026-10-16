@@ -2,6 +2,9 @@
 name = "handl-plugin-lib-lang-typecheck"
 version.workspace = true
 edition.workspace = true
+description = "The `typecheck` meta function as a composable `plugin-lib-*` leaf crate (ADR-0054 §6, ADR-0047 §1)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }
