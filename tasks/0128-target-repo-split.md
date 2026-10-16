@@ -50,10 +50,20 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       needs a runtime *factory* (workers build thread-local runtimes);
       `host-tooling` must stop assembling `Kit::new()` per LSP request;
       dev-deps stay, only normal deps sever.
-- [ ] **0.9 `plugin-ffi` de-coupling**: `kit-canonical`'s dep on it is
+- [x] **0.9 `plugin-ffi` de-coupling**: `kit-canonical`'s dep on it is
       the only normal edge — keep it, but make the ffi-capable kit a
       declared feature so platform's default build drops
       cranelift/libloading even before `ffi/` exists.
+      **Done:** `handl-plugin-ffi` is `optional`, behind the `ffi`
+      feature (`default = ["cranelift", "ffi"]` keeps today's behavior).
+      With `ffi` off the `ffi` module stays resolvable via stub ops —
+      capability ops raise a clear "not compiled in" error while
+      `ffi.load`/`ffi.sym` keep their non-raising `{__tag__: "err"}`
+      probe contract so `unicode_c`/`intl_c`/`entropy` degrade to their
+      fallback paths. `host-lsp` now builds the kit with
+      `default-features = false` (it only lexes/parses/typechecks/lints),
+      so cranelift + libloading are out of its closure — verified via
+      `cargo tree -p handl-host-lsp`.
 - [ ] **0.10 Applier audit**: `plugin-applier-bootstrap` has zero
       consumers — `BootstrapPlugin` is never instantiated. It stays in
       platform (it's the ADR-0036 host-composition seam, and `cli/`
