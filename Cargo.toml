@@ -70,7 +70,6 @@ members = [
   "crates/handl-defining-handl",
   "crates/handl-value",
   "crates/plugin-sdkgen",
-  "crates/plugin-sdkgen-backend-c",
   "crates/plugin-sdkgen-backend-webidl",
   "crates/plugin-sdkgen-emitter-file",
   "crates/plugin-ext-sdkgen",
@@ -179,7 +178,6 @@ handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", rev = "
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
-handl-plugin-sdkgen-backend-c = { path = "crates/plugin-sdkgen-backend-c" }
 handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
@@ -217,6 +215,9 @@ handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
 
 [patch."https://github.com/handl-lang/python"]
 handl-plugin-sdkgen-emitter-python = { path = "../python/modules/sdkgen-python" }
+
+[patch."https://github.com/handl-lang/c"]
+handl-plugin-sdkgen-backend-c = { path = "../c/modules/sdkgen-c" }
 
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
