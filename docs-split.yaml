@@ -250,6 +250,7 @@ repos:
       - adr0103/deletion-plan.md
       - adr0103/exec_model.hnl
       - adr0103/kernel_extraction_plan.md
+      - adr0103/meta_model.hnl
       - adr0103/scope_model.hnl
       - adr0103/totality_model.hnl
       - adr0103/typecheck_model.hnl
@@ -354,6 +355,7 @@ repos:
 
   extension-vscode: {}
   extension-neovim: {}
+  playground: {}
 
   cli:
     adrs:
@@ -382,8 +384,8 @@ repos:
       - 0003-linter-in-handl.md
       - 0004-typechecker-in-handl.md
       - 0005-test-runner-in-handl.md
-    design:
-      - adr0103/meta_model.hnl
+    # `design/adr0103/meta_model.hnl` stays in platform: handl-runtime's
+    # meta_model_test include_str!s it (see the CI note in ADR-0129).
 
   ffi:
     adrs:

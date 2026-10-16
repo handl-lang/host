@@ -163,9 +163,9 @@ This phase validates the whole template on a 1-crate port surface with
 - [ ] `web/modules/sdkgen-webidl` ← `plugin-sdkgen-backend-webidl`
       (target `webidl`; CLI keeps the name).
 - [ ] `web/modules/compile-js` ← `plugin-compile-js` (target `js`).
-- [ ] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs +
-      `playground/`. (`editor-support/` is already gone — it moved to the
-      `extension-vscode` and `extension-neovim` repos.)
+- [ ] `.hnl` web block + 13 `generated/*-webidl-browser/` dirs.
+      (`editor-support/` → `extension-vscode` + `extension-neovim`;
+      `playground/` → its own `playground` repo. Both are already gone.)
 
 ## Phase 6 — `native/`
 
