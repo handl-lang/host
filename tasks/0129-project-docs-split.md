@@ -26,9 +26,11 @@ one when its repo is created.
       `scripts/gen-adr-index.py`: 150 ADRs + the 8 pending split children.
 - [x] **0.2 `docs-split.yaml` audit** — `scripts/docs_split.py check`;
       **204 files, 204 assigned, 8 splits -> OK**.
-- [ ] **0.3 Skill updates** — `write-adr` gains "allocate from INDEX.md;
-      never renumber"; `workspace-structure` gains the `project`-branch /
-      worktree rule and drops the "`project/` is a folder in this repo" line.
+- [x] **0.3 Skill updates** — moved to the `handl-lang/automation` repo
+      (`skills/{workspace-structure,write-adr}/SKILL.md`); `write-adr` gains
+      "allocate from INDEX.md; never renumber", `workspace-structure` gains
+      the `project`-branch / worktree rule. `platform` keeps only
+      repo-specific skills and points at the new home via `.agents/README.md`.
 - [x] **0.4 Reference sweep** — `AGENTS.md` / `README.md` / `docs/` carry
       only two `project/adrs/...` path refs, both platform-owned; no
       dangling links after the split. ADRs are otherwise cited by number.
