@@ -2,6 +2,9 @@
 name = "handl-plugin-lib-lang-compile"
 version.workspace = true
 edition.workspace = true
+description = "The `compile` meta function as a composable `plugin-lib-*` leaf crate (ADR-0047 §1, §3)."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }
