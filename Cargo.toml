@@ -21,7 +21,6 @@ members = [
   "crates/plugin-ext-refinement",
   "crates/plugin-ext-test",
   "crates/plugin-ext-typecheck",
-  "crates/plugin-ffi",
   "crates/plugin-load",
   "crates/plugin-loader-native",
   "crates/plugin-loader-native/tests/fixtures/native-echo",
@@ -105,11 +104,10 @@ handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "crates/plugin-ext-refinement" }
 handl-plugin-ext-test = { path = "crates/plugin-ext-test" }
 handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
-handl-plugin-ffi = { path = "crates/plugin-ffi" }
 # ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
 # repo, `handl-kit-data-canonical` in `lang`; local development resolves
 # them from the sibling checkouts via the `[patch]` tables below.
-handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "c3b1a6a0f13bf58d149b6ba4ae544502e063b6d9" }
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", rev = "fd3cee17e4554ed22c84d7c247c0aec39665c866" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", rev = "a4a357f8a9b462e3bb0d70bbdc8189a300a5b0f1" }
@@ -160,7 +158,7 @@ handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
 handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
 handl-plugin-engine-test = { path = "crates/plugin-engine-test" }
 handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", rev = "0bc91da548697c78bc59ebef6080aed6370c4264" }
+handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", rev = "1ad25248844138fac66bea82bde6029894fb1611" }
 handl-plugin-engine-fmt = { path = "crates/plugin-engine-fmt" }
 handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
 handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
@@ -237,6 +235,9 @@ handl-plugin-compile-sexp = { path = "../sexp/modules/compile-sexp" }
 [patch."https://github.com/handl-lang/handl"]
 handl-plugin-compile-handl = { path = "../handl/modules/compile-handl" }
 
+[patch."https://github.com/handl-lang/ffi"]
+handl-plugin-ffi = { path = "../ffi/modules/ffi" }
+
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 
@@ -277,7 +278,6 @@ handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 handl-plugin-engine-typecheck-handl = { path = "crates/plugin-engine-typecheck-handl" }
 handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
-handl-plugin-ffi = { path = "crates/plugin-ffi" }
 
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
