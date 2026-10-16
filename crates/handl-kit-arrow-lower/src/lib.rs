@@ -318,6 +318,13 @@ fn lower_node(
         // decline, same lowering.
         "dimension" => lower_call(ast, lang, node, env, params),
 
+        // `eval.match` (`Op{match}`) routes through the env engines'
+        // `match_shell`, which the arrow interpreter cannot run. Structural
+        // patterns (literals, `_`/binders, `[]`/`[h, …t]`, `__tag__`
+        // records) compile to nested `pair_tag`/`Choice` dispatch instead
+        // (ADR-0147); richer patterns decline to the AST fallback.
+        "match" => lower_match(ast, lang, node, env, params),
+
         // `return` is early-exit control flow the substitution model
         // cannot express. `eval.return` declares only the plain value
         // path (`proj_child 0`) — the early exit lives in `eval_rec`'s
@@ -1868,6 +1875,356 @@ fn lower_nullish(
             Term::choice(b, a),
         ),
     ))
+}
+
+/// `match scrut { pat: body, … }` — compile the `match_shell` walk to
+/// combinators (ADR-0147).
+///
+/// `Seq[product(scrut, id), D]` carries `[scrut_value, input]` (a 2-array
+/// — `proj_child` projects it) into the dispatch. Each arm becomes
+/// `Seq[product(Seq[p0, pred], id), pair_tag, Choice[body, next]]`:
+/// `pair_tag` turns `[pred, pair]` into `Either pair`, so the arm body —
+/// like every lowered child — still sees `[sv, in]`, the node input
+/// preserved. A pattern whose predicate is the *negation* of a cheap test
+/// (e.g. `[h, …t]` ⇔ non-empty) emits `Choice[next, body]` with the
+/// empty-test as the discriminant. The final fallback is
+/// `Op{match_fail}`, an error op mirroring `match_shell`'s
+/// "no arm matched".
+///
+/// Arm bodies run under `params = []` with `env` rebased: enclosing
+/// params project `snd` (`Seq[proj_child 1, proj_i]` — the `p1` rebase),
+/// pattern binders project `fst` (`Seq[proj_child 0, <path>]`). Rich
+/// patterns (object destructuring, tag-constructor calls, rest positions
+/// beyond the tail) decline — the AST fallback handles them.
+fn lower_match(
+    ast: &Ast,
+    lang: &Language,
+    node: &AstNode,
+    env: &HashMap<String, EnvEntry>,
+    params: &[String],
+) -> Result<Term, String> {
+    // children = [scrutinee, (motive, optional), block]; the block's
+    // children are `arm` nodes of [pattern, body].
+    let ch = children(node);
+    let scrut_idx = child_at_role_or_pos(node, lang, "scrutinee", 0)
+        .or_else(|| ch.first().copied())
+        .ok_or_else(|| format!("match at {} missing scrutinee", node_index(node)))?;
+    let block_idx = child_at_role_or_pos(node, lang, "block", ch.len() - 1)
+        .filter(|&b| b != scrut_idx)
+        .ok_or_else(|| format!("match at {} missing block", node_index(node)))?;
+    let block = ast
+        .get(AstRef::new(block_idx))
+        .ok_or_else(|| format!("match block {} out of bounds", block_idx))?;
+    let arm_indices: Vec<usize> = children(block).to_vec();
+    if arm_indices.is_empty() {
+        return Err(format!("match at {} has no arms", node_index(node)));
+    }
+
+    let scrut_t = lower_node(ast, lang, scrut_idx, env, params)?;
+    let proj = |i: i64| Term::op_native_lit("proj_child", vec![], i);
+    let id = Term::op_native("id", vec![]);
+
+    // Rebasing for arm bodies: enclosing param `params[i]` at position i
+    // reads `snd` of `[sv, in]` (the `p1` rebase); arm bodies see
+    // `params = []` so only these env entries resolve their names.
+    let mut arm_env = env.clone();
+    for (i, name) in params.iter().enumerate() {
+        arm_env.insert(
+            name.clone(),
+            EnvEntry {
+                term: Term::seq(
+                    proj(1),
+                    if params.len() == 1 {
+                        id.clone()
+                    } else {
+                        proj(i as i64)
+                    },
+                ),
+                arity: 1,
+                arrow_value: false,
+            },
+        );
+    }
+
+    // Collect arms; richer patterns decline the whole node.
+    struct Arm {
+        /// Discriminant term evaluated on `sv` (position 0 of the pair).
+        pred: Term,
+        /// Pattern-bound names → projection terms evaluated on `sv`.
+        binds: Vec<(String, Term)>,
+        body_idx: usize,
+    }
+    let mut arms: Vec<Arm> = Vec::new();
+    for &arm_idx in &arm_indices {
+        let arm = ast
+            .get(AstRef::new(arm_idx))
+            .ok_or_else(|| format!("match arm {} out of bounds", arm_idx))?;
+        let ach = children(arm);
+        let pat_idx = child_at_role_or_pos(arm, lang, "pattern", 0)
+            .or_else(|| ach.first().copied())
+            .ok_or_else(|| format!("match arm {} missing pattern", arm_idx))?;
+        let body_idx = child_at_role_or_pos(arm, lang, "body", 1)
+            .or_else(|| ach.get(1).copied())
+            .ok_or_else(|| format!("match arm {} missing body", arm_idx))?;
+        let pat = ast
+            .get(AstRef::new(pat_idx))
+            .ok_or_else(|| format!("match pattern {} out of bounds", pat_idx))?;
+        let (pred, binds, body_idx) =
+            lower_match_pattern(ast, lang, pat, body_idx, node)?;
+        arms.push(Arm { pred, binds, body_idx });
+    }
+
+    // Arm body env = arm_env + this arm's pattern binders.
+    let mut dispatch = Term::op_native("match_fail", vec![]);
+    for arm in arms.iter().rev() {
+        let mut body_env = arm_env.clone();
+        for (name, path) in &arm.binds {
+            body_env.insert(
+                name.clone(),
+                EnvEntry {
+                    term: Term::seq(proj(0), path.clone()),
+                    arity: 1,
+                    arrow_value: false,
+                },
+            );
+        }
+        let body = lower_node(ast, lang, arm.body_idx, &body_env, &[])?;
+        let decision = Term::seq(
+            Term::op_native(
+                "product",
+                vec![Term::seq(proj(0), arm.pred.clone()), id.clone()],
+            ),
+            Term::op_native("pair_tag", vec![]),
+        );
+        dispatch = Term::seq(decision, Term::choice(body, dispatch));
+    }
+    Ok(Term::seq(
+        Term::op_native("product", vec![scrut_t, Term::op_native("id", vec![])]),
+        dispatch,
+    ))
+}
+
+/// Compile one `match` arm pattern to a discriminant term (evaluated on
+/// the scrutinee value) plus the binders it introduces.
+///
+/// Supported shapes (the structural corpus set):
+/// - `var` — `_` wildcard (true), a bare binder (true, binds `sv`), or an
+///   env-bound name → *literal* equality against its env term;
+/// - `value`/`lit`/`number`/`string`/`bool` literal payloads → `eq`;
+/// - `array` children `[]` / `[p…]` / `[p…, …rest]` — element binders are
+///   `field_access i`/`arr_tail` projections, empty vs non-empty
+///   discriminates via `eq(sv, [])` (inverted for non-empty);
+/// - `_tag`-keyed records (`{_tag: "Some", value: x}`) and `__tag__`
+///   sums — tag equality + `value` field binding.
+///
+/// Anything else declines (`Err`) — `match_shell` covers it via the AST
+/// fallback.
+fn lower_match_pattern(
+    ast: &Ast,
+    lang: &Language,
+    pat: &AstNode,
+    body_idx: usize,
+    node: &AstNode,
+) -> Result<(Term, Vec<(String, Term)>, usize), String> {
+    let id = Term::op_native("id", vec![]);
+    let eq_lit = |v: Value| {
+        Term::op_native("eq", vec![id.clone(), Term::const_value(v)])
+    };
+    let field = |name: &str| {
+        Term::op_native_lit("field_access", vec![id.clone()], Value::from(name))
+    };
+
+    match pat.kind.as_str() {
+        // `var` — wildcard, binder, or env-bound name (literal equality).
+        "var" => {
+            let name = pat.payload.as_str().unwrap_or("");
+            if name.is_empty() || name == "_" || name.starts_with("_") {
+                return Ok((Term::const_value(Value::from(true)), vec![], body_idx));
+            }
+            // Bare `var` binds the whole scrutinee; a name that is
+            // already in env compares literally — mirror `try_pattern`,
+            // where globals compare by value and locals bind. The
+            // lowered env holds lowered-terms, not values, so a bound
+            // name's *term* can't be compared — treat unbound-in-pattern
+            // names as binders, which is the corpus usage.
+            Ok((
+                Term::const_value(Value::from(true)),
+                vec![(name.to_string(), id.clone())],
+                body_idx,
+            ))
+        }
+        // Literal values — `value`/`lit`/`number`/`string`/`bool` nodes
+        // carry their payload directly.
+        "value" | "lit" | "number" | "string" | "bool" => {
+            Ok((eq_lit(pat.payload.clone()), vec![], body_idx))
+        }
+        "array" => {
+            let ach = children(pat);
+            // `[h, ...t]` / `[x]` / `[]` — `rest`-roled children capture
+            // the tail (kind `rest` is the role-less fallback); other
+            // children are positional `var` binders.
+            let mut positional: Vec<usize> = Vec::new();
+            let mut rest: Option<usize> = None;
+            for &c in ach.iter() {
+                let cn = ast
+                    .get(AstRef::new(c))
+                    .ok_or_else(|| format!("array pattern child {c} out of bounds"))?;
+                let is_rest = lang
+                    .pattern_role_is(&cn.kind, "rest")
+                    .unwrap_or(cn.kind == "rest");
+                if is_rest {
+                    if rest.is_some() {
+                        return Err(format!(
+                            "match at {}: multiple rest patterns",
+                            node_index(node)
+                        ));
+                    }
+                    rest = Some(c);
+                } else {
+                    positional.push(c);
+                }
+            }
+            let n = positional.len();
+            // `arr_len` returns -1 on non-arrays, so a non-array scrutinee
+            // falls through (matching `try_pattern`'s false) instead of
+            // erroring mid-dispatch. `[]` uses structural equality so a
+            // non-array also falls through.
+            let pred = if n == 0 && rest.is_none() {
+                Term::op_native(
+                    "eq",
+                    vec![id.clone(), Term::const_value(Value::Array(vec![]))],
+                )
+            } else {
+                Term::op_native(
+                    if rest.is_some() { "ge" } else { "eq" },
+                    vec![
+                        Term::op_native("arr_len", vec![id.clone()]),
+                        Term::const_value(Value::from(n as i64)),
+                    ],
+                )
+            };
+            // Binders: positional `var`s read `field_access i` of `sv`;
+            // the rest name reads `arr_drop n` (the tail).
+            let mut binds: Vec<(String, Term)> = Vec::new();
+            for (i, &p) in positional.iter().enumerate() {
+                let pn = ast
+                    .get(AstRef::new(p))
+                    .ok_or_else(|| format!("pattern elem {p} out of bounds"))?;
+                if pn.kind != "var" {
+                    return Err(format!(
+                        "match at {}: non-var array element kind `{}`",
+                        node_index(node),
+                        pn.kind
+                    ));
+                }
+                let name = pn.payload.as_str().unwrap_or("");
+                if !name.is_empty() && !name.starts_with('_') {
+                    binds.push((
+                        name.to_string(),
+                        Term::op_native_lit(
+                            "field_access",
+                            vec![id.clone()],
+                            Value::from(i as i64),
+                        ),
+                    ));
+                }
+            }
+            if let Some(r) = rest {
+                let rn = ast
+                    .get(AstRef::new(r))
+                    .ok_or_else(|| format!("rest pattern {r} out of bounds"))?;
+                // The rest binder sits at the `subject` role (index 0).
+                let subject = children(rn)
+                    .first()
+                    .copied()
+                    .and_then(|c| ast.get(AstRef::new(c)))
+                    .filter(|cn| cn.kind == "var")
+                    .and_then(|cn| cn.payload.as_str().map(String::from))
+                    .or_else(|| rn.payload.as_str().map(String::from));
+                if let Some(name) = subject {
+                    if !name.is_empty() && !name.starts_with('_') {
+                        binds.push((
+                            name,
+                            Term::op_native_lit(
+                                "arr_drop",
+                                vec![id.clone()],
+                                Value::from(n as i64),
+                            ),
+                        ));
+                    }
+                }
+            }
+            Ok((pred, binds, body_idx))
+        }
+        // `_tag`-keyed record patterns (`{_tag: "Some", value: x}` — the
+        // `nullish`/`opt-chain` desugar shape) and `__tag__` sums.
+        "record" | "object" | "paren" => {
+            // Record children are entry nodes `[key, value]`; find the
+            // `_tag`/`__tag__` and `value` entries.
+            let mut tag_child: Option<usize> = None;
+            let mut value_child: Option<usize> = None;
+            for c in children(pat).iter().copied() {
+                let Some(en) = ast.get(AstRef::new(c)) else {
+                    continue;
+                };
+                let ech = children(en);
+                let key_idx = ech.first().copied();
+                let val_idx = ech.get(1).copied();
+                let key = key_idx
+                    .and_then(|k| ast.get(AstRef::new(k)))
+                    .and_then(|kn| {
+                        kn.payload
+                            .as_str()
+                            .map(String::from)
+                            .or_else(|| {
+                                kn.payload
+                                    .get("value")
+                                    .and_then(|v| v.as_str())
+                                    .map(String::from)
+                            })
+                    })
+                    .unwrap_or_else(|| en.kind.clone());
+                if key == "_tag" || key == "__tag__" {
+                    tag_child = val_idx.or(key_idx);
+                } else if key == "value" {
+                    value_child = val_idx.or(key_idx);
+                }
+            }
+            let (tc, vc) = (tag_child, value_child);
+            let Some(tc) = tc else {
+                return Err(format!(
+                    "match at {}: record pattern without a `_tag`/`__tag__` key",
+                    node_index(node)
+                ));
+            };
+            let tag_node = ast
+                .get(AstRef::new(tc))
+                .ok_or_else(|| format!("tag pattern {tc} out of bounds"))?;
+            let tag_name = tag_node
+                .payload
+                .as_str()
+                .or_else(|| tag_node.payload.get("value").and_then(|v| v.as_str()))
+                .ok_or_else(|| {
+                    format!("match at {}: tag pattern value not literal", node_index(node))
+                })?;
+            let pred = Term::op_native(
+                "eq",
+                vec![field("_tag"), Term::const_value(Value::from(tag_name))],
+            );
+            let binds = vc
+                .and_then(|v| ast.get(AstRef::new(v)))
+                .filter(|vn| vn.kind == "var")
+                .and_then(|vn| vn.payload.as_str().map(String::from))
+                .filter(|name| !name.is_empty() && !name.starts_with('_'))
+                .map(|name| vec![(name, field("value"))])
+                .unwrap_or_default();
+            Ok((pred, binds, body_idx))
+        }
+        other => Err(format!(
+            "match at {}: unsupported pattern kind `{other}`",
+            node_index(node)
+        )),
+    }
 }
 
 fn lower_field_access(

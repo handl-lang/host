@@ -1546,6 +1546,37 @@ pub fn apply_native_op(
                 .unwrap_or(TaggedValue::Null);
             Ok((loop_step_outcome(v), false))
         }
+        // `arr_len` — array length, `-1` on non-arrays so `match` pattern
+        // discriminants fall through instead of erroring.
+        "arr_len" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            let n = match &v {
+                TaggedValue::Arr(a) => a.len() as i64,
+                _ => -1,
+            };
+            Ok((TaggedValue::Int(n), false))
+        }
+        // `arr_drop` — `sv[lit..]` (the `[h, …t]` rest binder's tail).
+        "arr_drop" => {
+            let n = lit.and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            match v {
+                TaggedValue::Arr(a) => Ok((
+                    TaggedValue::Arr(Rc::from(a.iter().skip(n).cloned().collect::<Vec<_>>())),
+                    false,
+                )),
+                _ => Err(LangError::engine(
+                    "arr_drop: input is not an array".to_string(),
+                )),
+            }
+        }
+        // `match_fail` — the `match` lowering's exhaust fallthrough;
+        // mirrors `match_shell`'s "no arm matched".
+        "match_fail" => Err(LangError::engine("match: no arm matched".to_string())),
         "sum" => {
             if !ctx.supports(OpService::ApplyArrow) {
                 return Ok(None);
