@@ -1,4 +1,0 @@
--- Composition: feed 5 through +1, then *2, then -1.
--- `>>>` is the canonical `flow` combinator; a bare value on the left is fed through.
-
-5 >>> (x ~> x + 1) >>> (y ~> y * 2) >>> (z ~> z - 1)

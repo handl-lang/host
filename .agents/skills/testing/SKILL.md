@@ -38,5 +38,5 @@ Two test surfaces: Rust (`cargo`) and Handl (`.test.hnl`).
 ## Gate
 
 `scripts/dogfood-gate.sh` = `hnl fmt --check && hnl lint && hnl typecheck &&
-hnl test` over `handl-packages/` + `examples/` — a **blocking CI job**. Keep it
+hnl test` over `handl-packages/` — a **blocking CI job**. Keep it
 green.

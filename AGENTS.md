@@ -171,7 +171,7 @@ lexer to strip).
 ### Dogfood gate status — GREEN
 
 The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate over
-`handl-packages/` and `examples/` is scripted in `scripts/dogfood-gate.sh`
+`handl-packages/` is scripted in `scripts/dogfood-gate.sh`
 and wired in `.github/workflows/dogfood-gate.yml` as a **blocking** CI job
 (the gate is green; `continue-on-error` was removed).
 

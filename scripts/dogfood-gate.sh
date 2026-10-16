@@ -74,7 +74,7 @@ while IFS= read -r -d '' f; do
   if is_canonical "$f" && ! is_skipped "$f"; then
     canonical_files+=("$f")
   fi
-done < <(find handl-packages examples -name '*.hnl' -print0 | sort -z)
+done < <(find handl-packages -name '*.hnl' -print0 | sort -z)
 
 echo "Canonical .hnl files: ${#canonical_files[@]}"
 
@@ -172,8 +172,8 @@ ARROW_PACKAGES=(
   handl-packages/ws_frame-handl
   # handshake helpers (accept_key) that serve-epoll imports
   handl-packages/ws-whatwg-c
-  # runnable app examples (arrow dialect: they import the stack above)
-  examples/http
+  # NB: the runnable app examples (incl. `examples/http`) now live in the
+  # `web` repo; they are no longer part of this gate.
 )
 
 arrow_sources=()

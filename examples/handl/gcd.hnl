@@ -1,6 +1,0 @@
-while { a: 48, b: 36 } {
-  [a, b] ~> if b == 0
-    return a
-  else
-    { { state: { a: b, b: a % b } } }
-}
