@@ -1,14 +1,24 @@
 //! Dogfood tests for the compile dispatcher (ADR-0114 Phase 14).
 
-use handl_language::{Ast, AstNode, Language};
+use handl_language::Language;
+#[cfg(any(feature = "js", feature = "llvm"))]
+use handl_language::{Ast, AstNode};
+#[cfg(any(feature = "js", feature = "llvm"))]
 use handl_plugin_compile::{Compiler, CompilerInput};
+#[cfg(feature = "js")]
 use handl_plugin_compile_js::{JsCompiler, JsConfig};
+#[cfg(feature = "llvm")]
 use handl_plugin_compile_llvm::{LlvmCompiler, LlvmConfig, X86_64};
+#[cfg(any(feature = "js", feature = "llvm"))]
 use plugin_engine::Term;
+#[cfg(any(feature = "js", feature = "llvm"))]
 use serde_json::{Number, Value};
 
-use crate::{CompileDispatcher, CompileFileRequest};
+use crate::CompileFileRequest;
+#[cfg(any(feature = "js", feature = "llvm"))]
+use crate::CompileDispatcher;
 
+#[cfg(any(feature = "js", feature = "llvm"))]
 fn js_input(term: Term) -> CompilerInput {
     let mut ast = Ast::new();
     let root = ast.push(AstNode::new("module"));
@@ -22,6 +32,7 @@ fn js_input(term: Term) -> CompilerInput {
     )
 }
 
+#[cfg(feature = "js")]
 #[test]
 fn js_compiler_emits_expected_output() {
     let input = js_input(Term::constant(Value::Number(Number::from(42))));
@@ -31,6 +42,7 @@ fn js_compiler_emits_expected_output() {
     assert!(js.contains("export default 42;"), "got: {js}");
 }
 
+#[cfg(feature = "js")]
 #[test]
 fn compile_dispatcher_js_target_contains_export() {
     let input = js_input(Term::constant(Value::Number(Number::from(7))));
@@ -41,6 +53,7 @@ fn compile_dispatcher_js_target_contains_export() {
     assert!(js.contains("export"), "expected `export` in: {js}");
 }
 
+#[cfg(feature = "llvm")]
 #[test]
 fn compile_dispatcher_llvm_produces_object_artifact() {
     let input = js_input(Term::constant(Value::Null));
@@ -54,6 +67,7 @@ fn compile_dispatcher_llvm_produces_object_artifact() {
     );
 }
 
+#[cfg(feature = "llvm")]
 #[test]
 fn llvm_compiler_alone_produces_object_artifact() {
     let input = js_input(Term::constant(Value::Null));

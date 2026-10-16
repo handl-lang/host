@@ -2,23 +2,36 @@
 name = "handl-plugin-ext-compile"
 version.workspace = true
 edition.workspace = true
-description = "Compile extension: re-export of the `handl-platform` compile operation plus the concrete `js`/`llvm` compiler dispatcher (ADR-0114 Phase 14)."
+description = "Compile extension: re-export of the `handl-platform` compile operation plus the feature-gated compiler dispatcher (ADR-0114 Phase 14, ADR-0128 §0.3)."
 license.workspace = true
 repository.workspace = true
+
+# ADR-0128 §0.3: each compiler target is a feature — the host opts repo
+# modules in on its own manifest (all six on by default).
+[features]
+default = ["js", "llvm", "handl", "term", "dot", "sexp"]
+js = ["dep:handl-plugin-compile-js"]
+llvm = ["dep:handl-plugin-compile-llvm"]
+handl = ["dep:handl-plugin-compile-handl"]
+term = ["dep:handl-plugin-compile-term"]
+dot = ["dep:handl-plugin-compile-dot"]
+sexp = ["dep:handl-plugin-compile-sexp"]
 
 [dependencies]
 handl-platform = { path = "../platform" }
 handl-plugin-compile.workspace = true
-handl-plugin-compile-js.workspace = true
-handl-plugin-compile-llvm.workspace = true
-handl-plugin-compile-handl.workspace = true
-handl-plugin-compile-term.workspace = true
-handl-plugin-compile-dot.workspace = true
-handl-plugin-compile-sexp.workspace = true
 handl-language.workspace = true
 plugin-engine.workspace = true
 plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }
 serde_json = { workspace = true }
+# The six compiler targets — optional repo modules behind the features
+# above; the root `[patch]` tables resolve the sibling checkouts.
+handl-plugin-compile-js = { workspace = true, optional = true }
+handl-plugin-compile-llvm = { workspace = true, optional = true }
+handl-plugin-compile-handl = { workspace = true, optional = true }
+handl-plugin-compile-term = { workspace = true, optional = true }
+handl-plugin-compile-dot = { workspace = true, optional = true }
+handl-plugin-compile-sexp = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
