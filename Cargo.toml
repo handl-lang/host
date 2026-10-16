@@ -7,14 +7,14 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-plugin-module = { path = "../plugin-module" }
-handl-value = { path = "../handl-value" }
-handl-language = { workspace = true }
-handl-platform = { workspace = true }
-handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
-handl-plugin-lib-encoding = { path = "../plugin-lib-encoding" }
-handl-plugin-lib-parse = { path = "../plugin-lib-parse" }
-handl-plugin-lib-serialize = { path = "../plugin-lib-serialize" }
+handl-plugin-module = { git = "https://github.com/handl-lang/platform" }
+handl-value = { git = "https://github.com/handl-lang/platform" }
+handl-language = { git = "https://github.com/handl-lang/platform" }
+handl-platform = { git = "https://github.com/handl-lang/platform" }
+handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform" }
+handl-plugin-lib-encoding = { path = "../../modules/encoding" }
+handl-plugin-lib-parse = { path = "../../modules/parse" }
+handl-plugin-lib-serialize = { path = "../../modules/serialize" }
 base64 = "0.22"
 tar = "0.4"
 hex = "0.4"
@@ -25,13 +25,13 @@ toml = "0.8"
 url = "2"
 
 [dev-dependencies]
-handl-kit-data-canonical = { workspace = true }
-handl-language = { workspace = true }
-handl-platform = { workspace = true }
-handl-plugin-engine-exec-tree-walk = { workspace = true }
-handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
-handl-plugin-lib-tag = { workspace = true }
-handl-plugin-lib-parse = { path = "../plugin-lib-parse" }
-handl-plugin-lib-serialize = { path = "../plugin-lib-serialize" }
-plugin-engine = { workspace = true }
-serde_json = { workspace = true }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang" }
+handl-language = { git = "https://github.com/handl-lang/platform" }
+handl-platform = { git = "https://github.com/handl-lang/platform" }
+handl-plugin-engine-exec-tree-walk = { git = "https://github.com/handl-lang/platform" }
+handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform" }
+handl-plugin-lib-tag = { git = "https://github.com/handl-lang/platform" }
+handl-plugin-lib-parse = { path = "../../modules/parse" }
+handl-plugin-lib-serialize = { path = "../../modules/serialize" }
+plugin-engine = { git = "https://github.com/handl-lang/platform" }
+serde_json = "1"
