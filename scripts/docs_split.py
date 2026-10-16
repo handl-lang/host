@@ -20,7 +20,6 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "project"
 MANIFEST = PROJECT / "docs-split.yaml"
-SELF = "docs-split.yaml"
 
 SUBDIR = {
     "root": "",
@@ -59,9 +58,7 @@ def check(data: dict) -> int:
             assigned.setdefault(rel.removeprefix("project/"), []).append(repo)
 
     actual = {
-        str(p.relative_to(PROJECT))
-        for p in PROJECT.rglob("*")
-        if p.is_file() and p.name != SELF
+        str(p.relative_to(PROJECT)) for p in PROJECT.rglob("*") if p.is_file()
     }
 
     unmapped = sorted(actual - set(assigned))

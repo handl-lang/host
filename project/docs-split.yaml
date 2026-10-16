@@ -81,6 +81,7 @@ repos:
       - TODO.md
       - BACKLOG.md
       - parked.yaml
+      - docs-split.yaml
     adrs:
       - INDEX.md
       - 0001-host-bundles.md
