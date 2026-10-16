@@ -7,7 +7,20 @@ use handl_plugin_lib_stdlib::{library, module_ref};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::json;
 
+
+/// Install the canonical default language once per test binary (ADR-0128
+/// §"The 0.8 seam"): `HandlModule` bridge runtimes resolve it lazily.
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 fn stats_fn(name: &str) -> &'static dyn Function {
+    ensure_lang();
     module_ref("stats")
         .expect("stats module")
         .function(name)
@@ -148,6 +161,7 @@ fn plugin_exposes_declared_capabilities() {
 
 #[test]
 fn stats_module_works_in_module_registry() {
+    ensure_lang();
     let module = handl_plugin_lib_stdlib::module("stats").expect("stats");
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;

@@ -13,9 +13,22 @@ use std::sync::Arc;
 use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 use handl_plugin_lib_stdlib::{load_hnl_file, module_ref};
 
+
+/// Install the canonical default language once per test binary (ADR-0128
+/// §"The 0.8 seam"): `HandlModule` bridge runtimes resolve it lazily.
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 /// The `array` package is file-driven (loaded from
 /// `collections/array/index.hnl`, not a table `ModuleSpec`).
 fn array_module() -> Arc<handl_plugin_lib_handl::HandlModule> {
+    ensure_lang();
     load_hnl_file(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../handl-packages/collections/array/index.hnl"
@@ -26,6 +39,7 @@ fn array_module() -> Arc<handl_plugin_lib_handl::HandlModule> {
 /// Call a native `array.*` op (`push`/`range`/arrow-taking members) through
 /// the collections `OpRegistry`.
 fn call_op(op: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    ensure_lang();
     let f = handl_plugin_lib_stdlib::ops::collections::collections_op_registry()
         .get(op)
         .unwrap_or_else(|| panic!("missing op {op}"));
@@ -48,6 +62,7 @@ fn norm(v: &serde_json::Value) -> serde_json::Value {
 }
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    ensure_lang();
     let func = module.function(name).expect("function exists");
     let mut ctx = EvalContext::new();
     norm(&func.call(args, &mut ctx).expect("call succeeds"))
@@ -58,6 +73,7 @@ fn call_err(
     name: &str,
     args: &[serde_json::Value],
 ) -> Result<serde_json::Value, EvalError> {
+    ensure_lang();
     let func = module.function(name).expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx)
@@ -84,6 +100,7 @@ fn obj(entries: &[(&str, serde_json::Value)]) -> serde_json::Value {
 }
 
 fn collections() -> CollectionsModule {
+    ensure_lang();
     CollectionsModule::new(Arc::new(handl_plugin_lib_stdlib::DEFAULT_RESOLVER.clone()))
 }
 

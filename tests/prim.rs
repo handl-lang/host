@@ -1,7 +1,20 @@
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_stdlib::module_ref;
 
+
+/// Install the canonical default language once per test binary (ADR-0128
+/// §"The 0.8 seam"): `HandlModule` bridge runtimes resolve it lazily.
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    ensure_lang();
     let func = module.function(name).expect("function exists");
     let mut ctx = EvalContext::new();
     func.call(args, &mut ctx).expect("call succeeds")

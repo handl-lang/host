@@ -26,7 +26,20 @@ impl ModuleResolver for TagResolver {
 }
 
 /// Helper: call a result function by name with the given args.
+
+/// Install the canonical default language once per test binary (ADR-0128
+/// §"The 0.8 seam"): `HandlModule` bridge runtimes resolve it lazily.
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_canonical::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    ensure_lang();
     let module =
         stdlib::module_with("result", Arc::new(TagResolver)).expect("result module should exist");
     let func = module
