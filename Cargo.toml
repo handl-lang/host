@@ -2,6 +2,9 @@
 name = "handl-plugin-lib-parse"
 version.workspace = true
 edition.workspace = true
+description = "Generic, tree-shakeable parsing framework for the handl runtime."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-platform = { workspace = true }
