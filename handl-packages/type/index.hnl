@@ -2,7 +2,7 @@
 ---
 --- This .hnl declares the capability surface for the `type` library. The
 --- runtime `type` module is implemented in
---- `handl-packages/type-handl/type-handl.hnl` (pure-handl predicates and
+--- `type-handl/type-handl.hnl` (moved to the `kit-canonical` repo in ADR-0128 Phase 11) (pure-handl predicates and
   --- kind guards) over a small set of native `op` atoms, and is registered
 --- under `"type"` by `kit-canonical`. `type` is a keyword in handl v0.1
 --- (ADR-0074) but parses as a `var` atom, so `type.of(v)` in source

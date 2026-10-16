@@ -51,17 +51,10 @@ each — they compile the corpus to native and run it) and `kit-canonical`'s
 `fp_integration`/`intl_c`/`noise_c`/`rand_c` (~40-80 s per test). Check
 `ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
 
-**Caveat — nextest's process-per-test model is expensive for `kit-canonical`.**
-Nextest runs *each test in its own process*; that used to cost a **one-time
-~40 s per process** because the kit installed the self-hosted `.hnl` loader
-(see `project/TODO.md`, "A ~40 s one-time cost on the first module-backed eval
-— FIXED"). That install is gone, so the crate is now fast under either runner.
-libtest (`cargo test`, one process per binary) still avoids re-paying any
-one-time init per test, so it remains the cheaper runner for this crate:
-
-```bash
-CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical
-```
+**Note — `kit-canonical` moved out (ADR-0128 Phase 11):** it lives in the
+sibling `handl-lang/kit-canonical` repo now (git dep, patched to
+`../kit-canonical` for local dev). Its tests no longer run here — run them
+there with `CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical`.
 
 Measured after the fix: the whole crate is **252/252 in 648 s single-threaded**
 (`rand_c` 29 tests in 7.65 s, `tagged_values` 8 in 1.22 s, `intl_c` 13 in
@@ -421,7 +414,8 @@ run` when its specifier does not resolve to a file) — the stdlib
       ("extract a `call` callee name from a `var`"). The whole unwired family
       is now retired and recorded in `project/parked.yaml` (ADR-0040), where
       `crates/platform-tests/tests/wiring.rs` keeps the ledger honest.
-    - `host-lsp/src/*` and `crates/kit-canonical/src/lib.rs`: residual
+    - `host-lsp/src/*` and `kit-canonical/src/lib.rs` (in the sibling
+      `kit-canonical/` repo since Phase 11): residual
       keyword text matches (`rec`/`law`/`match`/...) and legacy token-class
       shims are identity-specific or for bootstrap/third-party kits.
       `kit-canonical`'s `is_identifier_kind`/`is_number_kind`/… helpers

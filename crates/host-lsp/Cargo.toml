@@ -19,8 +19,9 @@ handl-plugin-ext-refinement.workspace = true
 # (ADR-0128 §0.5/§0.9): 14 cranelift crates + libloading leave this
 # host's build. The `ffi` module stays resolvable with stub ops.
 # (`workspace = true` cannot override `default-features`, so this is a
-# path dep like `handl-plugin-lib-stdlib` is for kit-canonical.)
-handl-kit-canonical = { path = "../kit-canonical", default-features = false }
+# direct git dep — the workspace-root `[patch]` table still resolves it
+# from the sibling `../kit-canonical` checkout, ADR-0128 Phase 11.)
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", default-features = false }
 handl-language.workspace = true
 handl-host-tooling.workspace = true
 handl-plugin-ext-diag.workspace = true

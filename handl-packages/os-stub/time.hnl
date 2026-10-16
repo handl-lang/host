@@ -1,9 +1,0 @@
---- Deterministic, no-effect time stubs.
-
---- Always returns 0.
---- @returns {Number - always 0}
-export now: () ~> Number := () ~> 0
-
---- Always returns 0.
---- @returns {Number - always 0}
-export epoch: () ~> Number := () ~> 0

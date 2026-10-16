@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 handl-language = { path = "../handl-language" }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-kit-data-canonical = { workspace = true }
 handl-runtime = { path = "../handl-runtime" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
@@ -26,4 +26,4 @@ handl-plugin-lib-lang-parse = { workspace = true }
 handl-plugin-lib-lang-eval = { workspace = true }
 handl-plugin-lib-lang-compile = { workspace = true }
 handl-plugin-lib-lang-run-compiled = { workspace = true }
-handl-kit-canonical = { path = "../kit-canonical" }
+handl-kit-canonical = { workspace = true }

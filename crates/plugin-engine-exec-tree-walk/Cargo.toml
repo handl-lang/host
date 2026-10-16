@@ -20,4 +20,4 @@ handl-test-utils = { path = "../handl-test-utils" }
 handl-plugin-module = { path = "../plugin-module" }
 handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 serde_json = { workspace = true }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-kit-data-canonical = { workspace = true }

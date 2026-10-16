@@ -253,4 +253,7 @@ greenfield repos once a first module exists.
 
 ## Status
 
-Proposed.
+Proposed. Phase 11 executed — `lang/` + `kit-canonical/` extracted to
+sibling repos (`git subtree split` history, git deps + workspace-root
+`[patch]` for sibling-checkouts, `url.insteadOf` +
+`CARGO_NET_GIT_FETCH_WITH_CLI` for pre-push local resolution).

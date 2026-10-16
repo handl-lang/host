@@ -14,4 +14,4 @@ handl-plugin-load = { path = "../plugin-load" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-kit-data-canonical = { workspace = true }

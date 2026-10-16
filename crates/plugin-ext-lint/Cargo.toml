@@ -19,6 +19,6 @@ serde_json = { workspace = true }
 # Tests build the canonical LintContext from the kit — the same shape the
 # host uses (ADR-0128 §0.8). Dev-only: only normal deps create the
 # platform↔lang cycle.
-handl-kit-canonical = { path = "../kit-canonical" }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-kit-canonical = { workspace = true }
+handl-kit-data-canonical = { workspace = true }
 serde_json = { workspace = true }

@@ -29,8 +29,8 @@ handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" 
 handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-exec-cranelift = { path = "../plugin-engine-exec-cranelift" }
 handl-plugin-module = { path = "../plugin-module" }
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
-handl-kit-canonical = { path = "../kit-canonical" }
+handl-kit-data-canonical = { workspace = true }
+handl-kit-canonical = { workspace = true }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
 handl-plugin-lib-tag = { path = "../plugin-lib-tag" }

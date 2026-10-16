@@ -48,8 +48,6 @@ is_canonical() {
 SKIP_LIST=(
   "handl-packages/collections/array/first.hnl"
   "handl-packages/collections/array.hnl"
-  "handl-packages/os-stub"
-  "handl-packages/os-c"
 )
 
 is_skipped() {

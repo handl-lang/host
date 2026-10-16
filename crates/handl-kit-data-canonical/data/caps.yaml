@@ -1,6 +1,0 @@
-- id: lex
-  description: lex source text into tokens
-- id: parse
-  description: parse tokens into an AST
-- id: textmate
-  description: TextMate grammar generation for editor syntax highlighting

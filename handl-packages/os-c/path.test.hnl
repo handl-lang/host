@@ -1,9 +1,0 @@
-from "./path" import * as path
-
-test_path_join :: assert path.join(["a", "b"]) = "a/b"
-
-test_path_basename :: assert path.basename("/usr/bin/env") = "env"
-
-test_path_dirname :: assert path.dirname("/usr/bin/env") = "/usr/bin"
-
-test_path_extname :: assert path.extname("file.txt") = ".txt"

@@ -31,7 +31,7 @@ Open `Cargo.toml` and add the dependencies you need:
 ```toml
 [dependencies]
 handl-platform = { path = "../crates/platform" }
-handl-kit-canonical = { path = "../crates/kit-canonical" }
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical" }
 handl-ext-cli = { path = "../crates/ext-cli" }
 serde_json = "1"
 ```

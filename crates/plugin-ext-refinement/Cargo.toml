@@ -26,5 +26,5 @@ z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 # --example hnlc -- ...`) — it needs `handl-kit-data-canonical`, which is a
 # dev-dependency now, and examples may use dev-deps while a `[[bin]]` cannot.
 [dev-dependencies]
-handl-kit-data-canonical = { path = "../handl-kit-data-canonical" }
+handl-kit-data-canonical = { workspace = true }
 serde_json = { workspace = true }

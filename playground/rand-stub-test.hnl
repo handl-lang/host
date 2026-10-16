@@ -1,3 +1,0 @@
-from "../handl-packages/rand-stub" import { int, float, bool }
-
-{ i = int(6), f = float(10), b = bool() }

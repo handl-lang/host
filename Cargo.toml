@@ -26,7 +26,6 @@ members = [
   "crates/plugin-ffi",
   "crates/host-cli",
   "crates/host-lsp",
-  "crates/kit-canonical",
   "crates/plugin-load",
   "crates/plugin-loader-native",
   "crates/plugin-loader-native/tests/fixtures/native-echo",
@@ -88,7 +87,6 @@ members = [
   "crates/handl-runtime",
   "crates/handl-emitters",
   "crates/handl-kit-data",
-  "crates/handl-kit-data-canonical",
   "crates/handl-defining-handl",
   "crates/handl-value",
   "crates/plugin-sdkgen",
@@ -146,7 +144,10 @@ handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
 handl-host-cli = { path = "crates/host-cli" }
 handl-host-lsp = { path = "crates/host-lsp" }
-handl-kit-canonical = { path = "crates/kit-canonical" }
+# ADR-0128 Phase 11: `handl-kit-canonical` lives in the `kit-canonical`
+# repo, `handl-kit-data-canonical` in `lang`; local development resolves
+# them from the sibling checkouts via the `[patch]` tables below.
+handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-plugin-lib-char-native = { path = "crates/plugin-lib-char-native" }
@@ -206,7 +207,7 @@ handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform
 handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
-handl-kit-data-canonical = { path = "crates/handl-kit-data-canonical" }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang" }
 handl-defining-handl = { path = "crates/handl-defining-handl" }
 handl-value = { path = "crates/handl-value" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
@@ -222,6 +223,60 @@ workspace = true
 
 [dev-dependencies]
 serde_json = "1"
+
+# ADR-0128 §Resolution — local development resolves the extracted repos
+# from sibling checkouts; without the checkouts (or this block), the git
+# sources are used. A git source must still resolve — before the remotes
+# exist, point them at the local clones, e.g.:
+#
+#   CARGO_NET_GIT_FETCH_WITH_CLI=true \
+#   GIT_CONFIG_COUNT=2 \
+#   GIT_CONFIG_KEY_0="url.file:///home/luis/GitHub/handl-lang/lang.insteadOf" \
+#   GIT_CONFIG_VALUE_0="https://github.com/handl-lang/lang" \
+#   GIT_CONFIG_KEY_1="url.file:///home/luis/GitHub/handl-lang/kit-canonical.insteadOf" \
+#   GIT_CONFIG_VALUE_1="https://github.com/handl-lang/kit-canonical" \
+#   cargo check --workspace
+[patch."https://github.com/handl-lang/lang"]
+handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
+
+[patch."https://github.com/handl-lang/kit-canonical"]
+handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
+
+# The moved crates' manifests dep on platform crates over the platform git
+# source; unify them with the in-tree copies so this workspace never builds
+# a platform crate twice (a path `handl-runtime` and a git `handl-runtime`
+# would be distinct, incompatible packages).
+[patch."https://github.com/handl-lang/platform"]
+handl-emitters = { path = "crates/handl-emitters" }
+handl-kit-data = { path = "crates/handl-kit-data" }
+handl-language = { path = "crates/handl-language" }
+handl-platform = { path = "crates/platform" }
+handl-plugin-engine-exec = { path = "crates/plugin-engine-exec" }
+handl-plugin-engine-exec-bytecode = { path = "crates/plugin-engine-exec-bytecode" }
+handl-plugin-engine-exec-cranelift = { path = "crates/plugin-engine-exec-cranelift" }
+handl-plugin-engine-exec-tree-walk = { path = "crates/plugin-engine-exec-tree-walk" }
+handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
+handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
+handl-plugin-engine-parse-pratt = { path = "crates/plugin-engine-parse-pratt" }
+handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
+handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform-rewrite" }
+handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }
+handl-plugin-engine-typecheck-handl = { path = "crates/plugin-engine-typecheck-handl" }
+handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
+handl-plugin-ffi = { path = "crates/plugin-ffi" }
+handl-plugin-lib-char-native = { path = "crates/plugin-lib-char-native" }
+handl-plugin-lib-crypto = { path = "crates/plugin-lib-crypto" }
+handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
+handl-plugin-lib-lang-compile = { path = "crates/plugin-lib-lang-compile" }
+handl-plugin-lib-lang-eval = { path = "crates/plugin-lib-lang-eval" }
+handl-plugin-lib-lang-lex = { path = "crates/plugin-lib-lang-lex" }
+handl-plugin-lib-lang-parse = { path = "crates/plugin-lib-lang-parse" }
+handl-plugin-lib-lang-run-compiled = { path = "crates/plugin-lib-lang-run-compiled" }
+handl-plugin-lib-lang-typecheck = { path = "crates/plugin-lib-lang-typecheck" }
+handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
+handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
+handl-plugin-module = { path = "crates/plugin-module" }
+handl-runtime = { path = "crates/handl-runtime" }
 
 [profile.release]
 lto = "fat"
