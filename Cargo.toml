@@ -2,6 +2,9 @@
 name = "handl-plugin-lib-stdlib"
 version.workspace = true
 edition.workspace = true
+description = "The handl-backed standard library, consolidated per the \"library-as-data\" architecture: every `plugin-lib-*` shell crate is replaced by a row in [`packages::PACKAGES`] / ..."
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
