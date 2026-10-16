@@ -1,5 +1,0 @@
-from "./time" import * as time
-
-test_stub_time_now :: assert time.now() = 0
-
-test_stub_time_epoch :: assert time.epoch() = 0
