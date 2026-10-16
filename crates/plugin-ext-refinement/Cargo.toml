@@ -27,4 +27,5 @@ z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 # dev-dependency now, and examples may use dev-deps while a `[[bin]]` cannot.
 [dev-dependencies]
 handl-kit-data-canonical = { workspace = true }
+handl-plugin-lib-char-native = { workspace = true }
 serde_json = { workspace = true }

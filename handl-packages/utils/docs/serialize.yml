@@ -1,6 +1,0 @@
-category:
-  slug: lib-utils
-  title: Utils
-module:
-  name: serialize
-  title: Serialize

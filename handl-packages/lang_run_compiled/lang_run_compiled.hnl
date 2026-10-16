@@ -1,3 +1,0 @@
---- lang.run_compiled -- the run_compiled meta function: execute a compiled-program handle.
---- Called as run_compiled.run_compiled(handle) -> result value.
---- The run_compiled engine stays Rust (ADR-0077 "Special"); this .hnl declares the interface.

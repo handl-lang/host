@@ -1,3 +1,0 @@
---- lang.eval -- the eval meta function: evaluate an AST and return the result value.
---- Called as eval.eval(lang, ast) -> result value (no serialization).
---- The eval engine stays Rust (ADR-0077 "Special"); this .hnl declares the interface.

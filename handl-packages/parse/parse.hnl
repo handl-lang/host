@@ -1,7 +1,0 @@
---- parse -- generic, tree-shakeable parsing framework.
----
---- This is a trait-abstraction library: the Parser and DynParser traits
---- live in Rust (plugin-lib-parse) and are implemented by concrete parser
---- crates (url-rfc, url-whatwg). There are no callable handl ops here;
---- the .hnl file exists to declare the library's capability surface for
---- the plugin system.

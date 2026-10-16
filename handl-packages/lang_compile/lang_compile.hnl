@@ -1,3 +1,0 @@
---- lang.compile -- the compile meta function: compile an AST to a target.
---- Called as compile.compile(lang, ast, target) -> compiled-program handle {"__compiled__": id, "target": target}.
---- The compile engine stays Rust (ADR-0077 "Special"); this .hnl declares the interface.

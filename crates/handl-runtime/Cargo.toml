@@ -32,5 +32,5 @@ handl-plugin-module = { path = "../plugin-module" }
 handl-kit-data-canonical = { workspace = true }
 handl-kit-canonical = { workspace = true }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
-handl-plugin-lib-stdlib = { path = "../plugin-lib-stdlib" }
+handl-plugin-lib-stdlib = { workspace = true }
 handl-plugin-lib-tag = { path = "../plugin-lib-tag" }

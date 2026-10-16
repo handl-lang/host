@@ -1,7 +1,0 @@
---- serialize -- format-agnostic serialization framework.
----
---- This is a trait-abstraction library: the Encoder, Decoder, Serializer,
---- and SerializerRegistry traits live in Rust (plugin-lib-serialize) and
---- are implemented by concrete format crates (json, toml, yaml). There
---- are no callable handl ops here; the .hnl file exists to declare the
---- library's capability surface for the plugin system.
