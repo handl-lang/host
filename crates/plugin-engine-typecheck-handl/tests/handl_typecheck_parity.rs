@@ -622,7 +622,7 @@ fn type_model_run_path_builds_identity_type() {
 #[test]
 fn typecheck_canonical_hello_hnl_runs_and_returns_useful_output() {
         ensure_lang();
-    const HELLO_HNL: &str = include_str!("../../../examples/handl/lib-utils/hello.hnl");
+    const HELLO_HNL: &str = include_str!("fixtures/hello.hnl");
     let lang = canonical_lang();
     let ast = parse(HELLO_HNL, &lang);
 

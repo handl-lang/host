@@ -2067,7 +2067,11 @@ impl Module for HandlModule {
 // ---------------------------------------------------------------------------
 
 /// The handl source implementing the `str` contract as pure handl over `char`.
-const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+///
+/// Owned by this crate (ADR-0128 §".hnl ownership": one `include_str!` per
+/// package; other consumers — e.g. `examples/loader_bench.rs` — take this
+/// `pub const`).
+pub const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
 
 /// The handl source of `handl-packages/dedent/dedent.hnl` — owned by this
 /// crate (ADR-0128 §".hnl ownership": one `include_str!` per package, in the

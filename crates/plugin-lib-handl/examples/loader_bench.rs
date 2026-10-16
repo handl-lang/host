@@ -24,7 +24,7 @@ impl ModuleResolver for CharResolver {
     }
 }
 
-const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+const STR_HANDL_HNL: &str = handl_plugin_lib_handl::STR_HANDL_HNL;
 
 /// Install the canonical default language for the bridge runtimes
 /// (dev-dep data crate — examples may link `lang/` data).
