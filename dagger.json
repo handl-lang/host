@@ -4,5 +4,12 @@
   "sdk": {
     "source": "python"
   },
+  "dependencies": [
+    {
+      "name": "handl-ci",
+      "source": "github.com/handl-lang/ci@main",
+      "pin": "29af0b2545d6a5638ca7ade3f3ea6bf114e92fb0"
+    }
+  ],
   "source": "dagger"
 }
