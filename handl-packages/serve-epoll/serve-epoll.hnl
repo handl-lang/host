@@ -12,11 +12,6 @@
 ---   serve_task(handler, opts) step-arrow handler, invoked via `enter`
 ---                             so it may suspend on scheduler ops
 ---
---- Task arrows reach imported names through the local ` := ` aliases
---- below -- serialized task envs drop `import` bindings (runtime
---- limitation, same as fetch-c). The same caveat applies to handler
---- arrows passed in by callers.
-
 from "../concurrent-epoll/concurrent-epoll" import { run, tcp_listen }
 from "../http_rfc/http_rfc" import * as rfcm
 from "../tls-libssl/tls-libssl" import * as tlsp
@@ -25,17 +20,6 @@ from "../ws_frame-handl/frame" import { encode, decode }
 from "../ws-whatwg-c/http" import { accept_key }
 from "bytes" import * as bytes
 from "str" import * as str
-
---- ` := ` value bindings for the codec arrows. This module reaches them
---- through an `enter`ed task, where a bare `encode`/`decode` resolves to
---- the same-named wire instead of this import (the collision recurses --
---- stack overflow) and the module-record form does not resolve at all.
---- Dropping the two rfcm bindings below also makes `frame_decode`
---- unresolvable, so they stay: the env a task carries is sensitive to the
---- binding set, not just to the binding used.
-frame_encode := encode
-
-frame_decode := decode
 
 --- exported so callers can build a shared SSL_CTX for `opts.tls`.
 export tls_ctx_server := tlsp.ctx_server
@@ -101,10 +85,10 @@ ws_msg := (f) ~> ({
 
 --- frame for a handler reply (server frames are never masked).
 ws_reply_frame := (reply) ~> if type.of(reply) == "bytes" {
-  frame_encode({ fin: 1, op: OpBinary, payload: reply,
+  encode({ fin: 1, op: OpBinary, payload: reply,
                  mask_key: bytes.from_list([]) })
 } else {
-  frame_encode({ fin: 1, op: OpText,
+  encode({ fin: 1, op: OpText,
                  payload: bytes.utf8_encode(type.to_string(reply)),
                  mask_key: bytes.from_list([]) })
 }
@@ -112,7 +96,7 @@ ws_reply_frame := (reply) ~> if type.of(reply) == "bytes" {
 --- one control frame (close/pong), unmasked. (`opcode`, not `op` --
 --- `op` is a reserved word in parameter position.)
 ws_ctrl_frame := (opcode, payload) ~> do {
-  frame_encode({ fin: 1, op: opcode, payload: payload,
+  encode({ fin: 1, op: opcode, payload: payload,
                  mask_key: bytes.from_list([]) })
 }
 
@@ -135,7 +119,7 @@ ws_conn_task := (s) ~> match s.phase {
     }
   },
   "frames": do {
-    d := frame_decode(s.buf)
+    d := decode(s.buf)
     if tag.tag_of(d) == "None" {
       -- incomplete frame: read more
       { call: read_call(s), state: hash_map.merge(s, { phase: "got" }) }

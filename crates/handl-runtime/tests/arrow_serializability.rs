@@ -384,6 +384,90 @@ fn binds_dag_serializes_bounded() {
 }
 
 // ---------------------------------------------------------------------------
+// 4c. `__binds_id__` numbering is unique across serializations.
+// ---------------------------------------------------------------------------
+
+/// A document can embed a subtree that was serialized **separately** — a
+/// module's bindings are serialized once and the JSON embedded in a later
+/// module record — so two `tagged_to_value` calls must not reuse
+/// `__binds_id__` numbers. When they did (each serialization restarted
+/// numbering at 0), a `__bindsref__` in the embedded fragment resolved to
+/// the *other* document's definition: the decoded arrow carried another
+/// arrow's binds — its `body_def` from one arrow, its `binds` from
+/// another. In serve-epoll this surfaced as `function 'frame_decode' not
+/// found` with the arrow carrying another module's private helpers.
+#[test]
+fn binds_ids_are_unique_across_serializations() {
+    // Two independently serialized documents, each a pair of arrows
+    // sharing one binds map (the shape that emits `__binds_id__` +
+    // `__bindsref__`).
+    let mk_pair = |name: &str, n: i64| {
+        let shared: Rc<FxHashMap<Rc<str>, TaggedValue>> = {
+            let mut m = FxHashMap::default();
+            m.insert(Rc::from(name), TaggedValue::Int(n));
+            Rc::new(m)
+        };
+        let mk_arrow = |binds: &Rc<FxHashMap<Rc<str>, TaggedValue>>| TaggedValue::Arrow {
+            params: Rc::from(vec!["x".to_string()]),
+            rest: None,
+            array_pattern: false,
+            body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
+            binds: Rc::clone(binds),
+            handlers: Rc::from(Vec::<TaggedValue>::new()),
+        };
+        tagged_to_value(&TaggedValue::Arr(Rc::from(vec![
+            mk_arrow(&shared),
+            mk_arrow(&shared),
+        ])))
+    };
+    let first = mk_pair("k", 41);
+    let second = mk_pair("j", 43);
+
+    // Encode-side invariant: each document's first shared binds map gets
+    // a different id.
+    let id_of = |doc: &Value| {
+        doc[0]["binds"]["__binds_id__"]
+            .as_u64()
+            .expect("shared binds emit a __binds_id__ definition")
+    };
+    assert_ne!(
+        id_of(&first),
+        id_of(&second),
+        "__binds_id__ numbering must not restart per serialization",
+    );
+
+    // The real trigger: embed both separately-serialized documents in one
+    // larger document and decode it. Each arrow's ref must resolve within
+    // its own fragment — not to the other fragment's definition.
+    let merged = json!({ "first": first, "second": second });
+    let decoded: TaggedValue = merged.into();
+    let TaggedValue::Obj(m) = &decoded else {
+        panic!("merged doc is not an object")
+    };
+    fn ref_binds_of(doc: &TaggedValue) -> &Rc<FxHashMap<Rc<str>, TaggedValue>> {
+        let TaggedValue::Arr(items) = doc else {
+            panic!("fragment is not an array")
+        };
+        let TaggedValue::Arrow { binds, .. } = &items[1] else {
+            panic!("fragment member is not an arrow")
+        };
+        binds
+    }
+    let a_ref = ref_binds_of(m.get("first").expect("first fragment"));
+    let b_ref = ref_binds_of(m.get("second").expect("second fragment"));
+    assert_eq!(a_ref.get("k"), Some(&TaggedValue::Int(41)));
+    assert_eq!(
+        b_ref.get("j"),
+        Some(&TaggedValue::Int(43)),
+        "embedded fragment's __bindsref__ resolved to another fragment's map",
+    );
+    assert!(
+        b_ref.get("k").is_none(),
+        "mixed binds: carries the other fragment's entries",
+    );
+}
+
+// ---------------------------------------------------------------------------
 // 5. Composed arrow (`a >>> b`) has no hidden state beyond its components.
 // ---------------------------------------------------------------------------
 
