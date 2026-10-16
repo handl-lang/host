@@ -181,13 +181,41 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 11 — `lang/` + `kit-canonical/` (needs 0.8 first)
 
-- [ ] `lang/` ← `handl-kit-data-canonical` + canonical `data/*.yaml` +
+- [x] `lang/` ← `handl-kit-data-canonical` + canonical `data/*.yaml` +
       the `handl-packages/` dirs pinned to it — the language as data.
-- [ ] `kit-canonical/crates/kit-canonical` ← `kit-canonical` — the
+      **Done:** sibling repo `handl-lang/lang` holds
+      `crates/handl-kit-data-canonical` (subtree-split history), its
+      sole-consumer packages `handl-packages/{query,command,event}`
+      (also subtree-split), and a *copy* of the six
+      `examples/handl/*.hnl` files `tests/loop_engines.rs` embeds (the
+      originals stay in platform — they are pinned by staying crates'
+      tests too). Its platform deps are git deps on
+      `handl-lang/platform`; the workspace-root `[patch]` table resolves
+      them from `../platform` for local development.
+- [x] `kit-canonical/crates/kit-canonical` ← `kit-canonical` — the
       assembled canonical kit; git-deps on `lang/`, `stdlib/`, `ffi/`
       and platform engines. `cli/`/`lsp/` consume `kit-canonical/` for
       their default language.
-- [ ] **Not moved:** `handl-kit-data` (generic kit types — consumed by
+      **Done:** sibling repo `handl-lang/kit-canonical` holds
+      `crates/kit-canonical` (subtree-split history) plus
+      `handl-packages/`: moved sole-consumer dirs (`comb`, `ffi`,
+      `noise-c`, `noise-stub`, `os-c`, `os-stub`, `perlin`, `rand-stub`,
+      `simplex`, `test`, `type-handl`, `uuid-c`, `uuid-stub`,
+      `playground/rand-stub-test.hnl`) and *copies* of dirs still pinned
+      by platform crates (`rand-c`, `time-c`, `intl-c`, `unicode-c`,
+      `time`, `type`, `generated/icu-{c,uc}-linux-x86_64` — reconcile in
+      Phase 3 when `stdlib/` takes ownership). Shared pins applied the
+      0.7 ownership rule instead of duplicating: `plugin-lib-stdlib`
+      exports `GREET_HNL`/`TRANSFORM_{MAP,FILTER,REDUCE}_HNL` and
+      `plugin-lib-handl` exports `DEDENT_HNL`; the kit consumes the
+      consts. Platform consumers (`host-cli`, `host-lsp`,
+      `plugin-lsp-std`, `handl-defining-handl` + dev-deps) now take the
+      crates via git deps, unified with in-tree crates by the root
+      `[patch.".../platform"]` block; a `url.insteadOf` +
+      `CARGO_NET_GIT_FETCH_WITH_CLI` recipe resolves the git sources
+      locally until the remotes are pushed (recipe in the root
+      `Cargo.toml` comment).
+- [x] **Not moved:** `handl-kit-data` (generic kit types — consumed by
       staying `plugin-ext-kit`), `handl-kit-arrow-lower` (linked by
       `handl-runtime`; moving it would cycle platform↔lang),
       `handl-emitters` (generic fragment emitter, consumed by staying
