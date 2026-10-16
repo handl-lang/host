@@ -175,9 +175,17 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 4 — `otlp/`
 
-- [ ] `otlp/modules/{lib-otlp,lib-otlp-std}` ← `plugin-lib-otlp` +
+- [x] `otlp/modules/{lib-otlp,lib-otlp-std}` ← `plugin-lib-otlp` +
       `-otlp-std` + `handl-packages/{otlp,otlp_std}` +
       `kits/server.yaml` fragment + `examples/otlp`.
+      **Done:** subtree-split imports into `handl-lang/otlp`
+      (`examples/otlp` rode inside `modules/lib-otlp/examples/`);
+      `plugin-ext-kit` consumes `handl-plugin-lib-otlp-std` via a pinned
+      git dep + `[patch."https://github.com/handl-lang/otlp"]`.
+      **Deviation:** `data/kits/server.yaml` stays in `lang` — it is an
+      embedded `KITS` row consumed by name-resolution tests; only the
+      `FragmentSource::DataFile` seam (deferred) lets a module ship a
+      kit manifest. `otlp-std` still resolves through the registry.
 
 ## Phase 5 — `web/`
 
