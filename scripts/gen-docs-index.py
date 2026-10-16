@@ -95,6 +95,20 @@ def main() -> int:
                     )
         out.append("")
 
+    locals_ = data.get("local_adrs") or []
+    if locals_:
+        out += [
+            "## Repo-local ADRs",
+            "",
+            "| # | title | repo | file |",
+            "|---|---|---|---|",
+        ]
+        for a in locals_:
+            out.append(
+                f"| {a['number']} | {a['title']} | `{a['repo']}` | `{a['file']}` |"
+            )
+        out.append("")
+
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(out), encoding="utf-8")
     print(f"wrote {OUT}")

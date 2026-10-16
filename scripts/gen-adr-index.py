@@ -122,6 +122,23 @@ def main() -> int:
                         f"`adrs/{num}-{slug}.md` | `{parent}` |"
                     )
 
+    locals_ = data.get("local_adrs") or []
+    if locals_:
+        out += [
+            "",
+            "## Repo-local ADRs",
+            "",
+            "Written directly in their repo (not split children of a platform",
+            "ADR), listed here so a number is never reused across repos.",
+            "",
+            "| # | title | repo | file |",
+            "|---|---|---|---|",
+        ]
+        for a in locals_:
+            out.append(
+                f"| {a['number']} | {a['title']} | `{a['repo']}` | `{a['file']}` |"
+            )
+
     out.append("")
     OUT.write_text("\n".join(out), encoding="utf-8")
     print(f"wrote {OUT.relative_to(ROOT)} — {len(rows)} ADRs, {len(splits)} splits")
