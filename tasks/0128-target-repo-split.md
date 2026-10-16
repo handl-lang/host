@@ -88,21 +88,37 @@ unchanged (all still statically linked, just through registries).
 
 ## Phase 1 — pilot: `python/`
 
-- [ ] New repo `python`: workspace + `modules/sdkgen-python` crate
+- [x] New repo `python`: workspace + `modules/sdkgen-python` crate
       (`Emitter` impl + the moved 205 lines) depending on
       `handl-plugin-sdkgen` via git dep; `[patch]` to sibling path for
       local dev.
+      **Done:** `handl-lang/python` holds `modules/sdkgen-python`
+      (subtree-split history; package name unchanged:
+      `handl-plugin-sdkgen-emitter-python`). The Python spec code was
+      already its own crate before the split, so no `plugin-ext-sdkgen`
+      surgery was needed — the ext crate consumes the emitter via a
+      pinned git dep, resolved locally through a new
+      `[patch."https://github.com/handl-lang/python"]` block, and
+      `handl-plugin-sdkgen` joined the platform `[patch]` table so the
+      moved crate's port dep unifies with the in-tree package.
 - [ ] `hnl sdkgen python` resolves `python` → target record
       `(backend: c, emitter: python)`; cross-repo dependency on `c/`'s
       module is expressed at the *target* level.
+      (Not yet — needs Phase 0.1's `SdkgenTarget` registry; the `python`
+      target still resolves through `plugin-ext-sdkgen`'s static table,
+      now over a git dep.)
 - [ ] `dev-link.sh` (or superrepo) generates the `[patch]` block across
       sibling checkouts; CI uses the git dep only.
-- [ ] NB: `python` works in Phase 1 because `backend: c` still resolves
+      (Still hand-maintained, same as stdlib/cli/lsp — the repo CI
+      strips `[patch]` and resolves the pinned revs.)
+- [x] NB: `python` works in Phase 1 because `backend: c` still resolves
       in-platform — Phase 2 re-points it to `c/`'s module. That
       re-resolution is the cross-repo composition proof, not an
       accident.
-- [ ] Prove: `python/` CI builds only its own graph; `platform/` tests
+- [x] Prove: `python/` CI builds only its own graph; `platform/` tests
       green without the emitter.
+      **Done:** `cargo check`/`test --workspace` green in `python/` (2
+      ctypes-import tests); `cargo check --workspace` green in platform.
 
 This phase validates the whole template on a 1-crate port surface with
 0 external deps and simultaneously shrinks platform by 205 lines.
