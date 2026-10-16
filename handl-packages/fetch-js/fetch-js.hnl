@@ -8,7 +8,7 @@
 --- interop bridge, not a fetch hook).
 
 from "../generated/fetch-webidl-browser/WindowOrWorkerGlobalScope" import { window_or_worker_global_scope_fetch }
-from "js" import { await as js_await }
+from "js" import { await as js_await, error as js_error, invoke as js_invoke }
 
 --- Fetch `input` (a URL string or Request object; `init` follows the
 --- WebIDL RequestInit shape), awaiting the promise. Yields `{ ok: resp }`
@@ -19,5 +19,78 @@ export fetch := (input, init) ~> do {
     r
   } else {
     { ok: js_await(tag.untag(r).value) }
+  }
+}
+
+--- Fetch `input` and read the response body to completion as text.
+--- @details
+--- Yields `{ ok: String }` or `{ err: JsError }`. `resp.text()` is
+--- dispatched through `js.invoke` (a method on the resolved Response
+--- value -- the generated `Body`/`Response` adapters emit receiver-less
+--- `call("fetch", "text", [], ...)` shapes and cannot address the
+--- response until sdkgen passes the receiver through), then the
+--- resulting promise is settled by `js.await`. A rejected promise
+--- surfaces either as a recorded `error` or as the host's raised
+--- exception, depending on the JS host's `await` injection.
+export fetch_text := (input, init) ~> do {
+  r := fetch(input, init)
+  if tag.tag_of(r) == "err" {
+    r
+  } else {
+    resp := tag.untag(r).value
+    p := js_invoke(resp, "text", [], [], "js_string", false)
+    e := js_error()
+    if e == null {
+      v := js_await(p)
+      e2 := js_error()
+      if e2 == null { { ok: v } } else { { err: e2 } }
+    } else {
+      { err: e }
+    }
+  }
+}
+
+--- Fetch `input` and read the response body as parsed JSON.
+--- @details
+--- Yields `{ ok: Value }` or `{ err: JsError }`; same mechanics as
+--- `fetch_text` via `resp.json()`.
+export fetch_json := (input, init) ~> do {
+  r := fetch(input, init)
+  if tag.tag_of(r) == "err" {
+    r
+  } else {
+    resp := tag.untag(r).value
+    p := js_invoke(resp, "json", [], [], "js_object", false)
+    e := js_error()
+    if e == null {
+      v := js_await(p)
+      e2 := js_error()
+      if e2 == null { { ok: v } } else { { err: e2 } }
+    } else {
+      { err: e }
+    }
+  }
+}
+
+--- Fetch `input` and read the response body as bytes.
+--- @details
+--- Yields `{ ok: Value }` (the host's `Uint8Array`) or
+--- `{ err: JsError }`; same mechanics as `fetch_text` via
+--- `resp.bytes()`.
+export fetch_bytes := (input, init) ~> do {
+  r := fetch(input, init)
+  if tag.tag_of(r) == "err" {
+    r
+  } else {
+    resp := tag.untag(r).value
+    p := js_invoke(resp, "bytes", [], [], "js_object", false)
+    e := js_error()
+    if e == null {
+      v := js_await(p)
+      e2 := js_error()
+      if e2 == null { { ok: v } } else { { err: e2 } }
+    } else {
+      { err: e }
+    }
   }
 }
