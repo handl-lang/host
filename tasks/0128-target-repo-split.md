@@ -185,11 +185,26 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 8 — hosts out (last: they sit at the top of the fan)
 
-- [ ] `cli/` repo ← `host-cli` + `plugin-ext-cli` (its only consumer).
+- [x] `cli/` repo ← `host-cli` + `plugin-ext-cli` (its only consumer).
       The `hnl` binary's target set = its git-dep list.
-- [ ] `lsp/` repo ← `host-lsp` + `plugin-lsp` + `plugin-lsp-std` +
+      **Done:** `handl-lang/cli` holds `crates/{host-cli,plugin-ext-cli}`
+      (subtree-split history grafted under `crates/`). ~40 platform
+      crates are git deps; `kit-canonical` (default features) and
+      `handl-kit-data-canonical` come from the sibling repos; the root
+      `[patch]` tables resolve the whole closure from sibling checkouts
+      (zero git-sourced packages in the lockfile). The ADR's
+      `plugin-ext-shell` does not exist in the workspace — dropped.
+      `scripts/dogfood-gate.sh` builds `hnl` from `../cli`.
+- [x] `lsp/` repo ← `host-lsp` + `plugin-lsp` + `plugin-lsp-std` +
       `plugin-ext-lsp`.
-- [ ] `host-tooling` **stays in platform** — the shared contract both
+      **Done:** `handl-lang/lsp` holds the four crates under `crates/`
+      (subtree-split history). `host-lsp` keeps its
+      `default-features = false` git dep on `kit-canonical`; `plugin-lsp`
+      `plugin-lsp-std` keep their `lang` deps (`kit-data-canonical`) —
+      the intended lsp → lang/kit-canonical direction. `host-lsp` now
+      declares `serde` with `derive` explicitly (platform had it via
+      feature unification).
+- [x] `host-tooling` **stays in platform** — the shared contract both
       host repos depend on.
 
 ## Phase 9 — `meta/` (anytime; zero-consumer leaves)
