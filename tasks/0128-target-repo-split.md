@@ -116,17 +116,40 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 3 — `stdlib/`
 
-- [ ] `plugin-lib-stdlib` + its 31 `include_str!`ed packages move to
-      `stdlib/` (`crates/plugin-lib-stdlib` + `packages/`).
-- [ ] The other plugin-lib content crates move as modules:
+- [x] `plugin-lib-stdlib` + its `include_str!`ed packages move to
+      `stdlib/` (`crates/plugin-lib-stdlib` + `handl-packages/` — the dir
+      name kept for consistency with `lang/` and `kit-canonical/`).
+      **Done:** `handl-lang/stdlib` holds `crates/plugin-lib-stdlib`
+      (subtree-split history) and 41 pinned package dirs + `char/`,
+      `char-native/` (owned by `modules/char-native`, exported as
+      `CHAR_HNL`/`CHAR_NATIVE_HNL` per the 0.7 rule) +
+      `generated/icu-{c,uc}-linux-x86_64`. Platform keeps a fixture copy
+      of `collections/array/` — `plugin-engine-typecheck-handl` (src)
+      and `handl-runtime` tests `load_hnl_file` it by path.
+- [x] The other plugin-lib content crates move as modules:
       `stdlib/modules/{kv,kv-hashmap,crypto,encoding,parse,serialize,
       char-native,lib-lang-{lex,parse,eval,typecheck,compile,
       run-compiled}}` — 14 modules total. **Exceptions — machinery stays
       in platform:** `plugin-lib-handl` (`.hnl` loader), `plugin-lib-tag`
       (host primitive), `plugin-lib-scheduler` (test engine).
-- [ ] `kit-canonical`, `plugin-ext-kit`, `plugin-engine-test` and
+      **Done:** all 14 moved with subtree-split history.
+- [x] `kit-canonical`, `plugin-ext-kit`, `plugin-engine-test` and
       `plugin-engine-typecheck-handl` git-depend on `stdlib/` — the
       deliberate inversion. Wire via the same git-dep + `[patch]`
+      **Done:** `plugin-ext-kit` (stdlib/crypto/kv-hashmap),
+      `plugin-engine-test` (char-native), `plugin-engine-typecheck-handl`
+      (stdlib; char-native dev), plus dev-deps in `handl-runtime`,
+      `plugin-lib-handl`, `handl-defining-handl` (lib-lang-*),
+      `plugin-ext-refinement` (char-native for `str_contract`). New
+      `[patch."https://github.com/handl-lang/stdlib"]` block in the root
+      `Cargo.toml` maps all 14 to `../stdlib/...`; kit-canonical repoints
+      its 9 deps the same way. Fixed forward: stdlib/crypto
+      `HandlModule`-evaluating tests that never installed the canonical
+      language (pre-existing "no language available" failures on main —
+      the 0.8 seam; `ensure_lang()` applied per `named_import.rs`'s
+      pattern), and the same gap in `plugin-engine-typecheck-handl`'s
+      `axis_flow_boundaries`/`dependent_structure`/`integration`/unit
+      tests in platform.
       mechanism.
 
 ## Phase 4 — `otlp/`
