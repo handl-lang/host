@@ -1,3 +1,0 @@
-from "../handl-packages/time-stub" import { now_ms }
-
-now_ms()

@@ -1,2 +1,0 @@
-add_one = x ~> x + 1
-cache := (add_one >>> add_one) ~[2]~> (x ~> x)

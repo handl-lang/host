@@ -1,3 +1,0 @@
-from "../handl-packages/time-c" import { now_ms }
-
-now_ms()

@@ -1,3 +1,0 @@
-from "str" import * as str
-
-str.split("a,b,c", ",")

@@ -1,1 +1,0 @@
-do { from "lib/testlib.hnl" import { a, b }; a + b }
