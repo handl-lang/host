@@ -1,8 +1,0 @@
-# SDK generation config for the Storage spec.
-#
-# `Navigator`/`WorkerNavigator` are declared in html.idl — listed here so
-# `X includes NavigatorStorage` grafts onto the foreign interfaces and the
-# augmented records emit in this package (ADR-0121).
-
-includes:
-  - html.idl

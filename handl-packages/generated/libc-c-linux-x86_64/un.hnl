@@ -1,7 +1,0 @@
---- Generated adapter for libc-c-linux-x86_64/un
-
-from "result" import { ok, err }
-from "../libc/un" import { sockaddr_un }
-
-export unix: Int := 1
-export linux: Int := 1

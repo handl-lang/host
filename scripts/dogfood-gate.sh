@@ -160,20 +160,11 @@ fi
 # package here when it joins the maintained stack (the detector cannot yet
 # tell an arrow implementation from a signature-only file).
 # ---------------------------------------------------------------------------
+# ADR-0128 Phase 5: the arrow-dialect stack moved to the `c` and `web`
+# repos (platform `handl-packages/` no longer holds them); each repo gates
+# its own packages. The mechanism stays for any future in-repo arrow
+# package.
 ARROW_PACKAGES=(
-  handl-packages/concurrent
-  handl-packages/concurrent-epoll
-  handl-packages/serve
-  handl-packages/serve-epoll
-  handl-packages/http_rfc
-  handl-packages/tls-libssl
-  handl-packages/ws-c
-  handl-packages/fetch-c
-  handl-packages/ws_frame-handl
-  # handshake helpers (accept_key) that serve-epoll imports
-  handl-packages/ws-whatwg-c
-  # NB: the runnable app examples (incl. `examples/http`) now live in the
-  # `web` repo; they are no longer part of this gate.
 )
 
 arrow_sources=()

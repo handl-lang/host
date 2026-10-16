@@ -1,4 +1,0 @@
-from "./compress-zlib-c" import * as zlib_c
-from "bytes" import * as bytes
-
-bytes.utf8_decode(zlib_c.decompress(zlib_c.compress(bytes.utf8_encode("round trip me"))))

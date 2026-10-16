@@ -1,3 +1,0 @@
-from "../generated/libz-c-linux-x86_64/zlib" import * as zlib
-
-test_bound := assert tag.untag(zlib.compressBound(100)).value > 0

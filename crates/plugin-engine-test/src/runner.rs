@@ -296,20 +296,36 @@ fn is_import_decl(trimmed: &str) -> bool {
 }
 
 /// Collect the module's *executable* import statements — `from "<spec>"
-/// import ...` / `import "<spec>"` whose `<spec>` resolves to a file under
-/// the module's directory (or the working directory) — into an eval
-/// preamble. Each kept specifier is rewritten to the resolved absolute
-/// path: the test bodies evaluate without a source-file context, so the
-/// module loader's relative-path base (`dir_stack`) is empty and the spec
-/// must be self-contained.
+/// import ...` / `import "<spec>"` whose `<spec>` resolves to a file — into
+/// an eval preamble. Each kept specifier is rewritten to the resolved
+/// absolute path: the test bodies evaluate without a source-file context,
+/// so the module loader's relative-path base (`dir_stack`) is empty and the
+/// spec must be self-contained.
+///
+/// Resolution mirrors [`ModuleLoader::resolve_path`]: a specifier whose
+/// first `/`-separated segment names a `.handl.toml` `[dependencies]` entry
+/// resolves inside that package's directory (discovered by walking up from
+/// the module's directory — ADR-0128 Phase 5's name-based seam); otherwise
+/// the spec resolves under the module's directory, then the working
+/// directory.
 ///
 /// Module-name imports (`from "str" import ...`, `import <name> from ...`)
-/// return `None` — they are declarations the kit's module chain already
-/// satisfies, and stripping them matches `hnl run`/`ModuleLoader` behavior
-/// (ADR-0096 §"Module-name imports").
+/// are declarations the kit's module chain already satisfies; they lower to
+/// `local := "spec.name"` bindings, matching `hnl run`/`ModuleLoader`
+/// behavior (ADR-0096 §"Module-name imports").
 fn import_preamble(src: &str, module: &Path) -> String {
     let base = module.parent().map(Path::to_path_buf);
     let cwd = std::env::current_dir().ok();
+    // `.handl.toml` `[dependencies]` for the project this module belongs to
+    // (walk up from its directory). Discovery failure is soft here: a
+    // dep-name spec then falls through to module-name lowering, and an
+    // actually-needed binding fails loudly at eval — same as a missing file.
+    let deps = base
+        .as_deref()
+        .map(|dir| {
+            handl_platform::config::discover_dependencies(dir).unwrap_or_default()
+        })
+        .unwrap_or_default();
     let mut preamble = String::new();
     for chunk in handl_plugin_ext_diag::split_statements(src) {
         let trimmed = chunk.text.trim_start();
@@ -336,10 +352,15 @@ fn import_preamble(src: &str, module: &Path) -> String {
         let Some(spec) = first_quoted_spec(trimmed) else {
             continue;
         };
-        let resolved = [&base, &cwd]
-            .into_iter()
-            .flatten()
-            .find_map(|b| resolve_spec_to_file(spec, b));
+        // Dependency-name resolution first (mirroring `ModuleLoader`: a dep
+        // name shadows a same-named relative directory), then the bases.
+        let resolved = resolve_dep_spec(spec, &deps)
+            .or_else(|| {
+                [&base, &cwd]
+                    .into_iter()
+                    .flatten()
+                    .find_map(|b| resolve_spec_to_file(spec, b))
+            });
         if let Some(path) = resolved {
             // Splice the absolute path back into the statement text.
             let abs = path.to_string_lossy();
@@ -381,6 +402,30 @@ fn first_quoted_spec(s: &str) -> Option<&str> {
     let rest = &s[start + 1..];
     let end = rest.as_bytes().iter().position(|&b| b == quote)?;
     Some(&rest[..end])
+}
+
+/// Resolve a specifier whose first `/`-separated segment names a
+/// `.handl.toml` `[dependencies]` entry: the remainder resolves inside the
+/// declared package directory — `dep/lib/file` → `<deps["dep"]>/lib/file`.
+/// A bare dep name (`from "ws-c"`) resolves to the package dir's
+/// `index.hnl`/`<name>.hnl` main file. Returns `None` when the first
+/// segment is not a declared dep or no file candidate exists — callers then
+/// fall through to relative-path and module-name resolution, mirroring
+/// [`ModuleLoader::resolve_path`]/[`ModuleLoader::resolve_spec_to_file`].
+fn resolve_dep_spec(spec: &str, deps: &HashMap<String, PathBuf>) -> Option<PathBuf> {
+    if Path::new(spec).is_absolute() {
+        return None;
+    }
+    let (first, rest) = match spec.split_once('/') {
+        Some((f, r)) => (f, Some(r)),
+        None => (spec, None),
+    };
+    let dep_dir = deps.get(first)?;
+    let joined = match rest {
+        Some(r) if !r.is_empty() => dep_dir.join(r),
+        _ => dep_dir.clone(),
+    };
+    resolve_spec_to_file(&joined.to_string_lossy(), Path::new(""))
 }
 
 /// Resolve an import specifier to an existing file under `base`, mirroring

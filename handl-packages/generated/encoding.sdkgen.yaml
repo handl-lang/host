@@ -1,8 +1,0 @@
-# SDK generation config for the WHATWG Encoding spec.
-#
-# `GenericTransformStream` is a mixin declared in the Streams spec, not
-# encoding.idl — listed here so `TextDecoderStream`/`TextEncoderStream`
-# graft its members during generation.
-
-includes:
-  - streams.idl

@@ -5,6 +5,7 @@
 //! also defines the `HostApplier` trait and a `.handl.toml` backed applier.
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use serde::Deserialize;
 use serde_json::Number;
@@ -160,6 +161,97 @@ struct RawHostConfig {
     dependencies: HashMap<String, RawDependency>,
 }
 
+/// Walk up from `start` (a file or directory) looking for a `.handl.toml`
+/// project manifest; return the directory that contains it.
+///
+/// This is the discovery half of Phase 9.5 package management: the manifest
+/// directory anchors both relative `[dependencies]` paths and the module
+/// root for `import "path"` resolution.
+pub fn discover_manifest_dir(start: &Path) -> Option<std::path::PathBuf> {
+    let start_dir = if start.is_file() {
+        start.parent().map(Path::to_path_buf)
+    } else {
+        Some(start.to_path_buf())
+    };
+    let start_dir = start_dir
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    start_dir
+        .ancestors()
+        .find(|dir| dir.join(".handl.toml").is_file())
+        .map(Path::to_path_buf)
+}
+
+/// Read `<manifest_dir>/.handl.toml` and resolve its `[dependencies]` table
+/// into an import-name → absolute package-directory map.
+///
+/// Dependency paths are relative to the manifest directory; absolute paths
+/// are honored as-is. A missing manifest yields an empty map (no
+/// dependencies). A present-but-unparseable manifest is an error — silent
+/// fallback would make `import` failures look like missing files rather than
+/// a broken manifest.
+///
+/// This is the seam that lets `.hnl` packages import each other *by name*
+/// across repository boundaries (ADR-0128 Phase 5): `from "ws-c" import …`
+/// or `from "libc/socket" import …` resolves through the table instead of a
+/// `../` filesystem path, so a consuming repo declares the dep once in its
+/// manifest — the Cargo-dep analogue for `.hnl` sources.
+///
+/// # Errors
+///
+/// Returns [`PlatformError::InvalidMetadata`] if the manifest exists but
+/// cannot be read or parsed.
+pub fn resolve_dependencies(
+    manifest_dir: &Path,
+) -> Result<HashMap<String, std::path::PathBuf>, PlatformError> {
+    let manifest_path = manifest_dir.join(".handl.toml");
+    if !manifest_path.is_file() {
+        return Ok(HashMap::new());
+    }
+    let src = std::fs::read_to_string(&manifest_path).map_err(|e| {
+        PlatformError::InvalidMetadata(format!(
+            "cannot read {}: {e}",
+            manifest_path.display()
+        ))
+    })?;
+    let config = HostConfig::from_toml(&src).map_err(|e| {
+        PlatformError::InvalidMetadata(format!("invalid {}: {e}", manifest_path.display()))
+    })?;
+    Ok(config
+        .dependencies
+        .into_iter()
+        .map(|(name, spec)| {
+            let p = std::path::PathBuf::from(&spec.path);
+            let abs = if p.is_absolute() {
+                p
+            } else {
+                manifest_dir.join(p)
+            };
+            // Canonicalize when possible so the module cache keys are
+            // stable; fall back to the joined path otherwise.
+            let abs = std::fs::canonicalize(&abs).unwrap_or(abs);
+            (name, abs)
+        })
+        .collect())
+}
+
+/// Discover the project manifest by walking up from `start` and resolve its
+/// `[dependencies]` table. Equivalent to `discover_manifest_dir` +
+/// [`resolve_dependencies`]; returns an empty map when no manifest exists.
+///
+/// # Errors
+///
+/// Returns [`PlatformError::InvalidMetadata`] if a discovered manifest
+/// cannot be read or parsed.
+pub fn discover_dependencies(
+    start: &Path,
+) -> Result<HashMap<String, std::path::PathBuf>, PlatformError> {
+    match discover_manifest_dir(start) {
+        Some(dir) => resolve_dependencies(&dir),
+        None => Ok(HashMap::new()),
+    }
+}
+
 fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
     match value {
         toml::Value::String(s) => serde_json::Value::String(s),
@@ -247,5 +339,35 @@ utils = { path = "../shared/utils" }
         assert_eq!(config.dependencies.len(), 2);
         assert_eq!(config.dependencies["arrows"].path, "vendor/arrows");
         assert_eq!(config.dependencies["utils"].path, "../shared/utils");
+    }
+
+    #[test]
+    fn discover_dependencies_resolves_relative_to_manifest_dir() {
+        let root = std::env::temp_dir().join(format!("hnl-deps-{}", std::process::id()));
+        let dep_dir = root.join("vendor/ws-c");
+        let nested = root.join("src/nested");
+        std::fs::create_dir_all(&dep_dir).unwrap();
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(
+            root.join(".handl.toml"),
+            "[dependencies]\nws-c = \"vendor/ws-c\"\n",
+        )
+        .unwrap();
+
+        // Discovery walks up from a nested directory to the manifest.
+        let deps = discover_dependencies(&nested).unwrap();
+        assert_eq!(
+            deps["ws-c"],
+            std::fs::canonicalize(&dep_dir).unwrap()
+        );
+        assert_eq!(discover_manifest_dir(&nested).unwrap(), std::fs::canonicalize(&root).unwrap());
+
+        // No manifest → empty map.
+        let bare = std::env::temp_dir().join(format!("hnl-deps-bare-{}", std::process::id()));
+        std::fs::create_dir_all(&bare).unwrap();
+        assert!(discover_dependencies(&bare).unwrap().is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_dir_all(&bare).ok();
     }
 }

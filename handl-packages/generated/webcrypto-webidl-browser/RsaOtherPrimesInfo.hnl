@@ -1,6 +1,0 @@
---- Generated adapter for webcrypto-webidl-browser/RsaOtherPrimesInfo
---- source: https://raw.githubusercontent.com/w3c/webref/19e2457df856a43ec749c0fd4e88ae1edc4f6cb8/ed/idl/webcrypto.idl
-
-from "js" import { call, error }
-from "result" import { ok, err }
-from "../webcrypto/RsaOtherPrimesInfo" import { RsaOtherPrimesInfo }
