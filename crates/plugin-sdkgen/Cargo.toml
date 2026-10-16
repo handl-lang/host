@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# `SdkgenRequest` carries the language emitted sources canonicalize
+# against (ADR-0128 §0.1 — the target registry lives on the port).
+handl-language = { path = "../handl-language" }
 serde = { workspace = true, features = ["derive"] }
 ureq = "2"
 

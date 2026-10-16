@@ -1,5 +1,12 @@
 //! Handl SDK generator core IR and traits (ADR-0107).
 
+mod targets;
+
+pub use targets::{
+    SdkgenBackendDef, SdkgenEmitterDef, SdkgenRegistry, SdkgenRequest, SdkgenSpecInput,
+    SdkgenTarget, SdkgenTargetError,
+};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
