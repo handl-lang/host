@@ -1709,7 +1709,13 @@ impl ModuleLoader {
             &src,
             &|spec: &str| self.spec_resolves_to_file(spec, resolved),
             &|name: &str| self.is_bindable_name(name),
-        );
+        )
+        .map_err(|e| {
+            LangError::engine(format!(
+                "import \"{}\" ({}): module prep error: {}",
+                display_path, resolved, e
+            ))
+        })?;
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
@@ -1802,23 +1808,30 @@ impl ModuleLoader {
     /// `resolved` is the canonical path of the module being loaded; its
     /// parent directory is the first resolution base, matching
     /// [`ModuleLoader::resolve_path`].
+    /// The pass is structure-aware, not line-based: statements are
+    /// segmented by [`module_prep::top_level_segments`] so a
+    /// `from`/`import` declaration sharing a line with other statements
+    /// is rewritten in place instead of deleting the whole line (which
+    /// previously swallowed a same-line `export` and produced an empty
+    /// module record).
     fn strip_module_decl_lines(&self, src: &str, resolved: &str) -> String {
-        src.lines()
-            .flat_map(|line| {
-                let trimmed = line.trim_start();
+        module_prep::top_level_segments(src)
+            .iter()
+            .flat_map(|seg| {
+                let trimmed = seg.trim();
                 if let Some(rest) = trimmed.strip_prefix("import") {
                     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
                         let inner = rest.trim_start();
                         if inner.starts_with('"') || inner.starts_with('\'') {
                             // `import "<spec>"` — keep: the executable op.
-                            return vec![line.to_string()];
+                            return vec![seg.clone()];
                         }
                         // `import <name> ...` — a host-module declaration;
                         // lower to `name := "name"` string bindings so the
                         // bare name dispatches through the module chain.
                         return self.host_import_lines(trimmed);
                     }
-                    return vec![line.to_string()];
+                    return vec![seg.clone()];
                 }
                 if let Some(rest) = trimmed.strip_prefix("from") {
                     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
@@ -1829,16 +1842,16 @@ impl ModuleLoader {
                         // dispatch through the host module chain.
                         return match first_quoted_spec(rest) {
                             Some(spec) if self.spec_resolves_to_file(spec, resolved) => {
-                                vec![line.to_string()]
+                                vec![seg.clone()]
                             }
                             Some(_) => self.host_import_lines(trimmed),
                             // Unparseable declaration — keep it so the
                             // parser reports the error.
-                            None => vec![line.to_string()],
+                            None => vec![seg.clone()],
                         };
                     }
                 }
-                vec![line.to_string()]
+                vec![seg.clone()]
             })
             .collect::<Vec<_>>()
             .join("\n")
