@@ -25,4 +25,4 @@ recompile.
 - **Optional roles**: a `ChildRoleSpec` may declare `optional: true` (e.g. `match`'s `motive`, `assign`'s trailing `body`), making positions arity-dependent. Resolve a concrete node via `lang.child_role_index_for(node, role)` / `AstShapeDef::role_index_at(role, arity)`; `child_role_index(kind, role)` returns the **full-form** index (all optional slots present) and is only safe for roles declared before the first optional slot or for existence checks.
 - Keeping a `kind ==` shape check in an engine after roles exist = a regression. Use the role; fall back to positional only for shapes that declare no roles.
 
-Refs: ADR-0044, ADR-0052, ADR-0054, ADR-0081, `crates/handl-language/src/language.rs`.
+Refs: ADR-0044, ADR-0052, ADR-0054, ADR-0081, `kernel/crates/handl-language/src/language.rs` (sibling `handl-lang/kernel` repo).

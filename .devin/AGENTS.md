@@ -7,7 +7,7 @@ Known, focused commands that pass:
 ```bash
 cargo build
 cargo check --workspace
-cargo test -p handl-language
+(cd ../kernel && cargo test -p handl-language)   # moved to handl-lang/kernel (ADR-0040/0128)
 cargo test -p handl-kit-data-canonical
 cargo test -p handl-kit-canonical     # kit-canonical (legacy Kit wrapper)
 cargo test -p handl-host-tooling
@@ -51,7 +51,10 @@ handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
 
 ### Key crates
 
-- **`handl-language`** — The `Language` data schema. A `Language` is a
+- **`handl-language`** — **moved to the sibling `handl-lang/kernel` repo**
+  (with `plugin-engine` and `handl-value`, the ADR-0040 calculus kernel;
+  git dep on `main`, patched to `../kernel` for local dev). The `Language`
+  data schema. A `Language` is a
   mergeable store of typed fragment sets: `tokens` (`TokenKindDef`),
   `grammar` (`GrammarRow`), `eval` (`EvalSchemeDef`), `ast` (`AstShapeDef`),
   `caps` (`CapabilityDecl`), `options` (`OptionSchema`). Also defines `Token`
@@ -193,8 +196,8 @@ LangError>` implements the ADR lowering table (Vau → error; v1 `App` →
     control flow). All v2 helpers are `helper_v2_*` (separate from v1
     `helper_*`). Same derived-step-op limitation as bytecode v2.
 
-Conformance tests: `crates/handl-language/tests/lowering_conformance.rs`
-(every lowering-table row) and
+Conformance tests: `kernel/crates/handl-language/tests/lowering_conformance.rs`
+(in the sibling `handl-lang/kernel` repo; every lowering-table row) and
 `crates/handl-kit-data-canonical/tests/lowering.rs` (all 52 `eval.yaml`
 schemes lower; only `eval.vau` errors).
 

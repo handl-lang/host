@@ -70,6 +70,16 @@ sibling `handl-lang/kit-canonical` repo now (git dep, patched to
 `../kit-canonical` for local dev). Its tests no longer run here — run them
 there with `CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical`.
 
+**Note — the calculus kernel moved out (ADR-0040/0128):**
+`plugin-engine`, `handl-language`, and `handl-value` — the `Plugin`/`Host`/
+`Operation`/`Behavior`/`RuleAcceptor`/`Contribution` primitives, the
+`Language` data schema, and the `Term`/`Value` shapes — live in the sibling
+`handl-lang/kernel` repo now (git deps on `main`, patched to `../kernel`
+for local dev). Their tests no longer run here —
+`cd ../kernel && cargo test --workspace`. `handl-emitters` stays: it is
+still a normal dependency of `handl-kit-data` (the `Emitter` trait), so
+the ADR-0044 §6 scaffold is not yet retirable.
+
 **Cross-repo dep policy — float on `main`, pin at release.** Every
 `git = "https://github.com/handl-lang/<repo>"` dependency declares
 `branch = "main"` day to day, so `cargo update` in any repo bumps siblings

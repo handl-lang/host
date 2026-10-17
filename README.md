@@ -15,7 +15,7 @@
 ## High-level architecture
 
 - `crates/platform` — core contracts: `Capability`/`CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin`, `PluginRegistry`, `Kit`, `KitRegistry`, `DefaultHost`, `PlatformError`.
-- `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments.
+- `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments. **Moved to the sibling `handl-lang/kernel` repo** (with `plugin-engine` and `handl-value`, the ADR-0040 calculus kernel); consumed here as a `main`-floating git dep patched to `../kernel` for local dev.
 - `crates/handl-kit-*` / `kit-canonical` — canonical language data assembly and ready-made kit loading.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
 - `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin` (`cli`/`lsp` moved to their host repos in ADR-0128 Phase 8).
@@ -23,7 +23,7 @@
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `compress`, `kv`, `http`, `os`, `unicode`, `rand`, `time`, `tls`, `ws`, etc.).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and plugin loaders (`native`, `wasm`, `web`).
 - `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`cli`** repo, `host-lsp` (LSP server) in **`lsp`**.
-- `crates/handl-value` / `handl-emitters` / `handl-test-utils` / `handl-defining-handl` — shared value model, emitters, conformance corpus, and language-in-handl experiments.
+- `crates/handl-value` — shared value model. **Moved to `handl-lang/kernel`.** `handl-emitters` / `handl-test-utils` / `handl-defining-handl` — emitters, conformance corpus, and language-in-handl experiments.
 - `crates/crate-*` — vendored ICU/ECMA-402 utility crates.
 - `handl-packages/` — pure-handl contracts and implementations (`.hnl` source). `data/` — YAML language fragments.
 
