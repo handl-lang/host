@@ -194,3 +194,4 @@ ADR), listed here so a number is never reused across repos.
 | 0145 | LSP-only Neovim integration | `extension-neovim` | `adrs/0145-handl-lsp-integration.md` |
 | 0146 | Generic Arrow Calculus for Any Dimension | `lang` | `adrs/0146-generic-arrow-calculus-any-dimension.md` |
 | 0147 | Lower the `while` state fold to `Loop` + explicit protocol ops | Accepted | `platform` | `adrs/0147-lowering-state-fold-while.md` |
+| 0148 | Lower `call`/`dimension` application to `App` terms | Accepted | `platform` | `adrs/0148-lower-call-application.md` |
