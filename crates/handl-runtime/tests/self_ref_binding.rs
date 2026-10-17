@@ -69,7 +69,7 @@ fn run_all(source: &str, expected: serde_json::Value) {
 #[test]
 fn self_recursive_match_reaches_base_case() {
     run_all(
-        "alen := (xs) ~> match xs {\n  []: 0,\n  [_, ...t]: 1 + alen(t)\n}\nalen([1, 2, 3])",
+        "do { alen := (xs) ~> match xs { []: 0, [_, ...t]: 1 + alen(t) }; alen([1, 2, 3]) }",
         json!(3),
     );
 }
@@ -77,7 +77,7 @@ fn self_recursive_match_reaches_base_case() {
 #[test]
 fn self_recursion_at_depth() {
     run_all(
-        "fib := (n) ~> if n < 2 { n } else { fib(n - 1) + fib(n - 2) }\nfib(10)",
+        "do { fib := (n) ~> if n < 2 { n } else { fib(n - 1) + fib(n - 2) }; fib(10) }",
         json!(55),
     );
 }
@@ -88,5 +88,5 @@ fn name_spelled_in_a_string_literal_is_not_self_reference() {
     // shape the `x := "x"` bare-name import lowering produces). It is a
     // mention, not a `var` reference, so the lowerer must not decline it
     // as self-recursive; either way the program evaluates to "s".
-    run_all("s := \"s\"\ns", json!("s"));
+    run_all("do { s := \"s\"; s }", json!("s"));
 }
