@@ -1,5 +1,0 @@
---- Native-backed implementation of floor_div.
-from "type" import { Number }
-from "../math/floor_div" import { FloorDiv }
-
-export floor_div: FloorDiv := (a, b) ~> math.floor_div(a, b)

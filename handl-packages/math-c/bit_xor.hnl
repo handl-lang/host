@@ -1,5 +1,0 @@
---- Native-backed implementation of bit_xor.
-from "type" import { Int }
-from "../math/bit_xor" import { BitXor }
-
-export bit_xor: BitXor := (a, b) ~> math.bit_xor(a, b)

@@ -1,5 +1,0 @@
---- Native-backed implementation of shl.
-from "type" import { Int }
-from "../math/shl" import { Shl }
-
-export shl: Shl := (a, b) ~> math.shl(a, b)

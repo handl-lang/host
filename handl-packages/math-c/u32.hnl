@@ -1,5 +1,0 @@
---- Native-backed implementation of u32.
-from "type" import { Int }
-from "../math/u32" import { U32 }
-
-export u32: U32 := (a) ~> math.u32(a)

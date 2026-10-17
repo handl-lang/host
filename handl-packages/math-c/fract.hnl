@@ -1,5 +1,0 @@
---- Native-backed implementation of fract.
-from "type" import { Number }
-from "../math/fract" import { Fract }
-
-export fract: Fract := (a) ~> math.fract(a)

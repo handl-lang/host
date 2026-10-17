@@ -1,5 +1,0 @@
---- Native-backed implementation of log10.
-from "type" import { Number }
-from "../math/log10" import { Log10 }
-
-export log10: Log10 := (a) ~> math.log10(a)

@@ -1,5 +1,0 @@
---- Native-backed implementation of exp.
-from "type" import { Number }
-from "../math/exp" import { Exp }
-
-export exp: Exp := (a) ~> math.exp(a)

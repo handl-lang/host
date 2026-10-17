@@ -1,5 +1,0 @@
---- Native-backed implementation of acosh.
-from "type" import { Number }
-from "../math/acosh" import { Acosh }
-
-export acosh: Acosh := (a) ~> math.acosh(a)

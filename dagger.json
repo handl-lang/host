@@ -8,7 +8,7 @@
     {
       "name": "handl-ci",
       "source": "github.com/handl-lang/ci@main",
-      "pin": "db2d0f99acceadf223ae29b898b2ddf88356a714"
+      "pin": "665b814e886f737686d08e9bbe5f9b6de35a796c"
     }
   ],
   "source": "dagger"

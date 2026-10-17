@@ -1,5 +1,0 @@
---- Native-backed implementation of round_to.
-from "type" import { Number }
-from "../math/round_to" import { RoundTo }
-
-export round_to: RoundTo := (a, b) ~> math.round_to(a, b)

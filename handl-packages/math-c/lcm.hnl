@@ -1,5 +1,0 @@
---- Native-backed implementation of lcm.
-from "type" import { Number }
-from "../math/lcm" import { Lcm }
-
-export lcm: Lcm := (a, b) ~> math.lcm(a, b)

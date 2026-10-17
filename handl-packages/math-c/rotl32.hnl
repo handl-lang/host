@@ -1,5 +1,0 @@
---- Native-backed implementation of rotl32.
-from "type" import { Int }
-from "../math/rotl32" import { Rotl32 }
-
-export rotl32: Rotl32 := (a, b) ~> math.rotl32(a, b)

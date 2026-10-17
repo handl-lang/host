@@ -1,5 +1,0 @@
---- Native-backed implementation of trunc.
-from "type" import { Number }
-from "../math/trunc" import { Trunc }
-
-export trunc: Trunc := (a) ~> math.trunc(a)

@@ -1,5 +1,0 @@
---- Native-backed implementation of nan.
-from "type" import { Number, Unit }
-from "../math/nan" import { Nan }
-
-export nan: Nan := () ~> math.nan()

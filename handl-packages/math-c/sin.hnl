@@ -1,5 +1,0 @@
---- Native-backed implementation of sin.
-from "type" import { Number }
-from "../math/sin" import { Sin }
-
-export sin: Sin := (a) ~> math.sin(a)

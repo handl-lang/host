@@ -1,5 +1,0 @@
---- Native-backed implementation of atanh.
-from "type" import { Number }
-from "../math/atanh" import { Atanh }
-
-export atanh: Atanh := (a) ~> math.atanh(a)

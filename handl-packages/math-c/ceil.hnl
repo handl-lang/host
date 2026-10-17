@@ -1,5 +1,0 @@
---- Native-backed implementation of ceil.
-from "type" import { Number }
-from "../math/ceil" import { Ceil }
-
-export ceil: Ceil := (a) ~> math.ceil(a)

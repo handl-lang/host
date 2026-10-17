@@ -1,5 +1,0 @@
---- Native-backed implementation of round.
-from "type" import { Number }
-from "../math/round" import { Round }
-
-export round: Round := (a) ~> math.round(a)

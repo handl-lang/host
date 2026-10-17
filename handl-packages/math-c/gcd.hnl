@@ -1,5 +1,0 @@
---- Native-backed implementation of gcd.
-from "type" import { Number }
-from "../math/gcd" import { Gcd }
-
-export gcd: Gcd := (a, b) ~> math.gcd(a, b)
