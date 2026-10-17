@@ -17,6 +17,10 @@ handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branc
 handl-lib-ops = { git = "https://github.com/handl-lang/lib-ops", branch = "main" }
 # ADR-0128: port packages live in their own repos.
 handl-lib-datetime = { git = "https://github.com/handl-lang/lib-datetime", branch = "main" }
+handl-lib-option = { git = "https://github.com/handl-lang/lib-option", branch = "main" }
+handl-lib-result = { git = "https://github.com/handl-lang/lib-result", branch = "main" }
+handl-lib-archive = { git = "https://github.com/handl-lang/lib-archive", branch = "main" }
+handl-lib-transform = { git = "https://github.com/handl-lang/lib-transform", branch = "main" }
 handl-lib-parse = { git = "https://github.com/handl-lang/lib-parse", branch = "main" }
 handl-lib-url-rfc = { git = "https://github.com/handl-lang/lib-url-rfc", branch = "main" }
 handl-lib-url-whatwg = { git = "https://github.com/handl-lang/lib-url-whatwg", branch = "main" }

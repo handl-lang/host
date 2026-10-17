@@ -104,17 +104,11 @@ const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
 /// `greet` bridge.
 pub use handl_lib_hello::GREET_HNL;
 
-/// Source of `handl-packages/transform/map.hnl`.
-pub const TRANSFORM_MAP_HNL: &str =
-    include_str!("../../../handl-packages/transform/map.hnl");
-
-/// Source of `handl-packages/transform/filter.hnl`.
-pub const TRANSFORM_FILTER_HNL: &str =
-    include_str!("../../../handl-packages/transform/filter.hnl");
-
-/// Source of `handl-packages/transform/reduce.hnl`.
-pub const TRANSFORM_REDUCE_HNL: &str =
-    include_str!("../../../handl-packages/transform/reduce.hnl");
+/// Source of the transform sub-ops (`lib-transform`).
+pub use handl_lib_transform::{
+    FILTER_HNL as TRANSFORM_FILTER_HNL, MAP_HNL as TRANSFORM_MAP_HNL,
+    REDUCE_HNL as TRANSFORM_REDUCE_HNL,
+};
 
 /// All table-built modules, keyed by module name.
 pub static MODULES: &[ModuleSpec] = &[
@@ -155,7 +149,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "transform",
-        hnl: include_str!("../../../handl-packages/transform/transform.hnl"),
+        hnl: handl_lib_transform::TRANSFORM_HNL,
         funcs: &[],
         ops: handl_lib_combinators::TRANSFORM_OPS,
         values: &[],
@@ -171,7 +165,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "option",
-        hnl: include_str!("../../../handl-packages/option/index.hnl"),
+        hnl: handl_lib_option::OPTION_HNL,
         funcs: &["Option", "some", "none"],
         ops: &[],
         values: &[],
@@ -478,7 +472,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // (e.g. kit-canonical's `StdlibResolver`).
     ModuleSpec {
         name: "result",
-        hnl: include_str!("../../../handl-packages/result/index.hnl"),
+        hnl: handl_lib_result::RESULT_HNL,
         funcs: &["Result", "ok", "err"],
         ops: &[],
         values: &[],
@@ -540,7 +534,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // the consolidated Rust `Function` impls in `ops::tar`.
     ModuleSpec {
         name: "archive",
-        hnl: include_str!("../../../handl-packages/archive/archive.hnl"),
+        hnl: handl_lib_archive::ARCHIVE_HNL,
         funcs: &[],
         ops: &[],
         values: &[],
@@ -970,7 +964,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "result",
         plugin_id: "lib.result",
         plugin_name: "lib-result",
-        hnl: include_str!("../../../handl-packages/result/index.hnl"),
+        hnl: handl_lib_result::RESULT_HNL,
         modules: &[],
     },
     PackageSpec {
