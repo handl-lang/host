@@ -163,11 +163,11 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "typeof",
-        hnl: include_str!("../../../handl-packages/utils/type.hnl"),
+        hnl: handl_lib_type::TYPEOF_HNL,
         funcs: &[],
-        ops: ops::type_ops::TYPE_OPS,
+        ops: handl_lib_type::TYPE_OPS,
         values: &[],
-        registry: Some(ops::type_ops::type_op_registry),
+        registry: Some(handl_lib_type::type_op_registry),
     },
     ModuleSpec {
         name: "option",
@@ -432,7 +432,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── stats (former plugin-lib-stats) — pure handl ───────────────────
     ModuleSpec {
         name: "stats",
-        hnl: include_str!("../../../handl-packages/stats/stats.hnl"),
+        hnl: handl_lib_stats::STATS_HNL,
         funcs: &["sum", "avg", "product", "min", "max", "median", "stddev"],
         ops: &[],
         values: &[],
@@ -506,7 +506,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // by the v2 engine, so the module exposes no functions or ops.
     ModuleSpec {
         name: "arrow_iter",
-        hnl: include_str!("../../../handl-packages/arrow_iter/arrow_iter.hnl"),
+        hnl: handl_lib_arrow_iter::ARROW_ITER_HNL,
         funcs: &[],
         ops: &[],
         values: &[],
@@ -910,7 +910,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "stats",
         plugin_id: "lib.stats",
         plugin_name: "lib-stats",
-        hnl: include_str!("../../../handl-packages/stats/stats.hnl"),
+        hnl: handl_lib_stats::STATS_HNL,
         modules: &[],
     },
     // Single-module packages also usable standalone (idempotent with the
@@ -987,7 +987,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "arrow_iter",
         plugin_id: "lib.arrow-iter",
         plugin_name: "lib-arrow-iter",
-        hnl: include_str!("../../../handl-packages/arrow_iter/arrow_iter.hnl"),
+        hnl: handl_lib_arrow_iter::ARROW_ITER_HNL,
         modules: &[],
     },
     PackageSpec {
