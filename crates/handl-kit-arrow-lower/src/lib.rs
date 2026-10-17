@@ -1966,9 +1966,11 @@ fn lower_nullish(
 /// pattern binders project `fst` (`Seq[proj_child 0, <path>]`).
 /// [`compile_pattern`] covers the `try_pattern` vocabulary — leaf
 /// binders/wildcards/globals, literals, nested `array`/`object`
-/// destructuring with `...rest`, and `call` tag patterns; genuinely
-/// env-dependent patterns (computed object keys, literal-eval
-/// expressions) decline — the AST fallback handles them.
+/// destructuring with `...rest`, `call` tag patterns, literal-eval
+/// expression patterns, and statically-resolvable computed object keys:
+/// predicates and binder paths are evaluated on the `[sv, in]` dispatch
+/// pair, so `pat_env`'s `Seq[proj(1), T]` re-anchored bindings let a
+/// pattern expression read the ambient env at any depth.
 fn lower_match(
     ast: &Ast,
     lang: &Language,
@@ -2028,9 +2030,9 @@ fn lower_match(
 
     // Collect arms; richer patterns decline the whole node.
     struct Arm {
-        /// Discriminant term evaluated on `sv` (position 0 of the pair).
+        /// Discriminant term evaluated on the `[sv, in]` dispatch pair.
         pred: Term,
-        /// Pattern-bound names → projection terms evaluated on `sv`.
+        /// Pattern-bound names → terms evaluated on `[sv, in]`.
         binds: Vec<(String, Term)>,
         body_idx: usize,
     }
@@ -2046,10 +2048,7 @@ fn lower_match(
         let body_idx = child_at_role_or_pos(arm, lang, "body", 1)
             .or_else(|| ach.get(1).copied())
             .ok_or_else(|| format!("match arm {} missing body", arm_idx))?;
-        let pat = ast
-            .get(AstRef::new(pat_idx))
-            .ok_or_else(|| format!("match pattern {} out of bounds", pat_idx))?;
-        let (pred, binds) = compile_pattern(ast, lang, pat, node)?;
+        let (pred, binds) = compile_pattern(ast, lang, pat_idx, node, &arm_env)?;
         arms.push(Arm {
             pred,
             binds,
@@ -2065,7 +2064,7 @@ fn lower_match(
             body_env.insert(
                 name.clone(),
                 EnvEntry {
-                    term: Term::seq(proj(0), path.clone()),
+                    term: path.clone(),
                     arity: 1,
                     arrow_value: false,
                 },
@@ -2073,10 +2072,7 @@ fn lower_match(
         }
         let body = lower_node(ast, lang, arm.body_idx, &body_env, &[])?;
         let decision = Term::seq(
-            Term::op_native(
-                "product",
-                vec![Term::seq(proj(0), arm.pred.clone()), id.clone()],
-            ),
+            Term::op_native("product", vec![arm.pred.clone(), id.clone()]),
             Term::op_native("pair_tag", vec![]),
         );
         dispatch = Term::seq(decision, Term::choice(body, dispatch));
@@ -2087,51 +2083,87 @@ fn lower_match(
     ))
 }
 
-/// Compile one `match` arm pattern to a discriminant term (evaluated on
-/// the scrutinee value) plus the binders it introduces (each binder term
-/// also evaluated on the scrutinee — [`lower_match`] anchors them behind
-/// `Seq[p0, …]`).
+/// Compile one `match` arm pattern to a discriminant term plus the
+/// binders it introduces — **both evaluated on the `[v, in]` dispatch
+/// pair**, where `v` is the (sub-)scrutinee value and `in` is the match
+/// node's input. `pat_env` is [`lower_match`]'s rebased env
+/// (`Seq[proj(1), T]` entries consuming that pair), so a literal-eval
+/// expression lowered under it reads the ambient env — enclosing
+/// params included — at any pattern depth.
 ///
 /// The dispatch mirrors `pattern_match::try_pattern` (ADR-0061/0081):
 /// leaf → sequence → entries → tag → literal-eval. Supported shapes:
 /// - `var` leaf — `_`/`_*` wildcard (but not `__fresh_` desugar binders,
-///   which bind), a bare binder (binds `sv`), or a `Language::globals`
+///   which bind), a bare binder (binds `v`), or a `Language::globals`
 ///   name → literal equality;
 /// - `value`/`lit`/`number`/`string`/`bool` literal payloads → `eq`;
 /// - `array` (`pattern_role: sequence`) — positional *sub-patterns*
-///   (recursively: literals, nested arrays/objects/tags, binders) plus
-///   an optional `rest` binder; the length check guards element
-///   projections via short-circuit `and` chains so a non-match falls
-///   through instead of erroring;
-/// - `object` (`pattern_role: entries`) — `entry` children with literal
-///   keys (computed keys decline — they need the ambient env), nested
-///   sub-patterns per key, `...rest` via `obj_except`; the empty `{}`
-///   pattern is the `is_obj` test;
+///   (recursively: literals, nested arrays/objects/tags, binders,
+///   literal-eval expressions) plus an optional `rest` binder; the
+///   length check guards element projections via short-circuit `and`
+///   chains so a non-match falls through instead of erroring;
+/// - `object` (`pattern_role: entries`) — `entry` children whose keys
+///   resolve *statically*: a declared literal key
+///   (`literal_children`), or a computed key (`[expr]`/`(expr)` —
+///   desugared to `paren`) that lowers to a compile-time constant such
+///   as an env binding `k :: "a"`; nested sub-patterns per key,
+///   `...rest` via `obj_except`; the empty `{}` pattern is the `is_obj`
+///   test;
 /// - `call` tag patterns `Tag(b0, b1, …)` (ADR-0077) — `has_field
 ///   "__tag__"` + tag equality; binders take the sorted non-`__tag__`
 ///   payload values positionally via `tag_fields`;
-/// - `record`/`paren` — the legacy `_tag`/`__tag__` record scan
-///   (`paren` also unwraps a literal child to `eq`).
+/// - `paren`/`record`/anything else — literal-eval (`try_pattern`'s
+///   tail): the node lowers as an expression under `pat_env` and
+///   `eq`-compares against `v`. `record` keeps its legacy
+///   `_tag`/`__tag__` scan ahead of literal-eval.
 ///
-/// Anything else declines (`Err`) — `match_shell` covers it via the AST
-/// fallback. Literal-eval patterns of arbitrary expressions (the
-/// `try_pattern` fallback) decline too: the lowered predicate can only
-/// see the scrutinee, not the ambient env.
+/// Anything `lower_node` cannot express declines (`Err`) —
+/// `match_shell` covers it via the AST fallback. A computed key that is
+/// *not* a compile-time constant (a param, a call, a concat) still
+/// declines: `has_field`/`field_access`/`obj_except` literals are
+/// static strings, and there is no dynamic-key pattern op.
 fn compile_pattern(
     ast: &Ast,
     lang: &Language,
-    pat: &AstNode,
+    pat_idx: usize,
     node: &AstNode,
+    pat_env: &HashMap<String, EnvEntry>,
 ) -> Result<(Term, Vec<(String, Term)>), String> {
+    let pat = ast
+        .get(AstRef::new(pat_idx))
+        .ok_or_else(|| format!("match pattern {pat_idx} out of bounds"))?;
+    // `[v, in]` accessors: `pv` is the current (sub-)scrutinee value,
+    // `pin` the ambient input.
+    let pv = || Term::op_native_lit("elem", vec![], 0);
+    let pin = || Term::op_native_lit("elem", vec![], 1);
     let id = Term::op_native("id", vec![]);
     let true_t = || Term::const_value(Value::from(true));
-    let eq_lit = |v: Value| Term::op_native("eq", vec![id.clone(), Term::const_value(v)]);
-    let field =
-        |name: &str| Term::op_native_lit("field_access", vec![id.clone()], Value::from(name));
-    let elem_at =
-        |i: usize| Term::op_native_lit("field_access", vec![id.clone()], Value::from(i as i64));
-    let has_field =
-        |name: &str| Term::op_native_lit("has_field", vec![id.clone()], Value::from(name));
+    // `eq`/`field_access` evaluate their args on the input, so a
+    // pair-level use is `op[pv, …]`; `has_field`/`is_obj`/`arr_len`/
+    // `arr_drop`/`tag_fields`/`obj_except` read the input itself (their
+    // `args` are inert), so they ride behind `Seq[pv, …]` (`on_v`).
+    let eq_lit = |v: Value| Term::op_native("eq", vec![pv(), Term::const_value(v)]);
+    let field = |name: &str| Term::op_native_lit("field_access", vec![pv()], Value::from(name));
+    let elem_at = |i: usize| Term::op_native_lit("field_access", vec![pv()], Value::from(i as i64));
+    let on_v = |t: Term| Term::seq(pv(), t);
+    let has_field = |name: &str| {
+        on_v(Term::op_native_lit(
+            "has_field",
+            vec![id.clone()],
+            Value::from(name),
+        ))
+    };
+    // Descend into a sub-pattern: `t` yields the sub-scrutinee on the
+    // pair; `product(t, pin)` re-pairs it with `in` → `[v', in]`.
+    let sub_pair = |t: Term| Term::op_native("product", vec![t, pin()]);
+    // `try_pattern`'s tail: evaluate the node as an expression in the
+    // ambient env and `eq`-compare against `v` — honest for anything
+    // `lower_node` covers (`paren` bodies, env-bound vars, calls,
+    // field accesses, object/array literals).
+    let lit_eval = |expr_idx: usize| -> Result<(Term, Vec<(String, Term)>), String> {
+        let e = lower_node(ast, lang, expr_idx, pat_env, &[])?;
+        Ok((Term::op_native("eq", vec![pv(), e]), vec![]))
+    };
     let role = |r: &str, kind: &str| {
         lang.pattern_role_is(&pat.kind, r)
             .unwrap_or(pat.kind == kind)
@@ -2149,16 +2181,12 @@ fn compile_pattern(
                 // Bare `var` binds the whole scrutinee; an env-bound name
                 // still binds (binders shadow — `try_pattern` checks only
                 // `ctx.global_value`).
-                Ok((true_t(), vec![(name.to_string(), id.clone())]))
+                Ok((true_t(), vec![(name.to_string(), pv())]))
             }
             // A leaf without a string payload (e.g. `arr`) is a literal
-            // in `try_pattern` — evaluated then `eq`-compared, which the
-            // scrutinee-only predicate cannot express. Decline.
-            None => Err(format!(
-                "match at {}: leaf pattern `{}` has no string payload (literal-eval patterns are not lowerable)",
-                node_index(node),
-                pat.kind
-            )),
+            // in `try_pattern` — evaluate it in the ambient env and
+            // `eq`-compare.
+            None => lit_eval(pat_idx),
         };
     }
 
@@ -2192,40 +2220,38 @@ fn compile_pattern(
         // erroring mid-dispatch. `[]` uses structural equality so a
         // non-array also falls through.
         let mut pred = if n == 0 && rest.is_none() {
-            Term::op_native(
-                "eq",
-                vec![id.clone(), Term::const_value(Value::Array(vec![]))],
-            )
+            eq_lit(Value::Array(vec![]))
         } else {
             Term::op_native(
                 if rest.is_some() { "gte" } else { "eq" },
                 vec![
-                    Term::op_native("arr_len", vec![id.clone()]),
+                    on_v(Term::op_native("arr_len", vec![id.clone()])),
                     Term::const_value(Value::from(n as i64)),
                 ],
             )
         };
-        // Positional sub-patterns recurse; each predicate runs on
-        // `sv[i]` behind the length check (short-circuit), so a
-        // too-short scrutinee cannot error on `field_access i`.
+        // Positional sub-patterns recurse on `[sv[i], in]` behind the
+        // length check (short-circuit), so a too-short scrutinee cannot
+        // error on `field_access i`.
         let mut binds: Vec<(String, Term)> = Vec::new();
         for (i, &p) in positional.iter().enumerate() {
-            let pn = ast
-                .get(AstRef::new(p))
-                .ok_or_else(|| format!("pattern elem {p} out of bounds"))?;
-            let (sub_pred, sub_binds) = compile_pattern(ast, lang, pn, node)?;
+            let (sub_pred, sub_binds) = compile_pattern(ast, lang, p, node, pat_env)?;
             if !is_const_true(&sub_pred) {
-                pred = and_short(pred, Term::seq(elem_at(i), sub_pred));
+                pred = and_short(pred, Term::seq(sub_pair(elem_at(i)), sub_pred));
             }
             for (name, path) in sub_binds {
-                binds.push((name, Term::seq(elem_at(i), path)));
+                binds.push((name, Term::seq(sub_pair(elem_at(i)), path)));
             }
         }
         if let Some(r) = rest {
             if let Some(name) = rest_binder_name(ast, lang, r, node)? {
                 binds.push((
                     name,
-                    Term::op_native_lit("arr_drop", vec![id.clone()], Value::from(n as i64)),
+                    on_v(Term::op_native_lit(
+                        "arr_drop",
+                        vec![id.clone()],
+                        Value::from(n as i64),
+                    )),
                 ));
             }
         }
@@ -2233,10 +2259,11 @@ fn compile_pattern(
     }
 
     // 3. Entries (`pattern_role: entries`, canonical `object`) —
-    //    `{k0: p0, k1: p1, ..., ...rest}`. Each entry's key must be a
-    //    declared literal key (`literal_children`); its value is a
-    //    sub-pattern matched against `sv.k`. `has_field k` is the
-    //    shape guard: non-objects and missing keys fall through.
+    //    `{k0: p0, k1: p1, ..., ...rest}`. Each entry's key must resolve
+    //    statically (a declared `literal_children` key, or a computed
+    //    key that is a compile-time constant); its value is a
+    //    sub-pattern matched against `sv.k`. `has_field k` is the shape
+    //    guard: non-objects and missing keys fall through.
     if role("entries", "object") {
         let mut rest: Option<usize> = None;
         let mut entry_indices: Vec<usize> = Vec::new();
@@ -2281,56 +2308,56 @@ fn compile_pattern(
             // `literal_children` declares which key kinds carry the field
             // name (canonical: `var`/`string`); anything else is a
             // computed key the interpreter evaluates in the ambient env.
-            // A *constant* key node (literal payload, or a `paren`
-            // wrapping one — e.g. a quoted `{ "a": x }` key that parses
-            // as `value`) evaluates to its payload string, so it
-            // resolves statically; a genuinely computed key (a var
-            // reference, a call) yields a value the scrutinee-only
-            // predicate cannot see — decline.
+            // It lowers statically when the key expression is a
+            // compile-time constant (a literal payload, a `paren` around
+            // one, or an env-bound constant like `k :: "a"`); a
+            // genuinely runtime key (a param, a call) yields no static
+            // string for `has_field`/`obj_except` — decline.
             let is_literal = lang
                 .literal_child(&en.kind, "key", &key_node.kind)
                 .unwrap_or(key_node.kind == "var");
             let key = if is_literal {
                 key_node.payload.as_str().unwrap_or("").to_string()
             } else {
-                const_pattern_key_string(ast, key_node).ok_or_else(|| {
+                static_pattern_key(ast, lang, key_idx, pat_env).ok_or_else(|| {
                     format!(
-                        "match at {}: computed object-pattern key kind `{}`",
+                        "match at {}: computed object-pattern key kind `{}` is not a compile-time constant",
                         node_index(node),
                         key_node.kind
                     )
                 })?
             };
             keys.push(key.clone());
-            let val_node = ast
-                .get(AstRef::new(val_idx))
-                .ok_or_else(|| format!("entry value {val_idx} out of bounds"))?;
-            let (sub_pred, sub_binds) = compile_pattern(ast, lang, val_node, node)?;
+            let (sub_pred, sub_binds) = compile_pattern(ast, lang, val_idx, node, pat_env)?;
             // `has_field k` first — it is the `sv is Obj && k present`
             // guard — then the sub-predicate on `sv.k`, short-circuited
             // so a missing key cannot error on `field_access`.
             let entry_pred = if is_const_true(&sub_pred) {
                 has_field(&key)
             } else {
-                and_short(has_field(&key), Term::seq(field(&key), sub_pred))
+                and_short(has_field(&key), Term::seq(sub_pair(field(&key)), sub_pred))
             };
             pred = Some(match pred {
                 Some(p) => and_short(p, entry_pred),
                 None => entry_pred,
             });
             for (name, path) in sub_binds {
-                binds.push((name, Term::seq(field(&key), path)));
+                binds.push((name, Term::seq(sub_pair(field(&key)), path)));
             }
         }
         // `{}` — any object matches (`try_object_pattern` checks only
         // that the scrutinee is an Obj).
-        let pred = pred.unwrap_or_else(|| Term::op_native("is_obj", vec![id.clone()]));
+        let pred = pred.unwrap_or_else(|| on_v(Term::op_native("is_obj", vec![id.clone()])));
         if let Some(r) = rest {
             if let Some(name) = rest_binder_name(ast, lang, r, node)? {
                 let key_lits: Vec<Value> = keys.iter().map(|k| Value::from(k.as_str())).collect();
                 binds.push((
                     name,
-                    Term::op_native_lit("obj_except", vec![id.clone()], Value::Array(key_lits)),
+                    on_v(Term::op_native_lit(
+                        "obj_except",
+                        vec![id.clone()],
+                        Value::Array(key_lits),
+                    )),
                 ));
             }
         }
@@ -2393,7 +2420,10 @@ fn compile_pattern(
             }
             binds.push((
                 name.to_string(),
-                Term::seq(Term::op_native("tag_fields", vec![id.clone()]), elem_at(i)),
+                Term::seq(
+                    on_v(Term::op_native("tag_fields", vec![id.clone()])),
+                    Term::op_native_lit("field_access", vec![id.clone()], Value::from(i as i64)),
+                ),
             ));
         }
         return Ok((pred, binds));
@@ -2403,29 +2433,10 @@ fn compile_pattern(
         // Literal values — `value`/`lit`/`number`/`string`/`bool` nodes
         // carry their payload directly.
         "value" | "lit" | "number" | "string" | "bool" => Ok((eq_lit(pat.payload.clone()), vec![])),
-        // `paren` is a transparent wrapper in `try_pattern` (it is
-        // literal-evaluated, so its inner must itself be a literal
-        // payload — destructure-inside-parens is a different semantic
-        // and stays declined).
-        "paren" => {
-            let mut inner = pat;
-            while inner.kind == "paren" {
-                let inner_idx = child_at_role_or_pos(inner, lang, "body", 0)
-                    .ok_or_else(|| format!("paren pattern missing body child"))?;
-                inner = ast
-                    .get(AstRef::new(inner_idx))
-                    .ok_or_else(|| format!("paren body {inner_idx} out of bounds"))?;
-            }
-            match inner.kind.as_str() {
-                "value" | "lit" | "number" | "string" | "bool" => {
-                    Ok((eq_lit(inner.payload.clone()), vec![]))
-                }
-                other => Err(format!(
-                    "match at {}: `paren` pattern wraps non-literal kind `{other}`",
-                    node_index(node)
-                )),
-            }
-        }
+        // `paren` is a transparent wrapper — literal-eval of the inner
+        // expression (`lower_node` unwraps the `body` child), which
+        // covers literals, env-bound vars, and arbitrary expressions.
+        "paren" => lit_eval(pat_idx),
         // `_tag`-keyed record patterns (`{_tag: "Some", value: x}` — the
         // `nullish`/`opt-chain` desugar shape) and `__tag__` sums on the
         // `record` kind (which has no `pattern_role` — it is a literal
@@ -2459,10 +2470,15 @@ fn compile_pattern(
             }
             let (tc, vc) = (tag_child, value_child);
             let Some(tc) = tc else {
-                return Err(format!(
-                    "match at {}: record pattern without a `_tag`/`__tag__` key",
-                    node_index(node)
-                ));
+                // No `_tag`/`__tag__` key — the interpreter treats a
+                // `record` as a literal pattern, so evaluate it and
+                // `eq`-compare (declines if it cannot lower).
+                return lit_eval(pat_idx).map_err(|_| {
+                    format!(
+                        "match at {}: record pattern without a `_tag`/`__tag__` key",
+                        node_index(node)
+                    )
+                });
             };
             let tag_node = ast
                 .get(AstRef::new(tc))
@@ -2493,36 +2509,60 @@ fn compile_pattern(
                 .unwrap_or_default();
             Ok((pred, binds))
         }
-        other => Err(format!(
-            "match at {}: unsupported pattern kind `{other}`",
-            node_index(node)
-        )),
+        // `try_pattern`'s literal-eval tail — any other expression node
+        // (binary ops, field accesses, object/array literals, calls)
+        // evaluates in the ambient env and `eq`-compares.
+        other => lit_eval(pat_idx).map_err(|e| {
+            format!(
+                "match at {}: unsupported pattern kind `{other}` ({e})",
+                node_index(node)
+            )
+        }),
     }
 }
 
-/// A *constant* object-pattern key's string — the value
-/// `eval_pattern_node` would produce for a non-`literal_children` key
-/// without needing the ambient env: a literal payload, or a `paren`
-/// wrapper around one. Anything else (a `var`/`call`/expression key)
-/// yields `None` — its value is env-dependent.
-fn const_pattern_key_string(ast: &Ast, key_node: &AstNode) -> Option<String> {
-    let mut cur = key_node;
-    loop {
-        match cur.kind.as_str() {
-            "value" | "lit" | "number" | "string" | "bool" => {
-                return Some(cur.payload.as_str().unwrap_or("").to_string());
+/// A computed object-pattern key's string when it resolves at compile
+/// time: lower the key expression against the pattern env and take its
+/// static value ([`static_term_value`]). Mirrors `try_object_pattern`'s
+/// `key_val.as_str().unwrap_or("")` — a non-string static value keys
+/// the empty field.
+fn static_pattern_key(
+    ast: &Ast,
+    lang: &Language,
+    key_idx: usize,
+    pat_env: &HashMap<String, EnvEntry>,
+) -> Option<String> {
+    let term = lower_node(ast, lang, key_idx, pat_env, &[]).ok()?;
+    let value = static_term_value(&term)?;
+    Some(value.as_str().unwrap_or("").to_string())
+}
+
+/// The value a term produces regardless of input — the compile-time
+/// constants (`Const`, `Arr`) plus one layer of the
+/// `Seq[proj(0|1)|id, const]` re-anchor [`lower_match`] wraps env
+/// bindings in (that projection cannot fail on the `[v, in]` dispatch
+/// pair). Anything deeper — a projection of `in`, an op — may read the
+/// input or error at runtime, so it is *not* static.
+fn static_term_value(t: &Term) -> Option<Value> {
+    match t {
+        Term::Const { value } | Term::Arr { value, .. } => Some(value.clone()),
+        Term::Seq { fst, snd, .. } => {
+            let safe_proj = matches!(
+                fst.as_ref(),
+                Term::Op { name, lit, .. }
+                    if name == "id"
+                        || (name == "elem"
+                            && matches!(lit, Some(Value::Number(n)) if n.as_u64() <= Some(1)))
+            );
+            if !safe_proj {
+                return None;
             }
-            "paren" => {
-                let inner_idx = cur
-                    .payload
-                    .get("children")
-                    .and_then(Value::as_array)
-                    .and_then(|a| a.first())
-                    .and_then(Value::as_u64)? as usize;
-                cur = ast.get(AstRef::new(inner_idx))?;
+            match snd.as_ref() {
+                Term::Const { value } | Term::Arr { value, .. } => Some(value.clone()),
+                _ => None,
             }
-            _ => return None,
         }
+        _ => None,
     }
 }
 

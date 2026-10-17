@@ -50,6 +50,19 @@ fn assert_lowered(src: &str) {
     assert_eq!(got, want, "{src:?}");
 }
 
+/// `src` must *decline* to lower — the AST eval fallback covers the
+/// semantics the arrow lowering cannot express.
+fn assert_declines(src: &str) {
+    let rt = runtime();
+    let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
+    let ast = rt.parse(&toks).expect("parse+desugar must succeed");
+    let root = AstRef::new(ast.len() - 1);
+    assert!(
+        lower_ast(&ast, rt.lang(), root).is_err(),
+        "{src:?} should decline"
+    );
+}
+
 /// Like [`assert_lowered`] but for a hand-built arena: the lowered term
 /// must interpret to `want`.
 fn assert_lowered_ast(ast: &Ast, want: Value) {
@@ -161,6 +174,63 @@ fn arm_bodies_see_rebased_env() {
     assert_lowered(r#"((xs) ~> match xs { []: 1, _: 2 })([])"#);
     assert_lowered(r#"((xs) ~> match xs { []: 1, _: 2 })([3])"#);
     assert_lowered(r#"do { f :: (xs) ~> match xs { []: 1, _: 2 }, f([]) }"#);
+}
+
+#[test]
+fn paren_literal_eval_patterns() {
+    // `(expr)` in pattern position is `try_pattern`'s literal-eval tail:
+    // evaluate the expression in the ambient env and `eq`-compare. The
+    // `[sv, in]` pair feeds the lowered expression `in`, so env bindings
+    // *and* enclosing params resolve — not just literals.
+    assert_lowered(r#"match 5 { (5): "hit", _: "miss" }"#);
+    assert_lowered(r#"match 4 { (5): "hit", _: "miss" }"#);
+    assert_lowered(r#"match 3 { (1 + 2): "hit", _: "miss" }"#);
+    assert_lowered(r#"match 2 { (1 + 2): "hit", _: "miss" }"#);
+    // Env-bound constants and param values both resolve.
+    assert_lowered(r#"do { n :: 5, match 5 { (n): "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n :: 5, match 4 { (n): "hit", _: "miss" } }"#);
+    assert_lowered(r#"((n) ~> match 5 { (n): "hit", _: "miss" })(5)"#);
+    assert_lowered(r#"((n) ~> match 5 { (n): "hit", _: "miss" })(4)"#);
+    // Compound expressions — field access, literals.
+    assert_lowered(r#"do { o :: {"a": 7}, match 7 { (o.a): "hit", _: "miss" } }"#);
+    assert_lowered(r#"match [1, 2] { ([1, 2]): "hit", _: "miss" }"#);
+    assert_lowered(r#"match [1, 3] { ([1, 2]): "hit", _: "miss" }"#);
+    // Literal-eval *nested* inside structural patterns — `in` reaches
+    // any depth through the re-paired `[v', in]` sub-scrutinee.
+    assert_lowered(r#"do { n :: 2, match [1, 2] { [1, (n)]: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n :: 2, match [1, 3] { [1, (n)]: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n :: 2, match { "a": 2 } { { "a": (n) }: "hit", _: "miss" } }"#);
+    assert_lowered(r#"((n) ~> match { "a": 9 } { { "a": (n) }: "hit", _: "miss" })(9)"#);
+    assert_lowered(r#"((n) ~> match { "a": 9 } { { "a": (n) }: "hit", _: "miss" })(8)"#);
+}
+
+#[test]
+fn computed_object_pattern_keys() {
+    // `[expr]`/`(expr)` entry keys desugar to `paren` key children — a
+    // computed key the interpreter evaluates in the ambient env. When
+    // that expression is a compile-time constant (an env-bound constant
+    // like `k :: "a"`), the key string resolves statically.
+    assert_lowered(r#"do { k :: "a", match { "a": 1 } { {[k]: x}: x, _: 0 } }"#);
+    assert_lowered(r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x}: x, _: 0 } }"#);
+    // `...rest` excludes the statically-resolved matched key.
+    assert_lowered(r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#);
+    assert_lowered(r#"do { k :: "a", match { "b": 1 } { {[k]: x}: x, _: 0 } }"#);
+    // `paren`-wrapped literal keys keep working through the same path.
+    assert_lowered(r#"match { "a": 1 } { {("a"): x}: x, _: 0 }"#);
+    // A computed key whose value is genuinely runtime (a param, a
+    // non-const binding) cannot become a static `has_field` literal —
+    // the pattern declines to the AST fallback.
+    assert_declines(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 0 })("a")"#);
+}
+
+#[test]
+fn literal_eval_tail_patterns() {
+    // `try_pattern`'s tail evaluates any non-structural pattern node as
+    // an expression — a bare field-access, an object literal, a nested
+    // `paren`.
+    assert_lowered(r#"do { o :: {"a": 7}, match 7 { o.a: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { o :: {"a": 7}, match 8 { o.a: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { p :: [9], match 9 { (p.0): "hit", _: "miss" } }"#);
 }
 
 #[test]
