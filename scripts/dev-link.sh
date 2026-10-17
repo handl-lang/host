@@ -54,8 +54,18 @@ for repo in list(refd):
         refd.update(refs_of(d))
 
 # Map repo -> [(package name, sibling relative path)] for referenced repos.
+#
+# Two layouts are supported: a workspace of `crates/*` + `modules/*`
+# members, and the single-crate-at-root layout (`lib-*` ports after the
+# ADR-0128 split), which has no `crates/`/`modules/` directory at all.
 def packages(repo_dir: pathlib.Path):
     out = []
+    root_toml = repo_dir / "Cargo.toml"
+    if root_toml.is_file():
+        text = root_toml.read_text()
+        m = re.search(r'^name = "([^"]+)"', text, re.M)
+        if m and re.search(r"^\[package\]", text, re.M):
+            out.append((m.group(1), repo_dir.relative_to(org).as_posix()))
     for group in ("crates", "modules"):
         g = repo_dir / group
         if not g.is_dir():

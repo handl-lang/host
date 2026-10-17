@@ -789,8 +789,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-archive"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-arrow-iter"
 version = "0.1.0"
+
+[[package]]
+name = "handl-lib-base64"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "handl-lib-encoding",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "serde_json",
+]
 
 [[package]]
 name = "handl-lib-bytes"
@@ -814,6 +829,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-collections"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-combinators"
 version = "0.1.0"
 dependencies = [
@@ -824,6 +843,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-datetime"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-dedent"
 version = "0.1.0"
 
@@ -831,11 +854,9 @@ version = "0.1.0"
 name = "handl-lib-encoding"
 version = "0.1.0"
 dependencies = [
- "base64",
  "handl-lib-ops",
  "handl-platform",
  "handl-plugin-lib-handl",
- "hex",
  "serde_json",
  "thiserror",
 ]
@@ -853,6 +874,36 @@ dependencies = [
 [[package]]
 name = "handl-lib-hello"
 version = "0.1.0"
+
+[[package]]
+name = "handl-lib-hex"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-encoding",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "hex",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-lib-intl"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-intl-c"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-json"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-serialize",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "handl-value",
+ "serde_json",
+]
 
 [[package]]
 name = "handl-lib-mood"
@@ -883,12 +934,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-option"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-parse"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-ops",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "handl-lib-prim"
 version = "0.1.0"
 
 [[package]]
 name = "handl-lib-prim-handl"
 version = "0.1.0"
+
+[[package]]
+name = "handl-lib-result"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-serialize"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-ops",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "handl-value",
+ "serde_json",
+ "thiserror",
+]
 
 [[package]]
 name = "handl-lib-stats"
@@ -911,6 +993,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-transform"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-type"
 version = "0.1.0"
 dependencies = [
@@ -918,6 +1004,36 @@ dependencies = [
  "handl-platform",
  "handl-plugin-lib-handl",
  "serde_json",
+]
+
+[[package]]
+name = "handl-lib-unicode"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-unicode-c"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-url-rfc"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-parse",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "iri-string",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-lib-url-whatwg"
+version = "0.1.0"
+dependencies = [
+ "handl-lib-parse",
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "serde_json",
+ "url",
 ]
 
 [[package]]
@@ -1556,28 +1672,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-parse"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "handl-plugin-lib-scheduler"
 version = "0.1.0"
-
-[[package]]
-name = "handl-plugin-lib-serialize"
-version = "0.1.0"
-dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "serde_json",
- "thiserror",
-]
 
 [[package]]
 name = "handl-plugin-lib-stdlib"
@@ -1585,25 +1681,40 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "handl-language",
+ "handl-lib-archive",
  "handl-lib-arrow-iter",
+ "handl-lib-base64",
  "handl-lib-bytes",
  "handl-lib-cmp",
+ "handl-lib-collections",
  "handl-lib-combinators",
+ "handl-lib-datetime",
  "handl-lib-encoding",
  "handl-lib-error",
  "handl-lib-hello",
+ "handl-lib-hex",
+ "handl-lib-intl",
+ "handl-lib-intl-c",
+ "handl-lib-json",
  "handl-lib-mood",
  "handl-lib-obj",
  "handl-lib-ops",
+ "handl-lib-option",
+ "handl-lib-parse",
  "handl-lib-prim",
  "handl-lib-prim-handl",
+ "handl-lib-result",
+ "handl-lib-serialize",
  "handl-lib-stats",
  "handl-lib-tar",
+ "handl-lib-transform",
  "handl-lib-type",
+ "handl-lib-unicode",
+ "handl-lib-unicode-c",
+ "handl-lib-url-rfc",
+ "handl-lib-url-whatwg",
  "handl-platform",
  "handl-plugin-lib-handl",
- "handl-plugin-lib-parse",
- "handl-plugin-lib-serialize",
  "handl-plugin-module",
  "handl-value",
  "hex",
