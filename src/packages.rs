@@ -191,7 +191,13 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_encoding::ENCODING_OPS,
         values: &[],
-        registry: Some(handl_lib_encoding::encoding_op_registry),
+        registry: Some(|| {
+            handl_lib_encoding::encoding_op_registry_with(
+                handl_lib_hex::register(handl_lib_base64::register(
+                    handl_lib_encoding::EncodingRegistry::new(),
+                )),
+            )
+        }),
     },
     // ── bytes ──────────────────────────────────────────────────────────
     // Byte-buffer primitives for the `Bytes` scalar type — the only
