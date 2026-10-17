@@ -312,6 +312,19 @@ fn lower_node(
         "ternary" => lower_ternary(ast, lang, node, env, params),
         "nullish" => lower_nullish(ast, lang, node, env, params),
 
+        // `eval.type-annot` is `Seq[Seq[proj_child 1, extend_env], proj_child 0]`:
+        // the env engines record the annotation in the env, then yield the
+        // subject. On the arrow path annotations erase — the subject term
+        // alone is the lowering (the `extend_env` bookkeeping has no
+        // compile-time counterpart). The subject placeholder sits in
+        // `Seq.snd` — a non-input position — hence this arm, same pattern
+        // as `lower_if`/`lower_while` (ADR-0147/0148).
+        "type-annot" => {
+            let subject_idx = child_at_role_or_pos(node, lang, "subject", 0)
+                .ok_or_else(|| format!("type-annot at {idx} missing subject child"))?;
+            lower_node(ast, lang, subject_idx, env, params)
+        }
+
         // `eval.dimension` is the `eval.call` routing shape verbatim
         // (`f<X>` applies the target to its dimension args, children laid
         // out `[target, args…]` like `call`'s `[callee, args…]`) — same
