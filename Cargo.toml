@@ -119,7 +119,7 @@ handl-lib-str-handl = { git = "https://github.com/handl-lang/lib-str-handl", bra
 handl-lib-dedent = { git = "https://github.com/handl-lang/lib-dedent", branch = "main" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
-handl-plugin-lib-encoding = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 handl-plugin-lib-kv = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
@@ -220,10 +220,40 @@ handl-plugin-compile-handl = { path = "../handl/modules/compile-handl" }
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 [patch."https://github.com/handl-lang/lang"]
 handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
+[patch."https://github.com/handl-lang/lib-arrow-iter"]
+handl-lib-arrow-iter = { path = "../lib-arrow-iter" }
+[patch."https://github.com/handl-lang/lib-bytes"]
+handl-lib-bytes = { path = "../lib-bytes" }
+[patch."https://github.com/handl-lang/lib-cmp"]
+handl-lib-cmp = { path = "../lib-cmp" }
+[patch."https://github.com/handl-lang/lib-combinators"]
+handl-lib-combinators = { path = "../lib-combinators" }
 [patch."https://github.com/handl-lang/lib-dedent"]
 handl-lib-dedent = { path = "../lib-dedent" }
+[patch."https://github.com/handl-lang/lib-encoding"]
+handl-lib-encoding = { path = "../lib-encoding" }
+[patch."https://github.com/handl-lang/lib-error"]
+handl-lib-error = { path = "../lib-error" }
+[patch."https://github.com/handl-lang/lib-hello"]
+handl-lib-hello = { path = "../lib-hello" }
+[patch."https://github.com/handl-lang/lib-mood"]
+handl-lib-mood = { path = "../lib-mood" }
+[patch."https://github.com/handl-lang/lib-obj"]
+handl-lib-obj = { path = "../lib-obj" }
+[patch."https://github.com/handl-lang/lib-ops"]
+handl-lib-ops = { path = "../lib-ops" }
+[patch."https://github.com/handl-lang/lib-prim"]
+handl-lib-prim = { path = "../lib-prim" }
+[patch."https://github.com/handl-lang/lib-prim-handl"]
+handl-lib-prim-handl = { path = "../lib-prim-handl" }
+[patch."https://github.com/handl-lang/lib-stats"]
+handl-lib-stats = { path = "../lib-stats" }
 [patch."https://github.com/handl-lang/lib-str-handl"]
 handl-lib-str-handl = { path = "../lib-str-handl" }
+[patch."https://github.com/handl-lang/lib-tar"]
+handl-lib-tar = { path = "../lib-tar" }
+[patch."https://github.com/handl-lang/lib-type"]
+handl-lib-type = { path = "../lib-type" }
 [patch."https://github.com/handl-lang/native"]
 handl-plugin-compile-llvm = { path = "../native/modules/compile-llvm" }
 handl-plugin-engine-exec-cranelift = { path = "../native/modules/exec-cranelift" }
@@ -290,7 +320,6 @@ handl-plugin-compile-sexp = { path = "../sexp/modules/compile-sexp" }
 handl-plugin-lib-stdlib = { path = "../stdlib/crates/plugin-lib-stdlib" }
 handl-plugin-lib-char-native = { path = "../stdlib/modules/char-native" }
 handl-plugin-lib-crypto = { path = "../stdlib/modules/crypto" }
-handl-plugin-lib-encoding = { path = "../stdlib/modules/encoding" }
 handl-plugin-lib-kv = { path = "../stdlib/modules/kv" }
 handl-plugin-lib-kv-hashmap = { path = "../stdlib/modules/kv-hashmap" }
 handl-plugin-lib-lang-compile = { path = "../stdlib/modules/lib-lang-compile" }
