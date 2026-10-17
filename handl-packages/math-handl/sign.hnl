@@ -2,4 +2,14 @@
 from "type" import { Number }
 from "../math/sign" import { Sign }
 
-export sign: Sign := (x) ~> do { if x > 0 { 1.0 } else { if x < 0 { -1.0 } else { 0.0 } } } }
+export sign: Sign := (x) ~> do {
+  if x > 0 {
+    1.0
+  } else {
+    if x < 0 {
+      -1.0
+    } else {
+      0.0
+    }
+  }
+}

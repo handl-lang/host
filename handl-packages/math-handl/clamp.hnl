@@ -2,4 +2,14 @@
 from "type" import { Number }
 from "../math/clamp" import { Clamp }
 
-export clamp: Clamp := (x, lo, hi) ~> do { if x < lo { lo } else { if x > hi { hi } else { x } } } }
+export clamp: Clamp := (x, lo, hi) ~> do {
+  if x < lo {
+    lo
+  } else {
+    if x > hi {
+      hi
+    } else {
+      x
+    }
+  }
+}

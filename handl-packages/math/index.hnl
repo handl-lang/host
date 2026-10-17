@@ -39,95 +39,95 @@ from "../math-handl/lerp" import lerp as __lerp
 export lerp := __lerp
 from "../math-handl/map_range" import map_range as __map_range
 export map_range := __map_range
-from "../math-c/ceil" import ceil as __ceil
+from "math-c/ceil" import ceil as __ceil
 export ceil := __ceil
-from "../math-c/cos" import cos as __cos
+from "math-c/cos" import cos as __cos
 export cos := __cos
-from "../math-c/cosh" import cosh as __cosh
+from "math-c/cosh" import cosh as __cosh
 export cosh := __cosh
-from "../math-c/cbrt" import cbrt as __cbrt
+from "math-c/cbrt" import cbrt as __cbrt
 export cbrt := __cbrt
-from "../math-c/asin" import asin as __asin
+from "math-c/asin" import asin as __asin
 export asin := __asin
-from "../math-c/acos" import acos as __acos
+from "math-c/acos" import acos as __acos
 export acos := __acos
-from "../math-c/atan" import atan as __atan
+from "math-c/atan" import atan as __atan
 export atan := __atan
-from "../math-c/atan2" import atan2 as __atan2
+from "math-c/atan2" import atan2 as __atan2
 export atan2 := __atan2
-from "../math-c/asinh" import asinh as __asinh
+from "math-c/asinh" import asinh as __asinh
 export asinh := __asinh
-from "../math-c/acosh" import acosh as __acosh
+from "math-c/acosh" import acosh as __acosh
 export acosh := __acosh
-from "../math-c/atanh" import atanh as __atanh
+from "math-c/atanh" import atanh as __atanh
 export atanh := __atanh
-from "../math-c/bit_and" import bit_and as __bit_and
+from "math-c/bit_and" import bit_and as __bit_and
 export bit_and := __bit_and
-from "../math-c/bit_not" import bit_not as __bit_not
+from "math-c/bit_not" import bit_not as __bit_not
 export bit_not := __bit_not
-from "../math-c/bit_or" import bit_or as __bit_or
+from "math-c/bit_or" import bit_or as __bit_or
 export bit_or := __bit_or
-from "../math-c/bit_xor" import bit_xor as __bit_xor
+from "math-c/bit_xor" import bit_xor as __bit_xor
 export bit_xor := __bit_xor
-from "../math-c/shl" import shl as __shl
+from "math-c/shl" import shl as __shl
 export shl := __shl
-from "../math-c/shr" import shr as __shr
+from "math-c/shr" import shr as __shr
 export shr := __shr
-from "../math-c/rotl32" import rotl32 as __rotl32
+from "math-c/rotl32" import rotl32 as __rotl32
 export rotl32 := __rotl32
-from "../math-c/u32" import u32 as __u32
+from "math-c/u32" import u32 as __u32
 export u32 := __u32
-from "../math-c/degrees" import degrees as __degrees
+from "math-c/degrees" import degrees as __degrees
 export degrees := __degrees
-from "../math-c/e" import e as __e
+from "math-c/e" import e as __e
 export e := __e
-from "../math-c/exp" import exp as __exp
+from "math-c/exp" import exp as __exp
 export exp := __exp
-from "../math-c/factorial" import factorial as __factorial
+from "math-c/factorial" import factorial as __factorial
 export factorial := __factorial
-from "../math-c/floor" import floor as __floor
+from "math-c/floor" import floor as __floor
 export floor := __floor
-from "../math-c/floor_div" import floor_div as __floor_div
+from "math-c/floor_div" import floor_div as __floor_div
 export floor_div := __floor_div
-from "../math-c/fract" import fract as __fract
+from "math-c/fract" import fract as __fract
 export fract := __fract
-from "../math-c/gcd" import gcd as __gcd
+from "math-c/gcd" import gcd as __gcd
 export gcd := __gcd
-from "../math-c/hypot" import hypot as __hypot
+from "math-c/hypot" import hypot as __hypot
 export hypot := __hypot
-from "../math-c/infinity" import infinity as __infinity
+from "math-c/infinity" import infinity as __infinity
 export infinity := __infinity
-from "../math-c/lcm" import lcm as __lcm
+from "math-c/lcm" import lcm as __lcm
 export lcm := __lcm
-from "../math-c/log" import log as __log
+from "math-c/log" import log as __log
 export log := __log
-from "../math-c/log10" import log10 as __log10
+from "math-c/log10" import log10 as __log10
 export log10 := __log10
-from "../math-c/log2" import log2 as __log2
+from "math-c/log2" import log2 as __log2
 export log2 := __log2
-from "../math-c/nan" import nan as __nan
+from "math-c/nan" import nan as __nan
 export nan := __nan
-from "../math-c/pi" import pi as __pi
+from "math-c/pi" import pi as __pi
 export pi := __pi
-from "../math-c/pow" import pow as __pow
+from "math-c/pow" import pow as __pow
 export pow := __pow
-from "../math-c/radians" import radians as __radians
+from "math-c/radians" import radians as __radians
 export radians := __radians
-from "../math-c/round" import round as __round
+from "math-c/round" import round as __round
 export round := __round
-from "../math-c/round_to" import round_to as __round_to
+from "math-c/round_to" import round_to as __round_to
 export round_to := __round_to
-from "../math-c/sin" import sin as __sin
+from "math-c/sin" import sin as __sin
 export sin := __sin
-from "../math-c/sinh" import sinh as __sinh
+from "math-c/sinh" import sinh as __sinh
 export sinh := __sinh
-from "../math-c/sqrt" import sqrt as __sqrt
+from "math-c/sqrt" import sqrt as __sqrt
 export sqrt := __sqrt
-from "../math-c/tan" import tan as __tan
+from "math-c/tan" import tan as __tan
 export tan := __tan
-from "../math-c/tanh" import tanh as __tanh
+from "math-c/tanh" import tanh as __tanh
 export tanh := __tanh
-from "../math-c/tau" import tau as __tau
+from "math-c/tau" import tau as __tau
 export tau := __tau
-from "../math-c/trunc" import trunc as __trunc
+from "math-c/trunc" import trunc as __trunc
 export trunc := __trunc

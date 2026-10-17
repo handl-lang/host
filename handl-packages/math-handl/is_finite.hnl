@@ -2,4 +2,14 @@
 from "type" import { Number, Bool }
 from "../math/is_finite" import { IsFinite }
 
-export is_finite: IsFinite := (x) ~> do { if x != x { false } else { if x == 0 { true } else { x != x + x } } } }
+export is_finite: IsFinite := (x) ~> do {
+  if x != x {
+    false
+  } else {
+    if x == 0 {
+      true
+    } else {
+      x != x + x
+    }
+  }
+}
