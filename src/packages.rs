@@ -187,11 +187,11 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "encoding",
-        hnl: include_str!("../../../handl-packages/utils/encoding.hnl"),
+        hnl: handl_lib_encoding::ENCODING_HNL,
         funcs: &[],
-        ops: ops::encoding::ENCODING_OPS,
+        ops: handl_lib_encoding::ENCODING_OPS,
         values: &[],
-        registry: Some(ops::encoding::encoding_op_registry),
+        registry: Some(handl_lib_encoding::encoding_op_registry),
     },
     // ── bytes ──────────────────────────────────────────────────────────
     // Byte-buffer primitives for the `Bytes` scalar type — the only

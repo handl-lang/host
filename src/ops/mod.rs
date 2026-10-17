@@ -8,7 +8,6 @@
 
 pub mod base64;
 pub mod collections;
-pub mod encoding;
 pub mod hex;
 pub mod ip;
 pub mod json;

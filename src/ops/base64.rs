@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use base64::{engine::Engine as _, prelude::BASE64_STANDARD};
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_encoding::{Encoding, EncodingError};
+use handl_lib_encoding::{Encoding, EncodingError};
 use handl_plugin_lib_handl::{OpRegistry, RuntimePredicateChecker};
 use serde_json::Value;
 
