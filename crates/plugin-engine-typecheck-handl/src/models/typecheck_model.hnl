@@ -6126,8 +6126,14 @@ do {
       root_idx :: len(ast) - 1
       types_arr :: get_or(lang, "types", [])
       ast_arr :: get_or(lang, "ast", [])
-      type_index :: index_type_rules(types_arr)
-      ast_index :: index_type_rules(ast_arr)
+      --- The adapter prebuilds these indexes from the marshaled Language
+      --- (one Rust pass). Building them here is an interpreted loop that
+      --- copies a growing map of full rule values on every step; the
+      --- fallback stays for hosts that pass a bare `lang` value.
+      prebuilt_type_index :: get_or(lang, "type_index", null)
+      prebuilt_ast_index :: get_or(lang, "ast_index", null)
+      type_index :: if prebuilt_type_index == null { index_type_rules(types_arr) } else { prebuilt_type_index }
+      ast_index :: if prebuilt_ast_index == null { index_type_rules(ast_arr) } else { prebuilt_ast_index }
       s :: tc_new(ast, type_index, ast_index, prelude, get_or(lang, "globals", {}))
       result :: funcs.synth_node_(funcs, s, root_idx)
       zonked :: zonk(zonk, result.typ, result["state"].metas)

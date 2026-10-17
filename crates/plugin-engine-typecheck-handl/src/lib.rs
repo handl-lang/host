@@ -206,6 +206,30 @@ impl HandlTypecheckEngine {
         // Convert scheme terms from serde's externally-tagged Term enum to the
         // tagged-record TermData shape the Handl model consumes (ADR-0103).
         Self::convert_schemes_to_term_data(&mut val);
+        // Prebuild the `node_kind -> rule` indexes the model looks rules up
+        // by. The model's interpreted loop copies a growing map of full
+        // rule values on every step; here it is one pass with one clone per
+        // rule. The model falls back to its own loop when these are absent.
+        let mut type_index = serde_json::Map::new();
+        if let Some(rules) = val.get("types").and_then(|v| v.as_array()) {
+            for rule in rules {
+                if let Some(kind) = rule.get("node_kind").and_then(|v| v.as_str()) {
+                    type_index.insert(kind.to_string(), rule.clone());
+                }
+            }
+        }
+        let mut ast_index = serde_json::Map::new();
+        if let Some(shapes) = val.get("ast").and_then(|v| v.as_array()) {
+            for shape in shapes {
+                if let Some(kind) = shape.get("node_kind").and_then(|v| v.as_str()) {
+                    ast_index.insert(kind.to_string(), shape.clone());
+                }
+            }
+        }
+        if let Some(obj) = val.as_object_mut() {
+            obj.insert("type_index".to_string(), Value::Object(type_index));
+            obj.insert("ast_index".to_string(), Value::Object(ast_index));
+        }
         Ok(val)
     }
 
