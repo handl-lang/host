@@ -64,8 +64,27 @@ fn input_dependent(t: &Term) -> bool {
 /// lazy references: a stack slot would evaluate the op on `__in` at
 /// bind time instead of quoting it at the application site, so they
 /// keep the substitution treatment.
+///
+/// `id`/`elem` are excluded: they are not lazy op references but
+/// *projections* — evaluating them at bind time reads a value (a
+/// parameter or an existing slot) once, which is exactly what the slot
+/// machinery is for. Keeping them env-substituted also meant a
+/// `f := g` param alias was not captured into a nested arrow's
+/// `__bound__`, so `var f` inside the inner body read the wrong
+/// positional input.
 fn is_bare_op_ref(t: &Term) -> bool {
-    matches!(t, Term::Op { args, .. } if args.is_empty())
+    matches!(t, Term::Op { name, args, .. }
+        if args.is_empty() && !matches!(name.as_str(), "id" | "elem"))
+}
+
+/// Whether `t` is a lazy op *reference* usable as a `>>>` body arrow:
+/// a bare `Op{name, []}` naming an op/host function — in `Seq.snd`
+/// position it applies the named op to the lhs output, matching the
+/// engines' `flow`/`arr` dispatch. `id`/`elem` projections and the
+/// `flow` dispatch op itself are *value reads*, not references.
+fn is_lazy_op_ref(t: &Term) -> bool {
+    matches!(t, Term::Op { name, args, .. }
+        if args.is_empty() && !matches!(name.as_str(), "id" | "elem" | "flow"))
 }
 
 /// Push a bound value onto the block's input stack: the continuation
@@ -284,11 +303,28 @@ fn lower_node(
         // arrow lowering instead composes the operand `Term`s directly
         // (`Seq`), unquoting arrow values back into body schemes.
         "flow" => {
-            // `x >>> f` is sequential composition `seq(x, f)`. Both sides
-            // sit in arrow position, so quoted arrow values are unquoted
-            // back into their body schemes.
-            let (l, r) = lower_two_children(ast, lang, node, env, params)?;
-            Ok(Term::seq(unquote_term(l), unquote_term(r)))
+            // `x >>> f` — sequential composition. When the rhs denotes a
+            // *body arrow* (a quoted `Arr` that unquotes, a lazy op
+            // reference, a combinator composite) `seq(x, f)` composes the
+            // operand schemes directly. When it denotes a held *value* —
+            // a slot- or param-held arrow, a call result, a projection —
+            // `seq` would feed it `x`'s *output* as its input (a bare
+            // `elem` then projects the output instead of reading the
+            // held arrow); the honest lowering is `Op{flow, [x, f]}`,
+            // the `eval.flow` dispatch itself: both operands evaluate on
+            // the ambient input, then two arrow values compose
+            // (`Arrow{first, second}`) or the right applies to the left.
+            let l_idx = child_at_role_or_pos(node, lang, "left", 0)
+                .ok_or_else(|| format!("flow at {} missing left child", idx))?;
+            let r_idx = child_at_role_or_pos(node, lang, "right", 1)
+                .ok_or_else(|| format!("flow at {} missing right child", idx))?;
+            let l = lower_node(ast, lang, l_idx, env, params)?;
+            let (r, r_kind) = lower_flow_operand(ast, lang, r_idx, env, params)?;
+            if r_kind == FlowOperand::Value {
+                Ok(Term::op_native("flow", vec![l, r]))
+            } else {
+                Ok(Term::seq(unquote_term(l), unquote_term(r)))
+            }
         }
 
         // `eval.axis_flow` routes axis 0 through `flow` for the canonical
@@ -300,7 +336,10 @@ fn lower_node(
             // `x >>>[k] f` — composition along axis `k` (ADR-0120 Phases 2/5).
             // The axis is an ordinary expression position lowered like any
             // other expression; the operands sit in arrow position and
-            // unquote like `flow`.
+            // unquote like `flow`. On the `eval.axis_flow` left branch
+            // (axis 0 — sequential composition on 1-cells) the operands
+            // classify like `flow`'s: a held-*value* operand cannot feed
+            // `Seq.snd`, so it dispatches through `Op{flow}` instead.
             let l_idx = child_at_role_or_pos(node, lang, "left", 0)
                 .ok_or_else(|| format!("axis_flow at {idx} missing left child"))?;
             let axis_idx = child_at_role_or_pos(node, lang, "axis", 1)
@@ -309,8 +348,12 @@ fn lower_node(
                 .ok_or_else(|| format!("axis_flow at {idx} missing right child"))?;
             let l = lower_node(ast, lang, l_idx, env, params)?;
             let axis = lower_node(ast, lang, axis_idx, env, params)?;
-            let r = lower_node(ast, lang, r_idx, env, params)?;
-            Ok(Term::seq_axis(axis, unquote_term(l), unquote_term(r)))
+            let (r, r_kind) = lower_flow_operand(ast, lang, r_idx, env, params)?;
+            if axis.nat_literal() == Some(0) && r_kind == FlowOperand::Value {
+                Ok(Term::op_native("flow", vec![l, r]))
+            } else {
+                Ok(Term::seq_axis(axis, unquote_term(l), unquote_term(r)))
+            }
         }
 
         // `eval.array`/`eval.object`/`eval.json`/`eval.paren` are
@@ -3067,25 +3110,139 @@ fn lower_field_access(
     }
 }
 
-fn lower_two_children(
+/// How a `flow`/`axis_flow` operand reaches the composition.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FlowOperand {
+    /// A *body arrow* — the term consumes its incoming value as input:
+    /// a quoted `Arr` (unquoted at the composition site), a lazy
+    /// `Op{name, []}` reference (an `op`-decl or unbound/host name —
+    /// applied to the lhs output in `Seq.snd`), or a combinator
+    /// composite (`Seq`/`Choice`/`Loop`/…). Composes via `Seq`.
+    Arrow,
+    /// An input-anchored *value read* — the term evaluates on the
+    /// ambient input to a first-class value: a slot- or param-held
+    /// arrow (`elem`/`id` projections), a bound-record/`App` producer,
+    /// a constant, or any computed `Op{…, [args]}`. `Seq.snd` would feed
+    /// it the lhs's *output* rather than the input it reads, so the
+    /// composition dispatches through `Op{flow}` — the `eval.flow`
+    /// value-level dispatch — instead.
+    Value,
+}
+
+/// Lower a `flow`/`axis_flow` operand and classify it.
+///
+/// `var`/`arr` operands resolve by *provenance* — the same `id`/`elem`
+/// projection means "read my own incoming" for a body arrow but "read
+/// the held parameter/slot value" for a bound name — so the resolution
+/// mirrors the `var`/`arr` arms rather than guessing from the term
+/// shape. For a scheme-kind env entry the bind-time `quote` is what
+/// decides: a lazy `Op{name, []}` stays a body arrow (the `Seq`
+/// operand must not be the `elem(0)`-rebased read, which would project
+/// the lhs output), anything else is a held value applied via
+/// `Op{flow}` on the rebased term.
+fn lower_flow_operand(
     ast: &Ast,
     lang: &Language,
-    node: &AstNode,
+    idx: usize,
     env: &HashMap<String, EnvEntry>,
     params: &[String],
-) -> Result<(Term, Term), String> {
-    let children = children(node);
-    if children.len() < 2 {
-        return Err(format!(
-            "{} at {} needs 2 children, got {}",
-            node.kind,
-            node_index(node),
-            children.len()
-        ));
+) -> Result<(Term, FlowOperand), String> {
+    let node = ast
+        .get(AstRef::new(idx))
+        .ok_or_else(|| format!("flow operand {} out of bounds", idx))?;
+    match node.kind.as_str() {
+        "var" | "arr" => {
+            let name = if node.kind == "var" {
+                node.payload.as_str()
+            } else {
+                node.payload.get("name").and_then(Value::as_str)
+            }
+            .ok_or_else(|| format!("{} at {} has no name payload", node.kind, idx))?;
+            if let Some(pos) = params.iter().position(|p| p == name) {
+                let proj = if params.len() == 1 {
+                    id_op()
+                } else {
+                    elem_op(pos as i64)
+                };
+                return Ok((proj, FlowOperand::Value));
+            }
+            if let Some(entry) = env.get(name) {
+                if entry.slot {
+                    return Ok((entry.term.clone(), FlowOperand::Value));
+                }
+                if entry.arrow_value {
+                    // A quoted `Arr` unquotes into a body arrow; a
+                    // bound-record/`App` producer evaluates to an arrow
+                    // value instead.
+                    let kind = if matches!(&entry.term, Term::Arr { value, .. }
+                        if serde_json::from_value::<Term>(value.clone()).is_ok())
+                    {
+                        FlowOperand::Arrow
+                    } else {
+                        FlowOperand::Value
+                    };
+                    return Ok((entry.term.clone(), kind));
+                }
+                if let Some(quote) = &entry.quote {
+                    if is_lazy_op_ref(quote) {
+                        return Ok((quote.clone(), FlowOperand::Arrow));
+                    }
+                }
+                return Ok((entry.term.clone(), FlowOperand::Value));
+            }
+            if let Some(global) = lang.globals.get(name) {
+                return Ok((Term::const_value(global.clone()), FlowOperand::Value));
+            }
+            // Unbound name: a lazy host/op reference — a body arrow the
+            // `Seq` operand applies to the lhs output.
+            Ok((Term::op_native(name, vec![]), FlowOperand::Arrow))
+        }
+        "paren" => {
+            let inner = child_at_role_or_pos(node, lang, "body", 0)
+                .ok_or_else(|| format!("paren at {} missing body child", idx))?;
+            lower_flow_operand(ast, lang, inner, env, params)
+        }
+        _ => {
+            let term = lower_node(ast, lang, idx, env, params)?;
+            let kind = flow_operand_kind(&term);
+            Ok((term, kind))
+        }
     }
-    let l = lower_node(ast, lang, children[0], env, params)?;
-    let r = lower_node(ast, lang, children[1], env, params)?;
-    Ok((l, r))
+}
+
+/// Classify a non-`var`/`arr` flow operand by its lowered term shape.
+fn flow_operand_kind(t: &Term) -> FlowOperand {
+    match t {
+        // A quoted arrow (`Arr` holding a serialized `Term`) unquotes
+        // into a body arrow; any other `Arr` is a constant value.
+        Term::Arr { value, .. } => {
+            if serde_json::from_value::<Term>(value.clone()).is_ok() {
+                FlowOperand::Arrow
+            } else {
+                FlowOperand::Value
+            }
+        }
+        // `Op{…, [args]}` computes on the ambient input — a value read;
+        // a bare `Op{name, []}` is a lazy op reference (body arrow)
+        // unless it is a projection (`id`/`elem`) or the `flow`
+        // dispatch itself, which read values.
+        Term::Op { name, args, .. } => {
+            if args.is_empty() && !matches!(name.as_str(), "id" | "elem" | "flow") {
+                FlowOperand::Arrow
+            } else {
+                FlowOperand::Value
+            }
+        }
+        // Combinator composites consume their incoming as a pipeline
+        // stage — body arrows for `Seq` composition.
+        Term::Seq { .. }
+        | Term::Choice { .. }
+        | Term::Loop { .. }
+        | Term::First { .. }
+        | Term::Iter { .. }
+        | Term::Handle { .. } => FlowOperand::Arrow,
+        _ => FlowOperand::Value,
+    }
 }
 
 fn function_params(ast: &Ast, lang: &Language, node: &AstNode) -> Result<Vec<String>, String> {
