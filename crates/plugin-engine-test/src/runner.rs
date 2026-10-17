@@ -1148,6 +1148,11 @@ static PRED_MODULE: OnceLock<HandlModule> = OnceLock::new();
 
 /// The shared `pred` [`HandlModule`], built lazily on first use.
 fn pred_module() -> &'static HandlModule {
+    // `HandlModule` bridge runtimes resolve the process-wide default
+    // language; in a test binary no host installs it, so a pred test
+    // running in isolation (nextest is process-per-test) would fail.
+    #[cfg(test)]
+    tests::ensure_lang();
     // `with_loader_disabled`: `analyze_source` would otherwise run a
     // nested eval whose `modules.lookup` misses can re-enter this
     // `OnceLock` and deadlock (bootstrap path is pure text work).
@@ -1927,6 +1932,20 @@ mod tests {
             const { RefCell::new(None) };
     }
 
+    /// Install the canonical default language for `HandlModule` runtimes.
+    ///
+    /// `pred_module` mints a [`HandlModule`], whose bridge runtime resolves
+    /// the process-wide default language (ADR-0128 §"The 0.8 seam"). Test
+    /// binaries have no host to install it, and runners that isolate each
+    /// test in its own process (nextest) would otherwise fail with "no
+    /// language available". [`handl_kit_canonical::Kit::new`] performs the
+    /// install; the assembly is cached in the process-wide `OnceLock`.
+    pub(super) fn ensure_lang() {
+        if handl_plugin_lib_handl::default_language().is_none() {
+            let _ = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+        }
+    }
+
     /// The canonical base-runtime factory — a capture-less closure over
     /// the thread-local kit, so it is `Send + Sync`.
     fn canonical_source() -> TestKitSource {
@@ -2348,6 +2367,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn filter_eval_via_pred_module() {
+        ensure_lang();
         // Substring and glob name filters evaluate through `pred.matches`.
         let case = tagged_case(&[]);
         assert!(super::filter_predicate("t").eval(&case));
@@ -2358,6 +2378,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn tag_expr_single() {
+        ensure_lang();
         let p = super::tag_expr_predicate("slow");
         assert!(p.eval(&tagged_case(&["slow"])));
         assert!(!p.eval(&tagged_case(&["net"])));
@@ -2366,6 +2387,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn tag_expr_or() {
+        ensure_lang();
         // `slow,net` selects tests tagged slow OR net.
         let p = super::tag_expr_predicate("slow,net");
         assert!(p.eval(&tagged_case(&["slow"])));
@@ -2377,6 +2399,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn tag_expr_negation() {
+        ensure_lang();
         // `!slow` excludes tests tagged slow.
         let p = super::tag_expr_predicate("!slow");
         assert!(!p.eval(&tagged_case(&["slow"])));
@@ -2386,6 +2409,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn tag_expr_or_with_negation() {
+        ensure_lang();
         // `a,!b` selects tests tagged a OR not tagged b.
         let p = super::tag_expr_predicate("a,!b");
         assert!(p.eval(&tagged_case(&["a", "b"])));
@@ -2395,6 +2419,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn tag_expr_and_across_flags() {
+        ensure_lang();
         // Repeated `--tag` flags AND together: `a` AND NOT `b`.
         let p = super::tag_expr_predicate("a").and(super::tag_expr_predicate("!b"));
         assert!(p.eval(&tagged_case(&["a"])));
@@ -2406,6 +2431,7 @@ test tagged_fast = 1 + 1
 
     #[test]
     fn tag_expr_empty_selects_all() {
+        ensure_lang();
         let p = super::tag_expr_predicate("");
         assert!(p.eval(&tagged_case(&["slow"])));
         assert!(p.eval(&tagged_case(&[])));
