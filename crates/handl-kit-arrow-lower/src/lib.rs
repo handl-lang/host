@@ -1018,7 +1018,7 @@ fn bind_stmt(
         check_rebind(&name, env, local, params)?;
         let value_idx = child_at_role_or_pos(child, lang, "value", 1)
             .ok_or_else(|| format!("assign at {} missing value child", idx))?;
-        decline_self_reference(ast, &name, value_idx)?;
+        decline_self_reference(ast, lang, &name, value_idx)?;
         let bound = if is_op_graded_arrow(ast, lang, value_idx)? {
             op_term_from_graded_arrow(ast, lang, &name, value_idx)?
         } else {
@@ -1039,7 +1039,7 @@ fn bind_stmt(
         let value_idx = child_at_role_or_pos(child, lang, "value", 0)
             .or_else(|| children(child).first().copied())
             .ok_or_else(|| format!("bind at {} missing value child", idx))?;
-        decline_self_reference(ast, &name, value_idx)?;
+        decline_self_reference(ast, lang, &name, value_idx)?;
         let bound = if is_op_graded_arrow(ast, lang, value_idx)? {
             op_term_from_graded_arrow(ast, lang, &name, value_idx)?
         } else {
@@ -1064,7 +1064,7 @@ fn bind_stmt(
             .first()
             .copied()
             .ok_or_else(|| format!("op at {} missing arrow child", idx))?;
-        decline_self_reference(ast, &name, arrow_idx)?;
+        decline_self_reference(ast, lang, &name, arrow_idx)?;
         let bound = lower_node(ast, lang, idx, env, params)?;
         let entry = EnvEntry {
             term: bound.clone(),
@@ -1079,16 +1079,26 @@ fn bind_stmt(
     }
 }
 
-/// A bound name appearing anywhere in its own RHS is a self-recursive
-/// call — not a calculus construct (recursion is λ; the arrow calculus
-/// has feedback via `Loop`, not self-application). `var f` would emit
+/// A bound name *referenced* in its own RHS is a self-recursive call —
+/// not a calculus construct (recursion is λ; the arrow calculus has
+/// feedback via `Loop`, not self-application). `var f` would emit
 /// `Op{f}` → `call_host` → "function 'f' not found" at runtime, so
 /// decline: the env engines' `eval_rec` resolves it correctly instead.
-/// The name scan over-collects (binder names count as references) —
-/// over-decline is safe, it only ever takes the AST fallback.
-fn decline_self_reference(ast: &Ast, name: &str, value_idx: usize) -> Result<(), String> {
-    if handl_language::subtree_name_candidates(
-        |r| ast.get(r).map(|n| n.payload.clone()),
+/// The scan counts `var` nodes only — a bare payload string that merely
+/// *spells* the name (the `x := "x"` bare-name import lowering, record
+/// keys, op names) is a mention, not a reference.
+fn decline_self_reference(
+    ast: &Ast,
+    lang: &Language,
+    name: &str,
+    value_idx: usize,
+) -> Result<(), String> {
+    if handl_language::subtree_var_names(
+        |r| ast.get(r).cloned(),
+        |n| {
+            lang.pattern_role_is(&n.kind, "leaf")
+                .unwrap_or(n.kind == "var")
+        },
         AstRef::new(value_idx),
     )
     .is_some_and(|names| names.contains(name))

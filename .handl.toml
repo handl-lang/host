@@ -8,11 +8,11 @@ enableCodeLens = true
 enableRefinementDiagnostics = true
 enableSemanticHighlighting = true
 
-# ADR-0128 package-name seam: `math-c` lives in the sibling
-# `handl-lang/math-c` repo. `math` is self-declared because math-c's
-# files (loaded under this manifest's context) back-import their
-# contract signatures by name (`from "math/<f>"`) — same shape as the
-# `c` repo's self-declared `libc`/`ws-c` entries.
+# ADR-0128 package-name seam: `math` and its native impl live in the sibling
+# `lib-math` / `lib-math-c` repos (both `src/` layout). `math` is
+# self-declared because math-c's files (loaded under this manifest's context)
+# back-import their contract signatures by name (`from "math/<f>"`) — same
+# shape as the `c` repo's self-declared `libc`/`ws-c` entries.
 [dependencies]
-math   = { path = "handl-packages/math" }
-math-c = { path = "../math-c/handl-packages/math-c" }
+math   = { path = "../lib-math/src" }
+math-c = { path = "../lib-math-c/src" }
