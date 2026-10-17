@@ -2753,6 +2753,29 @@ fn function_params(ast: &Ast, lang: &Language, node: &AstNode) -> Result<Vec<Str
                             .ok_or_else(|| format!("param at {} is not a string", child_idx))?
                             .to_string(),
                     );
+                } else if child.kind == "type-annot" {
+                    // `(x: T)` — the annotation is compile-time
+                    // metadata; the param binds the subject var.
+                    let subject_idx =
+                        child_at_role_or_pos(child, lang, "subject", 0).ok_or_else(|| {
+                            format!("type-annot param at {} missing subject", child_idx)
+                        })?;
+                    let subject = ast
+                        .get(AstRef::new(subject_idx))
+                        .ok_or_else(|| format!("param subject {} out of bounds", subject_idx))?;
+                    if subject.kind != "var" {
+                        return Err(format!(
+                            "unsupported parameter kind `type-annot({})` at {}",
+                            subject.kind, child_idx
+                        ));
+                    }
+                    names.push(
+                        subject
+                            .payload
+                            .as_str()
+                            .ok_or_else(|| format!("param at {} is not a string", subject_idx))?
+                            .to_string(),
+                    );
                 } else {
                     return Err(format!(
                         "unsupported parameter kind `{}` at {}",
