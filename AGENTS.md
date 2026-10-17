@@ -76,9 +76,7 @@ there with `CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical`.
 `Language` data schema, and the `Term`/`Value` shapes — live in the sibling
 `handl-lang/kernel` repo now (git deps on `main`, patched to `../kernel`
 for local dev). Their tests no longer run here —
-`cd ../kernel && cargo test --workspace`. `handl-emitters` stays: it is
-still a normal dependency of `handl-kit-data` (the `Emitter` trait), so
-the ADR-0044 §6 scaffold is not yet retirable.
+`cd ../kernel && cargo test --workspace`.
 
 **Cross-repo dep policy — float on `main`, pin at release.** Every
 `git = "https://github.com/handl-lang/<repo>"` dependency declares

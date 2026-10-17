@@ -23,7 +23,7 @@
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `compress`, `kv`, `http`, `os`, `unicode`, `rand`, `time`, `tls`, `ws`, etc.).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and plugin loaders (`native`, `wasm`, `web`).
 - `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`cli`** repo, `host-lsp` (LSP server) in **`lsp`**.
-- `crates/handl-value` — shared value model. **Moved to `handl-lang/kernel`.** `handl-emitters` / `handl-test-utils` / `handl-defining-handl` — emitters, conformance corpus, and language-in-handl experiments.
+- `crates/handl-value` — shared value model. **Moved to `handl-lang/kernel`.** `handl-test-utils` / `handl-defining-handl` — conformance corpus and language-in-handl experiments.
 - `crates/crate-*` — vendored ICU/ECMA-402 utility crates.
 - `handl-packages/` — pure-handl contracts and implementations (`.hnl` source). `data/` — YAML language fragments.
 
@@ -58,7 +58,7 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 
 ## Crate directory map
 
-- `crates/handl-*` — language core: `handl-language`, `handl-kit-data`, `handl-kit-data-canonical`, `kit-canonical`, `handl-runtime`, `handl-value`, `handl-emitters`, `handl-test-utils`, `handl-defining-handl`, `handl-kit-arrow-lower`.
+- `crates/handl-*` — language core: `handl-language`, `handl-kit-data`, `handl-kit-data-canonical`, `kit-canonical`, `handl-runtime`, `handl-value`, `handl-test-utils`, `handl-defining-handl`, `handl-kit-arrow-lower`.
 - `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`, `Kit`); `crates/platform-tests` — its integration tests.
 - `crates/plugin-engine` — the generic engine substrate (staged `Behavior` machinery).
 - `crates/plugin-engine-*` — concrete engines, all data-driven off `Language`:

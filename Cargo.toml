@@ -52,7 +52,6 @@ members = [
   "crates/plugin-engine-lint",
   "crates/plugin-compile",
   "crates/handl-runtime",
-  "crates/handl-emitters",
   "crates/handl-kit-data",
   "crates/plugin-sdkgen",
   "crates/plugin-sdkgen-emitter-file",
@@ -170,7 +169,6 @@ handl-plugin-engine-lint = { path = "crates/plugin-engine-lint" }
 handl-plugin-engine-transform = { path = "crates/plugin-engine-transform" }
 handl-plugin-engine-transform-rewrite = { path = "crates/plugin-engine-transform-rewrite" }
 handl-runtime = { path = "crates/handl-runtime" }
-handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
@@ -302,7 +300,6 @@ handl-plugin-lib-otlp-std = { path = "../otlp/modules/lib-otlp-std" }
 handl = { path = "../platform" }
 handl-bench = { path = "../platform/crates/bench" }
 handl-ext-tests = { path = "../platform/crates/ext-tests" }
-handl-emitters = { path = "../platform/crates/handl-emitters" }
 handl-kit-arrow-lower = { path = "../platform/crates/handl-kit-arrow-lower" }
 handl-kit-data = { path = "../platform/crates/handl-kit-data" }
 handl-runtime = { path = "../platform/crates/handl-runtime" }

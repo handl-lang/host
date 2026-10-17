@@ -74,13 +74,12 @@ handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
   registry. The 37 `handl-emitter-*` crates that originally produced these
   files have been deleted (ADR-0044 §6 end state).
 
-- **`handl-emitters`** — Thin trait definition crate (`Emitter` trait) used
-  by the kit assembly framework. No per-construct emitters exist; the
-  language definition is the YAML files in `handl-kit-data-canonical/data/`.
-
 - **`handl-kit-data`** — The data kit framework: `DataKitManifest`,
-  `FragmentSource` (emitter or data file), `FragmentSourceEntry`, include/
-  exclude filters, `extends` chains.
+  `FragmentSourceEntry` (data-file sources only), `KitRegistry` (kit name →
+  manifest, for `extends` resolution), include/exclude filters. Callers that
+  already hold a `Language` pass it to `DataKit::assemble` as
+  `base_language` — the manifest-named Rust emitters of the ADR-0044 §6
+  migration scaffold are retired (see `project/parked.yaml`).
 
 - **`handl-runtime`** — Binds a `Language` to engine implementations.
   `Runtime<'h>` holds the `Language` + lex/parse/eval engines + host

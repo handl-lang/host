@@ -8,12 +8,11 @@ repository.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }
-handl-emitters = { path = "../handl-emitters" }
 handl-platform = { path = "../platform" }
 handl-runtime = { path = "../handl-runtime" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-# `FragmentSource::DataFile` reads a serialized `Language` (ADR-0044 §6 end
+# Fragment sources read a serialized `Language` (ADR-0044 §6 end
 # state) — YAML is the canonical fragment format, TOML/JSON are also accepted.
 serde_yaml = { workspace = true }
 toml = { workspace = true }

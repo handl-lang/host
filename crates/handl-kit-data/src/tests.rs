@@ -2,10 +2,11 @@
 //!
 //! These cover: manifest parsing (serde round-trip), kit assembly (merge in
 //! declared order), include/exclude filtering, the exclude-replaces
-//! interaction (explicit error, ADR §5), and the `extends` chain.
+//! interaction (explicit error, ADR §5), the `extends` chain, and the
+//! `base_language` entry point that lets a Rust-computed `Language` (e.g.
+//! the canonical YAML language) enter kit assembly directly.
 
 use super::*;
-use handl_emitters::Emitter;
 use handl_language::{
     AstShapeRef, CapabilityDecl, EvalSchemeDef, GrammarPosition, GrammarRow, LangError, Language,
     Term, TokenKindDef,
@@ -14,167 +15,163 @@ use handl_runtime::RuntimeConfig;
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
-// Test emitters
+// Language fixtures
 // ---------------------------------------------------------------------------
 
-/// An emitter that produces a single token kind `id`.
-struct TokenEmitter {
-    id: String,
+/// A language holding the single token kind `id`.
+fn token_language(id: &str) -> Language {
+    let mut lang = Language::new();
+    lang.tokens.merge(TokenKindDef::new(id)).unwrap();
+    lang
 }
 
-impl Emitter for TokenEmitter {
-    fn emit(&self) -> Result<Language, LangError> {
-        let mut lang = Language::new();
-        lang.tokens.merge(TokenKindDef::new(&self.id))?;
-        Ok(lang)
-    }
+/// A language holding only `token.A`.
+fn token_a_language() -> Language {
+    token_language("token.A")
 }
 
-/// An emitter that produces a single token kind `A`.
-struct TokenAEmitter;
-
-impl Emitter for TokenAEmitter {
-    fn emit(&self) -> Result<Language, LangError> {
-        let mut lang = Language::new();
-        lang.tokens.merge(TokenKindDef::new("token.A"))?;
-        Ok(lang)
-    }
-}
-
-/// An emitter that produces `A` then `A2` (which `replaces` `A`). Because
+/// A language holding only `token.A2` (with `replaces: ["token.A"]`).
+///
+/// Built by merging `token.A` then `token.A2` into one `Language`: because
 /// `FragmentSet::merge` applies replaces destructively within a single
-/// `Language`, the emitted `Language` contains only `A2` (with
-/// `replaces: ["token.A"]`). When `A2` is later merged into an accumulator
-/// that already has `A` (from [`TokenAEmitter`]), the cross-source replace
+/// `Language`, the result contains only `A2` still carrying the replaces
+/// declaration. When `A2` is later merged into an accumulator that already
+/// has `A` (from an earlier data-file source), the cross-source replace
 /// succeeds. This models the kit-level override: a later fragment source
 /// overrides an earlier one.
-struct TokenAprimeEmitter;
-
-impl Emitter for TokenAprimeEmitter {
-    fn emit(&self) -> Result<Language, LangError> {
-        let mut lang = Language::new();
-        lang.tokens.merge(TokenKindDef::new("token.A"))?;
-        lang.tokens
-            .merge(TokenKindDef::new("token.A2").with_replaces(vec!["token.A".into()]))?;
-        Ok(lang)
-    }
+fn token_aprime_language() -> Language {
+    let mut lang = Language::new();
+    lang.tokens.merge(TokenKindDef::new("token.A")).unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.A2").with_replaces(vec!["token.A".into()]))
+        .unwrap();
+    lang
 }
 
-/// An emitter producing a token + grammar + eval (a minimal construct).
-struct ConstructEmitter {
-    token_id: &'static str,
-    grammar_id: &'static str,
-    eval_id: &'static str,
-    node_kind: &'static str,
-}
-
-impl Emitter for ConstructEmitter {
-    fn emit(&self) -> Result<Language, LangError> {
-        let mut lang = Language::new();
-        lang.tokens.merge(TokenKindDef::new(self.token_id))?;
-        lang.grammar.merge(GrammarRow::new(
-            self.grammar_id,
-            self.token_id,
+/// A language holding a token + grammar + eval fragment (a minimal
+/// construct).
+fn construct_language(
+    token_id: &str,
+    grammar_id: &str,
+    eval_id: &str,
+    node_kind: &str,
+) -> Language {
+    let mut lang = Language::new();
+    lang.tokens.merge(TokenKindDef::new(token_id)).unwrap();
+    lang.grammar
+        .merge(GrammarRow::new(
+            grammar_id,
+            token_id,
             GrammarPosition::Prefix,
-            AstShapeRef::new(self.node_kind, 0),
-        ))?;
-        lang.eval.merge(EvalSchemeDef::new(
-            self.eval_id,
-            self.node_kind,
+            AstShapeRef::new(node_kind, 0),
+        ))
+        .unwrap();
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            eval_id,
+            node_kind,
             serde_json::from_value::<Term>(json!({"Arr": {"value": null}})).unwrap(),
-        ))?;
-        Ok(lang)
-    }
+        ))
+        .unwrap();
+    lang
 }
 
-/// An emitter declaring a capability.
-struct CapEmitter {
-    cap_id: &'static str,
+/// A language declaring a single capability.
+fn cap_language(cap_id: &str) -> Language {
+    let mut lang = Language::new();
+    lang.caps.merge(CapabilityDecl::new(cap_id)).unwrap();
+    lang
 }
 
-impl Emitter for CapEmitter {
-    fn emit(&self) -> Result<Language, LangError> {
-        let mut lang = Language::new();
-        lang.caps.merge(CapabilityDecl::new(self.cap_id))?;
-        Ok(lang)
-    }
+/// A language holding an AST shape and an option schema (exercises the `ast`
+/// and `options` merge paths in `merge_filtered`).
+fn ast_option_language() -> Language {
+    let mut lang = Language::new();
+    lang.ast
+        .merge(handl_language::AstShapeDef::new("shape.x", "x"))
+        .unwrap();
+    lang.options
+        .merge(handl_language::OptionSchema::new("opt.x"))
+        .unwrap();
+    lang
 }
 
-/// An emitter that produces an AST shape and an option schema (to exercise the
-/// `ast` and `options` merge paths in `merge_filtered`).
-struct AstOptionEmitter;
-
-impl Emitter for AstOptionEmitter {
-    fn emit(&self) -> Result<Language, LangError> {
-        let mut lang = Language::new();
-        lang.ast
-            .merge(handl_language::AstShapeDef::new("shape.x", "x"))?;
-        lang.options
-            .merge(handl_language::OptionSchema::new("opt.x"))?;
-        Ok(lang)
-    }
+/// `(name, language)` pairs for the seven minimal constructs used by the
+/// multi-source assembly test.
+fn seven_construct_languages() -> Vec<(&'static str, Language)> {
+    [
+        (
+            "identifier",
+            "token.identifier",
+            "grammar.identifier.prefix",
+            "eval.var",
+            "var",
+        ),
+        (
+            "value",
+            "token.number",
+            "grammar.value.number.prefix",
+            "eval.value.number",
+            "value.number",
+        ),
+        (
+            "arith",
+            "token.plus",
+            "grammar.add.infix",
+            "eval.binary.add",
+            "binary.add",
+        ),
+        (
+            "let",
+            "token.keyword.let",
+            "grammar.let.prefix",
+            "eval.let",
+            "let",
+        ),
+        (
+            "call",
+            "token.lparen",
+            "grammar.call.infix",
+            "eval.call",
+            "call",
+        ),
+        (
+            "branch",
+            "token.keyword.if",
+            "grammar.if.prefix",
+            "eval.if",
+            "if",
+        ),
+        (
+            "function",
+            "token.arrow",
+            "grammar.arrow.infix",
+            "eval.function",
+            "function",
+        ),
+    ]
+    .into_iter()
+    .map(|(name, tok, gram, eval, kind)| {
+        (name, construct_language(tok, gram, eval, kind))
+    })
+    .collect()
 }
 
-/// Build a registry with seven inline test emitters (used by assembly tests).
-fn seven_emitter_registry() -> EmitterRegistry {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("identifier", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.identifier",
-            grammar_id: "grammar.identifier.prefix",
-            eval_id: "eval.var",
-            node_kind: "var",
-        })
-    });
-    reg.register_emitter("value", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.number",
-            grammar_id: "grammar.value.number.prefix",
-            eval_id: "eval.value.number",
-            node_kind: "value.number",
-        })
-    });
-    reg.register_emitter("arith", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.plus",
-            grammar_id: "grammar.add.infix",
-            eval_id: "eval.binary.add",
-            node_kind: "binary.add",
-        })
-    });
-    reg.register_emitter("let", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.keyword.let",
-            grammar_id: "grammar.let.prefix",
-            eval_id: "eval.let",
-            node_kind: "let",
-        })
-    });
-    reg.register_emitter("call", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.lparen",
-            grammar_id: "grammar.call.infix",
-            eval_id: "eval.call",
-            node_kind: "call",
-        })
-    });
-    reg.register_emitter("branch", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.keyword.if",
-            grammar_id: "grammar.if.prefix",
-            eval_id: "eval.if",
-            node_kind: "if",
-        })
-    });
-    reg.register_emitter("function", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.arrow",
-            grammar_id: "grammar.arrow.infix",
-            eval_id: "eval.function",
-            node_kind: "function",
-        })
-    });
-    reg
+/// Write `contents` to a unique temp file named `<name>.<ext>` and return its
+/// path. The workspace has no `tempfile` dev-dependency; the convention is
+/// `std::env::temp_dir()` plus the process id (see `handl-runtime/tests`).
+fn temp_file(name: &str, ext: &str, contents: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("handl-kit-data-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(format!("{name}.{ext}"));
+    std::fs::write(&path, contents).unwrap();
+    path
+}
+
+/// Serialize `lang` to a temp JSON data file and return its path — the
+/// data-file form of a fragment source.
+fn lang_file(name: &str, lang: &Language) -> std::path::PathBuf {
+    temp_file(name, "json", &serde_json::to_string(lang).unwrap())
 }
 
 // ---------------------------------------------------------------------------
@@ -182,10 +179,10 @@ fn seven_emitter_registry() -> EmitterRegistry {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn manifest_serde_roundtrip_emitter_sources() {
+fn manifest_serde_roundtrip_data_file_sources() {
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("arith", "arith"))
-        .with_fragment(FragmentSourceEntry::emitter("value", "value"))
+        .with_fragment(FragmentSourceEntry::data_file("arith", "lang/arith.json"))
+        .with_fragment(FragmentSourceEntry::data_file("value", "lang/value.json"))
         .with_include(vec!["eval.binary.add".into()])
         .with_exclude(vec!["token.slash".into()])
         .with_extends("kit-data-canonical")
@@ -201,16 +198,13 @@ fn manifest_serde_roundtrip_emitter_sources() {
 }
 
 #[test]
-fn manifest_serde_roundtrip_data_file_source() {
+fn manifest_serde_roundtrip_single_data_file_source() {
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("data", "lang/data.toml"));
     let j = serde_json::to_string(&manifest).unwrap();
     let back: DataKitManifest = serde_json::from_str(&j).unwrap();
     assert_eq!(manifest, back);
-    assert!(matches!(
-        back.fragments[0].source,
-        FragmentSourceSerde::DataFile(_)
-    ));
+    assert_eq!(back.fragments[0].source, PathBuf::from("lang/data.toml"));
 }
 
 #[test]
@@ -224,60 +218,19 @@ fn manifest_defaults_are_empty() {
 }
 
 #[test]
-fn fragment_source_entry_emitter_constructor() {
-    let e = FragmentSourceEntry::emitter("name", "arith");
-    assert_eq!(e.name, "name");
-    assert_eq!(e.source, FragmentSourceSerde::Emitter("arith".into()));
-}
-
-#[test]
 fn fragment_source_entry_data_file_constructor() {
     let e = FragmentSourceEntry::data_file("name", "path.toml");
     assert_eq!(e.name, "name");
-    assert_eq!(e.source, FragmentSourceSerde::DataFile("path.toml".into()));
+    assert_eq!(e.source, PathBuf::from("path.toml"));
 }
 
 // ---------------------------------------------------------------------------
-// EmitterRegistry
+// KitRegistry
 // ---------------------------------------------------------------------------
-
-#[test]
-fn registry_resolves_registered_emitter() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("tok", || {
-        Box::new(TokenEmitter {
-            id: "token.x".into(),
-        })
-    });
-    let source = reg
-        .resolve_source(&FragmentSourceSerde::Emitter("tok".into()))
-        .unwrap();
-    let lang = produce_language(&source).unwrap();
-    assert_eq!(lang.tokens.len(), 1);
-}
-
-#[test]
-fn registry_unknown_emitter_errors() {
-    let reg = EmitterRegistry::new();
-    let err = reg
-        .resolve_source(&FragmentSourceSerde::Emitter("ghost".into()))
-        .unwrap_err();
-    assert!(matches!(err, LangError::Engine { .. }));
-    assert_eq!(err, LangError::engine("unknown emitter: ghost"));
-}
-
-#[test]
-fn registry_resolves_data_file_source() {
-    let reg = EmitterRegistry::new();
-    let source = reg
-        .resolve_source(&FragmentSourceSerde::DataFile("x.toml".into()))
-        .unwrap();
-    assert!(matches!(source, FragmentSource::DataFile(_)));
-}
 
 #[test]
 fn registry_resolves_kit_manifest() {
-    let mut reg = EmitterRegistry::new();
+    let mut reg = KitRegistry::new();
     let manifest = DataKitManifest::new().with_extends("none");
     reg.register_kit("my-kit", manifest.clone());
     let resolved = reg.resolve_kit("my-kit").unwrap();
@@ -286,8 +239,14 @@ fn registry_resolves_kit_manifest() {
 
 #[test]
 fn registry_unknown_kit_returns_none() {
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     assert!(reg.resolve_kit("ghost").is_none());
+}
+
+#[test]
+fn kit_registry_default_is_empty() {
+    let reg = KitRegistry::default();
+    assert!(reg.resolve_kit("anything").is_none());
 }
 
 // ---------------------------------------------------------------------------
@@ -296,63 +255,67 @@ fn registry_unknown_kit_returns_none() {
 
 #[test]
 fn assemble_merges_fragments_in_declared_order() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || {
-        Box::new(TokenEmitter {
-            id: "token.a".into(),
-        })
-    });
-    reg.register_emitter("b", || {
-        Box::new(TokenEmitter {
-            id: "token.b".into(),
-        })
-    });
+    let a = lang_file("order-a", &token_language("token.a"));
+    let b = lang_file("order-b", &token_language("token.b"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"))
-        .with_fragment(FragmentSourceEntry::emitter("b", "b"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+        .with_fragment(FragmentSourceEntry::data_file("a", a))
+        .with_fragment(FragmentSourceEntry::data_file("b", b));
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 2);
     assert!(kit.lang().tokens.get_by_id("token.a").is_some());
     assert!(kit.lang().tokens.get_by_id("token.b").is_some());
 }
 
 #[test]
-fn assemble_produces_language_and_runtime_config() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("tok", || {
-        Box::new(TokenEmitter {
-            id: "token.x".into(),
-        })
-    });
+fn assemble_merges_onto_base_language() {
+    // The canonical entry point: a caller that already holds a `Language`
+    // passes it as `base_language`; the kit's data-file sources merge on top.
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new();
+    let kit = DataKit::assemble(&manifest, &reg, token_a_language()).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 1);
+    assert!(kit.lang().tokens.get_by_id("token.A").is_some());
+}
+
+#[test]
+fn base_language_and_data_file_merge_together() {
+    // A data file participates in the same accumulator as the base language:
+    // the file's `token.x` and the base's `token.A` coexist.
+    let path = lang_file("base-merge", &token_language("token.x"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("tok", "tok"))
-        .with_runtime(
-            RuntimeConfig::new()
-                .with_parse("pratt")
-                .with_eval("tree-walk"),
-        );
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg, token_a_language()).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 2);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn assemble_produces_language_and_runtime_config() {
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new().with_runtime(
+        RuntimeConfig::new()
+            .with_parse("pratt")
+            .with_eval("tree-walk"),
+    );
+    let kit = DataKit::assemble(&manifest, &reg, token_language("token.x")).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert_eq!(kit.runtime_config().parse, "pratt");
     assert_eq!(kit.runtime_config().eval, "tree-walk");
 }
 
 #[test]
-fn assemble_construct_emitter_merges_all_three_sets() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("c", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.c",
-            grammar_id: "g.c",
-            eval_id: "e.c",
-            node_kind: "c",
-        })
-    });
-    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("c", "c"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+fn assemble_construct_language_merges_all_three_sets() {
+    let path = lang_file("construct", &construct_language("token.c", "g.c", "e.c", "c"));
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("c", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert_eq!(kit.lang().grammar.len(), 1);
     assert_eq!(kit.lang().eval.len(), 1);
+    let _ = std::fs::remove_file(path);
 }
 
 // ---------------------------------------------------------------------------
@@ -361,22 +324,14 @@ fn assemble_construct_emitter_merges_all_three_sets() {
 
 #[test]
 fn exclude_skips_fragment_by_id() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || {
-        Box::new(TokenEmitter {
-            id: "token.a".into(),
-        })
-    });
-    reg.register_emitter("b", || {
-        Box::new(TokenEmitter {
-            id: "token.b".into(),
-        })
-    });
+    let a = lang_file("excl-a", &token_language("token.a"));
+    let b = lang_file("excl-b", &token_language("token.b"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"))
-        .with_fragment(FragmentSourceEntry::emitter("b", "b"))
+        .with_fragment(FragmentSourceEntry::data_file("a", a))
+        .with_fragment(FragmentSourceEntry::data_file("b", b))
         .with_exclude(vec!["token.a".into()]);
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert!(kit.lang().tokens.get_by_id("token.a").is_none());
     assert!(kit.lang().tokens.get_by_id("token.b").is_some());
@@ -384,22 +339,14 @@ fn exclude_skips_fragment_by_id() {
 
 #[test]
 fn include_keeps_only_listed_ids() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || {
-        Box::new(TokenEmitter {
-            id: "token.a".into(),
-        })
-    });
-    reg.register_emitter("b", || {
-        Box::new(TokenEmitter {
-            id: "token.b".into(),
-        })
-    });
+    let a = lang_file("incl-a", &token_language("token.a"));
+    let b = lang_file("incl-b", &token_language("token.b"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"))
-        .with_fragment(FragmentSourceEntry::emitter("b", "b"))
+        .with_fragment(FragmentSourceEntry::data_file("a", a))
+        .with_fragment(FragmentSourceEntry::data_file("b", b))
         .with_include(vec!["token.a".into()]);
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert!(kit.lang().tokens.get_by_id("token.a").is_some());
     assert!(kit.lang().tokens.get_by_id("token.b").is_none());
@@ -407,53 +354,50 @@ fn include_keeps_only_listed_ids() {
 
 #[test]
 fn include_empty_keeps_all() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || {
-        Box::new(TokenEmitter {
-            id: "token.a".into(),
-        })
-    });
-    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("a", "a"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let a = lang_file("incl-empty", &token_language("token.a"));
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("a", a));
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
 }
 
 #[test]
 fn exclude_takes_precedence_over_include() {
     // A fragment in both include and exclude is excluded.
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || {
-        Box::new(TokenEmitter {
-            id: "token.a".into(),
-        })
-    });
+    let a = lang_file("incl-excl", &token_language("token.a"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"))
+        .with_fragment(FragmentSourceEntry::data_file("a", a))
         .with_include(vec!["token.a".into()])
         .with_exclude(vec!["token.a".into()]);
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 0);
+}
+
+#[test]
+fn exclude_does_not_filter_base_language() {
+    // The include/exclude filter operates on fragment *sources*; the base
+    // language is the accumulator itself and merges unconditionally.
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new().with_exclude(vec!["token.A".into()]);
+    let kit = DataKit::assemble(&manifest, &reg, token_a_language()).unwrap();
+    assert!(kit.lang().tokens.get_by_id("token.A").is_some());
 }
 
 #[test]
 fn exclude_across_multiple_sets() {
     // Excluding a grammar id skips only that grammar row, not the token.
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("c", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.c",
-            grammar_id: "g.c",
-            eval_id: "e.c",
-            node_kind: "c",
-        })
-    });
+    let path = lang_file("excl-multi", &construct_language("token.c", "g.c", "e.c", "c"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("c", "c"))
+        .with_fragment(FragmentSourceEntry::data_file("c", path.clone()))
         .with_exclude(vec!["g.c".into()]);
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert_eq!(kit.lang().grammar.len(), 0);
     assert_eq!(kit.lang().eval.len(), 1);
+    let _ = std::fs::remove_file(path);
 }
 
 // ---------------------------------------------------------------------------
@@ -462,20 +406,19 @@ fn exclude_across_multiple_sets() {
 
 #[test]
 fn exclude_replaces_target_errors_explicitly() {
-    // Scenario (ADR §5): source1 emits `token.A`; source2 emits `token.A2`
-    // which `replaces: ["token.A"]` (source2 emits A then A2, so its emitted
-    // Language contains only A2 with the replaces declaration). Excluding
-    // `token.A` means A is never merged into the accumulator, so when A2 is
-    // merged its replace target is absent → `UnknownReplace` error. This is
-    // the explicit, non-silent behavior the ADR requires.
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || Box::new(TokenAEmitter));
-    reg.register_emitter("aprime", || Box::new(TokenAprimeEmitter));
+    // Scenario (ADR §5): source1 carries `token.A`; source2 carries `token.A2`
+    // which `replaces: ["token.A"]`. Excluding `token.A` means A is never
+    // merged into the accumulator, so when A2 is merged its replace target is
+    // absent → `UnknownReplace` error. This is the explicit, non-silent
+    // behavior the ADR requires.
+    let a = lang_file("repl-a", &token_a_language());
+    let aprime = lang_file("repl-aprime", &token_aprime_language());
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"))
-        .with_fragment(FragmentSourceEntry::emitter("aprime", "aprime"))
+        .with_fragment(FragmentSourceEntry::data_file("a", a))
+        .with_fragment(FragmentSourceEntry::data_file("aprime", aprime))
         .with_exclude(vec!["token.A".into()]);
-    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+    let err = DataKit::assemble(&manifest, &reg, Language::new()).unwrap_err();
     assert_eq!(
         err,
         LangError::UnknownReplace {
@@ -488,13 +431,13 @@ fn exclude_replaces_target_errors_explicitly() {
 fn replace_without_exclude_succeeds() {
     // Control: without excluding A, source1's A merges into the accumulator,
     // then source2's A2 (replaces A) merges and replaces A cleanly.
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || Box::new(TokenAEmitter));
-    reg.register_emitter("aprime", || Box::new(TokenAprimeEmitter));
+    let a = lang_file("repl2-a", &token_a_language());
+    let aprime = lang_file("repl2-aprime", &token_aprime_language());
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"))
-        .with_fragment(FragmentSourceEntry::emitter("aprime", "aprime"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+        .with_fragment(FragmentSourceEntry::data_file("a", a))
+        .with_fragment(FragmentSourceEntry::data_file("aprime", aprime));
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert!(kit.lang().tokens.get_by_id("token.A").is_none());
     assert!(kit.lang().tokens.get_by_id("token.A2").is_some());
@@ -506,66 +449,79 @@ fn replace_without_exclude_succeeds() {
 
 #[test]
 fn extends_assembles_parent_then_child() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("parent-tok", || {
-        Box::new(TokenEmitter {
-            id: "token.parent".into(),
-        })
-    });
-    reg.register_emitter("child-tok", || {
-        Box::new(TokenEmitter {
-            id: "token.child".into(),
-        })
-    });
+    let parent_lang = lang_file("parent-tok", &token_language("token.parent"));
+    let child_lang = lang_file("child-tok", &token_language("token.child"));
+    let mut reg = KitRegistry::new();
     let parent = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("parent-tok", "parent-tok"));
+        .with_fragment(FragmentSourceEntry::data_file("parent-tok", parent_lang));
     reg.register_kit("parent-kit", parent);
     let child = DataKitManifest::new()
         .with_extends("parent-kit")
-        .with_fragment(FragmentSourceEntry::emitter("child-tok", "child-tok"));
-    let kit = DataKit::assemble(&child, &reg).unwrap();
+        .with_fragment(FragmentSourceEntry::data_file("child-tok", child_lang));
+    let kit = DataKit::assemble(&child, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 2);
     assert!(kit.lang().tokens.get_by_id("token.parent").is_some());
     assert!(kit.lang().tokens.get_by_id("token.child").is_some());
 }
 
 #[test]
+fn extends_threads_base_language_to_chain_root() {
+    // The caller-supplied `base_language` lands at the root of the `extends`
+    // chain: a child with no fragments and a parent with no fragments still
+    // yields the base language.
+    let mut reg = KitRegistry::new();
+    reg.register_kit("parent-kit", DataKitManifest::new());
+    let child = DataKitManifest::new().with_extends("parent-kit");
+    let kit = DataKit::assemble(&child, &reg, token_a_language()).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 1);
+    assert!(kit.lang().tokens.get_by_id("token.A").is_some());
+}
+
+#[test]
+fn extends_base_and_child_fragments_merge() {
+    // Parent is empty; the base lands at the root, then the child's own
+    // data-file source merges on top.
+    let child_lang = lang_file("child-merge", &token_language("token.child"));
+    let mut reg = KitRegistry::new();
+    reg.register_kit("parent-kit", DataKitManifest::new());
+    let child = DataKitManifest::new()
+        .with_extends("parent-kit")
+        .with_fragment(FragmentSourceEntry::data_file("child", child_lang));
+    let kit = DataKit::assemble(&child, &reg, token_a_language()).unwrap();
+    assert_eq!(kit.lang().tokens.len(), 2);
+    assert!(kit.lang().tokens.get_by_id("token.A").is_some());
+    assert!(kit.lang().tokens.get_by_id("token.child").is_some());
+}
+
+#[test]
 fn extends_unknown_parent_errors() {
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new().with_extends("ghost-kit");
-    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+    let err = DataKit::assemble(&manifest, &reg, Language::new()).unwrap_err();
     assert_eq!(err, LangError::engine("unknown parent kit: ghost-kit"));
 }
 
 #[test]
 fn extends_child_overrides_parent_fragment() {
-    // Parent declares token.X. Child's emitter emits X then Y (replaces X),
-    // yielding a Language containing only Y (with replaces:["token.X"]).
-    // When Y merges into the accumulator (which has X from the parent), Y
-    // replaces X — the cross-kit override.
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("x", || {
-        Box::new(TokenEmitter {
-            id: "token.X".into(),
-        })
-    });
-    struct ReplaceXEmitter;
-    impl Emitter for ReplaceXEmitter {
-        fn emit(&self) -> Result<Language, LangError> {
-            let mut lang = Language::new();
-            lang.tokens.merge(TokenKindDef::new("token.X"))?;
-            lang.tokens
-                .merge(TokenKindDef::new("token.Y").with_replaces(vec!["token.X".into()]))?;
-            Ok(lang)
-        }
-    }
-    reg.register_emitter("replace-x", || Box::new(ReplaceXEmitter));
-    let parent = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("x", "x"));
+    // Parent declares token.X. Child's source carries only Y (with
+    // replaces:["token.X"]) — the same within-language merge shape as
+    // `token_aprime_language`. When Y merges into the accumulator (which has
+    // X from the parent), Y replaces X — the cross-kit override.
+    let parent_lang = lang_file("parent-x", &token_language("token.X"));
+    let mut lang = Language::new();
+    lang.tokens.merge(TokenKindDef::new("token.X")).unwrap();
+    lang.tokens
+        .merge(TokenKindDef::new("token.Y").with_replaces(vec!["token.X".into()]))
+        .unwrap();
+    let child_lang = lang_file("child-y", &lang);
+    let mut reg = KitRegistry::new();
+    let parent = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("x", parent_lang));
     reg.register_kit("parent-kit", parent);
     let child = DataKitManifest::new()
         .with_extends("parent-kit")
-        .with_fragment(FragmentSourceEntry::emitter("replace-x", "replace-x"));
-    let kit = DataKit::assemble(&child, &reg).unwrap();
+        .with_fragment(FragmentSourceEntry::data_file("replace-x", child_lang));
+    let kit = DataKit::assemble(&child, &reg, Language::new()).unwrap();
     assert!(kit.lang().tokens.get_by_id("token.X").is_none());
     assert!(kit.lang().tokens.get_by_id("token.Y").is_some());
     assert_eq!(kit.lang().tokens.len(), 1);
@@ -574,16 +530,16 @@ fn extends_child_overrides_parent_fragment() {
 #[test]
 fn extends_chain_union_of_capabilities() {
     // Parent declares cap.a; child declares cap.b → union.
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("cap-a", || Box::new(CapEmitter { cap_id: "cap.a" }));
-    reg.register_emitter("cap-b", || Box::new(CapEmitter { cap_id: "cap.b" }));
-    let parent =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("cap-a", "cap-a"));
+    let parent_lang = lang_file("cap-a", &cap_language("cap.a"));
+    let child_lang = lang_file("cap-b", &cap_language("cap.b"));
+    let mut reg = KitRegistry::new();
+    let parent = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("cap-a", parent_lang));
     reg.register_kit("parent-kit", parent);
     let child = DataKitManifest::new()
         .with_extends("parent-kit")
-        .with_fragment(FragmentSourceEntry::emitter("cap-b", "cap-b"));
-    let kit = DataKit::assemble(&child, &reg).unwrap();
+        .with_fragment(FragmentSourceEntry::data_file("cap-b", child_lang));
+    let kit = DataKit::assemble(&child, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().caps.len(), 2);
     assert!(kit.lang().caps.get_by_id("cap.a").is_some());
     assert!(kit.lang().caps.get_by_id("cap.b").is_some());
@@ -595,22 +551,7 @@ fn extends_chain_union_of_capabilities() {
 
 /// A one-token language, used as the round-trip fixture.
 fn sample_language() -> Language {
-    TokenEmitter {
-        id: "token.x".into(),
-    }
-    .emit()
-    .unwrap()
-}
-
-/// Write `contents` to a unique temp file named `<name>.<ext>` and return its
-/// path. The workspace has no `tempfile` dev-dependency; the convention is
-/// `std::env::temp_dir()` plus the process id (see `handl-runtime/tests`).
-fn temp_file(name: &str, ext: &str, contents: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("handl-kit-data-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join(format!("{name}.{ext}"));
-    std::fs::write(&path, contents).unwrap();
-    path
+    token_language("token.x")
 }
 
 /// The minimal TOML document that deserializes to an *empty* [`Language`]:
@@ -640,10 +581,10 @@ fn empty_language_toml() -> String {
 fn data_file_json_source_loads_language() {
     let lang = sample_language();
     let path = temp_file("lang", "json", &serde_json::to_string(&lang).unwrap());
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     let _ = std::fs::remove_file(path);
 }
@@ -652,10 +593,10 @@ fn data_file_json_source_loads_language() {
 fn data_file_yaml_source_loads_language() {
     let lang = sample_language();
     let path = temp_file("lang", "yaml", &serde_yaml::to_string(&lang).unwrap());
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     let _ = std::fs::remove_file(path);
 }
@@ -663,10 +604,10 @@ fn data_file_yaml_source_loads_language() {
 #[test]
 fn data_file_toml_source_loads_language() {
     let path = temp_file("empty", "toml", &empty_language_toml());
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 0);
     let _ = std::fs::remove_file(path);
 }
@@ -675,10 +616,10 @@ fn data_file_toml_source_loads_language() {
 fn data_file_unknown_extension_falls_back_to_json() {
     let lang = sample_language();
     let path = temp_file("lang", "fragment", &serde_json::to_string(&lang).unwrap());
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     let _ = std::fs::remove_file(path);
 }
@@ -686,10 +627,10 @@ fn data_file_unknown_extension_falls_back_to_json() {
 #[test]
 fn data_file_missing_file_errors_with_path() {
     let missing = std::env::temp_dir().join("handl-kit-data-does-not-exist.json");
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("d", missing.clone()));
-    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+    let err = DataKit::assemble(&manifest, &reg, Language::new()).unwrap_err();
     assert!(matches!(err, LangError::Engine { .. }));
     assert!(
         format!("{err}").contains("handl-kit-data-does-not-exist.json"),
@@ -700,28 +641,12 @@ fn data_file_missing_file_errors_with_path() {
 #[test]
 fn data_file_unparseable_errors_with_path() {
     let path = temp_file("garbage", "json", "{ not json");
-    let reg = EmitterRegistry::new();
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
-    let err = DataKit::assemble(&manifest, &reg).unwrap_err();
+    let err = DataKit::assemble(&manifest, &reg, Language::new()).unwrap_err();
     assert!(matches!(err, LangError::Engine { .. }));
     assert!(format!("{err}").contains("garbage.json"), "{err}");
-    let _ = std::fs::remove_file(path);
-}
-
-#[test]
-fn data_file_merges_with_emitter_fragments() {
-    // A data file participates in the same ordered merge as an emitter: the
-    // data file's `token.x` and the emitter's `token.A` coexist.
-    let lang = sample_language();
-    let path = temp_file("merge", "json", &serde_json::to_string(&lang).unwrap());
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("a", || Box::new(TokenAEmitter));
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()))
-        .with_fragment(FragmentSourceEntry::emitter("a", "a"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
-    assert_eq!(kit.lang().tokens.len(), 2);
     let _ = std::fs::remove_file(path);
 }
 
@@ -764,20 +689,13 @@ fn into_runtime_binds_pratt_and_tree_walk() {
     use handl_runtime::EngineRegistry;
     use std::rc::Rc;
 
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("tok", || {
-        Box::new(TokenEmitter {
-            id: "token.x".into(),
-        })
-    });
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("tok", "tok"))
-        .with_runtime(
-            RuntimeConfig::new()
-                .with_parse("pratt")
-                .with_eval("tree-walk"),
-        );
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new().with_runtime(
+        RuntimeConfig::new()
+            .with_parse("pratt")
+            .with_eval("tree-walk"),
+    );
+    let kit = DataKit::assemble(&manifest, &reg, token_language("token.x")).unwrap();
     let mut engine_reg = EngineRegistry::new();
     engine_reg.register_lex("data", Box::new(DataLexerEngine::new()));
     engine_reg.register_parse("pratt", PrattEngine::new());
@@ -795,16 +713,10 @@ fn into_runtime_unknown_eval_engine_errors() {
     use handl_runtime::EngineRegistry;
     use std::rc::Rc;
 
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("tok", || {
-        Box::new(TokenEmitter {
-            id: "token.x".into(),
-        })
-    });
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("tok", "tok"))
-        .with_runtime(RuntimeConfig::new().with_eval("nonsense"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let reg = KitRegistry::new();
+    let manifest =
+        DataKitManifest::new().with_runtime(RuntimeConfig::new().with_eval("nonsense"));
+    let kit = DataKit::assemble(&manifest, &reg, token_language("token.x")).unwrap();
     let mut engine_reg = EngineRegistry::new();
     engine_reg.register_lex("data", Box::new(DataLexerEngine::new()));
     engine_reg.register_parse("pratt", PrattEngine::new());
@@ -815,27 +727,23 @@ fn into_runtime_unknown_eval_engine_errors() {
 }
 
 // ---------------------------------------------------------------------------
-// Full seven-emitter assembly (representative subset)
+// Full seven-source assembly (representative subset)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn assemble_seven_emitters_produces_expected_counts() {
-    let reg = seven_emitter_registry();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("identifier", "identifier"))
-        .with_fragment(FragmentSourceEntry::emitter("value", "value"))
-        .with_fragment(FragmentSourceEntry::emitter("arith", "arith"))
-        .with_fragment(FragmentSourceEntry::emitter("let", "let"))
-        .with_fragment(FragmentSourceEntry::emitter("call", "call"))
-        .with_fragment(FragmentSourceEntry::emitter("branch", "branch"))
-        .with_fragment(FragmentSourceEntry::emitter("function", "function"))
-        .with_runtime(
-            RuntimeConfig::new()
-                .with_parse("pratt")
-                .with_eval("tree-walk"),
-        );
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
-    // 7 emitters contribute tokens, grammar rows, and eval schemes. The
+fn assemble_seven_sources_produces_expected_counts() {
+    let mut manifest = DataKitManifest::new().with_runtime(
+        RuntimeConfig::new()
+            .with_parse("pratt")
+            .with_eval("tree-walk"),
+    );
+    for (name, lang) in seven_construct_languages() {
+        let path = lang_file(name, &lang);
+        manifest = manifest.with_fragment(FragmentSourceEntry::data_file(name, path));
+    }
+    let reg = KitRegistry::new();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
+    // 7 sources contribute tokens, grammar rows, and eval schemes. The
     // exact counts are asserted in the integration test; here we sanity-check
     // non-emptiness.
     assert!(kit.lang().tokens.len() > 0);
@@ -848,48 +756,17 @@ fn assemble_seven_emitters_produces_expected_counts() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn fragment_source_debug_emitter() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("tok", || {
-        Box::new(TokenEmitter {
-            id: "token.x".into(),
-        })
-    });
-    let source = reg
-        .resolve_source(&FragmentSourceSerde::Emitter("tok".into()))
-        .unwrap();
-    let s = format!("{:?}", source);
-    assert!(s.contains("Emitter"));
-}
-
-#[test]
-fn fragment_source_debug_data_file() {
-    let reg = EmitterRegistry::new();
-    let source = reg
-        .resolve_source(&FragmentSourceSerde::DataFile("x.toml".into()))
-        .unwrap();
-    let s = format!("{:?}", source);
-    assert!(s.contains("DataFile"));
+fn fragment_source_entry_debug_shows_path() {
+    let e = FragmentSourceEntry::data_file("name", "x.toml");
+    let s = format!("{:?}", e);
     assert!(s.contains("x.toml"));
 }
 
 #[test]
-fn emitter_registry_default_is_empty() {
-    let reg = EmitterRegistry::default();
-    assert!(reg.resolve_emitter("anything").is_none());
-    assert!(reg.resolve_kit("anything").is_none());
-}
-
-#[test]
 fn data_kit_debug_formats() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("tok", || {
-        Box::new(TokenEmitter {
-            id: "token.x".into(),
-        })
-    });
-    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("tok", "tok"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new();
+    let kit = DataKit::assemble(&manifest, &reg, token_language("token.x")).unwrap();
     let s = format!("{:?}", kit);
     assert!(s.contains("DataKit"));
     assert!(s.contains("lang"));
@@ -898,58 +775,55 @@ fn data_kit_debug_formats() {
 
 #[test]
 fn assemble_merges_ast_and_options_fragments() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("ast-opt", || Box::new(AstOptionEmitter));
-    let manifest =
-        DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("ast-opt", "ast-opt"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let path = lang_file("ast-opt", &ast_option_language());
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("ast-opt", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().ast.len(), 1);
     assert_eq!(kit.lang().options.len(), 1);
     assert!(kit.lang().ast.get_by_id("shape.x").is_some());
     assert!(kit.lang().options.get_by_id("opt.x").is_some());
+    let _ = std::fs::remove_file(path);
 }
 
 #[test]
 fn assemble_merges_caps_fragment() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("cap", || Box::new(CapEmitter { cap_id: "cap.z" }));
-    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::emitter("cap", "cap"));
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let path = lang_file("cap-z", &cap_language("cap.z"));
+    let reg = KitRegistry::new();
+    let manifest = DataKitManifest::new()
+        .with_fragment(FragmentSourceEntry::data_file("cap", path.clone()));
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().caps.len(), 1);
     assert!(kit.lang().caps.get_by_id("cap.z").is_some());
+    let _ = std::fs::remove_file(path);
 }
 
 #[test]
 fn exclude_skips_ast_and_options() {
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("ast-opt", || Box::new(AstOptionEmitter));
+    let path = lang_file("ast-opt-excl", &ast_option_language());
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("ast-opt", "ast-opt"))
+        .with_fragment(FragmentSourceEntry::data_file("ast-opt", path.clone()))
         .with_exclude(vec!["shape.x".into(), "opt.x".into()]);
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().ast.len(), 0);
     assert_eq!(kit.lang().options.len(), 0);
+    let _ = std::fs::remove_file(path);
 }
 
 #[test]
 fn exclude_skips_eval_and_caps_fragments() {
     // Exercising the "skip" branch of the include/exclude filter for the eval
     // and caps fragment sets (coverage of the `if passes(...)` false path).
-    let mut reg = EmitterRegistry::new();
-    reg.register_emitter("c", || {
-        Box::new(ConstructEmitter {
-            token_id: "token.c",
-            grammar_id: "g.c",
-            eval_id: "e.c",
-            node_kind: "c",
-        })
-    });
-    reg.register_emitter("cap", || Box::new(CapEmitter { cap_id: "cap.z" }));
+    let construct = lang_file("excl-construct", &construct_language("token.c", "g.c", "e.c", "c"));
+    let cap = lang_file("excl-cap", &cap_language("cap.z"));
+    let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::emitter("c", "c"))
-        .with_fragment(FragmentSourceEntry::emitter("cap", "cap"))
+        .with_fragment(FragmentSourceEntry::data_file("c", construct))
+        .with_fragment(FragmentSourceEntry::data_file("cap", cap))
         .with_exclude(vec!["e.c".into(), "cap.z".into()]);
-    let kit = DataKit::assemble(&manifest, &reg).unwrap();
+    let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     // eval and caps fragments are excluded; token and grammar remain.
     assert_eq!(kit.lang().eval.len(), 0);
     assert_eq!(kit.lang().caps.len(), 0);

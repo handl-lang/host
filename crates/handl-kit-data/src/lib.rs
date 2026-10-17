@@ -11,21 +11,23 @@
 //! manifest → fragment sources → merge → Language + Runtime selection
 //! ```
 //!
-//! A [`DataKitManifest`] is an ordered list of fragment sources (emitters
-//! during migration, data files after — ADR §6) plus include/exclude filters
-//! and a [`RuntimeConfig`] for engine selection (ADR §7). The
-//! [`EmitterRegistry`] bridges data (manifest names) to Rust (emitter
-//! constructors), so the assembler never hardcodes a specific emitter.
+//! A [`DataKitManifest`] is an ordered list of data-file fragment sources
+//! (ADR §6 end state) plus include/exclude filters and a [`RuntimeConfig`]
+//! for engine selection (ADR §7). A caller that already holds a [`Language`]
+//! — e.g. `handl-kit-data-canonical::language_from_yaml` — passes it to
+//! [`DataKit::assemble`] as `base_language`: the kit stack merges on top of
+//! it. The manifest-named Rust emitters of the ADR §6 migration scaffold
+//! are retired (see `project/parked.yaml`).
 //!
 //! ## Data-file sources
 //!
-//! [`FragmentSource::DataFile`] is live (ADR-0044 §6 end state): a fragment
-//! source may be a serialized [`Language`] on disk, read at assembly time.
-//! [`DataKitManifest::load`] / [`DataKitManifest::load_from_text`] do the same
-//! for a kit manifest. Both dispatch on extension — JSON, YAML (canonical) or
-//! TOML — and fail with an error naming the file. This lets the module that
-//! owns a set of fragments or a kit manifest *ship it as data* instead of
-//! `include_str!`-pinning it into another crate (ADR-0128 §Deferred).
+//! A fragment source is a serialized [`Language`] on disk, read at assembly
+//! time ([`FragmentSourceEntry::source`]). [`DataKitManifest::load`] /
+//! [`DataKitManifest::load_from_text`] do the same for a kit manifest. Both
+//! dispatch on extension — JSON, YAML (canonical) or TOML — and fail with an
+//! error naming the file. This lets the module that owns a set of fragments
+//! or a kit manifest *ship it as data* instead of `include_str!`-pinning it
+//! into another crate (ADR-0128 §Deferred).
 //!
 //! ## Include/exclude
 //!
@@ -41,7 +43,7 @@
 //! ## `extends` chain
 //!
 //! A kit may declare `extends: "parent-kit-name"`. The parent is assembled
-//! first (resolved via [`EmitterRegistry::resolve_kit`]), then this kit's
+//! first (resolved via [`KitRegistry::resolve_kit`]), then this kit's
 //! fragments merge on top. Phase 5 supports one level of `extends`
 //! (parent → child); deeper chains are a straightforward recursive extension.
 //!
@@ -59,54 +61,10 @@ pub use library_registry::{LibraryPlugin, LibraryRegistry};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use handl_emitters::Emitter;
 use handl_language::{CapabilityDecl, Fragment, LangError, Language};
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
-
-/// A resolved source of `Language` fragments (runtime form).
-///
-/// Per ADR §6, a fragment source is either a data file (the end state) or a
-/// Rust emitter (the migration scaffold). This enum models both at runtime;
-/// the serializable manifest form is [`FragmentSourceSerde`].
-pub enum FragmentSource {
-    /// An emitter that produces a [`Language`] at load time (migration
-    /// scaffold, ADR §6).
-    Emitter(Box<dyn Emitter>),
-    /// A path to a data-file holding a serialized [`Language`] (ADR-0044 §6
-    /// end state: "authored data files are canonical"). Read and deserialized
-    /// at assembly time; JSON, YAML and TOML are accepted, dispatched on the
-    /// file extension.
-    DataFile(PathBuf),
-}
-
-impl std::fmt::Debug for FragmentSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FragmentSource::Emitter(_) => f.debug_struct("FragmentSource::Emitter").finish(),
-            FragmentSource::DataFile(path) => f
-                .debug_tuple("FragmentSource::DataFile")
-                .field(path)
-                .finish(),
-        }
-    }
-}
-
-/// The serializable form of a fragment source, used in [`DataKitManifest`].
-///
-/// A manifest references emitters **by name** (resolved at assembly time via
-/// [`EmitterRegistry`]) rather than embedding Rust trait objects, keeping the
-/// manifest pure data.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum FragmentSourceSerde {
-    /// Reference to a registered emitter by name (resolved via
-    /// [`EmitterRegistry::resolve_emitter`]).
-    Emitter(String),
-    /// Path to a data file (JSON/YAML/TOML) holding a serialized [`Language`]
-    /// to load at runtime.
-    DataFile(PathBuf),
-}
 
 /// A named fragment source entry in a [`DataKitManifest`].
 ///
@@ -117,24 +75,17 @@ pub enum FragmentSourceSerde {
 pub struct FragmentSourceEntry {
     /// A human-readable label for this fragment source.
     pub name: String,
-    /// The serializable source descriptor.
-    pub source: FragmentSourceSerde,
+    /// Path to a data file (JSON/YAML/TOML) holding a serialized [`Language`]
+    /// to load at assembly time.
+    pub source: PathBuf,
 }
 
 impl FragmentSourceEntry {
-    /// Create a new named fragment source entry referencing an emitter by name.
-    pub fn emitter(name: impl Into<String>, emitter: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            source: FragmentSourceSerde::Emitter(emitter.into()),
-        }
-    }
-
     /// Create a new named fragment source entry referencing a data file.
     pub fn data_file(name: impl Into<String>, path: impl Into<PathBuf>) -> Self {
         Self {
             name: name.into(),
-            source: FragmentSourceSerde::DataFile(path.into()),
+            source: path.into(),
         }
     }
 }
@@ -236,16 +187,15 @@ impl DataKitManifest {
 
     /// Load a kit manifest from a data file at `path`.
     ///
-    /// This is the manifest half of the [`FragmentSource::DataFile`] seam
+    /// This is the manifest half of the data-file seam
     /// (ADR-0128 §Deferred): a module repo can *ship* its kit manifest
     /// (`kits/<name>.yaml`, say) instead of `include_str!`-pinning it into
     /// another crate. Format is chosen by extension — see
     /// [`DataKitManifest::load_from_text`] for the parser rules.
     ///
-    /// The returned manifest's relative [`FragmentSourceSerde::DataFile`] and
-    /// [`FragmentSourceSerde::Emitter`] references are *not* resolved here;
-    /// callers resolve them against the manifest's directory and an
-    /// [`EmitterRegistry`] when assembling (see [`DataKit::assemble`]).
+    /// The returned manifest's relative [`FragmentSourceEntry::source`]
+    /// paths are *not* resolved here; callers resolve them against the
+    /// manifest's directory when assembling (see [`DataKit::assemble`]).
     ///
     /// # Errors
     ///
@@ -273,41 +223,30 @@ impl Default for DataKitManifest {
     }
 }
 
-/// A registry mapping source names (and kit names) to `Box<dyn Emitter>`
-/// constructors, so a [`DataKitManifest`] can reference emitters by name
-/// without the assembler hardcoding them.
+/// A registry mapping kit names to their [`DataKitManifest`]s — how the
+/// `extends` chain in a manifest resolves.
 ///
-/// This is the bridge between **data** (manifest emitter names) and **Rust**
-/// (emitter constructors). It also maps kit names to their manifests, which
-/// is how the `extends` chain resolves.
-pub struct EmitterRegistry {
-    /// Constructors keyed by emitter name.
-    emitters: HashMap<String, Box<dyn Fn() -> Box<dyn Emitter>>>,
+/// This is the bridge between **data** (manifest `extends:` names) and
+/// **Rust** (the manifests themselves). Fragment sources are data files
+/// (ADR-0044 §6 end state); a caller that already holds a [`Language`]
+/// passes it to [`DataKit::assemble`] as `base_language`.
+pub struct KitRegistry {
     /// Kit manifests keyed by kit name (for `extends` resolution).
     kits: HashMap<String, DataKitManifest>,
 }
 
-impl Default for EmitterRegistry {
+impl Default for KitRegistry {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl EmitterRegistry {
+impl KitRegistry {
     /// Create a new empty registry.
     pub fn new() -> Self {
         Self {
-            emitters: HashMap::new(),
             kits: HashMap::new(),
         }
-    }
-
-    /// Register an emitter constructor under `name`.
-    ///
-    /// The constructor is called each time the emitter is resolved, producing
-    /// a fresh `Box<dyn Emitter>`.
-    pub fn register_emitter(&mut self, name: &str, ctor: impl Fn() -> Box<dyn Emitter> + 'static) {
-        self.emitters.insert(name.to_string(), Box::new(ctor));
     }
 
     /// Register a kit manifest under `name` (for `extends` resolution).
@@ -315,43 +254,18 @@ impl EmitterRegistry {
         self.kits.insert(name.to_string(), manifest);
     }
 
-    /// Resolve an emitter name to a fresh `Box<dyn Emitter>`.
-    pub fn resolve_emitter(&self, name: &str) -> Option<Box<dyn Emitter>> {
-        self.emitters.get(name).map(|ctor| ctor())
-    }
-
     /// Resolve a kit name to its manifest (for `extends`).
     pub fn resolve_kit(&self, name: &str) -> Option<&DataKitManifest> {
         self.kits.get(name)
-    }
-
-    /// Resolve a [`FragmentSourceSerde`] to a runtime [`FragmentSource`].
-    ///
-    /// `Emitter(name)` looks up the registered constructor; `DataFile(path)`
-    /// is returned as-is — the file is read and deserialized at assembly time
-    /// by [`produce_language`].
-    ///
-    /// # Errors
-    ///
-    /// Returns [`LangError::Engine`] if an emitter name is not registered
-    /// (surfaced as a clear config-style error).
-    pub fn resolve_source(&self, serde: &FragmentSourceSerde) -> Result<FragmentSource, LangError> {
-        match serde {
-            FragmentSourceSerde::Emitter(name) => self
-                .resolve_emitter(name)
-                .map(FragmentSource::Emitter)
-                .ok_or_else(|| LangError::engine(format!("unknown emitter: {}", name))),
-            FragmentSourceSerde::DataFile(path) => Ok(FragmentSource::DataFile(path.clone())),
-        }
     }
 }
 
 /// The assembled data-driven kit: a merged [`Language`] plus the
 /// [`RuntimeConfig`] that selects its engines.
 ///
-/// Built by [`DataKit::assemble`] from a [`DataKitManifest`] and an
-/// [`EmitterRegistry`]. Call [`DataKit::into_runtime`] to bind the language to
-/// concrete engines via [`Runtime::from_config`].
+/// Built by [`DataKit::assemble`] from a [`DataKitManifest`], a
+/// [`KitRegistry`], and a base [`Language`]. Call [`DataKit::into_runtime`]
+/// to bind the language to concrete engines via [`Runtime::from_config`].
 pub struct DataKit {
     /// The merged language.
     lang: Language,
@@ -369,19 +283,27 @@ impl std::fmt::Debug for DataKit {
 }
 
 impl DataKit {
-    /// Assemble a [`DataKit`] from a manifest and an emitter registry.
+    /// Assemble a [`DataKit`] from a manifest, a kit registry, and a base
+    /// [`Language`].
     ///
     /// This is the core of ADR-0044 §1: "selection and merge are the
     /// composition." The pipeline is:
     ///
     /// 1. If the manifest declares `extends`, assemble the parent kit first
     ///    (recursively) and use its `Language` as the accumulator base.
-    /// 2. For each fragment source entry (in declared order), resolve the
-    ///    source to a [`FragmentSource`] and produce a [`Language`].
+    ///    Otherwise `base_language` is the accumulator base — the
+    ///    `extends`-recursive call passes it down, so the caller-supplied
+    ///    base always lands at the root of the chain. This is how a
+    ///    Rust-computed language (e.g. the canonical YAML language) enters
+    ///    kit assembly: the kit stack merges on top of it.
+    /// 2. For each fragment source entry (in declared order), read the
+    ///    data file and deserialize a [`Language`].
     /// 3. Iterate the produced language's fragments across all six fragment
     ///    sets; apply the include/exclude filter by fragment `id`; merge the
     ///    passing fragments into the accumulator in order (tokens, grammar,
     ///    eval, ast, caps, options — preserving `requires` dependencies).
+    ///    The filter does *not* apply to `base_language` — the base is the
+    ///    accumulator itself, not a fragment source.
     /// 4. Produce a [`DataKit`] holding the merged language and the manifest's
     ///    [`RuntimeConfig`].
     ///
@@ -395,30 +317,31 @@ impl DataKit {
     ///
     /// # Errors
     ///
-    /// Returns [`LangError`] on: unknown emitter name, unknown `extends` kit,
-    /// data-file source (not yet implemented), fragment merge failure
-    /// (collision, unknown replace target, missing requires), or a broken
-    /// override chain caused by an exclude.
+    /// Returns [`LangError`] on: unknown `extends` kit, an unreadable or
+    /// unparseable data-file source, fragment merge failure (collision,
+    /// unknown replace target, missing requires), or a broken override chain
+    /// caused by an exclude.
     pub fn assemble(
         manifest: &DataKitManifest,
-        registry: &EmitterRegistry,
+        registry: &KitRegistry,
+        base_language: Language,
     ) -> Result<Self, LangError> {
         // 1. Resolve the `extends` chain: assemble the parent first (one level
-        //    supported in Phase 5).
+        //    supported in Phase 5), passing `base_language` to the root of
+        //    the chain.
         let (mut lang, parent_runtime) = if let Some(parent_name) = &manifest.extends {
             let parent_manifest = registry
                 .resolve_kit(parent_name)
                 .ok_or_else(|| LangError::engine(format!("unknown parent kit: {}", parent_name)))?;
-            let parent = DataKit::assemble(parent_manifest, registry)?;
+            let parent = DataKit::assemble(parent_manifest, registry, base_language)?;
             (parent.lang, parent.runtime_config)
         } else {
-            (Language::new(), RuntimeConfig::default())
+            (base_language, RuntimeConfig::default())
         };
 
-        // 2 + 3. Merge each fragment source's fragments, applying the filter.
+        // 2 + 3. Merge each data-file source's fragments, applying the filter.
         for entry in &manifest.fragments {
-            let source = registry.resolve_source(&entry.source)?;
-            let fragment_lang = produce_language(&source)?;
+            let fragment_lang: Language = read_data_file(&entry.source)?;
             merge_filtered(
                 &mut lang,
                 &fragment_lang,
@@ -484,18 +407,6 @@ impl DataKit {
     }
 }
 
-/// Produce a [`Language`] from a resolved [`FragmentSource`].
-///
-/// Emitters call `.emit()`; a data-file source is read from disk and
-/// deserialized into a [`Language`] (ADR-0044 §6 — authored data files are the
-/// end state, emitters the migration scaffold).
-fn produce_language(source: &FragmentSource) -> Result<Language, LangError> {
-    match source {
-        FragmentSource::Emitter(emitter) => emitter.emit(),
-        FragmentSource::DataFile(path) => read_data_file(path),
-    }
-}
-
 /// Read and deserialize the data file at `path` into `T`.
 ///
 /// The parser is chosen by extension — see [`parse_data`] for the rules. A
@@ -503,7 +414,7 @@ fn produce_language(source: &FragmentSource) -> Result<Language, LangError> {
 /// a misconfigured kit manifest or fragment source fails loudly rather than
 /// silently assembling an empty language.
 ///
-/// This is the loading half of the `FragmentSource::DataFile` seam
+/// This is the loading half of the data-file seam
 /// (ADR-0128 §Deferred): fragments and kit manifests can be *shipped as data*
 /// by the module that owns them, rather than `include_str!`-pinned into a
 /// crate. See also [`DataKitManifest::load`].

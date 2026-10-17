@@ -1,12 +1,12 @@
 //! Registry mapping library plugin names to zero-argument constructors.
 //!
-//! This is the library-plugin counterpart to [`EmitterRegistry`]: it lets a
+//! This is the library-plugin counterpart to [`KitRegistry`]: it lets a
 //! kit manifest name a library plugin (e.g. `json`, `os-std`) without
 //! hardcoding the Rust constructor call. The registry itself is generic and
 //! dependency-free of any concrete `plugin-lib-*` crate; downstream code
 //! populates it with the constructors it needs.
 //!
-//! [`EmitterRegistry`]: crate::EmitterRegistry
+//! [`KitRegistry`]: crate::KitRegistry
 
 use std::collections::HashMap;
 

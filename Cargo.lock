@@ -668,14 +668,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-emitters"
-version = "0.1.0"
-dependencies = [
- "handl-language",
- "plugin-engine",
-]
-
-[[package]]
 name = "handl-ext-tests"
 version = "0.1.0"
 dependencies = [
@@ -752,7 +744,6 @@ dependencies = [
 name = "handl-kit-data"
 version = "0.1.0"
 dependencies = [
- "handl-emitters",
  "handl-language",
  "handl-platform",
  "handl-plugin-engine-exec-tree-walk",
@@ -769,7 +760,6 @@ dependencies = [
 name = "handl-kit-data-canonical"
 version = "0.1.0"
 dependencies = [
- "handl-emitters",
  "handl-kit-data",
  "handl-language",
  "handl-plugin-engine-transform",
