@@ -515,7 +515,14 @@ fn realize_value(
 pub const DESUGAR_HNL: &str = include_str!("../../../handl-packages/desugar/desugar.hnl");
 
 /// The exported names of the `desugar` overlay module.
-const DESUGAR_FUNCS: &[&str] = &["data", "match_recursor"];
+///
+/// `match_recursor` is deliberately absent: the `.hnl` rewrite contract
+/// hands every rewrite the whole serialized arena (`env.nodes`), so a
+/// match-heavy AST paid a full arena serialization + conversion per
+/// `match` node (74 matches x ~50 ms on the 32k-node typecheck model).
+/// The Rust native keeps a once-per-pass constructor index instead, so
+/// `handl:desugar.match_recursor` falls through to it via `delegate`.
+const DESUGAR_FUNCS: &[&str] = &["data"];
 
 /// Build the `desugar` [`HandlModule`] backing `handl:desugar.*` rewrites.
 ///
