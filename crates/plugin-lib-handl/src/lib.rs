@@ -327,22 +327,242 @@ mod bootstrap {
             .join("\n")
     }
 
-    /// A top-level (non-indented) import statement line.
-    fn is_top_import_line(line: &str) -> bool {
-        !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
+    /// Split a module source into its top-level statements, returning each
+    /// statement's verbatim text (internal newlines and indentation
+    /// preserved) in source order.
+    ///
+    /// Mirrors `handl_runtime::module_prep::top_level_segments`. A statement
+    /// boundary is recognized purely by structure — never by a hardcoded
+    /// line shape:
+    ///
+    /// - `;` at bracket depth 0,
+    /// - a newline at depth 0 **not** followed by an indented line (an
+    ///   indented line continues the statement — `export f := (x) ~>\n
+    ///   <body>` keeps its wrapped RHS),
+    /// - an `export`/`import`/`from` keyword at depth 0 mid-statement —
+    ///   several statements sharing a line (`from "x" import a export f :=
+    ///   e`, `export a := e; export b := e2`) split into their statements.
+    ///
+    /// Inside a `from`/`import` statement the first `import`/`export`/`from`
+    /// keyword belongs to that statement's tail (`from "x" import a`,
+    /// `from "x" export a, b`, `import a from "x"`) and does not split.
+    /// String literals, `--` line comments, and `/-- … --/` block comments
+    /// are tracked so keywords and brackets inside them are ignored.
+    pub(super) fn top_level_segments(src: &str) -> Vec<String> {
+        /// What the statement under construction opened with — decides which
+        /// keywords are part of its own tail rather than a new statement.
+        #[derive(Clone, Copy, PartialEq)]
+        enum Lead {
+            /// Nothing but whitespace/comments seen so far.
+            Pending,
+            From,
+            Import,
+            Export,
+            Other,
+        }
+
+        let bytes = src.as_bytes();
+        let mut segs: Vec<String> = Vec::new();
+        let mut start = 0usize;
+        let mut depth: i32 = 0;
+        let mut in_str: Option<u8> = None;
+        let mut in_line_comment = false;
+        let mut in_block_comment = false;
+        let mut lead = Lead::Pending;
+        // Whether the in-flight `from` statement has consumed its
+        // `import`/`export` keyword already, and whether an `import`
+        // statement has consumed `from`.
+        let mut tail_seen = false;
+
+        // Emit the accumulated statement `[start, $end)` when non-blank and
+        // open the next segment at `$next` with lead `$lead`.
+        macro_rules! cut {
+            ($end:expr, $next:expr, $lead:expr) => {{
+                let text = &src[start..$end];
+                if !text.trim().is_empty() {
+                    segs.push(text.to_string());
+                }
+                start = $next;
+                lead = $lead;
+                tail_seen = false;
+            }};
+        }
+
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if in_line_comment {
+                if c == b'\n' {
+                    in_line_comment = false;
+                    // fall through: the newline may end the statement
+                } else {
+                    i += 1;
+                    continue;
+                }
+            }
+            if in_block_comment {
+                if c == b'-' && bytes.get(i + 1) == Some(&b'-') && bytes.get(i + 2) == Some(&b'/') {
+                    in_block_comment = false;
+                    i += 3;
+                } else {
+                    i += 1;
+                }
+                continue;
+            }
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 1;
+                continue;
+            }
+            if c == b'-' && bytes.get(i + 1) == Some(&b'-') {
+                in_line_comment = true;
+                i += 2;
+                continue;
+            }
+            if c == b'/' && bytes.get(i + 1) == Some(&b'-') && bytes.get(i + 2) == Some(&b'-') {
+                in_block_comment = true;
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 3;
+                continue;
+            }
+            match c {
+                b'"' | b'\'' => {
+                    in_str = Some(c);
+                    if lead == Lead::Pending {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+                b'(' | b'[' | b'{' => {
+                    depth += 1;
+                    if lead == Lead::Pending {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+                b')' | b']' | b'}' => {
+                    depth -= 1;
+                    if lead == Lead::Pending {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+                b';' if depth == 0 => {
+                    cut!(i, i + 1, Lead::Pending);
+                    i += 1;
+                }
+                b'\n' if depth == 0 => {
+                    // Boundary only when the next line is not indented —
+                    // indented lines are statement continuations.
+                    let next = bytes.get(i + 1).copied();
+                    if next != Some(b' ') && next != Some(b'\t') {
+                        cut!(i, i + 1, Lead::Pending);
+                    }
+                    i += 1;
+                }
+                _ if depth == 0 && (c.is_ascii_alphabetic() || c == b'_') => {
+                    // Consume a whole identifier word so keywords inside
+                    // larger names (`exporter`, `fromage`) never match.
+                    let mut j = i + 1;
+                    while j < bytes.len()
+                        && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
+                    {
+                        j += 1;
+                    }
+                    let word = &src[i..j];
+                    // A word after `.` is a field name (`char.from_chars`,
+                    // `x.from`), not a statement keyword.
+                    let dotted = i > 0 && bytes[i - 1] == b'.';
+                    let kw = if !dotted && (word == "export" || word == "import" || word == "from")
+                    {
+                        Some(word)
+                    } else {
+                        None
+                    };
+                    match (lead, kw) {
+                        (Lead::Pending, Some("export")) => lead = Lead::Export,
+                        (Lead::Pending, Some("from")) => lead = Lead::From,
+                        (Lead::Pending, Some("import")) => lead = Lead::Import,
+                        (Lead::Pending, _) => lead = Lead::Other,
+                        // `from "x" import …` / `from "x" export …` — the
+                        // first tail keyword belongs to the statement.
+                        (Lead::From, Some("import" | "export")) if !tail_seen => {
+                            tail_seen = true;
+                        }
+                        // `import <name> from "spec"` consumes one `from`.
+                        (Lead::Import, Some("from")) if !tail_seen => {
+                            tail_seen = true;
+                        }
+                        (_, Some(k)) => {
+                            // A statement-keyword at depth 0 mid-statement:
+                            // the next statement starts here.
+                            let next_lead = match k {
+                                "export" => Lead::Export,
+                                "from" => Lead::From,
+                                _ => Lead::Import,
+                            };
+                            cut!(i, i, next_lead);
+                        }
+                        (_, None) => {}
+                    }
+                    i = j;
+                }
+                _ => {
+                    if lead == Lead::Pending && !c.is_ascii_whitespace() {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+            }
+        }
+        let text = &src[start..];
+        if !text.trim().is_empty() {
+            segs.push(text.to_string());
+        }
+        segs
+    }
+
+    /// The text after the `export` keyword when `trimmed` begins an export
+    /// declaration — `None` when `export` does not sit at a word boundary
+    /// at the start of the statement (`exporter := …` is a binding, not an
+    /// export). Mirrors `handl_runtime::module_prep::export_decl_rest`.
+    fn export_decl_rest(trimmed: &str) -> Option<&str> {
+        let rest = trimmed.strip_prefix("export")?;
+        if rest.is_empty() {
+            return Some(rest);
+        }
+        let next = rest.as_bytes()[0];
+        if !(next.is_ascii_alphanumeric() || next == b'_') {
+            Some(rest.trim_start())
+        } else {
+            None
+        }
     }
 
     /// Top-level import statements of `src`, in original order. `from "..."
     /// export x, y` re-export lines are rewritten to plain `import ... as`
     /// statements so the hoisted `do { ... }` block binds the local aliases
-    /// the record literal references.
+    /// the record literal references. Statement segmentation mirrors
+    /// `handl_runtime::module_prep`: an import is recognized wherever a
+    /// statement can begin, not only at column 0 of a line.
     fn collect_import_lines(src: &str) -> Vec<String> {
-        src.lines()
-            .filter(|line| is_top_import_line(line))
-            .map(|line| {
-                let line = from_export_to_import(line)
+        top_level_segments(src)
+            .iter()
+            .map(|seg| seg.trim().to_string())
+            .filter(|seg| is_import_line(seg))
+            .map(|seg| {
+                let line = from_export_to_import(&seg)
                     .map(|(import_line, _)| import_line)
-                    .unwrap_or_else(|| line.to_string());
+                    .unwrap_or(seg);
                 // Inside a `do {}` block, `import <names>` trailing-tokens
                 // parsing does not stop at the newline — terminate each
                 // import with `;` so the following statement can't merge in.
@@ -459,10 +679,14 @@ mod bootstrap {
         Vec::new()
     }
 
-    /// `src` with top-level import statements removed (all other lines kept).
+    /// `src` with top-level import statements removed (all other
+    /// statements kept verbatim). Statement segmentation mirrors
+    /// `handl_runtime::module_prep::drop_all_import_lines`.
     fn drop_import_lines(src: &str) -> String {
-        src.lines()
-            .filter(|line| !is_top_import_line(line))
+        top_level_segments(src)
+            .iter()
+            .filter(|seg| !is_import_line(seg.trim()))
+            .cloned()
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -471,13 +695,16 @@ mod bootstrap {
     /// literal `{ name: expr, ... }` so the source evaluates to a record of
     /// exported functions.
     ///
-    /// Each `export name = expr` line (at column 0) starts a binding. The
-    /// expression continues until the next top-level `export` line or end of
-    /// source. The collected expressions are joined into an object literal:
-    ///
-    /// ```text
-    /// { name1: expr1, name2: expr2, ... }
-    /// ```
+    /// The source is consumed as top-level *statements*
+    /// ([`top_level_segments`]) — not lines — so an `export` is recognized
+    /// wherever a statement can begin: at column 0, indented, after `;`, or
+    /// mid-line after another statement; and its RHS expression is captured
+    /// whole regardless of how newlines fall inside `~>`-chained `do {…}` /
+    /// `if`/`else` bodies. A declaration that cannot be transformed (an
+    /// `export` with no `::`/`:=`/`:`/`=` separator, or an empty binding
+    /// name) panics — a module prep must never silently drop an export
+    /// into an empty record (mirrors `handl_runtime::module_prep`'s
+    /// `LangError`).
     ///
     /// When the source contains top-level `import`/`from` statements they are
     /// hoisted -- in original order -- ahead of the record literal inside a
@@ -486,14 +713,15 @@ mod bootstrap {
     /// `(source).func(args)` applied form needs a *single* expression; a bare
     /// import statement followed by a record is not one.
     ///
-    /// If no `export` lines are found and there are no imports, the source is
-    /// returned unchanged (the existing object-literal form is preserved).
+    /// If no `export` statements are found and there are no imports, the
+    /// source is returned unchanged (the existing object-literal form is
+    /// preserved).
     pub(super) fn transform_export_to_object(src: &str) -> String {
         // Collect (name, expr_lines, exported) triples in source order.
         // All bindings become `do`-block assignments (`name := expr;`)
         // emitted *before* the object so closures can reference siblings
         // — exported or not. The object literal projects the exported
-        // names (`{ name: name }`) — mirrors `handl_runtime::module_prep`.
+        // names — mirrors `handl_runtime::module_prep`.
         let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
         let mut current: Option<(String, Vec<String>, bool)> = None;
         // Whether the module's last top-level statement is a binding.
@@ -511,79 +739,90 @@ mod bootstrap {
             };
         }
 
-        for line in src.lines() {
-            let trimmed = line.trim_start();
-            // Import lines are hoisted separately; never treat them as part
-            // of an export body. `from "..." export x` re-export lines close
-            // the current entry and contribute one record field per name.
-            if is_top_import_line(line) {
-                if let Some((_, names)) = from_export_to_import(line) {
-                    finalize!();
+        for seg in top_level_segments(src) {
+            let trimmed = seg.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            // Import statements are hoisted separately; never treat them as
+            // part of an export body. `from "..." export x` re-export
+            // statements contribute one record field per name.
+            if is_import_line(trimmed) {
+                finalize!();
+                if let Some((_, names)) = from_export_to_import(trimmed) {
                     for (name, alias) in names {
                         bindings.push((name, vec![alias], true));
                     }
                 }
                 continue;
             }
-            // A top-level export line starts at column 0 with `export `.
-            if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
+            if let Some(rest) = export_decl_rest(trimmed) {
                 // Flush the previous entry.
                 finalize!();
-                let rest = &trimmed["export ".len()..];
                 // Find the binding separator (`::`, `:=`, or legacy `=`).
-                if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
-                    let name = strip_export_name(&rest[..sep_pos]);
-                    let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
+                    // Never drop an export declaration silently — a module
+                    // that reaches eval with a vanished export produces an
+                    // empty record (`{}`) or an "unbound name" error far
+                    // from the cause (mirrors `module_prep`'s `LangError`).
+                    panic!(
+                        "module prep: cannot transform `export` declaration \
+                         (expected `export <name> <::|:=|=|: > …`): {trimmed}"
+                    );
+                };
+                let name = strip_export_name(&rest[..sep_pos]);
+                if name.is_empty() {
+                    panic!(
+                        "module prep: `export` declaration has no binding name: {trimmed}"
+                    );
+                }
+                let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                let expr_start = if is_type_only {
+                    "null"
+                } else {
+                    rest[sep_pos + sep_len..].trim()
+                };
+                let mut expr_lines = Vec::new();
+                if !expr_start.is_empty() {
+                    expr_lines.push(expr_start.to_string());
+                }
+                current = Some((name, expr_lines, true));
+                tail_is_binding = true;
+                continue;
+            }
+            // A statement that is not an import or `export` declaration.
+            // Detect a *private* (non-exported) top-level binding so that
+            // helper functions are preserved instead of dropped — mirrors
+            // `handl_runtime::module_prep`.
+            if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
+                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                if is_valid_ident(&name) {
+                    finalize!();
+                    let is_type_only =
+                        sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
                     let expr_start = if is_type_only {
                         "null"
                     } else {
-                        rest[sep_pos + sep_len..].trim()
+                        trimmed[sep_pos + sep_len..].trim()
                     };
                     let mut expr_lines = Vec::new();
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
                     }
-                    current = Some((name, expr_lines, true));
+                    current = Some((name, expr_lines, false));
                     tail_is_binding = true;
-                }
-                continue;
-                // If no separator found, skip (not a valid export binding).
-            } else if !line.starts_with(' ') && !line.starts_with('\t') {
-                // Column-0 line that is not an import or `export`
-                // declaration. Detect a *private* (non-exported) top-level
-                // binding so that helper functions are preserved instead of
-                // dropped — mirrors `handl_runtime::module_prep`.
-                if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
-                    let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
-                    if is_valid_ident(&name) {
-                        finalize!();
-                        let is_type_only =
-                            sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
-                        let expr_start = if is_type_only {
-                            "null"
-                        } else {
-                            trimmed[sep_pos + sep_len..].trim()
-                        };
-                        let mut expr_lines = Vec::new();
-                        if !expr_start.is_empty() {
-                            expr_lines.push(expr_start.to_string());
-                        }
-                        current = Some((name, expr_lines, false));
-                        tail_is_binding = true;
-                        continue;
-                    }
-                }
-                if current.is_none() && !trimmed.is_empty() {
-                    tail_is_binding = false;
+                    continue;
                 }
             }
-            if let Some((_, ref mut lines, _)) = current {
-                // Accumulate indented continuation lines (part of the export
-                // expression body). Stop at blank lines only if the next
-                // non-blank line is a top-level export.
-                if !line.trim().is_empty() {
-                    lines.push(line.to_string());
-                }
+            // A non-binding statement that does not continue an in-flight
+            // binding means the module's last statement is a bare expression
+            // (`do { … }`, record literal, call) — its value is the module
+            // record, so no projection is appended. Otherwise the segment
+            // continues the current binding's expression verbatim.
+            if current.is_none() {
+                tail_is_binding = false;
+            } else if let Some((_, lines, _)) = &mut current {
+                lines.push(seg.clone());
             }
         }
         finalize!();
@@ -618,9 +857,10 @@ mod bootstrap {
                 for (name, _, _) in &bindings {
                     push_field(name);
                 }
-                for line in src.lines() {
-                    if is_top_import_line(line) {
-                        for local in import_bound_locals(line) {
+                for seg in top_level_segments(src) {
+                    let trimmed = seg.trim();
+                    if is_import_line(trimmed) {
+                        for local in import_bound_locals(trimmed) {
                             push_field(&local);
                         }
                     }
@@ -2079,13 +2319,13 @@ impl Module for HandlModule {
 /// Owned by this crate (ADR-0128 §".hnl ownership": one `include_str!` per
 /// package; other consumers — e.g. `examples/loader_bench.rs` — take this
 /// `pub const`).
-pub const STR_HANDL_HNL: &str = include_str!("../../../handl-packages/str-handl/str-handl.hnl");
+pub use handl_lib_str_handl::STR_HANDL_HNL;
 
-/// The handl source of `handl-packages/dedent/dedent.hnl` — owned by this
-/// crate (ADR-0128 §".hnl ownership": one `include_str!` per package, in the
-/// crate that owns it; other consumers — `handl-kit-canonical` in the
+/// The handl source of `dedent.hnl` — owned by the `lib-dedent` repo
+/// (ADR-0128 §".hnl ownership": one `include_str!` per package, in the crate
+/// that owns it; other consumers — `handl-kit-canonical` in the
 /// `kit-canonical/` repo — take this `pub const`).
-pub const DEDENT_HNL: &str = include_str!("../../../handl-packages/dedent/dedent.hnl");
+pub use handl_lib_dedent::DEDENT_HNL;
 
 /// The canonical text-transform loader source (ADR-0094).
 ///
@@ -2194,376 +2434,8 @@ fn loader_call(func: &str, src: &str) -> Option<serde_json::Value> {
     }
 }
 
-/// The record field names exposed by `str-handl.hnl`.
-pub const STR_HANDL_FUNCS: &[&str] = &[
-    "upper",
-    "lower",
-    "trim",
-    "trim_start",
-    "trim_end",
-    "trim_matches",
-    "reverse",
-    "length",
-    "concat",
-    "is_empty",
-    "equals",
-    "is_alpha",
-    "is_numeric",
-    "is_alphanumeric",
-    "capitalize",
-    "title_case",
-    "snake_case",
-    "camel_case",
-    "pascal_case",
-    "kebab_case",
-    "contains",
-    "starts_with",
-    "ends_with",
-    "count",
-    "find",
-    "rfind",
-    "levenshtein",
-    "similarity",
-    "split",
-    "join",
-    "replace",
-    "replace_first",
-    "repeat",
-    "char_at",
-    "slice",
-    "pad_left",
-    "pad_right",
-    "strip_prefix",
-    "strip_suffix",
-    "lines",
-    "split_at",
-    "split_whitespace",
-    "truncate",
-    "slugify",
-    "word_wrap",
-];
-
-/// The `str-handl` package sources: `(basename, source, exported names)`
-/// for every per-arrow and `internal/` helper file. The basename is the
-/// module name a `from "./x" import` (or `from "./internal/x" import`)
-/// spec normalizes to, so sibling files resolve each other by basename.
-/// Rows are in dependency order — a file may only import rows above it
-/// (plus `char`). [`STR_HANDL_HNL`] is the aggregator index on top.
-pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
-    // -- internal/ generic list helpers (no `char`) -------------------------
-    (
-        "rev",
-        include_str!("../../../handl-packages/str-handl/internal/rev.hnl"),
-        &["rev"],
-    ),
-    (
-        "len",
-        include_str!("../../../handl-packages/str-handl/internal/len.hnl"),
-        &["len"],
-    ),
-    (
-        "head",
-        include_str!("../../../handl-packages/str-handl/internal/head.hnl"),
-        &["head"],
-    ),
-    (
-        "drop",
-        include_str!("../../../handl-packages/str-handl/internal/drop.hnl"),
-        &["drop"],
-    ),
-    (
-        "member",
-        include_str!("../../../handl-packages/str-handl/internal/member.hnl"),
-        &["member"],
-    ),
-    (
-        "prefix_match",
-        include_str!("../../../handl-packages/str-handl/internal/prefix_match.hnl"),
-        &["prefix_match"],
-    ),
-    (
-        "take",
-        include_str!("../../../handl-packages/str-handl/internal/take.hnl"),
-        &["take"],
-    ),
-    (
-        "append",
-        include_str!("../../../handl-packages/str-handl/internal/append.hnl"),
-        &["append"],
-    ),
-    (
-        "last",
-        include_str!("../../../handl-packages/str-handl/internal/last.hnl"),
-        &["last"],
-    ),
-    (
-        "find_idx",
-        include_str!("../../../handl-packages/str-handl/internal/find_idx.hnl"),
-        &["find_idx"],
-    ),
-    // -- internal/ string helpers (over `char`) -----------------------------
-    (
-        "capitalize_first",
-        include_str!("../../../handl-packages/str-handl/internal/capitalize_first.hnl"),
-        &["capitalize_first"],
-    ),
-    (
-        "pad_to",
-        include_str!("../../../handl-packages/str-handl/internal/pad_to.hnl"),
-        &["pad_to"],
-    ),
-    // -- internal/ callback-invoking helpers --------------------------------
-    // `map`/`all`/`drop_while` evaluate caller-supplied arrows, whose
-    // `char.*`/helper calls resolve in THESE modules' runtimes — they must
-    // come after every other internal row (see `STR_HANDL_CALLBACK_SCOPE`).
-    (
-        "map",
-        include_str!("../../../handl-packages/str-handl/internal/map.hnl"),
-        &["map"],
-    ),
-    (
-        "all",
-        include_str!("../../../handl-packages/str-handl/internal/all.hnl"),
-        &["all"],
-    ),
-    (
-        "drop_while",
-        include_str!("../../../handl-packages/str-handl/internal/drop_while.hnl"),
-        &["drop_while"],
-    ),
-    (
-        "split_words",
-        include_str!("../../../handl-packages/str-handl/internal/split_words.hnl"),
-        &["split_words"],
-    ),
-    // -- `str` contract arrows (one file per arrow) -------------------------
-    (
-        "join",
-        include_str!("../../../handl-packages/str-handl/join.hnl"),
-        &["join"],
-    ),
-    (
-        "concat",
-        include_str!("../../../handl-packages/str-handl/concat.hnl"),
-        &["concat"],
-    ),
-    (
-        "is_empty",
-        include_str!("../../../handl-packages/str-handl/is_empty.hnl"),
-        &["is_empty"],
-    ),
-    (
-        "equals",
-        include_str!("../../../handl-packages/str-handl/equals.hnl"),
-        &["equals"],
-    ),
-    (
-        "repeat",
-        include_str!("../../../handl-packages/str-handl/repeat.hnl"),
-        &["repeat"],
-    ),
-    (
-        "upper",
-        include_str!("../../../handl-packages/str-handl/upper.hnl"),
-        &["upper"],
-    ),
-    (
-        "lower",
-        include_str!("../../../handl-packages/str-handl/lower.hnl"),
-        &["lower"],
-    ),
-    (
-        "trim",
-        include_str!("../../../handl-packages/str-handl/trim.hnl"),
-        &["trim"],
-    ),
-    (
-        "trim_start",
-        include_str!("../../../handl-packages/str-handl/trim_start.hnl"),
-        &["trim_start"],
-    ),
-    (
-        "trim_end",
-        include_str!("../../../handl-packages/str-handl/trim_end.hnl"),
-        &["trim_end"],
-    ),
-    (
-        "trim_matches",
-        include_str!("../../../handl-packages/str-handl/trim_matches.hnl"),
-        &["trim_matches"],
-    ),
-    (
-        "reverse",
-        include_str!("../../../handl-packages/str-handl/reverse.hnl"),
-        &["reverse"],
-    ),
-    (
-        "length",
-        include_str!("../../../handl-packages/str-handl/length.hnl"),
-        &["length"],
-    ),
-    (
-        "char_at",
-        include_str!("../../../handl-packages/str-handl/char_at.hnl"),
-        &["char_at"],
-    ),
-    (
-        "slice",
-        include_str!("../../../handl-packages/str-handl/slice.hnl"),
-        &["slice"],
-    ),
-    (
-        "split_at",
-        include_str!("../../../handl-packages/str-handl/split_at.hnl"),
-        &["split_at"],
-    ),
-    (
-        "is_alpha",
-        include_str!("../../../handl-packages/str-handl/is_alpha.hnl"),
-        &["is_alpha"],
-    ),
-    (
-        "is_numeric",
-        include_str!("../../../handl-packages/str-handl/is_numeric.hnl"),
-        &["is_numeric"],
-    ),
-    (
-        "is_alphanumeric",
-        include_str!("../../../handl-packages/str-handl/is_alphanumeric.hnl"),
-        &["is_alphanumeric"],
-    ),
-    (
-        "capitalize",
-        include_str!("../../../handl-packages/str-handl/capitalize.hnl"),
-        &["capitalize"],
-    ),
-    (
-        "title_case",
-        include_str!("../../../handl-packages/str-handl/title_case.hnl"),
-        &["title_case"],
-    ),
-    (
-        "snake_case",
-        include_str!("../../../handl-packages/str-handl/snake_case.hnl"),
-        &["snake_case"],
-    ),
-    (
-        "camel_case",
-        include_str!("../../../handl-packages/str-handl/camel_case.hnl"),
-        &["camel_case"],
-    ),
-    (
-        "pascal_case",
-        include_str!("../../../handl-packages/str-handl/pascal_case.hnl"),
-        &["pascal_case"],
-    ),
-    (
-        "kebab_case",
-        include_str!("../../../handl-packages/str-handl/kebab_case.hnl"),
-        &["kebab_case"],
-    ),
-    (
-        "contains",
-        include_str!("../../../handl-packages/str-handl/contains.hnl"),
-        &["contains"],
-    ),
-    (
-        "starts_with",
-        include_str!("../../../handl-packages/str-handl/starts_with.hnl"),
-        &["starts_with"],
-    ),
-    (
-        "ends_with",
-        include_str!("../../../handl-packages/str-handl/ends_with.hnl"),
-        &["ends_with"],
-    ),
-    (
-        "count",
-        include_str!("../../../handl-packages/str-handl/count.hnl"),
-        &["count"],
-    ),
-    (
-        "find",
-        include_str!("../../../handl-packages/str-handl/find.hnl"),
-        &["find"],
-    ),
-    (
-        "rfind",
-        include_str!("../../../handl-packages/str-handl/rfind.hnl"),
-        &["rfind"],
-    ),
-    (
-        "levenshtein",
-        include_str!("../../../handl-packages/str-handl/levenshtein.hnl"),
-        &["levenshtein"],
-    ),
-    (
-        "similarity",
-        include_str!("../../../handl-packages/str-handl/similarity.hnl"),
-        &["similarity"],
-    ),
-    (
-        "split",
-        include_str!("../../../handl-packages/str-handl/split.hnl"),
-        &["split"],
-    ),
-    (
-        "replace",
-        include_str!("../../../handl-packages/str-handl/replace.hnl"),
-        &["replace"],
-    ),
-    (
-        "replace_first",
-        include_str!("../../../handl-packages/str-handl/replace_first.hnl"),
-        &["replace_first"],
-    ),
-    (
-        "pad_left",
-        include_str!("../../../handl-packages/str-handl/pad_left.hnl"),
-        &["pad_left"],
-    ),
-    (
-        "pad_right",
-        include_str!("../../../handl-packages/str-handl/pad_right.hnl"),
-        &["pad_right"],
-    ),
-    (
-        "strip_prefix",
-        include_str!("../../../handl-packages/str-handl/strip_prefix.hnl"),
-        &["strip_prefix"],
-    ),
-    (
-        "strip_suffix",
-        include_str!("../../../handl-packages/str-handl/strip_suffix.hnl"),
-        &["strip_suffix"],
-    ),
-    (
-        "lines",
-        include_str!("../../../handl-packages/str-handl/lines.hnl"),
-        &["lines"],
-    ),
-    (
-        "split_whitespace",
-        include_str!("../../../handl-packages/str-handl/split_whitespace.hnl"),
-        &["split_whitespace"],
-    ),
-    (
-        "truncate",
-        include_str!("../../../handl-packages/str-handl/truncate.hnl"),
-        &["truncate"],
-    ),
-    (
-        "slugify",
-        include_str!("../../../handl-packages/str-handl/slugify.hnl"),
-        &["slugify"],
-    ),
-    (
-        "word_wrap",
-        include_str!("../../../handl-packages/str-handl/word_wrap.hnl"),
-        &["word_wrap"],
-    ),
-];
-
+pub use handl_lib_str_handl::STR_HANDL_FUNCS;
+pub use handl_lib_str_handl::STR_HANDL_SOURCES;
 /// Internal helpers that invoke caller-supplied arrows (`f`/`p`).
 const STR_HANDL_CALLBACK_INVOKERS: &[&str] = &["map", "all", "drop_while"];
 
@@ -2594,12 +2466,14 @@ const STR_HANDL_CALLBACK_SCOPE: &[&str] = &[
 ];
 
 /// The first `"..."`-quoted spec of each top-level `from "..."`/`import
-/// "..."` line in `src`, in order. Used to wire [`HandlModule`] deps so
-/// the Rust table above can never drift from the `.hnl` imports.
+/// "..."` statement in `src`, in order. Used to wire [`HandlModule`] deps so
+/// the Rust table above can never drift from the `.hnl` imports. Statement
+/// segmentation mirrors the export transform, so an import sharing a line
+/// with a sibling statement is still wired.
 fn str_handl_import_specs(src: &str) -> Vec<String> {
     let mut specs = Vec::new();
-    for line in src.lines() {
-        let t = line.trim_start();
+    for seg in bootstrap::top_level_segments(src) {
+        let t = seg.trim();
         if !(t.starts_with("from ") || t.starts_with("import ")) {
             continue;
         }

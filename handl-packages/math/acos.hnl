@@ -1,4 +1,0 @@
---- Acos arrow signature.
-from "type" import { Number }
-
-export Acos: Number ~[1]~> Number

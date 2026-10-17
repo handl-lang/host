@@ -1,4 +1,0 @@
---- Max arrow signature.
-from "type" import { Number }
-
-export Max: (Number * Number) ~[1]~> Number

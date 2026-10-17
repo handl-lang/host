@@ -1,5 +1,0 @@
---- Pure-handl implementation of add.
-from "type" import { Number }
-from "../math/add" import { Add }
-
-export add: Add := (a, b) ~> do { a + b }

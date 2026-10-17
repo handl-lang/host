@@ -1,4 +1,0 @@
---- Sign arrow signature.
-from "type" import { Number }
-
-export Sign: Number ~[1]~> Number

@@ -1,4 +1,0 @@
---- Sqrt arrow signature.
-from "type" import { Number }
-
-export Sqrt: Number ~[1]~> Number

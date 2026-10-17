@@ -1,9 +1,0 @@
-from "./all" import * as m
-
-test_all_pass := assert m.all([2, 4, 6], x ~> x > 1) = true
-
-test_all_fail_mid := assert m.all([2, 1, 2], x ~> x > 1) = false
-
-test_all_empty := assert m.all([], x ~> x > 0) = true
-
-test_all_fail_first := assert m.all([0, 5, 5], x ~> x > 0) = false

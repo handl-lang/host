@@ -1,4 +1,0 @@
---- Round arrow signature.
-from "type" import { Number }
-
-export Round: Number ~[1]~> Number

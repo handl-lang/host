@@ -1,9 +1,0 @@
-from "./rev" import * as m
-
-test_rev_basic := assert m.rev([1, 2, 3]) = [3, 2, 1]
-
-test_rev_empty := assert m.rev([]) = []
-
-test_rev_single := assert m.rev(["a"]) = ["a"]
-
-test_rev_two := assert m.rev([true, false]) = [false, true]

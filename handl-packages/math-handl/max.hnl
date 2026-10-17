@@ -1,5 +1,0 @@
---- Pure-handl implementation of max.
-from "type" import { Number }
-from "../math/max" import { Max }
-
-export max: Max := (a, b) ~> do { if a >= b { a } else { b } }

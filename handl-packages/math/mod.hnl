@@ -1,4 +1,0 @@
---- Mod arrow signature.
-from "type" import { Number }
-
-export Mod: (Number * Number) ~[1]~> Number

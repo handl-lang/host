@@ -1,4 +1,0 @@
---- Acosh arrow signature.
-from "type" import { Number }
-
-export Acosh: Number ~[1]~> Number

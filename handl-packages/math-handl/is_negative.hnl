@@ -1,5 +1,0 @@
---- Pure-handl implementation of is_negative.
-from "type" import { Number, Bool }
-from "../math/is_negative" import { IsNegative }
-
-export is_negative: IsNegative := (x) ~> do { x < 0 }

@@ -1,4 +1,0 @@
---- Asinh arrow signature.
-from "type" import { Number }
-
-export Asinh: Number ~[1]~> Number

@@ -1,4 +1,0 @@
---- E arrow signature.
-from "type" import { Number, Unit }
-
-export E: Unit ~[1]~> Number

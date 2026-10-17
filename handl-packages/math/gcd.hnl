@@ -1,4 +1,0 @@
---- Gcd arrow signature.
-from "type" import { Number }
-
-export Gcd: (Number * Number) ~[1]~> Number

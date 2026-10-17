@@ -1,4 +1,0 @@
---- Cosh arrow signature.
-from "type" import { Number }
-
-export Cosh: Number ~[1]~> Number

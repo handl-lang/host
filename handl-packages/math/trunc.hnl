@@ -1,4 +1,0 @@
---- Trunc arrow signature.
-from "type" import { Number }
-
-export Trunc: Number ~[1]~> Number

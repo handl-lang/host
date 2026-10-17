@@ -1,4 +1,0 @@
---- Ceil arrow signature.
-from "type" import { Number }
-
-export Ceil: Number ~[1]~> Number

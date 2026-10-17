@@ -1,4 +1,0 @@
---- Log10 arrow signature.
-from "type" import { Number }
-
-export Log10: Number ~[1]~> Number

@@ -1,4 +1,0 @@
---- Exp arrow signature.
-from "type" import { Number }
-
-export Exp: Number ~[1]~> Number

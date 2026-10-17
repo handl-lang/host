@@ -7,12 +7,12 @@
 
 use std::sync::Arc;
 
-use handl_platform::Module;
+use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
-    HandlLoader, ModuleResolver, build_str_handl_module, expand_tag_declarations, install_loader,
-    parse_cap_declarations, parse_tag_declarations, strip_comment_lines, strip_declaration_lines,
-    transform_export_to_object,
+    HandlLoader, HandlModule, ModuleResolver, build_str_handl_module, expand_tag_declarations,
+    install_loader, loader, parse_cap_declarations, parse_tag_declarations, strip_comment_lines,
+    strip_declaration_lines, transform_export_to_object,
 };
 
 /// Bootstrap implementations, re-exposed for parity checking.
@@ -70,17 +70,204 @@ mod bootstrap {
             .join("\n")
     }
 
-    fn is_top_import_line(line: &str) -> bool {
-        !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
+    /// Split a module source into its top-level statements, returning each
+    /// statement's verbatim text in source order. Mirrors
+    /// `handl_runtime::module_prep::top_level_segments` (and the handl
+    /// `top_level_segments` in `loader.hnl`): boundaries are `;` at bracket
+    /// depth 0, a depth-0 newline not followed by an indented line, and a
+    /// depth-0 `export`/`import`/`from` keyword mid-statement (with
+    /// `from`/`import`-tail suppression and `.`-dotted names never
+    /// splitting). Strings, `--` line comments, and `/-- … --/` block
+    /// comments are tracked so keywords inside them are ignored.
+    fn top_level_segments(src: &str) -> Vec<String> {
+        #[derive(Clone, Copy, PartialEq)]
+        enum Lead {
+            Pending,
+            From,
+            Import,
+            Export,
+            Other,
+        }
+
+        let bytes = src.as_bytes();
+        let mut segs: Vec<String> = Vec::new();
+        let mut start = 0usize;
+        let mut depth: i32 = 0;
+        let mut in_str: Option<u8> = None;
+        let mut in_line_comment = false;
+        let mut in_block_comment = false;
+        let mut lead = Lead::Pending;
+        let mut tail_seen = false;
+
+        macro_rules! cut {
+            ($end:expr, $next:expr, $lead:expr) => {{
+                let text = &src[start..$end];
+                if !text.trim().is_empty() {
+                    segs.push(text.to_string());
+                }
+                start = $next;
+                lead = $lead;
+                tail_seen = false;
+            }};
+        }
+
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if in_line_comment {
+                if c == b'\n' {
+                    in_line_comment = false;
+                } else {
+                    i += 1;
+                    continue;
+                }
+            }
+            if in_block_comment {
+                if c == b'-' && bytes.get(i + 1) == Some(&b'-') && bytes.get(i + 2) == Some(&b'/') {
+                    in_block_comment = false;
+                    i += 3;
+                } else {
+                    i += 1;
+                }
+                continue;
+            }
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 1;
+                continue;
+            }
+            if c == b'-' && bytes.get(i + 1) == Some(&b'-') {
+                in_line_comment = true;
+                i += 2;
+                continue;
+            }
+            if c == b'/' && bytes.get(i + 1) == Some(&b'-') && bytes.get(i + 2) == Some(&b'-') {
+                in_block_comment = true;
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 3;
+                continue;
+            }
+            match c {
+                b'"' | b'\'' => {
+                    in_str = Some(c);
+                    if lead == Lead::Pending {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+                b'(' | b'[' | b'{' => {
+                    depth += 1;
+                    if lead == Lead::Pending {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+                b')' | b']' | b'}' => {
+                    depth -= 1;
+                    if lead == Lead::Pending {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+                b';' if depth == 0 => {
+                    cut!(i, i + 1, Lead::Pending);
+                    i += 1;
+                }
+                b'\n' if depth == 0 => {
+                    let next = bytes.get(i + 1).copied();
+                    if next != Some(b' ') && next != Some(b'\t') {
+                        cut!(i, i + 1, Lead::Pending);
+                    }
+                    i += 1;
+                }
+                _ if depth == 0 && (c.is_ascii_alphabetic() || c == b'_') => {
+                    let mut j = i + 1;
+                    while j < bytes.len()
+                        && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
+                    {
+                        j += 1;
+                    }
+                    let word = &src[i..j];
+                    let dotted = i > 0 && bytes[i - 1] == b'.';
+                    let kw = if !dotted && (word == "export" || word == "import" || word == "from")
+                    {
+                        Some(word)
+                    } else {
+                        None
+                    };
+                    match (lead, kw) {
+                        (Lead::Pending, Some("export")) => lead = Lead::Export,
+                        (Lead::Pending, Some("from")) => lead = Lead::From,
+                        (Lead::Pending, Some("import")) => lead = Lead::Import,
+                        (Lead::Pending, _) => lead = Lead::Other,
+                        (Lead::From, Some("import" | "export")) if !tail_seen => {
+                            tail_seen = true;
+                        }
+                        (Lead::Import, Some("from")) if !tail_seen => {
+                            tail_seen = true;
+                        }
+                        (_, Some(k)) => {
+                            let next_lead = match k {
+                                "export" => Lead::Export,
+                                "from" => Lead::From,
+                                _ => Lead::Import,
+                            };
+                            cut!(i, i, next_lead);
+                        }
+                        (_, None) => {}
+                    }
+                    i = j;
+                }
+                _ => {
+                    if lead == Lead::Pending && !c.is_ascii_whitespace() {
+                        lead = Lead::Other;
+                    }
+                    i += 1;
+                }
+            }
+        }
+        let text = &src[start..];
+        if !text.trim().is_empty() {
+            segs.push(text.to_string());
+        }
+        segs
+    }
+
+    /// The text after the `export` keyword when `trimmed` begins an export
+    /// declaration — `None` when `export` does not sit at a word boundary
+    /// at the start of the statement. Mirrors
+    /// `handl_runtime::module_prep::export_decl_rest`.
+    fn export_decl_rest(trimmed: &str) -> Option<&str> {
+        let rest = trimmed.strip_prefix("export")?;
+        if rest.is_empty() {
+            return Some(rest);
+        }
+        let next = rest.as_bytes()[0];
+        if !(next.is_ascii_alphanumeric() || next == b'_') {
+            Some(rest.trim_start())
+        } else {
+            None
+        }
     }
 
     fn collect_import_lines(src: &str) -> Vec<String> {
-        src.lines()
-            .filter(|line| is_top_import_line(line))
-            .map(|line| {
-                let line = from_export_to_import(line)
+        top_level_segments(src)
+            .iter()
+            .map(|seg| seg.trim().to_string())
+            .filter(|seg| is_import_line(seg))
+            .map(|seg| {
+                let line = from_export_to_import(&seg)
                     .map(|(import_line, _)| import_line)
-                    .unwrap_or_else(|| line.to_string());
+                    .unwrap_or(seg);
                 // Inside a `do {}` block, `import <names>` trailing-tokens
                 // parsing does not stop at the newline — terminate each
                 // import with `;` so the following statement can't merge in.
@@ -139,8 +326,10 @@ mod bootstrap {
     }
 
     fn drop_import_lines(src: &str) -> String {
-        src.lines()
-            .filter(|line| !is_top_import_line(line))
+        top_level_segments(src)
+            .iter()
+            .filter(|seg| !is_import_line(seg.trim()))
+            .cloned()
             .collect::<Vec<_>>()
             .join("\n")
     }
@@ -227,10 +416,16 @@ mod bootstrap {
     }
 
     pub fn transform_export_to_object(src: &str) -> String {
-        // Mirrors `plugin_lib_handl::bootstrap::transform_export_to_object`:
-        // non-private entries become object fields; private entries become
-        // `do`-block assignments emitted before the object (private-binding
-        // hoisting, mirroring `handl_runtime::module_prep`).
+        // Mirrors `loader.hnl`'s `transform_export_to_object`: the source is
+        // segmented into top-level statements (`top_level_segments`), so an
+        // `export` is recognized wherever a statement can begin — at column
+        // 0, indented, after `;`, or mid-line — and its RHS is captured
+        // whole. Non-private entries become object fields; private entries
+        // become `do`-block assignments emitted before the object
+        // (private-binding hoisting, mirroring
+        // `handl_runtime::module_prep`). An `export` declaration that can't
+        // be transformed panics — never a silent drop (the handl side
+        // fails via `error.raise`; the fallback bootstrap panics).
         let mut entries: Vec<(String, Vec<String>)> = Vec::new();
         let mut privates: Vec<(String, Vec<String>)> = Vec::new();
         let mut current: Option<(String, Vec<String>)> = None;
@@ -251,67 +446,82 @@ mod bootstrap {
                 }
             };
         }
-        for line in src.lines() {
-            let trimmed = line.trim_start();
-            if is_top_import_line(line) {
-                if let Some((_, names)) = from_export_to_import(line) {
-                    finalize!();
+        for seg in top_level_segments(src) {
+            let trimmed = seg.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if is_import_line(trimmed) {
+                finalize!();
+                current_is_private = false;
+                if let Some((_, names)) = from_export_to_import(trimmed) {
                     for (name, alias) in names {
                         entries.push((name, vec![alias]));
                     }
                 }
                 continue;
             }
-            if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
+            if let Some(rest) = export_decl_rest(trimmed) {
                 finalize!();
-                let rest = &trimmed["export ".len()..];
-                if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
-                    let name = strip_export_name(&rest[..sep_pos]);
-                    let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                current_is_private = false;
+                let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
+                    panic!(
+                        "module prep: cannot transform `export` declaration \
+                         (expected `export <name> <::|:=|=|: > …`): {trimmed}"
+                    );
+                };
+                let name = strip_export_name(&rest[..sep_pos]);
+                if name.is_empty() {
+                    panic!("module prep: `export` declaration has no binding name: {trimmed}");
+                }
+                let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+                let expr_start = if is_type_only {
+                    "null"
+                } else {
+                    rest[sep_pos + sep_len..].trim()
+                };
+                let mut expr_lines = Vec::new();
+                if !expr_start.is_empty() {
+                    expr_lines.push(expr_start.to_string());
+                }
+                current = Some((name, expr_lines));
+                tail_is_binding = true;
+                continue;
+            }
+            // Statement that is not an import or `export` declaration:
+            // detect a *private* top-level binding so helpers survive into
+            // the do-block instead of being dropped or swallowed into the
+            // previous export's expression.
+            if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
+                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+                if is_valid_ident(&name) {
+                    finalize!();
+                    let is_type_only =
+                        sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
                     let expr_start = if is_type_only {
                         "null"
                     } else {
-                        rest[sep_pos + sep_len..].trim()
+                        trimmed[sep_pos + sep_len..].trim()
                     };
                     let mut expr_lines = Vec::new();
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
                     }
                     current = Some((name, expr_lines));
-                    current_is_private = false;
+                    current_is_private = true;
                     tail_is_binding = true;
-                }
-                continue;
-            } else if !line.starts_with(' ') && !line.starts_with('\t') {
-                if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
-                    let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
-                    if is_valid_ident(&name) {
-                        finalize!();
-                        let is_type_only =
-                            sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
-                        let expr_start = if is_type_only {
-                            "null"
-                        } else {
-                            trimmed[sep_pos + sep_len..].trim()
-                        };
-                        let mut expr_lines = Vec::new();
-                        if !expr_start.is_empty() {
-                            expr_lines.push(expr_start.to_string());
-                        }
-                        current = Some((name, expr_lines));
-                        current_is_private = true;
-                        tail_is_binding = true;
-                        continue;
-                    }
-                }
-                if current.is_none() && !trimmed.is_empty() {
-                    tail_is_binding = false;
+                    continue;
                 }
             }
-            if let Some((_, ref mut lines)) = current {
-                if !line.trim().is_empty() {
-                    lines.push(line.to_string());
-                }
+            // A non-binding statement that does not continue an in-flight
+            // binding means the module's last statement is a bare
+            // expression — its value is the module record, so no
+            // projection is appended. Otherwise the segment continues the
+            // current binding's expression verbatim.
+            if current.is_none() {
+                tail_is_binding = false;
+            } else if let Some((_, lines)) = &mut current {
+                lines.push(seg.clone());
             }
         }
         finalize!();
@@ -350,9 +560,10 @@ mod bootstrap {
                 for (name, _) in &privates {
                     push_field(&mut fields, name);
                 }
-                for line in src.lines() {
-                    if is_top_import_line(line) {
-                        for local in import_bound_locals(line) {
+                for seg in top_level_segments(src) {
+                    let trimmed = seg.trim();
+                    if is_import_line(trimmed) {
+                        for local in import_bound_locals(trimmed) {
                             push_field(&mut fields, &local);
                         }
                     }
@@ -613,8 +824,20 @@ const CORPUS: &[&str] = &[
     "from \"char\" import * as char\nfrom 'str' import * as 'str'\nimport \"math\" as m\nimport \"a/b/c\"\nimport bad\n{ f: x ~> x }",
     // named imports (bare name and `as` alias) plus star-without-as.
     "from \"len\" import len\nfrom \"reverse\" import reverse as rev\nexport a :: x ~> len(x)",
-    // export bindings (::, legacy =, multi-line bodies, skipped bad export).
-    "export a :: x ~> x\nexport b = [1, 2]\nexport c :: x ~> do {\n  y :: x + 1\n  y\n}\nexport d\n{ f: 1 }",
+    // export bindings (::, legacy =, multi-line bodies, trailing record
+    // literal continues the last export's expression).
+    "export a :: x ~> x\nexport b = [1, 2]\nexport c :: x ~> do {\n  y :: x + 1\n  y\n}\n{ f: 1 }",
+    // Segment-aware boundaries: an `export` is recognized wherever a
+    // statement can begin — sharing a line with an import, after `;`,
+    // indented, or as the whole module on one line.
+    "from \"char\" import * as char export f: F := (x) ~> do { if x > 0 { 1 } else { 0 } }",
+    "export inc := (x) ~> x + 1; export dec := (x) ~> x - 1",
+    "  export indented := (x) ~> x * 2",
+    "helper := (x) ~> x + 1 export apply := (x) ~> helper(x)",
+    "export sign: Sign := (x) ~> do { if x > 0 { 1.0 } else { if x < 0 { -1.0 } else { 0.0 } } }",
+    // `.`-dotted names (`m.from`, `char.from_chars`) and keywords inside
+    // strings never split a statement.
+    "export f := char.from_chars\nexport g := m.from\nexport h := \"import x\"",
     // tag declarations.
     "tag ok = Value\ntag err :: Error\n{ ok: ok, err: err }",
     // tag lines that are NOT declarations.
@@ -641,6 +864,140 @@ const CORPUS: &[&str] = &[
     // interpreted transform over ~25k chars is far too slow for a test —
     // see AGENTS.md "loader self-hosting" for the performance note.
 ];
+
+/// Malformed `export` declarations must fail loudly on *both* sides of
+/// the seam: `loader.hnl` raises via `error.raise` (the loader call
+/// errors), and the bootstrap fallback panics — which is also what the
+/// public `transform_export_to_object` does once the loader call fails.
+/// Never a silent drop into `{}`.
+#[test]
+fn separatorless_export_fails_loudly() {
+    ensure_lang();
+    install();
+
+    // The handl loader itself errors (eval failure via `error.raise`).
+    let err = loader()
+        .expect("loader installed")
+        .call("transform_export_to_object", "export just_a_name\n")
+        .expect_err("loader must fail on a separator-less export");
+    let msg = format!("{err}");
+    assert!(
+        !msg.is_empty(),
+        "loader-side failure should carry a message, got: {msg}"
+    );
+
+    // The bootstrap mirror panics with the diagnostic.
+    let caught = std::panic::catch_unwind(|| {
+        bootstrap::transform_export_to_object("export just_a_name\n")
+    });
+    let panic_msg = caught.expect_err("bootstrap must panic on separator-less export");
+    let text = panic_msg
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| panic_msg.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(
+        text.contains("export") && text.contains("cannot transform"),
+        "panic should name the export declaration, got: {text}"
+    );
+
+    // And the public entry point — loader error falls back to the
+    // bootstrap panic — is loud too.
+    let caught = std::panic::catch_unwind(|| {
+        transform_export_to_object("export just_a_name\n")
+    });
+    assert!(caught.is_err(), "public transform must fail loudly");
+}
+
+/// An `export` declaration with a separator but no binding name is loud.
+#[test]
+fn nameless_export_fails_loudly() {
+    ensure_lang();
+    install();
+    assert!(
+        loader()
+            .expect("loader installed")
+            .call("transform_export_to_object", "export := 1\n")
+            .is_err(),
+        "loader must fail on a nameless export"
+    );
+    let caught = std::panic::catch_unwind(|| {
+        bootstrap::transform_export_to_object("export := 1\n")
+    });
+    let panic_msg = caught.expect_err("bootstrap must panic on a nameless export");
+    let text = panic_msg
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| panic_msg.downcast_ref::<&str>().map(|s| s.to_string()))
+        .unwrap_or_default();
+    assert!(
+        text.contains("no binding name"),
+        "panic should name the missing binding name, got: {text}"
+    );
+}
+
+/// End-to-end: a `.hnl` module whose exports share a line with an import
+/// statement (or each other) binds and applies correctly through
+/// `HandlModule` — the regression is a silently-`{}` module record.
+#[test]
+fn single_line_module_exports_evaluate() {
+    ensure_lang();
+    install();
+
+    // `export` sharing a line with an import statement: the `from` tail
+    // suppresses the split at `import`, then `export` opens a new
+    // statement mid-line.
+    let src = "from \"char\" import * as char export sign := (x) ~> if x > 0 { 1 } else { -1 }\n";
+    let build = || {
+        HandlModule::new("m", src, &["sign"])
+            .with_dependency(CharModule)
+            .function("sign")
+            .expect("sign export bound")
+            .call(&[serde_json::json!(-2)], &mut EvalContext::new())
+            .expect("sign(-2) evaluates")
+    };
+    assert_eq!(build(), serde_json::json!(-1), "sign(-2) via loader path");
+    // Same source through the bootstrap path (loader disabled).
+    let via_bootstrap = handl_plugin_lib_handl::with_loader_disabled(|| {
+        HandlModule::new("m2", src, &["sign"])
+            .with_dependency(CharModule)
+            .function("sign")
+            .expect("sign export bound (bootstrap)")
+            .call(&[serde_json::json!(-2)], &mut EvalContext::new())
+            .expect("sign(-2) evaluates (bootstrap)")
+    });
+    assert_eq!(
+        via_bootstrap,
+        serde_json::json!(-1),
+        "sign(-2) via bootstrap path"
+    );
+
+    // `;`-separated exports on one line, no deps.
+    let src2 = "export inc := (x) ~> x + 1; export dec := (x) ~> x - 1\n";
+    let m = HandlModule::new("two", src2, &["inc", "dec"]);
+    let mut ctx = EvalContext::new();
+    let inc = m
+        .function("inc")
+        .expect("inc bound")
+        .call(&[serde_json::json!(4)], &mut ctx)
+        .expect("inc(4)");
+    let dec = m
+        .function("dec")
+        .expect("dec bound")
+        .call(&[serde_json::json!(5)], &mut ctx)
+        .expect("dec(5)");
+    assert_eq!((inc, dec), (serde_json::json!(5), serde_json::json!(4)));
+
+    // An indented export is a top-level declaration, not a continuation.
+    let src3 = "  export double := (x) ~> x * 2\n";
+    let m = HandlModule::new("ind", src3, &["double"]);
+    let v = m
+        .function("double")
+        .expect("double bound")
+        .call(&[serde_json::json!(3)], &mut ctx)
+        .expect("double(3)");
+    assert_eq!(v, serde_json::json!(6));
+}
 
 #[test]
 fn loader_parity() {

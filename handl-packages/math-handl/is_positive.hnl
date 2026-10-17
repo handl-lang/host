@@ -1,5 +1,0 @@
---- Pure-handl implementation of is_positive.
-from "type" import { Number, Bool }
-from "../math/is_positive" import { IsPositive }
-
-export is_positive: IsPositive := (x) ~> do { x > 0 }

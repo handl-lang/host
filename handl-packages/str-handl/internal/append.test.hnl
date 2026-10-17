@@ -1,9 +1,0 @@
-from "./append" import * as m
-
-test_append_basic := assert m.append([1, 2], [3, 4]) = [1, 2, 3, 4]
-
-test_append_empty_left := assert m.append([], [1]) = [1]
-
-test_append_empty_right := assert m.append([1], []) = [1]
-
-test_append_both_empty := assert m.append([], []) = []

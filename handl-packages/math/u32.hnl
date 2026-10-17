@@ -1,4 +1,0 @@
---- U32 arrow signature.
-from "type" import { Int }
-
-export U32: Int ~[1]~> Int

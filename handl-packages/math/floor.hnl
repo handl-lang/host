@@ -1,4 +1,0 @@
---- Floor arrow signature.
-from "type" import { Number }
-
-export Floor: Number ~[1]~> Number

@@ -1,4 +1,0 @@
---- Min arrow signature.
-from "type" import { Number }
-
-export Min: (Number * Number) ~[1]~> Number

@@ -1,4 +1,0 @@
---- Radians arrow signature.
-from "type" import { Number }
-
-export Radians: Number ~[1]~> Number

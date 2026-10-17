@@ -1,5 +1,0 @@
---- Pure-handl implementation of mod.
-from "type" import { Number }
-from "../math/mod" import { Mod }
-
-export mod: Mod := (a, b) ~> do { a % b }

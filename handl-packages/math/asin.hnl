@@ -1,4 +1,0 @@
---- Asin arrow signature.
-from "type" import { Number }
-
-export Asin: Number ~[1]~> Number

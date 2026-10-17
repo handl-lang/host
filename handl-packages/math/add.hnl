@@ -1,4 +1,0 @@
---- Add arrow signature.
-from "type" import { Number }
-
-export Add: (Number * Number) ~[1]~> Number

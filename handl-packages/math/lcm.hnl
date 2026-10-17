@@ -1,4 +1,0 @@
---- Lcm arrow signature.
-from "type" import { Number }
-
-export Lcm: (Number * Number) ~[1]~> Number

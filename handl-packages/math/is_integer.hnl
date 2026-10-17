@@ -1,4 +1,0 @@
---- IsInteger arrow signature.
-from "type" import { Number, Bool }
-
-export IsInteger: Number ~[1]~> Bool

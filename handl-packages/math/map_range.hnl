@@ -1,4 +1,0 @@
---- MapRange arrow signature.
-from "type" import { Number }
-
-export MapRange: (Number * Number * Number * Number * Number) ~[1]~> Number

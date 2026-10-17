@@ -1,4 +1,0 @@
---- IsInfinite arrow signature.
-from "type" import { Number, Bool }
-
-export IsInfinite: Number ~[1]~> Bool

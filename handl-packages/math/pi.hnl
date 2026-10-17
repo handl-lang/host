@@ -1,4 +1,0 @@
---- Pi arrow signature.
-from "type" import { Number, Unit }
-
-export Pi: Unit ~[1]~> Number

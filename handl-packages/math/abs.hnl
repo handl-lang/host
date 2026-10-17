@@ -1,4 +1,0 @@
---- Abs arrow signature.
-from "type" import { Number }
-
-export Abs: Number ~[1]~> Number

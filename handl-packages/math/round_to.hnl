@@ -1,4 +1,0 @@
---- RoundTo arrow signature.
-from "type" import { Number }
-
-export RoundTo: (Number * Number) ~[1]~> Number

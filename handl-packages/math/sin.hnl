@@ -1,4 +1,0 @@
---- Sin arrow signature.
-from "type" import { Number }
-
-export Sin: Number ~[1]~> Number

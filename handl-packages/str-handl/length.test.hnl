@@ -1,9 +1,0 @@
-from "./length" import * as m
-
-test_length_basic := assert m.length("hello") = 5
-
-test_length_empty := assert m.length("") = 0
-
-test_length_single := assert m.length("a") = 1
-
-test_length_unicode := assert m.length("héllo") = 5

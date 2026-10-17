@@ -1,7 +1,0 @@
-from "./is_empty" import * as m
-
-test_is_empty_empty := assert m.is_empty("") = true
-
-test_is_empty_nonempty := assert m.is_empty("a") = false
-
-test_is_empty_space := assert m.is_empty(" ") = false

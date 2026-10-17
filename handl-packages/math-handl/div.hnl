@@ -1,5 +1,0 @@
---- Pure-handl implementation of div.
-from "type" import { Number }
-from "../math/div" import { Div }
-
-export div: Div := (a, b) ~> do { a / b }

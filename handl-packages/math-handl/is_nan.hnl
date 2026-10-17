@@ -1,5 +1,0 @@
---- Pure-handl implementation of is_nan.
-from "type" import { Number, Bool }
-from "../math/is_nan" import { IsNan }
-
-export is_nan: IsNan := (x) ~> do { x != x }
