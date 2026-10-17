@@ -1490,11 +1490,60 @@ fn lower_object(
     }
 
     let entry_indices = children(node);
+    if entry_indices.is_empty() {
+        return Ok(Term::Op {
+            dim: Term::default_dim(),
+            name: "record".to_string(),
+            args: vec![],
+            source: ArrSource::Native,
+            lit: Some(Value::Array(vec![])),
+        });
+    }
+    // An `object` node whose children are *all* non-`entry` is the
+    // bare-expression block form (`{ x = 1; y = 2 }`): the eval op
+    // evaluates every child and returns the last. That is binding /
+    // env-threading machinery, not a record literal, so it stays a
+    // lowerer decline (the AST engine handles it).
+    let has_entry = entry_indices.iter().any(|&i| {
+        ast.get(AstRef::new(i))
+            .map(|child| {
+                lang.pattern_role_is(&child.kind, "entry")
+                    .unwrap_or(child.kind == "entry")
+            })
+            .unwrap_or(false)
+    });
+    if !has_entry {
+        return Err(format!(
+            "object at {} has no entries (bare-expression block)",
+            node_index(node)
+        ));
+    }
+
+    let mut acc: Option<Term> = None;
+    let mut keys: Vec<Value> = Vec::new();
+    let mut values: Vec<Term> = Vec::new();
 
     for &entry_idx in &entry_indices {
         let entry = ast
             .get(AstRef::new(entry_idx))
             .ok_or_else(|| format!("object entry {} out of bounds", entry_idx))?;
+
+        // Spread entry: a non-`entry`-roled child (`...expr`) is
+        // evaluated and field-merged into the object, later keys
+        // winning; a non-object spread is ignored — the eval `object`
+        // op's rule (`kind == "entry"` is the role-less fallback).
+        let is_entry = lang
+            .pattern_role_is(&entry.kind, "entry")
+            .unwrap_or(entry.kind == "entry");
+        if !is_entry {
+            push_object_run(&mut acc, &mut keys, &mut values);
+            let spread = lower_node(ast, lang, entry_idx, env, params)?;
+            acc = Some(match acc.take() {
+                Some(prev) => Term::op_native("record_merge", vec![prev, spread]),
+                None => spread,
+            });
+            continue;
+        }
 
         let key_idx = child_at_role_or_pos(entry, lang, "key", 0)
             .ok_or_else(|| format!("entry at {} missing key child", entry_idx))?;
@@ -1528,13 +1577,28 @@ fn lower_object(
         values.push(value);
     }
 
-    Ok(Term::Op {
+    push_object_run(&mut acc, &mut keys, &mut values);
+    acc.ok_or_else(|| format!("object at {} produced no record", node_index(node)))
+}
+
+/// Flush the pending literal entries of an object literal into a `record`
+/// op and fold it into the merge accumulator (`record_merge` chains the
+/// record with any preceding spread).
+fn push_object_run(acc: &mut Option<Term>, keys: &mut Vec<Value>, values: &mut Vec<Term>) {
+    if keys.is_empty() {
+        return;
+    }
+    let record = Term::Op {
         dim: Term::default_dim(),
         name: "record".to_string(),
-        args: values,
-        source: handl_language::ArrSource::Native,
-        lit: Some(Value::Array(keys)),
-    })
+        args: std::mem::take(values),
+        source: ArrSource::Native,
+        lit: Some(Value::Array(std::mem::take(keys))),
+    };
+    *acc = Some(match acc.take() {
+        Some(prev) => Term::op_native("record_merge", vec![prev, record]),
+        None => record,
+    });
 }
 
 /// Reject a reserved host-sentinel key (`__tag__`, `__registry__`, …) in an
