@@ -1,6 +1,6 @@
 use handl_platform::{EvalContext, Function, ModuleLookup, Plugin};
-use handl_plugin_lib_serialize::{Decoder, Encoder};
-use handl_plugin_lib_stdlib::ops::json::*;
+use handl_lib_serialize::{Decoder, Encoder};
+use handl_lib_json::ops::*;
 use handl_plugin_lib_stdlib::{library, module};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::json;

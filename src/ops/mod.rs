@@ -8,10 +8,8 @@
 
 pub mod collections;
 pub mod ip;
-pub mod json;
 pub mod math;
 pub mod parse;
-pub mod serialize;
 pub mod strs;
 pub mod toml;
 pub mod url_rfc;

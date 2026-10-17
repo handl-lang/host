@@ -234,11 +234,15 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "serialize",
-        hnl: include_str!("../../../handl-packages/utils/serialize.hnl"),
+        hnl: handl_lib_serialize::SERIALIZE_HNL,
         funcs: &[],
-        ops: ops::serialize::SERIALIZE_OPS,
+        ops: handl_lib_serialize::SERIALIZE_OPS,
         values: &[],
-        registry: Some(ops::serialize::serialize_op_registry),
+        registry: Some(|| {
+            handl_lib_serialize::serialize_op_registry_with(handl_lib_json::register(
+                handl_lib_serialize::SerializerRegistry::new(),
+            ))
+        }),
     },
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
