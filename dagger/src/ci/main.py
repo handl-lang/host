@@ -160,9 +160,12 @@ class Ci:
         cli_source: Optional[dagger.Directory] = None,
         sccache_conf: Optional[dagger.Secret] = None,
         dogfood_jobs: int = 0,
+        sequential: bool = False,
     ) -> str:
-        """The whole gate, concurrently: tests + doctests, coverage gate, dogfood.
+        """The whole gate: tests + doctests, coverage gate, dogfood.
 
+        Concurrent by default; `sequential` runs stages one by one for
+        memory-constrained boxes (11 GiB can't hold three rust builds).
         dogfood runs only when a cli source or token is provided.
         """
         hc = dag.handl_ci()
@@ -175,10 +178,18 @@ class Ci:
         if cli_source is not None or token is not None:
             named["dogfood"] = self.dogfood(source=source, token=token, cli_source=cli_source,
                              sccache_conf=sccache_conf, jobs=dogfood_jobs)
-        results = dict(
-            zip(named, await asyncio.gather(
-                *named.values(), return_exceptions=True))
-        )
+        if sequential:
+            results = {}
+            for name, coro in named.items():
+                try:
+                    results[name] = await coro
+                except Exception as e:  # noqa: BLE001 — report all stages
+                    results[name] = e
+        else:
+            results = dict(
+                zip(named, await asyncio.gather(
+                    *named.values(), return_exceptions=True))
+            )
         failures = {
             name: res for name, res in results.items()
             if isinstance(res, BaseException)
