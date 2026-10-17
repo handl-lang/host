@@ -147,19 +147,19 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "combinators",
-        hnl: include_str!("../../../handl-packages/utils/combinators.hnl"),
+        hnl: handl_lib_combinators::COMBINATORS_HNL,
         funcs: &[],
-        ops: ops::combinators::COMBINATORS_OPS,
+        ops: handl_lib_combinators::COMBINATORS_OPS,
         values: &[],
-        registry: Some(ops::combinators::combinators_op_registry),
+        registry: Some(handl_lib_combinators::combinators_op_registry),
     },
     ModuleSpec {
         name: "transform",
         hnl: include_str!("../../../handl-packages/transform/transform.hnl"),
         funcs: &[],
-        ops: ops::combinators::TRANSFORM_OPS,
+        ops: handl_lib_combinators::TRANSFORM_OPS,
         values: &[],
-        registry: Some(ops::combinators::transform_op_registry),
+        registry: Some(handl_lib_combinators::transform_op_registry),
     },
     ModuleSpec {
         name: "typeof",
@@ -179,11 +179,11 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "mood",
-        hnl: include_str!("../../../handl-packages/utils/mood.hnl"),
+        hnl: handl_lib_mood::MOOD_HNL,
         funcs: &[],
-        ops: ops::mood::MOOD_OPS,
+        ops: handl_lib_mood::MOOD_OPS,
         values: &[],
-        registry: Some(ops::mood::mood_op_registry),
+        registry: Some(handl_lib_mood::mood_op_registry),
     },
     ModuleSpec {
         name: "encoding",
@@ -271,11 +271,11 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── cmp (former plugin-lib-cmp) ────────────────────────────────────
     ModuleSpec {
         name: "cmp",
-        hnl: include_str!("../../../handl-packages/cmp/cmp.hnl"),
+        hnl: handl_lib_cmp::CMP_HNL,
         funcs: &[],
-        ops: ops::cmp::CMP_OPS,
+        ops: handl_lib_cmp::CMP_OPS,
         values: &[],
-        registry: Some(ops::cmp::cmp_op_registry),
+        registry: Some(handl_lib_cmp::cmp_op_registry),
     },
     // ── collections (former plugin-lib-collections) ────────────────────
     // Sequential containers: the whole non-nullary surface is pure handl
@@ -479,11 +479,11 @@ pub static MODULES: &[ModuleSpec] = &[
     // record ops.
     ModuleSpec {
         name: "obj",
-        hnl: include_str!("../../../handl-packages/obj/obj.hnl"),
+        hnl: handl_lib_obj::OBJ_HNL,
         funcs: &[],
-        ops: ops::obj::OBJ_OPS,
+        ops: handl_lib_obj::OBJ_OPS,
         values: &[],
-        registry: Some(ops::obj::obj_op_registry),
+        registry: Some(handl_lib_obj::obj_op_registry),
     },
     // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
     // `error.raise` is an irreducible atom: aborting evaluation cannot be
@@ -493,11 +493,11 @@ pub static MODULES: &[ModuleSpec] = &[
     // `error.raise(msg)`.
     ModuleSpec {
         name: "error",
-        hnl: include_str!("../../../handl-packages/error/error.hnl"),
+        hnl: handl_lib_error::ERROR_HNL,
         funcs: &[],
-        ops: ops::error::ERROR_OPS,
+        ops: handl_lib_error::ERROR_OPS,
         values: &[],
-        registry: Some(ops::error::error_op_registry),
+        registry: Some(handl_lib_error::error_op_registry),
     },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
     // Declaration-only module: the `while`/`for`/`fix` derived forms are
@@ -537,11 +537,11 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "tar",
-        hnl: include_str!("../../../handl-packages/archive_tar/archive_tar.hnl"),
+        hnl: handl_lib_tar::TAR_HNL,
         funcs: &[],
-        ops: ops::tar::TAR_OPS,
+        ops: handl_lib_tar::TAR_OPS,
         values: &[],
-        registry: Some(ops::tar::tar_op_registry),
+        registry: Some(handl_lib_tar::tar_op_registry),
     },
     // ── intl_c — the `intl` contract implemented over the system ICU4C ─
     // library via `ffi` (`ucol_*`/`unum_*`, UTF-16 marshalling, UErrorCode
@@ -896,7 +896,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "cmp",
         plugin_id: "lib.cmp",
         plugin_name: "lib-cmp",
-        hnl: include_str!("../../../handl-packages/cmp/cmp.hnl"),
+        hnl: handl_lib_cmp::CMP_HNL,
         modules: &[],
     },
     PackageSpec {
@@ -966,7 +966,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "error",
         plugin_id: "lib.error",
         plugin_name: "lib-error",
-        hnl: include_str!("../../../handl-packages/error/error.hnl"),
+        hnl: handl_lib_error::ERROR_HNL,
         modules: &[],
     },
     PackageSpec {
@@ -980,7 +980,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "obj",
         plugin_id: "lib.obj",
         plugin_name: "lib-obj",
-        hnl: include_str!("../../../handl-packages/obj/obj.hnl"),
+        hnl: handl_lib_obj::OBJ_HNL,
         modules: &[],
     },
     PackageSpec {
@@ -1002,7 +1002,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "archive-tar",
         plugin_id: "lib.archive-tar",
         plugin_name: "lib-archive-tar",
-        hnl: include_str!("../../../handl-packages/archive_tar/archive_tar.hnl"),
+        hnl: handl_lib_tar::TAR_HNL,
         modules: &[], // resolved via ARCHIVE_TAR_MODULES (see package_module_names)
     },
     // ── datetime (former plugin-lib-datetime) — pure handl ─────────────

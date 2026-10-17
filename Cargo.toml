@@ -16,6 +16,12 @@ handl-plugin-lib-encoding = { path = "../../modules/encoding" }
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/lib-ops", branch = "main" }
 # ADR-0128: port packages live in their own repos.
+handl-lib-combinators = { git = "https://github.com/handl-lang/lib-combinators", branch = "main" }
+handl-lib-mood = { git = "https://github.com/handl-lang/lib-mood", branch = "main" }
+handl-lib-tar = { git = "https://github.com/handl-lang/lib-tar", branch = "main" }
+handl-lib-obj = { git = "https://github.com/handl-lang/lib-obj", branch = "main" }
+handl-lib-error = { git = "https://github.com/handl-lang/lib-error", branch = "main" }
+handl-lib-cmp = { git = "https://github.com/handl-lang/lib-cmp", branch = "main" }
 handl-lib-bytes = { git = "https://github.com/handl-lang/lib-bytes", branch = "main" }
 handl-plugin-lib-parse = { path = "../../modules/parse" }
 handl-plugin-lib-serialize = { path = "../../modules/serialize" }

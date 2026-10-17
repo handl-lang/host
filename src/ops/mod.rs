@@ -7,21 +7,15 @@
 //! crates — only the `Module`/`Plugin` boilerplate was dropped.
 
 pub mod base64;
-pub mod cmp;
 pub mod collections;
-pub mod combinators;
 pub mod encoding;
-pub mod error;
 pub mod hex;
 pub mod ip;
 pub mod json;
 pub mod math;
-pub mod mood;
-pub mod obj;
 pub mod parse;
 pub mod serialize;
 pub mod strs;
-pub mod tar;
 pub mod toml;
 pub mod type_ops;
 pub mod url_rfc;
