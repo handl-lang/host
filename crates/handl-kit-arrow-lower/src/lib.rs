@@ -1308,6 +1308,16 @@ fn lower_call(
             // quoted at the application site.
             let callee_term = if entry.arrow_value {
                 entry.term.clone()
+            } else if binding_denotes_value(&entry.term) {
+                // Value-producing terms (`App` → a bound-arrow record,
+                // `Const`/plain `Arr` → constants) must be *evaluated*,
+                // then the App dispatches on the resulting value:
+                // quoting an `App` re-ran the application as an arrow
+                // body and returned the bound-arrow record unapplied
+                // (`h := c(a)(b); h(5)` yielded `h`, not `11`), and
+                // quoting a constant made `x := 5; x(2)` silently return
+                // `5` instead of erroring like the engines.
+                entry.term.clone()
             } else {
                 ensure_quoted(&entry.term)
             };
@@ -2882,6 +2892,23 @@ fn unquote_term(term: Term) -> Term {
         }
     }
     term
+}
+
+/// Whether a bound term denotes a *value* rather than an arrow scheme:
+/// `Term::App` evaluates to a bound-arrow record and `Term::Const`/a
+/// plain `Term::Arr` evaluate to constants — the `Term::App` callee
+/// dispatch must run on the evaluated value, so these stay unquoted.
+/// Arrow schemes (`Op`, `Seq`, `Choice`, `Loop`, `First`, `Iter`,
+/// `Handle`) take the ambient input and are quoted into arrow values.
+fn binding_denotes_value(term: &Term) -> bool {
+    match term {
+        Term::App { .. } | Term::Const { .. } => true,
+        // An `Arr` holding a serialized `Term` is already an arrow
+        // *value* (quoted); an `Arr` holding anything else is a
+        // constant — evaluate it and let App dispatch on the value.
+        Term::Arr { value, .. } => serde_json::from_value::<Term>(value.clone()).is_err(),
+        _ => false,
+    }
 }
 
 /// Ensure `term` denotes an arrow *value* suitable for `Term::App`: an
