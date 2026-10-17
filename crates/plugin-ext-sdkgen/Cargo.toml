@@ -16,7 +16,7 @@ webidl = ["dep:handl-plugin-sdkgen-backend-webidl", "dep:handl-plugin-sdkgen-emi
 python = ["c", "dep:handl-plugin-sdkgen-emitter-python"]
 
 [dependencies]
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
 # ADR-0128 Phase 2: the c backend lives in the `c` repo; the root
 # `[patch]` resolves the sibling checkout for local dev.

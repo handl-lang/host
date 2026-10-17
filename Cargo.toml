@@ -35,9 +35,7 @@ members = [
   "crates/plugin-module",
   "crates/host-tooling",
   "crates/handl-test-utils",
-  "crates/handl-language",
   "crates/handl-kit-arrow-lower",
-  "crates/plugin-engine",
   "crates/plugin-engine-lex",
   "crates/plugin-engine-lex-pattern",
   "crates/plugin-engine-parse",
@@ -56,7 +54,6 @@ members = [
   "crates/handl-runtime",
   "crates/handl-emitters",
   "crates/handl-kit-data",
-  "crates/handl-value",
   "crates/plugin-sdkgen",
   "crates/plugin-sdkgen-emitter-file",
   "crates/plugin-ext-sdkgen",
@@ -138,7 +135,10 @@ handl-platform = { path = "crates/platform" }
 handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
 handl-plugin-module = { path = "crates/plugin-module" }
 handl-host-tooling = { path = "crates/host-tooling" }
-handl-language = { path = "crates/handl-language" }
+# ADR-0040/0128: the arrow-calculus kernel (`plugin-engine`,
+# `handl-language`, `handl-value`) lives in the `kernel` repo; local
+# development resolves it from the sibling checkout via `[patch]` below.
+handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-kit-arrow-lower = { path = "crates/handl-kit-arrow-lower" }
 handl-plugin-compile = { path = "crates/plugin-compile" }
 # ADR-0128 Phase 5: the js compiler + webidl backend live in the `web`
@@ -153,7 +153,7 @@ handl-plugin-compile-term = { git = "https://github.com/handl-lang/term", branch
 handl-plugin-compile-dot = { git = "https://github.com/handl-lang/dot", branch = "main" }
 handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/sexp", branch = "main" }
 handl-test-utils = { path = "crates/handl-test-utils" }
-plugin-engine = { path = "crates/plugin-engine" }
+plugin-engine = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-engine-lex = { path = "crates/plugin-engine-lex" }
 handl-plugin-engine-lex-pattern = { path = "crates/plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "crates/plugin-engine-parse" }
@@ -173,7 +173,7 @@ handl-runtime = { path = "crates/handl-runtime" }
 handl-emitters = { path = "crates/handl-emitters" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
-handl-value = { path = "crates/handl-value" }
+handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
@@ -216,6 +216,10 @@ handl-plugin-compile-dot = { path = "../dot/modules/compile-dot" }
 handl-plugin-ffi = { path = "../ffi/modules/ffi" }
 [patch."https://github.com/handl-lang/handl"]
 handl-plugin-compile-handl = { path = "../handl/modules/compile-handl" }
+[patch."https://github.com/handl-lang/kernel"]
+handl-language = { path = "../kernel/crates/handl-language" }
+handl-value = { path = "../kernel/crates/handl-value" }
+plugin-engine = { path = "../kernel/crates/plugin-engine" }
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 [patch."https://github.com/handl-lang/lang"]
@@ -301,10 +305,8 @@ handl-ext-tests = { path = "../platform/crates/ext-tests" }
 handl-emitters = { path = "../platform/crates/handl-emitters" }
 handl-kit-arrow-lower = { path = "../platform/crates/handl-kit-arrow-lower" }
 handl-kit-data = { path = "../platform/crates/handl-kit-data" }
-handl-language = { path = "../platform/crates/handl-language" }
 handl-runtime = { path = "../platform/crates/handl-runtime" }
 handl-test-utils = { path = "../platform/crates/handl-test-utils" }
-handl-value = { path = "../platform/crates/handl-value" }
 handl-host-tooling = { path = "../platform/crates/host-tooling" }
 handl-platform = { path = "../platform/crates/platform" }
 handl-platform-tests = { path = "../platform/crates/platform-tests" }
@@ -312,7 +314,6 @@ handl-plugin-applier = { path = "../platform/crates/plugin-applier" }
 handl-plugin-applier-bootstrap = { path = "../platform/crates/plugin-applier-bootstrap" }
 handl-plugin-applier-default = { path = "../platform/crates/plugin-applier-default" }
 handl-plugin-compile = { path = "../platform/crates/plugin-compile" }
-plugin-engine = { path = "../platform/crates/plugin-engine" }
 handl-plugin-engine-exec = { path = "../platform/crates/plugin-engine-exec" }
 handl-plugin-engine-exec-bytecode = { path = "../platform/crates/plugin-engine-exec-bytecode" }
 handl-plugin-engine-exec-tree-walk = { path = "../platform/crates/plugin-engine-exec-tree-walk" }

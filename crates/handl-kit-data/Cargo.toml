@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-emitters = { path = "../handl-emitters" }
 handl-platform = { path = "../platform" }
 handl-runtime = { path = "../handl-runtime" }

@@ -7,6 +7,6 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
 serde_json = { workspace = true }

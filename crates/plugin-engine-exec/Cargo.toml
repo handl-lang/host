@@ -7,9 +7,9 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
-handl-value = { path = "../handl-value" }
+handl-value = { workspace = true }
 serde_json = { workspace = true }
 rustc-hash = "2"
 

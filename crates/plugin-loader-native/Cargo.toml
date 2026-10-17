@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-value = { path = "../handl-value" }
+handl-value = { workspace = true }
 handl-plugin-load.workspace = true
 handl-platform.workspace = true
 libloading.workspace = true

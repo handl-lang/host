@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
@@ -15,7 +15,7 @@ handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-stdlib = { workspace = true }
 handl-plugin-lib-tag = { path = "../plugin-lib-tag" }
-plugin-engine = { path = "../plugin-engine" }
+plugin-engine = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

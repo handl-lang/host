@@ -7,5 +7,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-language = { path = "../handl-language" }
-plugin-engine = { path = "../plugin-engine" }
+handl-language = { workspace = true }
+plugin-engine = { workspace = true }

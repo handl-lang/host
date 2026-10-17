@@ -9,7 +9,7 @@ repository.workspace = true
 [dependencies]
 handl-platform = { path = "../platform" }
 handl-plugin-lib-handl = { workspace = true }
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-runtime = { path = "../handl-runtime" }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
 handl-plugin-engine-parse = { path = "../plugin-engine-parse" }

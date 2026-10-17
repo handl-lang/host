@@ -9,7 +9,7 @@ repository.workspace = true
 [dependencies]
 handl-platform = { path = "../platform" }
 handl-plugin-module = { path = "../plugin-module" }
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
 handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
 serde_json = { workspace = true }

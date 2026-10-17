@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-language = { path = "../handl-language" }
+handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-plugin-ext-diag = { path = "../plugin-ext-diag", features = ["lang-span"] }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
