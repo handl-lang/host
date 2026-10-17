@@ -2,7 +2,7 @@
 
 All container plumbing (toolchain image, workspace mount, dev-link +
 self-patch, cargo/sccache caches, token auth) lives in the shared
-bupha module (github.com/handl-lang/ci — see dagger.json deps).
+bupha module (github.com/9aia/bupha — see dagger.json deps).
 This module only adds platform-specific gates:
 
     dogfood — scripts/dogfood-gate.sh against a sibling handl-lang/cli

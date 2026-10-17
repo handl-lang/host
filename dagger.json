@@ -8,7 +8,7 @@
     {
       "name": "bupha",
       "source": "github.com/9aia/bupha/modules/dagger@main",
-      "pin": "6f3f74fbb1a624bef959de8d0782912a6e37e41f"
+      "pin": "1416b5500501cc9f719045134d12f9574e884f4b"
     }
   ],
   "source": "dagger"
