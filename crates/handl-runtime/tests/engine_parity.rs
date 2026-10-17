@@ -308,6 +308,49 @@ fn match_object_patterns() {
 }
 
 #[test]
+fn match_runtime_object_keys() {
+    // Runtime-valued computed object-pattern keys: the arrow-lowered
+    // path resolves the key via the `[v, in, keys]` extended pair and
+    // the two-arg `has_field`/`field_access`/`obj_except` forms; the
+    // engine path evaluates the key expression per try_object_pattern.
+    assert_parity(
+        "((k) ~> match { \"a\": 1, \"b\": 2 } { {[k]: x}: x, _: 0 })(\"a\")",
+        json!(1),
+    );
+    // Key misses the object → wildcard arm.
+    assert_parity(
+        "((k) ~> match { \"a\": 1, \"b\": 2 } { {[k]: x}: x, _: 0 })(\"zz\")",
+        json!(0),
+    );
+    // Non-object scrutinee: is_obj gates the key-forcing stage.
+    assert_parity(
+        "((k) ~> match 5 { {[k]: x}: x, _: 0 })(\"a\")",
+        json!(0),
+    );
+    // Nested object pattern carrying a runtime key.
+    assert_parity(
+        "((k) ~> match { \"a\": { \"b\": 7 } } { { \"a\": {[k]: x} }: x, _: 0 })(\"b\")",
+        json!(7),
+    );
+    // `...rest` with a dynamic key — the rest object excludes the
+    // evaluated matched key.
+    assert_parity(
+        "((k) ~> match { \"b\": 1, \"a\": 2 } { {[k]: x, ...r}: r.b, _: 0 })(\"a\")",
+        json!(1),
+    );
+    // Env-bound runtime key (non-const expression).
+    assert_parity(
+        "do { o :: {\"k\": \"ab\"}, match { \"ab\": 7 } { {[o.k]: x}: x, _: 0 } }",
+        json!(7),
+    );
+    // Mixed static + runtime keys.
+    assert_parity(
+        "((k) ~> match { \"a\": 1, \"b\": 2 } { { \"a\": 1, [k]: x }: x, _: 0 })(\"b\")",
+        json!(2),
+    );
+}
+
+#[test]
 fn match_tag_record_patterns() {
     // `{_tag: "Some", value: x}` — the `??`/`?.` desugar shape.
     assert_parity(

@@ -51,7 +51,11 @@ fn assert_lowered(src: &str) {
 }
 
 /// `src` must *decline* to lower — the AST eval fallback covers the
-/// semantics the arrow lowering cannot express.
+/// semantics the arrow lowering cannot express. Currently unused —
+/// the runtime-computed-key decline lifted when `has_field`/
+/// `field_access`/`obj_except` grew their two-arg operand forms — kept
+/// for the next pattern shape the lowerer cannot express.
+#[allow(dead_code)]
 fn assert_declines(src: &str) {
     let rt = runtime();
     let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
@@ -217,10 +221,65 @@ fn computed_object_pattern_keys() {
     assert_lowered(r#"do { k :: "a", match { "b": 1 } { {[k]: x}: x, _: 0 } }"#);
     // `paren`-wrapped literal keys keep working through the same path.
     assert_lowered(r#"match { "a": 1 } { {("a"): x}: x, _: 0 }"#);
-    // A computed key whose value is genuinely runtime (a param, a
-    // non-const binding) cannot become a static `has_field` literal —
-    // the pattern declines to the AST fallback.
-    assert_declines(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 0 })("a")"#);
+}
+
+#[test]
+fn runtime_object_pattern_keys() {
+    // A computed key whose value is genuinely runtime (a param) lowers
+    // through the two-arg operand forms of `has_field`/`field_access`:
+    // `try_object_pattern` evaluates the key expression in the ambient
+    // env per match attempt, so the lowered pair carries the keys in a
+    // slot-2 list forced once ahead of the discriminant chain.
+    assert_lowered(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 0 })("a")"#);
+    // Key misses the object → arm falls through to the wildcard.
+    assert_lowered(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 0 })("zz")"#);
+    // Scrutinee that is not an object: `is_obj` gates the key-forcing
+    // stage so no key term evaluates (mirrors try_object_pattern's
+    // early `Ok(false)` on non-Obj before key collection).
+    assert_lowered(r#"((k) ~> match 5 { {[k]: x}: x, _: 0 })("a")"#);
+    // Param key + sub-pattern under the dynamic field.
+    assert_lowered(
+        r#"((k) ~> match { "a": 9 } { {[k]: 9}: "hit", _: "miss" })("a")"#,
+    );
+    assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: 9}: "hit", _: "miss" })("b")"#);
+    // Env-bound *runtime* key — a non-const expression (field access on
+    // a bound record), which `static_term_value` cannot collapse.
+    assert_lowered(
+        r#"do { o :: {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#,
+    );
+    // Nested object pattern with a runtime key one level down.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("b")"#,
+    );
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("z")"#,
+    );
+    // `...rest` under a runtime key — `obj_except(target, keys)` reads
+    // the slot-2 evaluated key list.
+    assert_lowered(
+        r#"((k) ~> match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 })("a")"#,
+    );
+    assert_lowered(
+        r#"((k) ~> match { "b": 1, "a": 2 } { {[k]: x, ...r}: r, _: 0 })("a")"#,
+    );
+    // Mixed static + runtime keys in one pattern.
+    assert_lowered(
+        r#"((k) ~> match { "a": 1, "b": 2 } { { "a": 1, [k]: x }: x, _: 0 })("b")"#,
+    );
+    assert_lowered(
+        r#"((k) ~> match { "a": 1, "b": 2 } { { "a": 1, [k]: x }: x, _: 0 })("c")"#,
+    );
+    // Key hitting an absent field: arm falls through to wildcard.
+    assert_lowered(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 5 })("b")"#);
+    // Non-string runtime key coerces to `""` (try_object_pattern parity).
+    assert_lowered(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 0 })(42)"#);
+    assert_lowered(r#"((k) ~> match { "": 3, "a": 1 } { {[k]: x}: x, _: 0 })(42)"#);
+    // Runtime key under a nested literal-eval sub-pattern.
+    assert_lowered(
+        r#"((k) ~> match { "a": 9 } { {[k]: (9)}: "hit", _: "miss" })("a")"#,
+    );
+    // Runtime key over a non-object scrutinee falls through cleanly.
+    assert_lowered(r#"((k) ~> match [1, 2] { {[k]: x}: x, _: 0 })("a")"#);
 }
 
 #[test]
