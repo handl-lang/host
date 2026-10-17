@@ -8,8 +8,8 @@ repository.workspace = true
 
 [dependencies]
 handl-plugin-module = { git = "https://github.com/handl-lang/platform", branch = "main" }
-handl-value = { git = "https://github.com/handl-lang/platform", branch = "main" }
-handl-language = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-platform = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
@@ -57,12 +57,12 @@ url = "2"
 
 [dev-dependencies]
 handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
-handl-language = { git = "https://github.com/handl-lang/platform", branch = "main" }
+handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-platform = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-engine-exec-tree-walk = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-tag = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-lib-json = { git = "https://github.com/handl-lang/lib-json", branch = "main" }
-plugin-engine = { git = "https://github.com/handl-lang/platform", branch = "main" }
+plugin-engine = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 serde_json = "1"
