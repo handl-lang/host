@@ -102,7 +102,7 @@ const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
 /// Raw source of `handl-packages/hello/greet.hnl` — a bare arrow
 /// (`name ~> "Hello, " + name + "!"`), consumed by `handl-kit-canonical`'s
 /// `greet` bridge.
-pub const GREET_HNL: &str = include_str!("../../../handl-packages/hello/greet.hnl");
+pub use handl_lib_hello::GREET_HNL;
 
 /// Source of `handl-packages/transform/map.hnl`.
 pub const TRANSFORM_MAP_HNL: &str =
@@ -446,11 +446,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // declaration lines are stripped by the loader).
     ModuleSpec {
         name: "hello",
-        hnl: concat!(
-            "{ greet: (\n",
-            include_str!("../../../handl-packages/hello/greet.hnl"),
-            "\n) }"
-        ),
+        hnl: handl_lib_hello::HELLO_HNL,
         funcs: &["greet"],
         ops: &[],
         values: &[],
@@ -517,7 +513,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `compare` over `cmp.compare` to preserve exact total-ordering.
     ModuleSpec {
         name: "prim",
-        hnl: include_str!("../../../handl-packages/prim-handl/prim-handl.hnl"),
+        hnl: handl_lib_prim_handl::PRIM_HANDL_HNL,
         funcs: &["add", "alloc", "or", "compare"],
         ops: &[],
         values: &[],
@@ -949,7 +945,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "hello",
         plugin_id: "lib.hello",
         plugin_name: "lib-hello",
-        hnl: include_str!("../../../handl-packages/hello/greet.hnl"),
+        hnl: handl_lib_hello::GREET_HNL,
         modules: &[],
     },
     // NOTE: the `result` module's `tag` dep is not in the table — a kit
@@ -994,7 +990,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "prim",
         plugin_id: "lib.prim",
         plugin_name: "lib-prim",
-        hnl: include_str!("../../../handl-packages/prim/prim.hnl"),
+        hnl: handl_lib_prim::PRIM_HNL,
         modules: &[],
     },
     // ── archive-tar (former plugin-lib-archive-tar) ─────────────────────

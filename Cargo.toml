@@ -16,6 +16,9 @@ handl-plugin-lib-encoding = { path = "../../modules/encoding" }
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/lib-ops", branch = "main" }
 # ADR-0128: port packages live in their own repos.
+handl-lib-prim = { git = "https://github.com/handl-lang/lib-prim", branch = "main" }
+handl-lib-prim-handl = { git = "https://github.com/handl-lang/lib-prim-handl", branch = "main" }
+handl-lib-hello = { git = "https://github.com/handl-lang/lib-hello", branch = "main" }
 handl-lib-type = { git = "https://github.com/handl-lang/lib-type", branch = "main" }
 handl-lib-arrow-iter = { git = "https://github.com/handl-lang/lib-arrow-iter", branch = "main" }
 handl-lib-stats = { git = "https://github.com/handl-lang/lib-stats", branch = "main" }
