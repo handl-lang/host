@@ -28,28 +28,18 @@ version: 1
 entry_points:
   - crate: handl
     why: root facade package (re-exports `handl-platform`).
-  - crate: handl-host-cli
-    why: the `hnl` binary — the main runtime entry point.
-  - crate: handl-host-lsp
-    why: the language-server binary.
   - crate: handl-bench
     why: "`cargo bench` harness."
   - crate: handl-ext-tests
     why: workspace-level cross-crate integration tests.
   - crate: handl-platform-tests
     why: workspace-level invariant tests (this gate lives here).
-  - crate: handl-defining-handl
-    why: self-hosting corpus tests.
   - crate: handl-test-utils
     why: shared test helpers, consumed as a dev-dependency.
-  - crate: handl-plugin-engine-typecheck-nbe
-    why: ADR-0125 bootstrap type synthesiser — mid-wiring.
 
 # Crates that nothing depends on but that are build *artifacts* rather than
 # entry points — e.g. a cdylib loaded at runtime by another crate's tests.
-exempt:
-  - crate: handl-plugin-loader-native-fixture-echo
-    why: "Test fixture cdylib loaded at runtime by `plugin-loader-native`'s tests; intentionally not a Cargo dependency."
+exempt: []
 
 retired:
   # ---------------------------------------------------------------------------
