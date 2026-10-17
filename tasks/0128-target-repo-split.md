@@ -295,6 +295,18 @@ This phase validates the whole template on a 1-crate port surface with
       `generated/icu{,-uc}*` configs stayed (they generate stdlib-owned
       adapters — follow-up). dogfood-gate's ARROW_PACKAGES emptied —
       each repo gates its own packages.
+      **Superseded — both leftovers are now their own repos.**
+      `handl-lang/math-c` holds `handl-packages/math-c` (subtree split);
+      its `from "../math/<f>"` back-imports became `from "math/<f>"`,
+      resolved by its own manifest's `math` dep
+      (`../platform/handl-packages/math`) and platform's `math`
+      self-declare — the ws-c↔concurrent-epoll shape. `handl-lang/icu`
+      holds the `generated/{icu,icu-uc}` ports + `icu{,-uc}.sdkgen.yaml`
+      (subtree split of `handl-packages/generated/`); stdlib's
+      `icu{,-uc}-c-linux-x86_64` adapters keep their home (they are
+      `include_str!`ed into `plugin-lib-stdlib`) and now import the ports
+      by name (`from "icu/ucol"`, `from "icu-uc/ubrk"`) through a new
+      `stdlib/.handl.toml`.
 
 ## Phase 6 — `native/`
 
@@ -487,8 +499,10 @@ tooling kit is `Kit::discover`-based. Regression:
 
 Residual, if module-chain registration is ever wanted on top: dep names
 take precedence over module lowering by design, so registering `libc` et
-al. as modules remains compatible. `math-c` and `generated/icu{,-uc}*`
-stay in platform (uncoupled / stdlib-owned artifacts); per-repo dogfood
+al. as modules remains compatible. ~~`math-c` and `generated/icu{,-uc}*`
+stay in platform (uncoupled / stdlib-owned artifacts)~~ **superseded** —
+`math-c` → `handl-lang/math-c`, `generated/icu{,-uc}*` ports + configs →
+`handl-lang/icu` (see Phase-5 note above); per-repo dogfood
 gates for the moved packages are a `c/`/`web/` follow-up.
 
 
