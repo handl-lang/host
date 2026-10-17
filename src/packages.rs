@@ -237,19 +237,19 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
         name: "base64",
-        hnl: include_str!("../../../handl-packages/base64/base64.hnl"),
+        hnl: handl_lib_base64::BASE64_HNL,
         funcs: &[],
-        ops: ops::base64::BASE64_OPS,
+        ops: handl_lib_base64::BASE64_OPS,
         values: &[],
-        registry: Some(ops::base64::base64_op_registry),
+        registry: Some(handl_lib_base64::base64_op_registry),
     },
     ModuleSpec {
         name: "hex",
-        hnl: include_str!("../../../handl-packages/hex/hex.hnl"),
+        hnl: handl_lib_hex::HEX_HNL,
         funcs: &[],
-        ops: ops::hex::HEX_OPS,
+        ops: handl_lib_hex::HEX_OPS,
         values: &[],
-        registry: Some(ops::hex::hex_op_registry),
+        registry: Some(handl_lib_hex::hex_op_registry),
     },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
@@ -915,14 +915,14 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "base64",
         plugin_id: "lib.base64",
         plugin_name: "lib-base64",
-        hnl: include_str!("../../../handl-packages/base64/base64.hnl"),
+        hnl: handl_lib_base64::BASE64_HNL,
         modules: &[],
     },
     PackageSpec {
         lib_name: "hex",
         plugin_id: "lib.hex",
         plugin_name: "lib-hex",
-        hnl: include_str!("../../../handl-packages/hex/hex.hnl"),
+        hnl: handl_lib_hex::HEX_HNL,
         modules: &[],
     },
     PackageSpec {

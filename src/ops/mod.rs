@@ -6,9 +6,7 @@
 //! The impls were moved verbatim from the deleted `plugin-lib-*` shell
 //! crates — only the `Module`/`Plugin` boilerplate was dropped.
 
-pub mod base64;
 pub mod collections;
-pub mod hex;
 pub mod ip;
 pub mod json;
 pub mod math;

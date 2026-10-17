@@ -1,6 +1,6 @@
 use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
 use handl_plugin_lib_handl::{OpRegistry, RuntimePredicateChecker};
-use handl_plugin_lib_stdlib::ops::hex::*;
+use handl_lib_hex::ops::*;
 use handl_plugin_lib_stdlib::{library, module};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};
