@@ -2073,6 +2073,15 @@ fn lower_match_pattern(
             if name.is_empty() || name == "_" || name.starts_with("_") {
                 return Ok((Term::const_value(Value::from(true)), vec![], body_idx));
             }
+            // A name bound in `Language::globals` (e.g. `true`/`false`
+            // seeded from `data/globals.yaml`) is a *value* pattern —
+            // compare literally rather than binding, mirroring
+            // `try_pattern`'s `ctx.global_value` check. Without this,
+            // `match(1) { true: "yes", ... }` binds `true` unconditionally
+            // and fires on every scrutinee.
+            if let Some(global) = lang.globals.get(name) {
+                return Ok((eq_lit(global.clone()), vec![], body_idx));
+            }
             // Bare `var` binds the whole scrutinee; a name that is
             // already in env compares literally — mirror `try_pattern`,
             // where globals compare by value and locals bind. The
