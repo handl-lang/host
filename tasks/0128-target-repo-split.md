@@ -450,10 +450,39 @@ This phase validates the whole template on a 1-crate port surface with
       `platform/scripts/gen-repo-docs.py` exists as the seed. Documented
       deferral: no user-visible behavior depends on it.
 
+## Phase 13 — `kernel/` (the calculus itself)
+
+- [x] `kernel/crates/{plugin-engine,handl-language,handl-value}` — the
+      ADR-0040 kernel: `Plugin`/`Host`/`Operation`/`Behavior`/
+      `RuleAcceptor`/`Contribution`, the `Language` data schema, and the
+      `Term`/`Value` shapes. Dep cones verified clean before the split —
+      no kernel crate reaches engines, runtime, or plugins.
+      **Done:** subtree-split history grafted under `crates/` (scaffold +
+      three `subtree add` merges); the kernel workspace is self-contained
+      (crates.io deps only) — sibling repos consume it as a bottom layer,
+      platform included. Platform's `[workspace.dependencies]` entries for
+      the three became `git = "…/kernel", branch = "main"` + a
+      `[patch."…/kernel"]` block to `../kernel`; every in-workspace
+      `path = "../…"` dep was rewritten to `workspace = true`. All 15
+      direct-consumer sibling repos (`cli`, `dot`, `ffi`, `handl`,
+      `kit-canonical`, `lang`, `lib-{bytes,json,serialize}`, `lsp`,
+      `meta`, `native`, `otlp`, `sexp`, `stdlib`, `term`, `web`) repointed
+      their `git = "…/platform"` deps to `…/kernel` and moved the patch
+      entries — required, since a git dep resolves the package inside the
+      named repo's workspace.
+- [ ] `handl-emitters` **not retired**: `handl-kit-data` still consumes
+      the `Emitter` trait as a normal dependency (lib.rs + tests.rs), so
+      the ADR-0044 §6 scaffold stays a workspace member. Retire when
+      `handl-kit-data` drops it; add a `retired:` entry to
+      `project/parked.yaml` then.
+
 ## Deferred
 
 - `plugin-loader-native` dylib registration; `graphql/`, `pg/`, `sqlite/`
   repos once a first module exists.
+- `cli`/`stdlib`/`lang` Cargo.locks still carry pre-extraction sources
+  for the kernel crates — deferred because those worktrees held
+  concurrent WIP; a plain `cargo update` in each repo re-locks them.
 
 ## Resolved
 
