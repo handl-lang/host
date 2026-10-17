@@ -1,5 +1,5 @@
 use handl_platform::{EvalContext, Function, Module, Plugin};
-use handl_plugin_lib_stdlib::ops::bytes::*;
+use handl_lib_bytes::ops::*;
 use handl_plugin_lib_stdlib::{library, module};
 use serde_json::json;
 

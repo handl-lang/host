@@ -199,11 +199,11 @@ pub static MODULES: &[ModuleSpec] = &[
     // Ops-only module: every function is an irreducible atom.
     ModuleSpec {
         name: "bytes",
-        hnl: include_str!("../../../handl-packages/bytes/bytes.hnl"),
+        hnl: handl_lib_bytes::BYTES_HNL,
         funcs: &[],
-        ops: ops::bytes::BYTES_OPS,
+        ops: handl_lib_bytes::BYTES_OPS,
         values: &[],
-        registry: Some(ops::bytes::bytes_op_registry),
+        registry: Some(handl_lib_bytes::bytes_op_registry),
     },
     // ── datetime (pure handl, formerly plugin-lib-datetime Rust crate) ──────
     // Moved to handl-packages/datetime/ as pure handl over math/str/char/typeof.
@@ -973,7 +973,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "bytes",
         plugin_id: "lib.bytes",
         plugin_name: "lib-bytes",
-        hnl: include_str!("../../../handl-packages/bytes/bytes.hnl"),
+        hnl: handl_lib_bytes::BYTES_HNL,
         modules: &[],
     },
     PackageSpec {
