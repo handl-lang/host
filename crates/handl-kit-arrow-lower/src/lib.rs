@@ -25,11 +25,109 @@ use handl_language::{ArrSource, Ast, AstNode, AstRef, Language, Term, Value};
 ///   `Arr` or a `{__term__, __bound__}` bound-arrow record — and may be
 ///   used as a `Term::App` callee directly. Scheme-kind bindings
 ///   (ops, compositions) are quoted at the application site instead.
+/// - `slot`: the term is a *value slot* — a pure `elem` projection of
+///   the block's stacked input (see [`push_slot`]). Slots apply
+///   directly as `Term::App` callees (evaluate-then-dispatch, the same
+///   dispatch a bound arrow gets) and may be captured into a nested
+///   arrow's `__bound__` — evaluating the projection at construction
+///   carries the bound value, once, across the arrow boundary.
+/// - `quote`: for scheme-kind bindings (arrow_value + slot both false),
+///   the *unrebased* term, kept so the `f(args)` quote-apply path sees
+///   the same body it did before input stacking existed.
 #[derive(Clone)]
 struct EnvEntry {
     term: Term,
     arity: usize,
     arrow_value: bool,
+    slot: bool,
+    quote: Option<Term>,
+}
+
+/// `elem`/`id` op shorthands for the input-stack encoding.
+fn elem_op(i: i64) -> Term {
+    Term::op_native_lit("elem", vec![], i)
+}
+
+fn id_op() -> Term {
+    Term::op_native("id", vec![])
+}
+
+/// Whether `t` reads its incoming value. `Arr`/`Const` ignore it, so a
+/// rebase wrapper is a no-op for them — skipping it also keeps the
+/// quoted shape `unquote_term`/`binding_denotes_value` look for.
+fn input_dependent(t: &Term) -> bool {
+    !matches!(t, Term::Arr { .. } | Term::Const { .. })
+}
+
+/// Whether `t` is a bare op *reference* (`Op{name, []}` — an unbound
+/// `var`, an `op`-declared name, a `~[Op]~>` graded arrow). These are
+/// lazy references: a stack slot would evaluate the op on `__in` at
+/// bind time instead of quoting it at the application site, so they
+/// keep the substitution treatment.
+fn is_bare_op_ref(t: &Term) -> bool {
+    matches!(t, Term::Op { args, .. } if args.is_empty())
+}
+
+/// Push a bound value onto the block's input stack: the continuation
+/// input becomes `product(id, v)` = `[in, v]`, so every existing env
+/// entry is rebased through `elem(0)` — the same `Seq[proj, T]`
+/// re-anchoring `lower_match` performs for arm bodies — live function
+/// parameters fold into env as rebased projections, and `name` binds
+/// the fresh `elem(1)` slot. This is what makes `x := v` evaluate `v`
+/// *once* at the bind site (the eager `eval.assign`/`eval.bind`
+/// semantics) instead of re-running the substituted term at every use.
+fn push_slot(env: &mut HashMap<String, EnvEntry>, params: &mut Vec<String>, name: String) {
+    for entry in env.values_mut() {
+        if input_dependent(&entry.term) {
+            entry.term = Term::seq(elem_op(0), entry.term.clone());
+        }
+    }
+    for (i, p) in params.iter().enumerate() {
+        let proj = if params.len() == 1 {
+            id_op()
+        } else {
+            elem_op(i as i64)
+        };
+        env.insert(
+            p.clone(),
+            EnvEntry {
+                term: Term::seq(elem_op(0), proj),
+                arity: 1,
+                arrow_value: false,
+                slot: true,
+                quote: None,
+            },
+        );
+    }
+    params.clear();
+    env.insert(
+        name,
+        EnvEntry {
+            term: elem_op(1),
+            arity: 1,
+            arrow_value: false,
+            slot: true,
+            quote: None,
+        },
+    );
+}
+
+/// What [`bind_stmt`] produced for a block/`rec`/`assign` statement.
+enum BindOutcome {
+    /// A substitution binding: the name's `EnvEntry` is already
+    /// installed in `env`; the payload is the bound term (a block's
+    /// trailing binding yields it as the block value).
+    Env(Term),
+    /// A value binding the caller must stack: emit
+    /// `product(id, value)` into the pipeline, then [`push_slot`] — so
+    /// `value` is evaluated once at the bind site rather than
+    /// substituted (re-evaluated) at each `var` use.
+    Slot {
+        /// The bound name.
+        name: String,
+        /// The bound term, lowered against the pre-push input.
+        value: Term,
+    },
 }
 
 /// Lower a canonical AST rooted at `root` to a `Term` arrow.
@@ -99,12 +197,46 @@ fn lower_node(
             // plain quoted arrow.
             let mut body_vars = std::collections::HashSet::new();
             collect_var_names(ast, body_idx, &mut body_vars);
-            let captured: Vec<(usize, String)> = params
+            // Capture the enclosing *parameters* and do-block value slots
+            // the body references (and that its own params do not
+            // shadow): each rides in `__bound__`, evaluated once at
+            // record construction. Param slots keep positional
+            // `id`/`elem` projections; slot entries carry their
+            // projection term, which reads the enclosing stacked input.
+            // Scheme/op entries are *not* captured — evaluating them at
+            // construction would fire their op at definition time; they
+            // stay substituted in the body (pre-stacking behavior).
+            let mut captured: Vec<(String, Term)> = params
                 .iter()
                 .enumerate()
                 .filter(|(_, p)| body_vars.contains(*p) && !own_params.contains(*p))
-                .map(|(i, p)| (i, p.clone()))
+                .map(|(i, p)| {
+                    (
+                        p.clone(),
+                        if params.len() == 1 {
+                            id_op()
+                        } else {
+                            elem_op(i as i64)
+                        },
+                    )
+                })
                 .collect();
+            let mut env_names: Vec<&String> = env
+                .iter()
+                .filter(|(n, e)| {
+                    e.slot
+                        && body_vars.contains(*n)
+                        && !own_params.contains(*n)
+                        && !params.contains(n)
+                })
+                .map(|(n, _)| n)
+                .collect();
+            env_names.sort();
+            let mut body_env_captured: Vec<String> = Vec::new();
+            for n in env_names {
+                captured.push((n.clone(), env[n].term.clone()));
+                body_env_captured.push(n.clone());
+            }
             if captured.is_empty() {
                 let body = lower_node(ast, lang, body_idx, env, &own_params)?;
                 quote_term(body)
@@ -115,19 +247,18 @@ fn lower_node(
                 // so `x ~> y ~> x - y` applied as `g(1)(5)` feeds
                 // `__in = [x, y]` — products, not captured environments.
                 let mut full_params: Vec<String> =
-                    captured.iter().map(|(_, p)| p.clone()).collect();
+                    captured.iter().map(|(p, _)| p.clone()).collect();
                 full_params.extend(own_params.iter().cloned());
-                let body = lower_node(ast, lang, body_idx, env, &full_params)?;
-                let bound_terms: Vec<Term> = captured
-                    .iter()
-                    .map(|(outer_pos, _)| {
-                        if params.len() == 1 {
-                            Term::op_native("id", vec![])
-                        } else {
-                            Term::op_native_lit("elem", vec![], *outer_pos as i64)
-                        }
-                    })
-                    .collect();
+                // Captured env names resolve as params now — remove them
+                // from the body's env so `env.get` (checked before
+                // `params` in `lower_call`) cannot shadow the capture.
+                let mut body_env = env.clone();
+                for n in &body_env_captured {
+                    body_env.remove(n);
+                }
+                let body = lower_node(ast, lang, body_idx, &body_env, &full_params)?;
+                let bound_terms: Vec<Term> =
+                    captured.iter().map(|(_, t)| t.clone()).collect();
                 let bound_arr = Term::op_native("array", bound_terms);
                 Ok(Term::Op {
                     dim: Term::default_dim(),
@@ -294,8 +425,21 @@ fn lower_node(
             if let Some(body_idx) = child_at_role_or_pos(node, lang, "body", 2) {
                 let mut env = env.clone();
                 let mut local = HashSet::new();
-                bind_stmt(ast, lang, idx, &mut env, &mut local, params)?;
-                return lower_node(ast, lang, body_idx, &env, params);
+                let mut params = params.to_vec();
+                if let Some(BindOutcome::Slot { name, value }) =
+                    bind_stmt(ast, lang, idx, &mut env, &mut local, &params)?
+                {
+                    // `x = v in body` with a value RHS: push the slot so
+                    // `v` runs once, then lower the body under the
+                    // rebased env (`x` projects `elem 1`).
+                    push_slot(&mut env, &mut params, name);
+                    let body = lower_node(ast, lang, body_idx, &env, &params)?;
+                    return Ok(Term::seq(
+                        Term::op_native("product", vec![id_op(), value]),
+                        body,
+                    ));
+                }
+                return lower_node(ast, lang, body_idx, &env, &params);
             }
             // An `assign` as an expression lowers to the value being bound.
             // The binding itself is dropped by the substitution model, so
@@ -953,16 +1097,21 @@ fn lower_block(
 ) -> Result<Term, String> {
     let mut env = env.clone();
     let mut local = HashSet::new();
+    // `params` folds into `env` the first time a value binding pushes a
+    // stack slot — [`push_slot`] re-anchors them as `elem` projections.
+    let mut params = params.to_vec();
     let statements = children(node);
     if statements.is_empty() {
         return Ok(Term::const_value(Value::Null));
     }
 
-    // `prefix` accumulates mid-block non-binding statements as an
-    // input-preserving effect sequence: each step is
-    // `Seq(product(stmt, id), proj_child 1)` — `stmt` runs against the
+    // `prefix` accumulates the block's pipeline steps over the evolving
+    // input shape. A value binding `x := v` pushes `product(id, v)` so
+    // `v` is evaluated once and `x` projects the slot (`elem(1)`); a
+    // mid-block non-binding statement is an input-preserving effect
+    // step `Seq(product(stmt, id), elem 1)` — `stmt` runs against the
     // block's input (its effects and errors happen), the pair keeps the
-    // input, and `proj_child 1` restores it for the next statement.
+    // input, and `elem 1` restores it for the next statement.
     // Statements whose ops the `Term` interpreter does not implement
     // (`import`, `assert`, host ops) lower fine but fail at interpret
     // time, where `Runtime::eval` falls back to the AST eval engine —
@@ -971,18 +1120,33 @@ fn lower_block(
     let mut last = None;
     let count = statements.len();
     for (i, &idx) in statements.iter().enumerate() {
-        match bind_stmt(ast, lang, idx, &mut env, &mut local, params)? {
+        match bind_stmt(ast, lang, idx, &mut env, &mut local, &params)? {
             // `eval_block`: the block's value is the last statement's
             // value — a trailing `assign`/`bind`/`op` yields its bound
-            // value, not null.
-            Some(term) if i + 1 == count => last = Some(term),
-            Some(_) => {}
-            None if i + 1 == count => last = Some(lower_node(ast, lang, idx, &env, params)?),
+            // value, not null. A trailing slot binding needs no push:
+            // the value term alone yields `v`.
+            Some(BindOutcome::Env(term)) | Some(BindOutcome::Slot { value: term, .. })
+                if i + 1 == count =>
+            {
+                last = Some(term)
+            }
+            Some(BindOutcome::Env(_)) => {}
+            Some(BindOutcome::Slot { name, value }) => {
+                let step = Term::op_native("product", vec![id_op(), value]);
+                prefix = Some(match prefix {
+                    Some(p) => Term::seq(p, step),
+                    None => step,
+                });
+                push_slot(&mut env, &mut params, name);
+            }
+            None if i + 1 == count => {
+                last = Some(lower_node(ast, lang, idx, &env, &params)?)
+            }
             None => {
-                let stmt = lower_node(ast, lang, idx, &env, params)?;
+                let stmt = lower_node(ast, lang, idx, &env, &params)?;
                 let step = Term::seq(
-                    Term::op_native("product", vec![stmt, Term::op_native("id", vec![])]),
-                    Term::op_native_lit("elem", vec![], 1),
+                    Term::op_native("product", vec![stmt, id_op()]),
+                    elem_op(1),
                 );
                 prefix = Some(match prefix {
                     Some(p) => Term::seq(p, step),
@@ -1021,17 +1185,34 @@ fn lower_rec(
         .split_last()
         .ok_or_else(|| format!("rec at {} has no children", node_index(node)))?;
     let mut env = env.clone();
+    let mut params = params.to_vec();
     let mut local = HashSet::new();
+    let mut prefix: Option<Term> = None;
     for &idx in init {
-        if bind_stmt(ast, lang, idx, &mut env, &mut local, params)?.is_none() {
-            return Err(format!(
-                "rec statement {} is not a binding; its effects cannot be \
-                 sequenced in the pure arrow calculus (falling back to AST eval)",
-                idx
-            ));
+        match bind_stmt(ast, lang, idx, &mut env, &mut local, &params)? {
+            Some(BindOutcome::Slot { name, value }) => {
+                let step = Term::op_native("product", vec![id_op(), value]);
+                prefix = Some(match prefix {
+                    Some(p) => Term::seq(p, step),
+                    None => step,
+                });
+                push_slot(&mut env, &mut params, name);
+            }
+            Some(BindOutcome::Env(_)) => {}
+            None => {
+                return Err(format!(
+                    "rec statement {} is not a binding; its effects cannot be \
+                     sequenced in the pure arrow calculus (falling back to AST eval)",
+                    idx
+                ));
+            }
         }
     }
-    lower_node(ast, lang, *last, &env, params)
+    let last = lower_node(ast, lang, *last, &env, &params)?;
+    Ok(match prefix {
+        Some(p) => Term::seq(p, last),
+        None => last,
+    })
 }
 
 /// Bind a `block`/`rec` child statement into `env` when it is a binding
@@ -1053,7 +1234,7 @@ fn bind_stmt(
     env: &mut HashMap<String, EnvEntry>,
     local: &mut HashSet<String>,
     params: &[String],
-) -> Result<Option<Term>, String> {
+) -> Result<Option<BindOutcome>, String> {
     let child = ast
         .get(AstRef::new(idx))
         .ok_or_else(|| format!("block child {} out of bounds", idx))?;
@@ -1103,10 +1284,9 @@ fn bind_stmt(
         } else {
             lower_node(ast, lang, value_idx, env, params)?
         };
-        let entry = env_entry(ast, lang, value_idx, bound);
-        env.insert(name.clone(), entry.clone());
-        local.insert(name);
-        Ok(Some(entry.term))
+        Ok(Some(classify_binding(
+            ast, lang, value_idx, name, bound, env, local,
+        )))
     } else if is_binding(&child.kind) {
         let name = child
             .payload
@@ -1124,10 +1304,9 @@ fn bind_stmt(
         } else {
             lower_node(ast, lang, value_idx, env, params)?
         };
-        let entry = env_entry(ast, lang, value_idx, bound);
-        env.insert(name.clone(), entry.clone());
-        local.insert(name);
-        Ok(Some(entry.term))
+        Ok(Some(classify_binding(
+            ast, lang, value_idx, name, bound, env, local,
+        )))
     } else if child.kind == "op" {
         let name = child
             .payload
@@ -1149,12 +1328,52 @@ fn bind_stmt(
             term: bound.clone(),
             arity: 1,
             arrow_value: false,
+            slot: false,
+            quote: Some(bound.clone()),
         };
         env.insert(name.clone(), entry);
         local.insert(name);
-        Ok(Some(bound))
+        Ok(Some(BindOutcome::Env(bound)))
     } else {
         Ok(None)
+    }
+}
+
+/// Decide how a bound value reaches its uses. Arrow *values* (function
+/// literals — quoted `Arr`s / `{__term__, __bound__}` producers — and
+/// `rec`-produced arrows), input-independent constants, and bare op
+/// references keep the substitution treatment: pure producers
+/// duplicate harmlessly, and a bare `Op{name, []}` is a lazy reference
+/// the quote-apply call path needs as a term. Everything else —
+/// input-dependent value terms (calls, `do`/`if`/`while` results,
+/// field reads, `Seq` pipelines) — becomes a [`BindOutcome::Slot`]:
+/// the caller pushes `product(id, value)` so the RHS is evaluated
+/// *once* at the bind site, matching the `eval.assign`/`eval.bind`
+/// eager semantics, instead of being re-run at every `var` use.
+fn classify_binding(
+    ast: &Ast,
+    lang: &Language,
+    value_idx: usize,
+    name: String,
+    bound: Term,
+    env: &mut HashMap<String, EnvEntry>,
+    local: &mut HashSet<String>,
+) -> BindOutcome {
+    let entry = env_entry(ast, lang, value_idx, bound.clone());
+    if entry.arrow_value || !input_dependent(&bound) || is_bare_op_ref(&bound) {
+        let mut entry = entry;
+        if !entry.arrow_value {
+            entry.quote = Some(bound.clone());
+        }
+        env.insert(name.clone(), entry);
+        local.insert(name);
+        BindOutcome::Env(bound)
+    } else {
+        local.insert(name.clone());
+        BindOutcome::Slot {
+            name,
+            value: bound,
+        }
     }
 }
 
@@ -1231,6 +1450,8 @@ fn env_entry(ast: &Ast, lang: &Language, value_idx: usize, term: Term) -> EnvEnt
                 term,
                 arity,
                 arrow_value: true,
+                slot: false,
+                quote: None,
             }
         }
         // `desugar.data` wraps the recursor's dispatch function in a `rec`
@@ -1239,12 +1460,20 @@ fn env_entry(ast: &Ast, lang: &Language, value_idx: usize, term: Term) -> EnvEnt
         Some(n) if n.kind == "rec" => {
             let arity = rec_produced_arity(ast, lang, n);
             EnvEntry {
+                slot: false,
+                quote: if arity.is_none() {
+                    Some(term.clone())
+                } else {
+                    None
+                },
                 term,
                 arity: arity.unwrap_or(1),
                 arrow_value: arity.is_some(),
             }
         }
         _ => EnvEntry {
+            slot: false,
+            quote: Some(term.clone()),
             term,
             arity: 1,
             arrow_value: false,
@@ -1367,7 +1596,10 @@ fn lower_call(
             // bindings (quoted `Arr`s and bound-arrow records) are
             // already in callee position; scheme-kind bindings are
             // quoted at the application site.
-            let callee_term = if entry.arrow_value {
+            let callee_term = if entry.arrow_value || entry.slot {
+                // Arrow values and value slots are both *evaluated* to
+                // the callee value — `Term::App` then dispatches on it
+                // (a slot holding a non-arrow errors, like the engines).
                 entry.term.clone()
             } else if binding_denotes_value(&entry.term) {
                 // Value-producing terms (`App` → a bound-arrow record,
@@ -1380,7 +1612,10 @@ fn lower_call(
                 // `5` instead of erroring like the engines.
                 entry.term.clone()
             } else {
-                ensure_quoted(&entry.term)
+                // Scheme-kind bindings quote the *bind-time* term
+                // (`quote`): the quoted body's `__in` is the call's arg
+                // tuple, so rebasing wrappers would misread it.
+                ensure_quoted(entry.quote.as_ref().unwrap_or(&entry.term))
             };
             let mut args = arg_terms;
             // A multi-parameter binding consumes its `arity` arguments as
@@ -1513,6 +1748,18 @@ fn lower_object(
             .unwrap_or(false)
     });
     if !has_entry {
+        // `{}` — the empty record literal, an `object` node with no
+        // children at all (not a bare-expression block, which has
+        // non-`entry` children).
+        if entry_indices.is_empty() {
+            return Ok(Term::Op {
+                dim: Term::default_dim(),
+                name: "record".to_string(),
+                args: Vec::new(),
+                source: ArrSource::Native,
+                lit: Some(Value::Array(Vec::new())),
+            });
+        }
         return Err(format!(
             "object at {} has no entries (bare-expression block)",
             node_index(node)
@@ -2149,6 +2396,8 @@ fn lower_match(
                 ),
                 arity: 1,
                 arrow_value: false,
+                slot: true,
+                quote: None,
             },
         );
     }
@@ -2192,6 +2441,8 @@ fn lower_match(
                     term: path.clone(),
                     arity: 1,
                     arrow_value: false,
+                    slot: true,
+                    quote: None,
                 },
             );
         }
@@ -2802,7 +3053,18 @@ fn lower_field_access(
         }
     };
 
-    Ok(Term::op_native_lit("field_access", vec![target], field))
+    // A scalar `lit` is a static field/index. Anything else means the
+    // field child is a *computed* expression (`a[alen(a)-1]`, `m[k]`) —
+    // the payload carries no useful key, so lower the child as a second
+    // argument the interpreters evaluate on the input: dynamic index.
+    if matches!(field, Value::String(_) | Value::Number(_) | Value::Bool(_)) {
+        Ok(Term::op_native_lit("field_access", vec![target], field))
+    } else {
+        let key_idx = child_at_role_or_pos(node, lang, "field", 1)
+            .ok_or_else(|| format!("field-access at {} missing field child", node_index(node)))?;
+        let key = lower_node(ast, lang, key_idx, env, params)?;
+        Ok(Term::op_native("field_access", vec![target, key]))
+    }
 }
 
 fn lower_two_children(

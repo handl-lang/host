@@ -775,6 +775,7 @@ dependencies = [
  "handl-plugin-engine-transform",
  "handl-plugin-ext-diag",
  "handl-runtime",
+ "serde_json",
  "serde_yaml",
 ]
 
