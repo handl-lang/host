@@ -28,8 +28,8 @@ binary alone single-threaded before treating it as a real failure; a
 
 ### Prefer nextest for the full suite
 
-`cargo-nextest` is installed and is much faster end-to-end (~71 min for the
-whole workspace vs ~2 h under `cargo test`), because it schedules at
+`cargo-nextest` is installed and is much faster end-to-end (~19 min measured
+for the whole workspace vs ~2 h under `cargo test`), because it schedules at
 test-and-binary granularity and reuses the same artifacts when the profile
 env is identical:
 
@@ -37,6 +37,18 @@ env is identical:
 CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 \
   cargo nextest run --workspace -j 2
 ```
+
+For local iteration use the `fast` profile (`.config/nextest.toml`), which
+skips the interpreted-`.hnl` heavyweights — `dependent_structure` and
+`axis_flow_boundaries` (15-113 s per test) and `loader_parity` (~68 s):
+
+```bash
+cargo nextest run --workspace -j 2 --profile fast
+```
+
+Also note: every test process rebuilds the canonical `Language` from YAML —
+`language_from_yaml` now loads a serialized snapshot
+(`~/.cache/handl-lang/language-*.bin`, ~10 ms vs ~114 ms+ per process).
 
 **Memory is the constraint, and `-j` is not what it looks like.** In nextest
 `--test-threads` is an **alias** for `-j`, so passing both is an error, and
@@ -46,11 +58,12 @@ machine** (heavy cases such as the cranelift JIT and `standalone_bootstrap`
 use multiple GB each). Do not raise `-j` on a small machine to save time —
 it costs a reboot.
 
-Two suites dominate wall clock and will look stalled while `-j 2` blocks on
-them: `plugin-engine-exec-cranelift::standalone_bootstrap` (2 tests, ~15 min
-each — they compile the corpus to native and run it) and `kit-canonical`'s
-`fp_integration`/`intl_c`/`noise_c`/`rand_c` (~40-80 s per test). Check
-`ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
+The suites that dominate wall clock are the interpreted-`.hnl` typecheck
+tests in `plugin-engine-typecheck-handl` (`dependent_structure`,
+`axis_flow_boundaries` — 15-113 s each) and `plugin-lib-handl::loader`'s
+`loader_parity` (~68 s). `standalone_bootstrap` (cranelift) and
+`kit-canonical`'s slow tests moved to the `native`/`kit-canonical` repos.
+Check `ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
 
 **Note — `kit-canonical` moved out (ADR-0128 Phase 11):** it lives in the
 sibling `handl-lang/kit-canonical` repo now (git dep, patched to
