@@ -13,6 +13,8 @@ handl-language = { git = "https://github.com/handl-lang/platform", branch = "mai
 handl-platform = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-plugin-lib-encoding = { path = "../../modules/encoding" }
+# Shared op helpers (throwaway — see the lib-ops README).
+handl-lib-ops = { git = "https://github.com/handl-lang/lib-ops", branch = "main" }
 handl-plugin-lib-parse = { path = "../../modules/parse" }
 handl-plugin-lib-serialize = { path = "../../modules/serialize" }
 base64 = "0.22"

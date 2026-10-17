@@ -18,11 +18,13 @@
 //!   the op impls (moved from `plugin-lib-utils`).
 
 pub mod arrow_iter;
-pub mod function_value;
+// `function_value` + `shared` moved to the `lib-ops` repo (shared op helpers,
+// throwaway until ops are handl). Re-exported so `crate::shared` /
+// `crate::function_value` keep resolving for the ops modules here.
+pub use handl_lib_ops::{function_value, shared};
 pub mod loader;
 pub mod ops;
 pub mod packages;
-pub mod shared;
 
 pub use loader::load_hnl_file;
 pub use packages::{
