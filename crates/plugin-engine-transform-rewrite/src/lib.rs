@@ -47,6 +47,19 @@ use crate::condition::matches_condition;
 use crate::dispatch::Dispatch;
 use crate::walk::PassRun;
 
+/// Monotonic id of the pass being run.
+///
+/// Bumped once per built-in pass so natives can keep per-pass caches
+/// (e.g. the desugar constructor index) keyed by an epoch that never
+/// repeats while an input arena is alive.
+pub static PASS_EPOCH: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(0);
+
+/// The current pass epoch (see [`PASS_EPOCH`]).
+pub fn pass_epoch() -> u64 {
+    PASS_EPOCH.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Hard node-count budget for [`Traversal::Fixpoint`] iterations — a
 /// growing rewrite that never converges is cut off here rather than
 /// exhausting memory. Override with
@@ -396,6 +409,7 @@ impl RewriteEngine {
         pass: &str,
         topdown: bool,
     ) -> Result<TransformOutput, LangError> {
+        PASS_EPOCH.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let started = Instant::now();
         let dispatch = Dispatch::build(&*self.rule_source, lang, pass);
         let mut run = PassRun::new(

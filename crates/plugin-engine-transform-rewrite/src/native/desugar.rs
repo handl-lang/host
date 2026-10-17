@@ -39,6 +39,62 @@ use std::sync::OnceLock;
 // either. They live as `TransformDef`s in `data/transforms.yaml`.
 // ---------------------------------------------------------------------------
 
+thread_local! {
+    /// Constructor -> `data` declaration index for the current pass.
+    ///
+    /// `desugar_match_to_recursor` resolves its first arm's constructor to
+    /// the owning `data` node. Scanning the whole arena per `match` is
+    /// quadratic -- a 40k-node model with ~2k matches spent ~3 s here -- so
+    /// the scan runs once per pass. The key is the pass epoch plus the input
+    /// arena identity (pointer + length); the epoch advances on every pass,
+    /// so an entry cannot outlive the arena it was built from.
+    static DATA_INDEX: std::cell::RefCell<
+        Option<(
+            u64,
+            usize,
+            usize,
+            HashMap<String, (String, Vec<DataParam>, Vec<DataConstructor>)>,
+        )>,
+    > = const { std::cell::RefCell::new(None) };
+}
+
+/// Run `f` with the constructor index of `ast` for the current pass.
+fn with_data_index<R>(
+    lang: &Language,
+    ast: &Ast,
+    f: impl FnOnce(&HashMap<String, (String, Vec<DataParam>, Vec<DataConstructor>)>) -> R,
+) -> R {
+    let key = (crate::pass_epoch(), ast as *const Ast as usize, ast.len());
+    DATA_INDEX.with(|cell| {
+        let mut slot = cell.borrow_mut();
+        let stale = match slot.as_ref() {
+            Some((epoch, ptr, len, _)) => (*epoch, *ptr, *len) != key,
+            None => true,
+        };
+        if stale {
+            let mut index: HashMap<String, (String, Vec<DataParam>, Vec<DataConstructor>)> =
+                HashMap::new();
+            for node in ast.nodes() {
+                if node.kind == "data" {
+                    if let Some((type_name, params, constructors)) =
+                        parse_data_payload(lang, node, ast)
+                    {
+                        for cons in &constructors {
+                            index.insert(
+                                cons.name.clone(),
+                                (type_name.clone(), params.clone(), constructors.clone()),
+                            );
+                        }
+                    }
+                }
+            }
+            *slot = Some((key.0, key.1, key.2, index));
+        }
+        let index = &slot.as_ref().expect("populated above").3;
+        f(index)
+    })
+}
+
 /// Get the remapped new arena index of `original`'s child `i`.
 ///
 /// Returns `None` if the child doesn't exist or wasn't remapped.
@@ -1811,25 +1867,10 @@ fn desugar_match_to_recursor(
         arms.push(arm);
     }
 
-    let mut cons_to_type: std::collections::HashMap<
-        String,
-        (String, Vec<DataParam>, Vec<DataConstructor>),
-    > = std::collections::HashMap::new();
-    for node in ast.nodes() {
-        if node.kind == "data" {
-            if let Some((type_name, params, constructors)) = parse_data_payload(lang, node, ast) {
-                for cons in &constructors {
-                    cons_to_type.insert(
-                        cons.name.clone(),
-                        (type_name.clone(), params.clone(), constructors.clone()),
-                    );
-                }
-            }
-        }
-    }
-
     let first_cons_name = &arms[0].cons_name;
-    let (type_name, params, constructors) = cons_to_type.get(first_cons_name)?;
+    let (type_name, params, constructors) =
+        with_data_index(lang, ast, |index| index.get(first_cons_name).cloned())?;
+    let (type_name, params, constructors) = (&type_name, &params, &constructors);
 
     // For indexed families, the scrutinee must be a (possibly parenthesised)
     // type-annotated expression `v : Type(indices...)`. The annotation gives us
