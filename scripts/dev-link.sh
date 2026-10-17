@@ -13,9 +13,10 @@
 #
 # in <repo>/Cargo.toml (markers are created on first run, appended at EOF).
 # For every sibling repo R referenced by a `git = "…/handl-lang/R"` dep in
-# the target's manifests, every crate under `R/{crates,modules}/` is
-# patched to its sibling path. CI strips/ignores the tables and resolves
-# the pinned revs.
+# the target's manifests, each crate of R is patched to its sibling path:
+# the workspace members under `R/{crates,modules}/`, plus R's own root
+# `[package]` when it is a single-crate repo (the ADR-0128 `lib-*` ports).
+# CI strips/ignores the tables and resolves the pinned revs.
 set -euo pipefail
 
 REPO="${1:-.}"
