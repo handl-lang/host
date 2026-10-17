@@ -218,7 +218,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // include_str! below + any dep modules the handl source imports.
     ModuleSpec {
         name: "datetime",
-        hnl: include_str!("../../../handl-packages/datetime/datetime.hnl"),
+        hnl: handl_lib_datetime::DATETIME_HNL,
         funcs: &[],
         ops: &[],
         values: &[],
@@ -1018,7 +1018,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "datetime",
         plugin_id: "lib.datetime",
         plugin_name: "lib-datetime",
-        hnl: include_str!("../../../handl-packages/datetime/datetime.hnl"),
+        hnl: handl_lib_datetime::DATETIME_HNL,
         modules: &[],
     },
     // ── intl_c — `intl` contract backend over system ICU4C via `ffi` ────

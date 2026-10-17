@@ -16,6 +16,7 @@ handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branc
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/lib-ops", branch = "main" }
 # ADR-0128: port packages live in their own repos.
+handl-lib-datetime = { git = "https://github.com/handl-lang/lib-datetime", branch = "main" }
 handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = "main" }
 handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
 handl-lib-prim = { git = "https://github.com/handl-lang/lib-prim", branch = "main" }
