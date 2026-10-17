@@ -1057,7 +1057,14 @@ fn bind_stmt(
             .ok_or_else(|| format!("{} at {} missing payload.name", child.kind, idx))?
             .to_string();
         check_rebind(&name, env, local, params)?;
-        decline_self_reference(ast, &name, idx)?;
+        // `subtree_name_candidates` on the `op` node itself would pick up
+        // `payload.name` — the bound name — as a candidate and always
+        // fire. Scan the op's arrow child instead.
+        let arrow_idx = children(child)
+            .first()
+            .copied()
+            .ok_or_else(|| format!("op at {} missing arrow child", idx))?;
+        decline_self_reference(ast, &name, arrow_idx)?;
         let bound = lower_node(ast, lang, idx, env, params)?;
         let entry = EnvEntry {
             term: bound.clone(),
