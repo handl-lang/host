@@ -151,3 +151,14 @@ retired:
     status: superseded
     superseded_by: "Spans ride on the Pratt AST and `plugin-ext-diag::Span`; ADR-0097 notes the AST already carries the spans the old token-zipping hack tried to recover."
     unpark: "No — if a non-AST consumer needs line/col, add it to `plugin-ext-diag`."
+
+  # ---------------------------------------------------------------------------
+  # ADR-0044 migration scaffold.
+  # ---------------------------------------------------------------------------
+  - was: handl-emitters
+    loc: 321
+    idea: "manifest-named Rust emitters as a `Language` fragment source (ADR-0044 migration scaffold)"
+    adr: ADR-0044
+    status: superseded
+    superseded_by: "direct `base_language` param to `DataKit::assemble`"
+    unpark: "YAML fragments are canonical; revive only if a kit needs a Rust-computed fragment source."
