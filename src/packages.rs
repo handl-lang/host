@@ -554,7 +554,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // results so callers can gate on host ICU presence.
     ModuleSpec {
         name: "intl_c",
-        hnl: include_str!("../../../handl-packages/intl-c/intl-c.hnl"),
+        hnl: handl_lib_intl_c::INTL_C_HNL,
         funcs: &[
             "compare_strings",
             "format_number",
@@ -583,7 +583,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // report probe results so callers can gate on host ICU presence.
     ModuleSpec {
         name: "unicode_c",
-        hnl: include_str!("../../../handl-packages/unicode-c/unicode-c.hnl"),
+        hnl: handl_lib_unicode_c::UNICODE_C_HNL,
         funcs: &[
             "code_points",
             "from_code_points",
@@ -1028,7 +1028,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "intl_c",
         plugin_id: "lib.intl-c",
         plugin_name: "lib-intl-c",
-        hnl: include_str!("../../../handl-packages/intl/intl.hnl"),
+        hnl: handl_lib_intl::INTL_HNL,
         modules: &[],
     },
     // ── unicode_c — `unicode` contract backend over system ICU4C via `ffi` ─
@@ -1039,7 +1039,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "unicode_c",
         plugin_id: "lib.unicode-c",
         plugin_name: "lib-unicode-c",
-        hnl: include_str!("../../../handl-packages/unicode/unicode.hnl"),
+        hnl: handl_lib_unicode::UNICODE_HNL,
         modules: &[],
     },
 ];
