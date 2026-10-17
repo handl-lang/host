@@ -20,6 +20,9 @@ handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
 handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
 handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
 handl-plugin-lib-char-native = { workspace = true }
+# `.hnl` sources owned by their own repos (ADR-0128 §"1a").
+handl-lib-str-handl = { workspace = true }
+handl-lib-dedent = { workspace = true }
 plugin-engine = { path = "../plugin-engine" }
 serde_json = { workspace = true }
 

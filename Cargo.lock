@@ -789,6 +789,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-dedent"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-str-handl"
+version = "0.1.0"
+
+[[package]]
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
@@ -1294,6 +1302,8 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-data-canonical",
  "handl-language",
+ "handl-lib-dedent",
+ "handl-lib-str-handl",
  "handl-platform",
  "handl-plugin-engine-exec",
  "handl-plugin-engine-exec-bytecode",

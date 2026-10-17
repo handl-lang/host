@@ -1511,7 +1511,7 @@ impl ModuleLoader {
     ///    back to `module_root`, then to the process working directory.
     /// 3. **Directory package.** If the resolved path is a directory, the
     ///    loader reads `<dir>/index.hnl` instead (so `from "../time"` loads
-    ///    `handl-packages/time/index.hnl`).
+    ///    `lib-time` repo's `src/index.hnl`).
     /// 4. **Bare name.** If the path has no `.hnl` extension, the loader
     ///    first tries `<path>.hnl` (so `from "./clock_gettime"` loads
     ///    `clock_gettime.hnl`) before falling through to host-module
