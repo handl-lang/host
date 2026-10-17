@@ -786,6 +786,15 @@ impl PrattEngine {
                 None => break,
             };
 
+            // `same_line` postfix rows (`index`/`call`/`field-access`/
+            // `opt-chain`) apply only when the operator is adjacent —
+            // a newline before `[`/`(`/`.`/`?.` starts a new expression
+            // (e.g. `x + 1\n[…]` = `x + 1` then an array literal, not
+            // `x + 1[…]`).
+            if infix_row.same_line && cursor.layout_ahead() {
+                break;
+            }
+
             let (lbp, rbp_right) = infix_row.binding_power.ok_or_else(|| {
                 LangError::engine_at(
                     format!("infix row {} has no binding power", infix_row.id),
