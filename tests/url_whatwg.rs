@@ -1,6 +1,6 @@
 use handl_platform::{EvalContext, Function, Plugin};
-use handl_plugin_lib_parse::DynParser;
-use handl_plugin_lib_stdlib::ops::url_whatwg::*;
+use handl_lib_parse::DynParser;
+use handl_lib_url_whatwg::ops::*;
 use handl_plugin_lib_stdlib::library;
 use serde_json::json;
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use std::sync::Arc;
 #[test]
 fn parses_http_url() {
     let u =
-        handl_plugin_lib_parse::parse("https://example.com:8080/path?a=1#frag", Whatwg).unwrap();
+        handl_lib_parse::parse("https://example.com:8080/path?a=1#frag", Whatwg).unwrap();
     assert_eq!(u.scheme(), "https");
     assert_eq!(u.host(), Some("example.com"));
     assert_eq!(u.port(), Some(8080));
@@ -19,7 +19,7 @@ fn parses_http_url() {
 
 #[test]
 fn whatwg_normalizes_invalid() {
-    let u = handl_plugin_lib_parse::parse("HTtpS://EXAMPLE.com/../a/../b", Whatwg).unwrap();
+    let u = handl_lib_parse::parse("HTtpS://EXAMPLE.com/../a/../b", Whatwg).unwrap();
     assert_eq!(u.scheme(), "https");
     assert_eq!(u.host(), Some("example.com"));
     assert_eq!(u.path(), "/b");
@@ -27,7 +27,7 @@ fn whatwg_normalizes_invalid() {
 
 #[test]
 fn rejects_garbage() {
-    assert!(handl_plugin_lib_parse::parse("not a url", Whatwg).is_err());
+    assert!(handl_lib_parse::parse("not a url", Whatwg).is_err());
 }
 
 #[test]

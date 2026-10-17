@@ -226,11 +226,16 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "parse",
-        hnl: include_str!("../../../handl-packages/utils/parse.hnl"),
+        hnl: handl_lib_parse::PARSE_HNL,
         funcs: &[],
-        ops: ops::parse::PARSE_OPS,
+        ops: handl_lib_parse::PARSE_OPS,
         values: &[],
-        registry: Some(ops::parse::parse_op_registry),
+        registry: Some(|| {
+            let mut parsers: HashMap<String, Arc<dyn handl_lib_parse::DynParser>> = HashMap::new();
+            handl_lib_url_rfc::register(&mut parsers);
+            handl_lib_url_whatwg::register(&mut parsers);
+            handl_lib_parse::parse_op_registry_with(parsers)
+        }),
     },
     ModuleSpec {
         name: "serialize",
@@ -264,19 +269,19 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
-        hnl: include_str!("../../../handl-packages/url_rfc/url_rfc.hnl"),
+        hnl: handl_lib_url_rfc::URL_RFC_HNL,
         funcs: &[],
-        ops: ops::url_rfc::URL_RFC_OPS,
+        ops: handl_lib_url_rfc::URL_RFC_OPS,
         values: &[],
-        registry: Some(ops::url_rfc::url_rfc_op_registry),
+        registry: Some(handl_lib_url_rfc::url_rfc_op_registry),
     },
     ModuleSpec {
         name: "url_whatwg",
-        hnl: include_str!("../../../handl-packages/url_whatwg/url_whatwg.hnl"),
+        hnl: handl_lib_url_whatwg::URL_WHATWG_HNL,
         funcs: &[],
-        ops: ops::url_whatwg::URL_WHATWG_OPS,
+        ops: handl_lib_url_whatwg::URL_WHATWG_OPS,
         values: &[],
-        registry: Some(ops::url_whatwg::url_whatwg_op_registry),
+        registry: Some(handl_lib_url_whatwg::url_whatwg_op_registry),
     },
     // ── cmp (former plugin-lib-cmp) ────────────────────────────────────
     ModuleSpec {
@@ -939,14 +944,14 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "url_rfc",
         plugin_id: "lib.url-rfc",
         plugin_name: "lib-url-rfc",
-        hnl: include_str!("../../../handl-packages/url_rfc/url_rfc.hnl"),
+        hnl: handl_lib_url_rfc::URL_RFC_HNL,
         modules: &[],
     },
     PackageSpec {
         lib_name: "url_whatwg",
         plugin_id: "lib.url-whatwg",
         plugin_name: "lib-url-whatwg",
-        hnl: include_str!("../../../handl-packages/url_whatwg/url_whatwg.hnl"),
+        hnl: handl_lib_url_whatwg::URL_WHATWG_HNL,
         modules: &[],
     },
     // ── hello / result / arrow_iter (former plugin-lib-{hello,result,

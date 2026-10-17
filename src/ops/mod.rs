@@ -9,11 +9,8 @@
 pub mod collections;
 pub mod ip;
 pub mod math;
-pub mod parse;
 pub mod strs;
 pub mod toml;
-pub mod url_rfc;
-pub mod url_whatwg;
 pub mod yaml;
 
 /// Back-compat alias so consumers can refer to
