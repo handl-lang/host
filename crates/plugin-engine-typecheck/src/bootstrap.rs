@@ -267,6 +267,48 @@ fn binding_target_name(lang: &Language, ast: &Ast, node_ref: AstRef) -> Option<S
     None
 }
 
+/// Whether `node` is a binding shape — declares both `target` and `value`
+/// roles. Data-driven: the same test the top-level `assign` path uses, so a
+/// shape other than `assign` that declares the roles is still a binding.
+fn is_binding_shape(lang: &Language, node: &AstNode) -> bool {
+    lang.child_role_index(&node.kind, "target")
+        .ok()
+        .flatten()
+        .is_some()
+        && lang.child_role_index(&node.kind, "value")
+            .ok()
+            .flatten()
+            .is_some()
+}
+
+/// The declared name of a **type-signature export** (`export A: T ~> U`).
+///
+/// The parser renders a signature as
+/// `export(function(type-annot { name: A }, <result type>))`, so the name
+/// lives in the `type-annot` payload rather than as a binding target.
+/// Descending the `function`'s `body` role instead finds the *result type*
+/// (e.g. `Number`): one signature binds `Number` once, and a second signature
+/// in the same file reports `duplicate binding: Number` — a pure port file
+/// (`export Perlin1d: Number ~> Number`) is all signatures, so it always
+/// tripped this.
+///
+/// Returns `None` for a value export (`export x := expr`), whose child is
+/// `assign`-shaped and handled by [`binding_target_name`]. Callers must only
+/// use this on non-binding shapes: `export x: T := expr` is `assign` with a
+/// `type-annot` target, and its name is the target's subject.
+fn signature_name(ast: &Ast, node_ref: AstRef) -> Option<String> {
+    let node = ast.at(node_ref).ok()?;
+    if let Some(name) = node.payload.get("name").and_then(|v| v.as_str()) {
+        return Some(name.to_string());
+    }
+    for child in children_of(node) {
+        if let Some(name) = signature_name(ast, AstRef::new(child)) {
+            return Some(name);
+        }
+    }
+    None
+}
+
 /// A module-level binding (`name = expr`).
 struct Binding {
     name: String,
@@ -283,6 +325,9 @@ struct Import {
 struct Export {
     name: String,
     stmt_idx: usize,
+    /// A type signature (`export x: T ~> U`) declares `x` without binding a
+    /// value, so the "export must be bound" check skips it.
+    signature: bool,
 }
 
 /// Classify and collect all top-level declarations from the parsed statements.
@@ -338,10 +383,12 @@ fn collect_decls(
         }
 
         // Export: `stmt.export` (no roles → positional child 0). The child
-        // is either a plain `var` (`export x` / `export x from "path"`) or
-        // a binding-shaped subtree (`export x :: expr` parses as
-        // `export(assign(x, expr))`) — in the latter case the export both
-        // declares `x` and binds it in module scope.
+        // is either a plain `var` (`export x` / `export x from "path"`), a
+        // binding-shaped subtree (`export x :: expr` parses as
+        // `export(assign(x, expr))` — the export both declares `x` and binds
+        // it), or a type signature (`export x: T ~> U` parses as
+        // `export(function(type-annot { name: x }, T))` — declares `x`, binds
+        // nothing).
         if root.kind == KIND_EXPORT {
             let children = children_of(root);
             if let Some(&child_raw) = children.first() {
@@ -350,26 +397,47 @@ fn collect_decls(
                     if let Some(name) = var_name(child_node) {
                         // `export x` / `export x from "path"` — a re-export
                         // of an existing binding, not a new binding.
-                        exports.push(Export { name, stmt_idx: i });
-                    } else if let Some(name) = binding_target_name(lang, &stmt.ast, child_ref) {
-                        // `export x :: expr` — the export declares `x` and
-                        // binds it in module scope.
-                        if seen.contains_key(&name) {
-                            let span = name_span(src, stmt, &name);
-                            diags.push(Diagnostic::new(
-                                "duplicate-binding",
-                                Severity::Error,
-                                span,
-                                format!("duplicate binding: `{name}`"),
-                            ));
-                        } else {
-                            seen.insert(name.clone(), i);
-                        }
-                        bindings.push(Binding {
-                            name: name.clone(),
+                        exports.push(Export {
+                            name,
                             stmt_idx: i,
+                            signature: false,
                         });
-                        exports.push(Export { name, stmt_idx: i });
+                    } else if is_binding_shape(lang, child_node) {
+                        // `export x := expr` / `export x :: expr` — the export
+                        // declares `x` and binds it in module scope.
+                        if let Some(name) = binding_target_name(lang, &stmt.ast, child_ref) {
+                            if seen.contains_key(&name) {
+                                let span = name_span(src, stmt, &name);
+                                diags.push(Diagnostic::new(
+                                    "duplicate-binding",
+                                    Severity::Error,
+                                    span,
+                                    format!("duplicate binding: `{name}`"),
+                                ));
+                            } else {
+                                seen.insert(name.clone(), i);
+                            }
+                            bindings.push(Binding {
+                                name: name.clone(),
+                                stmt_idx: i,
+                            });
+                            exports.push(Export {
+                                name,
+                                stmt_idx: i,
+                                signature: false,
+                            });
+                        }
+                    } else if let Some(name) = signature_name(&stmt.ast, child_ref) {
+                        // `export x: T ~> U` — a type signature. It declares
+                        // `x` but binds no value; the name is the annotation's
+                        // subject, never the result type (see `signature_name`,
+                        // which also keeps `Number` from being "bound" once per
+                        // signature).
+                        exports.push(Export {
+                            name,
+                            stmt_idx: i,
+                            signature: true,
+                        });
                     }
                 }
             }
@@ -931,9 +999,11 @@ fn check_pass(
         .chain(lang.globals.keys().cloned())
         .collect();
 
-    // Phase 2a: every exported name must be bound.
+    // Phase 2a: every exported *value* must be bound. A type signature
+    // (`export x: T ~> U`) declares a name with no value; a port file is
+    // nothing but those.
     for exp in &exports {
-        if !binding_names.contains(&exp.name) {
+        if !exp.signature && !binding_names.contains(&exp.name) {
             let stmt = &stmts[exp.stmt_idx];
             let span = name_span(src, stmt, &exp.name);
             diags.push(Diagnostic::new(

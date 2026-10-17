@@ -531,3 +531,44 @@ fn block_assign_binds_for_siblings() {
     let report = check_module(lang(), "do { x :: 1\nx + 1 }").unwrap();
     assert_clean(&report);
 }
+
+// ---------------------------------------------------------------------------
+// type-signature exports (ports)
+// ---------------------------------------------------------------------------
+
+/// Two signatures sharing a result type are not a duplicate binding.
+///
+/// `export A: Number ~> Number` parses as
+/// `export(function(type-annot { name: A }, Number))`. Taking the name from
+/// the `function`'s `body` role instead reads the *result type*, so a second
+/// signature reported `duplicate binding: Number` — every pure port file
+/// tripped this.
+#[test]
+fn signature_exports_bind_the_annotated_name_not_the_result_type() {
+    let report = check_module(
+        lang(),
+        "export A: Number ~> Number\nexport B: Number ~> Number",
+    )
+    .unwrap();
+    assert_clean(&report);
+}
+
+/// A signature declares a name without binding a value, so it must not trip
+/// `unbound-export`: a port file is nothing but signatures.
+#[test]
+fn signature_export_is_not_an_unbound_export() {
+    let report = check_module(lang(), "export Perlin1d: Number ~> Number").unwrap();
+    assert_clean(&report);
+}
+
+/// The signature exemption is narrow: a plain re-export of an unbound name
+/// still errors.
+#[test]
+fn plain_export_still_requires_a_binding() {
+    let report = check_module(lang(), "export Nope").unwrap();
+    assert!(
+        has_diag(&report, "unbound-export", Severity::Error),
+        "expected unbound-export error, got: {:?}",
+        report.diagnostics
+    );
+}
