@@ -201,11 +201,72 @@ fn lower_node(
                     .collect();
                 return Ok(Term::op_native("array", terms));
             }
-            let terms = children(node)
-                .iter()
-                .map(|&i| lower_node(ast, lang, i, env, params))
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(Term::op_native("array", terms))
+            // `...expr` spread elements (`pattern_role: rest`, `kind ==
+            // "rest"` role-less fallback — the eval `array` op's rule)
+            // concatenate rather than nest: fold the lowered element
+            // terms into a left-associated `concat` chain — `[a, ...b, c]`
+            // → `concat(concat([a], b), [c])`. The `concat` op pushes a
+            // non-array operand as-is, matching the AST `array` op. A
+            // spread-free literal keeps the plain flat `array` op.
+            let idxs = children(node);
+            let has_rest = idxs.iter().any(|&i| {
+                ast.get(AstRef::new(i))
+                    .map(|child| {
+                        lang.pattern_role_is(&child.kind, "rest")
+                            .unwrap_or(child.kind == "rest")
+                    })
+                    .unwrap_or(false)
+            });
+            if !has_rest {
+                let terms = idxs
+                    .iter()
+                    .map(|&i| lower_node(ast, lang, i, env, params))
+                    .collect::<Result<Vec<_>, _>>()?;
+                return Ok(Term::op_native("array", terms));
+            }
+            // Fold the lowered elements left-to-right. Consecutive
+            // non-spread elements stay grouped in one `array` op; each
+            // spread term is concatenated in place.
+            let mut acc: Option<Term> = None;
+            let mut run: Vec<Term> = Vec::new();
+            for &i in &idxs {
+                let child = ast
+                    .get(AstRef::new(i))
+                    .ok_or_else(|| format!("array element {} out of bounds", i))?;
+                let is_rest = lang
+                    .pattern_role_is(&child.kind, "rest")
+                    .unwrap_or(child.kind == "rest");
+                let term = lower_node(ast, lang, i, env, params)?;
+                if is_rest {
+                    if !run.is_empty() {
+                        let elem = Term::op_native("array", std::mem::take(&mut run));
+                        acc = Some(match acc {
+                            Some(a) => Term::op_native("concat", vec![a, elem]),
+                            None => elem,
+                        });
+                    }
+                    // Seed with `concat([], term)` rather than `term`: a
+                    // leading spread of a non-array value still yields a
+                    // one-element array (the eval `array` op's rule).
+                    acc = Some(match acc {
+                        Some(a) => Term::op_native("concat", vec![a, term]),
+                        None => Term::op_native(
+                            "concat",
+                            vec![Term::op_native("array", vec![]), term],
+                        ),
+                    });
+                } else {
+                    run.push(term);
+                }
+            }
+            if !run.is_empty() {
+                let elem = Term::op_native("array", run);
+                acc = Some(match acc {
+                    Some(a) => Term::op_native("concat", vec![a, elem]),
+                    None => elem,
+                });
+            }
+            Ok(acc.unwrap_or_else(|| Term::op_native("array", vec![])))
         }
 
         "object" => lower_object(ast, lang, node, env, params),
