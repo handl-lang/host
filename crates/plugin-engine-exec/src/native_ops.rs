@@ -1137,6 +1137,34 @@ pub fn apply_native_op(
             }
             Ok((TaggedValue::Arr(Rc::from(result)), false))
         }
+        // `concat` — array concatenation, the spread lowering's fold.
+        // Array operands are flattened, non-array operands pushed as-is
+        // (the `array` op's `...expr` rule); mirrors the shared term
+        // interpreter's `concat`.
+        "concat" => {
+            let mut result: Vec<TaggedValue> = Vec::new();
+            for arg in args {
+                match arg {
+                    TaggedValue::Arr(xs) => result.extend(xs.iter().cloned()),
+                    other => result.push(other.clone()),
+                }
+            }
+            Ok((TaggedValue::Arr(Rc::from(result)), false))
+        }
+        // `record_merge` — object concatenation, the object-spread
+        // lowering's fold: later keys win, non-object operands are
+        // ignored (the `object` op's `...expr` rule).
+        "record_merge" => {
+            let mut merged: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+            for arg in args {
+                if let TaggedValue::Obj(map) = arg {
+                    for (k, v) in map.iter() {
+                        merged.insert(Rc::clone(k), v.clone());
+                    }
+                }
+            }
+            Ok((TaggedValue::Obj(Rc::new(merged)), false))
+        }
         // `object` — literal object construction. Two payload shapes:
         // - Rich: `{"entries": [{"key": "k", "value": v}, ...]}`.
         // - Pratt-parsed: `{"children": [entry_idx, ...]}` — each
