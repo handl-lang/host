@@ -126,9 +126,11 @@ fn resolve_relative_path(path: &str) -> String {
 }
 
 fn collect_direct_imports(src: &str) -> Vec<String> {
-    src.lines()
-        .filter(|line| is_top_import_line(line))
-        .filter_map(|line| extract_quoted_path(line).map(|(path, _)| path))
+    top_level_segments(src)
+        .iter()
+        .map(|seg| seg.trim().to_string())
+        .filter(|seg| is_import_line(seg))
+        .filter_map(|seg| extract_quoted_path(&seg).map(|(path, _)| path))
         .collect()
 }
 
@@ -151,12 +153,15 @@ fn prepare_module_source(src: &str) -> String {
     transform_export_to_object(&src, &op_names)
 }
 
-/// Collect the qualified names from `op "<name>" : ...` declaration lines
-/// (e.g. `op "bytes.from_list"` → `bytes.from_list`).
+/// Collect the qualified names from `op "<name>" : ...` declaration
+/// statements (e.g. `op "bytes.from_list"` → `bytes.from_list`). An `op`
+/// declaration is a top-level statement, so segmentation — not line shape —
+/// decides where one begins.
 fn collect_op_decl_names(src: &str) -> Vec<String> {
-    src.lines()
-        .filter_map(|line| {
-            let trimmed = line.trim_start();
+    top_level_segments(src)
+        .iter()
+        .filter_map(|seg| {
+            let trimmed = seg.trim_start();
             let rest = trimmed.strip_prefix("op")?;
             if !rest.starts_with(' ') && !rest.starts_with('\t') && !rest.starts_with('"') {
                 return None;
@@ -220,36 +225,33 @@ fn collect_export_names(src: &str) -> Vec<String> {
             all.push(name);
         }
     };
-    for line in src.lines() {
-        let trimmed = line.trim_start();
-        if is_top_import_line(line) {
-            if let Some((_, reexports)) = from_export_to_import(line) {
+    for seg in top_level_segments(src) {
+        let trimmed = seg.trim();
+        if is_import_line(trimmed) {
+            if let Some((_, reexports)) = from_export_to_import(trimmed) {
                 for (name, _) in &reexports {
                     names.push(name.clone());
                 }
                 for (name, _) in reexports {
                     push_all(&mut all, name);
                 }
-            } else if import_line_spec(line).is_some() {
-                for local in import_bound_locals(line) {
+            } else if import_line_spec(trimmed).is_some() {
+                for local in import_bound_locals(trimmed) {
                     push_all(&mut all, local);
                 }
             }
             continue;
         }
-        if !line.starts_with(' ') && !line.starts_with('\t') {
-            if trimmed.starts_with("export ") {
-                let rest = &trimmed["export ".len()..];
-                if let Some((sep_pos, _)) = find_binding_sep(rest) {
-                    let name = strip_export_name(&rest[..sep_pos]);
-                    names.push(name.clone());
-                    push_all(&mut all, name);
-                }
-            } else if let Some((sep_pos, _)) = find_binding_sep(trimmed) {
-                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
-                if is_valid_ident(&name) {
-                    push_all(&mut all, name);
-                }
+        if let Some(rest) = export_decl_rest(trimmed) {
+            if let Some((sep_pos, _)) = find_binding_sep(rest) {
+                let name = strip_export_name(&rest[..sep_pos]);
+                names.push(name.clone());
+                push_all(&mut all, name);
+            }
+        } else if let Some((sep_pos, _)) = find_binding_sep(trimmed) {
+            let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+            if is_valid_ident(&name) {
+                push_all(&mut all, name);
             }
         }
     }
@@ -258,7 +260,7 @@ fn collect_export_names(src: &str) -> Vec<String> {
         // record literal produces that value as the module record —
         // merge its field keys so the registered functions cover them
         // (mirrors `handl_runtime::module_prep::module_export_names`).
-        for key in trailing_record_keys(&strip_comment_lines(&src)) {
+        for key in trailing_record_keys(&strip_comment_lines(src)) {
             push_all(&mut all, key);
         }
         all
@@ -267,100 +269,364 @@ fn collect_export_names(src: &str) -> Vec<String> {
     }
 }
 
+/// Split a module source into its top-level statements, returning each
+/// statement's verbatim text (internal newlines and indentation
+/// preserved) in source order.
+///
+/// Mirrors `handl_runtime::module_prep::top_level_segments` (and the
+/// `top_level_segments` port in `plugin-lib-handl`). A statement boundary
+/// is recognized purely by structure — never by a hardcoded line shape:
+///
+/// - `;` at bracket depth 0,
+/// - a newline at depth 0 **not** followed by an indented line (an
+///   indented line continues the statement — `export f := (x) ~>\n
+///   <body>` keeps its wrapped RHS),
+/// - an `export`/`import`/`from` keyword at depth 0 mid-statement —
+///   several statements sharing a line (`from "x" import a export f :=
+///   e`, `export a := e; export b := e2`) split into their statements.
+///
+/// Inside a `from`/`import` statement the first `import`/`export`/`from`
+/// keyword belongs to that statement's tail (`from "x" import a`,
+/// `from "x" export a, b`, `import a from "x"`) and does not split.
+/// String literals, `--` line comments, and `/-- … --/` block comments
+/// are tracked so keywords and brackets inside them are ignored.
+fn top_level_segments(src: &str) -> Vec<String> {
+    /// What the statement under construction opened with — decides which
+    /// keywords are part of its own tail rather than a new statement.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Lead {
+        /// Nothing but whitespace/comments seen so far.
+        Pending,
+        From,
+        Import,
+        Export,
+        Other,
+    }
+
+    let bytes = src.as_bytes();
+    let mut segs: Vec<String> = Vec::new();
+    let mut start = 0usize;
+    let mut depth: i32 = 0;
+    let mut in_str: Option<u8> = None;
+    let mut in_line_comment = false;
+    let mut in_block_comment = false;
+    let mut lead = Lead::Pending;
+    // Whether the in-flight `from` statement has consumed its
+    // `import`/`export` keyword already, and whether an `import`
+    // statement has consumed `from`.
+    let mut tail_seen = false;
+
+    // Emit the accumulated statement `[start, $end)` when non-blank and
+    // open the next segment at `$next` with lead `$lead`.
+    macro_rules! cut {
+        ($end:expr, $next:expr, $lead:expr) => {{
+            let text = &src[start..$end];
+            if !text.trim().is_empty() {
+                segs.push(text.to_string());
+            }
+            start = $next;
+            lead = $lead;
+            tail_seen = false;
+        }};
+    }
+
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if in_line_comment {
+            if c == b'\n' {
+                in_line_comment = false;
+                // fall through: the newline may end the statement
+            } else {
+                i += 1;
+                continue;
+            }
+        }
+        if in_block_comment {
+            if c == b'-' && bytes.get(i + 1) == Some(&b'-') && bytes.get(i + 2) == Some(&b'/') {
+                in_block_comment = false;
+                i += 3;
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+            if lead == Lead::Pending {
+                lead = Lead::Other;
+            }
+            i += 1;
+            continue;
+        }
+        if c == b'-' && bytes.get(i + 1) == Some(&b'-') {
+            in_line_comment = true;
+            i += 2;
+            continue;
+        }
+        if c == b'/' && bytes.get(i + 1) == Some(&b'-') && bytes.get(i + 2) == Some(&b'-') {
+            in_block_comment = true;
+            if lead == Lead::Pending {
+                lead = Lead::Other;
+            }
+            i += 3;
+            continue;
+        }
+        match c {
+            b'"' | b'\'' => {
+                in_str = Some(c);
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 1;
+            }
+            b'(' | b'[' | b'{' => {
+                depth += 1;
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 1;
+            }
+            b')' | b']' | b'}' => {
+                depth -= 1;
+                if lead == Lead::Pending {
+                    lead = Lead::Other;
+                }
+                i += 1;
+            }
+            b';' if depth == 0 => {
+                cut!(i, i + 1, Lead::Pending);
+                i += 1;
+            }
+            b'\n' if depth == 0 => {
+                // Boundary only when the next line is not indented —
+                // indented lines are statement continuations.
+                let next = bytes.get(i + 1).copied();
+                if next != Some(b' ') && next != Some(b'\t') {
+                    cut!(i, i + 1, Lead::Pending);
+                }
+                i += 1;
+            }
+            _ if depth == 0 && (c.is_ascii_alphabetic() || c == b'_') => {
+                // Consume a whole identifier word so keywords inside
+                // larger names (`exporter`, `fromage`) never match.
+                let mut j = i + 1;
+                while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_') {
+                    j += 1;
+                }
+                let word = &src[i..j];
+                // A word after `.` is a field name (`char.from_chars`,
+                // `x.from`), not a statement keyword.
+                let dotted = i > 0 && bytes[i - 1] == b'.';
+                let kw = if !dotted && (word == "export" || word == "import" || word == "from") {
+                    Some(word)
+                } else {
+                    None
+                };
+                match (lead, kw) {
+                    (Lead::Pending, Some("export")) => lead = Lead::Export,
+                    (Lead::Pending, Some("from")) => lead = Lead::From,
+                    (Lead::Pending, Some("import")) => lead = Lead::Import,
+                    (Lead::Pending, _) => lead = Lead::Other,
+                    // `from "x" import …` / `from "x" export …` — the
+                    // first tail keyword belongs to the statement.
+                    (Lead::From, Some("import" | "export")) if !tail_seen => {
+                        tail_seen = true;
+                    }
+                    // `import <name> from "spec"` consumes one `from`.
+                    (Lead::Import, Some("from")) if !tail_seen => {
+                        tail_seen = true;
+                    }
+                    (_, Some(k)) => {
+                        // A statement-keyword at depth 0 mid-statement:
+                        // the next statement starts here.
+                        let next_lead = match k {
+                            "export" => Lead::Export,
+                            "from" => Lead::From,
+                            _ => Lead::Import,
+                        };
+                        cut!(i, i, next_lead);
+                    }
+                    (_, None) => {}
+                }
+                i = j;
+            }
+            _ => {
+                if lead == Lead::Pending && !c.is_ascii_whitespace() {
+                    lead = Lead::Other;
+                }
+                i += 1;
+            }
+        }
+    }
+    let text = &src[start..];
+    if !text.trim().is_empty() {
+        segs.push(text.to_string());
+    }
+    segs
+}
+
+/// The text after the `export` keyword when `trimmed` begins an export
+/// declaration — `None` when `export` does not sit at a word boundary at
+/// the start of the statement (`exporter := …` is a binding, not an
+/// export). Mirrors `handl_runtime::module_prep::export_decl_rest`.
+fn export_decl_rest(trimmed: &str) -> Option<&str> {
+    let rest = trimmed.strip_prefix("export")?;
+    if rest.is_empty() {
+        return Some(rest);
+    }
+    let next = rest.as_bytes()[0];
+    if !(next.is_ascii_alphanumeric() || next == b'_') {
+        Some(rest.trim_start())
+    } else {
+        None
+    }
+}
+
+/// `src` with top-level import statements removed (all other statements
+/// kept verbatim). Statement segmentation mirrors
+/// `handl_runtime::module_prep::drop_all_import_lines`.
+fn drop_import_lines(src: &str) -> String {
+    top_level_segments(src)
+        .iter()
+        .filter(|seg| !is_import_line(seg.trim()))
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Transform top-level `export name <::|:=|=|:> expr` declarations into an
+/// object literal `{ name: expr, ... }` so the source evaluates to a record
+/// of exported functions.
+///
+/// The source is consumed as top-level *statements*
+/// ([`top_level_segments`]) — not lines — so an `export` is recognized
+/// wherever a statement can begin: at column 0, indented, after `;`, or
+/// mid-line after another statement; and its RHS expression is captured
+/// whole regardless of how newlines fall inside `~>`-chained `do {…}` /
+/// `if`/`else` bodies. A declaration that cannot be transformed (an
+/// `export` with no `::`/`:=`/`:`/`=` separator, or an empty binding
+/// name) panics — a module prep must never silently drop an export into
+/// an empty record (mirrors `handl_runtime::module_prep`'s `LangError`).
+///
+/// Top-level `import`/`from` statements are hoisted — in original order —
+/// ahead of the record literal inside a `do { … }` block so the runtime
+/// can evaluate them (`prim_import`) and bind their names for the record.
+/// `op "mod.name" : T` declarations (`op_names`, collected by
+/// [`collect_op_decl_names`]) name host-registered operations and are
+/// emitted as exported fields whose value is the qualified-name *string*.
+///
+/// If no `export` statements are found and there are no imports or
+/// bindings, the source is returned unchanged (the existing
+/// object-literal form is preserved).
 fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
-    // Each top-level binding is collected as `(name, expr_lines)`.
-    // Non-private entries become object fields (`{ name: expr }`); private
-    // entries become `do`-block assignments (`name := expr;`) emitted *before*
-    // the object so exported closures can reference private helpers such as
-    // `clock_gettime` in `time-c/clock_gettime.hnl`.
-    let mut entries: Vec<(String, Vec<String>)> = Vec::new();
-    let mut privates: Vec<(String, Vec<String>)> = Vec::new();
-    let mut current: Option<(String, Vec<String>)> = None;
-    let mut current_is_private: bool = false;
+    // Collect (name, expr_lines, exported) triples in source order.
+    // Private bindings become `do`-block assignments (`name := expr;`)
+    // emitted *before* the object so exported closures can reference
+    // private helpers such as `clock_gettime` in
+    // `time-c/clock_gettime.hnl`; exported bindings become record fields.
+    let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
+    let mut current: Option<(String, Vec<String>, bool)> = None;
     // Whether the module's last top-level statement is a binding. When it
     // is not (a trailing `do { … }` or record literal) the body's own
     // value is the module record and no name projection is appended —
     // mirrors `handl_runtime::module_prep`.
     let mut tail_is_binding = true;
 
-    // Finalize `current` into the right collection.
+    // Finalize `current` into the ordered binding list.
     macro_rules! finalize {
         () => {
             if let Some(entry) = current.take() {
-                if current_is_private {
-                    privates.push(entry);
-                } else {
-                    entries.push(entry);
-                }
-                current_is_private = false;
+                bindings.push(entry);
             }
         };
     }
 
-    for line in src.lines() {
-        let trimmed = line.trim_start();
-        if is_top_import_line(line) {
+    for seg in top_level_segments(src) {
+        let trimmed = seg.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        // Import statements are hoisted separately; never treat them as
+        // part of an export body. `from "..." export x` re-export
+        // statements contribute one record field per name.
+        if is_import_line(trimmed) {
             finalize!();
-            if let Some((_, names)) = from_export_to_import(line) {
+            if let Some((_, names)) = from_export_to_import(trimmed) {
                 for (name, alias) in names {
-                    entries.push((name, vec![alias]));
+                    bindings.push((name, vec![alias], true));
                 }
             }
             continue;
         }
-        if !line.starts_with(' ') && !line.starts_with('\t') && trimmed.starts_with("export ") {
+        if let Some(rest) = export_decl_rest(trimmed) {
+            // Flush the previous entry.
             finalize!();
-            let rest = &trimmed["export ".len()..];
-            if let Some((sep_pos, sep_len)) = find_binding_sep(rest) {
-                let name = strip_export_name(&rest[..sep_pos]);
-                let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+            // Find the binding separator (`::`, `:=`, or legacy `=`).
+            let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
+                // Never drop an export declaration silently — a module
+                // that reaches eval with a vanished export produces an
+                // empty record (`{}`) or an "unbound name" error far
+                // from the cause (mirrors `module_prep`'s `LangError`).
+                panic!(
+                    "module prep: cannot transform `export` declaration \
+                     (expected `export <name> <::|:=|=|: > …`): {trimmed}"
+                );
+            };
+            let name = strip_export_name(&rest[..sep_pos]);
+            if name.is_empty() {
+                panic!("module prep: `export` declaration has no binding name: {trimmed}");
+            }
+            let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
+            let expr_start = if is_type_only {
+                "null"
+            } else {
+                rest[sep_pos + sep_len..].trim()
+            };
+            let mut expr_lines = Vec::new();
+            if !expr_start.is_empty() {
+                expr_lines.push(expr_start.to_string());
+            }
+            current = Some((name, expr_lines, true));
+            tail_is_binding = true;
+            continue;
+        }
+        // A statement that is not an import or `export` declaration.
+        // Detect a *private* (non-exported) top-level binding so that
+        // helper functions are preserved instead of dropped — mirrors
+        // `handl_runtime::module_prep`.
+        if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
+            let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
+            if is_valid_ident(&name) {
+                finalize!();
+                let is_type_only = sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
                 let expr_start = if is_type_only {
                     "null"
                 } else {
-                    rest[sep_pos + sep_len..].trim()
+                    trimmed[sep_pos + sep_len..].trim()
                 };
                 let mut expr_lines = Vec::new();
                 if !expr_start.is_empty() {
                     expr_lines.push(expr_start.to_string());
                 }
-                current = Some((name, expr_lines));
-                current_is_private = false;
+                current = Some((name, expr_lines, false));
                 tail_is_binding = true;
-            }
-            continue;
-        } else if !line.starts_with(' ') && !line.starts_with('\t') {
-            // Column-0 line that is not an import or `export` declaration.
-            // Detect a *private* (non-exported) top-level binding so that
-            // helper functions are preserved instead of dropped.
-            if let Some((sep_pos, sep_len)) = find_binding_sep(trimmed) {
-                let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
-                if is_valid_ident(&name) {
-                    finalize!();
-                    let is_type_only =
-                        sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
-                    let expr_start = if is_type_only {
-                        "null"
-                    } else {
-                        trimmed[sep_pos + sep_len..].trim()
-                    };
-                    let mut expr_lines = Vec::new();
-                    if !expr_start.is_empty() {
-                        expr_lines.push(expr_start.to_string());
-                    }
-                    current = Some((name, expr_lines));
-                    current_is_private = true;
-                    tail_is_binding = true;
-                    continue;
-                }
-            }
-            if current.is_none() && !trimmed.is_empty() {
-                tail_is_binding = false;
+                continue;
             }
         }
-        if let Some((_, lines)) = &mut current {
-            if !line.trim().is_empty() {
-                lines.push(line.to_string());
-            }
+        // A non-binding statement that does not continue an in-flight
+        // binding means the module's last statement is a bare expression
+        // (`do { … }`, record literal, call) — its value is the module
+        // record, so no projection is appended. Otherwise the segment
+        // continues the current binding's expression verbatim.
+        if current.is_none() {
+            tail_is_binding = false;
+        } else if let Some((_, lines, _)) = &mut current {
+            lines.push(seg.clone());
         }
     }
     finalize!();
@@ -372,11 +638,18 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     // callable when it is imported as a file.
     for qualified in op_names {
         let local = qualified.rsplit('.').next().unwrap_or(qualified);
-        if local.is_empty() || !is_valid_ident(local) || entries.iter().any(|(n, _)| n == local) {
+        if local.is_empty()
+            || !is_valid_ident(local)
+            || bindings
+                .iter()
+                .any(|(n, _, exported)| *exported && n == local)
+        {
             continue;
         }
-        entries.push((local.to_string(), vec![format!("\"{qualified}\"")]));
+        bindings.push((local.to_string(), vec![format!("\"{qualified}\"")], true));
     }
+
+    let has_exports = bindings.iter().any(|(_, _, exported)| *exported);
 
     let imports = collect_executable_import_lines(src);
 
@@ -387,15 +660,11 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     // evaluates as one expression under the single-statement parser —
     // mirrors `loader.hnl`'s `transform_export_to_object` and
     // `handl_runtime::module_prep`.
-    if entries.is_empty() {
-        if imports.is_empty() && privates.is_empty() {
+    if !has_exports {
+        if imports.is_empty() && bindings.is_empty() {
             return src.to_string();
         }
-        let stripped: String = src
-            .lines()
-            .filter(|line| !is_top_import_line(line))
-            .collect::<Vec<_>>()
-            .join("\n");
+        let stripped = drop_import_lines(src);
         // The projection is appended only when the module's last top-level
         // statement is a binding; a trailing `do { … }`/record literal is
         // already the module's interface value.
@@ -407,12 +676,13 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
                     fields.push(format!("{name}: {name}"));
                 }
             };
-            for (name, _) in &privates {
+            for (name, _, _) in &bindings {
                 push_field(name);
             }
-            for line in src.lines() {
-                if is_top_import_line(line) && import_line_spec(line).is_some() {
-                    for local in import_bound_locals(line) {
+            for seg in top_level_segments(src) {
+                let trimmed = seg.trim();
+                if is_import_line(trimmed) && import_line_spec(trimmed).is_some() {
+                    for local in import_bound_locals(trimmed) {
                         push_field(&local);
                     }
                 }
@@ -434,39 +704,46 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     }
 
     // Build the body: private bindings as do-block assignments, then the
-    // export object literal. A name that isn't a valid identifier (e.g.
-    // the keyword `first`) needs a quoted record key.
-    let mut body = String::new();
-    for (name, expr_lines) in &privates {
-        if !is_valid_ident(name) {
+    // export object literal. Record keys are always quoted: an export name
+    // may be a keyword (`first`, `export`) that lexes as
+    // `token.keyword.*`, not an identifier.
+    let mut prelude = String::new();
+    for (name, expr_lines, exported) in &bindings {
+        if *exported {
             continue;
         }
-        let expr = expr_lines.join("\n");
-        let expr = expr.trim();
-        body.push_str(name);
-        body.push_str(" := ");
-        body.push_str(expr);
-        body.push_str(";\n");
+        prelude.push_str(name);
+        prelude.push_str(" := ");
+        prelude.push_str(expr_lines.join("\n").trim());
+        prelude.push_str(";\n");
     }
-    body.push_str("{ ");
-    for (i, (name, expr_lines)) in entries.iter().enumerate() {
-        if i > 0 {
-            body.push_str(", ");
+    let mut record = String::from("{ ");
+    let mut first = true;
+    for (name, expr_lines, exported) in &bindings {
+        if !exported {
+            continue;
         }
-        // Always quote record keys: an export name may be a keyword
-        // (`first`, `export`) that lexes as `token.keyword.*`, not an
-        // identifier — `is_valid_ident` is only a shape check.
-        body.push('"');
-        body.push_str(name);
-        body.push_str("\": ");
-        body.push_str(expr_lines.join("\n").trim());
+        if !first {
+            record.push_str(", ");
+        }
+        first = false;
+        record.push('"');
+        record.push_str(name);
+        record.push_str("\": ");
+        record.push_str(expr_lines.join("\n").trim());
     }
-    body.push_str(" }");
+    record.push_str(" }");
 
-    if imports.is_empty() {
-        body
+    // A bare export record stands alone; a private prelude or import
+    // lines turn the module into a multi-statement body — wrap in
+    // `do { … }` so it evaluates as a single expression (mirrors
+    // `loader.hnl` and `module_prep`).
+    if imports.is_empty() && prelude.is_empty() {
+        record
+    } else if imports.is_empty() {
+        format!("do {{\n{prelude}{record}\n}}")
     } else {
-        format!("do {{\n{}\n{}\n}}", imports.join("\n"), body)
+        format!("do {{\n{}\n{prelude}{record}\n}}", imports.join("\n"))
     }
 }
 
@@ -595,10 +872,6 @@ fn is_valid_ident(s: &str) -> bool {
     }
 }
 
-fn is_top_import_line(line: &str) -> bool {
-    !line.starts_with(' ') && !line.starts_with('\t') && is_import_line(line.trim_start())
-}
-
 fn is_import_line(trimmed: &str) -> bool {
     if let Some(rest) = trimmed.strip_prefix("import") {
         if rest.is_empty()
@@ -666,19 +939,22 @@ fn extract_quoted_path(line: &str) -> Option<(String, &str)> {
     Some((path.to_string(), rest))
 }
 
-/// Top-level import lines that name a quoted specifier — every quoted
-/// spec is executable here because `load_hnl_file` pre-registers each as
-/// a module dependency (file paths relative to the module dir, bare
-/// names via the stdlib package table). Bare `import <name>` declarations
-/// are decorative and excluded.
+/// Top-level import statements that name a quoted specifier — every
+/// quoted spec is executable here because `load_hnl_file` pre-registers
+/// each as a module dependency (file paths relative to the module dir,
+/// bare names via the stdlib package table). Bare `import <name>`
+/// declarations are decorative and excluded. An import is recognized
+/// wherever a statement can begin, not only at column 0 of a line.
 fn collect_executable_import_lines(src: &str) -> Vec<String> {
-    src.lines()
-        .filter(|line| is_top_import_line(line))
-        .filter(|line| import_line_spec(line).is_some())
-        .map(|line| {
-            let line = from_export_to_import(line)
+    top_level_segments(src)
+        .iter()
+        .map(|seg| seg.trim().to_string())
+        .filter(|seg| is_import_line(seg))
+        .filter(|seg| import_line_spec(seg).is_some())
+        .map(|seg| {
+            let line = from_export_to_import(&seg)
                 .map(|(import_line, _)| import_line)
-                .unwrap_or_else(|| line.to_string());
+                .unwrap_or(seg);
             // Inside a `do {}` block, `import <names>` trailing-tokens
             // parsing does not stop at the newline — terminate each
             // import with `;` so the following statement can't merge in.
@@ -808,4 +1084,136 @@ fn strip_export_name(s: &str) -> String {
         i += 1;
     }
     s.trim().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `export` sharing a line with an import statement: the `from` tail
+    /// suppresses the split at `import`, then `export` opens a new
+    /// statement mid-line (mirrors the platform's
+    /// `single_line_module_exports_evaluate` case).
+    #[test]
+    fn export_sharing_a_line_with_an_import() {
+        let src =
+            "from \"char\" import * as char export f: F := (x) ~> do { if x > 0 { 1 } else { 0 } }";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nfrom \"char\" import * as char;\n{ \"f\": (x) ~> do { if x > 0 { 1 } else { 0 } } }\n}"
+        );
+    }
+
+    /// `;`-separated exports on one line split into their statements.
+    #[test]
+    fn semicolon_separated_exports() {
+        let src = "export inc := (x) ~> x + 1; export dec := (x) ~> x - 1\n";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "{ \"inc\": (x) ~> x + 1, \"dec\": (x) ~> x - 1 }"
+        );
+    }
+
+    /// An indented `export` is a top-level declaration, not a
+    /// continuation of the previous statement.
+    #[test]
+    fn indented_export_is_top_level() {
+        let src = "export a := 1\n  export double := (x) ~> x * 2\n";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "{ \"a\": 1, \"double\": (x) ~> x * 2 }"
+        );
+    }
+
+    /// An `export` keyword mid-statement (after a private binding on the
+    /// same line) still opens a new statement; the private binding is
+    /// hoisted into the `do`-block prelude.
+    #[test]
+    fn export_mid_line_after_private_binding() {
+        let src = "helper := (x) ~> x + 1 export apply := (x) ~> helper(x)";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nhelper := (x) ~> x + 1;\n{ \"apply\": (x) ~> helper(x) }\n}"
+        );
+    }
+
+    /// `exporter := …` is a private binding, not a malformed export —
+    /// the `export` keyword must sit at a word boundary.
+    #[test]
+    fn exporter_prefix_is_not_an_export() {
+        let src = "exporter := 1";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nexporter := 1\n{ exporter: exporter }\n}"
+        );
+    }
+
+    /// A multi-line `do {…}` export body is captured whole — the indented
+    /// continuation lines are part of the same statement.
+    #[test]
+    fn export_body_keeps_indented_continuation() {
+        let src = "export f := (x) ~>\n  do {\n    x\n  }\nexport g := 2";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "{ \"f\": (x) ~>\n  do {\n    x\n  }, \"g\": 2 }"
+        );
+    }
+
+    /// `from "<spec>" export a, b` re-exports contribute one record field
+    /// per name and hoist as a rewritten `import … as __…` statement.
+    #[test]
+    fn from_export_reexport_fields() {
+        let src = "from \"./pair.hnl\" export a, b\nexport z := x ~> x";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nfrom \"./pair.hnl\" import a as __a, b as __b;\n{ \"a\": __a, \"b\": __b, \"z\": x ~> x }\n}"
+        );
+    }
+
+    /// `op "mod.name"` declarations become exported string-valued fields.
+    #[test]
+    fn op_decl_names_become_string_fields() {
+        let src = "export a := 1\n";
+        assert_eq!(
+            transform_export_to_object(src, &["bytes.from_list".to_string()]),
+            "{ \"a\": 1, \"from_list\": \"bytes.from_list\" }"
+        );
+    }
+
+    /// `prepare_module_source` end-to-end: the `op` line is stripped from
+    /// the evaluatable source but still contributes its string field.
+    #[test]
+    fn prepare_strips_op_decl_but_keeps_field() {
+        let src = "op \"bytes.from_list\" : List(Nat) -> Bytes\nexport a := 1\n";
+        assert_eq!(
+            prepare_module_source(src),
+            "{ \"a\": 1, \"from_list\": \"bytes.from_list\" }"
+        );
+    }
+
+    /// A module with only private bindings wraps in `do { … }` with a
+    /// trailing record projecting every bound name.
+    #[test]
+    fn no_exports_projects_all_bindings() {
+        let src = "helper :: x ~> x + 1\nother := helper(1)";
+        assert_eq!(
+            transform_export_to_object(src, &[]),
+            "do {\nhelper :: x ~> x + 1\nother := helper(1)\n{ helper: helper, other: other }\n}"
+        );
+    }
+
+    /// A malformed `export` — no binding separator — must never silently
+    /// drop into an empty record (mirrors `module_prep`'s `LangError`).
+    #[test]
+    #[should_panic(expected = "cannot transform `export` declaration")]
+    fn separatorless_export_fails_loudly() {
+        transform_export_to_object("export just_a_name\n", &[]);
+    }
+
+    /// An `export` with a separator but no binding name is loud too.
+    #[test]
+    #[should_panic(expected = "no binding name")]
+    fn nameless_export_fails_loudly() {
+        transform_export_to_object("export := 1\n", &[]);
+    }
 }
