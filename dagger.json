@@ -6,9 +6,9 @@
   },
   "dependencies": [
     {
-      "name": "handl-ci",
-      "source": "github.com/handl-lang/ci@main",
-      "pin": "665b814e886f737686d08e9bbe5f9b6de35a796c"
+      "name": "bupha",
+      "source": "github.com/9aia/bupha/modules/dagger@main",
+      "pin": "6f3f74fbb1a624bef959de8d0782912a6e37e41f"
     }
   ],
   "source": "dagger"

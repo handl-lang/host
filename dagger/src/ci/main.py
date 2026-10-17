@@ -1,15 +1,15 @@
-"""CI pipeline for handl-lang/platform — thin orchestration over handl-ci.
+"""CI pipeline for handl-lang/platform — thin orchestration over bupha.
 
 All container plumbing (toolchain image, workspace mount, dev-link +
 self-patch, cargo/sccache caches, token auth) lives in the shared
-handl-ci module (github.com/handl-lang/ci — see dagger.json deps).
+bupha module (github.com/handl-lang/ci — see dagger.json deps).
 This module only adds platform-specific gates:
 
     dogfood — scripts/dogfood-gate.sh against a sibling handl-lang/cli
     ci      — the whole gate: tests + coverage gate + dogfood, concurrently
 
 Everything else (test/test-shard/doctests/coverage-*/doctor) delegates
-straight through to handl-ci so the interface stays stable for
+straight through to bupha so the interface stays stable for
 scripts/ci-watch.sh.
 """
 
@@ -33,7 +33,7 @@ REPO = "platform"
 
 @object_type
 class Ci:
-    # -- delegates to handl-ci ----------------------------------------------
+    # -- delegates to bupha ----------------------------------------------
 
     @function
     async def doctor(
@@ -42,8 +42,8 @@ class Ci:
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
-        """Smoke-test the workspace container (delegates to handl-ci)."""
-        return await dag.handl_ci().doctor(
+        """Smoke-test the workspace container (delegates to bupha)."""
+        return await dag.bupha().doctor(
             source=source, repo=REPO, token=token, sccache_conf=sccache_conf)
 
     @function
@@ -56,8 +56,8 @@ class Ci:
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
-        """One nextest partition — delegates to handl-ci."""
-        return await dag.handl_ci().test_shard(
+        """One nextest partition — delegates to bupha."""
+        return await dag.bupha().test_shard(
             source=source, shard=shard, shards=shards, jobs=jobs,
             repo=REPO, token=token, sccache_conf=sccache_conf)
 
@@ -68,8 +68,8 @@ class Ci:
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
-        """Workspace doctests — delegates to handl-ci."""
-        return await dag.handl_ci().doctests(
+        """Workspace doctests — delegates to bupha."""
+        return await dag.bupha().doctests(
             source=source, repo=REPO, token=token, sccache_conf=sccache_conf)
 
     @function
@@ -81,8 +81,8 @@ class Ci:
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
-        """Full test gate — delegates to handl-ci."""
-        return await dag.handl_ci().test(
+        """Full test gate — delegates to bupha."""
+        return await dag.bupha().test(
             source=source, shards=shards, jobs=jobs,
             repo=REPO, token=token, sccache_conf=sccache_conf)
 
@@ -93,8 +93,8 @@ class Ci:
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> dagger.Directory:
-        """coverage/ directory (html + lcov) — delegates to handl-ci."""
-        return await dag.handl_ci().coverage_report(
+        """coverage/ directory (html + lcov) — delegates to bupha."""
+        return await dag.bupha().coverage_report(
             source=source, repo=REPO, token=token, sccache_conf=sccache_conf)
 
     @function
@@ -104,8 +104,8 @@ class Ci:
         token: Optional[dagger.Secret] = None,
         sccache_conf: Optional[dagger.Secret] = None,
     ) -> str:
-        """Blocking tooling-coverage gate — delegates to handl-ci."""
-        return await dag.handl_ci().coverage_gate(
+        """Blocking tooling-coverage gate — delegates to bupha."""
+        return await dag.bupha().coverage_gate(
             source=source, repo=REPO, token=token, sccache_conf=sccache_conf)
 
     # -- platform-specific ---------------------------------------------------
@@ -137,7 +137,7 @@ class Ci:
                 .branch("main")
                 .tree(discard_git_dir=True)
             )
-        hc = dag.handl_ci()
+        hc = dag.bupha()
         ws = hc.workspace(source=source, repo=REPO, token=token,
                           sccache_conf=sccache_conf)
         ws = hc.with_sibling(ctr=ws, name="cli", source=cli_source, main_repo=REPO)
@@ -168,7 +168,7 @@ class Ci:
         memory-constrained boxes (11 GiB can't hold three rust builds).
         dogfood runs only when a cli source or token is provided.
         """
-        hc = dag.handl_ci()
+        hc = dag.bupha()
         named = {
             "test": hc.test(source=source, shards=shards, jobs=jobs,
                          repo=REPO, token=token, sccache_conf=sccache_conf),

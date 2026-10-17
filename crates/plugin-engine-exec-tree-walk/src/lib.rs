@@ -2917,6 +2917,7 @@ impl TreeWalkEngine {
                 tail,
                 lang,
                 Some(Rc::clone(&env.globals)),
+                callee,
                 current_node,
             );
         }
@@ -2957,6 +2958,7 @@ impl TreeWalkEngine {
                 tail,
                 lang,
                 Some(Rc::clone(&env.globals)),
+                callee,
                 current_node,
             );
         }
@@ -2971,6 +2973,7 @@ impl TreeWalkEngine {
             &[],
             lang,
             Some(Rc::clone(&env.globals)),
+            callee,
             current_node,
         )?;
         while !rest.is_empty() {
@@ -3045,6 +3048,7 @@ impl TreeWalkEngine {
         rest_args: &[TaggedValue],
         lang: &Language,
         globals: Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>,
+        self_val: &TaggedValue,
         current_node: &AstNode,
     ) -> Result<TaggedValue, LangError> {
         let def_ast = cached_def_arena(body_def).ok_or_else(|| {
@@ -3057,6 +3061,15 @@ impl TreeWalkEngine {
             arrow_env.set_globals(g);
         }
         arrow_env.push_scope();
+        // Self-ref markers in `binds` (`x := (…) ~> …x…` — see
+        // `handl_value::self_ref_marker`) resolve to the arrow being
+        // applied, giving `letrec` semantics without a cyclic `binds`
+        // map. Scope bindings shadow `captured` in `lookup()`.
+        for (name, val) in binds.iter() {
+            if handl_value::is_self_ref_marker(val) {
+                arrow_env.define(name, self_val.clone());
+            }
+        }
         for (param, arg) in params.iter().zip(actual_args.iter()) {
             arrow_env.define(param, arg.clone());
         }

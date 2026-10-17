@@ -682,6 +682,22 @@ pub fn apply_native_op(
                             })?;
                         let var_name = binding_target_name(ctx, var_idx, "assign")?;
                         let value = ctx.eval_node(AstRef::new(value_idx))?;
+                        // A self-referential `x = …x…` binds `x` to a
+                        // self-ref marker in the arrow's `binds` — the
+                        // apply site re-seeds `x` with the applied arrow.
+                        // Without this the name is unbound at mint time,
+                        // never reaches `binds`, and `call` falls through
+                        // to `call_host`.
+                        let value = if handl_language::subtree_name_candidates(
+                            |r| ctx.node_payload_at(r),
+                            AstRef::new(value_idx),
+                        )
+                        .is_some_and(|n| n.contains(var_name.as_str()))
+                        {
+                            handl_value::with_self_ref_bind(&value, &var_name)
+                        } else {
+                            value
+                        };
                         ctx.env_push();
                         ctx.env_define(&var_name, value);
                         let result = ctx.eval_node(AstRef::new(body_idx));
@@ -740,6 +756,19 @@ pub fn apply_native_op(
                 as usize;
             // Evaluate the value in the current env.
             let value = ctx.eval_node(AstRef::new(value_idx))?;
+            // A self-referential `name := …name…` binds `name` to a
+            // self-ref marker in the arrow's `binds` — the apply site
+            // re-seeds it with the applied arrow (see `assign`).
+            let value = if handl_language::subtree_name_candidates(
+                |r| ctx.node_payload_at(r),
+                AstRef::new(value_idx),
+            )
+            .is_some_and(|n| n.contains(name.as_str()))
+            {
+                handl_value::with_self_ref_bind(&value, &name)
+            } else {
+                value
+            };
             // Extend env with name = value, evaluate body, pop.
             ctx.env_push();
             ctx.env_define(&name, value);
@@ -823,6 +852,20 @@ pub fn apply_native_op(
                             };
                             match ctx.eval_node(AstRef::new(value_idx)) {
                                 Ok(value) => {
+                                    // Self-referential `x = …x…`/`x := …x…`
+                                    // in a block: bind `x` to a self-ref
+                                    // marker in the arrow's `binds` (see
+                                    // `assign`).
+                                    let value = if handl_language::subtree_name_candidates(
+                                        |r| ctx.node_payload_at(r),
+                                        AstRef::new(value_idx),
+                                    )
+                                    .is_some_and(|n| n.contains(var_name.as_str()))
+                                    {
+                                        handl_value::with_self_ref_bind(&value, &var_name)
+                                    } else {
+                                        value
+                                    };
                                     ctx.env_assign(&var_name, value.clone());
                                     result = value;
                                     continue 'block;
@@ -2582,6 +2625,19 @@ fn eval_rec_region_loop(
                         let var_name = binding_target_name(ctx, var_idx, "eval_rec")?;
                         match ctx.eval_node(AstRef::new(value_idx)) {
                             Ok(new_val) => {
+                                // Self-referential arrow in a rec region:
+                                // bind `var_name` to a self-ref marker in
+                                // the arrow's `binds` (see `assign`).
+                                let new_val = if handl_language::subtree_name_candidates(
+                                    |r| ctx.node_payload_at(r),
+                                    AstRef::new(value_idx),
+                                )
+                                .is_some_and(|n| n.contains(var_name.as_str()))
+                                {
+                                    handl_value::with_self_ref_bind(&new_val, &var_name)
+                                } else {
+                                    new_val
+                                };
                                 ctx.env_define(&var_name, new_val.clone());
                                 result = new_val;
                             }
