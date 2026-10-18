@@ -516,6 +516,19 @@ pub fn apply_native_op(
     incoming: Option<TaggedValue>,
     ctx: &mut dyn NativeOpCtx,
 ) -> Result<Option<(TaggedValue, bool)>, LangError> {
+    // The compiled backends' `NativeOp`/`apply_native` channels cannot
+    // carry `lit`, so their compilers bake `Arr { op, lit: Some(v) }`
+    // into the op name as `<op>:<json-lit>` — the `route_on_type:`
+    // convention, generalized by [`bake_lit_name`]. Decode it back here
+    // for the term-level lit ops; the tree-walk passes `lit` directly.
+    let baked_lit: Option<Value>;
+    let (op, lit) = match (lit, op.split_once(':')) {
+        (None, Some((base, suffix))) if lit_baked_op(base) => {
+            baked_lit = serde_json::from_str::<Value>(suffix).ok();
+            (base, baked_lit.as_ref())
+        }
+        _ => (op, lit),
+    };
     let result: OpResult = match op {
         "const" => Ok((
             TaggedValue::from(lit.cloned().unwrap_or(Value::Null)),
@@ -1103,15 +1116,30 @@ pub fn apply_native_op(
         //   (`...expr`) flattens its evaluated value into the result when
         //   it is an array, and pushes it as-is otherwise.
         "array" => {
+            // Term form (`array(t0..tn)` — the arrow-lowered array
+            // constructor): the args ARE the elements, mirroring the
+            // term interpreter's `array` arm. Distinct from the node
+            // form below, whose `eval.array` scheme passes no args and
+            // evaluates `payload.children` — an `array()` term (no
+            // args, no children payload) is `[]`, not an error.
             let payload = ctx.node_payload().cloned().unwrap_or(Value::Null);
+            if !args.is_empty() || payload.get("children").is_none() {
+                if let Some(elements) = payload.get("elements") {
+                    return Ok(Some((TaggedValue::from(elements.clone()), false)));
+                }
+                return Ok(Some((
+                    TaggedValue::Arr(Rc::from(args.to_vec())),
+                    false,
+                )));
+            }
             if let Some(elements) = payload.get("elements") {
                 return Ok(Some((TaggedValue::from(elements.clone()), false)));
             }
-            let Some(children) = payload.get("children").and_then(|c| c.as_array()).cloned() else {
-                return Err(LangError::engine(
-                    "array: missing elements/children in payload".to_string(),
-                ));
-            };
+            let children = payload
+                .get("children")
+                .and_then(|c| c.as_array())
+                .cloned()
+                .expect("checked above");
             if !ctx.supports(OpService::EvalNode) {
                 return Ok(None);
             }
@@ -1154,6 +1182,44 @@ pub fn apply_native_op(
                 }
             }
             Ok((TaggedValue::Arr(Rc::from(result)), false))
+        }
+        // `record` — record literal, the arrow-lowered object
+        // constructor (term_interpreter parity). Two surfaces: `lit`
+        // carries the key list and `args` the evaluated values (the
+        // lowerer's compiled form, equal lengths), or with no `lit`
+        // `args` alternate evaluated key/value pairs (the scheme
+        // form). Keys must be strings.
+        "record" => {
+            let mut obj: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+            if let Some(keys) = lit.and_then(|v| v.as_array()) {
+                if keys.len() != args.len() {
+                    return Err(LangError::engine(
+                        "record: key/value count mismatch".to_string(),
+                    ));
+                }
+                for (i, arg) in args.iter().enumerate() {
+                    let key = keys[i].as_str().ok_or_else(|| {
+                        LangError::engine("record: key is not a string".to_string())
+                    })?;
+                    obj.insert(Rc::from(key), arg.clone());
+                }
+            } else {
+                if args.len() % 2 != 0 {
+                    return Err(LangError::engine(format!(
+                        "record: expected even number of arguments, got {}",
+                        args.len()
+                    )));
+                }
+                for i in (0..args.len()).step_by(2) {
+                    let key = args[i].as_str().ok_or_else(|| {
+                        LangError::engine(format!(
+                            "record: key at index {i} must be a string"
+                        ))
+                    })?;
+                    obj.insert(Rc::from(key), args[i + 1].clone());
+                }
+            }
+            Ok((TaggedValue::Obj(Rc::new(obj)), false))
         }
         // `record_merge` — object concatenation, the object-spread
         // lowering's fold: later keys win, non-object operands are
@@ -1629,9 +1695,20 @@ pub fn apply_native_op(
         }
         // --- product / sum / routing --------------------------------------
         "product" => {
-            let left = args.first().cloned().unwrap_or(TaggedValue::Null);
-            let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
-            Ok((pair(left, right), false))
+            // The `match` lowering's *extended dispatch pair* packs
+            // `[v, in, keys]` — the runtime-valued object-pattern key
+            // list — as `product(v, in, keys)`. The term interpreter
+            // aliases `product` to the n-ary fanout (an array of all
+            // args); keep 2-arg `product` as the `Pair` shape the
+            // `***` eval scheme and `pair_tag`/`elem` consumers share,
+            // and emit the n-ary `Arr` for every other arity so
+            // `elem:2` reaches the key list.
+            if args.len() == 2 {
+                let left = args.first().cloned().unwrap_or(TaggedValue::Null);
+                let right = args.get(1).cloned().unwrap_or(TaggedValue::Null);
+                return Ok(Some((pair(left, right), false)));
+            }
+            Ok((TaggedValue::Arr(Rc::from(args.to_vec())), false))
         }
         // `loop_outcome` — the arrow-lowering counterpart of the
         // `loop_step` op's outcome mapping: `{state: v}` → right(v),
@@ -1672,6 +1749,138 @@ pub fn apply_native_op(
                     "arr_drop: input is not an array".to_string(),
                 )),
             }
+        }
+        // --- `match` object-pattern ops (arrow-lowered `try_pattern`) --
+        // These mirror `term_interpreter`'s op semantics — which in turn
+        // mirror `pattern_match::try_object_pattern`/`try_tag_pattern`.
+        // `is_obj`/`has_field` are *total* (a non-object input reports
+        // false, never an error) so a non-matching scrutinee falls
+        // through to the next arm — the `arr_len` → `-1` convention,
+        // extended to objects. `tag_fields`/`obj_except` run only behind
+        // those guards, so a non-object input errors.
+        //
+        // `TaggedValue::Obj` is the wire-decode gate: `__pair__`/
+        // `__either__`/`__bytes__`/`__sym__`/`__arrow__`/`__resource__`/
+        // `__tensor__` marker records decode to non-Obj variants, so a
+        // `matches!(v, TaggedValue::Obj(_))` here is exactly
+        // `try_object_pattern`'s object test (the term-interpreter's
+        // `tagged_is_obj`).
+        "is_obj" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            Ok((TaggedValue::Bool(matches!(v, TaggedValue::Obj(_))), false))
+        }
+        // `obj_key` — coerce a computed object-pattern key expression's
+        // value to a field name: `v.as_str().unwrap_or("")`, mirroring
+        // `try_object_pattern`'s `key_val.as_str().unwrap_or("")`. The
+        // lowerer wraps runtime-valued pattern keys in it so
+        // `field_access`/`obj_except` always see a string key.
+        "obj_key" => {
+            let v = args
+                .first()
+                .ok_or_else(|| LangError::engine("obj_key: missing argument".to_string()))?;
+            Ok((
+                TaggedValue::Str(Rc::from(v.as_str().unwrap_or(""))),
+                false,
+            ))
+        }
+        // `has_field[:k]` — the input is an object *and* carries key
+        // `k`. Two surfaces: `lit` is the static key (the
+        // `Seq[pv, ·]`-riding form whose args are inert), or with no
+        // `lit` the `field_access`-style computed form
+        // `has_field(target, key)` where both args evaluate on the
+        // input — the arrow-lowered runtime-valued object-pattern key.
+        // A non-string key coerces to `""`, mirroring
+        // `try_object_pattern`.
+        "has_field" => {
+            if let Some(key) = lit.and_then(|v| v.as_str()) {
+                let v = incoming
+                    .or_else(|| args.first().cloned())
+                    .unwrap_or(TaggedValue::Null);
+                let hit = matches!(&v, TaggedValue::Obj(map) if map.contains_key(key));
+                return Ok(Some((TaggedValue::Bool(hit), false)));
+            }
+            if args.len() < 2 {
+                return Err(LangError::engine(
+                    "has_field: missing key literal".to_string(),
+                ));
+            }
+            let key = args[1].as_str().unwrap_or("");
+            let hit = matches!(&args[0], TaggedValue::Obj(map) if map.contains_key(key));
+            Ok((TaggedValue::Bool(hit), false))
+        }
+        // `tag_fields` — the tag-pattern binders' payload source
+        // (ADR-0077): the input object's non-`__tag__` values, sorted by
+        // key — positional binding mirrors `try_tag_pattern`'s
+        // `payload_fields`. Only consulted by binder paths behind a
+        // `has_field "__tag__"` guard, so a non-object input errors.
+        "tag_fields" => {
+            let v = incoming
+                .or_else(|| args.first().cloned())
+                .unwrap_or(TaggedValue::Null);
+            match &v {
+                TaggedValue::Obj(map) => {
+                    let mut fields: Vec<(&Rc<str>, &TaggedValue)> = map
+                        .iter()
+                        .filter(|(k, _)| k.as_ref() != "__tag__")
+                        .collect();
+                    fields.sort_by(|a, b| a.0.cmp(b.0));
+                    let vals: Vec<TaggedValue> =
+                        fields.into_iter().map(|(_, v)| v.clone()).collect();
+                    Ok((TaggedValue::Arr(Rc::from(vals)), false))
+                }
+                _ => Err(LangError::engine(
+                    "tag_fields: input is not an object".to_string(),
+                )),
+            }
+        }
+        // `obj_except[:keys]` — the object-pattern `...rest` binder's
+        // payload: the object minus the listed (matched) keys.
+        // Evaluated lazily from an arm body, so a non-object input
+        // errors. Two surfaces: `lit` is the static key list (input is
+        // the object), or with no `lit` `obj_except(target, keys)` where
+        // both args evaluate on the input and `keys` is an array — the
+        // arrow-lowered form for patterns with runtime-valued keys
+        // (static keys ride in the same list as constants). Elements
+        // coerce like `has_field`'s computed key
+        // (`as_str().unwrap_or("")`).
+        "obj_except" => {
+            let (obj_val, keys): (TaggedValue, Vec<TaggedValue>) =
+                if let Some(ks) = lit.and_then(|v| v.as_array()) {
+                    (
+                        incoming
+                            .or_else(|| args.first().cloned())
+                            .unwrap_or(TaggedValue::Null),
+                        ks.iter().cloned().map(TaggedValue::from).collect(),
+                    )
+                } else if args.len() >= 2 {
+                    let ks = match &args[1] {
+                        TaggedValue::Arr(a) => a.to_vec(),
+                        _ => {
+                            return Err(LangError::engine(
+                                "obj_except: keys are not an array".to_string(),
+                            ))
+                        }
+                    };
+                    (args[0].clone(), ks)
+                } else {
+                    return Err(LangError::engine(
+                        "obj_except: missing keys literal".to_string(),
+                    ));
+                };
+            let TaggedValue::Obj(map) = &obj_val else {
+                return Err(LangError::engine(
+                    "obj_except: input is not an object".to_string(),
+                ));
+            };
+            let mut out: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
+            for (k, v) in map.iter() {
+                if !keys.iter().any(|k2| k2.as_str().unwrap_or("") == k.as_ref()) {
+                    out.insert(k.clone(), v.clone());
+                }
+            }
+            Ok((TaggedValue::Obj(Rc::new(out)), false))
         }
         // `match_fail` — the `match` lowering's exhaust fallthrough;
         // mirrors `match_shell`'s "no arm matched".
@@ -2403,6 +2612,36 @@ fn opt_some(v: TaggedValue) -> TaggedValue {
     obj.insert(Rc::from("_tag"), TaggedValue::Str(Rc::from("Some")));
     obj.insert(Rc::from("value"), v);
     TaggedValue::Obj(Rc::new(obj))
+}
+
+/// Ops whose `Arr.lit` operand the compiled backends deliver baked into
+/// the op name as `<op>:<json-lit>` — the `route_on_type:` convention,
+/// generalized: `NativeOp`/`apply_native` carry no `lit` channel, so
+/// the compilers encode the literal in the name and
+/// [`apply_native_op`] decodes it. These are the lit-carrying
+/// term-level ops the arrow lowerer emits (`proj_*`/`extend_env`/
+/// `const`/`route_on_type`/`cell_comp_axis` have their own
+/// compile-time or name-suffix handling).
+fn lit_baked_op(op: &str) -> bool {
+    matches!(
+        op,
+        "elem" | "field_access" | "has_field" | "obj_except" | "arr_drop" | "json" | "record"
+    )
+}
+
+/// Bake an `Arr { op, lit }` literal into the op name as
+/// `<op>:<json-lit>` — the compiled backends' `lit` channel (the
+/// `route_on_type:` convention). `NativeOp`/`apply_native` carry only
+/// the op name, so the compilers encode `lit` in it and
+/// [`apply_native_op`] decodes it back. Returns `None` for ops that do
+/// not read `lit` through this channel — callers then emit the bare op
+/// name (preserving the previous behavior for lit-less dispatch).
+pub fn bake_lit_name(op: &str, lit: &Value) -> Option<String> {
+    if lit_baked_op(op) {
+        Some(format!("{op}:{lit}"))
+    } else {
+        None
+    }
 }
 
 /// The declared operand dimension baked into a `cell_comp_axis[:N]` op

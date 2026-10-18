@@ -10,7 +10,10 @@
 //! tag-pattern cases hand-build the arena like the tree-walk tests do.
 
 use handl_kit_arrow_lower::lower_ast;
-use handl_language::{Ast, AstNode, AstRef, Source, Value};
+use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Source, Term, Value};
+use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
+use handl_plugin_engine_exec_bytecode::BytecodeEngine;
+use handl_plugin_engine_exec_cranelift::CraneliftEngine;
 use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
 use handl_plugin_engine_lex_pattern::DataLexerEngine;
 use handl_plugin_engine_parse_pratt::PrattEngine;
@@ -77,6 +80,157 @@ fn assert_lowered_ast(ast: &Ast, want: Value) {
     let got =
         interpret(&term, Value::Null).unwrap_or_else(|e| panic!("term interpreter failed: {e}"));
     assert_eq!(got, want);
+}
+
+// ---------------------------------------------------------------------------
+// Compiled backends — bytecode + cranelift run the lowered `Term` itself.
+// ---------------------------------------------------------------------------
+
+/// Run `term` through a *compiled* engine end-to-end: it is registered
+/// as the eval scheme of a synthetic `test-lowered` root node, so
+/// `engine.eval` compiles the term (`compile`/`compile_arr` →
+/// `NativeOp`/`apply_native` → `native_ops::apply_native_op`) and
+/// executes it with a `Null` incoming — exactly the term-interpreter's
+/// `interpret(&term, Value::Null)` inputs. There is no `match_shell`/
+/// `try_pattern` AST fallback on this path: an unimplemented op errors
+/// the eval instead.
+fn eval_term_on(engine: &dyn EvalEngine, lang: &handl_language::Language, term: &Term) -> Value {
+    let mut lang = lang.clone();
+    lang.eval
+        .merge(EvalSchemeDef::new(
+            "e.test.lowered",
+            "test-lowered",
+            term.clone(),
+        ))
+        .expect("merge test scheme");
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("test-lowered"));
+    engine
+        .eval(&lang, &EvalRequest::new(ast))
+        .unwrap_or_else(|e| panic!("compiled engine failed on lowered term: {e}"))
+}
+
+/// The lowered `Term` for `src` must produce the term-interpreter's
+/// result on the bytecode and cranelift backends — proving the
+/// compiled-backend `native_ops` op set (and its `op:<json-lit>` name
+/// encoding) covers every op the lowering emits.
+fn assert_lowered_on_compiled_engines(src: &str) {
+    let rt = runtime();
+    let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
+    let ast = rt.parse(&toks).expect("parse+desugar must succeed");
+    let root = AstRef::new(ast.len() - 1);
+    let term = lower_ast(&ast, rt.lang(), root)
+        .unwrap_or_else(|e| panic!("lower_ast declined {src:?}: {e}"));
+    let want = interpret(&term, Value::Null)
+        .unwrap_or_else(|e| panic!("term interpreter failed on {src:?}: {e}"));
+    for (name, engine) in [
+        ("bytecode", Box::new(BytecodeEngine::new()) as Box<dyn EvalEngine>),
+        ("cranelift", Box::new(CraneliftEngine::new()) as _),
+    ] {
+        let got = eval_term_on(engine.as_ref(), rt.lang(), &term);
+        assert_eq!(got, want, "{name} on {src:?}");
+    }
+}
+
+/// Hand-built-arena counterpart of [`assert_lowered_on_compiled_engines`]
+/// (tag patterns need `__tag__` scrutinees object literals cannot write).
+fn assert_lowered_ast_on_compiled_engines(ast: &Ast, want: Value) {
+    let rt = runtime();
+    let root = AstRef::new(ast.len() - 1);
+    let term = lower_ast(ast, rt.lang(), root)
+        .unwrap_or_else(|e| panic!("lower_ast declined hand-built ast: {e}"));
+    for (name, engine) in [
+        ("bytecode", Box::new(BytecodeEngine::new()) as Box<dyn EvalEngine>),
+        ("cranelift", Box::new(CraneliftEngine::new()) as _),
+    ] {
+        let got = eval_term_on(engine.as_ref(), rt.lang(), &term);
+        assert_eq!(got, want, "{name} on hand-built ast");
+    }
+}
+
+#[test]
+fn object_patterns_on_compiled_engines() {
+    // Static keys, `...rest`, and fallthrough — `has_field`/`field_access`/
+    // `obj_except` static-lit forms plus `elem` (all ride the compiled
+    // backends' `op:<json-lit>` name encoding).
+    assert_lowered_on_compiled_engines(
+        r#"match { "a": 5, "b": 2 } { { "a": x, ...r }: r.b, _: 0 }"#,
+    );
+    assert_lowered_on_compiled_engines(
+        r#"match { "a": 5, "b": 2 } { { "a": x, ...r }: r, _: 0 }"#,
+    );
+    assert_lowered_on_compiled_engines(r#"match { "a": 5 } { { "c": x }: x, _: 0 }"#);
+    assert_lowered_on_compiled_engines(r#"match 5 { { "a": x }: x, _: 0 }"#);
+    // `{}` — the `is_obj` discriminant.
+    assert_lowered_on_compiled_engines(r#"match { "a": 1 } { {}: "obj", _: "no" }"#);
+    assert_lowered_on_compiled_engines(r#"match 5 { {}: "obj", _: "no" }"#);
+    // Nested object/array sub-patterns — `arr_len`/`arr_drop` too.
+    assert_lowered_on_compiled_engines(
+        r#"match { "a": [1, 2] } { { "a": [x, ...t] }: x, _: 0 }"#,
+    );
+    // Literal sub-patterns under entries + `has_field` guard fallthrough.
+    assert_lowered_on_compiled_engines(
+        r#"match { "a": 5, "b": 2 } { { "a": 5 }: "hit", _: "miss" }"#,
+    );
+    assert_lowered_on_compiled_engines(
+        r#"match { "a": 5, "b": 2 } { { "a": 6 }: "hit", _: "miss" }"#,
+    );
+}
+
+#[test]
+fn runtime_object_keys_on_compiled_engines() {
+    // Runtime-valued computed keys — `obj_key` coercion, the `array`/
+    // `product` slot-2 key list, and the two-arg dynamic forms of
+    // `has_field`/`field_access`/`obj_except`.
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#,
+    );
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "ab"}, match { "zz": 7 } { {[o.k]: x}: x, _: 0 } }"#,
+    );
+    // `...rest` under a runtime key — `obj_except(target, keys_list)`.
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "ab"}, match { "ab": 7, "c": 3 } { {[o.k]: x, ...r}: r.c, _: 0 } }"#,
+    );
+    // Non-object scrutinee: `is_obj` gates the key-forcing stage.
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "ab"}, match 5 { {[o.k]: x}: x, _: 0 } }"#,
+    );
+    // Env-bound constant key — `static_term_value` collapses it to the
+    // static `lit` forms.
+    assert_lowered_on_compiled_engines(
+        r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#,
+    );
+    // Non-string runtime key coerces to `""` (try_object_pattern parity).
+    assert_lowered_on_compiled_engines(
+        r#"do { n :: 42, match { "a": 1 } { {[n]: x}: x, _: 0 } }"#,
+    );
+}
+
+#[test]
+fn tag_patterns_on_compiled_engines() {
+    // `has_field "__tag__"` guard + `tag_fields` positional binders.
+    let ast = ok_err_ast(json!({ "__tag__": "ok", "value": 42 }));
+    assert_lowered_ast_on_compiled_engines(&ast, json!(42));
+    let ast = ok_err_ast(json!({ "__tag__": "err", "value": 99 }));
+    assert_lowered_ast_on_compiled_engines(&ast, json!(0));
+    // Multi-binder positional: `Pair(a, b)` binds sorted payload fields.
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!({ "__tag__": "Pair", "x": 10, "y": 20 })));
+    ast.push(var("Pair")); // 1
+    ast.push(var("a")); // 2
+    ast.push(var("b")); // 3
+    ast.push(AstNode::new("call").with_payload(json!({ "children": [1, 2, 3] }))); // 4
+    ast.push(var("a")); // 5
+    ast.push(var("b")); // 6
+    ast.push(AstNode::new("array").with_payload(json!({ "children": [5, 6] }))); // 7
+    ast.push(AstNode::new("arm").with_payload(json!({ "children": [4, 7] }))); // 8
+    ast.push(var("_")); // 9
+    ast.push(AstNode::new("value").with_payload(json!(0))); // 10
+    ast.push(AstNode::new("arm").with_payload(json!({ "children": [9, 10] }))); // 11
+    ast.push(AstNode::new("block").with_payload(json!({ "children": [8, 11] }))); // 12
+    ast.push(AstNode::new("match").with_payload(json!({ "children": [0, 12] }))); // 13
+    assert_lowered_ast_on_compiled_engines(&ast, json!([10, 20]));
 }
 
 // ---------------------------------------------------------------------------
