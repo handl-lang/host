@@ -4,7 +4,7 @@
 # (ADR-0128 §Resolution: git deps + `[patch]`, local-only).
 #
 #   scripts/dev-link.sh            # patch this repo (default: cwd)
-#   scripts/dev-link.sh ../cli     # patch a specific sibling checkout
+#   scripts/dev-link.sh ../host-cli     # patch a specific sibling checkout
 #
 # The generated tables replace the region between
 #

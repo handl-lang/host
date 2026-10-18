@@ -6,8 +6,8 @@
 cargo check                          # workspace check
 cargo test --workspace               # full test suite
 cargo test -p <crate-name>           # single crate
-# `hnl` moved to the sibling `cli` repo (ADR-0128 Phase 8):
-(cd ../cli && cargo build -p handl-host-cli)   # ../cli/target/debug/hnl
+# `hnl` lives in the sibling `host-cli` repo (ADR-0128 Phase 8; renamed + made a dumb ext host in ADR-0149):
+(cd ../host-cli && cargo build -p handl-host-cli)   # ../host-cli/target/debug/hnl
 ```
 
 `cargo test --workspace` is **green**: 357 suites / 4,298 tests passed,
@@ -116,8 +116,8 @@ dagger call test               # nextest + doctests (default 1 shard, -j 2)
 dagger call test --shards 8    # scale out: 8 parallel nextest partitions
 dagger call coverage-report export --path=coverage
 dagger call coverage-gate      # blocking: 100% lines on tooling crates
-dagger call dogfood --cli-source ../cli        # local sibling checkout
-dagger call dogfood --token env://HANDL_TOKEN  # cloud: fetches cli@main
+dagger call dogfood --cli-source ../host-cli        # local sibling checkout
+dagger call dogfood --token env://HANDL_TOKEN  # cloud: fetches host-cli@main
 dagger call ci --token env://HANDL_TOKEN       # the whole gate
 ```
 
@@ -144,9 +144,11 @@ removed in the same change that added the module.
 
 The canonical toolchain is implemented in Rust on the generic plugin substrate.
 All tools share diagnostics from `plugin-ext-diag` and are dispatched by the
-`hnl` CLI in `host-cli` (sibling **`cli`** repo since ADR-0128 Phase 8; the
-LSP crates `host-lsp`/`plugin-lsp`/`plugin-lsp-std`/`plugin-ext-lsp` moved
-to the **`lsp`** repo in the same phase).
+`hnl` CLI in `host-cli` (sibling **`host-cli`** repo; renamed from `cli` in
+ADR-0149, which also made it a dumb host — the commands below are
+dynamically loaded `ext-*` cdylibs, not host built-ins). The LSP crates
+`host-lsp`/`plugin-lsp`/`plugin-lsp-std`/`plugin-ext-lsp` live in the
+sibling **`host-lsp`** repo (ADR-0128 Phase 8, renamed ADR-0149).
 
 ### Crate map
 
@@ -162,7 +164,7 @@ to the **`lsp`** repo in the same phase).
 | Transform abstraction  | `plugin-engine-transform` (ADR-0094)                                                                                                        | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms`                                                                                                                                                                                                                                                                                                                                            |
 | Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094)                                                                                                | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives)                                                                                                                                                                                                                                                                                                                                            |
 | SDK generator          | `plugin-sdkgen` (IR) + `plugin-sdkgen-backend-{c,webidl}` + `plugin-sdkgen-emitter-file` + `plugin-ext-sdkgen` (wiring; ADR-0107, ADR-0113) | `SdkgenBackend::parse_header` → `SdkgenModule` → `Emitter::emit`; `FileEmitter` runs `format_source` so output is canonical; `module.source` renders as `--- source:` provenance; generated bindings live under `handl-packages/generated/` (port `<pkg>/` + adapter `<pkg>-<backend>-<target>/`); spec inputs (`*.webidl`/`*.idl`) are gitignored                                                                                                                                                                                                                                   |
-| CLI                    | `host-cli`                                                                                                                                  | `hnl fmt/lint/typecheck/test/run/eval/transform` subcommands + `sdkgen <c                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | webidl | python> [<spec> | --from-url <url>] --output <dir>` (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree | json | source] [--write]` — ADR-0094) |
+| CLI                    | `host-cli` + `handl-ext` (kernel)                                                                                                            | dumb host + JSON-over-C ABI (`handl_ext_manifest`/`handl_ext_dispatch`/`handl_ext_free`); commands come from `ext-*` cdylibs — `hnl fmt/lint/typecheck/test/run/eval/transform` + `sdkgen <c                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | webidl | python> [<spec> | --from-url <url>] --output <dir>` (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree | json | source] [--write]` — ADR-0094) |
 
 ### Desugar = pass `"desugar"` on the transform engine (ADR-0094)
 
@@ -259,7 +261,7 @@ Infrastructure that made it green:
 - `plugin-ext-diag::split_statements` — the single shared top-level
   statement splitter (comment-at-boundary vs mid-statement handled
   correctly); used by typecheck, lint, and test.
-- `plugin-ext-refinement::detect_dialect` — `Dialect::{Canonical,Contract,
+- `plugin-ext-detect::detect_dialect` — `Dialect::{Canonical,Contract,
 Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
   dialect files are skipped by canonical-only tools.
 - `plugin-engine-typecheck::check_module_with_prelude` — the bootstrap
@@ -267,8 +269,8 @@ Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
   ctor binding, and type-expression positions; `plugin-ext-lint` delegates
   `unbound-wire` to it instead of its own scope walk.
 - `kit-canonical::canonical_wire_names` — the stdlib/prelude name set
-  derived from the same module chain the eval engines wire; `host-cli`
-  passes it to both `typecheck` and `lint`.
+  derived from the same module chain the eval engines wire; the `ext-*`
+  wrappers pass it to both `typecheck` and `lint`.
 
 ### Unified import model (ADR-0096)
 
@@ -289,7 +291,7 @@ export`). A spec that does **not** resolve to a file (bare host-module
   names like `str`, extension-less siblings like `./dedent`) denotes a
   module on the host chain: `HandlModule::with_resolver` auto-wires it for
   `.hnl` module sources, and whole-program/file-loader hosts strip the
-  declaration line (`host-cli::strip_import_declarations`,
+  declaration line (`ext-eval::strip_import_declarations` (moved from host-cli in ADR-0149),
   `ModuleLoader::strip_module_decl_lines`, the test runner's `push_chunk`)
   because the kit's module chain already supplies the bindings. A
   `resolve_import` module-name fallback (registry → module-namespace
@@ -506,7 +508,7 @@ run` when its specifier does not resolve to a file) — the stdlib
       against ids the grammar row itself named, so there is nothing to
       resolve.
     - `handl-kit-arrow-lower/src/lib.rs` (`assign`/`bind`/`op`/
-      `function`/`rec`/`var`/`call`) and `host-cli/src/transform_categorical.rs`
+      `function`/`rec`/`var`/`call`) and `ext-eval/src/transform_categorical.rs`
       (`dim_arrow`/`stmt.import`/`var`/`value`/`flow`): these name specific
       canonical constructs rather than detecting structure. The lowerer
       already resolves child positions via `child_at_role_or_pos` (only the
@@ -552,7 +554,7 @@ run` when its specifier does not resolve to a file) — the stdlib
   ADR event vocabulary (Vec sink — no event bus until a second consumer),
   `TestProvider`/`Reporter` are the provider and reporter seams, and
   `TestOutcome` carries `duration` + `FailureDetail`. `hnl test` is wired
-  in `host-cli` (`--filter`/`--tag`/`--jobs`/`--cache`/`--report
+  in `ext-test` (`--filter`/`--tag`/`--jobs`/`--cache`/`--report
 human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
   `SuiteStarted`/`SuiteFinished` bracket each **module** (the suite
   boundary — `TestPlan` has no `Suite` concept; a suite is a contiguous

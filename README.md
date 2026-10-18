@@ -18,11 +18,11 @@
 - `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments. **Moved to the sibling `handl-lang/kernel` repo** (with `plugin-engine` and `handl-value`, the ADR-0040 calculus kernel); consumed here as a `main`-floating git dep patched to `../kernel` for local dev.
 - `crates/handl-kit-*` / `kit-canonical` — canonical language data assembly and ready-made kit loading.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
-- `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin` (`cli`/`lsp` moved to their host repos in ADR-0128 Phase 8).
+- `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `detect`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin`. The `hnl` *commands* they back live in the `ext-*` repos as dynamic cdylibs (ADR-0149); `cli`/`lsp` moved to their host repos in ADR-0128 Phase 8.
 - `crates/plugin-engine-*` — concrete tooling engines: `lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform` (`transform-rewrite`), `exec` (`tree-walk`, `bytecode`, `cranelift`).
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `compress`, `kv`, `http`, `os`, `unicode`, `rand`, `time`, `tls`, `ws`, etc.).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and plugin loaders (`native`, `wasm`, `web`).
-- `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`cli`** repo, `host-lsp` (LSP server) in **`lsp`**.
+- `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`host-cli`** repo, `host-lsp` (LSP server) in **`host-lsp`**.
 - `crates/handl-value` — shared value model. **Moved to `handl-lang/kernel`.** `handl-test-utils` / `handl-defining-handl` — conformance corpus and language-in-handl experiments.
 - `crates/crate-*` — vendored ICU/ECMA-402 utility crates.
 - `handl-packages/` — pure-handl contracts and implementations (`.hnl` source). `data/` — YAML language fragments.
@@ -32,29 +32,37 @@
 ```bash
 cargo check --workspace
 cargo test --workspace
-# `hnl` moved to the sibling `cli` repo (ADR-0128 Phase 8):
-(cd ../cli && cargo build -p handl-host-cli)   # produces ../cli/target/debug/hnl
+# `hnl` lives in the sibling `host-cli` repo (ADR-0128 Phase 8, renamed in ADR-0149):
+(cd ../host-cli && cargo build -p handl-host-cli)   # produces ../host-cli/target/debug/hnl
 ```
 
 ## The `hnl` CLI
 
-The `hnl` binary lives in the sibling **`cli`** repo (`crates/host-cli`).
-Subcommands:
+The `hnl` binary lives in the sibling **`host-cli`** repo. Since
+ADR-0149 it is a **dumb host**: it discovers extension shared libraries
+(`libhnl_ext_*.so`), reads their JSON manifests, and dispatches argv to
+them — it contains no tool code itself. Commands are provided by the
+`ext-*` repos (each builds a cdylib): `ext-fmt` → `fmt`,
+`ext-lint` → `lint`, `ext-typecheck` → `typecheck`/`check`,
+`ext-eval` → `run`/`eval`, `ext-test` → `test`, `ext-compile` → `compile`,
+`ext-sdkgen` → `sdkgen`, `ext-transform` → `transform`,
+`ext-kit` → `kit`/`gen-grammar`, `ext-plugin` → `plugin`.
 
-```text
-hnl fmt        [--check] [--write] [paths...]
-hnl lint       [--fix] [--fail-on-warn] [paths...]
-hnl typecheck  [paths...]          (alias: hnl check)
-hnl test       [--list] [--filter <pat>] [--tag <expr>] [--jobs N|auto]
-               [--report human|json] [--changed] [--cache] [paths...]
-hnl run        <file.hnl> [-- <args...>]
-hnl eval       '<expression>'
-hnl transform  <pass> <file.hnl> [--pipeline a,b,c] [--plan] [--trace]
-               [--stats] [--emit tree|json|source] [--write]
-hnl gen-grammar [output_path]
+Discovery: `--ext-dir <dir>` (repeatable) → `$HANDL_EXT_DIR` (PATH-style
+list) → `~/.handl/ext/`; debug builds also scan `<exe-dir>/ext/` and
+`<exe-dir>/`. `hnl ext list`/`hnl ext doctor` report the registry.
+
+For development, build the extensions you need and point the host at
+their target dirs:
+
+```bash
+(cd ../ext-typecheck && cargo build) && (cd ../ext-lint && cargo build)
+HANDL_EXT_DIR=../ext-typecheck/target/debug:../ext-lint/target/debug \
+  ../host-cli/target/debug/hnl typecheck file.hnl
 ```
 
-Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or parse error.
+Exit codes: `0` success, `1` tool-reported failure, `2` usage or parse
+error; unknown command exits `2` listing the loaded commands.
 
 ## Crate directory map
 
@@ -66,12 +74,12 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
   - tooling — `fmt`, `lint`, `typecheck` (bootstrap checker), `typecheck-handl` (the `.hnl` model's inference engine), `test`
   - transforms — `transform`, `transform-rewrite`
   - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
-- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `fmt`, `lint`, `typecheck`, `test`, `cli`, `lsp`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `sdkgen`). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `plugin-engine-*` engine — see ADR-0085.
+- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `sdkgen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `plugin-engine-*` engine — see ADR-0085.
 - `crates/plugin-exec-cache` / `plugin-compile-*` — the exec result cache and the compiler back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`).
 - `crates/plugin-sdkgen*` — SDK generators (and their back ends/emitters).
 - `crates/plugin-lib-*` / `crate-*` — standard library, native ops, and utility libraries.
 - `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-native` — applier composition and the native loader; `plugin-module` — module plumbing.
-- `crates/host-*` — `host-tooling` (the shared tooling/LSP host contract). `host-cli` + `plugin-ext-cli` moved to the **`cli`** repo; `host-lsp` + `plugin-lsp` + `plugin-lsp-std` + `plugin-ext-lsp` moved to the **`lsp`** repo (ADR-0128 Phase 8).
+- `crates/host-*` — `host-tooling` (the shared tooling/LSP host contract). `host-cli` + `plugin-ext-cli` moved to the **`host-cli`** repo; `host-lsp` + `plugin-lsp` + `plugin-lsp-std` + `plugin-ext-lsp` moved to the **`host-lsp`** repo (ADR-0128 Phase 8, repos renamed ADR-0149).
 - `crates/bench` / `ext-tests` — criterion benchmarks and integration-test scaffolding.
 - `handl-packages/` — `.hnl` packages and contracts; `data/` — YAML language fragments.
 - `docs/` — moved to the sibling **`docs`** repo (the VitePress hub): the site,
@@ -82,7 +90,7 @@ Exit codes: `0` success, `1` check/lint/test/fmt-check failure, `2` usage or par
 
 - The pluggable expression pipeline and canonical kit are functional: lexing, parsing, error recovery, statement modules, formatting, and diagnostics all have working tests.
 - `handl-kit-canonical` ships with optional typecheck and runtime plugin slots; the default `CanonicalKit` loads the canonical parser but does not enable full typecheck/runtime implementations unless they are configured.
-- `handl-tooling` / `handl-host-lsp` (latter in the `lsp` repo) provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
+- `handl-tooling` / `handl-host-lsp` (latter in the `host-lsp` repo) provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
 - Many compiler-pass, capability, and VM crates are partially implemented or still stubs; the workspace is in active construction.
 
 See `.devin/AGENTS.md` for commands. Language and runtime details live in the

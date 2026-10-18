@@ -5,7 +5,7 @@ self-patch, cargo/sccache caches, token auth) lives in the shared
 bupha module (github.com/9aia/bupha — see dagger.json deps).
 This module only adds platform-specific gates:
 
-    dogfood — scripts/dogfood-gate.sh against a sibling handl-lang/cli
+    dogfood — scripts/dogfood-gate.sh against a sibling handl-lang/host-cli
     ci      — the whole gate: tests + coverage gate + dogfood, concurrently
 
 Everything else (test/test-shard/doctests/coverage-*/doctor) delegates
@@ -119,20 +119,20 @@ class Ci:
         sccache_conf: Optional[dagger.Secret] = None,
         jobs: int = 0,
     ) -> str:
-        """Run scripts/dogfood-gate.sh with a sibling handl-lang/cli checkout.
+        """Run scripts/dogfood-gate.sh with a sibling handl-lang/host-cli checkout.
 
-        Locally: `--cli-source ../cli` uses your checkout. On a cloud box
+        Locally: `--cli-source ../host-cli` uses your checkout. On a cloud box
         omit it and pass `--token` — cli@main is fetched via the token.
         `jobs` overrides HNL_DOGFOOD_JOBS (0 = container nproc).
         """
         if cli_source is None:
             if token is None:
                 raise ValueError(
-                    "dogfood needs cli sources: pass --cli-source ../cli"
+                    "dogfood needs cli sources: pass --cli-source ../host-cli"
                     " locally or --token env://... to fetch cli@main"
                 )
             cli_source = (
-                dag.git("https://github.com/handl-lang/cli",
+                dag.git("https://github.com/handl-lang/host-cli",
                         http_auth_token=token)
                 .branch("main")
                 .tree(discard_git_dir=True)
