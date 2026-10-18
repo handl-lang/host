@@ -73,8 +73,8 @@ run_ci() {
   [ -n "${HANDL_TOKEN:-}" ] && args+=(--token env://HANDL_TOKEN)
   # cli sibling exists on dev machines; on dedicated runners the token
   # path inside dogfood() fetches cli@main instead.
-  [ -d "$REPO_DIR/../cli/crates/host-cli" ] \
-    && args+=(--cli-source "$REPO_DIR/../cli")
+  [ -d "$REPO_DIR/../host-cli/crates/host-cli" ] \
+    && args+=(--cli-source "$REPO_DIR/../host-cli")
   (cd "$wt" && dagger call ci "${args[@]}") >>"$LOG_FILE" 2>&1 || rc=$?
   if [ "$rc" -eq 0 ]; then
     log "ci PASS ${sha:0:12}"

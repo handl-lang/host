@@ -5,15 +5,15 @@
 set -euo pipefail
 
 # ADR-0128 Phase 8: `handl-host-cli` (the `hnl` binary) lives in the
-# sibling `cli` repo; build it there. Its git deps resolve via that repo's
+# sibling `host-cli` repo; build it there. Its git deps resolve via that repo's
 # `[patch]` tables back into this checkout, so the build exercises the
 # same platform sources.
-if [ ! -d ../cli/crates/host-cli ]; then
-  echo "error: sibling checkout ../cli not found — clone handl-lang/cli next to this repo" >&2
+if [ ! -d ../host-cli/crates/host-cli ]; then
+  echo "error: sibling checkout ../host-cli not found — clone handl-lang/host-cli next to this repo" >&2
   exit 1
 fi
-(cd ../cli && cargo build --release --bin hnl)
-HNL=../cli/target/release/hnl
+(cd ../host-cli && cargo build --release --bin hnl)
+HNL=../host-cli/target/release/hnl
 
 
 status=0

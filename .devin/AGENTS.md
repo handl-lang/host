@@ -105,11 +105,11 @@ handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
   classification uses string-based `token.kind` matching via `kit-canonical`'s
   `is_*_kind()` helpers (not typed `DynKind` — that system is deleted).
 
-- **`host-lsp`** — moved to the sibling `lsp` repo (ADR-0128 Phase 8). LSP
+- **`host-lsp`** — moved to the sibling `host-lsp` repo (ADR-0128 Phase 8). LSP
   adapter: maps LSP requests to `ToolingHost` calls and converts results to
   `lsp-types`.
 
-- **`host-cli`** — moved to the sibling `cli` repo (ADR-0128 Phase 8). CLI
+- **`host-cli`** — moved to the sibling `host-cli` repo (ADR-0128 Phase 8). CLI
   host (`hnl`).
 
 ### Engine crates (`plugin-engine-*`)

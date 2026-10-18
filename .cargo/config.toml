@@ -24,7 +24,7 @@ jobs = 4
 # Fast test runner using cargo-nextest (parallel within binaries, cached
 # compilations). Install with: cargo install cargo-nextest
 t = "nextest run --workspace"
-# `handl-host-lsp` moved to the lsp repo (ADR-0128 Phase 8); `te` used to
+# `handl-host-lsp` moved to the host-lsp repo (ADR-0128 Phase 8); `te` used to
 # exclude its suite, which no longer exists here.
 te = "nextest run --workspace"
 
