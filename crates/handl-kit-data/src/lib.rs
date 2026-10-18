@@ -126,6 +126,11 @@ pub struct DataKitManifest {
     /// list appends to it, preserving contribution order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub modules: Vec<String>,
+    /// The base module names the kit's module registry builds (module-level,
+    /// not library-level — drives `build_stdlib_registry`'s set). Empty =
+    /// the host's compiled-in default set.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub base_modules: Vec<String>,
 }
 
 impl DataKitManifest {
@@ -140,6 +145,7 @@ impl DataKitManifest {
             runtime: RuntimeConfig::new(),
             caps: Vec::new(),
             modules: Vec::new(),
+            base_modules: Vec::new(),
         }
     }
 
