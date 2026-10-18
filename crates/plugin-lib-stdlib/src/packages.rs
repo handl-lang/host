@@ -182,16 +182,10 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "encoding",
         hnl: handl_lib_encoding::ENCODING_HNL,
-        funcs: &[],
+        funcs: &["encode", "decode"],
         ops: handl_lib_encoding::ENCODING_OPS,
         values: &[],
-        registry: Some(|| {
-            handl_lib_encoding::encoding_op_registry_with(
-                handl_lib_hex::register(handl_lib_base64::register(
-                    handl_lib_encoding::EncodingRegistry::new(),
-                )),
-            )
-        }),
+        registry: None,
     },
     // ── bytes ──────────────────────────────────────────────────────────
     // Byte-buffer primitives for the `Bytes` scalar type — the only
@@ -224,12 +218,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_parse::PARSE_OPS,
         values: &[],
-        registry: Some(|| {
-            let mut parsers: HashMap<String, Arc<dyn handl_lib_parse::DynParser>> = HashMap::new();
-            handl_lib_url_rfc::register(&mut parsers);
-            handl_lib_url_whatwg::register(&mut parsers);
-            handl_lib_parse::parse_op_registry_with(parsers)
-        }),
+        registry: None,
     },
     // ── crypto — pure-handl SHA-1/SHA-256/MD5 over math/bytes/typeof ─────
     ModuleSpec {
@@ -252,7 +241,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ip",
         hnl: handl_lib_ip::IP_FLAT_HNL,
         funcs: handl_lib_ip::IP_FUNCS,
-        ops: handl_lib_ip::IP_OPS,
+        ops: &[],
         values: &[],
         registry: None,
     },
@@ -1473,11 +1462,6 @@ impl Plugin for PackagePlugin {
             ctx.contribute::<ModuleRuntime>(ModuleRule::new(
                 ops::collections::CollectionsModule::new(Arc::clone(&fallback)),
             ))?;
-        }
-        if self.spec.lib_name == "ip" {
-            // `ip` is an aggregator module (ip / cidr / socket prefixes);
-            // contribute it directly so dotted lookups resolve.
-            ctx.contribute::<ModuleRuntime>(ModuleRule::new(handl_lib_ip::IpModule))?;
         }
         Ok(())
     }
