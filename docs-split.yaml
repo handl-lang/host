@@ -84,22 +84,22 @@ splits:
   - parent: adrs/0114-handl-compile-plugin-architecture.md
     stays: platform
     targets:
-      - repo: dot
+      - repo: compile-dot
         number: "0139"
         slug: compile-dot-target
         title: "compile-dot target"
         topic: "compile-dot target"
-      - repo: term
+      - repo: compile-term
         number: "0140"
         slug: compile-term-target
         title: "compile-term target"
         topic: "compile-term target"
-      - repo: sexp
+      - repo: compile-sexp
         number: "0141"
         slug: compile-sexp-target
         title: "compile-sexp target"
         topic: "compile-sexp target"
-      - repo: handl
+      - repo: compile-handl
         number: "0142"
         slug: compile-handl-target
         title: "compile-handl target"
@@ -346,10 +346,10 @@ repos:
     tasks:
       - import-op-cranelift.md
 
-  dot: {}
-  term: {}
-  sexp: {}
-  handl: {}
+  compile-dot: {}
+  compile-term: {}
+  compile-sexp: {}
+  compile-handl: {}
 
   otlp: {}
 
@@ -358,13 +358,13 @@ repos:
   playground: {}
   bench: {}
 
-  cli:
+  host-cli:
     adrs:
       - 0029-cli-as-capability-orchestrator.md
     rfcs:
       - 0007-cli-in-handl.md
 
-  lsp:
+  host-lsp:
     adrs:
       - 0100-lsp-as-data.md
       - ADR-LSP-remaining.md
