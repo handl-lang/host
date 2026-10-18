@@ -35,6 +35,13 @@ The generic Rust substrate (plugin system, `plugin-ext-*`,
 
 Order: RFC-0001 → 0002/0003 → 0005 → 0007 → 0004 → 0006.
 
+## Compiler backends
+
+- **CommonJS output for `hnl compile js`** — `JsOutputFormat` currently
+  emits ESM only. Deferred: ESM covers the node/browser targets in use;
+  revisit if a CommonJS-only embedder appears. (`web` repo,
+  `modules/compile-js`.)
+
 ## Arrow macros (ADR-0084)
 
 - Ref: [ADR-0084 — Arrow Macros](../project/adrs/0084-arrow-macros.md)
