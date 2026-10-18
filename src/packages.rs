@@ -631,7 +631,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // contributed by any package — they are intl_c's internal FFI surface.
     ModuleSpec {
         name: "ucol",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/ucol.hnl"),
+        hnl: handl_lib_intl_c::ICU_UCOL_HNL,
         funcs: &[
             "ucol_close_78",
             "ucol_countAvailable_78",
@@ -657,7 +657,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unum",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/unum.hnl"),
+        hnl: handl_lib_intl_c::ICU_UNUM_HNL,
         funcs: &[
             "unum_close_78",
             "unum_format_78",
@@ -680,7 +680,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "upluralrules",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/upluralrules.hnl"),
+        hnl: handl_lib_intl_c::ICU_UPLURALRULES_HNL,
         funcs: &[
             "uplrules_close_78",
             "uplrules_open_78",
@@ -693,7 +693,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ureldatefmt",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/ureldatefmt.hnl"),
+        hnl: handl_lib_intl_c::ICU_URELDATEFMT_HNL,
         funcs: &[
             "ureldatefmt_close_78",
             "ureldatefmt_format_78",
@@ -706,7 +706,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "udat",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/udat.hnl"),
+        hnl: handl_lib_intl_c::ICU_UDAT_HNL,
         funcs: &[
             "udat_close_78",
             "udat_format_78",
@@ -720,7 +720,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ufieldpositer",
-        hnl: include_str!("../../../handl-packages/generated/icu-c-linux-x86_64/ufieldpositer.hnl"),
+        hnl: handl_lib_intl_c::ICU_UFIELDPOSITER_HNL,
         funcs: &[
             "ufieldpositer_close_78",
             "ufieldpositer_next_78",
@@ -732,9 +732,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unumberformatter",
-        hnl: include_str!(
-            "../../../handl-packages/generated/icu-c-linux-x86_64/unumberformatter.hnl"
-        ),
+        hnl: handl_lib_intl_c::ICU_UNUMBERFORMATTER_HNL,
         funcs: &[
             "unumf_close_78",
             "unumf_formatDouble_78",
@@ -746,9 +744,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uformattednumber",
-        hnl: include_str!(
-            "../../../handl-packages/generated/icu-c-linux-x86_64/uformattednumber.hnl"
-        ),
+        hnl: handl_lib_intl_c::ICU_UFORMATTEDNUMBER_HNL,
         funcs: &[
             "unumf_closeResult_78",
             "unumf_openResult_78",
@@ -761,7 +757,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── icu_uc_* — sdkgen-generated ICU4C adapter modules (common) ─────
     ModuleSpec {
         name: "ubrk",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/ubrk.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_UBRK_HNL,
         funcs: &[
             "ubrk_close_78",
             "ubrk_countAvailable_78",
@@ -780,7 +776,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uloc",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/uloc.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_ULOC_HNL,
         funcs: &[
             "uloc_countAvailable_78",
             "uloc_forLanguageTag_78",
@@ -798,7 +794,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uldnames",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/uldnames.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_ULDNAMES_HNL,
         funcs: &[
             "uldn_close_78",
             "uldn_keyDisplayName_78",
@@ -815,7 +811,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ures",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/ures.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_URES_HNL,
         funcs: &[
             "ures_close_78",
             "ures_getByKey_78",
@@ -829,7 +825,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── icu_uc_* — Unicode-data adapters used by `unicode_c` ───────────
     ModuleSpec {
         name: "unorm2",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/unorm2.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_UNORM2_HNL,
         funcs: &[
             "unorm2_getNFCInstance_78",
             "unorm2_getNFDInstance_78",
@@ -841,7 +837,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ustring",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/ustring.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_USTRING_HNL,
         funcs: &["u_strFoldCase_78"],
         ops: &[],
         values: &[],
@@ -849,7 +845,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uchar",
-        hnl: include_str!("../../../handl-packages/generated/icu-uc-c-linux-x86_64/uchar.hnl"),
+        hnl: handl_lib_intl_c::ICU_UC_UCHAR_HNL,
         funcs: &[
             "u_charType_78",
             "u_getIntPropertyValue_78",
