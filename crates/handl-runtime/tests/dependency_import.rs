@@ -250,8 +250,9 @@ fn patch_bridges_a_git_dependency_to_a_sibling_checkout() {
 
 /// The missing-sibling half of the bridge: a committed `[patch]` whose
 /// directory does not exist is inert — a git dep then resolves to its
-/// `~/.handl/pkg/<name>` package-cache slot (the dir the fetch hook,
-/// follow-up seam, populates) rather than failing manifest resolution.
+/// `~/.handl/pkg/<name>` package-cache slot (the dir the fetch hook
+/// populates) rather than failing manifest resolution. The URL resolves
+/// nowhere so the hook's clone attempt fails fast and offline.
 #[test]
 fn an_inert_patch_leaves_the_git_dep_at_its_cache_slot() {
     let root = scratch_dir("inert-patch");
@@ -261,7 +262,7 @@ fn an_inert_patch_leaves_the_git_dep_at_its_cache_slot() {
         project.join(".handl.toml"),
         concat!(
             "[dependencies]\n",
-            "host-tensor = { git = \"https://github.com/handl-lang/lib-host-tensor\" }\n",
+            "host-tensor = { git = \"file:///nonexistent-handl-dep/lib-host-tensor\" }\n",
             "\n[patch]\n",
             "host-tensor = \"../lib-host-tensor\"\n", // does not exist
         ),

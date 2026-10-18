@@ -46,14 +46,17 @@ pub struct PluginReference {
 /// - `path` — a vendored / sibling package directory containing `.hnl`
 ///   sources (relative to the manifest directory, or absolute).
 /// - `git` — a repo-hosted package specifier (URL or
-///   `host:owner/repo` shorthand) with an optional `rev`/`branch`/`tag`
-///   pin. The loader does not fetch: at resolve time the name maps to
-///   the package's slot under [`package_cache_dir`], which a `hnl`-side
-///   fetch hook (ADR-0010's registry half — the follow-up seam)
-///   materializes. A `[patch]` entry of the same name overrides the
-///   source with a local checkout — the Cargo `[patch]` dev-link story
-///   (`scripts/dev-link.sh`), so a *committed* manifest can name the
-///   repo portably while a local machine resolves the sibling dir.
+///   `host:owner/repo` shorthand, e.g. `github:handl-lang/c`) with an
+///   optional `rev`/`branch`/`tag` pin. At resolve time the name maps
+///   to the package's slot under [`package_cache_dir`], and the
+///   fetch-on-miss hook (ADR-0010's registry half, [`fetch_dependencies`])
+///   materializes the slot — `git clone` + `checkout` of the declared
+///   selector — when it is absent. A populated slot is left untouched
+///   (no refetch, no selector check), and a `[patch]` entry of the same
+///   name overrides the source with a local checkout — the Cargo
+///   `[patch]` dev-link story (`scripts/dev-link.sh`), so a *committed*
+///   manifest can name the repo portably while a local machine resolves
+///   the sibling dir.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DependencySpec {
     /// Path to the package root, relative to the manifest directory
@@ -69,6 +72,14 @@ pub struct DependencySpec {
     pub branch: Option<String>,
     /// Tag pin for a git dep.
     pub tag: Option<String>,
+    /// Package root *inside* the source, when the package does not sit
+    /// at the source's root — e.g. `subdir = "src"` for the `lib-*`
+    /// repo layout, `subdir = "packages/catopt-kit"` for a monorepo
+    /// package. Applies to both `path` and `git` sources (for `git`,
+    /// the resolved dir is `<cache slot>/<subdir>`), and is what lets a
+    /// `[patch]` entry pointing at a package-root checkout transparently
+    /// override a git source: both resolve to the package root.
+    pub subdir: Option<String>,
 }
 
 /// The in-memory description of which plugins to load, what to exclude, and
@@ -182,6 +193,7 @@ fn parse_dependency_table(
                     rev: spec.rev,
                     branch: spec.branch,
                     tag: spec.tag,
+                    subdir: spec.subdir,
                 },
             ))
         })
@@ -232,6 +244,8 @@ struct RawDependencySpec {
     branch: Option<String>,
     #[serde(default)]
     tag: Option<String>,
+    #[serde(default)]
+    subdir: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -273,15 +287,14 @@ pub fn discover_manifest_dir(start: &Path) -> Option<std::path::PathBuf> {
 
 /// The directory a `git`-sourced `[dependencies]` entry resolves to when
 /// no `[patch]` override applies: `<package_cache_dir>/<name>` is the
-/// slot a `hnl`-side package fetch materializes the package's `.hnl`
-/// tree into (ADR-0010's registry half — the follow-up seam; today
-/// nothing populates it).
+/// slot [`fetch_dependencies`] materializes the package's `.hnl` tree
+/// into (ADR-0010's registry half).
 ///
 /// Location: `$HANDL_PKG_DIR` when set, otherwise `~/.handl/pkg`.
 /// Keeping the unresolved name in the dep map — pointing at its cache
-/// slot — means an `import` of an unfetched package fails naming the
-/// directory a fetch would populate, instead of silently falling through
-/// to relative-path resolution.
+/// slot — means an `import` of a package whose fetch failed (or was
+/// disabled) fails naming the directory the fetch populates, instead of
+/// silently falling through to relative-path resolution.
 pub fn package_cache_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("HANDL_PKG_DIR") {
         return PathBuf::from(dir);
@@ -307,11 +320,21 @@ fn dep_dir(manifest_dir: &Path, pkg_dir: &Path, name: &str, spec: &DependencySpe
             } else {
                 manifest_dir.join(p)
             };
+            let dir = match spec.subdir.as_deref() {
+                Some(sub) => abs.join(sub),
+                None => abs,
+            };
             // Canonicalize when possible so the module cache keys are
             // stable; fall back to the joined path otherwise.
-            std::fs::canonicalize(&abs).unwrap_or(abs)
+            std::fs::canonicalize(&dir).unwrap_or(dir)
         }
-        None => pkg_dir.join(name),
+        // A git dep maps to its cache slot (plus `subdir` when the
+        // package does not sit at the clone's root) — kept literal, not
+        // canonicalized, so an `import` failure names the slot.
+        None => match spec.subdir.as_deref() {
+            Some(sub) => pkg_dir.join(name).join(sub),
+            None => pkg_dir.join(name),
+        },
     }
 }
 
@@ -329,10 +352,13 @@ fn dep_dir(manifest_dir: &Path, pkg_dir: &Path, name: &str, spec: &DependencySpe
 /// A `[dependencies]` entry may name its package **portably** by git
 /// source — `host-tensor = { git = "https://github.com/handl-lang/lib-host-tensor",
 /// tag = "v0.1" }` — instead of a machine-local `path`. Such an entry
-/// resolves to its [`package_cache_dir`] slot, which a package fetch
-/// (ADR-0010 follow-up) populates. The `[patch]` table is the
-/// consumer-supplied local override for the same names — the Cargo
-/// `[patch]`/dev-link story (`scripts/dev-link.sh`):
+/// resolves to its [`package_cache_dir`] slot, and resolution is
+/// **fetch-on-miss**: when the slot is absent and no live `[patch]`
+/// shadows the name, [`fetch_dependencies`] clones the declared repo and
+/// checks out the selector before the map is built (ADR-0010's registry
+/// half). The `[patch]` table is the consumer-supplied local override
+/// for the same names — the Cargo `[patch]`/dev-link story
+/// (`scripts/dev-link.sh`):
 ///
 /// ```toml
 /// [dependencies]
@@ -349,6 +375,14 @@ fn dep_dir(manifest_dir: &Path, pkg_dir: &Path, name: &str, spec: &DependencySpe
 /// package `[dependencies]` does not declare — it simply enters the map
 /// like a dep entry.
 ///
+/// A failed fetch is **not** a resolution error: the name still maps to
+/// its (absent) cache slot with a warning on stderr, so an `import` of
+/// the package fails naming the directory the fetch would populate —
+/// the same failure shape as before the fetch hook existed. A populated
+/// slot is never refetched (no selector check — pins are trusted once
+/// materialized), and `HANDL_PKG_FETCH=off` (or `0`/`false`/`no`)
+/// disables the fetch entirely for offline/hermetic runs.
+///
 /// This is the seam that lets `.hnl` packages import each other *by name*
 /// across repository boundaries (ADR-0128 Phase 5): `from "ws-c" import …`
 /// or `from "libc/socket" import …` resolves through the table instead of a
@@ -362,27 +396,33 @@ fn dep_dir(manifest_dir: &Path, pkg_dir: &Path, name: &str, spec: &DependencySpe
 pub fn resolve_dependencies(
     manifest_dir: &Path,
 ) -> Result<HashMap<String, std::path::PathBuf>, PlatformError> {
+    resolve_dependencies_in(manifest_dir, &package_cache_dir())
+}
+
+/// [`resolve_dependencies`] against an explicit package-cache directory —
+/// the test seam that keeps `HANDL_PKG_DIR` env mutation out of the
+/// suite.
+fn resolve_dependencies_in(
+    manifest_dir: &Path,
+    pkg_dir: &Path,
+) -> Result<HashMap<String, std::path::PathBuf>, PlatformError> {
     let manifest_path = manifest_dir.join(".handl.toml");
     let mut deps: HashMap<String, PathBuf> = if manifest_path.is_file() {
-        let src = std::fs::read_to_string(&manifest_path).map_err(|e| {
-            PlatformError::InvalidMetadata(format!(
-                "cannot read {}: {e}",
-                manifest_path.display()
-            ))
-        })?;
-        let config = HostConfig::from_toml(&src).map_err(|e| {
-            PlatformError::InvalidMetadata(format!("invalid {}: {e}", manifest_path.display()))
-        })?;
-        let pkg_dir = package_cache_dir();
+        let config = read_manifest(&manifest_path)?;
         let HostConfig {
             dependencies,
             patch,
             ..
         } = config;
+        // The fetch hook runs before the map is built: a git-sourced dep
+        // whose cache slot is absent (and which no live `[patch]`
+        // shadows) is materialized in place, so the resolved directory
+        // is usable on return.
+        fetch_git_dependencies(manifest_dir, pkg_dir, &dependencies, &patch);
         let mut deps: HashMap<String, PathBuf> = dependencies
             .into_iter()
             .map(|(name, spec)| {
-                let dir = dep_dir(manifest_dir, &pkg_dir, &name, &spec);
+                let dir = dep_dir(manifest_dir, pkg_dir, &name, &spec);
                 (name, dir)
             })
             .collect();
@@ -390,7 +430,7 @@ pub fn resolve_dependencies(
         // directory exists wins over the `[dependencies]` source for
         // that name; a missing patch dir is inert.
         for (name, spec) in patch {
-            let dir = dep_dir(manifest_dir, &pkg_dir, &name, &spec);
+            let dir = dep_dir(manifest_dir, pkg_dir, &name, &spec);
             if dir.is_dir() {
                 deps.insert(name, dir);
             }
@@ -405,6 +445,210 @@ pub fn resolve_dependencies(
         deps.entry(name).or_insert(dir);
     }
     Ok(deps)
+}
+
+/// Read + parse `<manifest>/.handl.toml`-style TOML into a [`HostConfig`].
+fn read_manifest(manifest_path: &Path) -> Result<HostConfig, PlatformError> {
+    let src = std::fs::read_to_string(manifest_path).map_err(|e| {
+        PlatformError::InvalidMetadata(format!("cannot read {}: {e}", manifest_path.display()))
+    })?;
+    HostConfig::from_toml(&src).map_err(|e| {
+        PlatformError::InvalidMetadata(format!("invalid {}: {e}", manifest_path.display()))
+    })
+}
+
+/// A git-sourced dependency whose [`package_cache_dir`] slot the fetch
+/// hook materialized.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FetchedDependency {
+    /// Import name the dependency is declared under.
+    pub name: String,
+    /// The cache slot the repo was cloned into.
+    pub dir: PathBuf,
+    /// The git URL cloned (after `github:`/`gitlab:`/`git+` shorthand
+    /// expansion — see [`git_remote_url`]).
+    pub url: String,
+    /// The selector checked out, when the dep declared one
+    /// (`rev`/`branch`/`tag`, in that precedence).
+    pub selector: Option<String>,
+}
+
+/// Whether the fetch hook may run: `HANDL_PKG_FETCH` set to `0`, `off`,
+/// `false`, or `no` disables it (offline or hermetic runs); unset or any
+/// other value leaves it on.
+fn package_fetch_enabled() -> bool {
+    let Ok(v) = std::env::var("HANDL_PKG_FETCH") else {
+        return true;
+    };
+    !matches!(
+        v.to_ascii_lowercase().as_str(),
+        "0" | "off" | "false" | "no"
+    )
+}
+
+/// Expand a `git` source specifier into a URL `git clone` accepts.
+///
+/// `git+<url>` prefixes are stripped; the `github:owner/repo` and
+/// `gitlab:owner/repo` shorthands expand to HTTPS URLs. Everything else
+/// (`https://…`, `ssh://…`, `git@host:path`, `file://…`, bare local
+/// paths) passes through to git untouched.
+fn git_remote_url(spec: &str) -> String {
+    let s = spec.strip_prefix("git+").unwrap_or(spec);
+    match s.split_once(':') {
+        Some(("github", rest)) => format!("https://github.com/{rest}"),
+        Some(("gitlab", rest)) => format!("https://gitlab.com/{rest}"),
+        _ => s.to_string(),
+    }
+}
+
+/// The selector a git dep pins, in precedence order (`rev`/`branch`/`tag`
+/// are mutually exclusive in intent).
+fn git_selector(spec: &DependencySpec) -> Option<&str> {
+    spec.rev
+        .as_deref()
+        .or(spec.branch.as_deref())
+        .or(spec.tag.as_deref())
+}
+
+/// Run `git <args>` with `dir` as the working directory; `Err` carries
+/// git's stderr (or the spawn failure) trimmed.
+fn run_git(dir: &Path, args: &[&str]) -> Result<(), String> {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .map_err(|e| format!("cannot spawn git: {e}"))?;
+    if out.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    }
+}
+
+/// Clone `spec`'s git source into `slot` and check out the declared
+/// selector. On any failure the partially-created slot is removed so the
+/// next resolve retries instead of treating a half-clone as populated.
+fn materialize_git_dep(slot: &Path, spec: &DependencySpec) -> Result<(), String> {
+    let url = git_remote_url(spec.git.as_deref().unwrap_or_default());
+    let Some(parent) = slot.parent() else {
+        return Err(format!("cache slot {} has no parent", slot.display()));
+    };
+    std::fs::create_dir_all(parent)
+        .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+    let slot_str = slot.to_string_lossy().into_owned();
+    let result = run_git(parent, &["clone", "--quiet", &url, &slot_str]).and_then(|()| {
+        match git_selector(spec) {
+            Some(sel) => run_git(slot, &["checkout", "--quiet", sel]),
+            None => Ok(()),
+        }
+    });
+    if result.is_err() {
+        std::fs::remove_dir_all(slot).ok();
+    }
+    result
+}
+
+/// The git-sourced deps that need materializing: declared `git` sources
+/// whose [`package_cache_dir`] slot is absent and which no live `[patch]`
+/// entry shadows (a patch whose directory exists keeps the dep local —
+/// the fetch must not populate the slot behind the dev-link's back).
+fn live_git_deps<'a>(
+    manifest_dir: &Path,
+    pkg_dir: &Path,
+    dependencies: &'a HashMap<String, DependencySpec>,
+    patch: &HashMap<String, DependencySpec>,
+) -> Vec<(&'a str, &'a DependencySpec, PathBuf)> {
+    dependencies
+        .iter()
+        .filter_map(|(name, spec)| {
+            spec.git.as_ref()?;
+            if let Some(patch_spec) = patch.get(name) {
+                let dir = dep_dir(manifest_dir, pkg_dir, name, patch_spec);
+                if dir.is_dir() {
+                    return None;
+                }
+            }
+            let slot = pkg_dir.join(name);
+            if slot.is_dir() {
+                return None;
+            }
+            Some((name.as_str(), spec, slot))
+        })
+        .collect()
+}
+
+/// Fetch every live git dep into its slot, warning on stderr (not
+/// failing) when a clone does not succeed — the dep keeps its absent
+/// slot so `import` errors still name it. Returns the deps materialized.
+fn fetch_git_dependencies(
+    manifest_dir: &Path,
+    pkg_dir: &Path,
+    dependencies: &HashMap<String, DependencySpec>,
+    patch: &HashMap<String, DependencySpec>,
+) -> Vec<FetchedDependency> {
+    if !package_fetch_enabled() {
+        return Vec::new();
+    }
+    live_git_deps(manifest_dir, pkg_dir, dependencies, patch)
+        .into_iter()
+        .filter_map(|(name, spec, slot)| {
+            let url = git_remote_url(spec.git.as_deref().unwrap_or_default());
+            match materialize_git_dep(&slot, spec) {
+                Ok(()) => Some(FetchedDependency {
+                    name: name.to_string(),
+                    dir: slot,
+                    url,
+                    selector: git_selector(spec).map(str::to_string),
+                }),
+                Err(e) => {
+                    eprintln!(
+                        "warning: cannot fetch git dependency `{name}` from {url} \
+                         into {}: {e}",
+                        slot.display()
+                    );
+                    None
+                }
+            }
+        })
+        .collect()
+}
+
+/// Materialize a manifest's git-sourced `[dependencies]` into their
+/// [`package_cache_dir`] slots — the standalone form of the fetch-on-miss
+/// hook [`resolve_dependencies`] runs, for hosts that want to populate
+/// the cache up front (a `hnl fetch`/`handl install` surface) rather
+/// than on the resolution path.
+///
+/// A dep is skipped when its slot is already populated or a live
+/// `[patch]` entry shadows it; a failed clone warns and is omitted from
+/// the returned list. `HANDL_PKG_FETCH=off` disables fetching.
+///
+/// # Errors
+///
+/// Returns [`PlatformError::InvalidMetadata`] if the manifest exists but
+/// cannot be read or parsed.
+pub fn fetch_dependencies(manifest_dir: &Path) -> Result<Vec<FetchedDependency>, PlatformError> {
+    fetch_dependencies_in(manifest_dir, &package_cache_dir())
+}
+
+/// [`fetch_dependencies`] against an explicit package-cache directory —
+/// the test seam that keeps `HANDL_PKG_DIR` env mutation out of the
+/// suite.
+fn fetch_dependencies_in(
+    manifest_dir: &Path,
+    pkg_dir: &Path,
+) -> Result<Vec<FetchedDependency>, PlatformError> {
+    let manifest_path = manifest_dir.join(".handl.toml");
+    if !manifest_path.is_file() {
+        return Ok(Vec::new());
+    }
+    let config = read_manifest(&manifest_path)?;
+    Ok(fetch_git_dependencies(
+        manifest_dir,
+        pkg_dir,
+        &config.dependencies,
+        &config.patch,
+    ))
 }
 
 /// Discover the project manifest by walking up from `start` and resolve its
@@ -745,7 +989,9 @@ vendored = { path = "../lib-vendored" }
                 "[dependencies]\n",
                 "host-tensor = { git = \"https://github.com/handl-lang/lib-host-tensor\", tag = \"v0.1\" }\n",
                 "arrows = \"vendor/arrows\"\n",
-                "unpatched-git = { git = \"github:handl-lang/lib-upstream\" }\n",
+                // A git URL that resolves nowhere, so the fetch hook's
+                // clone attempt fails fast and hermetically.
+                "unpatched-git = { git = \"file:///nonexistent-handl-dep/lib-upstream\" }\n",
                 "\n[patch]\n",
                 // Sibling checkout exists → overrides the git source.
                 "host-tensor = \"../lib-host-tensor\"\n",
@@ -775,15 +1021,16 @@ vendored = { path = "../lib-vendored" }
     }
 
     /// A `git`-sourced dep keeps a stable cache-slot key in the dep map
-    /// even though nothing has fetched it yet — an `import` of the name
-    /// fails naming the slot a fetch would populate.
+    /// even when the fetch hook cannot populate it — an `import` of the
+    /// name fails naming the slot a fetch would populate. (The URL
+    /// resolves nowhere so the clone attempt fails fast and offline.)
     #[test]
     fn unpatched_git_dependency_maps_to_the_package_cache() {
         let root = std::env::temp_dir().join(format!("hnl-gitdep-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
         std::fs::write(
             root.join(".handl.toml"),
-            "[dependencies]\nws-c = { git = \"https://github.com/handl-lang/c\", rev = \"abc123\" }\n",
+            "[dependencies]\nws-c = { git = \"file:///nonexistent-handl-dep/ws-c\", rev = \"abc123\" }\n",
         )
         .unwrap();
 
@@ -808,11 +1055,11 @@ vendored = { path = "../lib-vendored" }
 
         // Discovery walks up from a nested directory to the manifest.
         let deps = discover_dependencies(&nested).unwrap();
+        assert_eq!(deps["ws-c"], std::fs::canonicalize(&dep_dir).unwrap());
         assert_eq!(
-            deps["ws-c"],
-            std::fs::canonicalize(&dep_dir).unwrap()
+            discover_manifest_dir(&nested).unwrap(),
+            std::fs::canonicalize(&root).unwrap()
         );
-        assert_eq!(discover_manifest_dir(&nested).unwrap(), std::fs::canonicalize(&root).unwrap());
 
         // No manifest → empty map.
         let bare = std::env::temp_dir().join(format!("hnl-deps-bare-{}", std::process::id()));
@@ -843,10 +1090,7 @@ vendored = { path = "../lib-vendored" }
         let deps = resolve_pkg_dependencies(&proj).unwrap();
         assert_eq!(deps.len(), 2);
         assert_eq!(deps["math"], std::fs::canonicalize(&math_dep).unwrap());
-        assert_eq!(
-            deps["math-c"],
-            std::fs::canonicalize(&math_c_dep).unwrap()
-        );
+        assert_eq!(deps["math-c"], std::fs::canonicalize(&math_c_dep).unwrap());
 
         std::fs::remove_dir_all(&root).ok();
     }
@@ -890,5 +1134,381 @@ vendored = { path = "../lib-vendored" }
         assert_eq!(deps["rand"], std::fs::canonicalize(&sibling).unwrap());
 
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    // ------------------------------------------------------------------
+    // The fetch hook (ADR-0010 registry half)
+    // ------------------------------------------------------------------
+
+    /// Serializes tests that exercise the fetch hook: the
+    /// `HANDL_PKG_FETCH=off` case mutates a process-global env var the
+    /// positive cases depend on being unset.
+    static FETCH_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// A scratch git repo with one committed `index.hnl` on `main`;
+    /// returns `(repo dir, HEAD sha)`.
+    fn fixture_git_repo(root: &Path, name: &str) -> (PathBuf, String) {
+        let repo = root.join(name);
+        std::fs::create_dir_all(&repo).unwrap();
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .args(args)
+                .current_dir(&repo)
+                .output()
+                .expect("git runs");
+            assert!(out.status.success(), "git {args:?}: {:?}", out.stderr);
+        };
+        git(&["init", "--quiet", "-b", "main"]);
+        std::fs::write(repo.join("index.hnl"), "export x := 1\n").unwrap();
+        git(&["add", "."]);
+        git(&[
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@test",
+            "commit",
+            "--quiet",
+            "-m",
+            "init",
+        ]);
+        let sha = String::from_utf8(
+            std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(&repo)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_string();
+        (repo, sha)
+    }
+
+    fn head_sha(dir: &Path) -> String {
+        String::from_utf8(
+            std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(dir)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_string()
+    }
+
+    /// Fetch-on-miss, end to end: a git dep whose slot is absent is
+    /// cloned into `<pkg_dir>/<name>` and the declared selector checked
+    /// out — one arm per selector kind (`branch`, `tag`, `rev`, none).
+    #[test]
+    fn resolve_fetches_a_git_dep_into_its_cache_slot() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-fetch-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        let (repo, sha) = fixture_git_repo(&root, "upstream");
+        let url = format!("file://{}", repo.display());
+        std::process::Command::new("git")
+            .args(["tag", "v0.1"])
+            .current_dir(&repo)
+            .output()
+            .unwrap();
+
+        for (name, sel) in [
+            ("by-branch", Some(("branch", "main"))),
+            ("by-tag", Some(("tag", "v0.1"))),
+            ("by-rev", Some(("rev", sha.as_str()))),
+            ("no-pin", None),
+        ] {
+            let entry = match sel {
+                Some((kind, v)) => format!("{name} = {{ git = \"{url}\", {kind} = \"{v}\" }}"),
+                None => format!("{name} = {{ git = \"{url}\" }}"),
+            };
+            std::fs::write(
+                proj.join(".handl.toml"),
+                format!("[dependencies]\n{entry}\n"),
+            )
+            .unwrap();
+
+            let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+            let slot = pkg.join(name);
+            assert_eq!(deps[name], slot);
+            assert!(
+                slot.join("index.hnl").is_file(),
+                "the slot must hold the cloned package"
+            );
+            assert_eq!(head_sha(&slot), sha, "{name} checked out the selector");
+            std::fs::remove_dir_all(&slot).unwrap();
+        }
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `subdir` names the package root inside the source: a git dep on a
+    /// repo whose package lives at `src/` resolves `<slot>/src`, so a
+    /// `[patch]` to a package-root checkout overrides it transparently.
+    #[test]
+    fn resolve_fetches_a_git_dep_with_subdir() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-subdir-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        let sibling = root.join("sibling");
+        std::fs::create_dir_all(&proj).unwrap();
+        // Repo layout: the package root is `src/`, not the clone root —
+        // the `lib-*` convention.
+        let (repo, _) = fixture_git_repo(&root, "upstream-src");
+        let srcdir = repo.join("src");
+        std::fs::create_dir_all(&srcdir).unwrap();
+        std::fs::write(srcdir.join("index.hnl"), "export y := 2\n").unwrap();
+        for args in [
+            &["add", "."][..],
+            &[
+                "-c",
+                "user.name=test",
+                "-c",
+                "user.email=test@test",
+                "commit",
+                "--quiet",
+                "-m",
+                "pkg under src/",
+            ][..],
+        ] {
+            let out = std::process::Command::new("git")
+                .args(args)
+                .current_dir(&repo)
+                .output()
+                .unwrap();
+            assert!(out.status.success(), "git {args:?} failed");
+        }
+        let url = format!("file://{}", repo.display());
+        std::fs::create_dir_all(&sibling).unwrap();
+
+        std::fs::write(
+            proj.join(".handl.toml"),
+            format!("[dependencies]\ndep = {{ git = \"{url}\", subdir = \"src\" }}\n"),
+        )
+        .unwrap();
+
+        let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["dep"], pkg.join("dep").join("src"));
+        assert!(pkg.join("dep/src/index.hnl").is_file());
+
+        // A live patch to a package-root checkout resolves to the same
+        // shape the git source does — the override is transparent.
+        std::fs::write(
+            proj.join(".handl.toml"),
+            format!(
+                "[dependencies]\ndep = {{ git = \"{url}\", subdir = \"src\" }}\n\
+                 \n[patch]\ndep = \"../sibling\"\n"
+            ),
+        )
+        .unwrap();
+        let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["dep"], std::fs::canonicalize(&sibling).unwrap());
+
+        // `subdir` composes with a path source too.
+        let vendored = proj.join("vendor/x/src");
+        std::fs::create_dir_all(&vendored).unwrap();
+        std::fs::write(
+            proj.join(".handl.toml"),
+            "[dependencies]\nv = { path = \"vendor/x\", subdir = \"src\" }\n",
+        )
+        .unwrap();
+        let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["v"], std::fs::canonicalize(&vendored).unwrap());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A populated slot is never refetched — and a live `[patch]` keeps
+    /// the dep local without touching the cache at all.
+    #[test]
+    fn populated_slots_and_live_patches_skip_the_fetch() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-skip-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        let patch_dir = root.join("sibling");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::create_dir_all(&patch_dir).unwrap();
+        let (repo, _) = fixture_git_repo(&root, "upstream");
+        let url = format!("file://{}", repo.display());
+
+        // A hand-populated slot: contents left alone, no refetch even
+        // though it is not a git checkout of the declared source.
+        let slot = pkg.join("pinned");
+        std::fs::create_dir_all(&slot).unwrap();
+        std::fs::write(slot.join("marker"), "kept").unwrap();
+
+        std::fs::write(
+            proj.join(".handl.toml"),
+            format!(
+                "[dependencies]\npinned = {{ git = \"{url}\" }}\n\
+                 patched = {{ git = \"{url}\" }}\n\
+                 \n[patch]\npatched = \"../sibling\"\n"
+            ),
+        )
+        .unwrap();
+
+        let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["pinned"], slot);
+        assert!(slot.join("marker").is_file(), "populated slot untouched");
+        assert!(
+            !slot.join("index.hnl").exists(),
+            "no clone landed over the populated slot"
+        );
+        assert_eq!(
+            deps["patched"],
+            std::fs::canonicalize(&patch_dir).unwrap(),
+            "a live patch wins; the slot is not materialized"
+        );
+        assert!(
+            !pkg.join("patched").exists(),
+            "a patch-shadowed git dep must not fetch"
+        );
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A fetch that cannot complete is soft: resolution still maps the
+    /// name to its (absent) slot and no half-clone is left behind.
+    #[test]
+    fn a_failed_fetch_keeps_the_slot_absent() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-nofetch-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::write(
+            proj.join(".handl.toml"),
+            "[dependencies]\ngone = { git = \"file:///nonexistent-handl-dep/gone\" }\n",
+        )
+        .unwrap();
+
+        let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["gone"], pkg.join("gone"));
+        assert!(!pkg.join("gone").exists(), "failed clone leaves no slot");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `HANDL_PKG_FETCH=off` turns the hook off entirely — the dep maps
+    /// to its slot with no clone attempted (offline/hermetic runs).
+    #[test]
+    fn handl_pkg_fetch_off_disables_the_hook() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-off-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        let (repo, _) = fixture_git_repo(&root, "upstream");
+        std::fs::write(
+            proj.join(".handl.toml"),
+            format!(
+                "[dependencies]\ndep = {{ git = \"file://{}\" }}\n",
+                repo.display()
+            ),
+        )
+        .unwrap();
+
+        // SAFETY: serialized by FETCH_ENV_LOCK; restored before unlock.
+        unsafe { std::env::set_var("HANDL_PKG_FETCH", "off") };
+        let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
+        unsafe { std::env::remove_var("HANDL_PKG_FETCH") };
+
+        assert_eq!(deps["dep"], pkg.join("dep"));
+        assert!(!pkg.join("dep").exists(), "fetch disabled → no clone");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// The standalone materialization surface: `fetch_dependencies`
+    /// reports what it cloned, skips populated slots, and warns through
+    /// clone failures without erroring the manifest.
+    #[test]
+    fn fetch_dependencies_reports_materialized_slots() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-pubfetch-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        let (repo, sha) = fixture_git_repo(&root, "upstream");
+        let url = format!("file://{}", repo.display());
+        std::fs::write(
+            proj.join(".handl.toml"),
+            format!(
+                "[dependencies]\nok = {{ git = \"{url}\", rev = \"{sha}\" }}\n\
+                 bad = {{ git = \"file:///nonexistent-handl-dep/bad\" }}\n"
+            ),
+        )
+        .unwrap();
+
+        let fetched = fetch_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(fetched.len(), 1, "only the cloneable dep reports");
+        let dep = &fetched[0];
+        assert_eq!(dep.name, "ok");
+        assert_eq!(dep.dir, pkg.join("ok"));
+        assert_eq!(dep.url, url);
+        assert_eq!(dep.selector.as_deref(), Some(sha.as_str()));
+
+        // Idempotent: the populated slot is skipped on the second call.
+        assert!(fetch_dependencies_in(&proj, &pkg).unwrap().is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `github:`/`gitlab:` shorthands and `git+` prefixes expand; real
+    /// URLs and scp-style specs pass through untouched.
+    #[test]
+    fn git_remote_url_expands_shorthands() {
+        assert_eq!(
+            git_remote_url("github:handl-lang/c"),
+            "https://github.com/handl-lang/c"
+        );
+        assert_eq!(
+            git_remote_url("gitlab:acme/kit"),
+            "https://gitlab.com/acme/kit"
+        );
+        assert_eq!(
+            git_remote_url("git+https://git.example.com/x"),
+            "https://git.example.com/x"
+        );
+        assert_eq!(
+            git_remote_url("https://github.com/handl-lang/c"),
+            "https://github.com/handl-lang/c"
+        );
+        assert_eq!(
+            git_remote_url("git@github.com:handl-lang/c"),
+            "git@github.com:handl-lang/c"
+        );
+        assert_eq!(git_remote_url("file:///tmp/r"), "file:///tmp/r");
+    }
+
+    /// `rev` beats `branch` beats `tag` when several pins are present.
+    #[test]
+    fn git_selector_precedence() {
+        let spec = DependencySpec {
+            rev: Some("r".into()),
+            branch: Some("b".into()),
+            tag: Some("t".into()),
+            ..DependencySpec::default()
+        };
+        assert_eq!(git_selector(&spec), Some("r"));
+        let spec = DependencySpec {
+            branch: Some("b".into()),
+            tag: Some("t".into()),
+            ..DependencySpec::default()
+        };
+        assert_eq!(git_selector(&spec), Some("b"));
+        let spec = DependencySpec {
+            tag: Some("t".into()),
+            ..DependencySpec::default()
+        };
+        assert_eq!(git_selector(&spec), Some("t"));
+        assert_eq!(git_selector(&DependencySpec::default()), None);
     }
 }
