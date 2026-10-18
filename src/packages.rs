@@ -1054,6 +1054,17 @@ pub static PACKAGES: &[PackageSpec] = &[
         hnl: handl_lib_ip::IP_HNL,
         modules: &[],
     },
+    // ── char (former plugin-lib-char) — contract only ────────────────────
+    // `char` is an axiom contract supplied by the embedding host; the
+    // package row exposes its capability surface without contributing a
+    // table module (a table `char` would shadow the host's native module).
+    PackageSpec {
+        lib_name: "char",
+        plugin_id: "lib.char",
+        plugin_name: "lib-char",
+        hnl: handl_lib_char::CHAR_HNL,
+        modules: &[],
+    },
 ];
 
 /// Look up a [`ModuleSpec`] by module name.
@@ -1079,6 +1090,11 @@ fn package_module_names(spec: &PackageSpec) -> Vec<&'static str> {
         // `ip` is contributed as the `IpModule` aggregate (below), not as
         // table-built sub-modules: its ops share last-segment names
         // (`parse`, `format`) across the `ip`/`cidr`/`socket` prefixes.
+        return Vec::new();
+    }
+    if spec.lib_name == "char" {
+        // `char` is an axiom contract provided by the embedding host; the
+        // package row carries its caps but contributes no table module.
         return Vec::new();
     }
     if !spec.modules.is_empty() {
