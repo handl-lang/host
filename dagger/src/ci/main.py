@@ -3,7 +3,7 @@
 All container plumbing (toolchain image, workspace mount, dev-link +
 self-patch, cargo/sccache caches, token auth) lives in the shared
 bupha module (github.com/9aia/bupha — see dagger.json deps).
-This module only adds platform-specific gates:
+This module only adds host-specific gates:
 
     dogfood — scripts/dogfood-gate.sh against a sibling handl-lang/host-cli
     ci      — the whole gate: tests + coverage gate + dogfood, concurrently
@@ -28,7 +28,7 @@ Source = Annotated[
             "dagger/.venv", "dagger/sdk"]),
 ]
 
-REPO = "platform"
+REPO = "host"
 
 
 @object_type
@@ -108,7 +108,7 @@ class Ci:
         return await dag.bupha().coverage_gate(
             source=source, repo=REPO, token=token, sccache_conf=sccache_conf)
 
-    # -- platform-specific ---------------------------------------------------
+    # -- host-specific ---------------------------------------------------
 
     @function
     async def dogfood(
