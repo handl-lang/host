@@ -1,0 +1,33 @@
+name: handl-plugin-engine-exec-tree-walk
+path: crates/plugin-engine-exec-tree-walk/Cargo.toml
+purpose: 'The **reference interpreter** for the eval operation (ADR-0044 §3, §4, ADR-0052). Interprets the arrow-calculus [`handl_language::Term`] kernel directly via tree-walking: it looks ...'
+api:
+- name: handl-plugin-engine-exec-tree-walk
+  kind: module
+  file: crates/plugin-engine-exec-tree-walk/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-exec-tree-walk
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-exec
+- handl-value
+- plugin-engine
+- rustc-hash
+- serde_json
+- handl-kit-data-canonical
+- handl-plugin-engine-exec-bytecode
+- handl-plugin-module
+- handl-test-utils
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-exec-tree-walk/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-exec-tree-walk/Cargo.toml
+  hashes:
+  - 96620d7ebc8d26029ec1c9d779af65e3ef8b6958
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

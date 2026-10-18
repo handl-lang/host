@@ -1,0 +1,24 @@
+name: handl-plugin-engine-lex-pattern
+path: crates/plugin-engine-lex-pattern/Cargo.toml
+purpose: A **data-driven** lexer engine that reads [`LexerRuleDef`] fragments from a [`Language`] and tokenizes source text (ADR-0044 §1, §3).
+api:
+- name: handl-plugin-engine-lex-pattern
+  kind: module
+  file: crates/plugin-engine-lex-pattern/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-lex-pattern
+deps:
+- handl-language
+- handl-plugin-engine-lex
+- handl-kit-data-canonical
+notes: ''
+verify:
+- crates/plugin-engine-lex-pattern/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-lex-pattern/Cargo.toml
+  hashes:
+  - 0d73f9fe454b537eb297c1665553275d49d64adb
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

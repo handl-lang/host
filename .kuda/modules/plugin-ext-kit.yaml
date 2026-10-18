@@ -1,0 +1,416 @@
+name: plugin-ext-kit
+path: crates/plugin-ext-kit/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: KitManagerPlugin
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 15
+  module: plugin-ext-kit
+- name: new
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 20
+  module: plugin-ext-kit
+- name: default
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 28
+  module: plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 34
+  module: plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 38
+  module: plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 42
+  module: plugin-ext-kit
+- name: run
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 51
+  module: plugin-ext-kit
+- name: ManifestKit
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 157
+  module: plugin-ext-kit
+- name: new
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 163
+  module: plugin-ext-kit
+- name: default
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 169
+  module: plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 177
+  module: plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 181
+  module: plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 185
+  module: plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 189
+  module: plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 193
+  module: plugin-ext-kit
+- name: run
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 197
+  module: plugin-ext-kit
+- name: ModuleKit
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 215
+  module: plugin-ext-kit
+- name: new
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 226
+  module: plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 245
+  module: plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 249
+  module: plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 253
+  module: plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 257
+  module: plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 261
+  module: plugin-ext-kit
+- name: run
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 284
+  module: plugin-ext-kit
+- name: BasicKit
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 294
+  module: plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 302
+  module: plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 309
+  module: plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 316
+  module: plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 320
+  module: plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 324
+  module: plugin-ext-kit
+- name: run
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 331
+  module: plugin-ext-kit
+- name: KitModuleNames
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 352
+  module: plugin-ext-kit
+- name: BasicKitLoaderPlugin
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 355
+  module: plugin-ext-kit
+- name: new
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 369
+  module: plugin-ext-kit
+- name: load
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 377
+  module: plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 403
+  module: plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 407
+  module: plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 411
+  module: plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 415
+  module: plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 419
+  module: plugin-ext-kit
+- name: run
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 423
+  module: plugin-ext-kit
+- name: is_kit_path
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 439
+  module: plugin-ext-kit
+- name: tests
+  kind: module
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 445
+  module: plugin-ext-kit
+- name: builtin_kit_module_names_resolve
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 454
+  module: plugin-ext-kit
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 479
+  module: plugin-ext-kit
+- name: add_registers_kit
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 487
+  module: plugin-ext-kit
+- name: info_lists_registered_kits
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 512
+  module: plugin-ext-kit
+- name: add_registers_kit_from_args
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 542
+  module: plugin-ext-kit
+- name: info_lists_kits_from_args
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 567
+  module: plugin-ext-kit
+- name: invalid_action_rejected
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 597
+  module: plugin-ext-kit
+deps:
+- handl_kit_data
+- handl_platform
+- handl_platform
+notes: ''
+verify:
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+- crates/plugin-ext-kit/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  hashes:
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,27 @@
+name: handl-plugin-loader-native
+path: crates/plugin-loader-native/Cargo.toml
+purpose: Native (.so/.dylib) plugin loader — ADR-0004 zero-repackage plugin delivery.
+api:
+- name: handl-plugin-loader-native
+  kind: module
+  file: crates/plugin-loader-native/Cargo.toml
+  line: 1
+  module: handl-plugin-loader-native
+deps:
+- handl-platform
+- handl-plugin-load
+- handl-value
+- libloading
+- serde
+- serde_json
+notes: ''
+verify:
+- crates/plugin-loader-native/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-loader-native/Cargo.toml
+  hashes:
+  - bccfe173feec70cb51fca3562f36a332c8fe7c11
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,25 @@
+name: arrow-calculus-poc
+path: research/arrow-calculus-kernel-poc/Cargo.toml
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: arrow-calculus-poc
+  kind: module
+  file: research/arrow-calculus-kernel-poc/Cargo.toml
+  line: 1
+  module: arrow-calculus-poc
+deps:
+- rusqlite
+- serde
+- serde_json
+- z3
+notes: ''
+verify:
+- research/arrow-calculus-kernel-poc/Cargo.toml
+provenance:
+  files:
+  - research/arrow-calculus-kernel-poc/Cargo.toml
+  hashes:
+  - 5c5ecd3db102e2f9f8e51efb7fdce60f32e3fc67
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

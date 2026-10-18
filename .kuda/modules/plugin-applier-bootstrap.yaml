@@ -1,0 +1,132 @@
+name: plugin-applier-bootstrap
+path: crates/plugin-applier-bootstrap/src/lib_tests.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: kit_module_names
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 9
+  module: plugin-applier-bootstrap
+- name: libraries
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 16
+  module: plugin-applier-bootstrap
+- name: bootstrap_loads_kit_via_applier
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 21
+  module: plugin-applier-bootstrap
+- name: bootstrap_rejects_unknown_applier
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 47
+  module: plugin-applier-bootstrap
+- name: BootstrapPlugin
+  kind: type
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 11
+  module: plugin-applier-bootstrap
+- name: new
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 19
+  module: plugin-applier-bootstrap
+- name: with_factories
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 35
+  module: plugin-applier-bootstrap
+- name: id
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 45
+  module: plugin-applier-bootstrap
+- name: name
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 49
+  module: plugin-applier-bootstrap
+- name: capabilities
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 53
+  module: plugin-applier-bootstrap
+- name: metadata
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 57
+  module: plugin-applier-bootstrap
+- name: contribute
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 61
+  module: plugin-applier-bootstrap
+- name: run
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 76
+  module: plugin-applier-bootstrap
+- name: lib_tests
+  kind: module
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 86
+  module: plugin-applier-bootstrap
+deps:
+- handl_kit_data
+- handl_platform
+- handl_platform
+- handl_plugin_applier
+- handl_kit_data
+- handl_plugin_applier_default
+- handl_plugin_ext_kit
+notes: ''
+verify:
+- crates/plugin-applier-bootstrap/src/lib_tests.rs
+- crates/plugin-applier-bootstrap/src/lib_tests.rs
+- crates/plugin-applier-bootstrap/src/lib_tests.rs
+- crates/plugin-applier-bootstrap/src/lib_tests.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-applier-bootstrap/src/lib_tests.rs
+  - crates/plugin-applier-bootstrap/src/lib_tests.rs
+  - crates/plugin-applier-bootstrap/src/lib_tests.rs
+  - crates/plugin-applier-bootstrap/src/lib_tests.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  hashes:
+  - 7e4b481364bd559a1b65fa07c73788417aa6a62e
+  - 7e4b481364bd559a1b65fa07c73788417aa6a62e
+  - 7e4b481364bd559a1b65fa07c73788417aa6a62e
+  - 7e4b481364bd559a1b65fa07c73788417aa6a62e
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

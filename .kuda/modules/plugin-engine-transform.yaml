@@ -1,0 +1,713 @@
+name: plugin-engine-transform
+path: crates/plugin-engine-transform/src/request.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: TransformRequest
+  kind: type
+  file: crates/plugin-engine-transform/src/request.rs
+  line: 12
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/request.rs
+  line: 30
+  module: plugin-engine-transform
+- name: with_options
+  kind: function
+  file: crates/plugin-engine-transform/src/request.rs
+  line: 41
+  module: plugin-engine-transform
+- name: pass
+  kind: function
+  file: crates/plugin-engine-transform/src/request.rs
+  line: 47
+  module: plugin-engine-transform
+- name: TransformMode
+  kind: type
+  file: crates/plugin-engine-transform/src/request.rs
+  line: 62
+  module: plugin-engine-transform
+- name: NativeRewrite
+  kind: trait
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 25
+  module: plugin-engine-transform
+- name: provides
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 40
+  module: plugin-engine-transform
+- name: ChainedRewrite
+  kind: type
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 54
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 61
+  module: plugin-engine-transform
+- name: rewrite
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 68
+  module: plugin-engine-transform
+- name: provides
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 77
+  module: plugin-engine-transform
+- name: TRANSFORM_OVERLAY
+  kind: const
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 96
+  module: plugin-engine-transform
+- name: install_transform_overlay
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 101
+  module: plugin-engine-transform
+- name: transform_overlay
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 108
+  module: plugin-engine-transform
+- name: RewriteCtx
+  kind: type
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 123
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 135
+  module: plugin-engine-transform
+- name: declined
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 157
+  module: plugin-engine-transform
+- name: lang
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 162
+  module: plugin-engine-transform
+- name: node
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 167
+  module: plugin-engine-transform
+- name: node_ref
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 174
+  module: plugin-engine-transform
+- name: ast
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 179
+  module: plugin-engine-transform
+- name: out
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 184
+  module: plugin-engine-transform
+- name: remap
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 189
+  module: plugin-engine-transform
+- name: remap_child
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 196
+  module: plugin-engine-transform
+- name: remap_path
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 209
+  module: plugin-engine-transform
+- name: descendant_ref
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 225
+  module: plugin-engine-transform
+- name: remap_children_from
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 238
+  module: plugin-engine-transform
+- name: push_leaf
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 254
+  module: plugin-engine-transform
+- name: push_node
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 263
+  module: plugin-engine-transform
+- name: pass_through
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 282
+  module: plugin-engine-transform
+- name: child_is_kind
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 302
+  module: plugin-engine-transform
+- name: child_ref
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 311
+  module: plugin-engine-transform
+- name: NativeRewriteRegistry
+  kind: type
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 326
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 335
+  module: plugin-engine-transform
+- name: register
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 342
+  module: plugin-engine-transform
+- name: contains
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 351
+  module: plugin-engine-transform
+- name: rewrite
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 357
+  module: plugin-engine-transform
+- name: provides
+  kind: function
+  file: crates/plugin-engine-transform/src/native.rs
+  line: 364
+  module: plugin-engine-transform
+- name: TransformOutput
+  kind: type
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 10
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 23
+  module: plugin-engine-transform
+- name: Rewrite
+  kind: type
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 35
+  module: plugin-engine-transform
+- name: RewriteTrace
+  kind: type
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 50
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 57
+  module: plugin-engine-transform
+- name: new_ref
+  kind: function
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 64
+  module: plugin-engine-transform
+- name: PassStats
+  kind: type
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 71
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 84
+  module: plugin-engine-transform
+- name: default
+  kind: function
+  file: crates/plugin-engine-transform/src/output.rs
+  line: 95
+  module: plugin-engine-transform
+- name: RULE
+  kind: const
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 12
+  module: plugin-engine-transform
+- name: validate_transforms
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 20
+  module: plugin-engine-transform
+- name: shape_role_count
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 141
+  module: plugin-engine-transform
+- name: validate_step
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 145
+  module: plugin-engine-transform
+- name: validate_condition
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 277
+  module: plugin-engine-transform
+- name: KNOWN_LSP_KINDS
+  kind: const
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 416
+  module: plugin-engine-transform
+- name: validate_lsp
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 429
+  module: plugin-engine-transform
+- name: validate_lsp_rule
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 464
+  module: plugin-engine-transform
+- name: find_lsp_shape
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 533
+  module: plugin-engine-transform
+- name: validate_lsp_rule_config
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 540
+  module: plugin-engine-transform
+- name: validate_lsp_token_array
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 668
+  module: plugin-engine-transform
+- name: validate_lsp_trivia_list
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 706
+  module: plugin-engine-transform
+- name: lsp_symbol_kind_number
+  kind: function
+  file: crates/plugin-engine-transform/src/validate.rs
+  line: 744
+  module: plugin-engine-transform
+- name: RuleSource
+  kind: trait
+  file: crates/plugin-engine-transform/src/source.rs
+  line: 14
+  module: plugin-engine-transform
+- name: LanguageRuleSource
+  kind: type
+  file: crates/plugin-engine-transform/src/source.rs
+  line: 25
+  module: plugin-engine-transform
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform/src/source.rs
+  line: 29
+  module: plugin-engine-transform
+- name: rules_for
+  kind: function
+  file: crates/plugin-engine-transform/src/source.rs
+  line: 35
+  module: plugin-engine-transform
+- name: native
+  kind: module
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 19
+  module: plugin-engine-transform
+- name: output
+  kind: module
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 20
+  module: plugin-engine-transform
+- name: request
+  kind: module
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 21
+  module: plugin-engine-transform
+- name: source
+  kind: module
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 22
+  module: plugin-engine-transform
+- name: validate
+  kind: module
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 23
+  module: plugin-engine-transform
+- name: Transform
+  kind: type
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 40
+  module: plugin-engine-transform
+- name: Match
+  kind: type
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 48
+  module: plugin-engine-transform
+- name: TransformEngine
+  kind: trait
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 62
+  module: plugin-engine-transform
+- name: find_matches
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 83
+  module: plugin-engine-transform
+- name: with_natives
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 99
+  module: plugin-engine-transform
+- name: tests
+  kind: module
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 105
+  module: plugin-engine-transform
+- name: transform_marker_constructs
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 116
+  module: plugin-engine-transform
+- name: match_constructs
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 125
+  module: plugin-engine-transform
+- name: trace_new_ref_lookup
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 136
+  module: plugin-engine-transform
+- name: native_registry_dispatch_by_name
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 157
+  module: plugin-engine-transform
+- name: test_language
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 181
+  module: plugin-engine-transform
+- name: validate_warns_unknown_target_kind
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 200
+  module: plugin-engine-transform
+- name: validate_errors_out_of_bounds_keep
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 223
+  module: plugin-engine-transform
+- name: validate_errors_replace_first_index_out_of_bounds
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 246
+  module: plugin-engine-transform
+- name: validate_errors_replace_empty_path
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 267
+  module: plugin-engine-transform
+- name: validate_errors_dangling_apply_rule_id
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 287
+  module: plugin-engine-transform
+- name: validate_warns_on_potential_cycle
+  kind: function
+  file: crates/plugin-engine-transform/src/lib.rs
+  line: 309
+  module: plugin-engine-transform
+deps:
+- handl_language
+- serde_json
+- handl_language
+- serde_json
+- handl_language
+- handl_language
+- handl_plugin_ext_diag
+- serde_json
+- handl_language
+- handl_language
+- handl_language
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-transform/src/request.rs
+- crates/plugin-engine-transform/src/request.rs
+- crates/plugin-engine-transform/src/request.rs
+- crates/plugin-engine-transform/src/request.rs
+- crates/plugin-engine-transform/src/request.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/native.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/output.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/validate.rs
+- crates/plugin-engine-transform/src/source.rs
+- crates/plugin-engine-transform/src/source.rs
+- crates/plugin-engine-transform/src/source.rs
+- crates/plugin-engine-transform/src/source.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+- crates/plugin-engine-transform/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-transform/src/request.rs
+  - crates/plugin-engine-transform/src/request.rs
+  - crates/plugin-engine-transform/src/request.rs
+  - crates/plugin-engine-transform/src/request.rs
+  - crates/plugin-engine-transform/src/request.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/source.rs
+  - crates/plugin-engine-transform/src/source.rs
+  - crates/plugin-engine-transform/src/source.rs
+  - crates/plugin-engine-transform/src/source.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  hashes:
+  - 1bf465b884b17e59055868d0f8d8b2b1da731259
+  - 1bf465b884b17e59055868d0f8d8b2b1da731259
+  - 1bf465b884b17e59055868d0f8d8b2b1da731259
+  - 1bf465b884b17e59055868d0f8d8b2b1da731259
+  - 1bf465b884b17e59055868d0f8d8b2b1da731259
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 17f9c2e1d4c82777db5d6c1762223974e822c8fb
+  - 17f9c2e1d4c82777db5d6c1762223974e822c8fb
+  - 17f9c2e1d4c82777db5d6c1762223974e822c8fb
+  - 17f9c2e1d4c82777db5d6c1762223974e822c8fb
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

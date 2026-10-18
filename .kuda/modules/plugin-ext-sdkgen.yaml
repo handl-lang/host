@@ -1,0 +1,39 @@
+name: plugin-ext-sdkgen
+path: crates/plugin-ext-sdkgen/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: linked_targets
+  kind: function
+  file: crates/plugin-ext-sdkgen/src/lib.rs
+  line: 20
+  module: plugin-ext-sdkgen
+- name: sdkgen_command
+  kind: function
+  file: crates/plugin-ext-sdkgen/src/lib.rs
+  line: 40
+  module: plugin-ext-sdkgen
+- name: fetch_spec
+  kind: function
+  file: crates/plugin-ext-sdkgen/src/lib.rs
+  line: 176
+  module: plugin-ext-sdkgen
+deps:
+- handl_language
+- handl_plugin_sdkgen
+notes: ''
+verify:
+- crates/plugin-ext-sdkgen/src/lib.rs
+- crates/plugin-ext-sdkgen/src/lib.rs
+- crates/plugin-ext-sdkgen/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-sdkgen/src/lib.rs
+  - crates/plugin-ext-sdkgen/src/lib.rs
+  - crates/plugin-ext-sdkgen/src/lib.rs
+  hashes:
+  - 4beb5747f9d3869785941491920f54dbebc7fd0c
+  - 4beb5747f9d3869785941491920f54dbebc7fd0c
+  - 4beb5747f9d3869785941491920f54dbebc7fd0c
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

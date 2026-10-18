@@ -1,0 +1,177 @@
+name: plugin-ext-plugin
+path: crates/plugin-ext-plugin/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: PluginManagerPlugin
+  kind: type
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 6
+  module: plugin-ext-plugin
+- name: new
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 11
+  module: plugin-ext-plugin
+- name: default
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 19
+  module: plugin-ext-plugin
+- name: name
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 25
+  module: plugin-ext-plugin
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 29
+  module: plugin-ext-plugin
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 33
+  module: plugin-ext-plugin
+- name: run
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 42
+  module: plugin-ext-plugin
+- name: tests
+  kind: module
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 162
+  module: plugin-ext-plugin
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 167
+  module: plugin-ext-plugin
+- name: add_registers_process_plugin
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 175
+  module: plugin-ext-plugin
+- name: info_lists_registered_plugins
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 200
+  module: plugin-ext-plugin
+- name: remove_removes_registered_plugin
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 221
+  module: plugin-ext-plugin
+- name: add_registers_process_plugin_from_args
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 246
+  module: plugin-ext-plugin
+- name: info_lists_plugins_from_args
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 266
+  module: plugin-ext-plugin
+- name: invalid_action_rejected
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 287
+  module: plugin-ext-plugin
+- name: add_with_path_delegates_to_load
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 307
+  module: plugin-ext-plugin
+- name: MockLoader
+  kind: type
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 311
+  module: plugin-ext-plugin
+- name: can_load
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 313
+  module: plugin-ext-plugin
+- name: load
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 316
+  module: plugin-ext-plugin
+- name: add_with_path_without_loader_returns_unknown_capability
+  kind: function
+  file: crates/plugin-ext-plugin/src/lib.rs
+  line: 386
+  module: plugin-ext-plugin
+deps:
+- handl_platform
+- handl_platform
+- handl_platform
+- handl_plugin_load
+notes: ''
+verify:
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+- crates/plugin-ext-plugin/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  hashes:
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

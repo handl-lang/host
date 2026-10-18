@@ -1,0 +1,34 @@
+name: handl-plugin-ext-compile
+path: crates/plugin-ext-compile/Cargo.toml
+purpose: 'Compile extension: re-export of the `handl-platform` compile operation plus the feature-gated compiler dispatcher (ADR-0114 Phase 14, ADR-0128 §0.3).'
+api:
+- name: handl-plugin-ext-compile
+  kind: module
+  file: crates/plugin-ext-compile/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-compile
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-compile
+- handl-plugin-compile-dot
+- handl-plugin-compile-handl
+- handl-plugin-compile-js
+- handl-plugin-compile-llvm
+- handl-plugin-compile-sexp
+- handl-plugin-compile-term
+- plugin-engine
+- plugin-engine-typecheck
+- serde_json
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-compile/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-compile/Cargo.toml
+  hashes:
+  - dc3eb4bb68c48046e34c78fdcc7d8b4cf07ced2d
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

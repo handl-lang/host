@@ -1,0 +1,963 @@
+name: plugin-engine-fmt
+path: crates/plugin-engine-fmt/src/token.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: TokenFormatter
+  kind: type
+  file: crates/plugin-engine-fmt/src/token.rs
+  line: 20
+  module: plugin-engine-fmt
+- name: new
+  kind: function
+  file: crates/plugin-engine-fmt/src/token.rs
+  line: 29
+  module: plugin-engine-fmt
+- name: canonical
+  kind: function
+  file: crates/plugin-engine-fmt/src/token.rs
+  line: 34
+  module: plugin-engine-fmt
+- name: format
+  kind: function
+  file: crates/plugin-engine-fmt/src/token.rs
+  line: 43
+  module: plugin-engine-fmt
+- name: PostProcessRule
+  kind: trait
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 18
+  module: plugin-engine-fmt
+- name: TrailingWhitespaceRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 28
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 31
+  module: plugin-engine-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 35
+  module: plugin-engine-fmt
+- name: CollapseBlankLinesRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 46
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 49
+  module: plugin-engine-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 53
+  module: plugin-engine-fmt
+- name: BlankLineBetweenDeclGroupsRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 77
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 80
+  module: plugin-engine-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 84
+  module: plugin-engine-fmt
+- name: SingleTrailingNewlineRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 124
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 127
+  module: plugin-engine-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 131
+  module: plugin-engine-fmt
+- name: CanonicalizeOperatorsRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 154
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 157
+  module: plugin-engine-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 161
+  module: plugin-engine-fmt
+- name: fix_colon_eq
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 175
+  module: plugin-engine-fmt
+- name: fix_graded_arrow
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 209
+  module: plugin-engine-fmt
+- name: fix_type_params
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 289
+  module: plugin-engine-fmt
+- name: find_type_param_close
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 328
+  module: plugin-engine-fmt
+- name: is_word_char
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 348
+  module: plugin-engine-fmt
+- name: is_type_param_char
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 352
+  module: plugin-engine-fmt
+- name: balanced_parens
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 357
+  module: plugin-engine-fmt
+- name: IndentContinuationBindingsRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 390
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 393
+  module: plugin-engine-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 397
+  module: plugin-engine-fmt
+- name: previous_nonblank_leading
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 427
+  module: plugin-engine-fmt
+- name: leading_spaces
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 438
+  module: plugin-engine-fmt
+- name: continuation_block_end
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 442
+  module: plugin-engine-fmt
+- name: brace_delta
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 458
+  module: plugin-engine-fmt
+- name: post_process_pipeline
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 487
+  module: plugin-engine-fmt
+- name: canonical_post_process
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 496
+  module: plugin-engine-fmt
+- name: DeclType
+  kind: type
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 516
+  module: plugin-engine-fmt
+- name: decl_type
+  kind: function
+  file: crates/plugin-engine-fmt/src/post_process.rs
+  line: 525
+  module: plugin-engine-fmt
+- name: arith_lang
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 9
+  module: plugin-engine-fmt
+- name: lit
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 225
+  module: plugin-engine-fmt
+- name: var
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 229
+  module: plugin-engine-fmt
+- name: format_single_literal
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 234
+  module: plugin-engine-fmt
+- name: format_infix_add
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 244
+  module: plugin-engine-fmt
+- name: format_precedence_no_extra_parens
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 257
+  module: plugin-engine-fmt
+- name: format_precedence_parens_for_grouping
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 275
+  module: plugin-engine-fmt
+- name: format_unary_neg
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 294
+  module: plugin-engine-fmt
+- name: format_leaf_fallback_from_payload
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 306
+  module: plugin-engine-fmt
+- name: format_let_with_payload_tokens
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 317
+  module: plugin-engine-fmt
+- name: format_block_indentation
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 330
+  module: plugin-engine-fmt
+- name: format_nested_block_indentation
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 345
+  module: plugin-engine-fmt
+- name: format_unknown_kind_fallback
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 363
+  module: plugin-engine-fmt
+- name: format_paren_grouping
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 375
+  module: plugin-engine-fmt
+- name: format_match_arms_with_pairs
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 392
+  module: plugin-engine-fmt
+- name: preserve_unchanged_round_trip
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 489
+  module: plugin-engine-fmt
+- name: preserve_changed_child_reformats_only_that_region
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 516
+  module: plugin-engine-fmt
+- name: preserve_comments_in_unchanged_subtree
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 544
+  module: plugin-engine-fmt
+- name: preserve_nested_change_inside_unchanged_block
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 575
+  module: plugin-engine-fmt
+- name: categorized_lang
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 636
+  module: plugin-engine-fmt
+- name: classify_token_by_category
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 728
+  module: plugin-engine-fmt
+- name: canonical_formatting_rule_and_needs_space
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 753
+  module: plugin-engine-fmt
+- name: indent_bias_classifies_brackets
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 769
+  module: plugin-engine-fmt
+- name: format_options_default_has_indent_and_width
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 781
+  module: plugin-engine-fmt
+- name: token_formatter_spacing_and_custom_rule
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 787
+  module: plugin-engine-fmt
+- name: NoSpace
+  kind: type
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 811
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 813
+  module: plugin-engine-fmt
+- name: needs_space
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 817
+  module: plugin-engine-fmt
+- name: token_formatter_preserves_source_leading_ws
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 826
+  module: plugin-engine-fmt
+- name: post_process_individual_rules
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 855
+  module: plugin-engine-fmt
+- name: canonical_post_process_full_chain
+  kind: function
+  file: crates/plugin-engine-fmt/src/tests.rs
+  line: 897
+  module: plugin-engine-fmt
+- name: layout
+  kind: module
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 31
+  module: plugin-engine-fmt
+- name: post_process
+  kind: module
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 32
+  module: plugin-engine-fmt
+- name: token
+  kind: module
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 33
+  module: plugin-engine-fmt
+- name: FormatOptions
+  kind: type
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 41
+  module: plugin-engine-fmt
+- name: default
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 51
+  module: plugin-engine-fmt
+- name: FormatEngine
+  kind: type
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 68
+  module: plugin-engine-fmt
+- name: default
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 73
+  module: plugin-engine-fmt
+- name: new
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 80
+  module: plugin-engine-fmt
+- name: with_options
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 87
+  module: plugin-engine-fmt
+- name: format
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 97
+  module: plugin-engine-fmt
+- name: GrammarIndex
+  kind: type
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 112
+  module: plugin-engine-fmt
+- name: build_grammar_index
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 114
+  module: plugin-engine-fmt
+- name: NodeEmitter
+  kind: trait
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 125
+  module: plugin-engine-fmt
+- name: PlainEmitter
+  kind: type
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 131
+  module: plugin-engine-fmt
+- name: emit
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 134
+  module: plugin-engine-fmt
+- name: PreserveEmitter
+  kind: type
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 147
+  module: plugin-engine-fmt
+- name: new
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 164
+  module: plugin-engine-fmt
+- name: mark_subtree
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 190
+  module: plugin-engine-fmt
+- name: format
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 216
+  module: plugin-engine-fmt
+- name: emit
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 235
+  module: plugin-engine-fmt
+- name: FormatCtx
+  kind: type
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 250
+  module: plugin-engine-fmt
+- name: indent
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 259
+  module: plugin-engine-fmt
+- name: emit
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 264
+  module: plugin-engine-fmt
+- name: children_of
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 269
+  module: plugin-engine-fmt
+- name: token_label
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 274
+  module: plugin-engine-fmt
+- name: format_node_internal
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 282
+  module: plugin-engine-fmt
+- name: format_grammar_node
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 305
+  module: plugin-engine-fmt
+- name: format_infix
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 334
+  module: plugin-engine-fmt
+- name: format_prefix_simple
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 358
+  module: plugin-engine-fmt
+- name: format_prefix_payload
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 375
+  module: plugin-engine-fmt
+- name: format_prefix_delimited
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 423
+  module: plugin-engine-fmt
+- name: format_delimited_block
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 470
+  module: plugin-engine-fmt
+- name: format_child
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 627
+  module: plugin-engine-fmt
+- name: separator_label
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 667
+  module: plugin-engine-fmt
+- name: format_leaf
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 676
+  module: plugin-engine-fmt
+- name: children_refs
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 692
+  module: plugin-engine-fmt
+- name: has_scalar_payload
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 708
+  module: plugin-engine-fmt
+- name: value_to_text
+  kind: function
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 716
+  module: plugin-engine-fmt
+- name: tests
+  kind: module
+  file: crates/plugin-engine-fmt/src/lib.rs
+  line: 727
+  module: plugin-engine-fmt
+- name: TokenCat
+  kind: type
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 18
+  module: plugin-engine-fmt
+- name: IndentBias
+  kind: type
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 56
+  module: plugin-engine-fmt
+- name: classify_token
+  kind: function
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 72
+  module: plugin-engine-fmt
+- name: indent_bias
+  kind: function
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 127
+  module: plugin-engine-fmt
+- name: FormattingRule
+  kind: trait
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 148
+  module: plugin-engine-fmt
+- name: CanonicalFormattingRule
+  kind: type
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 162
+  module: plugin-engine-fmt
+- name: name
+  kind: function
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 165
+  module: plugin-engine-fmt
+- name: needs_space
+  kind: function
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 169
+  module: plugin-engine-fmt
+- name: canonical_needs_space
+  kind: function
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 176
+  module: plugin-engine-fmt
+- name: needs_space
+  kind: function
+  file: crates/plugin-engine-fmt/src/layout.rs
+  line: 250
+  module: plugin-engine-fmt
+deps:
+- handl_language
+- handl_language
+- serde_json
+- handl_language
+- serde_json
+- handl_language
+notes: ''
+verify:
+- crates/plugin-engine-fmt/src/token.rs
+- crates/plugin-engine-fmt/src/token.rs
+- crates/plugin-engine-fmt/src/token.rs
+- crates/plugin-engine-fmt/src/token.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/post_process.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/tests.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/lib.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+- crates/plugin-engine-fmt/src/layout.rs
+provenance:
+  files:
+  - crates/plugin-engine-fmt/src/token.rs
+  - crates/plugin-engine-fmt/src/token.rs
+  - crates/plugin-engine-fmt/src/token.rs
+  - crates/plugin-engine-fmt/src/token.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  hashes:
+  - 2bd3a87914b10962c6c5b779c07deab3c8477c33
+  - 2bd3a87914b10962c6c5b779c07deab3c8477c33
+  - 2bd3a87914b10962c6c5b779c07deab3c8477c33
+  - 2bd3a87914b10962c6c5b779c07deab3c8477c33
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

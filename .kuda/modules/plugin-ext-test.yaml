@@ -1,0 +1,449 @@
+name: plugin-ext-test
+path: crates/plugin-ext-test/src/plugin.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: TEST_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 45
+  module: plugin-ext-test
+- name: TestPlugin
+  kind: type
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 53
+  module: plugin-ext-test
+- name: new
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 61
+  module: plugin-ext-test
+- name: id
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 70
+  module: plugin-ext-test
+- name: name
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 74
+  module: plugin-ext-test
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 78
+  module: plugin-ext-test
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 82
+  module: plugin-ext-test
+- name: run
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 92
+  module: plugin-ext-test
+- name: CACHE_PATH
+  kind: const
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 106
+  module: plugin-ext-test
+- name: run_test
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 109
+  module: plugin-ext-test
+- name: parse_paths
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 241
+  module: plugin-ext-test
+- name: parse_string_array
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 263
+  module: plugin-ext-test
+- name: parse_errors_json
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 280
+  module: plugin-ext-test
+- name: parse_jobs
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 290
+  module: plugin-ext-test
+- name: tests
+  kind: module
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 323
+  module: plugin-ext-test
+- name: canonical_source
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 338
+  module: plugin-ext-test
+- name: plugin
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 357
+  module: plugin-ext-test
+- name: with_ctx
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 361
+  module: plugin-ext-test
+- name: req
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 371
+  module: plugin-ext-test
+- name: empty_dir
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 379
+  module: plugin-ext-test
+- name: declares_the_test_capability
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 386
+  module: plugin-ext-test
+- name: a_wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 396
+  module: plugin-ext-test
+- name: missing_paths_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 415
+  module: plugin-ext-test
+- name: empty_paths_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 426
+  module: plugin-ext-test
+- name: a_non_array_tags_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 437
+  module: plugin-ext-test
+- name: list_mode_on_an_empty_tree_returns_an_empty_case_list
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 453
+  module: plugin-ext-test
+- name: an_unknown_report_format_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 477
+  module: plugin-ext-test
+- name: jobs_accepts_auto_and_positive_integers
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 497
+  module: plugin-ext-test
+- name: jobs_rejects_zero_and_non_numeric_strings
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 516
+  module: plugin-ext-test
+- name: name_is_reported
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 531
+  module: plugin-ext-test
+- name: a_non_array_paths_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 538
+  module: plugin-ext-test
+- name: jobs_rejects_fractional_and_non_numeric_values
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 549
+  module: plugin-ext-test
+- name: Project
+  kind: type
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 566
+  module: plugin-ext-test
+- name: new
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 571
+  module: plugin-ext-test
+- name: paths
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 597
+  module: plugin-ext-test
+- name: drop
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 604
+  module: plugin-ext-test
+- name: run_payload
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 609
+  module: plugin-ext-test
+- name: status_of
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 614
+  module: plugin-ext-test
+- name: an_explicit_null_tags_is_treated_as_absent
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 622
+  module: plugin-ext-test
+- name: a_filter_narrows_the_case_list
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 639
+  module: plugin-ext-test
+- name: a_passing_project_reports_ok_with_a_summary_and_a_human_report
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 652
+  module: plugin-ext-test
+- name: a_failing_project_reports_failed
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 668
+  module: plugin-ext-test
+- name: the_json_reporter_renders_parseable_json
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 677
+  module: plugin-ext-test
+- name: parse_errors_are_surfaced_in_the_response
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 691
+  module: plugin-ext-test
+- name: list_mode_reports_the_discovered_cases
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 705
+  module: plugin-ext-test
+- name: a_tag_expression_narrows_the_case_list
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 727
+  module: plugin-ext-test
+- name: changed_discovery_degrades_gracefully_outside_a_repository
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 742
+  module: plugin-ext-test
+- name: an_explicit_jobs_policy_is_applied
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 755
+  module: plugin-ext-test
+- name: cache_lock
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 768
+  module: plugin-ext-test
+- name: LOCK
+  kind: const
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 769
+  module: plugin-ext-test
+- name: the_result_cache_round_trips
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 774
+  module: plugin-ext-test
+- name: a_corrupt_cache_is_reported_and_ignored
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 799
+  module: plugin-ext-test
+- name: an_unwritable_cache_location_is_reported_as_a_warning
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 829
+  module: plugin-ext-test
+- name: plugin
+  kind: module
+  file: crates/plugin-ext-test/src/lib.rs
+  line: 31
+  module: plugin-ext-test
+deps:
+- handl_platform
+- handl_plugin_engine_test
+- handl_platform
+- plugin
+notes: ''
+verify:
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/plugin.rs
+- crates/plugin-ext-test/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/lib.rs
+  hashes:
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - c1d60e24d9121f4baf527a7717042c3312af07c6
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,816 @@
+name: plugin-engine-lint
+path: crates/plugin-engine-lint/src/module.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: LintStatement
+  kind: type
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 29
+  module: plugin-engine-lint
+- name: LintModule
+  kind: type
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 41
+  module: plugin-engine-lint
+- name: parse_module
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 55
+  module: plugin-engine-lint
+- name: StatementAnalysis
+  kind: type
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 92
+  module: plugin-engine-lint
+- name: ModuleAnalysis
+  kind: type
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 109
+  module: plugin-engine-lint
+- name: build
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 120
+  module: plugin-engine-lint
+- name: absolute
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 173
+  module: plugin-engine-lint
+- name: VarRole
+  kind: type
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 185
+  module: plugin-engine-lint
+- name: VarOcc
+  kind: type
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 196
+  module: plugin-engine-lint
+- name: walk_vars
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 207
+  module: plugin-engine-lint
+- name: child_indices
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 295
+  module: plugin-engine-lint
+- name: name_at
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 312
+  module: plugin-engine-lint
+- name: leaf_span
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 333
+  module: plugin-engine-lint
+- name: first_child_var
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 350
+  module: plugin-engine-lint
+- name: eval_match_rule
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 366
+  module: plugin-engine-lint
+- name: walk_nodes
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 402
+  module: plugin-engine-lint
+- name: resolve_child
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 412
+  module: plugin-engine-lint
+- name: compute_fix
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 428
+  module: plugin-engine-lint
+- name: render_match_message
+  kind: function
+  file: crates/plugin-engine-lint/src/module.rs
+  line: 458
+  module: plugin-engine-lint
+- name: LintCtx
+  kind: type
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 33
+  module: plugin-engine-lint
+- name: NativeHit
+  kind: type
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 48
+  module: plugin-engine-lint
+- name: named
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 59
+  module: plugin-engine-lint
+- name: with_fix
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 70
+  module: plugin-engine-lint
+- name: NativeLintFn
+  kind: type
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 77
+  module: plugin-engine-lint
+- name: NativeLintResolver
+  kind: type
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 90
+  module: plugin-engine-lint
+- name: NativeLintRegistry
+  kind: type
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 100
+  module: plugin-engine-lint
+- name: fmt
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 106
+  module: plugin-engine-lint
+- name: new
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 118
+  module: plugin-engine-lint
+- name: register
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 123
+  module: plugin-engine-lint
+- name: extend
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 133
+  module: plugin-engine-lint
+- name: add_resolver
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 143
+  module: plugin-engine-lint
+- name: get
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 148
+  module: plugin-engine-lint
+- name: contains
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 156
+  module: plugin-engine-lint
+- name: CANONICAL_LINT_NATIVES
+  kind: const
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 162
+  module: plugin-engine-lint
+- name: canonical_lint_natives
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 184
+  module: plugin-engine-lint
+- name: unbound_wire
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 214
+  module: plugin-engine-lint
+- name: shadowed_binding
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 243
+  module: plugin-engine-lint
+- name: unused_import
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 266
+  module: plugin-engine-lint
+- name: naming_convention
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 309
+  module: plugin-engine-lint
+- name: is_snake_case
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 329
+  module: plugin-engine-lint
+- name: to_snake_case
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 355
+  module: plugin-engine-lint
+- name: missing_module_doc
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 377
+  module: plugin-engine-lint
+- name: fmt_noop
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 391
+  module: plugin-engine-lint
+- name: empty_block
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 400
+  module: plugin-engine-lint
+- name: walk_empty_blocks
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 416
+  module: plugin-engine-lint
+- name: unreachable_code
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 438
+  module: plugin-engine-lint
+- name: walk_unreachable
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 454
+  module: plugin-engine-lint
+- name: shadowed_binding_single
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 489
+  module: plugin-engine-lint
+- name: walk_shadows
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 507
+  module: plugin-engine-lint
+- name: unused_binding_single
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 568
+  module: plugin-engine-lint
+- name: walk_bindings
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 593
+  module: plugin-engine-lint
+- name: consume_line_end
+  kind: function
+  file: crates/plugin-engine-lint/src/native.rs
+  line: 642
+  module: plugin-engine-lint
+- name: module
+  kind: module
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 30
+  module: plugin-engine-lint
+- name: native
+  kind: module
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 32
+  module: plugin-engine-lint
+- name: DiagnosticLevel
+  kind: type
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 42
+  module: plugin-engine-lint
+- name: LintFixOut
+  kind: type
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 54
+  module: plugin-engine-lint
+- name: LintDiagnostic
+  kind: type
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 66
+  module: plugin-engine-lint
+- name: severity_of
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 81
+  module: plugin-engine-lint
+- name: render_native_message
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 95
+  module: plugin-engine-lint
+- name: LintEngine
+  kind: type
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 119
+  module: plugin-engine-lint
+- name: new
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 125
+  module: plugin-engine-lint
+- name: with_native_registry
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 131
+  module: plugin-engine-lint
+- name: with_native
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 137
+  module: plugin-engine-lint
+- name: with_canonical_lint_natives
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 149
+  module: plugin-engine-lint
+- name: lint_module
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 164
+  module: plugin-engine-lint
+- name: lint_source
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 223
+  module: plugin-engine-lint
+- name: lint
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 244
+  module: plugin-engine-lint
+- name: NodeClassifier
+  kind: type
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 266
+  module: plugin-engine-lint
+- name: build
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 281
+  module: plugin-engine-lint
+- name: is_block
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 327
+  module: plugin-engine-lint
+- name: is_terminal
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 337
+  module: plugin-engine-lint
+- name: binding_name
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 348
+  module: plugin-engine-lint
+- name: reference_name
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 388
+  module: plugin-engine-lint
+- name: schema_flag
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 427
+  module: plugin-engine-lint
+- name: ScopeStack
+  kind: type
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 433
+  module: plugin-engine-lint
+- name: new
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 438
+  module: plugin-engine-lint
+- name: push
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 444
+  module: plugin-engine-lint
+- name: pop
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 448
+  module: plugin-engine-lint
+- name: bind
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 454
+  module: plugin-engine-lint
+- name: shadows
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 462
+  module: plugin-engine-lint
+- name: tests
+  kind: module
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 468
+  module: plugin-engine-lint
+- name: test_lang
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 478
+  module: plugin-engine-lint
+- name: bare_lang
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 547
+  module: plugin-engine-lint
+- name: add_builtin_lints
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 563
+  module: plugin-engine-lint
+- name: test_lang_with_builtins
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 604
+  module: plugin-engine-lint
+- name: empty_block_warning
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 611
+  module: plugin-engine-lint
+- name: unreachable_code_after_return
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 626
+  module: plugin-engine-lint
+- name: unused_binding_warning
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 651
+  module: plugin-engine-lint
+- name: shadowing_warning
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 676
+  module: plugin-engine-lint
+- name: no_false_positives
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 703
+  module: plugin-engine-lint
+- name: data_driven_skip_when_no_flags
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 723
+  module: plugin-engine-lint
+- name: data_driven_skip_empty_block_still_works
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 741
+  module: plugin-engine-lint
+- name: paren_lang
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 762
+  module: plugin-engine-lint
+- name: paren_module
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 778
+  module: plugin-engine-lint
+- name: lint_module_match_rule_fires_with_declarative_fix
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 802
+  module: plugin-engine-lint
+- name: lint_module_match_rule_when_filters
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 841
+  module: plugin-engine-lint
+- name: lint_module_native_rule_dispatches_and_templates
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 862
+  module: plugin-engine-lint
+- name: lint_module_unknown_native_errors
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 887
+  module: plugin-engine-lint
+- name: lint_module_unknown_severity_errors
+  kind: function
+  file: crates/plugin-engine-lint/src/lib.rs
+  line: 904
+  module: plugin-engine-lint
+deps:
+- handl_language
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse
+- handl_plugin_engine_parse_pratt
+- handl_plugin_ext_diag
+- handl_language
+- handl_language
+- module
+- native
+- handl_language
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/module.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/native.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+- crates/plugin-engine-lint/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  hashes:
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

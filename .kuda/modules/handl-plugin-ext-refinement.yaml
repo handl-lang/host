@@ -1,0 +1,35 @@
+name: handl-plugin-ext-refinement
+path: crates/plugin-ext-refinement/Cargo.toml
+purpose: '`handl-plugin-ext-refinement` -- annotation-free refinement inference for handl''s `Term` IR.'
+api:
+- name: handl-plugin-ext-refinement
+  kind: module
+  file: crates/plugin-ext-refinement/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-refinement
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-parse
+- handl-plugin-engine-parse-pratt
+- handl-plugin-ext-detect
+- handl-plugin-lib-handl
+- plugin-engine
+- serde
+- serde_json
+- z3
+- handl-kit-data-canonical
+- handl-plugin-lib-char-native
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-refinement/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-refinement/Cargo.toml
+  hashes:
+  - 1cc2e7634f95ee66ff76ceef553f7c8980a6cfd6
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

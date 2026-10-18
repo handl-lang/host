@@ -1,0 +1,25 @@
+name: handl-plugin-sdkgen-emitter-file
+path: crates/plugin-sdkgen-emitter-file/Cargo.toml
+purpose: File emitter for the Handl SDK generator (ADR-0107).
+api:
+- name: handl-plugin-sdkgen-emitter-file
+  kind: module
+  file: crates/plugin-sdkgen-emitter-file/Cargo.toml
+  line: 1
+  module: handl-plugin-sdkgen-emitter-file
+deps:
+- handl-language
+- handl-plugin-ext-fmt
+- handl-plugin-sdkgen
+- handl-kit-data-canonical
+notes: ''
+verify:
+- crates/plugin-sdkgen-emitter-file/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-sdkgen-emitter-file/Cargo.toml
+  hashes:
+  - f067fd6d5d9cc0b46ba1656c91047ff6702cc782
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

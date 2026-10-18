@@ -1,0 +1,22 @@
+name: handl-plugin-applier
+path: crates/plugin-applier/Cargo.toml
+purpose: Seam between the bootstrap and concrete applier plugins (ADR-0036).
+api:
+- name: handl-plugin-applier
+  kind: module
+  file: crates/plugin-applier/Cargo.toml
+  line: 1
+  module: handl-plugin-applier
+deps:
+- handl-platform
+notes: ''
+verify:
+- crates/plugin-applier/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-applier/Cargo.toml
+  hashes:
+  - a71cb2d4ed0a5e95bcc3c46a8cfe0e475eefcfbf
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

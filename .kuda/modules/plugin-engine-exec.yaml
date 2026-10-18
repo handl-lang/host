@@ -1,0 +1,794 @@
+name: plugin-engine-exec
+path: crates/plugin-engine-exec/src/pattern_match.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: PatternMatchCtx
+  kind: trait
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 41
+  module: plugin-engine-exec
+- name: global_value
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 68
+  module: plugin-engine-exec
+- name: lang
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 78
+  module: plugin-engine-exec
+- name: pattern_role_is
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 90
+  module: plugin-engine-exec
+- name: is_binder_node
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 98
+  module: plugin-engine-exec
+- name: is_tag_pattern_node
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 105
+  module: plugin-engine-exec
+- name: child_idx
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 113
+  module: plugin-engine-exec
+- name: is_wildcard_name
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 124
+  module: plugin-engine-exec
+- name: try_pattern
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 138
+  module: plugin-engine-exec
+- name: rest_binder_name
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 190
+  module: plugin-engine-exec
+- name: try_array_pattern
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 231
+  module: plugin-engine-exec
+- name: try_object_pattern
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 303
+  module: plugin-engine-exec
+- name: try_tag_pattern
+  kind: function
+  file: crates/plugin-engine-exec/src/pattern_match.rs
+  line: 420
+  module: plugin-engine-exec
+- name: Num
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 46
+  module: plugin-engine-exec
+- name: to_f64
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 55
+  module: plugin-engine-exec
+- name: Output
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 64
+  module: plugin-engine-exec
+- name: add
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 65
+  module: plugin-engine-exec
+- name: Output
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 74
+  module: plugin-engine-exec
+- name: sub
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 75
+  module: plugin-engine-exec
+- name: Output
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 84
+  module: plugin-engine-exec
+- name: mul
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 85
+  module: plugin-engine-exec
+- name: Output
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 94
+  module: plugin-engine-exec
+- name: div
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 95
+  module: plugin-engine-exec
+- name: Output
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 110
+  module: plugin-engine-exec
+- name: rem
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 111
+  module: plugin-engine-exec
+- name: eq
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 120
+  module: plugin-engine-exec
+- name: partial_cmp
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 126
+  module: plugin-engine-exec
+- name: as_num
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 132
+  module: plugin-engine-exec
+- name: num_value
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 141
+  module: plugin-engine-exec
+- name: is_truthy
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 151
+  module: plugin-engine-exec
+- name: type_tag
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 163
+  module: plugin-engine-exec
+- name: bin_num
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 190
+  module: plugin-engine-exec
+- name: bin_add
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 210
+  module: plugin-engine-exec
+- name: bin_add_pair
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 218
+  module: plugin-engine-exec
+- name: cmp_num
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 233
+  module: plugin-engine-exec
+- name: OpService
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 251
+  module: plugin-engine-exec
+- name: NativeOpCtx
+  kind: trait
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 277
+  module: plugin-engine-exec
+- name: clear_eval_error
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 364
+  module: plugin-engine-exec
+- name: rec_bound_names
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 446
+  module: plugin-engine-exec
+- name: rec_region_enter
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 453
+  module: plugin-engine-exec
+- name: rec_region_exit
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 455
+  module: plugin-engine-exec
+- name: import_resolver
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 479
+  module: plugin-engine-exec
+- name: OpResult
+  kind: type
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 491
+  module: plugin-engine-exec
+- name: apply_native_op
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 508
+  module: plugin-engine-exec
+- name: opt_none
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2392
+  module: plugin-engine-exec
+- name: opt_some
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2397
+  module: plugin-engine-exec
+- name: cell_axis_op_dim
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2408
+  module: plugin-engine-exec
+- name: node_children
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2426
+  module: plugin-engine-exec
+- name: role_child_arena
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2436
+  module: plugin-engine-exec
+- name: is_assign_node
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2450
+  module: plugin-engine-exec
+- name: is_return_node
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2456
+  module: plugin-engine-exec
+- name: binding_target_name
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2466
+  module: plugin-engine-exec
+- name: arrow_free
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2509
+  module: plugin-engine-exec
+- name: rec_value_eq
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2520
+  module: plugin-engine-exec
+- name: eval_rec_region
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2552
+  module: plugin-engine-exec
+- name: eval_rec_region_loop
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2591
+  module: plugin-engine-exec
+- name: MAX_FUEL
+  kind: const
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2608
+  module: plugin-engine-exec
+- name: match_shell
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2759
+  module: plugin-engine-exec
+- name: step_decision
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2892
+  module: plugin-engine-exec
+- name: build_loop_step_args
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 2970
+  module: plugin-engine-exec
+- name: loop_step_outcome
+  kind: function
+  file: crates/plugin-engine-exec/src/native_ops.rs
+  line: 3021
+  module: plugin-engine-exec
+- name: native_ops
+  kind: module
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 20
+  module: plugin-engine-exec
+- name: pattern_match
+  kind: module
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 21
+  module: plugin-engine-exec
+- name: Eval
+  kind: type
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 34
+  module: plugin-engine-exec
+- name: EvalRequest
+  kind: type
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 42
+  module: plugin-engine-exec
+- name: new
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 51
+  module: plugin-engine-exec
+- name: with_options
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 59
+  module: plugin-engine-exec
+- name: EvalEngine
+  kind: trait
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 76
+  module: plugin-engine-exec
+- name: with_modules
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 89
+  module: plugin-engine-exec
+- name: with_global
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 95
+  module: plugin-engine-exec
+- name: with_import_resolver
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 103
+  module: plugin-engine-exec
+- name: eval_shared
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 121
+  module: plugin-engine-exec
+- name: eval_shared_with_call_args
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 146
+  module: plugin-engine-exec
+- name: eval_tagged
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 179
+  module: plugin-engine-exec
+- name: seal_module_value
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 199
+  module: plugin-engine-exec
+- name: ImportResolver
+  kind: trait
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 223
+  module: plugin-engine-exec
+- name: resolve_import_tagged
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 251
+  module: plugin-engine-exec
+- name: tests
+  kind: module
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 258
+  module: plugin-engine-exec
+- name: eval_marker_constructs
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 266
+  module: plugin-engine-exec
+- name: eval_request_new_from_ast
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 276
+  module: plugin-engine-exec
+- name: eval_request_with_options
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 285
+  module: plugin-engine-exec
+- name: StubEval
+  kind: type
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 293
+  module: plugin-engine-exec
+- name: eval
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 296
+  module: plugin-engine-exec
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 300
+  module: plugin-engine-exec
+- name: trait_dispatch_returns_engine_result
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 306
+  module: plugin-engine-exec
+- name: trait_dispatch_via_dyn_reference
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 315
+  module: plugin-engine-exec
+- name: AddHostFn
+  kind: type
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 324
+  module: plugin-engine-exec
+- name: call
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 327
+  module: plugin-engine-exec
+- name: AddModule
+  kind: type
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 338
+  module: plugin-engine-exec
+- name: name
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 341
+  module: plugin-engine-exec
+- name: function
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 344
+  module: plugin-engine-exec
+- name: call_fn
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 354
+  module: plugin-engine-exec
+- name: host_functions_lookup_registered
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 360
+  module: plugin-engine-exec
+- name: host_functions_lookup_unregistered_returns_none
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 368
+  module: plugin-engine-exec
+- name: host_fn_call_with_no_args
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 374
+  module: plugin-engine-exec
+- name: host_functions_via_dyn_trait
+  kind: function
+  file: crates/plugin-engine-exec/src/lib.rs
+  line: 380
+  module: plugin-engine-exec
+deps:
+- handl_language
+- handl_value
+- rustc_hash
+- handl_language
+- handl_value
+- rustc_hash
+- serde_json
+- handl_language
+- handl_value
+- handl_language
+- handl_platform
+- handl_plugin_module
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/pattern_match.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/native_ops.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+- crates/plugin-engine-exec/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  hashes:
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

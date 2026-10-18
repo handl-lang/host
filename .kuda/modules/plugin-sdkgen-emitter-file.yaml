@@ -1,0 +1,257 @@
+name: plugin-sdkgen-emitter-file
+path: crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: lang
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  line: 8
+  module: plugin-sdkgen-emitter-file
+- name: build_console_module
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  line: 15
+  module: plugin-sdkgen-emitter-file
+- name: emits_js_port_and_adapter
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  line: 45
+  module: plugin-sdkgen-emitter-file
+- name: emits_per_record_layout
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  line: 127
+  module: plugin-sdkgen-emitter-file
+- name: lang
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  line: 8
+  module: plugin-sdkgen-emitter-file
+- name: build_clock_module
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  line: 15
+  module: plugin-sdkgen-emitter-file
+- name: emits_port_and_adapter
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  line: 82
+  module: plugin-sdkgen-emitter-file
+- name: out_buf_descriptor_gets_buf_unwrap_body
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  line: 129
+  module: plugin-sdkgen-emitter-file
+- name: FileEmitter
+  kind: type
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 16
+  module: plugin-sdkgen-emitter-file
+- name: new
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 21
+  module: plugin-sdkgen-emitter-file
+- name: register
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 29
+  module: plugin-sdkgen-emitter-file
+- name: emit
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 37
+  module: plugin-sdkgen-emitter-file
+- name: emit_per_record
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 81
+  module: plugin-sdkgen-emitter-file
+- name: canonicalize
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 145
+  module: plugin-sdkgen-emitter-file
+- name: target_slug
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 155
+  module: plugin-sdkgen-emitter-file
+- name: ClientInfo
+  kind: type
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 171
+  module: plugin-sdkgen-emitter-file
+- name: client_info
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 177
+  module: plugin-sdkgen-emitter-file
+- name: build_port
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 193
+  module: plugin-sdkgen-emitter-file
+- name: is_byte_slot
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 315
+  module: plugin-sdkgen-emitter-file
+- name: is_struct_slot
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 319
+  module: plugin-sdkgen-emitter-file
+- name: result_record_fields
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 328
+  module: plugin-sdkgen-emitter-file
+- name: msg_record_fields
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 369
+  module: plugin-sdkgen-emitter-file
+- name: split_top_fields
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 391
+  module: plugin-sdkgen-emitter-file
+- name: spec_head
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 417
+  module: plugin-sdkgen-emitter-file
+- name: field_port
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 431
+  module: plugin-sdkgen-emitter-file
+- name: build_adapter
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 454
+  module: plugin-sdkgen-emitter-file
+- name: js_descriptor
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 604
+  module: plugin-sdkgen-emitter-file
+- name: is_numeric_descriptor
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 619
+  module: plugin-sdkgen-emitter-file
+- name: HANDL_KEYWORDS
+  kind: const
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 629
+  module: plugin-sdkgen-emitter-file
+- name: safe_ident
+  kind: function
+  file: crates/plugin-sdkgen-emitter-file/src/lib.rs
+  line: 636
+  module: plugin-sdkgen-emitter-file
+deps:
+- handl_plugin_sdkgen_emitter_file
+- handl_plugin_sdkgen_emitter_file
+- handl_language
+- handl_plugin_sdkgen
+notes: ''
+verify:
+- crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+- crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+- crates/plugin-sdkgen-emitter-file/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  hashes:
+  - 29eef0607a6626afcf3ffb6c8554e78325008d90
+  - 29eef0607a6626afcf3ffb6c8554e78325008d90
+  - 29eef0607a6626afcf3ffb6c8554e78325008d90
+  - 29eef0607a6626afcf3ffb6c8554e78325008d90
+  - e19beb4b313b3fd52c96488240dae220091a7f47
+  - e19beb4b313b3fd52c96488240dae220091a7f47
+  - e19beb4b313b3fd52c96488240dae220091a7f47
+  - e19beb4b313b3fd52c96488240dae220091a7f47
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

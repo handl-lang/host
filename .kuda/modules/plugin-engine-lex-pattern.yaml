@@ -1,0 +1,396 @@
+name: plugin-engine-lex-pattern
+path: crates/plugin-engine-lex-pattern/tests/integration.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: lex
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 10
+  module: plugin-engine-lex-pattern
+- name: lex_simple_expression
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 33
+  module: plugin-engine-lex-pattern
+- name: lex_bind_token_is_double_colon
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 58
+  module: plugin-engine-lex-pattern
+- name: lex_let_binding
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 83
+  module: plugin-engine-lex-pattern
+- name: lex_string_literal
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 116
+  module: plugin-engine-lex-pattern
+- name: lex_delimiters
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 129
+  module: plugin-engine-lex-pattern
+- name: lex_bool_and_null
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 164
+  module: plugin-engine-lex-pattern
+- name: lex_longest_match_operators
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 192
+  module: plugin-engine-lex-pattern
+- name: lex_line_comment_produces_token
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 271
+  module: plugin-engine-lex-pattern
+- name: lex_unicode_contract_characters
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 281
+  module: plugin-engine-lex-pattern
+- name: lex_unicode_greek_type_variables
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 298
+  module: plugin-engine-lex-pattern
+- name: lex_unicode_greek_uppercase_identifiers
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 324
+  module: plugin-engine-lex-pattern
+- name: lex_unicode_contract_with_greek_vars
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 350
+  module: plugin-engine-lex-pattern
+- name: lex_decimal_and_minus
+  kind: function
+  file: crates/plugin-engine-lex-pattern/tests/integration.rs
+  line: 364
+  module: plugin-engine-lex-pattern
+- name: DataLexerEngine
+  kind: type
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 32
+  module: plugin-engine-lex-pattern
+- name: new
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 36
+  module: plugin-engine-lex-pattern
+- name: lex
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 42
+  module: plugin-engine-lex-pattern
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 46
+  module: plugin-engine-lex-pattern
+- name: lex
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 57
+  module: plugin-engine-lex-pattern
+- name: literal_len
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 178
+  module: plugin-engine-lex-pattern
+- name: try_rule
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 187
+  module: plugin-engine-lex-pattern
+- name: try_number
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 287
+  module: plugin-engine-lex-pattern
+- name: try_delimited
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 343
+  module: plugin-engine-lex-pattern
+- name: peek_char
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 404
+  module: plugin-engine-lex-pattern
+- name: is_whitespace
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 412
+  module: plugin-engine-lex-pattern
+- name: char_matches
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 420
+  module: plugin-engine-lex-pattern
+- name: is_word_literal
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 445
+  module: plugin-engine-lex-pattern
+- name: tests
+  kind: module
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 450
+  module: plugin-engine-lex-pattern
+- name: debug_lex_colon
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 455
+  module: plugin-engine-lex-pattern
+- name: test_lang
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 465
+  module: plugin-engine-lex-pattern
+- name: kinds_texts
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 561
+  module: plugin-engine-lex-pattern
+- name: lex_simple_expression
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 568
+  module: plugin-engine-lex-pattern
+- name: lex_identifiers
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 582
+  module: plugin-engine-lex-pattern
+- name: lex_string_with_escapes
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 592
+  module: plugin-engine-lex-pattern
+- name: lex_string_with_escaped_quote
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 599
+  module: plugin-engine-lex-pattern
+- name: lex_keyword_vs_identifier
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 606
+  module: plugin-engine-lex-pattern
+- name: lex_keyword_prefix_does_not_split_identifier
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 616
+  module: plugin-engine-lex-pattern
+- name: lex_operator_longest_match
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 632
+  module: plugin-engine-lex-pattern
+- name: lex_delimiters
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 646
+  module: plugin-engine-lex-pattern
+- name: whitespace_is_skipped
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 662
+  module: plugin-engine-lex-pattern
+- name: unknown_character_returns_error
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 676
+  module: plugin-engine-lex-pattern
+- name: unterminated_string_returns_error
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 683
+  module: plugin-engine-lex-pattern
+- name: lex_decimal_number
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 690
+  module: plugin-engine-lex-pattern
+- name: lex_negative_number
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 697
+  module: plugin-engine-lex-pattern
+- name: lex_empty_source
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 704
+  module: plugin-engine-lex-pattern
+- name: char_matches_ranges
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 711
+  module: plugin-engine-lex-pattern
+- name: engine_trait_dispatch
+  kind: function
+  file: crates/plugin-engine-lex-pattern/src/lib.rs
+  line: 722
+  module: plugin-engine-lex-pattern
+deps:
+- handl_kit_data_canonical
+- handl_language
+- handl_plugin_engine_lex
+- handl_plugin_engine_lex_pattern
+- handl_language
+- handl_plugin_engine_lex
+- handl_language
+notes: ''
+verify:
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/tests/integration.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+- crates/plugin-engine-lex-pattern/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  hashes:
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

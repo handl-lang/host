@@ -1,0 +1,26 @@
+name: handl-plugin-engine-parse-pratt
+path: crates/plugin-engine-parse-pratt/Cargo.toml
+purpose: The **Pratt engine** for the parse operation (ADR-0044 §3).
+api:
+- name: handl-plugin-engine-parse-pratt
+  kind: module
+  file: crates/plugin-engine-parse-pratt/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-parse-pratt
+deps:
+- handl-language
+- handl-plugin-engine-parse
+- serde_json
+- handl-test-utils
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-parse-pratt/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-parse-pratt/Cargo.toml
+  hashes:
+  - 28b740759db8743d848cb446cafb5f7c07892614
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

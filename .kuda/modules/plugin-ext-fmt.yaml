@@ -1,0 +1,793 @@
+name: plugin-ext-fmt
+path: crates/plugin-ext-fmt/tests/idempotence.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: lang
+  kind: function
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 13
+  module: plugin-ext-fmt
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 14
+  module: plugin-ext-fmt
+- name: format_source
+  kind: function
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 22
+  module: plugin-ext-fmt
+- name: find_hnl_files
+  kind: function
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 27
+  module: plugin-ext-fmt
+- name: idempotence_over_repo_examples
+  kind: function
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 41
+  module: plugin-ext-fmt
+- name: lang
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 13
+  module: plugin-ext-fmt
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 14
+  module: plugin-ext-fmt
+- name: format_source
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 22
+  module: plugin-ext-fmt
+- name: golden_names
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 28
+  module: plugin-ext-fmt
+- name: read_golden
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 46
+  module: plugin-ext-fmt
+- name: golden_file_tests
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 54
+  module: plugin-ext-fmt
+- name: golden_idempotence
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 70
+  module: plugin-ext-fmt
+- name: golden_expected_is_idempotent
+  kind: function
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 86
+  module: plugin-ext-fmt
+- name: FMT_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 43
+  module: plugin-ext-fmt
+- name: FmtPlugin
+  kind: type
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 50
+  module: plugin-ext-fmt
+- name: new
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 57
+  module: plugin-ext-fmt
+- name: id
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 66
+  module: plugin-ext-fmt
+- name: name
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 70
+  module: plugin-ext-fmt
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 74
+  module: plugin-ext-fmt
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 78
+  module: plugin-ext-fmt
+- name: run
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 88
+  module: plugin-ext-fmt
+- name: tests
+  kind: module
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 148
+  module: plugin-ext-fmt
+- name: lang
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 154
+  module: plugin-ext-fmt
+- name: with_ctx
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 161
+  module: plugin-ext-fmt
+- name: req
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 171
+  module: plugin-ext-fmt
+- name: declares_the_fmt_capability
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 179
+  module: plugin-ext-fmt
+- name: check_reports_whether_source_is_formatted
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 189
+  module: plugin-ext-fmt
+- name: a_parse_error_carries_a_structured_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 208
+  module: plugin-ext-fmt
+- name: format_returns_output
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 241
+  module: plugin-ext-fmt
+- name: name_is_reported
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 260
+  module: plugin-ext-fmt
+- name: check_reports_not_canonical_for_unformatted_source
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 267
+  module: plugin-ext-fmt
+- name: check_on_a_lex_error_carries_a_structured_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 288
+  module: plugin-ext-fmt
+- name: format_reports_a_lex_error_as_a_structured_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 314
+  module: plugin-ext-fmt
+- name: missing_source_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 334
+  module: plugin-ext-fmt
+- name: wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 345
+  module: plugin-ext-fmt
+- name: plugin
+  kind: module
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 52
+  module: plugin-ext-fmt
+- name: FormatError
+  kind: type
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 68
+  module: plugin-ext-fmt
+- name: fmt
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 76
+  module: plugin-ext-fmt
+- name: from
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 87
+  module: plugin-ext-fmt
+- name: format_source_with_language
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 109
+  module: plugin-ext-fmt
+- name: check_source_with_language
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 127
+  module: plugin-ext-fmt
+- name: format_ast
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 144
+  module: plugin-ext-fmt
+- name: format_error_to_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 156
+  module: plugin-ext-fmt
+- name: normalize_for_compare
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 174
+  module: plugin-ext-fmt
+- name: tests
+  kind: module
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 194
+  module: plugin-ext-fmt
+- name: lang
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 199
+  module: plugin-ext-fmt
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 200
+  module: plugin-ext-fmt
+- name: format_source
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 207
+  module: plugin-ext-fmt
+- name: check_source
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 211
+  module: plugin-ext-fmt
+- name: format_ast_renders_a_parsed_arena
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 218
+  module: plugin-ext-fmt
+- name: check_source_tolerates_extra_trailing_blank_lines
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 234
+  module: plugin-ext-fmt
+- name: format_empty_input
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 249
+  module: plugin-ext-fmt
+- name: format_whitespace_only
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 255
+  module: plugin-ext-fmt
+- name: format_simple_binding
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 261
+  module: plugin-ext-fmt
+- name: format_binding_no_trailing_newline
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 267
+  module: plugin-ext-fmt
+- name: format_import
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 273
+  module: plugin-ext-fmt
+- name: format_export
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 279
+  module: plugin-ext-fmt
+- name: format_composition
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 285
+  module: plugin-ext-fmt
+- name: format_loop
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 291
+  module: plugin-ext-fmt
+- name: format_list
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 297
+  module: plugin-ext-fmt
+- name: format_record
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 303
+  module: plugin-ext-fmt
+- name: format_if_expr
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 309
+  module: plugin-ext-fmt
+- name: format_field_access
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 315
+  module: plugin-ext-fmt
+- name: format_multi_import
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 321
+  module: plugin-ext-fmt
+- name: format_alias_import
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 327
+  module: plugin-ext-fmt
+- name: removes_trailing_whitespace
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 335
+  module: plugin-ext-fmt
+- name: collapses_multiple_blank_lines
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 341
+  module: plugin-ext-fmt
+- name: enforces_single_trailing_newline
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 348
+  module: plugin-ext-fmt
+- name: adds_blank_line_between_imports_and_binding
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 355
+  module: plugin-ext-fmt
+- name: no_blank_line_between_consecutive_imports
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 362
+  module: plugin-ext-fmt
+- name: adds_blank_line_between_bindings
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 372
+  module: plugin-ext-fmt
+- name: comment_preserved
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 379
+  module: plugin-ext-fmt
+- name: comment_with_blank_line_to_binding
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 389
+  module: plugin-ext-fmt
+- name: fixes_extra_spaces_around_operator
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 399
+  module: plugin-ext-fmt
+- name: removes_space_inside_brackets
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 405
+  module: plugin-ext-fmt
+- name: removes_space_inside_parens
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 411
+  module: plugin-ext-fmt
+- name: idempotent_simple_binding
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 419
+  module: plugin-ext-fmt
+- name: idempotent_module
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 427
+  module: plugin-ext-fmt
+- name: idempotent_non_canonical_input
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 435
+  module: plugin-ext-fmt
+- name: keyword_bracket_spacing_round_trip
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 445
+  module: plugin-ext-fmt
+- name: check_source_true_for_canonical
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 469
+  module: plugin-ext-fmt
+- name: check_source_true_for_canonical_no_trailing_newline
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 475
+  module: plugin-ext-fmt
+- name: check_source_false_for_extra_spaces
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 481
+  module: plugin-ext-fmt
+- name: check_source_false_for_missing_blank_line
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 487
+  module: plugin-ext-fmt
+- name: check_source_true_for_empty
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 493
+  module: plugin-ext-fmt
+- name: format_error_display
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 500
+  module: plugin-ext-fmt
+- name: format_error_to_diagnostic_parse
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 508
+  module: plugin-ext-fmt
+- name: format_error_to_diagnostic_ast
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 518
+  module: plugin-ext-fmt
+- name: classify_known_tokens
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 529
+  module: plugin-ext-fmt
+- name: needs_space_rules
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 544
+  module: plugin-ext-fmt
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 580
+  module: plugin-ext-fmt
+- name: run_returns_formatted_output_when_rule_matches
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 588
+  module: plugin-ext-fmt
+- name: Echo
+  kind: type
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 589
+  module: plugin-ext-fmt
+- name: kind
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 592
+  module: plugin-ext-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 596
+  module: plugin-ext-fmt
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 628
+  module: plugin-ext-fmt
+deps:
+- handl_plugin_ext_fmt
+- handl_plugin_ext_fmt
+- handl_platform
+- handl_platform
+- handl_language
+- handl_platform
+- handl_plugin_engine_fmt
+- plugin
+- handl_language
+- handl_plugin_engine_lex_pattern
+- handl_plugin_ext_diag
+- handl_platform
+notes: ''
+verify:
+- crates/plugin-ext-fmt/tests/idempotence.rs
+- crates/plugin-ext-fmt/tests/idempotence.rs
+- crates/plugin-ext-fmt/tests/idempotence.rs
+- crates/plugin-ext-fmt/tests/idempotence.rs
+- crates/plugin-ext-fmt/tests/idempotence.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-fmt/tests/idempotence.rs
+  - crates/plugin-ext-fmt/tests/idempotence.rs
+  - crates/plugin-ext-fmt/tests/idempotence.rs
+  - crates/plugin-ext-fmt/tests/idempotence.rs
+  - crates/plugin-ext-fmt/tests/idempotence.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  hashes:
+  - a9c0b1213c3b8f3953fe1c3f967ac8ea684c82a8
+  - a9c0b1213c3b8f3953fe1c3f967ac8ea684c82a8
+  - a9c0b1213c3b8f3953fe1c3f967ac8ea684c82a8
+  - a9c0b1213c3b8f3953fe1c3f967ac8ea684c82a8
+  - a9c0b1213c3b8f3953fe1c3f967ac8ea684c82a8
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

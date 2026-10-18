@@ -1,0 +1,25 @@
+name: handl-plugin-ext-plugin
+path: crates/plugin-ext-plugin/Cargo.toml
+purpose: Plugin extension — the plugin-management capability adapter.
+api:
+- name: handl-plugin-ext-plugin
+  kind: module
+  file: crates/plugin-ext-plugin/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-plugin
+deps:
+- handl-platform
+- serde_json
+- handl-plugin-load
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-plugin/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-plugin/Cargo.toml
+  hashes:
+  - d2358ac29f652e22bcbf48fbd58a01ada0b9897c
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

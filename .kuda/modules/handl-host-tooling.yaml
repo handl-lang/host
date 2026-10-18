@@ -1,0 +1,31 @@
+name: handl-host-tooling
+path: crates/host-tooling/Cargo.toml
+purpose: 'Tooling / LSP host: the plugin-host contract for tooling capabilities.'
+api:
+- name: handl-host-tooling
+  kind: module
+  file: crates/host-tooling/Cargo.toml
+  line: 1
+  module: handl-host-tooling
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-ext-diag
+- handl-plugin-ext-fmt
+- handl-plugin-ext-lint
+- serde
+- serde_json
+- handl-kit-canonical
+- handl-plugin-loader-native
+- handl-plugin-loader-native-fixture-echo
+notes: ''
+verify:
+- crates/host-tooling/Cargo.toml
+provenance:
+  files:
+  - crates/host-tooling/Cargo.toml
+  hashes:
+  - 895099e8f221de4344c9408601777362f4683414
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

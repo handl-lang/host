@@ -1,0 +1,702 @@
+name: plugin-lib-tag
+path: crates/plugin-lib-tag/src/registry.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: TYPE_TAG_PREFIX
+  kind: const
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 24
+  module: plugin-lib-tag
+- name: TypeRegistry
+  kind: type
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 28
+  module: plugin-lib-tag
+- name: new
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 39
+  module: plugin-lib-tag
+- name: registry_id
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 49
+  module: plugin-lib-tag
+- name: construct
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 66
+  module: plugin-lib-tag
+- name: is_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 89
+  module: plugin-lib-tag
+- name: as_type_tag
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 108
+  module: plugin-lib-tag
+- name: match_type
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 126
+  module: plugin-lib-tag
+- name: call_fn
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 12
+  module: plugin-lib-tag
+- name: tag_mints_tagged_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 22
+  module: plugin-lib-tag
+- name: tag_null_payload_is_empty
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 35
+  module: plugin-lib-tag
+- name: tag_rejects_non_string_name
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 42
+  module: plugin-lib-tag
+- name: tag_wraps_non_object_payload_in_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 48
+  module: plugin-lib-tag
+- name: tag_rejects_smuggled_tag_key
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 57
+  module: plugin-lib-tag
+- name: tag_rejects_wrong_arity
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 69
+  module: plugin-lib-tag
+- name: untag_returns_payload_without_tag_key
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 79
+  module: plugin-lib-tag
+- name: untag_non_tag_value_returns_null
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 87
+  module: plugin-lib-tag
+- name: tag_of_returns_tag_name
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 93
+  module: plugin-lib-tag
+- name: tag_of_non_tag_value_returns_null
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 99
+  module: plugin-lib-tag
+- name: is_tag_recognizes_tagged_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 105
+  module: plugin-lib-tag
+- name: module_exposes_all_callables
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 120
+  module: plugin-lib-tag
+- name: registry_construct_mints_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 151
+  module: plugin-lib-tag
+- name: registry_construct_null_payload_is_empty
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 162
+  module: plugin-lib-tag
+- name: registry_construct_rejects_non_object_payload
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 171
+  module: plugin-lib-tag
+- name: registry_construct_rejects_smuggled_tag_key
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 178
+  module: plugin-lib-tag
+- name: registry_construct_rejects_smuggled_registry_key
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 187
+  module: plugin-lib-tag
+- name: registry_is_type_value_recognizes_registry_scoped_type
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 196
+  module: plugin-lib-tag
+- name: registry_is_type_value_rejects_non_type_tag
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 206
+  module: plugin-lib-tag
+- name: registry_is_type_value_rejects_value_without_registry
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 215
+  module: plugin-lib-tag
+- name: registry_is_type_value_rejects_different_registry
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 224
+  module: plugin-lib-tag
+- name: registry_is_type_value_rejects_non_tagged_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 236
+  module: plugin-lib-tag
+- name: registry_match_type_dispatches_on_type_tag
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 244
+  module: plugin-lib-tag
+- name: registry_match_type_returns_none_when_no_case
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 254
+  module: plugin-lib-tag
+- name: registry_match_type_returns_none_for_non_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 264
+  module: plugin-lib-tag
+- name: registry_match_type_no_default_fallback
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 278
+  module: plugin-lib-tag
+- name: construct_host_function_mints_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 293
+  module: plugin-lib-tag
+- name: construct_host_function_rejects_smuggled_keys
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 305
+  module: plugin-lib-tag
+- name: construct_host_function_rejects_non_string_name
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 328
+  module: plugin-lib-tag
+- name: construct_host_function_rejects_non_object_payload
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 334
+  module: plugin-lib-tag
+- name: construct_host_function_rejects_wrong_arity
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 340
+  module: plugin-lib-tag
+- name: match_type_host_function_dispatches
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 346
+  module: plugin-lib-tag
+- name: match_type_host_function_returns_null_when_no_case
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 358
+  module: plugin-lib-tag
+- name: match_type_host_function_returns_null_for_non_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 366
+  module: plugin-lib-tag
+- name: match_type_host_function_no_default_fallback
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 373
+  module: plugin-lib-tag
+- name: match_type_host_function_rejects_wrong_arity
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 381
+  module: plugin-lib-tag
+- name: registry
+  kind: module
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 61
+  module: plugin-lib-tag
+- name: tests
+  kind: module
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 65
+  module: plugin-lib-tag
+- name: TAG_HNL
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 70
+  module: plugin-lib-tag
+- name: TAG_OPS
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 73
+  module: plugin-lib-tag
+- name: Tag
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 98
+  module: plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 101
+  module: plugin-lib-tag
+- name: payload_of
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 121
+  module: plugin-lib-tag
+- name: Untag
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 144
+  module: plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 147
+  module: plugin-lib-tag
+- name: TagOf
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 163
+  module: plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 166
+  module: plugin-lib-tag
+- name: IsTag
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 183
+  module: plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 186
+  module: plugin-lib-tag
+- name: require_one_arg
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 193
+  module: plugin-lib-tag
+- name: CANONICAL_REGISTRY_ID
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 208
+  module: plugin-lib-tag
+- name: Construct
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 223
+  module: plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 226
+  module: plugin-lib-tag
+- name: MatchType
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 258
+  module: plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 261
+  module: plugin-lib-tag
+- name: tag_op_registry
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 289
+  module: plugin-lib-tag
+- name: TAG
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 304
+  module: plugin-lib-tag
+- name: UNTAG
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 305
+  module: plugin-lib-tag
+- name: TAG_OF
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 306
+  module: plugin-lib-tag
+- name: IS_TAG
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 307
+  module: plugin-lib-tag
+- name: CONSTRUCT
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 308
+  module: plugin-lib-tag
+- name: MATCH_TYPE
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 309
+  module: plugin-lib-tag
+- name: TagModule
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 319
+  module: plugin-lib-tag
+- name: name
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 322
+  module: plugin-lib-tag
+- name: function
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 326
+  module: plugin-lib-tag
+- name: functions
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 338
+  module: plugin-lib-tag
+- name: TagLibraryPlugin
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 373
+  module: plugin-lib-tag
+- name: new
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 379
+  module: plugin-lib-tag
+- name: default
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 389
+  module: plugin-lib-tag
+- name: id
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 395
+  module: plugin-lib-tag
+- name: name
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 399
+  module: plugin-lib-tag
+- name: capabilities
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 403
+  module: plugin-lib-tag
+- name: metadata
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 407
+  module: plugin-lib-tag
+- name: contribute
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 414
+  module: plugin-lib-tag
+- name: run
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 421
+  module: plugin-lib-tag
+- name: tag_handl_plugin
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 434
+  module: plugin-lib-tag
+deps:
+- handl_language
+- handl_language
+- handl_platform
+- serde_json
+- handl_language
+- handl_platform
+- handl_plugin_lib_handl
+- registry
+- handl_language
+notes: ''
+verify:
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/tests.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  hashes:
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

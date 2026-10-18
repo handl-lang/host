@@ -1,0 +1,953 @@
+name: plugin-engine-typecheck
+path: crates/plugin-engine-typecheck/tests/bootstrap.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: lang
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 14
+  module: plugin-engine-typecheck
+- name: LANG
+  kind: const
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 15
+  module: plugin-engine-typecheck
+- name: has_diag
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 23
+  module: plugin-engine-typecheck
+- name: assert_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 31
+  module: plugin-engine-typecheck
+- name: duplicate_binding_semicolon
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 48
+  module: plugin-engine-typecheck
+- name: duplicate_binding_newline
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 58
+  module: plugin-engine-typecheck
+- name: duplicate_binding_span_points_at_name
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 68
+  module: plugin-engine-typecheck
+- name: unbound_export
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 85
+  module: plugin-engine-typecheck
+- name: bound_export_is_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 95
+  module: plugin-engine-typecheck
+- name: unused_import
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 110
+  module: plugin-engine-typecheck
+- name: unused_import_span_points_at_name
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 120
+  module: plugin-engine-typecheck
+- name: unbound_wire
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 137
+  module: plugin-engine-typecheck
+- name: unbound_wire_span_points_at_name
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 147
+  module: plugin-engine-typecheck
+- name: bound_wire_from_binding_is_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 160
+  module: plugin-engine-typecheck
+- name: clean_module
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 170
+  module: plugin-engine-typecheck
+- name: clean_module_with_import_and_call
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 176
+  module: plugin-engine-typecheck
+- name: all_imports_used
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 186
+  module: plugin-engine-typecheck
+- name: rec_not_yet_checked
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 201
+  module: plugin-engine-typecheck
+- name: error_recovery_reports_all
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 224
+  module: plugin-engine-typecheck
+- name: error_recovery_duplicate_and_unbound
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 247
+  module: plugin-engine-typecheck
+- name: empty_module
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 267
+  module: plugin-engine-typecheck
+- name: whitespace_only_module
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 273
+  module: plugin-engine-typecheck
+- name: comment_only_module
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 279
+  module: plugin-engine-typecheck
+- name: parse_error
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 289
+  module: plugin-engine-typecheck
+- name: parse_error_message_is_nonempty
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 296
+  module: plugin-engine-typecheck
+- name: check_module_returns_report
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 309
+  module: plugin-engine-typecheck
+- name: typecheck_report_default_is_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 316
+  module: plugin-engine-typecheck
+- name: check_error_display
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 323
+  module: plugin-engine-typecheck
+- name: check_error_equality
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 329
+  module: plugin-engine-typecheck
+- name: duplicate_binding_is_error_not_warning
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 345
+  module: plugin-engine-typecheck
+- name: unused_import_is_warning_not_error
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 356
+  module: plugin-engine-typecheck
+- name: unbound_wire_is_error
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 367
+  module: plugin-engine-typecheck
+- name: function_param_does_not_trigger_unbound_wire
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 382
+  module: plugin-engine-typecheck
+- name: function_body_unbound_wire_detected
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 389
+  module: plugin-engine-typecheck
+- name: object_literal_keys_not_unbound_wires
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 404
+  module: plugin-engine-typecheck
+- name: field_access_target_checked
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 411
+  module: plugin-engine-typecheck
+- name: field_access_unbound_target_detected
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 418
+  module: plugin-engine-typecheck
+- name: object_value_unbound_wire_detected
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 439
+  module: plugin-engine-typecheck
+- name: from_import_star_as_scopes_alias
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 465
+  module: plugin-engine-typecheck
+- name: from_import_named_scopes_name
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 476
+  module: plugin-engine-typecheck
+- name: from_import_named_as_scopes_alias_not_name
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 487
+  module: plugin-engine-typecheck
+- name: from_import_star_bare_name_scopes_module_name
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 512
+  module: plugin-engine-typecheck
+- name: block_level_import_scopes_siblings
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 521
+  module: plugin-engine-typecheck
+- name: block_assign_binds_for_siblings
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 530
+  module: plugin-engine-typecheck
+- name: signature_exports_bind_the_annotated_name_not_the_result_type
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 547
+  module: plugin-engine-typecheck
+- name: signature_export_is_not_an_unbound_export
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 559
+  module: plugin-engine-typecheck
+- name: plain_export_still_requires_a_binding
+  kind: function
+  file: crates/plugin-engine-typecheck/tests/bootstrap.rs
+  line: 567
+  module: plugin-engine-typecheck
+- name: KIND_IMPORT
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 52
+  module: plugin-engine-typecheck
+- name: KIND_EXPORT
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 54
+  module: plugin-engine-typecheck
+- name: KIND_REC
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 56
+  module: plugin-engine-typecheck
+- name: KIND_VAR
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 58
+  module: plugin-engine-typecheck
+- name: KIND_ENTRY
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 60
+  module: plugin-engine-typecheck
+- name: KIND_FIELD_ACCESS
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 62
+  module: plugin-engine-typecheck
+- name: KIND_DATA
+  kind: const
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 64
+  module: plugin-engine-typecheck
+- name: Stmt
+  kind: type
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 79
+  module: plugin-engine-typecheck
+- name: parse_chunk
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 91
+  module: plugin-engine-typecheck
+- name: children_of
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 107
+  module: plugin-engine-typecheck
+- name: var_name
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 121
+  module: plugin-engine-typecheck
+- name: chunk_span
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 134
+  module: plugin-engine-typecheck
+- name: is_bare_module_name
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 143
+  module: plugin-engine-typecheck
+- name: is_ident_byte
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 156
+  module: plugin-engine-typecheck
+- name: name_span
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 162
+  module: plugin-engine-typecheck
+- name: collect_data_ctors
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 195
+  module: plugin-engine-typecheck
+- name: binding_target_name
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 248
+  module: plugin-engine-typecheck
+- name: is_binding_shape
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 273
+  module: plugin-engine-typecheck
+- name: signature_name
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 299
+  module: plugin-engine-typecheck
+- name: Binding
+  kind: type
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 313
+  module: plugin-engine-typecheck
+- name: Import
+  kind: type
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 319
+  module: plugin-engine-typecheck
+- name: Export
+  kind: type
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 325
+  module: plugin-engine-typecheck
+- name: collect_decls
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 334
+  module: plugin-engine-typecheck
+- name: stmt_import_bound_names
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 484
+  module: plugin-engine-typecheck
+- name: dim_param_names
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 541
+  module: plugin-engine-typecheck
+- name: pattern_bound_names
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 565
+  module: plugin-engine-typecheck
+- name: check_expr
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 639
+  module: plugin-engine-typecheck
+- name: check_pass
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 975
+  module: plugin-engine-typecheck
+- name: check_module
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 1184
+  module: plugin-engine-typecheck
+- name: check_module_with_prelude
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 1208
+  module: plugin-engine-typecheck
+- name: tests
+  kind: module
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 1238
+  module: plugin-engine-typecheck
+- name: language_error_display_is_prefixed
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 1252
+  module: plugin-engine-typecheck
+- name: debug_parse_cli
+  kind: function
+  file: crates/plugin-engine-typecheck/src/bootstrap.rs
+  line: 1258
+  module: plugin-engine-typecheck
+- name: Typecheck
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 35
+  module: plugin-engine-typecheck
+- name: TypecheckRequest
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 43
+  module: plugin-engine-typecheck
+- name: new
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 52
+  module: plugin-engine-typecheck
+- name: with_options
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 60
+  module: plugin-engine-typecheck
+- name: TypecheckDiagnostic
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 72
+  module: plugin-engine-typecheck
+- name: TypecheckResult
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 87
+  module: plugin-engine-typecheck
+- name: TypecheckEngine
+  kind: trait
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 111
+  module: plugin-engine-typecheck
+- name: with_modules
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 129
+  module: plugin-engine-typecheck
+- name: with_global
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 138
+  module: plugin-engine-typecheck
+- name: bootstrap
+  kind: module
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 148
+  module: plugin-engine-typecheck
+- name: TypecheckReport
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 157
+  module: plugin-engine-typecheck
+- name: is_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 164
+  module: plugin-engine-typecheck
+- name: CheckError
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 171
+  module: plugin-engine-typecheck
+- name: fmt
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 181
+  module: plugin-engine-typecheck
+- name: from
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 192
+  module: plugin-engine-typecheck
+- name: check_module
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 218
+  module: plugin-engine-typecheck
+- name: check_module_with_prelude
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 235
+  module: plugin-engine-typecheck
+- name: tests
+  kind: module
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 244
+  module: plugin-engine-typecheck
+- name: typecheck_marker_constructs
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 250
+  module: plugin-engine-typecheck
+- name: typecheck_request_new_from_ast
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 260
+  module: plugin-engine-typecheck
+- name: typecheck_request_with_options
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 269
+  module: plugin-engine-typecheck
+- name: StubTypecheck
+  kind: type
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 277
+  module: plugin-engine-typecheck
+- name: typecheck
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 280
+  module: plugin-engine-typecheck
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 288
+  module: plugin-engine-typecheck
+- name: stub_engine_returns_not_implemented
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 294
+  module: plugin-engine-typecheck
+- name: stub_engine_via_dyn_reference
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 303
+  module: plugin-engine-typecheck
+- name: typecheck_report_default_is_empty
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 312
+  module: plugin-engine-typecheck
+- name: check_error_display
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 319
+  module: plugin-engine-typecheck
+- name: check_error_equality
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 325
+  module: plugin-engine-typecheck
+- name: canonical_lang
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 334
+  module: plugin-engine-typecheck
+- name: LANG
+  kind: const
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 335
+  module: plugin-engine-typecheck
+- name: check_module_empty_is_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 342
+  module: plugin-engine-typecheck
+- name: check_module_simple_binding_is_clean
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 348
+  module: plugin-engine-typecheck
+- name: check_module_unbound_wire_errors
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 358
+  module: plugin-engine-typecheck
+- name: check_module_with_prelude_seeds_scope
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 369
+  module: plugin-engine-typecheck
+- name: check_module_parse_error
+  kind: function
+  file: crates/plugin-engine-typecheck/src/lib.rs
+  line: 410
+  module: plugin-engine-typecheck
+deps:
+- handl_language
+- handl_plugin_engine_typecheck
+- handl_plugin_ext_diag
+- handl_language
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse
+- handl_plugin_engine_parse_pratt
+- handl_plugin_ext_diag
+- serde_json
+- handl_language
+- handl_language
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/tests/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/bootstrap.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+- crates/plugin-engine-typecheck/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  hashes:
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  - abbc1dea59161172730575f490712710b1d6345b
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

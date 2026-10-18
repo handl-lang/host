@@ -1,0 +1,1743 @@
+name: host-tooling
+path: crates/host-tooling/tests/tooling.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: lint_ctx
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 17
+  module: host-tooling
+- name: host
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 22
+  module: host-tooling
+- name: lang
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 26
+  module: host-tooling
+- name: CLEAN
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 35
+  module: host-tooling
+- name: NEEDS_FORMAT
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 39
+  module: host-tooling
+- name: SHADOWED
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 42
+  module: host-tooling
+- name: SYNTAX_ERROR
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 45
+  module: host-tooling
+- name: LEX_ERROR
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 48
+  module: host-tooling
+- name: large_file
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 50
+  module: host-tooling
+- name: format_is_ok_for_a_valid_module
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 63
+  module: host-tooling
+- name: format_matches_the_shared_formatter
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 69
+  module: host-tooling
+- name: format_is_idempotent
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 81
+  module: host-tooling
+- name: format_reports_lex_errors
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 89
+  module: host-tooling
+- name: format_tolerates_source_that_lexes_but_does_not_parse
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 96
+  module: host-tooling
+- name: diagnose_is_empty_for_a_clean_module
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 107
+  module: host-tooling
+- name: diagnose_reports_a_parse_error_as_an_error_diagnostic
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 115
+  module: host-tooling
+- name: diagnose_carries_rule_names_and_spans
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 125
+  module: host-tooling
+- name: diagnose_exposes_the_fix_payload
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 136
+  module: host-tooling
+- name: format_and_diagnose_scale_to_a_large_module
+  kind: function
+  file: crates/host-tooling/tests/tooling.rs
+  line: 152
+  module: host-tooling
+- name: target_dir
+  kind: function
+  file: crates/host-tooling/tests/loader.rs
+  line: 6
+  module: host-tooling
+- name: find_example_cdylib
+  kind: function
+  file: crates/host-tooling/tests/loader.rs
+  line: 16
+  module: host-tooling
+- name: tooling_host_loads_native_plugin_and_dispatches_command
+  kind: function
+  file: crates/host-tooling/tests/loader.rs
+  line: 39
+  module: host-tooling
+- name: sample_rules
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 3
+  module: host-tooling
+- name: generate_textmate_produces_valid_json
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 32
+  module: host-tooling
+- name: generate_textmate_includes_all_rules
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 41
+  module: host-tooling
+- name: generate_textmate_patterns_in_priority_order
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 53
+  module: host-tooling
+- name: generate_textmate_function_calls_has_captures
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 75
+  module: host-tooling
+- name: generate_textmate_begin_end_rule
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 86
+  module: host-tooling
+- name: generate_textmate_empty_rules
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 96
+  module: host-tooling
+- name: canonical_rules
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 104
+  module: host-tooling
+- name: grammar_rules_from_language_produces_non_empty_rules
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 110
+  module: host-tooling
+- name: grammar_rules_from_language_includes_all_categories
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 116
+  module: host-tooling
+- name: grammar_rules_from_language_keywords_include_required
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 140
+  module: host-tooling
+- name: grammar_rules_from_language_generates_valid_grammar
+  kind: function
+  file: crates/host-tooling/src/grammar_tests.rs
+  line: 162
+  module: host-tooling
+- name: with_kit
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 17
+  module: host-tooling
+- name: lex
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 28
+  module: host-tooling
+- name: classifier
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 34
+  module: host-tooling
+- name: provider
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 40
+  module: host-tooling
+- name: legend_default_has_standard_token_types
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 49
+  module: host-tooling
+- name: legend_default_has_standard_modifiers
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 61
+  module: host-tooling
+- name: legend_token_type_index_returns_correct_position
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 72
+  module: host-tooling
+- name: legend_modifier_bit_returns_correct_bit_flag
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 81
+  module: host-tooling
+- name: classifier_maps_number_to_number_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 89
+  module: host-tooling
+- name: classifier_maps_string_to_string_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 98
+  module: host-tooling
+- name: classifier_maps_keyword_to_keyword_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 107
+  module: host-tooling
+- name: classifier_maps_bool_to_constant_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 116
+  module: host-tooling
+- name: classifier_maps_null_to_constant_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 130
+  module: host-tooling
+- name: classifier_maps_operator_to_operator_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 138
+  module: host-tooling
+- name: classifier_maps_delimiter_to_punctuation_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 147
+  module: host-tooling
+- name: classifier_maps_identifier_to_variable_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 155
+  module: host-tooling
+- name: classifier_maps_doc_comment_with_documentation_modifier
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 164
+  module: host-tooling
+- name: classifier_maps_comment_without_modifiers
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 173
+  module: host-tooling
+- name: classifier_maps_template_to_string_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 182
+  module: host-tooling
+- name: classifier_returns_none_for_unknown_kind
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 190
+  module: host-tooling
+- name: classifier_returns_none_for_unknown_type_name
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 197
+  module: host-tooling
+- name: canonical_semantic_tokens_produces_delta_encoded_tokens
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 207
+  module: host-tooling
+- name: canonical_semantic_tokens_handles_multiline_source
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 229
+  module: host-tooling
+- name: canonical_semantic_tokens_legend_matches_default
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 252
+  module: host-tooling
+- name: canonical_semantic_tokens_empty_source_returns_empty
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 266
+  module: host-tooling
+- name: classify_first_identifier
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 283
+  module: host-tooling
+- name: classify_all_identifiers
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 304
+  module: host-tooling
+- name: legend_default_has_context_aware_token_types
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 326
+  module: host-tooling
+- name: context_classifier_identifies_function_call
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 335
+  module: host-tooling
+- name: context_classifier_identifies_dotted_function_call
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 343
+  module: host-tooling
+- name: context_classifier_identifies_type_reference
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 360
+  module: host-tooling
+- name: context_classifier_identifies_pascalcase_type
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 377
+  module: host-tooling
+- name: context_classifier_identifies_binding_declaration_with_colon
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 389
+  module: host-tooling
+- name: context_classifier_identifies_binding_declaration_with_bind
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 397
+  module: host-tooling
+- name: context_classifier_identifies_parameter
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 405
+  module: host-tooling
+- name: context_classifier_identifies_property_name
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 424
+  module: host-tooling
+- name: context_classifier_default_identifier_is_variable
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 444
+  module: host-tooling
+- name: context_classifier_function_definition_binding
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 456
+  module: host-tooling
+- name: token_struct_has_kind_and_text
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens_tests.rs
+  line: 502
+  module: host-tooling
+- name: Position
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 5
+  module: host-tooling
+- name: Range
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 12
+  module: host-tooling
+- name: TextEdit
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 19
+  module: host-tooling
+- name: CompletionItem
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 26
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 36
+  module: host-tooling
+- name: Location
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 50
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 58
+  module: host-tooling
+- name: DocumentSymbol
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 69
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 80
+  module: host-tooling
+- name: TextContentChange
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 95
+  module: host-tooling
+- name: insert
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 105
+  module: host-tooling
+- name: delete
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 113
+  module: host-tooling
+- name: replace
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 121
+  module: host-tooling
+- name: CompletionRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 133
+  module: host-tooling
+- name: CompletionResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 141
+  module: host-tooling
+- name: GotoDefRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 144
+  module: host-tooling
+- name: GotoDefResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 152
+  module: host-tooling
+- name: DocumentSymbolsRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 155
+  module: host-tooling
+- name: DocumentSymbolsResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 158
+  module: host-tooling
+- name: IncrementalSyncRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 161
+  module: host-tooling
+- name: IncrementalSyncResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 167
+  module: host-tooling
+- name: CompletionPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 170
+  module: host-tooling
+- name: GotoDefPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 175
+  module: host-tooling
+- name: DocumentSymbolsPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 180
+  module: host-tooling
+- name: IncrementalSyncPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 188
+  module: host-tooling
+- name: BasicIncrementalSync
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 198
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 201
+  module: host-tooling
+- name: run
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 207
+  module: host-tooling
+- name: HoverRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 224
+  module: host-tooling
+- name: HoverResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 235
+  module: host-tooling
+- name: HoverPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 238
+  module: host-tooling
+- name: SignatureHelpRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 245
+  module: host-tooling
+- name: SignatureParameter
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 256
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 265
+  module: host-tooling
+- name: SignatureInformation
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 275
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 286
+  module: host-tooling
+- name: SignatureHelpResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 297
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 306
+  module: host-tooling
+- name: empty
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 314
+  module: host-tooling
+- name: SignatureHelpPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 323
+  module: host-tooling
+- name: FoldingRange
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 330
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lsp.rs
+  line: 340
+  module: host-tooling
+- name: FoldingRangeRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 359
+  module: host-tooling
+- name: FoldingRangeResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 366
+  module: host-tooling
+- name: FoldingRangePlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 369
+  module: host-tooling
+- name: PRIO_DOC_COMMENT
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 12
+  module: host-tooling
+- name: PRIO_COMMENT
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 13
+  module: host-tooling
+- name: PRIO_STRING
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 14
+  module: host-tooling
+- name: PRIO_NUMBER
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 15
+  module: host-tooling
+- name: PRIO_BOOLEAN
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 16
+  module: host-tooling
+- name: PRIO_NULL
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 17
+  module: host-tooling
+- name: PRIO_KEYWORD
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 18
+  module: host-tooling
+- name: PRIO_OPERATOR
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 19
+  module: host-tooling
+- name: PRIO_DELIMITER
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 20
+  module: host-tooling
+- name: PRIO_TYPE_NAME
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 21
+  module: host-tooling
+- name: PRIO_IDENTIFIER
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 22
+  module: host-tooling
+- name: TokenCategory
+  kind: type
+  file: crates/host-tooling/src/grammar.rs
+  line: 25
+  module: host-tooling
+- name: classify_token
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 46
+  module: host-tooling
+- name: regex_escape
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 104
+  module: host-tooling
+- name: char_class_to_regex
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 117
+  module: host-tooling
+- name: grammar_rules_from_language
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 141
+  module: host-tooling
+- name: GrammarRule
+  kind: type
+  file: crates/host-tooling/src/grammar.rs
+  line: 374
+  module: host-tooling
+- name: match_rule
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 402
+  module: host-tooling
+- name: begin_end_rule
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 416
+  module: host-tooling
+- name: match_with_captures
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 430
+  module: host-tooling
+- name: GrammarCapture
+  kind: type
+  file: crates/host-tooling/src/grammar.rs
+  line: 451
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 460
+  module: host-tooling
+- name: generate_textmate
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 472
+  module: host-tooling
+- name: rule_to_json
+  kind: function
+  file: crates/host-tooling/src/grammar.rs
+  line: 494
+  module: host-tooling
+- name: SemanticTokenLegend
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 11
+  module: host-tooling
+- name: token_type_index
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 18
+  module: host-tooling
+- name: modifier_bit
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 26
+  module: host-tooling
+- name: default
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 35
+  module: host-tooling
+- name: SemanticToken
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 64
+  module: host-tooling
+- name: SemanticTokensRequest
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 79
+  module: host-tooling
+- name: SemanticTokensResponse
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 85
+  module: host-tooling
+- name: SemanticTokensPlugin
+  kind: trait
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 88
+  module: host-tooling
+- name: TokenClassifier
+  kind: trait
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 101
+  module: host-tooling
+- name: ContextClassifier
+  kind: trait
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 110
+  module: host-tooling
+- name: CanonicalTokenClassifier
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 130
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 141
+  module: host-tooling
+- name: for_language
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 149
+  module: host-tooling
+- name: classify_simple
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 164
+  module: host-tooling
+- name: classify
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 199
+  module: host-tooling
+- name: classify
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 205
+  module: host-tooling
+- name: enclosing_open_delim
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 340
+  module: host-tooling
+- name: is_at_line_start
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 369
+  module: host-tooling
+- name: SpannedLex
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 385
+  module: host-tooling
+- name: BasicSemanticTokens
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 389
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 398
+  module: host-tooling
+- name: legend
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 412
+  module: host-tooling
+- name: run
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 416
+  module: host-tooling
+- name: LineStarts
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 468
+  module: host-tooling
+- name: lookup
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 475
+  module: host-tooling
+- name: compute_line_starts
+  kind: function
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 485
+  module: host-tooling
+- name: ArgSpec
+  kind: type
+  file: crates/host-tooling/src/command.rs
+  line: 6
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 15
+  module: host-tooling
+- name: description
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 22
+  module: host-tooling
+- name: required
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 27
+  module: host-tooling
+- name: multiple
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 32
+  module: host-tooling
+- name: allow_hyphen_values
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 37
+  module: host-tooling
+- name: CommandSpec
+  kind: type
+  file: crates/host-tooling/src/command.rs
+  line: 45
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 53
+  module: host-tooling
+- name: alias
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 61
+  module: host-tooling
+- name: arg
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 66
+  module: host-tooling
+- name: read_source_or_stdin
+  kind: function
+  file: crates/host-tooling/src/command.rs
+  line: 73
+  module: host-tooling
+- name: Config
+  kind: type
+  file: crates/host-tooling/src/config.rs
+  line: 11
+  module: host-tooling
+- name: load
+  kind: function
+  file: crates/host-tooling/src/config.rs
+  line: 19
+  module: host-tooling
+- name: find
+  kind: function
+  file: crates/host-tooling/src/config.rs
+  line: 26
+  module: host-tooling
+- name: error_diagnostic
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 24
+  module: host-tooling
+- name: command
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 33
+  module: host-tooling
+- name: config
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 35
+  module: host-tooling
+- name: lsp
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 38
+  module: host-tooling
+- name: grammar
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 41
+  module: host-tooling
+- name: grammar_tests
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 44
+  module: host-tooling
+- name: semantic_tokens
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 46
+  module: host-tooling
+- name: semantic_tokens_tests
+  kind: module
+  file: crates/host-tooling/src/lib.rs
+  line: 49
+  module: host-tooling
+- name: ToolingHost
+  kind: type
+  file: crates/host-tooling/src/lib.rs
+  line: 52
+  module: host-tooling
+- name: new
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 68
+  module: host-tooling
+- name: with_lint_context
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 84
+  module: host-tooling
+- name: with_completion_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 90
+  module: host-tooling
+- name: with_goto_def_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 96
+  module: host-tooling
+- name: with_document_symbols_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 102
+  module: host-tooling
+- name: with_incremental_sync_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 108
+  module: host-tooling
+- name: with_semantic_tokens_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 114
+  module: host-tooling
+- name: with_hover_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 120
+  module: host-tooling
+- name: with_signature_help_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 126
+  module: host-tooling
+- name: with_folding_range_plugin
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 132
+  module: host-tooling
+- name: cli_commands
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 138
+  module: host-tooling
+- name: run_cli
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 143
+  module: host-tooling
+- name: complete
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 148
+  module: host-tooling
+- name: goto_def
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 168
+  module: host-tooling
+- name: document_symbols
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 179
+  module: host-tooling
+- name: change
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 191
+  module: host-tooling
+- name: semantic_tokens
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 209
+  module: host-tooling
+- name: semantic_tokens_legend
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 223
+  module: host-tooling
+- name: format
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 242
+  module: host-tooling
+- name: diagnose
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 259
+  module: host-tooling
+- name: hover
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 273
+  module: host-tooling
+- name: signature_help
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 282
+  module: host-tooling
+- name: folding_ranges
+  kind: function
+  file: crates/host-tooling/src/lib.rs
+  line: 293
+  module: host-tooling
+deps:
+- handl_host_tooling
+- handl_kit_canonical
+- handl_plugin_ext_lint
+- handl_platform
+- handl_plugin_loader_native
+- handl_kit_canonical
+- handl_language
+- handl_platform
+- handl_language
+- serde
+- serde_json
+- handl_language
+- handl_platform
+- handl_platform
+- handl_language
+- handl_platform
+- handl_plugin_ext_lint
+- handl_plugin_ext_diag
+notes: ''
+verify:
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/tooling.rs
+- crates/host-tooling/tests/loader.rs
+- crates/host-tooling/tests/loader.rs
+- crates/host-tooling/tests/loader.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/config.rs
+- crates/host-tooling/src/config.rs
+- crates/host-tooling/src/config.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/lib.rs
+provenance:
+  files:
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/loader.rs
+  - crates/host-tooling/tests/loader.rs
+  - crates/host-tooling/tests/loader.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/config.rs
+  - crates/host-tooling/src/config.rs
+  - crates/host-tooling/src/config.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lib.rs
+  hashes:
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 5e74f506e78302f02468cba2e6ccd766a96a407e
+  - 5e74f506e78302f02468cba2e6ccd766a96a407e
+  - 5e74f506e78302f02468cba2e6ccd766a96a407e
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - 2b397bd41bd957037a925b88af10f52067a6ee26
+  - 2b397bd41bd957037a925b88af10f52067a6ee26
+  - 2b397bd41bd957037a925b88af10f52067a6ee26
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

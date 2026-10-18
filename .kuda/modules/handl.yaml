@@ -1,0 +1,23 @@
+name: handl
+path: Cargo.toml
+purpose: '`handl` is the root facade for the Handl language platform.'
+api:
+- name: handl
+  kind: module
+  file: Cargo.toml
+  line: 1
+  module: handl
+deps:
+- handl-platform
+- serde_json
+notes: ''
+verify:
+- Cargo.toml
+provenance:
+  files:
+  - Cargo.toml
+  hashes:
+  - 437b5351823a6c3b3f9320084b4761652c8d9e1b
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

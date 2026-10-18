@@ -1,0 +1,27 @@
+name: handl-plugin-ext-diag
+path: crates/plugin-ext-diag/Cargo.toml
+purpose: Shared diagnostics infrastructure for handl tooling.
+api:
+- name: handl-plugin-ext-diag
+  kind: module
+  file: crates/plugin-ext-diag/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-diag
+deps:
+- handl-language
+- handl-platform
+- serde
+- serde_json
+- thiserror
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-diag/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-diag/Cargo.toml
+  hashes:
+  - e4bb3f3ec0f0740c35e60eae7ce690820984da62
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

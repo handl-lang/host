@@ -1,0 +1,149 @@
+name: plugin-lib-scheduler
+path: crates/plugin-lib-scheduler/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: SchedulePolicy
+  kind: type
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 28
+  module: plugin-lib-scheduler
+- name: sequential
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 40
+  module: plugin-lib-scheduler
+- name: parallel
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 48
+  module: plugin-lib-scheduler
+- name: default
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 57
+  module: plugin-lib-scheduler
+- name: JobError
+  kind: type
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 69
+  module: plugin-lib-scheduler
+- name: JobResult
+  kind: type
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 80
+  module: plugin-lib-scheduler
+- name: ok
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 87
+  module: plugin-lib-scheduler
+- name: err
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 92
+  module: plugin-lib-scheduler
+- name: BoundedScheduler
+  kind: type
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 99
+  module: plugin-lib-scheduler
+- name: run
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 106
+  module: plugin-lib-scheduler
+- name: execute
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 164
+  module: plugin-lib-scheduler
+- name: tests
+  kind: module
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 179
+  module: plugin-lib-scheduler
+- name: empty_job_list_returns_empty_results
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 186
+  module: plugin-lib-scheduler
+- name: sequential_policy_runs_one_at_a_time
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 195
+  module: plugin-lib-scheduler
+- name: parallel_policy_runs_multiple_concurrently
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 220
+  module: plugin-lib-scheduler
+- name: panics_are_caught
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 242
+  module: plugin-lib-scheduler
+- name: results_return_in_completion_order
+  kind: function
+  file: crates/plugin-lib-scheduler/src/lib.rs
+  line: 252
+  module: plugin-lib-scheduler
+deps: []
+notes: ''
+verify:
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+- crates/plugin-lib-scheduler/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  hashes:
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e1f902df842b4f1635d084607362add9af95fd54
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

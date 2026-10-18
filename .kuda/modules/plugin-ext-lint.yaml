@@ -1,0 +1,937 @@
+name: plugin-ext-lint
+path: crates/plugin-ext-lint/tests/canonical.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: ctx
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 18
+  module: plugin-ext-lint
+- name: CTX
+  kind: const
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 19
+  module: plugin-ext-lint
+- name: lint_source
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 28
+  module: plugin-ext-lint
+- name: check_source
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 33
+  module: plugin-ext-lint
+- name: fix
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 38
+  module: plugin-ext-lint
+- name: for_rule
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 43
+  module: plugin-ext-lint
+- name: has
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 51
+  module: plugin-ext-lint
+- name: unused_import_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 60
+  module: plugin-ext-lint
+- name: unused_import_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 71
+  module: plugin-ext-lint
+- name: unused_import_fix
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 82
+  module: plugin-ext-lint
+- name: unbound_wire_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 99
+  module: plugin-ext-lint
+- name: unbound_wire_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 110
+  module: plugin-ext-lint
+- name: unbound_wire_arrow_param_in_scope
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 121
+  module: plugin-ext-lint
+- name: shadowed_binding_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 137
+  module: plugin-ext-lint
+- name: shadowed_binding_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 148
+  module: plugin-ext-lint
+- name: dead_branch_constant_true
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 163
+  module: plugin-ext-lint
+- name: dead_branch_constant_false
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 174
+  module: plugin-ext-lint
+- name: dead_branch_ternary_true
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 185
+  module: plugin-ext-lint
+- name: dead_branch_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 196
+  module: plugin-ext-lint
+- name: naming_convention_violation
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 212
+  module: plugin-ext-lint
+- name: naming_convention_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 223
+  module: plugin-ext-lint
+- name: naming_convention_fix
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 234
+  module: plugin-ext-lint
+- name: record_as_block_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 251
+  module: plugin-ext-lint
+- name: record_as_block_clean_wrapped
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 265
+  module: plugin-ext-lint
+- name: record_as_block_clean_annotation
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 273
+  module: plugin-ext-lint
+- name: simplify_paren_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 284
+  module: plugin-ext-lint
+- name: simplify_paren_fix
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 295
+  module: plugin-ext-lint
+- name: simplify_paren_var
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 304
+  module: plugin-ext-lint
+- name: simplify_paren_nested
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 315
+  module: plugin-ext-lint
+- name: simplify_paren_inner_value
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 326
+  module: plugin-ext-lint
+- name: missing_module_doc_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 341
+  module: plugin-ext-lint
+- name: missing_module_doc_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 352
+  module: plugin-ext-lint
+- name: fmt_rule_fires
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 367
+  module: plugin-ext-lint
+- name: fmt_rule_fix
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 378
+  module: plugin-ext-lint
+- name: lint_source_returns_diagnostics
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 391
+  module: plugin-ext-lint
+- name: check_source_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 400
+  module: plugin-ext-lint
+- name: check_source_has_errors
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 407
+  module: plugin-ext-lint
+- name: fix_source_idempotent
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 413
+  module: plugin-ext-lint
+- name: fix_source_converges
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 423
+  module: plugin-ext-lint
+- name: diagnostics_sorted_by_span
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 440
+  module: plugin-ext-lint
+- name: lint_source_parse_error
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 458
+  module: plugin-ext-lint
+- name: fixture_lint_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 471
+  module: plugin-ext-lint
+- name: LINT_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 57
+  module: plugin-ext-lint
+- name: LintPlugin
+  kind: type
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 63
+  module: plugin-ext-lint
+- name: new
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 71
+  module: plugin-ext-lint
+- name: id
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 80
+  module: plugin-ext-lint
+- name: name
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 84
+  module: plugin-ext-lint
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 88
+  module: plugin-ext-lint
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 92
+  module: plugin-ext-lint
+- name: run
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 102
+  module: plugin-ext-lint
+- name: tests
+  kind: module
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 199
+  module: plugin-ext-lint
+- name: canonical_ctx
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 208
+  module: plugin-ext-lint
+- name: CTX
+  kind: const
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 209
+  module: plugin-ext-lint
+- name: plugin
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 221
+  module: plugin-ext-lint
+- name: with_ctx
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 225
+  module: plugin-ext-lint
+- name: req
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 235
+  module: plugin-ext-lint
+- name: declares_the_lint_capability
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 243
+  module: plugin-ext-lint
+- name: lint_returns_a_diagnostics_array
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 253
+  module: plugin-ext-lint
+- name: fix_returns_output
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 275
+  module: plugin-ext-lint
+- name: an_explicit_empty_prelude_is_honoured
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 294
+  module: plugin-ext-lint
+- name: name_is_reported
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 310
+  module: plugin-ext-lint
+- name: a_wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 317
+  module: plugin-ext-lint
+- name: fix_honours_an_explicit_prelude
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 336
+  module: plugin-ext-lint
+- name: fix_reports_a_lex_error_as_a_response
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 354
+  module: plugin-ext-lint
+- name: lint_with_both_a_language_and_a_prelude_succeeds
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 372
+  module: plugin-ext-lint
+- name: lint_reports_a_lex_error_as_a_response
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 394
+  module: plugin-ext-lint
+- name: missing_source_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 416
+  module: plugin-ext-lint
+- name: a_non_array_prelude_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 427
+  module: plugin-ext-lint
+- name: a_serialized_language_is_accepted
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 443
+  module: plugin-ext-lint
+- name: a_malformed_language_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 470
+  module: plugin-ext-lint
+- name: plugin
+  kind: module
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 41
+  module: plugin-ext-lint
+- name: LintError
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 60
+  module: plugin-ext-lint
+- name: fmt
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 66
+  module: plugin-ext-lint
+- name: from
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 76
+  module: plugin-ext-lint
+- name: LintContext
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 90
+  module: plugin-ext-lint
+- name: new
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 99
+  module: plugin-ext-lint
+- name: with_resolver
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 108
+  module: plugin-ext-lint
+- name: for_language
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 118
+  module: plugin-ext-lint
+- name: lang
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 126
+  module: plugin-ext-lint
+- name: lint_source_with
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 132
+  module: plugin-ext-lint
+- name: lint_source_with_prelude
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 138
+  module: plugin-ext-lint
+- name: unbound_wire_diagnostics_with_language
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 157
+  module: plugin-ext-lint
+- name: check_source_with
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 174
+  module: plugin-ext-lint
+- name: check_source_with_prelude
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 181
+  module: plugin-ext-lint
+- name: fix_source
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 198
+  module: plugin-ext-lint
+- name: fix_source_with_prelude
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 208
+  module: plugin-ext-lint
+- name: compute_fixes
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 225
+  module: plugin-ext-lint
+- name: lint_engine
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 257
+  module: plugin-ext-lint
+- name: fmt_rule
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 279
+  module: plugin-ext-lint
+- name: convert
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 312
+  module: plugin-ext-lint
+- name: tests
+  kind: module
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 337
+  module: plugin-ext-lint
+- name: canonical_ctx
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 348
+  module: plugin-ext-lint
+- name: CTX
+  kind: const
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 349
+  module: plugin-ext-lint
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 361
+  module: plugin-ext-lint
+- name: run_returns_diagnostics_when_rule_matches
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 369
+  module: plugin-ext-lint
+- name: Warn
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 370
+  module: plugin-ext-lint
+- name: kind
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 373
+  module: plugin-ext-lint
+- name: apply
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 377
+  module: plugin-ext-lint
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 409
+  module: plugin-ext-lint
+- name: lint_error_display
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 431
+  module: plugin-ext-lint
+- name: lint_source_empty_input
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 437
+  module: plugin-ext-lint
+- name: lint_source_clean_input
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 444
+  module: plugin-ext-lint
+- name: UNLEXABLE
+  kind: const
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 461
+  module: plugin-ext-lint
+- name: lint_source_with_uses_the_injected_language
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 464
+  module: plugin-ext-lint
+- name: fix_source_applies_the_fmt_fix
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 472
+  module: plugin-ext-lint
+- name: compute_fixes_on_canonical_source_is_empty
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 484
+  module: plugin-ext-lint
+- name: unbound_wire_diagnostics_is_empty_when_the_source_cannot_be_checked
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 493
+  module: plugin-ext-lint
+- name: compute_fixes_is_empty_when_the_source_cannot_be_linted
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 503
+  module: plugin-ext-lint
+- name: fmt_rule_declines_when_the_source_cannot_be_checked
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 508
+  module: plugin-ext-lint
+- name: fmt_rule_declines_on_whitespace_only_source
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 514
+  module: plugin-ext-lint
+- name: fmt_rule_reports_a_fix_for_non_canonical_source
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 521
+  module: plugin-ext-lint
+- name: convert_maps_every_severity_level
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 529
+  module: plugin-ext-lint
+- name: check_source_with_prelude_seeds_the_wire_scope
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 550
+  module: plugin-ext-lint
+- name: check_source_with_prelude_propagates_a_parse_error
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 560
+  module: plugin-ext-lint
+deps:
+- handl_plugin_ext_diag
+- handl_plugin_ext_lint
+- handl_language
+- handl_platform
+- handl_platform
+- handl_language
+- handl_platform
+- plugin
+- handl_language
+- handl_plugin_engine_lint
+- handl_plugin_ext_diag
+- handl_platform
+notes: ''
+verify:
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  hashes:
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - d808933787365bdf167e513ac55d424969fa4819
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

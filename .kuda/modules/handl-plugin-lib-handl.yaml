@@ -1,0 +1,46 @@
+name: handl-plugin-lib-handl
+path: crates/plugin-lib-handl/Cargo.toml
+purpose: A generic crate that lets `.hnl` files replace hand-rolled Rust `plugin-lib-*` bridge crates for pure-logic libraries.
+api:
+- name: handl-plugin-lib-handl
+  kind: module
+  file: crates/plugin-lib-handl/Cargo.toml
+  line: 1
+  module: handl-plugin-lib-handl
+deps:
+- handl-language
+- handl-lib-dedent
+- handl-lib-str-handl
+- handl-platform
+- handl-plugin-engine-exec
+- handl-plugin-engine-exec-bytecode
+- handl-plugin-engine-exec-tree-walk
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-lint
+- handl-plugin-engine-parse-pratt
+- handl-plugin-engine-transform
+- handl-plugin-lib-char-native
+- handl-plugin-module
+- handl-runtime
+- handl-value
+- plugin-engine
+- serde_json
+- handl-kit-data-canonical
+- handl-plugin-engine-exec
+- handl-plugin-engine-lex
+- handl-plugin-engine-parse
+- handl-plugin-engine-transform-rewrite
+- handl-plugin-lib-char-native
+- handl-plugin-lib-stdlib
+- handl-runtime
+notes: ''
+verify:
+- crates/plugin-lib-handl/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-lib-handl/Cargo.toml
+  hashes:
+  - 617c353ded40d2ac12c9c0ab7ca0cf9e75a4589d
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

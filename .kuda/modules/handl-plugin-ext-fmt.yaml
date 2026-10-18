@@ -1,0 +1,31 @@
+name: handl-plugin-ext-fmt
+path: crates/plugin-ext-fmt/Cargo.toml
+purpose: '`handl-plugin-ext-fmt` — canonical bootstrap formatter for the v0.1 arrow surface syntax (ADR-0086), composed over the staged engine pipeline (ADR-0095).'
+api:
+- name: handl-plugin-ext-fmt
+  kind: module
+  file: crates/plugin-ext-fmt/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-fmt
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-fmt
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-parse
+- handl-plugin-engine-parse-pratt
+- handl-plugin-ext-diag
+- serde_json
+- handl-kit-data-canonical
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-fmt/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-fmt/Cargo.toml
+  hashes:
+  - 44e8fc1f959b149d1b042838f01223a298863fcb
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,25 @@
+name: handl-plugin-exec-cache
+path: crates/plugin-exec-cache/Cargo.toml
+purpose: '`ExecControl` rule that memoises evaluation results.'
+api:
+- name: handl-plugin-exec-cache
+  kind: module
+  file: crates/plugin-exec-cache/Cargo.toml
+  line: 1
+  module: handl-plugin-exec-cache
+deps:
+- handl-platform
+- serde_json
+- handl-platform
+- serde_json
+notes: ''
+verify:
+- crates/plugin-exec-cache/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-exec-cache/Cargo.toml
+  hashes:
+  - 62ebd5168e1dbf6c762c7e4a81ae8bf4ac5e4eea
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

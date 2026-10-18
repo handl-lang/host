@@ -1,0 +1,25 @@
+name: handl-platform-tests
+path: crates/platform-tests/Cargo.toml
+purpose: 'Integration-test support for the `handl-platform` host: a recording mock plugin, a manifest builder, and a request helper.'
+api:
+- name: handl-platform-tests
+  kind: module
+  file: crates/platform-tests/Cargo.toml
+  line: 1
+  module: handl-platform-tests
+deps:
+- handl-platform
+- serde_json
+- serde
+- serde_yaml
+notes: ''
+verify:
+- crates/platform-tests/Cargo.toml
+provenance:
+  files:
+  - crates/platform-tests/Cargo.toml
+  hashes:
+  - 41e68dd341d24e40b8f1e92f80589299bdaeec4d
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

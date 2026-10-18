@@ -1,0 +1,2231 @@
+name: plugin-engine-transform-rewrite
+path: crates/plugin-engine-transform-rewrite/benches/transform.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: NODES
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/benches/transform.rs
+  line: 18
+  module: plugin-engine-transform-rewrite
+- name: canonical_lang
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/benches/transform.rs
+  line: 20
+  module: plugin-engine-transform-rewrite
+- name: grow
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/benches/transform.rs
+  line: 26
+  module: plugin-engine-transform-rewrite
+- name: walk_ast
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/benches/transform.rs
+  line: 42
+  module: plugin-engine-transform-rewrite
+- name: sugar_ast
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/benches/transform.rs
+  line: 50
+  module: plugin-engine-transform-rewrite
+- name: bench_desugar_walk
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/benches/transform.rs
+  line: 70
+  module: plugin-engine-transform-rewrite
+- name: canonical
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 11
+  module: plugin-engine-transform-rewrite
+- name: engine_desugar
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 16
+  module: plugin-engine-transform-rewrite
+- name: assert_parity
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 27
+  module: plugin-engine-transform-rewrite
+- name: leaf
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 43
+  module: plugin-engine-transform-rewrite
+- name: node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 47
+  module: plugin-engine-transform-rewrite
+- name: parity_identity_no_rules
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 52
+  module: plugin-engine-transform-rewrite
+- name: parity_call_json_declarative
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 62
+  module: plugin-engine-transform-rewrite
+- name: parity_call_non_json_when_declines
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 73
+  module: plugin-engine-transform-rewrite
+- name: parity_entry_bracket_key
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 85
+  module: plugin-engine-transform-rewrite
+- name: parity_entry_non_bracket_key
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 97
+  module: plugin-engine-transform-rewrite
+- name: parity_while
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 107
+  module: plugin-engine-transform-rewrite
+- name: parity_while_state_passing_guard
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 117
+  module: plugin-engine-transform-rewrite
+- name: parity_do_while
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 132
+  module: plugin-engine-transform-rewrite
+- name: parity_for
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 142
+  module: plugin-engine-transform-rewrite
+- name: parity_nullish
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 153
+  module: plugin-engine-transform-rewrite
+- name: parity_opt_chain
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 163
+  module: plugin-engine-transform-rewrite
+- name: parity_data_structured_payload
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 173
+  module: plugin-engine-transform-rewrite
+- name: parity_match_no_data_passthrough
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 188
+  module: plugin-engine-transform-rewrite
+- name: parity_nested_mixed
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 203
+  module: plugin-engine-transform-rewrite
+- name: child_idx
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 225
+  module: plugin-engine-transform-rewrite
+- name: child_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 235
+  module: plugin-engine-transform-rewrite
+- name: nullish_desugars_to_match_shape
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 240
+  module: plugin-engine-transform-rewrite
+- name: opt_chain_desugars_to_match_shape
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 290
+  module: plugin-engine-transform-rewrite
+- name: while_desugars_to_rec_shape
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 335
+  module: plugin-engine-transform-rewrite
+- name: while_state_passing_form_not_desugared
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 390
+  module: plugin-engine-transform-rewrite
+- name: do_while_desugars_to_rec_shape
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 408
+  module: plugin-engine-transform-rewrite
+- name: for_desugars_to_rec_shape
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 457
+  module: plugin-engine-transform-rewrite
+- name: nested_nullish_desugars
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  line: 551
+  module: plugin-engine-transform-rewrite
+- name: leaf
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 18
+  module: plugin-engine-transform-rewrite
+- name: node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 22
+  module: plugin-engine-transform-rewrite
+- name: root
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 26
+  module: plugin-engine-transform-rewrite
+- name: test_lang
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 32
+  module: plugin-engine-transform-rewrite
+- name: add_rule
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 54
+  module: plugin-engine-transform-rewrite
+- name: step_keep_and_create
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 61
+  module: plugin-engine-transform-rewrite
+- name: step_keep_role_resolves_via_shape
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 104
+  module: plugin-engine-transform-rewrite
+- name: step_keep_role_falls_back_to_null_when_unresolvable
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 134
+  module: plugin-engine-transform-rewrite
+- name: step_keep_path
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 160
+  module: plugin-engine-transform-rewrite
+- name: rule_replace_returns_the_subterm_not_a_new_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 190
+  module: plugin-engine-transform-rewrite
+- name: rule_replace_navigates_a_deep_path
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 231
+  module: plugin-engine-transform-rewrite
+- name: rule_replace_top_down_returns_the_subterm
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 264
+  module: plugin-engine-transform-rewrite
+- name: rule_replace_out_of_range_path_is_an_error
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 287
+  module: plugin-engine-transform-rewrite
+- name: rule_replace_empty_path_is_an_error
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 310
+  module: plugin-engine-transform-rewrite
+- name: step_keep_rest
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 331
+  module: plugin-engine-transform-rewrite
+- name: step_splice_lifts_grandchildren
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 360
+  module: plugin-engine-transform-rewrite
+- name: step_apply_transforms_child_first
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 389
+  module: plugin-engine-transform-rewrite
+- name: declarative_payload_is_shallow_patch
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 436
+  module: plugin-engine-transform-rewrite
+- name: rewritten_node_inherits_span
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 465
+  module: plugin-engine-transform-rewrite
+- name: rule_with_when
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 494
+  module: plugin-engine-transform-rewrite
+- name: condition_kind_at_positional
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 509
+  module: plugin-engine-transform-rewrite
+- name: condition_any_child_kind
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 532
+  module: plugin-engine-transform-rewrite
+- name: condition_kind_at_role
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 552
+  module: plugin-engine-transform-rewrite
+- name: condition_payload_eq_childcount_and_or_not
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 583
+  module: plugin-engine-transform-rewrite
+- name: condition_mismatch_passes_through
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 622
+  module: plugin-engine-transform-rewrite
+- name: priority_ordering_first_match_wins
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 637
+  module: plugin-engine-transform-rewrite
+- name: pass_stats_counts_visited_and_rewritten
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 684
+  module: plugin-engine-transform-rewrite
+- name: fixpoint_terminates_on_self_rewriting_rule
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 700
+  module: plugin-engine-transform-rewrite
+- name: fixpoint_converges_when_stable
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 727
+  module: plugin-engine-transform-rewrite
+- name: top_down_traversal_rewrites
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 753
+  module: plugin-engine-transform-rewrite
+- name: native_rule_without_registry_errors
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 787
+  module: plugin-engine-transform-rewrite
+- name: native_rule_dispatches_by_name
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 802
+  module: plugin-engine-transform-rewrite
+- name: apply_at_is_surgical
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 825
+  module: plugin-engine-transform-rewrite
+- name: apply_at_unknown_rule_errors
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 846
+  module: plugin-engine-transform-rewrite
+- name: plan_mode_proposes_without_rewriting
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 858
+  module: plugin-engine-transform-rewrite
+- name: find_matches_reports_sites
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 879
+  module: plugin-engine-transform-rewrite
+- name: pipeline_feeds_output_to_input
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 894
+  module: plugin-engine-transform-rewrite
+- name: Rng
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 934
+  module: plugin-engine-transform-rewrite
+- name: next
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 937
+  module: plugin-engine-transform-rewrite
+- name: pick
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 946
+  module: plugin-engine-transform-rewrite
+- name: FUZZ_KINDS
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 951
+  module: plugin-engine-transform-rewrite
+- name: FUZZ_ROLES
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 952
+  module: plugin-engine-transform-rewrite
+- name: random_ast
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 958
+  module: plugin-engine-transform-rewrite
+- name: random_condition
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 986
+  module: plugin-engine-transform-rewrite
+- name: fuzzed_conditions_never_panic
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 1029
+  module: plugin-engine-transform-rewrite
+- name: overlapping_same_priority_rules_rejected_at_merge
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 1067
+  module: plugin-engine-transform-rewrite
+- name: fixpoint_infinite_growth_hits_node_budget
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 1133
+  module: plugin-engine-transform-rewrite
+- name: transform_errors_carry_pass_rule_and_node_context
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/tests/engine.rs
+  line: 1177
+  module: plugin-engine-transform-rewrite
+- name: Resolver
+  kind: trait
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 25
+  module: plugin-engine-transform-rewrite
+- name: FreshState
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 51
+  module: plugin-engine-transform-rewrite
+- name: get_or_make
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 58
+  module: plugin-engine-transform-rewrite
+- name: child_index
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 74
+  module: plugin-engine-transform-rewrite
+- name: build_rewrite
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 91
+  module: plugin-engine-transform-rewrite
+- name: descendant_index
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 165
+  module: plugin-engine-transform-rewrite
+- name: build_step
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 195
+  module: plugin-engine-transform-rewrite
+- name: keep_at
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/step.rs
+  line: 329
+  module: plugin-engine-transform-rewrite
+- name: Dispatch
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  line: 20
+  module: plugin-engine-transform-rewrite
+- name: build
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  line: 27
+  module: plugin-engine-transform-rewrite
+- name: rules_for
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  line: 41
+  module: plugin-engine-transform-rewrite
+- name: rule_by_id
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  line: 46
+  module: plugin-engine-transform-rewrite
+- name: matches_condition
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/condition.rs
+  line: 16
+  module: plugin-engine-transform-rewrite
+- name: resolve_child_index
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/condition.rs
+  line: 82
+  module: plugin-engine-transform-rewrite
+- name: payload_eq
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/condition.rs
+  line: 114
+  module: plugin-engine-transform-rewrite
+- name: payload_at
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/condition.rs
+  line: 139
+  module: plugin-engine-transform-rewrite
+- name: MAX_NODES
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 41
+  module: plugin-engine-transform-rewrite
+- name: NativeFallback
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 45
+  module: plugin-engine-transform-rewrite
+- name: remap_children
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 51
+  module: plugin-engine-transform-rewrite
+- name: PassRun
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 73
+  module: plugin-engine-transform-rewrite
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 102
+  module: plugin-engine-transform-rewrite
+- name: set_remap
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 130
+  module: plugin-engine-transform-rewrite
+- name: run_bottom_up
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 136
+  module: plugin-engine-transform-rewrite
+- name: run_top_down
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 149
+  module: plugin-engine-transform-rewrite
+- name: process
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 155
+  module: plugin-engine-transform-rewrite
+- name: visit
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 206
+  module: plugin-engine-transform-rewrite
+- name: visit_inner
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 223
+  module: plugin-engine-transform-rewrite
+- name: visit_children
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 270
+  module: plugin-engine-transform-rewrite
+- name: fallback_name
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 288
+  module: plugin-engine-transform-rewrite
+- name: rule_fires
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 295
+  module: plugin-engine-transform-rewrite
+- name: check_when
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 304
+  module: plugin-engine-transform-rewrite
+- name: annotate
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 326
+  module: plugin-engine-transform-rewrite
+- name: fire
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 348
+  module: plugin-engine-transform-rewrite
+- name: fire_untraced
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 365
+  module: plugin-engine-transform-rewrite
+- name: fire_native
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 422
+  module: plugin-engine-transform-rewrite
+- name: record
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 443
+  module: plugin-engine-transform-rewrite
+- name: output_root
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 454
+  module: plugin-engine-transform-rewrite
+- name: resolve
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 465
+  module: plugin-engine-transform-rewrite
+- name: apply
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 474
+  module: plugin-engine-transform-rewrite
+- name: visit_or_process_children
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/walk.rs
+  line: 506
+  module: plugin-engine-transform-rewrite
+- name: condition
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 29
+  module: plugin-engine-transform-rewrite
+- name: dispatch
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 30
+  module: plugin-engine-transform-rewrite
+- name: native
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 31
+  module: plugin-engine-transform-rewrite
+- name: step
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 32
+  module: plugin-engine-transform-rewrite
+- name: walk
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 33
+  module: plugin-engine-transform-rewrite
+- name: PASS_EPOCH
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 55
+  module: plugin-engine-transform-rewrite
+- name: pass_epoch
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 59
+  module: plugin-engine-transform-rewrite
+- name: Traversal
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 71
+  module: plugin-engine-transform-rewrite
+- name: RewriteEngine
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 94
+  module: plugin-engine-transform-rewrite
+- name: default
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 112
+  module: plugin-engine-transform-rewrite
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 119
+  module: plugin-engine-transform-rewrite
+- name: with_rule_source
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 131
+  module: plugin-engine-transform-rewrite
+- name: with_desugar_natives
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 146
+  module: plugin-engine-transform-rewrite
+- name: with_desugar_and_handl_natives
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 179
+  module: plugin-engine-transform-rewrite
+- name: with_native_registry
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 192
+  module: plugin-engine-transform-rewrite
+- name: with_traversal
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 199
+  module: plugin-engine-transform-rewrite
+- name: with_node_budget
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 208
+  module: plugin-engine-transform-rewrite
+- name: run_pass
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 221
+  module: plugin-engine-transform-rewrite
+- name: run_pass_traversal
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 236
+  module: plugin-engine-transform-rewrite
+- name: run_pipeline
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 261
+  module: plugin-engine-transform-rewrite
+- name: apply_rule
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 297
+  module: plugin-engine-transform-rewrite
+- name: find_matches
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 343
+  module: plugin-engine-transform-rewrite
+- name: single_pass
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 404
+  module: plugin-engine-transform-rewrite
+- name: run_fixpoint
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 438
+  module: plugin-engine-transform-rewrite
+- name: run_pass_root
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 492
+  module: plugin-engine-transform-rewrite
+- name: transform
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 531
+  module: plugin-engine-transform-rewrite
+- name: find_matches
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 568
+  module: plugin-engine-transform-rewrite
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 576
+  module: plugin-engine-transform-rewrite
+- name: with_natives
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 580
+  module: plugin-engine-transform-rewrite
+- name: reachable_from
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/lib.rs
+  line: 589
+  module: plugin-engine-transform-rewrite
+- name: with_data_index
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 62
+  module: plugin-engine-transform-rewrite
+- name: remap_child
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 101
+  module: plugin-engine-transform-rewrite
+- name: push_leaf
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 113
+  module: plugin-engine-transform-rewrite
+- name: push_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 118
+  module: plugin-engine-transform-rewrite
+- name: push_function
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 132
+  module: plugin-engine-transform-rewrite
+- name: push_function_with_termination
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 149
+  module: plugin-engine-transform-rewrite
+- name: find_first_recursive_field
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 173
+  module: plugin-engine-transform-rewrite
+- name: DataParam
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 197
+  module: plugin-engine-transform-rewrite
+- name: DataConstructor
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 203
+  module: plugin-engine-transform-rewrite
+- name: parse_data_payload
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 233
+  module: plugin-engine-transform-rewrite
+- name: parse_type_expr
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 320
+  module: plugin-engine-transform-rewrite
+- name: parse_type_param
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 347
+  module: plugin-engine-transform-rewrite
+- name: collect_constructors
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 392
+  module: plugin-engine-transform-rewrite
+- name: extract_result_indices_from_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 457
+  module: plugin-engine-transform-rewrite
+- name: collect_constructor_leaf
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 493
+  module: plugin-engine-transform-rewrite
+- name: parse_constructor_arg
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 549
+  module: plugin-engine-transform-rewrite
+- name: derive_arg_name_from_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 605
+  module: plugin-engine-transform-rewrite
+- name: node_to_type_string
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 619
+  module: plugin-engine-transform-rewrite
+- name: child_at
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 622
+  module: plugin-engine-transform-rewrite
+- name: child_str
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 628
+  module: plugin-engine-transform-rewrite
+- name: kids
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 641
+  module: plugin-engine-transform-rewrite
+- name: check_strict_positivity
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 739
+  module: plugin-engine-transform-rewrite
+- name: TypeExpr
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 766
+  module: plugin-engine-transform-rewrite
+- name: tokenize_type_expr
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 779
+  module: plugin-engine-transform-rewrite
+- name: TypeExprParser
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 838
+  module: plugin-engine-transform-rewrite
+- name: new
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 844
+  module: plugin-engine-transform-rewrite
+- name: peek
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 851
+  module: plugin-engine-transform-rewrite
+- name: advance
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 855
+  module: plugin-engine-transform-rewrite
+- name: parse
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 861
+  module: plugin-engine-transform-rewrite
+- name: parse_func_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 865
+  module: plugin-engine-transform-rewrite
+- name: parse_add_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 876
+  module: plugin-engine-transform-rewrite
+- name: parse_mul_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 891
+  module: plugin-engine-transform-rewrite
+- name: parse_app_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 906
+  module: plugin-engine-transform-rewrite
+- name: parse_atom_type
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 934
+  module: plugin-engine-transform-rewrite
+- name: check_strict_positivity_rec
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 976
+  module: plugin-engine-transform-rewrite
+- name: occurs_in
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1003
+  module: plugin-engine-transform-rewrite
+- name: desugar_data
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1027
+  module: plugin-engine-transform-rewrite
+- name: FoldMode
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1176
+  module: plugin-engine-transform-rewrite
+- name: push_var_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1185
+  module: plugin-engine-transform-rewrite
+- name: push_lit_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1190
+  module: plugin-engine-transform-rewrite
+- name: push_null_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1195
+  module: plugin-engine-transform-rewrite
+- name: push_fa
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1200
+  module: plugin-engine-transform-rewrite
+- name: push_fai
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1206
+  module: plugin-engine-transform-rewrite
+- name: push_object_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1213
+  module: plugin-engine-transform-rewrite
+- name: push_either
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1226
+  module: plugin-engine-transform-rewrite
+- name: push_cell
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1232
+  module: plugin-engine-transform-rewrite
+- name: push_assign_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1237
+  module: plugin-engine-transform-rewrite
+- name: push_if_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1243
+  module: plugin-engine-transform-rewrite
+- name: push_eq_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1248
+  module: plugin-engine-transform-rewrite
+- name: push_and_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1253
+  module: plugin-engine-transform-rewrite
+- name: push_t_chain
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1262
+  module: plugin-engine-transform-rewrite
+- name: recursive_arg_positions
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1272
+  module: plugin-engine-transform-rewrite
+- name: type_expr_to_ast_indexed
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1292
+  module: plugin-engine-transform-rewrite
+- name: build_fold_step_fn
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1342
+  module: plugin-engine-transform-rewrite
+- name: build_fold_task0
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1379
+  module: plugin-engine-transform-rewrite
+- name: build_fold_dispatch
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1415
+  module: plugin-engine-transform-rewrite
+- name: build_frame_chain
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1456
+  module: plugin-engine-transform-rewrite
+- name: build_fold_chain
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1521
+  module: plugin-engine-transform-rewrite
+- name: push_result_state
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1555
+  module: plugin-engine-transform-rewrite
+- name: build_fold_ctor_branch
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1564
+  module: plugin-engine-transform-rewrite
+- name: MatchArm
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1715
+  module: plugin-engine-transform-rewrite
+- name: parse_arm_pattern
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1732
+  module: plugin-engine-transform-rewrite
+- name: desugar_match_to_recursor
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 1797
+  module: plugin-engine-transform-rewrite
+- name: desugar_generic_assign
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2014
+  module: plugin-engine-transform-rewrite
+- name: DesugarFn
+  kind: type
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2059
+  module: plugin-engine-transform-rewrite
+- name: desugar_data_wrapped
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2068
+  module: plugin-engine-transform-rewrite
+- name: desugar_registry
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2095
+  module: plugin-engine-transform-rewrite
+- name: REGISTRY
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2096
+  module: plugin-engine-transform-rewrite
+- name: DESUGAR_NATIVES
+  kind: const
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2131
+  module: plugin-engine-transform-rewrite
+- name: adapt
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2144
+  module: plugin-engine-transform-rewrite
+- name: desugar_native_registry
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2165
+  module: plugin-engine-transform-rewrite
+- name: tests
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2183
+  module: plugin-engine-transform-rewrite
+- name: apply_desugar
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2192
+  module: plugin-engine-transform-rewrite
+- name: no_desugar_is_identity
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2205
+  module: plugin-engine-transform-rewrite
+- name: if_to_match_desugar
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2217
+  module: plugin-engine-transform-rewrite
+- name: nested_if_desugar
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2313
+  module: plugin-engine-transform-rewrite
+- name: entry_bracket_key_desugar
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2403
+  module: plugin-engine-transform-rewrite
+- name: entry_non_array_key_passes_through
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2483
+  module: plugin-engine-transform-rewrite
+- name: keep_rest_preserves_variable_length_tail
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2532
+  module: plugin-engine-transform-rewrite
+- name: keep_rest_zero_tail
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2584
+  module: plugin-engine-transform-rewrite
+- name: data_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2618
+  module: plugin-engine-transform-rewrite
+- name: data_nat_desugars_to_block
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2636
+  module: plugin-engine-transform-rewrite
+- name: data_bool_desugars_correctly
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2673
+  module: plugin-engine-transform-rewrite
+- name: data_strict_positivity_violation
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2690
+  module: plugin-engine-transform-rewrite
+- name: data_maybe_desugars_correctly
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2723
+  module: plugin-engine-transform-rewrite
+- name: data_nat_predicate_is_function
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2745
+  module: plugin-engine-transform-rewrite
+- name: data_nat_recursor_is_function
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2786
+  module: plugin-engine-transform-rewrite
+- name: recursor_inner_fn
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2835
+  module: plugin-engine-transform-rewrite
+- name: data_nat_recursor_has_termination_metadata
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2861
+  module: plugin-engine-transform-rewrite
+- name: data_bool_recursor_no_termination_metadata
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2891
+  module: plugin-engine-transform-rewrite
+- name: data_tree_recursor_termination_uses_first_recursive_field
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2913
+  module: plugin-engine-transform-rewrite
+- name: data_constructor_references_arg_var_node
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 2947
+  module: plugin-engine-transform-rewrite
+- name: data_recursor_if_nodes_are_binary_nested
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3023
+  module: plugin-engine-transform-rewrite
+- name: parser_style_ast_nat
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3059
+  module: plugin-engine-transform-rewrite
+- name: data_ast_based_extraction_nat
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3078
+  module: plugin-engine-transform-rewrite
+- name: data_ast_based_extraction_bool
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3150
+  module: plugin-engine-transform-rewrite
+- name: data_ast_based_extraction_single_constructor
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3175
+  module: plugin-engine-transform-rewrite
+- name: data_handbuilt_backward_compat
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3201
+  module: plugin-engine-transform-rewrite
+- name: data_ast_based_extraction_type_annot_args
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3246
+  module: plugin-engine-transform-rewrite
+- name: count_kind_from
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3315
+  module: plugin-engine-transform-rewrite
+- name: recursor_dispatch_if_count
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3344
+  module: plugin-engine-transform-rewrite
+- name: recursor_param_count
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3357
+  module: plugin-engine-transform-rewrite
+- name: data_rgb_three_nullary_constructors
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3376
+  module: plugin-engine-transform-rewrite
+- name: data_nat3_three_constructors_with_recursion
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3425
+  module: plugin-engine-transform-rewrite
+- name: data_tree_binary_recursion
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3472
+  module: plugin-engine-transform-rewrite
+- name: data_positivity_nested_function_type_rejected
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3572
+  module: plugin-engine-transform-rewrite
+- name: data_positivity_positive_codomain_accepted
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3601
+  module: plugin-engine-transform-rewrite
+- name: data_positivity_bare_type_accepted
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3621
+  module: plugin-engine-transform-rewrite
+- name: data_positivity_negative_inside_parameterized_rejected
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3640
+  module: plugin-engine-transform-rewrite
+- name: data_positivity_parameterized_positive_accepted
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3669
+  module: plugin-engine-transform-rewrite
+- name: data_plus_match_nat_ast
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3697
+  module: plugin-engine-transform-rewrite
+- name: match_nat_desugars_to_recursor_call
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3733
+  module: plugin-engine-transform-rewrite
+- name: match_with_wildcard_not_desugared
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3819
+  module: plugin-engine-transform-rewrite
+- name: match_conditional_not_desugared
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3861
+  module: plugin-engine-transform-rewrite
+- name: match_bool_desugars_to_recursor_call
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3893
+  module: plugin-engine-transform-rewrite
+- name: match_arms_out_of_order_still_works
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 3955
+  module: plugin-engine-transform-rewrite
+- name: match_incomplete_not_desugared
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 4035
+  module: plugin-engine-transform-rewrite
+- name: match_no_data_decl_not_desugared
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 4074
+  module: plugin-engine-transform-rewrite
+- name: generic_assign_desugars_to_dimension_arrow
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 4108
+  module: plugin-engine-transform-rewrite
+- name: plain_assign_target_not_desugared
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 4170
+  module: plugin-engine-transform-rewrite
+- name: desugar_registry_contains_expected_entries
+  kind: function
+  file: crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  line: 4205
+  module: plugin-engine-transform-rewrite
+- name: desugar
+  kind: module
+  file: crates/plugin-engine-transform-rewrite/src/native/mod.rs
+  line: 3
+  module: plugin-engine-transform-rewrite
+deps:
+- criterion
+- handl_language
+- handl_plugin_engine_transform_rewrite
+- serde_json
+- handl_kit_data_canonical
+- handl_language
+- handl_plugin_engine_transform_rewrite
+- serde_json
+- handl_language
+- handl_plugin_engine_transform
+- handl_plugin_engine_transform_rewrite
+- serde_json
+- handl_language
+- handl_language
+- handl_language
+- serde_json
+- handl_language
+- handl_language
+- handl_language
+- handl_language
+- handl_plugin_engine_transform
+- handl_language
+- serde_json
+- handl_language
+- serde_json
+- desugar
+notes: ''
+verify:
+- crates/plugin-engine-transform-rewrite/benches/transform.rs
+- crates/plugin-engine-transform-rewrite/benches/transform.rs
+- crates/plugin-engine-transform-rewrite/benches/transform.rs
+- crates/plugin-engine-transform-rewrite/benches/transform.rs
+- crates/plugin-engine-transform-rewrite/benches/transform.rs
+- crates/plugin-engine-transform-rewrite/benches/transform.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/tests/engine.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/step.rs
+- crates/plugin-engine-transform-rewrite/src/dispatch.rs
+- crates/plugin-engine-transform-rewrite/src/dispatch.rs
+- crates/plugin-engine-transform-rewrite/src/dispatch.rs
+- crates/plugin-engine-transform-rewrite/src/dispatch.rs
+- crates/plugin-engine-transform-rewrite/src/condition.rs
+- crates/plugin-engine-transform-rewrite/src/condition.rs
+- crates/plugin-engine-transform-rewrite/src/condition.rs
+- crates/plugin-engine-transform-rewrite/src/condition.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/walk.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/lib.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+- crates/plugin-engine-transform-rewrite/src/native/mod.rs
+provenance:
+  files:
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  - crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  - crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  - crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  - crates/plugin-engine-transform-rewrite/src/condition.rs
+  - crates/plugin-engine-transform-rewrite/src/condition.rs
+  - crates/plugin-engine-transform-rewrite/src/condition.rs
+  - crates/plugin-engine-transform-rewrite/src/condition.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/mod.rs
+  hashes:
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - bbfdd5ec3d24a3fa58e91a2992d90fe1d15950c8
+  - bbfdd5ec3d24a3fa58e91a2992d90fe1d15950c8
+  - bbfdd5ec3d24a3fa58e91a2992d90fe1d15950c8
+  - bbfdd5ec3d24a3fa58e91a2992d90fe1d15950c8
+  - d1ad6079bb7b552ddca700004dbe911b20afdf5c
+  - d1ad6079bb7b552ddca700004dbe911b20afdf5c
+  - d1ad6079bb7b552ddca700004dbe911b20afdf5c
+  - d1ad6079bb7b552ddca700004dbe911b20afdf5c
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 0b1cf341e12693d52511717e4ad2a79d3d6aff6c
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

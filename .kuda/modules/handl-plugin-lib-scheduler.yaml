@@ -1,0 +1,21 @@
+name: handl-plugin-lib-scheduler
+path: crates/plugin-lib-scheduler/Cargo.toml
+purpose: Generic bounded-job scheduler for the handl platform.
+api:
+- name: handl-plugin-lib-scheduler
+  kind: module
+  file: crates/plugin-lib-scheduler/Cargo.toml
+  line: 1
+  module: handl-plugin-lib-scheduler
+deps: []
+notes: ''
+verify:
+- crates/plugin-lib-scheduler/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-lib-scheduler/Cargo.toml
+  hashes:
+  - e4e3cffb2927155f0337e4789de6502bf4d0546a
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

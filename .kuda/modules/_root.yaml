@@ -1,0 +1,117 @@
+name: _root
+path: scripts/gen-repo-docs.py
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: emit
+  kind: function
+  file: scripts/gen-repo-docs.py
+  line: 47
+  module: _root
+- name: main
+  kind: function
+  file: scripts/gen-repo-docs.py
+  line: 60
+  module: _root
+- name: head_sha
+  kind: function
+  file: scripts/pin-git-revs.py
+  line: 33
+  module: _root
+- name: main
+  kind: function
+  file: scripts/pin-git-revs.py
+  line: 46
+  module: _root
+- name: sub
+  kind: function
+  file: scripts/pin-git-revs.py
+  line: 62
+  module: _root
+- name: load
+  kind: function
+  file: scripts/docs_split.py
+  line: 39
+  module: _root
+- name: repo_paths
+  kind: function
+  file: scripts/docs_split.py
+  line: 43
+  module: _root
+- name: _files
+  kind: function
+  file: scripts/docs_split.py
+  line: 55
+  module: _root
+- name: check
+  kind: function
+  file: scripts/docs_split.py
+  line: 64
+  module: _root
+- name: verify
+  kind: function
+  file: scripts/docs_split.py
+  line: 92
+  module: _root
+- name: main
+  kind: function
+  file: scripts/docs_split.py
+  line: 110
+  module: _root
+- name: read_adr
+  kind: function
+  file: scripts/gen-adr-index.py
+  line: 31
+  module: _root
+- name: main
+  kind: function
+  file: scripts/gen-adr-index.py
+  line: 58
+  module: _root
+deps: []
+notes: ''
+verify:
+- scripts/gen-repo-docs.py
+- scripts/gen-repo-docs.py
+- scripts/pin-git-revs.py
+- scripts/pin-git-revs.py
+- scripts/pin-git-revs.py
+- scripts/docs_split.py
+- scripts/docs_split.py
+- scripts/docs_split.py
+- scripts/docs_split.py
+- scripts/docs_split.py
+- scripts/docs_split.py
+- scripts/gen-adr-index.py
+- scripts/gen-adr-index.py
+provenance:
+  files:
+  - scripts/gen-repo-docs.py
+  - scripts/gen-repo-docs.py
+  - scripts/pin-git-revs.py
+  - scripts/pin-git-revs.py
+  - scripts/pin-git-revs.py
+  - scripts/docs_split.py
+  - scripts/docs_split.py
+  - scripts/docs_split.py
+  - scripts/docs_split.py
+  - scripts/docs_split.py
+  - scripts/docs_split.py
+  - scripts/gen-adr-index.py
+  - scripts/gen-adr-index.py
+  hashes:
+  - 17e448ea55ceb892d8d1b0570b5a37a8418fd22b
+  - 17e448ea55ceb892d8d1b0570b5a37a8418fd22b
+  - 8c0bf0e97c52f3aea3b6c1fdd1b7368f0f2166eb
+  - 8c0bf0e97c52f3aea3b6c1fdd1b7368f0f2166eb
+  - 8c0bf0e97c52f3aea3b6c1fdd1b7368f0f2166eb
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - fcdee89f0d7427ced527f603791bf4e0af1ab6a0
+  - fcdee89f0d7427ced527f603791bf4e0af1ab6a0
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

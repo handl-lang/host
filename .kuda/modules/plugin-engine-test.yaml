@@ -1,0 +1,1757 @@
+name: plugin-engine-test
+path: crates/plugin-engine-test/tests/runner.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: fixture
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 18
+  module: plugin-engine-test
+- name: src
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 34
+  module: plugin-engine-test
+- name: discover_empty_paths
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 56
+  module: plugin-engine-test
+- name: discover_single_file
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 63
+  module: plugin-engine-test
+- name: discover_test_language_decls
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 74
+  module: plugin-engine-test
+- name: run_test_language_decls
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 100
+  module: plugin-engine-test
+- name: run_selected_parallel_matches_sequential_order
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 109
+  module: plugin-engine-test
+- name: filter_predicate_glob
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 135
+  module: plugin-engine-test
+- name: discover_directory
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 149
+  module: plugin-engine-test
+- name: discover_nonexistent_path
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 174
+  module: plugin-engine-test
+- name: discover_parse_error
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 181
+  module: plugin-engine-test
+- name: discover_no_tests
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 192
+  module: plugin-engine-test
+- name: discover_preserves_source_order
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 199
+  module: plugin-engine-test
+- name: run_all_pass
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 213
+  module: plugin-engine-test
+- name: run_with_failure
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 224
+  module: plugin-engine-test
+- name: run_mixed
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 242
+  module: plugin-engine-test
+- name: run_assert_keyword
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 258
+  module: plugin-engine-test
+- name: assert_keyword_truthy_failure_carries_detail
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 280
+  module: plugin-engine-test
+- name: run_with_filter_matches_some
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 290
+  module: plugin-engine-test
+- name: run_with_filter_matches_none
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 302
+  module: plugin-engine-test
+- name: run_with_filter_empty_matches_all
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 312
+  module: plugin-engine-test
+- name: run_empty_plan
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 322
+  module: plugin-engine-test
+- name: format_report_human_output
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 337
+  module: plugin-engine-test
+- name: format_report_json_valid
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 355
+  module: plugin-engine-test
+- name: format_report_human_groups_by_suite_and_shows_failure_detail
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 383
+  module: plugin-engine-test
+- name: format_report_json_includes_suites
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 400
+  module: plugin-engine-test
+- name: report_counts
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 424
+  module: plugin-engine-test
+- name: determinism_source_order
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 438
+  module: plugin-engine-test
+- name: cached_second_run_replays_identical_results
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 460
+  module: plugin-engine-test
+- name: cache_is_opt_in_and_invalidates_on_source_change
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 495
+  module: plugin-engine-test
+- name: filtered_out_tests_are_not_cached
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 521
+  module: plugin-engine-test
+- name: event_positions
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 542
+  module: plugin-engine-test
+- name: events_run_lifecycle_ordering
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 552
+  module: plugin-engine-test
+- name: events_skipped_tests_emit_test_skipped
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 650
+  module: plugin-engine-test
+- name: events_suite_lifecycle_brackets_modules
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 663
+  module: plugin-engine-test
+- name: discovery_emits_test_discovered
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 770
+  module: plugin-engine-test
+- name: duration_is_populated_for_executed_tests
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 796
+  module: plugin-engine-test
+- name: structured_failure_detail_for_assert_equal
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 818
+  module: plugin-engine-test
+- name: cached_hit_emits_test_cached
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 831
+  module: plugin-engine-test
+- name: reporters_via_trait_match_legacy_formatters
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 866
+  module: plugin-engine-test
+- name: discover_tagged_tests
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 902
+  module: plugin-engine-test
+- name: tag_filter_selects_matching_tests
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 923
+  module: plugin-engine-test
+- name: tag_filter_composes_with_name_filter
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 933
+  module: plugin-engine-test
+- name: test_run_cache_save_and_load_round_trip
+  kind: function
+  file: crates/plugin-engine-test/tests/runner.rs
+  line: 947
+  module: plugin-engine-test
+- name: TestEvent
+  kind: type
+  file: crates/plugin-engine-test/src/events.rs
+  line: 38
+  module: plugin-engine-test
+- name: TestAssertHandler
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 77
+  module: plugin-engine-test
+- name: on_failure
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 80
+  module: plugin-engine-test
+- name: TestCase
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 102
+  module: plugin-engine-test
+- name: TestPlan
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 124
+  module: plugin-engine-test
+- name: DiscoverError
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 135
+  module: plugin-engine-test
+- name: fmt
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 143
+  module: plugin-engine-test
+- name: TestResult
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 155
+  module: plugin-engine-test
+- name: FailureDetail
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 179
+  module: plugin-engine-test
+- name: TestOutcome
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 194
+  module: plugin-engine-test
+- name: RunReport
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 210
+  module: plugin-engine-test
+- name: passed
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 217
+  module: plugin-engine-test
+- name: failed
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 225
+  module: plugin-engine-test
+- name: skipped
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 233
+  module: plugin-engine-test
+- name: total
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 241
+  module: plugin-engine-test
+- name: has_failures
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 246
+  module: plugin-engine-test
+- name: TestState
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 255
+  module: plugin-engine-test
+- name: Chunk
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 270
+  module: plugin-engine-test
+- name: split_statements
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 281
+  module: plugin-engine-test
+- name: is_import_decl
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 289
+  module: plugin-engine-test
+- name: import_preamble
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 316
+  module: plugin-engine-test
+- name: first_quoted_spec
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 398
+  module: plugin-engine-test
+- name: resolve_dep_spec
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 415
+  module: plugin-engine-test
+- name: resolve_spec_to_file
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 435
+  module: plugin-engine-test
+- name: extract_doc_tags
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 469
+  module: plugin-engine-test
+- name: children_of
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 507
+  module: plugin-engine-test
+- name: var_name
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 522
+  module: plugin-engine-test
+- name: binding_roles
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 542
+  module: plugin-engine-test
+- name: TEST_LANGUAGE_YAML
+  kind: const
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 562
+  module: plugin-engine-test
+- name: TestLanguageYaml
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 569
+  module: plugin-engine-test
+- name: test_language_fragment
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 596
+  module: plugin-engine-test
+- name: TestKitSource
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 632
+  module: plugin-engine-test
+- name: base_runtime
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 643
+  module: plugin-engine-test
+- name: test_language
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 666
+  module: plugin-engine-test
+- name: test_decl_roles
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 680
+  module: plugin-engine-test
+- name: parse_chunk
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 691
+  module: plugin-engine-test
+- name: discover_tests_in_module
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 707
+  module: plugin-engine-test
+- name: extract_body_source
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 842
+  module: plugin-engine-test
+- name: collect_handl_files
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 897
+  module: plugin-engine-test
+- name: discover
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 929
+  module: plugin-engine-test
+- name: emit
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 938
+  module: plugin-engine-test
+- name: discover_inner
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 953
+  module: plugin-engine-test
+- name: TestModuleLookup
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1023
+  module: plugin-engine-test
+- name: lookup
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1029
+  module: plugin-engine-test
+- name: lookup_type_signature
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1034
+  module: plugin-engine-test
+- name: build_test_runtime
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1052
+  module: plugin-engine-test
+- name: run
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1098
+  module: plugin-engine-test
+- name: run_with_filter
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1107
+  module: plugin-engine-test
+- name: PRED_HNL
+  kind: const
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1128
+  module: plugin-engine-test
+- name: PRED_FUNCS
+  kind: const
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1132
+  module: plugin-engine-test
+- name: PRED_MODULE
+  kind: const
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1147
+  module: plugin-engine-test
+- name: pred_module
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1150
+  module: plugin-engine-test
+- name: Filter
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1176
+  module: plugin-engine-test
+- name: all
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1183
+  module: plugin-engine-test
+- name: and
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1190
+  module: plugin-engine-test
+- name: selects_all
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1208
+  module: plugin-engine-test
+- name: eval
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1222
+  module: plugin-engine-test
+- name: default
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1242
+  module: plugin-engine-test
+- name: filter_predicate
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1257
+  module: plugin-engine-test
+- name: tag_predicate
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1270
+  module: plugin-engine-test
+- name: tag_expr_predicate
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1293
+  module: plugin-engine-test
+- name: is_err_result
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1321
+  module: plugin-engine-test
+- name: extract_err_message
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1326
+  module: plugin-engine-test
+- name: failure_detail_from_value
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1336
+  module: plugin-engine-test
+- name: err_payload
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1366
+  module: plugin-engine-test
+- name: eval_test_body
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1385
+  module: plugin-engine-test
+- name: job_error_result
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1438
+  module: plugin-engine-test
+- name: run_selected
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1472
+  module: plugin-engine-test
+- name: run_selected_impl
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1490
+  module: plugin-engine-test
+- name: TestRunCache
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1728
+  module: plugin-engine-test
+- name: CacheFile
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1741
+  module: plugin-engine-test
+- name: CacheEntry
+  kind: type
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1748
+  module: plugin-engine-test
+- name: new
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1757
+  module: plugin-engine-test
+- name: len
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1762
+  module: plugin-engine-test
+- name: is_empty
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1767
+  module: plugin-engine-test
+- name: hits
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1772
+  module: plugin-engine-test
+- name: misses
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1777
+  module: plugin-engine-test
+- name: load
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1786
+  module: plugin-engine-test
+- name: save
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1810
+  module: plugin-engine-test
+- name: clear
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1834
+  module: plugin-engine-test
+- name: key_for
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1842
+  module: plugin-engine-test
+- name: lookup
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1856
+  module: plugin-engine-test
+- name: store
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1861
+  module: plugin-engine-test
+- name: record_hit
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1867
+  module: plugin-engine-test
+- name: record_miss
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1872
+  module: plugin-engine-test
+- name: run_selected_cached
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1885
+  module: plugin-engine-test
+- name: format_report_human
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1906
+  module: plugin-engine-test
+- name: format_report_json
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1915
+  module: plugin-engine-test
+- name: tests
+  kind: module
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1925
+  module: plugin-engine-test
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1943
+  module: plugin-engine-test
+- name: canonical_source
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1951
+  module: plugin-engine-test
+- name: test_plan_default_is_empty
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1967
+  module: plugin-engine-test
+- name: run_report_default_has_zero_counts
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1974
+  module: plugin-engine-test
+- name: discover_error_display
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1984
+  module: plugin-engine-test
+- name: discover_error_equality
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 1993
+  module: plugin-engine-test
+- name: test_result_variants
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2009
+  module: plugin-engine-test
+- name: run_report_counts
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2031
+  module: plugin-engine-test
+- name: split_statements_basic
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2085
+  module: plugin-engine-test
+- name: split_statements_semicolons
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2094
+  module: plugin-engine-test
+- name: split_statements_respects_brackets
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2103
+  module: plugin-engine-test
+- name: split_statements_respects_strings
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2111
+  module: plugin-engine-test
+- name: split_statements_ignores_comments
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2119
+  module: plugin-engine-test
+- name: split_statements_empty
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2127
+  module: plugin-engine-test
+- name: extract_body_source_simple
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2133
+  module: plugin-engine-test
+- name: extract_body_source_no_equals
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2139
+  module: plugin-engine-test
+- name: extract_body_source_skips_comparison
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2144
+  module: plugin-engine-test
+- name: extract_body_source_bind_operator
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2150
+  module: plugin-engine-test
+- name: extract_body_source_skips_equals_in_strings
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2162
+  module: plugin-engine-test
+- name: eval_test_body_fails_on_false_equality
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2173
+  module: plugin-engine-test
+- name: eval_test_body_passes_on_true_equality
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2183
+  module: plugin-engine-test
+- name: format_report_human_basic
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2192
+  module: plugin-engine-test
+- name: format_report_json_valid
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2246
+  module: plugin-engine-test
+- name: format_report_json_empty
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2294
+  module: plugin-engine-test
+- name: extract_doc_tags_basic
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2303
+  module: plugin-engine-test
+- name: tagged_case
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2320
+  module: plugin-engine-test
+- name: match_glob
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2334
+  module: plugin-engine-test
+- name: match_glob_semantics
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2346
+  module: plugin-engine-test
+- name: filter_eval_via_pred_module
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2369
+  module: plugin-engine-test
+- name: tag_expr_single
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2380
+  module: plugin-engine-test
+- name: tag_expr_or
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2389
+  module: plugin-engine-test
+- name: tag_expr_negation
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2401
+  module: plugin-engine-test
+- name: tag_expr_or_with_negation
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2411
+  module: plugin-engine-test
+- name: tag_expr_and_across_flags
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2421
+  module: plugin-engine-test
+- name: tag_expr_empty_selects_all
+  kind: function
+  file: crates/plugin-engine-test/src/runner.rs
+  line: 2433
+  module: plugin-engine-test
+- name: Summary
+  kind: type
+  file: crates/plugin-engine-test/src/report.rs
+  line: 36
+  module: plugin-engine-test
+- name: summarize
+  kind: function
+  file: crates/plugin-engine-test/src/report.rs
+  line: 55
+  module: plugin-engine-test
+- name: Reporter
+  kind: trait
+  file: crates/plugin-engine-test/src/report.rs
+  line: 87
+  module: plugin-engine-test
+- name: HumanReporter
+  kind: type
+  file: crates/plugin-engine-test/src/report.rs
+  line: 102
+  module: plugin-engine-test
+- name: name
+  kind: function
+  file: crates/plugin-engine-test/src/report.rs
+  line: 105
+  module: plugin-engine-test
+- name: format
+  kind: function
+  file: crates/plugin-engine-test/src/report.rs
+  line: 109
+  module: plugin-engine-test
+- name: JsonReporter
+  kind: type
+  file: crates/plugin-engine-test/src/report.rs
+  line: 177
+  module: plugin-engine-test
+- name: name
+  kind: function
+  file: crates/plugin-engine-test/src/report.rs
+  line: 180
+  module: plugin-engine-test
+- name: format
+  kind: function
+  file: crates/plugin-engine-test/src/report.rs
+  line: 184
+  module: plugin-engine-test
+- name: RunConfig
+  kind: type
+  file: crates/plugin-engine-test/src/config.rs
+  line: 31
+  module: plugin-engine-test
+- name: default
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 46
+  module: plugin-engine-test
+- name: new
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 58
+  module: plugin-engine-test
+- name: with_filter
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 67
+  module: plugin-engine-test
+- name: with_tag
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 76
+  module: plugin-engine-test
+- name: with_policy
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 82
+  module: plugin-engine-test
+- name: with_cache
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 88
+  module: plugin-engine-test
+- name: run_with_config
+  kind: function
+  file: crates/plugin-engine-test/src/config.rs
+  line: 104
+  module: plugin-engine-test
+- name: config
+  kind: module
+  file: crates/plugin-engine-test/src/lib.rs
+  line: 30
+  module: plugin-engine-test
+- name: events
+  kind: module
+  file: crates/plugin-engine-test/src/lib.rs
+  line: 31
+  module: plugin-engine-test
+- name: framework
+  kind: module
+  file: crates/plugin-engine-test/src/lib.rs
+  line: 32
+  module: plugin-engine-test
+- name: provider
+  kind: module
+  file: crates/plugin-engine-test/src/lib.rs
+  line: 33
+  module: plugin-engine-test
+- name: report
+  kind: module
+  file: crates/plugin-engine-test/src/lib.rs
+  line: 34
+  module: plugin-engine-test
+- name: runner
+  kind: module
+  file: crates/plugin-engine-test/src/lib.rs
+  line: 35
+  module: plugin-engine-test
+- name: TestProvider
+  kind: trait
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 35
+  module: plugin-engine-test
+- name: FileSystemProvider
+  kind: type
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 64
+  module: plugin-engine-test
+- name: name
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 67
+  module: plugin-engine-test
+- name: discover
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 71
+  module: plugin-engine-test
+- name: ChangedProvider
+  kind: type
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 90
+  module: plugin-engine-test
+- name: name
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 93
+  module: plugin-engine-test
+- name: discover
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 97
+  module: plugin-engine-test
+- name: changed_files
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 163
+  module: plugin-engine-test
+- name: repo_root
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 212
+  module: plugin-engine-test
+- name: porcelain_new_path
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 238
+  module: plugin-engine-test
+- name: split_rename
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 259
+  module: plugin-engine-test
+- name: unquote_path
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 274
+  module: plugin-engine-test
+- name: parse_quoted
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 284
+  module: plugin-engine-test
+- name: discover_with
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 346
+  module: plugin-engine-test
+- name: tests
+  kind: module
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 360
+  module: plugin-engine-test
+- name: porcelain_plain_paths
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 366
+  module: plugin-engine-test
+- name: porcelain_skips_uninteresting_lines
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 382
+  module: plugin-engine-test
+- name: porcelain_rename_uses_new_path
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 390
+  module: plugin-engine-test
+- name: porcelain_quoted_paths
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 402
+  module: plugin-engine-test
+- name: porcelain_quoted_rename
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 415
+  module: plugin-engine-test
+- name: porcelain_octal_escapes
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 429
+  module: plugin-engine-test
+- name: unquote_path_passthrough
+  kind: function
+  file: crates/plugin-engine-test/src/provider.rs
+  line: 442
+  module: plugin-engine-test
+- name: set_last_assert_failure
+  kind: function
+  file: crates/plugin-engine-test/src/framework/mod.rs
+  line: 23
+  module: plugin-engine-test
+- name: clear_last_assert_failure
+  kind: function
+  file: crates/plugin-engine-test/src/framework/mod.rs
+  line: 28
+  module: plugin-engine-test
+- name: take_last_assert_failure
+  kind: function
+  file: crates/plugin-engine-test/src/framework/mod.rs
+  line: 33
+  module: plugin-engine-test
+deps:
+- handl_plugin_lib_scheduler
+- serde
+- handl_language
+- handl_platform
+- handl_plugin_lib_handl
+- handl_plugin_engine_exec_tree_walk
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse
+- handl_plugin_engine_parse_pratt
+- handl_plugin_exec_cache
+- handl_plugin_ext_diag
+- handl_plugin_ext_refinement
+- handl_plugin_lib_char_native
+- handl_plugin_lib_scheduler
+- handl_runtime
+- handl_plugin_lib_scheduler
+notes: ''
+verify:
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/tests/runner.rs
+- crates/plugin-engine-test/src/events.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/runner.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/report.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/config.rs
+- crates/plugin-engine-test/src/lib.rs
+- crates/plugin-engine-test/src/lib.rs
+- crates/plugin-engine-test/src/lib.rs
+- crates/plugin-engine-test/src/lib.rs
+- crates/plugin-engine-test/src/lib.rs
+- crates/plugin-engine-test/src/lib.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/provider.rs
+- crates/plugin-engine-test/src/framework/mod.rs
+- crates/plugin-engine-test/src/framework/mod.rs
+- crates/plugin-engine-test/src/framework/mod.rs
+provenance:
+  files:
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/src/events.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/framework/mod.rs
+  - crates/plugin-engine-test/src/framework/mod.rs
+  - crates/plugin-engine-test/src/framework/mod.rs
+  hashes:
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 0f1be923e95f97d87ae5c99340fea1abfd9dae80
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 78bf64215bf2f3268d0d426366da6695665d780e
+  - 78bf64215bf2f3268d0d426366da6695665d780e
+  - 78bf64215bf2f3268d0d426366da6695665d780e
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

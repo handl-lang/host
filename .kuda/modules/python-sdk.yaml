@@ -1,0 +1,66 @@
+name: python-sdk
+path: dagger/sdk/runtime/go.mod
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: python-sdk
+  kind: module
+  file: dagger/sdk/runtime/go.mod
+  line: 1
+  module: python-sdk
+deps:
+- github.com/dagger/otel-go
+- github.com/distribution/reference
+- github.com/iancoleman/strcase
+- github.com/pelletier/go-toml/v2
+- github.com/stretchr/testify
+- golang.org/x/sync
+- github.com/davecgh/go-spew
+- github.com/opencontainers/go-digest
+- github.com/pmezard/go-difflib
+- gopkg.in/yaml.v3
+- github.com/99designs/gqlgen
+- github.com/Khan/genqlient
+- github.com/cenkalti/backoff/v5
+- github.com/cespare/xxhash/v2
+- github.com/dagger/querybuilder
+- github.com/go-logr/logr
+- github.com/go-logr/stdr
+- github.com/google/uuid
+- github.com/grpc-ecosystem/grpc-gateway/v2
+- github.com/sergi/go-diff
+- github.com/sosodev/duration
+- github.com/vektah/gqlparser/v2
+- go.opentelemetry.io/auto/sdk
+- go.opentelemetry.io/otel
+- go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc
+- go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp
+- go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc
+- go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp
+- go.opentelemetry.io/otel/exporters/otlp/otlptrace
+- go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+- go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp
+- go.opentelemetry.io/otel/log
+- go.opentelemetry.io/otel/metric
+- go.opentelemetry.io/otel/sdk
+- go.opentelemetry.io/otel/sdk/log
+- go.opentelemetry.io/otel/sdk/metric
+- go.opentelemetry.io/otel/trace
+- go.opentelemetry.io/proto/otlp
+- golang.org/x/net
+- golang.org/x/sys
+- golang.org/x/text
+- google.golang.org/genproto/googleapis/api
+- google.golang.org/genproto/googleapis/rpc
+- google.golang.org/grpc
+- google.golang.org/protobuf
+notes: ''
+verify:
+- dagger/sdk/runtime/go.mod
+provenance:
+  files:
+  - dagger/sdk/runtime/go.mod
+  hashes:
+  - 883bf8591668f2b8b633dded88f24cc400a89126
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,218 @@
+name: plugin-ext-typecheck
+path: crates/plugin-ext-typecheck/src/plugin.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: TYPECHECK_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 37
+  module: plugin-ext-typecheck
+- name: TypecheckFn
+  kind: type
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 48
+  module: plugin-ext-typecheck
+- name: TypecheckPlugin
+  kind: type
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 52
+  module: plugin-ext-typecheck
+- name: new
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 63
+  module: plugin-ext-typecheck
+- name: id
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 72
+  module: plugin-ext-typecheck
+- name: name
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 76
+  module: plugin-ext-typecheck
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 80
+  module: plugin-ext-typecheck
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 84
+  module: plugin-ext-typecheck
+- name: run
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 94
+  module: plugin-ext-typecheck
+- name: tests
+  kind: module
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 145
+  module: plugin-ext-typecheck
+- name: canonical_check
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 159
+  module: plugin-ext-typecheck
+- name: plugin
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 174
+  module: plugin-ext-typecheck
+- name: with_ctx
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 178
+  module: plugin-ext-typecheck
+- name: req
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 188
+  module: plugin-ext-typecheck
+- name: default_is_new_and_name_is_reported
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 196
+  module: plugin-ext-typecheck
+- name: a_null_prelude_is_treated_as_absent
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 203
+  module: plugin-ext-typecheck
+- name: type_errors_are_reported_as_a_distinct_status
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 217
+  module: plugin-ext-typecheck
+- name: declares_the_typecheck_capability
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 244
+  module: plugin-ext-typecheck
+- name: a_wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 254
+  module: plugin-ext-typecheck
+- name: missing_source_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 273
+  module: plugin-ext-typecheck
+- name: a_non_array_prelude_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 284
+  module: plugin-ext-typecheck
+- name: a_well_typed_module_reports_ok_with_a_type
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 300
+  module: plugin-ext-typecheck
+- name: an_unparseable_source_is_an_error_status_not_a_platform_error
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 316
+  module: plugin-ext-typecheck
+- name: an_explicit_prelude_is_honoured
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 335
+  module: plugin-ext-typecheck
+- name: plugin
+  kind: module
+  file: crates/plugin-ext-typecheck/src/lib.rs
+  line: 30
+  module: plugin-ext-typecheck
+deps:
+- handl_language
+- handl_platform
+- handl_kit_canonical
+- handl_platform
+- plugin
+notes: ''
+verify:
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/lib.rs
+  hashes:
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - 9325ef7b28c015393d46db5745f042e34257d07e
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

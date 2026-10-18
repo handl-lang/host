@@ -1,0 +1,25 @@
+name: handl-plugin-ext-eval
+path: crates/plugin-ext-eval/Cargo.toml
+purpose: Generic evaluation extension point.
+api:
+- name: handl-plugin-ext-eval
+  kind: module
+  file: crates/plugin-ext-eval/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-eval
+deps:
+- handl-platform
+- serde_json
+- handl-plugin-module
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-eval/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-eval/Cargo.toml
+  hashes:
+  - d71cf36953d5f52974d9f4d77d391d25145eb242
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

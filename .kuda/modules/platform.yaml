@@ -1,0 +1,4346 @@
+name: platform
+path: crates/platform/src/boundary.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: BoundaryKind
+  kind: type
+  file: crates/platform/src/boundary.rs
+  line: 5
+  module: platform
+- name: Boundary
+  kind: type
+  file: crates/platform/src/boundary.rs
+  line: 26
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/boundary.rs
+  line: 34
+  module: platform
+- name: boundary_kinds_exhausted
+  kind: function
+  file: crates/platform/src/boundary.rs
+  line: 38
+  module: platform
+- name: PlatformError
+  kind: type
+  file: crates/platform/src/error.rs
+  line: 9
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/error.rs
+  line: 39
+  module: platform
+- name: unknown_capability_display
+  kind: function
+  file: crates/platform/src/error.rs
+  line: 43
+  module: platform
+- name: plugin_error_display
+  kind: function
+  file: crates/platform/src/error.rs
+  line: 49
+  module: platform
+- name: not_implemented_display
+  kind: function
+  file: crates/platform/src/error.rs
+  line: 55
+  module: platform
+- name: invalid_metadata_display
+  kind: function
+  file: crates/platform/src/error.rs
+  line: 61
+  module: platform
+- name: Compile
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 18
+  module: platform
+- name: Request
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 21
+  module: platform
+- name: CompileRequest
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 26
+  module: platform
+- name: CompileBehavior
+  kind: trait
+  file: crates/platform/src/compile.rs
+  line: 36
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 39
+  module: platform
+- name: BasicCompiler
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 45
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 56
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 66
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 72
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 76
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 80
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 84
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 93
+  module: platform
+- name: Rule
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 131
+  module: platform
+- name: accept
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 133
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/compile.rs
+  line: 140
+  module: platform
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 145
+  module: platform
+- name: run_returns_compiled_flag_when_rule_matches
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 153
+  module: platform
+- name: Succeed
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 154
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 157
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 161
+  module: platform
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/platform/src/compile.rs
+  line: 190
+  module: platform
+- name: KitManifest
+  kind: type
+  file: crates/platform/src/kit.rs
+  line: 15
+  module: platform
+- name: load
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 32
+  module: platform
+- name: Kit
+  kind: type
+  file: crates/platform/src/kit.rs
+  line: 59
+  module: platform
+- name: resolve
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 68
+  module: platform
+- name: KitRegistry
+  kind: type
+  file: crates/platform/src/kit.rs
+  line: 87
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 93
+  module: platform
+- name: register
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 98
+  module: platform
+- name: resolve
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 103
+  module: platform
+- name: all
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 108
+  module: platform
+- name: remove
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 113
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/kit.rs
+  line: 127
+  module: platform
+- name: kit_manifest
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 130
+  module: platform
+- name: kit_manifest_construction
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 141
+  module: platform
+- name: kit_registry_register_resolve_and_all
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 149
+  module: platform
+- name: kit_manifest_loads_from_files
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 168
+  module: platform
+- name: kit_resolve_uses_available_plugins
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 199
+  module: platform
+- name: kit_manifest_load_failure
+  kind: function
+  file: crates/platform/src/kit.rs
+  line: 222
+  module: platform
+- name: CapabilityRequest
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 16
+  module: platform
+- name: CapabilityResponse
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 25
+  module: platform
+- name: PluginContext
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 28
+  module: platform
+- name: Plugin
+  kind: trait
+  file: crates/platform/src/plugin.rs
+  line: 36
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 38
+  module: platform
+- name: version
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 46
+  module: platform
+- name: requires
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 54
+  module: platform
+- name: optional
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 59
+  module: platform
+- name: manifest
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 71
+  module: platform
+- name: contribute
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 76
+  module: platform
+- name: module_lookup
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 93
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 108
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 112
+  module: platform
+- name: version
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 116
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 120
+  module: platform
+- name: requires
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 124
+  module: platform
+- name: optional
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 128
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 132
+  module: platform
+- name: manifest
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 136
+  module: platform
+- name: contribute
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 140
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 144
+  module: platform
+- name: module_lookup
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 152
+  module: platform
+- name: PluginRegistry
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 159
+  module: platform
+- name: PendingStatus
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 167
+  module: platform
+- name: PendingRule
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 178
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 185
+  module: platform
+- name: len
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 190
+  module: platform
+- name: is_empty
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 195
+  module: platform
+- name: take_at
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 200
+  module: platform
+- name: replace_at
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 205
+  module: platform
+- name: register
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 212
+  module: platform
+- name: resolve
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 221
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 227
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 240
+  module: platform
+- name: remove
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 252
+  module: platform
+- name: remove_by_id
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 266
+  module: platform
+- name: pending_exclude
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 278
+  module: platform
+- name: apply_pending_excludes
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 283
+  module: platform
+- name: push_pending_rule
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 294
+  module: platform
+- name: flush_pending_rules
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 301
+  module: platform
+- name: pending_rule_acceptors
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 323
+  module: platform
+- name: iter_manifests
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 334
+  module: platform
+- name: reindex
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 362
+  module: platform
+- name: names
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 374
+  module: platform
+- name: ids
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 383
+  module: platform
+- name: has_id
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 392
+  module: platform
+- name: get_plugin_mut
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 397
+  module: platform
+- name: get_plugin
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 410
+  module: platform
+- name: module_lookup
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 422
+  module: platform
+- name: get_plugin_by_name_mut
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 432
+  module: platform
+- name: InProcessPlugin
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 443
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 464
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 486
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 490
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 494
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 500
+  module: platform
+- name: RunFn
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 509
+  module: platform
+- name: ProcessPlugin
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 521
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 529
+  module: platform
+- name: with_run_fn
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 538
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 554
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 558
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 562
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 566
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/plugin.rs
+  line: 579
+  module: platform
+- name: echo
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 582
+  module: platform
+- name: test_ctx
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 593
+  module: platform
+- name: in_process_plugin_runs_and_reports_metadata
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 601
+  module: platform
+- name: process_plugin_returns_not_implemented
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 624
+  module: platform
+- name: process_plugin_with_run_fn_executes
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 641
+  module: platform
+- name: registry_lists_capabilities_and_dispatches
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 667
+  module: platform
+- name: registry_unknown_capability
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 702
+  module: platform
+- name: in_process_plugin_metadata_for_missing_capability
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 710
+  module: platform
+- name: process_plugin_and_registry_misc
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 716
+  module: platform
+- name: registry_run_dispatches_and_reports_unknown
+  kind: function
+  file: crates/platform/src/plugin.rs
+  line: 731
+  module: platform
+- name: Span
+  kind: type
+  file: crates/platform/src/ast_node.rs
+  line: 8
+  module: platform
+- name: AstNode
+  kind: type
+  file: crates/platform/src/ast_node.rs
+  line: 17
+  module: platform
+- name: CallableLookup
+  kind: trait
+  file: crates/platform/src/host.rs
+  line: 10
+  module: platform
+- name: DefaultHost
+  kind: type
+  file: crates/platform/src/host.rs
+  line: 18
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 25
+  module: platform
+- name: plugins_mut
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 33
+  module: platform
+- name: kits_mut
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 38
+  module: platform
+- name: register_plugin
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 43
+  module: platform
+- name: register_kit
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 48
+  module: platform
+- name: register_process_plugin
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 53
+  module: platform
+- name: load
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 64
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 99
+  module: platform
+- name: resolve_composition
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 116
+  module: platform
+- name: plugins
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 126
+  module: platform
+- name: kits
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 130
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 136
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/host.rs
+  line: 142
+  module: platform
+- name: default_host_initializes
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 150
+  module: platform
+- name: default_host_lifecycle
+  kind: function
+  file: crates/platform/src/host.rs
+  line: 157
+  module: platform
+- name: default_version
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 8
+  module: platform
+- name: PluginManifest
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 16
+  module: platform
+- name: AstKindRole
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 51
+  module: platform
+- name: AstKindDeclaration
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 61
+  module: platform
+- name: Dependency
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 71
+  module: platform
+- name: capability
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 80
+  module: platform
+- name: plugin
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 88
+  module: platform
+- name: from
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 97
+  module: platform
+- name: CapabilityDependency
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 104
+  module: platform
+- name: from
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 112
+  module: platform
+- name: PluginDependency
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 122
+  module: platform
+- name: from
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 130
+  module: platform
+- name: ExtendsDeclaration
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 141
+  module: platform
+- name: ConflictDeclaration
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 153
+  module: platform
+- name: TargetCompatibility
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 165
+  module: platform
+- name: TargetSupportLevel
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 175
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/manifest.rs
+  line: 193
+  module: platform
+- name: sample_manifest
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 196
+  module: platform
+- name: manifest_construction
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 234
+  module: platform
+- name: json_round_trip
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 244
+  module: platform
+- name: capability_dependency_parsing
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 252
+  module: platform
+- name: plugin_dependency_parsing
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 269
+  module: platform
+- name: version_defaults_when_deserialized
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 281
+  module: platform
+- name: dependency_constructors_and_from_str
+  kind: function
+  file: crates/platform/src/manifest.rs
+  line: 288
+  module: platform
+- name: EvalError
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 43
+  module: platform
+- name: from
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 74
+  module: platform
+- name: EvalLimits
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 92
+  module: platform
+- name: Scope
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 104
+  module: platform
+- name: EvaluatorCallback
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 120
+  module: platform
+- name: ExprEvaluator
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 134
+  module: platform
+- name: ValueCallable
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 148
+  module: platform
+- name: BasicEvaluatorCallback
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 158
+  module: platform
+- name: dispatch
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 166
+  module: platform
+- name: ControlFlow
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 222
+  module: platform
+- name: continue_
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 231
+  module: platform
+- name: ExecControl
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 251
+  module: platform
+- name: after_eval
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 267
+  module: platform
+- name: BasicExecControl
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 282
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 289
+  module: platform
+- name: add
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 294
+  module: platform
+- name: Function
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 311
+  module: platform
+- name: as_async
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 330
+  module: platform
+- name: as_type_signature
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 341
+  module: platform
+- name: TypeSignature
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 351
+  module: platform
+- name: AsyncFunction
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 371
+  module: platform
+- name: Module
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 391
+  module: platform
+- name: functions
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 404
+  module: platform
+- name: value_names
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 416
+  module: platform
+- name: value
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 425
+  module: platform
+- name: ModuleLookup
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 439
+  module: platform
+- name: lookup_type_signature
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 449
+  module: platform
+- name: HandlerClause
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 468
+  module: platform
+- name: EvalContext
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 498
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 547
+  module: platform
+- name: with_globals
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 561
+  module: platform
+- name: set_evaluator
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 570
+  module: platform
+- name: set_modules
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 579
+  module: platform
+- name: has_modules
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 584
+  module: platform
+- name: set_expr_evaluator
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 593
+  module: platform
+- name: set_value_callable
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 602
+  module: platform
+- name: try_call_value
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 611
+  module: platform
+- name: eval_expr
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 624
+  module: platform
+- name: set_limits
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 633
+  module: platform
+- name: has_evaluator
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 638
+  module: platform
+- name: push_scope
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 645
+  module: platform
+- name: pop_scope
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 650
+  module: platform
+- name: depth
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 659
+  module: platform
+- name: define
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 664
+  module: platform
+- name: get
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 671
+  module: platform
+- name: lookup
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 681
+  module: platform
+- name: collect_vars
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 695
+  module: platform
+- name: limits
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 708
+  module: platform
+- name: call_count
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 713
+  module: platform
+- name: bump_call_count
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 723
+  module: platform
+- name: increment_call_count
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 729
+  module: platform
+- name: check_depth
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 740
+  module: platform
+- name: eval
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 764
+  module: platform
+- name: call_function
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 798
+  module: platform
+- name: eval_async
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 823
+  module: platform
+- name: call_function_async
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 842
+  module: platform
+- name: yield_now
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 872
+  module: platform
+- name: to_json
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 882
+  module: platform
+- name: from_json
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 891
+  module: platform
+- name: push_handlers
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 905
+  module: platform
+- name: pop_handlers
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 914
+  module: platform
+- name: find_handler
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 924
+  module: platform
+- name: has_handler
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 934
+  module: platform
+- name: handler_depth
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 939
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 945
+  module: platform
+- name: fmt
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 951
+  module: platform
+- name: clone
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 964
+  module: platform
+- name: eq
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 984
+  module: platform
+- name: Eval
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 998
+  module: platform
+- name: Request
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1001
+  module: platform
+- name: EvalRequest
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1010
+  module: platform
+- name: fmt
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1022
+  module: platform
+- name: clone
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1033
+  module: platform
+- name: EvalBehavior
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 1044
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1047
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1056
+  module: platform
+- name: BasicEvaluator
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1070
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1083
+  module: platform
+- name: add_exec_control
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1093
+  module: platform
+- name: make_callback
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1104
+  module: platform
+- name: resume
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1122
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1157
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1163
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1167
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1171
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1175
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1184
+  module: platform
+- name: Rule
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1234
+  module: platform
+- name: accept
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1236
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/eval.rs
+  line: 1243
+  module: platform
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1248
+  module: platform
+- name: run_returns_evaluated_result_when_rule_matches
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1256
+  module: platform
+- name: Echo
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1257
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1260
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1264
+  module: platform
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1295
+  module: platform
+- name: eval_context_scope_management
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1315
+  module: platform
+- name: eval_context_get_returns_unknown_variable_error
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1339
+  module: platform
+- name: eval_context_increment_call_count_enforces_limit
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1346
+  module: platform
+- name: eval_context_check_depth_enforces_limit
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1358
+  module: platform
+- name: eval_context_eval_without_handle_returns_not_implemented
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1371
+  module: platform
+- name: recursive_eval_dispatches_to_child_rule
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1383
+  module: platform
+- name: Double
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1385
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1388
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1392
+  module: platform
+- name: ValueRule
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1423
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1425
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1428
+  module: platform
+- name: exec_control_hooks_are_called
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1471
+  module: platform
+- name: CountingControl
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1474
+  module: platform
+- name: before_eval
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1480
+  module: platform
+- name: after_eval
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1488
+  module: platform
+- name: Echo
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1499
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1501
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1504
+  module: platform
+- name: exec_control_before_eval_can_abort
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1543
+  module: platform
+- name: DenyAll
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1544
+  module: platform
+- name: before_eval
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1546
+  module: platform
+- name: Echo
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1555
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1557
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1560
+  module: platform
+- name: eval_error_converts_to_platform_error
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1591
+  module: platform
+- name: yield_error_converts_to_platform_yield
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1598
+  module: platform
+- name: eval_context_serialization_round_trip
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1610
+  module: platform
+- name: YieldOnce
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1643
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1646
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1649
+  module: platform
+- name: yield_mid_evaluation_then_resume
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1664
+  module: platform
+- name: ParentRule
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1720
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1722
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1725
+  module: platform
+- name: yield_propagates_through_nested_eval
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1740
+  module: platform
+- name: eval_async_wraps_sync_rule_result
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1804
+  module: platform
+- name: Echo
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1805
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1807
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1810
+  module: platform
+- name: call_function_async_uses_async_path
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1844
+  module: platform
+- name: AsyncEcho
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1848
+  module: platform
+- name: call
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1850
+  module: platform
+- name: as_async
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1853
+  module: platform
+- name: call_async
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1858
+  module: platform
+- name: EchoModule
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1869
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1871
+  module: platform
+- name: function
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1874
+  module: platform
+- name: call_function_async_falls_back_to_sync
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1895
+  module: platform
+- name: SyncEcho
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1896
+  module: platform
+- name: call
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1898
+  module: platform
+- name: EchoModule
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1903
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1905
+  module: platform
+- name: function
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1908
+  module: platform
+- name: call_function_async_without_registry_returns_unknown_function
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1928
+  module: platform
+- name: TestRegistry
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1939
+  module: platform
+- name: lookup
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1941
+  module: platform
+- name: futures_block_on
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1957
+  module: platform
+- name: NoopWake
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1962
+  module: platform
+- name: wake
+  kind: function
+  file: crates/platform/src/eval.rs
+  line: 1964
+  module: platform
+- name: OptionScope
+  kind: type
+  file: crates/platform/src/options.rs
+  line: 18
+  module: platform
+- name: OptionSchema
+  kind: type
+  file: crates/platform/src/options.rs
+  line: 29
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 45
+  module: platform
+- name: ResolvedOptions
+  kind: type
+  file: crates/platform/src/options.rs
+  line: 52
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 58
+  module: platform
+- name: get
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 63
+  module: platform
+- name: choice
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 68
+  module: platform
+- name: is_enabled
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 73
+  module: platform
+- name: OptionsPlugin
+  kind: type
+  file: crates/platform/src/options.rs
+  line: 87
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 95
+  module: platform
+- name: resolve
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 107
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 123
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 129
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 133
+  module: platform
+- name: version
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 137
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 141
+  module: platform
+- name: requires
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 145
+  module: platform
+- name: optional
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 149
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 153
+  module: platform
+- name: contribute
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 160
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 167
+  module: platform
+- name: Rule
+  kind: type
+  file: crates/platform/src/options.rs
+  line: 194
+  module: platform
+- name: accept
+  kind: function
+  file: crates/platform/src/options.rs
+  line: 196
+  module: platform
+- name: CapabilityMetadata
+  kind: type
+  file: crates/platform/src/capability.rs
+  line: 8
+  module: platform
+- name: CapabilityId
+  kind: type
+  file: crates/platform/src/capability.rs
+  line: 13
+  module: platform
+- name: as_str
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 17
+  module: platform
+- name: from
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 23
+  module: platform
+- name: from
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 29
+  module: platform
+- name: fmt
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 35
+  module: platform
+- name: Capability
+  kind: trait
+  file: crates/platform/src/capability.rs
+  line: 41
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/capability.rs
+  line: 49
+  module: platform
+- name: MockCap
+  kind: type
+  file: crates/platform/src/capability.rs
+  line: 53
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 59
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 63
+  module: platform
+- name: capability_id_from_str_and_string
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 69
+  module: platform
+- name: capability_trait_roundtrip
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 78
+  module: platform
+- name: capability_id_from_string
+  kind: function
+  file: crates/platform/src/capability.rs
+  line: 88
+  module: platform
+- name: Build
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 18
+  module: platform
+- name: Request
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 21
+  module: platform
+- name: BuildRequest
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 26
+  module: platform
+- name: BuildBehavior
+  kind: trait
+  file: crates/platform/src/build.rs
+  line: 36
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 39
+  module: platform
+- name: BasicBuilder
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 45
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 56
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 66
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 72
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 76
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 80
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 84
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 93
+  module: platform
+- name: Rule
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 129
+  module: platform
+- name: accept
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 131
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/build.rs
+  line: 138
+  module: platform
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 143
+  module: platform
+- name: run_returns_built_flag_when_rule_matches
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 151
+  module: platform
+- name: Succeed
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 152
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 155
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 159
+  module: platform
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/platform/src/build.rs
+  line: 188
+  module: platform
+- name: Lint
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 18
+  module: platform
+- name: Request
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 21
+  module: platform
+- name: LintRequest
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 26
+  module: platform
+- name: LintBehavior
+  kind: trait
+  file: crates/platform/src/lint.rs
+  line: 36
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 39
+  module: platform
+- name: BasicLinter
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 45
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 56
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 66
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 72
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 76
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 80
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 84
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 93
+  module: platform
+- name: Rule
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 131
+  module: platform
+- name: accept
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 133
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/lint.rs
+  line: 140
+  module: platform
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 145
+  module: platform
+- name: run_returns_diagnostics_when_rule_matches
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 153
+  module: platform
+- name: Warn
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 154
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 157
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 161
+  module: platform
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/platform/src/lint.rs
+  line: 193
+  module: platform
+- name: Vm
+  kind: type
+  file: crates/platform/src/vm.rs
+  line: 8
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/vm.rs
+  line: 15
+  module: platform
+- name: host
+  kind: function
+  file: crates/platform/src/vm.rs
+  line: 27
+  module: platform
+- name: host_mut
+  kind: function
+  file: crates/platform/src/vm.rs
+  line: 32
+  module: platform
+- name: env
+  kind: function
+  file: crates/platform/src/vm.rs
+  line: 37
+  module: platform
+- name: env_mut
+  kind: function
+  file: crates/platform/src/vm.rs
+  line: 42
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/vm.rs
+  line: 52
+  module: platform
+- name: Format
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 30
+  module: platform
+- name: Request
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 33
+  module: platform
+- name: FormatRequest
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 38
+  module: platform
+- name: FormatBehavior
+  kind: trait
+  file: crates/platform/src/format.rs
+  line: 48
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 51
+  module: platform
+- name: BasicFormatter
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 57
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 68
+  module: platform
+- name: default
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 78
+  module: platform
+- name: id
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 84
+  module: platform
+- name: name
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 88
+  module: platform
+- name: capabilities
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 92
+  module: platform
+- name: metadata
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 96
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 105
+  module: platform
+- name: Rule
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 143
+  module: platform
+- name: accept
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 145
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/format.rs
+  line: 152
+  module: platform
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 157
+  module: platform
+- name: run_returns_formatted_output_when_rule_matches
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 165
+  module: platform
+- name: Echo
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 166
+  module: platform
+- name: kind
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 169
+  module: platform
+- name: apply
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 173
+  module: platform
+- name: run_rejects_unknown_capability
+  kind: function
+  file: crates/platform/src/format.rs
+  line: 205
+  module: platform
+- name: Contribution
+  kind: trait
+  file: crates/platform/src/plugin_model.rs
+  line: 19
+  module: platform
+- name: RuleAcceptor
+  kind: trait
+  file: crates/platform/src/plugin_model.rs
+  line: 25
+  module: platform
+- name: Operation
+  kind: trait
+  file: crates/platform/src/plugin_model.rs
+  line: 34
+  module: platform
+- name: Behavior
+  kind: trait
+  file: crates/platform/src/plugin_model.rs
+  line: 40
+  module: platform
+- name: ContributionContext
+  kind: type
+  file: crates/platform/src/plugin_model.rs
+  line: 49
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 56
+  module: platform
+- name: resolve
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 61
+  module: platform
+- name: run
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 66
+  module: platform
+- name: register_plugin
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 81
+  module: platform
+- name: contribute
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 92
+  module: platform
+- name: contribute_exec_control
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 126
+  module: platform
+- name: get_plugin_mut
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 159
+  module: platform
+- name: has_plugin_id
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 164
+  module: platform
+- name: exclude_plugin
+  kind: function
+  file: crates/platform/src/plugin_model.rs
+  line: 169
+  module: platform
+- name: KitReference
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 17
+  module: platform
+- name: PluginReference
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 30
+  module: platform
+- name: DependencySpec
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 46
+  module: platform
+- name: HostConfig
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 55
+  module: platform
+- name: new
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 72
+  module: platform
+- name: from_toml
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 77
+  module: platform
+- name: RawKit
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 122
+  module: platform
+- name: RawPlugin
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 133
+  module: platform
+- name: RawDependency
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 145
+  module: platform
+- name: RawHostConfig
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 151
+  module: platform
+- name: discover_manifest_dir
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 170
+  module: platform
+- name: resolve_dependencies
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 204
+  module: platform
+- name: discover_dependencies
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 253
+  module: platform
+- name: resolve_pkg_dependencies
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 284
+  module: platform
+- name: pkg_deps_body
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 308
+  module: platform
+- name: pkg_dep_entries
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 359
+  module: platform
+- name: toml_value_to_json
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 410
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/config.rs
+  line: 431
+  module: platform
+- name: host_config_parses_toml
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 435
+  module: platform
+- name: host_config_parses_dependencies
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 485
+  module: platform
+- name: discover_dependencies_resolves_relative_to_manifest_dir
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 500
+  module: platform
+- name: resolve_pkg_dependencies_maps_sibling_repos
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 532
+  module: platform
+- name: resolve_pkg_dependencies_is_lenient
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 560
+  module: platform
+- name: resolve_dependencies_merges_pkg_hnl_without_overriding_toml
+  kind: function
+  file: crates/platform/src/config.rs
+  line: 573
+  module: platform
+- name: ast_node
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 7
+  module: platform
+- name: boundary
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 9
+  module: platform
+- name: build
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 11
+  module: platform
+- name: capability
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 13
+  module: platform
+- name: compile
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 15
+  module: platform
+- name: config
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 17
+  module: platform
+- name: error
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 19
+  module: platform
+- name: eval
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 21
+  module: platform
+- name: format
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 23
+  module: platform
+- name: host
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 25
+  module: platform
+- name: kit
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 27
+  module: platform
+- name: lint
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 29
+  module: platform
+- name: manifest
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 31
+  module: platform
+- name: options
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 33
+  module: platform
+- name: plugin
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 35
+  module: platform
+- name: plugin_model
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 37
+  module: platform
+- name: resolve
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 39
+  module: platform
+- name: vm
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 41
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/lib.rs
+  line: 64
+  module: platform
+- name: top_level_reexports_are_usable
+  kind: function
+  file: crates/platform/src/lib.rs
+  line: 68
+  module: platform
+- name: CapabilitySelector
+  kind: type
+  file: crates/platform/src/resolve.rs
+  line: 19
+  module: platform
+- name: ResolvedComposition
+  kind: type
+  file: crates/platform/src/resolve.rs
+  line: 28
+  module: platform
+- name: ExtensionWiring
+  kind: type
+  file: crates/platform/src/resolve.rs
+  line: 45
+  module: platform
+- name: ResolutionError
+  kind: type
+  file: crates/platform/src/resolve.rs
+  line: 56
+  module: platform
+- name: resolve
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 133
+  module: platform
+- name: resolve_capability_dependency
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 294
+  module: platform
+- name: resolve_plugin_dependency
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 326
+  module: platform
+- name: optional_capability_resolved
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 350
+  module: platform
+- name: optional_plugin_resolved
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 369
+  module: platform
+- name: check_conflicts
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 384
+  module: platform
+- name: validate_ast_kinds
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 421
+  module: platform
+- name: topological_init_order
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 462
+  module: platform
+- name: find_cycle
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 560
+  module: platform
+- name: dfs_cycle
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 575
+  module: platform
+- name: version_cmp
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 604
+  module: platform
+- name: normalize_version_req
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 611
+  module: platform
+- name: version_satisfies
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 633
+  module: platform
+- name: version_tuple
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 649
+  module: platform
+- name: tests
+  kind: module
+  file: crates/platform/src/resolve.rs
+  line: 654
+  module: platform
+- name: manifest
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 659
+  module: platform
+- name: simple_capability_satisfaction
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 677
+  module: platform
+- name: missing_capability_error
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 718
+  module: platform
+- name: selector_pins_provider
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 741
+  module: platform
+- name: exclusive_capability_multiple_providers_fails
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 758
+  module: platform
+- name: cycle_in_extends_graph_fails
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 797
+  module: platform
+- name: optional_missing_dependency_is_recorded
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 841
+  module: platform
+- name: picks_highest_version_for_shared_capability
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 864
+  module: platform
+- name: capability_version_constraint_accepts_satisfying
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 877
+  module: platform
+- name: capability_version_constraint_rejects_unsatisfied
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 904
+  module: platform
+- name: same_id_with_different_versions_conflicts
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 927
+  module: platform
+- name: selector_missing_provider_and_invalid_selector
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 937
+  module: platform
+- name: main_plugin
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 958
+  module: platform
+- name: required_plugin_dependency_and_version_mismatch
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 976
+  module: platform
+- name: optional_dependencies_are_recorded_or_resolved
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 998
+  module: platform
+- name: conflict_by_capability_and_missing_extendee
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1014
+  module: platform
+- name: target_report_filled_for_requested_target
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1060
+  module: platform
+- name: version_helpers
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1092
+  module: platform
+- name: init_order_respects_plugin_dependency_and_extends
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1104
+  module: platform
+- name: conflict_by_plugin_declaration
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1131
+  module: platform
+- name: cycle_via_capability_dependencies
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1156
+  module: platform
+- name: version_satisfies_fallback_exact
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1190
+  module: platform
+- name: ast_kind_manifest
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1195
+  module: platform
+- name: ast_kinds_valid_when_producer_selected
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1213
+  module: platform
+- name: ast_kinds_missing_producer_detected
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1238
+  module: platform
+- name: ast_kinds_behavior_level_kinds_skipped
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1265
+  module: platform
+- name: ast_kinds_resolve_succeeds_with_matching_producer
+  kind: function
+  file: crates/platform/src/resolve.rs
+  line: 1278
+  module: platform
+- name: tests
+  kind: module
+  file: src/lib.rs
+  line: 9
+  module: platform
+- name: root_reexports_platform_types
+  kind: function
+  file: src/lib.rs
+  line: 11
+  module: platform
+deps:
+- thiserror
+- serde_json
+- serde
+- serde
+- serde
+- serde_json
+- serde
+- serde
+- serde_json
+- thiserror
+- serde_json
+- serde
+- serde_json
+- serde_json
+- serde_json
+- serde
+- serde_json
+- vm
+- semver
+- serde
+- thiserror
+notes: ''
+verify:
+- crates/platform/src/boundary.rs
+- crates/platform/src/boundary.rs
+- crates/platform/src/boundary.rs
+- crates/platform/src/boundary.rs
+- crates/platform/src/error.rs
+- crates/platform/src/error.rs
+- crates/platform/src/error.rs
+- crates/platform/src/error.rs
+- crates/platform/src/error.rs
+- crates/platform/src/error.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/kit.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/plugin.rs
+- crates/platform/src/ast_node.rs
+- crates/platform/src/ast_node.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/host.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/manifest.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/eval.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/options.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/build.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/lint.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/vm.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/format.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/plugin_model.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/config.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/lib.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- crates/platform/src/resolve.rs
+- src/lib.rs
+- src/lib.rs
+provenance:
+  files:
+  - crates/platform/src/boundary.rs
+  - crates/platform/src/boundary.rs
+  - crates/platform/src/boundary.rs
+  - crates/platform/src/boundary.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/ast_node.rs
+  - crates/platform/src/ast_node.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/resolve.rs
+  - src/lib.rs
+  - src/lib.rs
+  hashes:
+  - 7f2f487810c64c0e96adfae6d3617a2dafa5e535
+  - 7f2f487810c64c0e96adfae6d3617a2dafa5e535
+  - 7f2f487810c64c0e96adfae6d3617a2dafa5e535
+  - 7f2f487810c64c0e96adfae6d3617a2dafa5e535
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 99a8afd5e2d4e84d58864d42cd34a68d3a5e465d
+  - 99a8afd5e2d4e84d58864d42cd34a68d3a5e465d
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - ed2c3a07e4a4abe0c8a97698d14b308af6a49739
+  - ed2c3a07e4a4abe0c8a97698d14b308af6a49739
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

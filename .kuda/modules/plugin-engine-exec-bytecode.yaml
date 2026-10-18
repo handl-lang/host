@@ -1,0 +1,2042 @@
+name: plugin-engine-exec-bytecode
+path: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: DoubleHostFn
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 24
+  module: plugin-engine-exec-bytecode
+- name: call
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 27
+  module: plugin-engine-exec-bytecode
+- name: ConformanceModule
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 38
+  module: plugin-engine-exec-bytecode
+- name: name
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 41
+  module: plugin-engine-exec-bytecode
+- name: function
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 44
+  module: plugin-engine-exec-bytecode
+- name: conformance_registry
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 54
+  module: plugin-engine-exec-bytecode
+- name: bytecode_engine_lowering_parity_on_eval_corpus
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 62
+  module: plugin-engine-exec-bytecode
+- name: bytecode_engine_passes_eval_conformance
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 84
+  module: plugin-engine-exec-bytecode
+- name: bytecode_engine_passes_foreign_conformance
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 92
+  module: plugin-engine-exec-bytecode
+- name: cross_engine_non_foreign_results_match
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 107
+  module: plugin-engine-exec-bytecode
+- name: cross_engine_foreign_results_match
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  line: 137
+  module: plugin-engine-exec-bytecode
+- name: compile
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 43
+  module: plugin-engine-exec-bytecode
+- name: compile_into
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 72
+  module: plugin-engine-exec-bytecode
+- name: compile_into_td
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 90
+  module: plugin-engine-exec-bytecode
+- name: compile_arr
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 502
+  module: plugin-engine-exec-bytecode
+- name: compile_op_arg
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 727
+  module: plugin-engine-exec-bytecode
+- name: is_derived_step_op_with_sub_schemes
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 754
+  module: plugin-engine-exec-bytecode
+- name: typed_binary_instr
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 765
+  module: plugin-engine-exec-bytecode
+- name: arith_instr
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 792
+  module: plugin-engine-exec-bytecode
+- name: arith_arity
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 806
+  module: plugin-engine-exec-bytecode
+- name: StaticObjectKeys
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 817
+  module: plugin-engine-exec-bytecode
+- name: try_extract_static_object_keys
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 840
+  module: plugin-engine-exec-bytecode
+- name: StaticClosure
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 926
+  module: plugin-engine-exec-bytecode
+- name: try_extract_closure_params_body
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 951
+  module: plugin-engine-exec-bytecode
+- name: tests
+  kind: module
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1029
+  module: plugin-engine-exec-bytecode
+- name: dummy_node
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1036
+  module: plugin-engine-exec-bytecode
+- name: dummy_ast
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1041
+  module: plugin-engine-exec-bytecode
+- name: compile_const
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1050
+  module: plugin-engine-exec-bytecode
+- name: compile_const_no_lit
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1059
+  module: plugin-engine-exec-bytecode
+- name: compile_proj_env_named
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1068
+  module: plugin-engine-exec-bytecode
+- name: compile_proj_env_payload
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1077
+  module: plugin-engine-exec-bytecode
+- name: compile_proj_child
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1091
+  module: plugin-engine-exec-bytecode
+- name: compile_extend_env_named
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1105
+  module: plugin-engine-exec-bytecode
+- name: compile_extend_env_payload
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1117
+  module: plugin-engine-exec-bytecode
+- name: compile_native_op
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1134
+  module: plugin-engine-exec-bytecode
+- name: compile_foreign_op
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1169
+  module: plugin-engine-exec-bytecode
+- name: compile_seq_no_scope
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1205
+  module: plugin-engine-exec-bytecode
+- name: compile_seq_with_extend_env_pops_scope
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1226
+  module: plugin-engine-exec-bytecode
+- name: compile_first
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1260
+  module: plugin-engine-exec-bytecode
+- name: compile_choice
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1279
+  module: plugin-engine-exec-bytecode
+- name: compile_loop
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1306
+  module: plugin-engine-exec-bytecode
+- name: compile_app
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1326
+  module: plugin-engine-exec-bytecode
+- name: compile_app_no_args
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1351
+  module: plugin-engine-exec-bytecode
+- name: compile_branch_lowering
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1368
+  module: plugin-engine-exec-bytecode
+- name: compile_arith_and_emits_arith_instr
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1413
+  module: plugin-engine-exec-bytecode
+- name: compile_arith_neg_emits_arith_instr
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/compile.rs
+  line: 1451
+  module: plugin-engine-exec-bytecode
+- name: ArithOp
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/instr.rs
+  line: 90
+  module: plugin-engine-exec-bytecode
+- name: Instr
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/instr.rs
+  line: 128
+  module: plugin-engine-exec-bytecode
+- name: FfiFn
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 87
+  module: plugin-engine-exec-bytecode
+- name: FfiRegistry
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 94
+  module: plugin-engine-exec-bytecode
+- name: new
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 100
+  module: plugin-engine-exec-bytecode
+- name: register
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 108
+  module: plugin-engine-exec-bytecode
+- name: lookup
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 113
+  module: plugin-engine-exec-bytecode
+- name: ARR_DISPATCH_TAG
+  kind: const
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 120
+  module: plugin-engine-exec-bytecode
+- name: ScopeStack
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 136
+  module: plugin-engine-exec-bytecode
+- name: new
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 179
+  module: plugin-engine-exec-bytecode
+- name: set_globals
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 194
+  module: plugin-engine-exec-bytecode
+- name: lookup
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 201
+  module: plugin-engine-exec-bytecode
+- name: define
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 219
+  module: plugin-engine-exec-bytecode
+- name: assign
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 233
+  module: plugin-engine-exec-bytecode
+- name: push_scope
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 257
+  module: plugin-engine-exec-bytecode
+- name: pop_scope
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 264
+  module: plugin-engine-exec-bytecode
+- name: capture
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 279
+  module: plugin-engine-exec-bytecode
+- name: pair
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 300
+  module: plugin-engine-exec-bytecode
+- name: pair_fst
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 305
+  module: plugin-engine-exec-bytecode
+- name: pair_snd
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 310
+  module: plugin-engine-exec-bytecode
+- name: is_arrow_like
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 317
+  module: plugin-engine-exec-bytecode
+- name: flatten_pair
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 330
+  module: plugin-engine-exec-bytecode
+- name: handler_impl
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 349
+  module: plugin-engine-exec-bytecode
+- name: either_left
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 357
+  module: plugin-engine-exec-bytecode
+- name: either_right
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 362
+  module: plugin-engine-exec-bytecode
+- name: is_either_left
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 367
+  module: plugin-engine-exec-bytecode
+- name: is_either_right
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 372
+  module: plugin-engine-exec-bytecode
+- name: either_value
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 377
+  module: plugin-engine-exec-bytecode
+- name: VmFrame
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 391
+  module: plugin-engine-exec-bytecode
+- name: new
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 438
+  module: plugin-engine-exec-bytecode
+- name: define_global
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 461
+  module: plugin-engine-exec-bytecode
+- name: register_ffi
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 470
+  module: plugin-engine-exec-bytecode
+- name: set_globals
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 480
+  module: plugin-engine-exec-bytecode
+- name: cur_ast
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 486
+  module: plugin-engine-exec-bytecode
+- name: def_arena_slot
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 500
+  module: plugin-engine-exec-bytecode
+- name: define_binding
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 522
+  module: plugin-engine-exec-bytecode
+- name: eval_pattern_node
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 526
+  module: plugin-engine-exec-bytecode
+- name: global_value
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 534
+  module: plugin-engine-exec-bytecode
+- name: lang
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 538
+  module: plugin-engine-exec-bytecode
+- name: exec_node
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 555
+  module: plugin-engine-exec-bytecode
+- name: exec_node_inner
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 562
+  module: plugin-engine-exec-bytecode
+- name: exec_instrs
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 613
+  module: plugin-engine-exec-bytecode
+- name: exec_instrs_inner
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 626
+  module: plugin-engine-exec-bytecode
+- name: MAX_ITERS
+  kind: const
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 652
+  module: plugin-engine-exec-bytecode
+- name: apply_native_v2
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1395
+  module: plugin-engine-exec-bytecode
+- name: arr_dispatch
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1586
+  module: plugin-engine-exec-bytecode
+- name: apply_app
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1620
+  module: plugin-engine-exec-bytecode
+- name: apply_arrow_body
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1801
+  module: plugin-engine-exec-bytecode
+- name: op_uses_incoming
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1871
+  module: plugin-engine-exec-bytecode
+- name: op_is_derived_step
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1901
+  module: plugin-engine-exec-bytecode
+- name: VmCtx
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1913
+  module: plugin-engine-exec-bytecode
+- name: supports
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1919
+  module: plugin-engine-exec-bytecode
+- name: node_payload
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1925
+  module: plugin-engine-exec-bytecode
+- name: node_payload_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1929
+  module: plugin-engine-exec-bytecode
+- name: child_role_index
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1933
+  module: plugin-engine-exec-bytecode
+- name: child_role_index_for
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1941
+  module: plugin-engine-exec-bytecode
+- name: role_declared_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1949
+  module: plugin-engine-exec-bytecode
+- name: child_role_index_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1964
+  module: plugin-engine-exec-bytecode
+- name: eval_node
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1972
+  module: plugin-engine-exec-bytecode
+- name: env_lookup
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1976
+  module: plugin-engine-exec-bytecode
+- name: env_define
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1980
+  module: plugin-engine-exec-bytecode
+- name: env_push
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1984
+  module: plugin-engine-exec-bytecode
+- name: env_pop
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1988
+  module: plugin-engine-exec-bytecode
+- name: env_assign
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1992
+  module: plugin-engine-exec-bytecode
+- name: env_take_enclosing_updated
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 1996
+  module: plugin-engine-exec-bytecode
+- name: env_capture
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2000
+  module: plugin-engine-exec-bytecode
+- name: try_pattern
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2004
+  module: plugin-engine-exec-bytecode
+- name: node_kind_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2021
+  module: plugin-engine-exec-bytecode
+- name: pattern_role_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2025
+  module: plugin-engine-exec-bytecode
+- name: literal_child_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2032
+  module: plugin-engine-exec-bytecode
+- name: closure_params_at
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2040
+  module: plugin-engine-exec-bytecode
+- name: closure_body_def
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2049
+  module: plugin-engine-exec-bytecode
+- name: rec_bound_names
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2064
+  module: plugin-engine-exec-bytecode
+- name: rec_region_enter
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2068
+  module: plugin-engine-exec-bytecode
+- name: rec_region_exit
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2074
+  module: plugin-engine-exec-bytecode
+- name: apply_arrow
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2080
+  module: plugin-engine-exec-bytecode
+- name: import_resolver
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2088
+  module: plugin-engine-exec-bytecode
+- name: eval_bin_arith
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2105
+  module: plugin-engine-exec-bytecode
+- name: eval_bin_cmp
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2144
+  module: plugin-engine-exec-bytecode
+- name: eval_arith_bin
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2168
+  module: plugin-engine-exec-bytecode
+- name: eval_arith_unary
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2211
+  module: plugin-engine-exec-bytecode
+- name: tests
+  kind: module
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2231
+  module: plugin-engine-exec-bytecode
+- name: make_ast
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2242
+  module: plugin-engine-exec-bytecode
+- name: dummy_node
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2251
+  module: plugin-engine-exec-bytecode
+- name: eval_standalone
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2256
+  module: plugin-engine-exec-bytecode
+- name: pair
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2267
+  module: plugin-engine-exec-bytecode
+- name: either_left
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2272
+  module: plugin-engine-exec-bytecode
+- name: either_right
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2277
+  module: plugin-engine-exec-bytecode
+- name: arr_const_returns_literal
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2284
+  module: plugin-engine-exec-bytecode
+- name: arr_const_null_when_no_literal
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2293
+  module: plugin-engine-exec-bytecode
+- name: arr_proj_env_bound_lookup
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2304
+  module: plugin-engine-exec-bytecode
+- name: arr_proj_env_unbound_returns_name
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2319
+  module: plugin-engine-exec-bytecode
+- name: seq_const_then_id
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2335
+  module: plugin-engine-exec-bytecode
+- name: bind_shape_extend_env_then_proj_env
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2349
+  module: plugin-engine-exec-bytecode
+- name: first_id_on_pair
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2366
+  module: plugin-engine-exec-bytecode
+- name: first_const_on_pair
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2383
+  module: plugin-engine-exec-bytecode
+- name: choice_left
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2407
+  module: plugin-engine-exec-bytecode
+- name: choice_right
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2427
+  module: plugin-engine-exec-bytecode
+- name: tag_choice_true_yields_then
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2449
+  module: plugin-engine-exec-bytecode
+- name: tag_choice_false_yields_else
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2472
+  module: plugin-engine-exec-bytecode
+- name: loop_causal_single_step
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2497
+  module: plugin-engine-exec-bytecode
+- name: loop_multi_step_either_countdown
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2511
+  module: plugin-engine-exec-bytecode
+- name: loop_multi_step_max_iterations_guard
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2533
+  module: plugin-engine-exec-bytecode
+- name: loop_lang
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2559
+  module: plugin-engine-exec-bytecode
+- name: loop_step_single_step_terminate
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2713
+  module: plugin-engine-exec-bytecode
+- name: loop_step_factorial_destructured
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2737
+  module: plugin-engine-exec-bytecode
+- name: makeobj_static_var_keys
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2791
+  module: plugin-engine-exec-bytecode
+- name: makeobj_static_string_keys
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2818
+  module: plugin-engine-exec-bytecode
+- name: makeobj_dynamic_key_fallback
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2846
+  module: plugin-engine-exec-bytecode
+- name: while_step_countdown
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2871
+  module: plugin-engine-exec-bytecode
+- name: while_step_zero_iterations
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2895
+  module: plugin-engine-exec-bytecode
+- name: for_step_accumulate
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2917
+  module: plugin-engine-exec-bytecode
+- name: for_step_zero_iterations
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2940
+  module: plugin-engine-exec-bytecode
+- name: fix_step_halve_to_zero
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2964
+  module: plugin-engine-exec-bytecode
+- name: fix_step_already_at_fixpoint
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 2982
+  module: plugin-engine-exec-bytecode
+- name: app_closure_applies_body
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3001
+  module: plugin-engine-exec-bytecode
+- name: native_add
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3055
+  module: plugin-engine-exec-bytecode
+- name: native_eq
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3072
+  module: plugin-engine-exec-bytecode
+- name: unknown_native_op_errors
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3091
+  module: plugin-engine-exec-bytecode
+- name: DoubleFn
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3104
+  module: plugin-engine-exec-bytecode
+- name: call
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3107
+  module: plugin-engine-exec-bytecode
+- name: DoubleModule
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3116
+  module: plugin-engine-exec-bytecode
+- name: name
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3119
+  module: plugin-engine-exec-bytecode
+- name: function
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3122
+  module: plugin-engine-exec-bytecode
+- name: double_registry
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3131
+  module: plugin-engine-exec-bytecode
+- name: foreign_arr_dispatches_to_module
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3136
+  module: plugin-engine-exec-bytecode
+- name: foreign_arr_no_modules_errors
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3161
+  module: plugin-engine-exec-bytecode
+- name: exec_node_add
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3187
+  module: plugin-engine-exec-bytecode
+- name: exec_node_branch_true
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3227
+  module: plugin-engine-exec-bytecode
+- name: exec_node_branch_false
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3274
+  module: plugin-engine-exec-bytecode
+- name: no_scheme_returns_payload
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3323
+  module: plugin-engine-exec-bytecode
+- name: v2_engine_accepts_v2_lang
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3334
+  module: plugin-engine-exec-bytecode
+- name: import_op_binds_module_bindings_into_scope
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3341
+  module: plugin-engine-exec-bytecode
+- name: StubResolver
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3342
+  module: plugin-engine-exec-bytecode
+- name: resolve_import
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3346
+  module: plugin-engine-exec-bytecode
+- name: import_op_errors_without_resolver
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3409
+  module: plugin-engine-exec-bytecode
+- name: eval_block_imports_and_returns_binding
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3437
+  module: plugin-engine-exec-bytecode
+- name: StubResolver
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3438
+  module: plugin-engine-exec-bytecode
+- name: resolve_import
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3442
+  module: plugin-engine-exec-bytecode
+- name: eval_instrs
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3515
+  module: plugin-engine-exec-bytecode
+- name: arith_add_computes_sum
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3524
+  module: plugin-engine-exec-bytecode
+- name: arith_sub_computes_difference
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3535
+  module: plugin-engine-exec-bytecode
+- name: arith_mul_computes_product
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3546
+  module: plugin-engine-exec-bytecode
+- name: arith_eq_returns_true_for_equal
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3557
+  module: plugin-engine-exec-bytecode
+- name: arith_lt_returns_true_for_less
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3568
+  module: plugin-engine-exec-bytecode
+- name: arith_neg_is_unary
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3579
+  module: plugin-engine-exec-bytecode
+- name: arith_not_is_unary
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3589
+  module: plugin-engine-exec-bytecode
+- name: ffi_calls_registered_foreign_function
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3601
+  module: plugin-engine-exec-bytecode
+- name: ffi_falls_back_to_module_lookup
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/vm.rs
+  line: 3624
+  module: plugin-engine-exec-bytecode
+- name: compile
+  kind: module
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 58
+  module: plugin-engine-exec-bytecode
+- name: instr
+  kind: module
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 59
+  module: plugin-engine-exec-bytecode
+- name: vm
+  kind: module
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 60
+  module: plugin-engine-exec-bytecode
+- name: BytecodeEngine
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 88
+  module: plugin-engine-exec-bytecode
+- name: new
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 101
+  module: plugin-engine-exec-bytecode
+- name: with_modules
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 115
+  module: plugin-engine-exec-bytecode
+- name: with_lowering
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 125
+  module: plugin-engine-exec-bytecode
+- name: with_global
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 132
+  module: plugin-engine-exec-bytecode
+- name: default
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 139
+  module: plugin-engine-exec-bytecode
+- name: eval_ast_rc
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 149
+  module: plugin-engine-exec-bytecode
+- name: eval_ast_rc_with_args
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 162
+  module: plugin-engine-exec-bytecode
+- name: eval
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 237
+  module: plugin-engine-exec-bytecode
+- name: eval_shared
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 245
+  module: plugin-engine-exec-bytecode
+- name: eval_shared_with_call_args
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 256
+  module: plugin-engine-exec-bytecode
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 265
+  module: plugin-engine-exec-bytecode
+- name: with_modules
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 269
+  module: plugin-engine-exec-bytecode
+- name: with_global
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 275
+  module: plugin-engine-exec-bytecode
+- name: with_import_resolver
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 279
+  module: plugin-engine-exec-bytecode
+- name: seal_module_value
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 294
+  module: plugin-engine-exec-bytecode
+- name: BytecodeEngineV2
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 309
+  module: plugin-engine-exec-bytecode
+- name: BytecodeArtifact
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 320
+  module: plugin-engine-exec-bytecode
+- name: run
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 328
+  module: plugin-engine-exec-bytecode
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 343
+  module: plugin-engine-exec-bytecode
+- name: BytecodeCompileEngine
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 351
+  module: plugin-engine-exec-bytecode
+- name: new
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 355
+  module: plugin-engine-exec-bytecode
+- name: compile
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 361
+  module: plugin-engine-exec-bytecode
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 381
+  module: plugin-engine-exec-bytecode
+- name: lower_natives
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 392
+  module: plugin-engine-exec-bytecode
+- name: tests
+  kind: module
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 431
+  module: plugin-engine-exec-bytecode
+- name: make_ast
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 441
+  module: plugin-engine-exec-bytecode
+- name: DoubleHostFn
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 450
+  module: plugin-engine-exec-bytecode
+- name: call
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 453
+  module: plugin-engine-exec-bytecode
+- name: ConformanceModule
+  kind: type
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 464
+  module: plugin-engine-exec-bytecode
+- name: name
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 467
+  module: plugin-engine-exec-bytecode
+- name: function
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 470
+  module: plugin-engine-exec-bytecode
+- name: conformance_registry
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 480
+  module: plugin-engine-exec-bytecode
+- name: engine_empty_ast_returns_null
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 487
+  module: plugin-engine-exec-bytecode
+- name: engine_no_scheme_returns_payload
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 496
+  module: plugin-engine-exec-bytecode
+- name: engine_lit_scheme
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 506
+  module: plugin-engine-exec-bytecode
+- name: engine_add
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 524
+  module: plugin-engine-exec-bytecode
+- name: engine_let_binding
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 564
+  module: plugin-engine-exec-bytecode
+- name: engine_if_true
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 621
+  module: plugin-engine-exec-bytecode
+- name: engine_if_false
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 668
+  module: plugin-engine-exec-bytecode
+- name: engine_foreign
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 715
+  module: plugin-engine-exec-bytecode
+- name: engine_foreign_no_host_errors
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 746
+  module: plugin-engine-exec-bytecode
+- name: engine_nested_let_add
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 778
+  module: plugin-engine-exec-bytecode
+- name: engine_version_mismatch_errors
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 866
+  module: plugin-engine-exec-bytecode
+- name: engine_default_constructor
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 878
+  module: plugin-engine-exec-bytecode
+- name: engine_trait_dispatch_via_dyn
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 887
+  module: plugin-engine-exec-bytecode
+- name: engine_closure_call
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 896
+  module: plugin-engine-exec-bytecode
+- name: engine_closure_captures_env
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 984
+  module: plugin-engine-exec-bytecode
+- name: engine_foreign_host_present_but_fn_not_found_errors
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 1106
+  module: plugin-engine-exec-bytecode
+- name: engine_bind
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 1143
+  module: plugin-engine-exec-bytecode
+- name: lower_object_key_bypasses_string_kind_heuristic
+  kind: function
+  file: crates/plugin-engine-exec-bytecode/src/lib.rs
+  line: 1210
+  module: plugin-engine-exec-bytecode
+deps:
+- handl_language
+- handl_platform
+- handl_plugin_engine_exec
+- handl_plugin_engine_exec_bytecode
+- handl_plugin_engine_exec_tree_walk
+- handl_plugin_module
+- handl_language
+- handl_language
+- plugin_engine
+- handl_language
+- plugin_engine
+- serde_json
+- handl_language
+- handl_language
+- handl_value
+- rustc_hash
+- handl_language
+- handl_platform
+- handl_plugin_engine_exec
+- handl_plugin_module
+- plugin_engine
+- serde_json
+- compile
+- instr
+- handl_language
+- handl_plugin_engine_exec
+- handl_plugin_engine_transform_rewrite
+- handl_value
+- rustc_hash
+- vm
+- handl_language
+- handl_platform
+- handl_plugin_engine_exec
+- handl_plugin_module
+- plugin_engine
+- serde_json
+- handl_language
+notes: ''
+verify:
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/compile.rs
+- crates/plugin-engine-exec-bytecode/src/instr.rs
+- crates/plugin-engine-exec-bytecode/src/instr.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/vm.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+- crates/plugin-engine-exec-bytecode/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/instr.rs
+  - crates/plugin-engine-exec-bytecode/src/instr.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  hashes:
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 60d76f602b55bb26d3b8b26ea59abb462a9de854
+  - 60d76f602b55bb26d3b8b26ea59abb462a9de854
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

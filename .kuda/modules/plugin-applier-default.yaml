@@ -1,0 +1,189 @@
+name: plugin-applier-default
+path: crates/plugin-applier-default/src/lib_tests.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: kit_module_names
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 11
+  module: plugin-applier-default
+- name: libraries
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 19
+  module: plugin-applier-default
+- name: applier_loads_kit_from_config
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 24
+  module: plugin-applier-default
+- name: full_config_flow_kits_plugins_options
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 44
+  module: plugin-applier-default
+- name: register_accepts_unresolved_declaration
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 79
+  module: plugin-applier-default
+- name: excludes_remove_plugin_by_id
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 108
+  module: plugin-applier-default
+- name: per_kit_exclude_removes_plugin
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 145
+  module: plugin-applier-default
+- name: DefaultApplierFactory
+  kind: type
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 17
+  module: plugin-applier-default
+- name: new
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 25
+  module: plugin-applier-default
+- name: id
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 34
+  module: plugin-applier-default
+- name: register
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 38
+  module: plugin-applier-default
+- name: DefaultApplierPlugin
+  kind: type
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 55
+  module: plugin-applier-default
+- name: new
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 66
+  module: plugin-applier-default
+- name: with_fallback_kit
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 79
+  module: plugin-applier-default
+- name: id
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 86
+  module: plugin-applier-default
+- name: name
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 90
+  module: plugin-applier-default
+- name: capabilities
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 94
+  module: plugin-applier-default
+- name: metadata
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 98
+  module: plugin-applier-default
+- name: contribute
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 102
+  module: plugin-applier-default
+- name: run
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 177
+  module: plugin-applier-default
+- name: lib_tests
+  kind: module
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 187
+  module: plugin-applier-default
+deps:
+- handl_kit_data
+- handl_platform
+- handl_plugin_load
+- handl_platform
+- handl_plugin_applier
+- handl_kit_data
+- handl_plugin_ext_kit
+- handl_plugin_load
+notes: ''
+verify:
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib_tests.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib.rs
+  hashes:
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

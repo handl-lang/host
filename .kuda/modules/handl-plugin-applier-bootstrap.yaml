@@ -1,0 +1,28 @@
+name: handl-plugin-applier-bootstrap
+path: crates/plugin-applier-bootstrap/Cargo.toml
+purpose: Bootstrap applier — chooses the first applier and wires applier factories (ADR-0036).
+api:
+- name: handl-plugin-applier-bootstrap
+  kind: module
+  file: crates/plugin-applier-bootstrap/Cargo.toml
+  line: 1
+  module: handl-plugin-applier-bootstrap
+deps:
+- handl-kit-data
+- handl-platform
+- handl-plugin-applier
+- handl-plugin-applier-default
+- handl-plugin-ext-kit
+- handl-kit-canonical
+- handl-kit-data-canonical
+notes: ''
+verify:
+- crates/plugin-applier-bootstrap/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-applier-bootstrap/Cargo.toml
+  hashes:
+  - 7c6bda5cc84369d894fc486517c3a596d3d7fd1a
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

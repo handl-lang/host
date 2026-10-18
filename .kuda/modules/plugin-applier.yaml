@@ -1,0 +1,22 @@
+name: plugin-applier
+path: crates/plugin-applier/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: ApplierFactory
+  kind: trait
+  file: crates/plugin-applier/src/lib.rs
+  line: 9
+  module: plugin-applier
+deps:
+- handl_platform
+notes: ''
+verify:
+- crates/plugin-applier/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-applier/src/lib.rs
+  hashes:
+  - 8801955eade3057f4a4b972047ce01981dfbf1e4
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

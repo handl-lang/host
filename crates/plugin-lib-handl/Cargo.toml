@@ -19,7 +19,7 @@ hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-t
 hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
 hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform", branch = "main" }
 hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
-handl-plugin-lib-char-native = { workspace = true }
+handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 # `.hnl` sources owned by their own repos (ADR-0128 §"1a").
 handl-lib-str-handl = { workspace = true }
 handl-lib-dedent = { workspace = true }
@@ -31,9 +31,8 @@ handl-kit-data-canonical = { workspace = true }
 hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
 hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
 hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
-handl-runtime = { path = "../handl-runtime" }
 hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
-handl-plugin-lib-char-native = { workspace = true }
+handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 # Cyclic dev-dep (stdlib's normal deps include this crate): tests consume the
 # `TRANSFORM_*_HNL` `pub const` re-exports of `handl-packages/transform/`,
 # which stdlib owns per ADR-0128 §".hnl ownership".

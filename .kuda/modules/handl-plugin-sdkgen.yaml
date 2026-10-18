@@ -1,0 +1,25 @@
+name: handl-plugin-sdkgen
+path: crates/plugin-sdkgen/Cargo.toml
+purpose: Handl SDK generator core IR and traits (ADR-0107).
+api:
+- name: handl-plugin-sdkgen
+  kind: module
+  file: crates/plugin-sdkgen/Cargo.toml
+  line: 1
+  module: handl-plugin-sdkgen
+deps:
+- handl-language
+- serde
+- ureq
+- serde_json
+notes: ''
+verify:
+- crates/plugin-sdkgen/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-sdkgen/Cargo.toml
+  hashes:
+  - a20bb8fc7588ef4f44366511e2d3d709dfd74a02
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

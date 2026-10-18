@@ -1,0 +1,156 @@
+name: bench
+path: crates/bench/benches/pipeline.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: bench_parse
+  kind: function
+  file: crates/bench/benches/pipeline.rs
+  line: 17
+  module: bench
+- name: bench_parse_and_eval
+  kind: function
+  file: crates/bench/benches/pipeline.rs
+  line: 24
+  module: bench
+- name: bench_infer
+  kind: function
+  file: crates/bench/benches/infer.rs
+  line: 22
+  module: bench
+- name: canonical_lang
+  kind: function
+  file: crates/bench/benches/typecheck.rs
+  line: 17
+  module: bench
+- name: bench_typecheck
+  kind: function
+  file: crates/bench/benches/typecheck.rs
+  line: 21
+  module: bench
+- name: canonical_lang
+  kind: function
+  file: crates/bench/benches/parser.rs
+  line: 10
+  module: bench
+- name: bench_parse_only
+  kind: function
+  file: crates/bench/benches/parser.rs
+  line: 19
+  module: bench
+- name: bench_lex_and_parse
+  kind: function
+  file: crates/bench/benches/parser.rs
+  line: 39
+  module: bench
+- name: canonical_lang
+  kind: function
+  file: crates/bench/benches/lexer.rs
+  line: 12
+  module: bench
+- name: bench_lex_batch
+  kind: function
+  file: crates/bench/benches/lexer.rs
+  line: 19
+  module: bench
+- name: document
+  kind: function
+  file: crates/bench/benches/core.rs
+  line: 27
+  module: bench
+- name: bench_core
+  kind: function
+  file: crates/bench/benches/core.rs
+  line: 35
+  module: bench
+- name: SAMPLE
+  kind: const
+  file: crates/bench/src/lib.rs
+  line: 20
+  module: bench
+- name: EVAL_SAMPLE
+  kind: const
+  file: crates/bench/src/lib.rs
+  line: 36
+  module: bench
+- name: INFERENCE_SAMPLE
+  kind: const
+  file: crates/bench/src/lib.rs
+  line: 44
+  module: bench
+deps:
+- criterion
+- handl_bench
+- handl_kit_canonical
+- criterion
+- handl_bench
+- handl_kit_canonical
+- criterion
+- handl_bench
+- criterion
+- handl_bench
+- handl_language
+- handl_plugin_engine_lex
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse
+- handl_plugin_engine_parse_pratt
+- criterion
+- handl_bench
+- handl_language
+- handl_plugin_engine_lex
+- handl_plugin_engine_lex_pattern
+- criterion
+- handl_value
+- serde_json
+notes: ''
+verify:
+- crates/bench/benches/pipeline.rs
+- crates/bench/benches/pipeline.rs
+- crates/bench/benches/infer.rs
+- crates/bench/benches/typecheck.rs
+- crates/bench/benches/typecheck.rs
+- crates/bench/benches/parser.rs
+- crates/bench/benches/parser.rs
+- crates/bench/benches/parser.rs
+- crates/bench/benches/lexer.rs
+- crates/bench/benches/lexer.rs
+- crates/bench/benches/core.rs
+- crates/bench/benches/core.rs
+- crates/bench/src/lib.rs
+- crates/bench/src/lib.rs
+- crates/bench/src/lib.rs
+provenance:
+  files:
+  - crates/bench/benches/pipeline.rs
+  - crates/bench/benches/pipeline.rs
+  - crates/bench/benches/infer.rs
+  - crates/bench/benches/typecheck.rs
+  - crates/bench/benches/typecheck.rs
+  - crates/bench/benches/parser.rs
+  - crates/bench/benches/parser.rs
+  - crates/bench/benches/parser.rs
+  - crates/bench/benches/lexer.rs
+  - crates/bench/benches/lexer.rs
+  - crates/bench/benches/core.rs
+  - crates/bench/benches/core.rs
+  - crates/bench/src/lib.rs
+  - crates/bench/src/lib.rs
+  - crates/bench/src/lib.rs
+  hashes:
+  - 65f642fddb0b754d99174d3094386265bf46af40
+  - 65f642fddb0b754d99174d3094386265bf46af40
+  - ce49e90f5425e5d528152814c0f54a47704b1b27
+  - 0b649a31db989af8f332c5ee9bb05afe5ac42885
+  - 0b649a31db989af8f332c5ee9bb05afe5ac42885
+  - 00dda8c4d768a053de8b6aded058ec8ff2776683
+  - 00dda8c4d768a053de8b6aded058ec8ff2776683
+  - 00dda8c4d768a053de8b6aded058ec8ff2776683
+  - 787fe569c399db7f94de02558f930ae6bcdfd41f
+  - 787fe569c399db7f94de02558f930ae6bcdfd41f
+  - aa88d9f65170a877b7b42050c8e8c26736ce03a3
+  - aa88d9f65170a877b7b42050c8e8c26736ce03a3
+  - 55766cd8ad7553bb0d79e9e20d4025f2840233b4
+  - 55766cd8ad7553bb0d79e9e20d4025f2840233b4
+  - 55766cd8ad7553bb0d79e9e20d4025f2840233b4
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

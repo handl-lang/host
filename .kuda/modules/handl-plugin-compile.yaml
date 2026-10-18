@@ -1,0 +1,27 @@
+name: handl-plugin-compile
+path: crates/plugin-compile/Cargo.toml
+purpose: Contract crate for the `hnl compile` plugin architecture (ADR-0114).
+api:
+- name: handl-plugin-compile
+  kind: module
+  file: crates/plugin-compile/Cargo.toml
+  line: 1
+  module: handl-plugin-compile
+deps:
+- handl-language
+- plugin-engine
+- plugin-engine-typecheck
+- rayon
+- serde_json
+- thiserror
+notes: ''
+verify:
+- crates/plugin-compile/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-compile/Cargo.toml
+  hashes:
+  - 745d4cdd08081ec915a593c604c6a55d34b5c1e1
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

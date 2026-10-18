@@ -1,0 +1,29 @@
+name: handl-plugin-engine-typecheck
+path: crates/plugin-engine-typecheck/Cargo.toml
+purpose: The **abstraction** crate for the typecheck operation (ADR-0054 §3).
+api:
+- name: handl-plugin-engine-typecheck
+  kind: module
+  file: crates/plugin-engine-typecheck/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-typecheck
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-parse
+- handl-plugin-engine-parse-pratt
+- handl-plugin-ext-diag
+- serde_json
+- handl-kit-data-canonical
+notes: ''
+verify:
+- crates/plugin-engine-typecheck/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-typecheck/Cargo.toml
+  hashes:
+  - 251a1350c50f679880bb41a2cc16c88ec4be0796
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,24 @@
+name: ext-tests
+path: crates/ext-tests/tests/e2e.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: management_capabilities_end_to_end
+  kind: function
+  file: crates/ext-tests/tests/e2e.rs
+  line: 18
+  module: ext-tests
+deps:
+- handl_platform
+- handl_plugin_ext_kit
+- handl_plugin_ext_plugin
+notes: ''
+verify:
+- crates/ext-tests/tests/e2e.rs
+provenance:
+  files:
+  - crates/ext-tests/tests/e2e.rs
+  hashes:
+  - f12719e2bf1f7311627a963866bfc9be55fc3514
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

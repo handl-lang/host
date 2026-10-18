@@ -1,0 +1,93 @@
+name: dagger
+path: dagger/pyproject.toml
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: dagger
+  kind: module
+  file: dagger/pyproject.toml
+  line: 1
+  module: dagger
+- name: Ci
+  kind: type
+  file: dagger/src/ci/main.py
+  line: 35
+  module: dagger
+- name: doctor
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 39
+  module: dagger
+- name: test_shard
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 50
+  module: dagger
+- name: doctests
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 65
+  module: dagger
+- name: test
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 76
+  module: dagger
+- name: coverage_report
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 90
+  module: dagger
+- name: coverage_gate
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 101
+  module: dagger
+- name: dogfood
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 114
+  module: dagger
+- name: ci
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 154
+  module: dagger
+deps: []
+notes: ''
+verify:
+- dagger/pyproject.toml
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+- dagger/src/ci/main.py
+provenance:
+  files:
+  - dagger/pyproject.toml
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/main.py
+  hashes:
+  - 29f4a0e285438601643824f02f01d5352f4ff712
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

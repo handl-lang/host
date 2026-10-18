@@ -1,0 +1,559 @@
+name: plugin-ext-diag
+path: crates/plugin-ext-diag/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: Severity
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 18
+  module: plugin-ext-diag
+- name: as_label
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 30
+  module: plugin-ext-diag
+- name: fmt
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 40
+  module: plugin-ext-diag
+- name: Span
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 49
+  module: plugin-ext-diag
+- name: from_byte_range
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 66
+  module: plugin-ext-diag
+- name: from_platform_span
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 81
+  module: plugin-ext-diag
+- name: len
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 86
+  module: plugin-ext-diag
+- name: is_empty
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 91
+  module: plugin-ext-diag
+- name: compute_line_col
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 101
+  module: plugin-ext-diag
+- name: Fix
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 119
+  module: plugin-ext-diag
+- name: Diagnostic
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 128
+  module: plugin-ext-diag
+- name: new
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 144
+  module: plugin-ext-diag
+- name: with_fix
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 160
+  module: plugin-ext-diag
+- name: FixError
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 168
+  module: plugin-ext-diag
+- name: render_diagnostic
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 191
+  module: plugin-ext-diag
+- name: render_diagnostics
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 204
+  module: plugin-ext-diag
+- name: render_json
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 213
+  module: plugin-ext-diag
+- name: apply_fixes
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 220
+  module: plugin-ext-diag
+- name: apply_fixes_to_fixpoint
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 266
+  module: plugin-ext-diag
+- name: StatementChunk
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 300
+  module: plugin-ext-diag
+- name: split_statements
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 323
+  module: plugin-ext-diag
+- name: is_newline_boundary
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 405
+  module: plugin-ext-diag
+- name: CANNOT_END
+  kind: const
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 409
+  module: plugin-ext-diag
+- name: is_import_chunk
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 446
+  module: plugin-ext-diag
+- name: push_chunk
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 461
+  module: plugin-ext-diag
+- name: lang_span
+  kind: module
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 475
+  module: plugin-ext-diag
+- name: from_lang_span
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 481
+  module: plugin-ext-diag
+- name: from
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 499
+  module: plugin-ext-diag
+- name: tests
+  kind: module
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 513
+  module: plugin-ext-diag
+- name: span
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 516
+  module: plugin-ext-diag
+- name: severity_label_and_display
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 521
+  module: plugin-ext-diag
+- name: span_from_byte_range_start_of_file
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 530
+  module: plugin-ext-diag
+- name: span_from_byte_range_mid_line
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 540
+  module: plugin-ext-diag
+- name: span_from_byte_range_multi_line
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 549
+  module: plugin-ext-diag
+- name: span_from_platform_span
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 558
+  module: plugin-ext-diag
+- name: span_len_and_empty
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 569
+  module: plugin-ext-diag
+- name: compute_line_col_offset_zero
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 579
+  module: plugin-ext-diag
+- name: compute_line_col_at_newline
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 584
+  module: plugin-ext-diag
+- name: compute_line_col_past_end_clamps
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 593
+  module: plugin-ext-diag
+- name: compute_line_col_multiple_lines
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 602
+  module: plugin-ext-diag
+- name: diagnostic_new_and_with_fix
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 608
+  module: plugin-ext-diag
+- name: render_diagnostic_format
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 630
+  module: plugin-ext-diag
+- name: render_diagnostics_multiple
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 647
+  module: plugin-ext-diag
+- name: render_json_valid_array
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 659
+  module: plugin-ext-diag
+- name: apply_fixes_non_overlapping_descending
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 673
+  module: plugin-ext-diag
+- name: apply_fixes_empty
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 688
+  module: plugin-ext-diag
+- name: apply_fixes_rejects_overlapping
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 694
+  module: plugin-ext-diag
+- name: apply_fixes_adjacent_not_overlapping
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 709
+  module: plugin-ext-diag
+- name: apply_fixes_out_of_bounds
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 724
+  module: plugin-ext-diag
+- name: apply_fixes_idempotent_when_no_fixes
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 735
+  module: plugin-ext-diag
+- name: apply_fixes_to_fixpoint_converges
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 742
+  module: plugin-ext-diag
+- name: apply_fixes_to_fixpoint_respects_max_iterations
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 760
+  module: plugin-ext-diag
+- name: apply_fixes_to_fixpoint_converges_within_budget
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 774
+  module: plugin-ext-diag
+- name: split_statements_continues_on_trailing_operator
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 792
+  module: plugin-ext-diag
+- name: split_statements_continues_on_impossible_lead
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 802
+  module: plugin-ext-diag
+- name: split_statements_still_splits_plain_lines
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 811
+  module: plugin-ext-diag
+- name: split_statements_semicolon_stays_hard
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 818
+  module: plugin-ext-diag
+- name: split_statements_import_star_splits_at_newline
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 825
+  module: plugin-ext-diag
+- name: split_statements_boundary_comment_before_continuation
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 842
+  module: plugin-ext-diag
+- name: from_lang_span_computes_line_col
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 852
+  module: plugin-ext-diag
+- name: from_lang_span_without_source_defaults
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 864
+  module: plugin-ext-diag
+- name: split_statements_respects_escaped_quotes_in_strings
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 874
+  module: plugin-ext-diag
+- name: split_statements_elides_a_comment_only_leading_region
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 883
+  module: plugin-ext-diag
+- name: split_statements_treats_import_star_as_a_complete_statement
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 890
+  module: plugin-ext-diag
+- name: split_statements_handles_a_statement_ending_at_eof
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 899
+  module: plugin-ext-diag
+- name: split_statements_drops_a_comment_only_tail
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 906
+  module: plugin-ext-diag
+- name: apply_fixes_to_fixpoint_accepts_convergence_on_the_final_check
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 914
+  module: plugin-ext-diag
+- name: apply_fixes_to_fixpoint_reports_non_convergence
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 940
+  module: plugin-ext-diag
+deps:
+- serde
+- thiserror
+notes: ''
+verify:
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+- crates/plugin-ext-diag/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  hashes:
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

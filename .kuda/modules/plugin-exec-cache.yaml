@@ -1,0 +1,249 @@
+name: plugin-exec-cache
+path: crates/plugin-exec-cache/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: AstKey
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 33
+  module: plugin-exec-cache
+- name: from_ast
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 42
+  module: plugin-exec-cache
+- name: CacheControl
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 60
+  module: plugin-exec-cache
+- name: new
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 66
+  module: plugin-exec-cache
+- name: len
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 71
+  module: plugin-exec-cache
+- name: is_empty
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 76
+  module: plugin-exec-cache
+- name: get
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 81
+  module: plugin-exec-cache
+- name: clear
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 91
+  module: plugin-exec-cache
+- name: fmt
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 99
+  module: plugin-exec-cache
+- name: before_eval
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 107
+  module: plugin-exec-cache
+- name: after_eval
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 121
+  module: plugin-exec-cache
+- name: ExecCachePlugin
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 136
+  module: plugin-exec-cache
+- name: new
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 144
+  module: plugin-exec-cache
+- name: cache
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 152
+  module: plugin-exec-cache
+- name: default
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 158
+  module: plugin-exec-cache
+- name: id
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 164
+  module: plugin-exec-cache
+- name: name
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 168
+  module: plugin-exec-cache
+- name: capabilities
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 172
+  module: plugin-exec-cache
+- name: metadata
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 176
+  module: plugin-exec-cache
+- name: contribute
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 180
+  module: plugin-exec-cache
+- name: run
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 188
+  module: plugin-exec-cache
+- name: tests
+  kind: module
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 198
+  module: plugin-exec-cache
+- name: Compute
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 209
+  module: plugin-exec-cache
+- name: kind
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 213
+  module: plugin-exec-cache
+- name: apply
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 216
+  module: plugin-exec-cache
+- name: run_eval
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 224
+  module: plugin-exec-cache
+- name: compute
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 240
+  module: plugin-exec-cache
+- name: second_identical_call_returns_cached_result_without_dispatch
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 245
+  module: plugin-exec-cache
+- name: distinct_payloads_are_not_cached_hits
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 273
+  module: plugin-exec-cache
+deps:
+- handl_platform
+- serde_json
+- handl_platform
+- serde_json
+notes: ''
+verify:
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+- crates/plugin-exec-cache/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  hashes:
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

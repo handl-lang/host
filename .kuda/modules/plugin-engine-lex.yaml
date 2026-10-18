@@ -1,0 +1,136 @@
+name: plugin-engine-lex
+path: crates/plugin-engine-lex/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: Lexer
+  kind: type
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 26
+  module: plugin-engine-lex
+- name: LexerRequest
+  kind: type
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 34
+  module: plugin-engine-lex
+- name: new
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 43
+  module: plugin-engine-lex
+- name: with_options
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 51
+  module: plugin-engine-lex
+- name: LexerEngine
+  kind: trait
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 67
+  module: plugin-engine-lex
+- name: tests
+  kind: module
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 85
+  module: plugin-engine-lex
+- name: lexer_marker_constructs
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 91
+  module: plugin-engine-lex
+- name: lexer_request_new_from_str
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 101
+  module: plugin-engine-lex
+- name: lexer_request_new_from_source
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 108
+  module: plugin-engine-lex
+- name: lexer_request_with_options
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 115
+  module: plugin-engine-lex
+- name: StubLexer
+  kind: type
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 123
+  module: plugin-engine-lex
+- name: lex
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 126
+  module: plugin-engine-lex
+- name: box_clone
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 130
+  module: plugin-engine-lex
+- name: trait_dispatch_returns_engine_result
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 136
+  module: plugin-engine-lex
+- name: trait_dispatch_via_dyn_reference
+  kind: function
+  file: crates/plugin-engine-lex/src/lib.rs
+  line: 145
+  module: plugin-engine-lex
+deps:
+- handl_language
+- handl_language
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+- crates/plugin-engine-lex/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  hashes:
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

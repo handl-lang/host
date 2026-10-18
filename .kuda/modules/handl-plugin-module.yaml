@@ -1,0 +1,25 @@
+name: handl-plugin-module
+path: crates/plugin-module/Cargo.toml
+purpose: Function registration mechanism for the platform, per ADR 0040.
+api:
+- name: handl-plugin-module
+  kind: module
+  file: crates/plugin-module/Cargo.toml
+  line: 1
+  module: handl-plugin-module
+deps:
+- handl-platform
+- serde_json
+- handl-platform
+- serde_json
+notes: ''
+verify:
+- crates/plugin-module/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-module/Cargo.toml
+  hashes:
+  - 72caf15cb214105d28d6fa352983cf926361f0f4
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,332 @@
+name: plugin-ext-eval
+path: crates/plugin-ext-eval/src/adapters.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: EvalFuture
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 32
+  module: plugin-ext-eval
+- name: GenericFunction
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 59
+  module: plugin-ext-eval
+- name: new
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 66
+  module: plugin-ext-eval
+- name: name
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 77
+  module: plugin-ext-eval
+- name: call
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 83
+  module: plugin-ext-eval
+- name: LazyFunction
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 117
+  module: plugin-ext-eval
+- name: new
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 128
+  module: plugin-ext-eval
+- name: name
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 140
+  module: plugin-ext-eval
+- name: is_initialized
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 145
+  module: plugin-ext-eval
+- name: call
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 151
+  module: plugin-ext-eval
+- name: AsyncFn
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 203
+  module: plugin-ext-eval
+- name: new
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 218
+  module: plugin-ext-eval
+- name: name
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 226
+  module: plugin-ext-eval
+- name: call
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 235
+  module: plugin-ext-eval
+- name: as_async
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 242
+  module: plugin-ext-eval
+- name: call_async
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 251
+  module: plugin-ext-eval
+- name: tests
+  kind: module
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 265
+  module: plugin-ext-eval
+- name: box_fut
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 277
+  module: plugin-ext-eval
+- name: block_on
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 284
+  module: plugin-ext-eval
+- name: NoopWake
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 289
+  module: plugin-ext-eval
+- name: wake
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 291
+  module: plugin-ext-eval
+- name: generic_function_calls_closure
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 307
+  module: plugin-ext-eval
+- name: lazy_function_initializes_once_and_caches
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 322
+  module: plugin-ext-eval
+- name: async_fn_call_async_returns_future
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 354
+  module: plugin-ext-eval
+- name: async_fn_sync_call_returns_async_only_error
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 373
+  module: plugin-ext-eval
+- name: async_fn_advertises_async_via_as_async
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 381
+  module: plugin-ext-eval
+- name: EchoModule
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 388
+  module: plugin-ext-eval
+- name: name
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 390
+  module: plugin-ext-eval
+- name: function
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 393
+  module: plugin-ext-eval
+- name: AsyncEchoFn
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 402
+  module: plugin-ext-eval
+- name: call
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 404
+  module: plugin-ext-eval
+- name: as_async
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 407
+  module: plugin-ext-eval
+- name: call_async
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 412
+  module: plugin-ext-eval
+- name: SyncEchoFn
+  kind: type
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 421
+  module: plugin-ext-eval
+- name: call
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 423
+  module: plugin-ext-eval
+- name: call_function_async_dispatches_to_async_function
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 429
+  module: plugin-ext-eval
+- name: call_function_async_falls_back_to_sync_function
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 442
+  module: plugin-ext-eval
+- name: call_function_async_unknown_function
+  kind: function
+  file: crates/plugin-ext-eval/src/adapters.rs
+  line: 455
+  module: plugin-ext-eval
+- name: adapters
+  kind: module
+  file: crates/plugin-ext-eval/src/lib.rs
+  line: 20
+  module: plugin-ext-eval
+deps:
+- serde_json
+- handl_platform
+- handl_platform
+- handl_plugin_module
+- serde_json
+- handl_platform
+- adapters
+notes: ''
+verify:
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/adapters.rs
+- crates/plugin-ext-eval/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/lib.rs
+  hashes:
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - c959d26e5a6e4fa6e07d7a01339aa23b4942f453
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

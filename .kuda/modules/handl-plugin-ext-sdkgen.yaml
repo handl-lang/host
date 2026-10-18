@@ -1,0 +1,27 @@
+name: handl-plugin-ext-sdkgen
+path: crates/plugin-ext-sdkgen/Cargo.toml
+purpose: '`hnl sdkgen` CLI extension (ADR-0107).'
+api:
+- name: handl-plugin-ext-sdkgen
+  kind: module
+  file: crates/plugin-ext-sdkgen/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-sdkgen
+deps:
+- handl-language
+- handl-plugin-sdkgen
+- handl-plugin-sdkgen-backend-c
+- handl-plugin-sdkgen-backend-webidl
+- handl-plugin-sdkgen-emitter-file
+- handl-plugin-sdkgen-emitter-python
+notes: ''
+verify:
+- crates/plugin-ext-sdkgen/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-sdkgen/Cargo.toml
+  hashes:
+  - 33568a34215d0399e6560ed95ce3b24325450c9f
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

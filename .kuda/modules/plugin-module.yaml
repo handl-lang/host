@@ -1,0 +1,539 @@
+name: plugin-module
+path: crates/plugin-module/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: ModuleRegistry
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 70
+  module: plugin-module
+- name: new
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 76
+  module: plugin-module
+- name: with
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 83
+  module: plugin-module
+- name: register
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 89
+  module: plugin-module
+- name: register_arc
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 94
+  module: plugin-module
+- name: module_count
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 99
+  module: plugin-module
+- name: module_names
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 104
+  module: plugin-module
+- name: module
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 109
+  module: plugin-module
+- name: lookup
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 115
+  module: plugin-module
+- name: lookup_type_signature
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 134
+  module: plugin-module
+- name: fmt
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 141
+  module: plugin-module
+- name: ModuleRule
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 162
+  module: plugin-module
+- name: new
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 166
+  module: plugin-module
+- name: from_arc
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 171
+  module: plugin-module
+- name: id
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 177
+  module: plugin-module
+- name: ModuleRuntime
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 211
+  module: plugin-module
+- name: new
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 217
+  module: plugin-module
+- name: with
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 224
+  module: plugin-module
+- name: module_count
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 230
+  module: plugin-module
+- name: registry
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 235
+  module: plugin-module
+- name: id
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 241
+  module: plugin-module
+- name: name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 245
+  module: plugin-module
+- name: capabilities
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 249
+  module: plugin-module
+- name: metadata
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 253
+  module: plugin-module
+- name: run
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 257
+  module: plugin-module
+- name: module_lookup
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 265
+  module: plugin-module
+- name: Rule
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 271
+  module: plugin-module
+- name: accept
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 273
+  module: plugin-module
+- name: lookup
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 280
+  module: plugin-module
+- name: lookup_type_signature
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 284
+  module: plugin-module
+- name: tests
+  kind: module
+  file: crates/plugin-module/src/lib.rs
+  line: 294
+  module: plugin-module
+- name: Add
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 306
+  module: plugin-module
+- name: call
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 308
+  module: plugin-module
+- name: Mul
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 330
+  module: plugin-module
+- name: call
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 332
+  module: plugin-module
+- name: Greet
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 353
+  module: plugin-module
+- name: call
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 355
+  module: plugin-module
+- name: MathModule
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 361
+  module: plugin-module
+- name: name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 363
+  module: plugin-module
+- name: function
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 366
+  module: plugin-module
+- name: functions
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 373
+  module: plugin-module
+- name: GreetModule
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 381
+  module: plugin-module
+- name: name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 383
+  module: plugin-module
+- name: function
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 386
+  module: plugin-module
+- name: registry_lookup_qualified_name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 397
+  module: plugin-module
+- name: registry_lookup_unknown_qualified_returns_none
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 406
+  module: plugin-module
+- name: registry_lookup_flat_name_searches_all_modules
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 413
+  module: plugin-module
+- name: registry_module_count_and_names
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 424
+  module: plugin-module
+- name: registry_module_by_name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 432
+  module: plugin-module
+- name: registry_functions_enumeration
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 439
+  module: plugin-module
+- name: eval_context_call_function_works_with_registered_modules
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 450
+  module: plugin-module
+- name: eval_context_call_function_flat_name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 464
+  module: plugin-module
+- name: eval_context_call_function_without_registry_returns_unknown_function
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 476
+  module: plugin-module
+- name: eval_context_call_function_unknown_name_returns_unknown_function
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 483
+  module: plugin-module
+- name: eval_context_has_modules_reflects_set_modules
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 495
+  module: plugin-module
+- name: module_runtime_accepts_module_rule
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 507
+  module: plugin-module
+- name: module_runtime_plugin_id_and_name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 515
+  module: plugin-module
+- name: module_runtime_implements_module_lookup
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 522
+  module: plugin-module
+- name: module_runtime_contributes_through_host
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 534
+  module: plugin-module
+- name: module_rule_id_is_module_name
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 554
+  module: plugin-module
+- name: module_runtime_run_returns_not_implemented
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 560
+  module: plugin-module
+- name: call_function_works_inside_eval_rule
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 582
+  module: plugin-module
+- name: CallAdd
+  kind: type
+  file: crates/plugin-module/src/lib.rs
+  line: 586
+  module: plugin-module
+- name: kind
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 588
+  module: plugin-module
+- name: apply
+  kind: function
+  file: crates/plugin-module/src/lib.rs
+  line: 591
+  module: plugin-module
+deps:
+- handl_platform
+- serde_json
+- handl_platform
+- handl_platform
+- serde_json
+- handl_platform
+notes: ''
+verify:
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+- crates/plugin-module/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  hashes:
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

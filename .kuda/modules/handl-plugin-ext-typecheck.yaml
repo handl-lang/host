@@ -1,0 +1,25 @@
+name: handl-plugin-ext-typecheck
+path: crates/plugin-ext-typecheck/Cargo.toml
+purpose: '`handl-plugin-ext-typecheck` — the `typecheck` capability adapter.'
+api:
+- name: handl-plugin-ext-typecheck
+  kind: module
+  file: crates/plugin-ext-typecheck/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-typecheck
+deps:
+- handl-language
+- handl-platform
+- serde_json
+- handl-kit-canonical
+notes: ''
+verify:
+- crates/plugin-ext-typecheck/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-typecheck/Cargo.toml
+  hashes:
+  - 71eb6ac9672f1dc9c1df9eae8909651f91f144af
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

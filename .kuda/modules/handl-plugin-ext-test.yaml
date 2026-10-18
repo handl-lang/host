@@ -1,0 +1,26 @@
+name: handl-plugin-ext-test
+path: crates/plugin-ext-test/Cargo.toml
+purpose: '`handl-plugin-ext-test` — the `test` capability adapter.'
+api:
+- name: handl-plugin-ext-test
+  kind: module
+  file: crates/plugin-ext-test/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-test
+deps:
+- handl-platform
+- handl-plugin-engine-test
+- handl-plugin-lib-scheduler
+- serde_json
+- handl-kit-canonical
+notes: ''
+verify:
+- crates/plugin-ext-test/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-test/Cargo.toml
+  hashes:
+  - ef8c624e2db553b9ce8b98ea9749c03fcdd6e422
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

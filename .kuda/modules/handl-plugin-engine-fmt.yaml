@@ -1,0 +1,24 @@
+name: handl-plugin-engine-fmt
+path: crates/plugin-engine-fmt/Cargo.toml
+purpose: Data-driven AST formatter engine (ADR-0044 "language as data").
+api:
+- name: handl-plugin-engine-fmt
+  kind: module
+  file: crates/plugin-engine-fmt/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-fmt
+deps:
+- handl-language
+- serde_json
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-fmt/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-fmt/Cargo.toml
+  hashes:
+  - 4441c544c7b945ae8eb019d355a6789830857849
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1924,6 +1924,7 @@ name = "hnl-engine-typecheck-handl"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-lib-collections",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",

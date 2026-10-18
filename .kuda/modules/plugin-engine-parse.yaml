@@ -1,0 +1,288 @@
+name: plugin-engine-parse
+path: crates/plugin-engine-parse/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: Parser
+  kind: type
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 25
+  module: plugin-engine-parse
+- name: ParserRequest
+  kind: type
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 33
+  module: plugin-engine-parse
+- name: new
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 42
+  module: plugin-engine-parse
+- name: with_options
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 50
+  module: plugin-engine-parse
+- name: ParserContext
+  kind: type
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 62
+  module: plugin-engine-parse
+- name: new
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 72
+  module: plugin-engine-parse
+- name: peek
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 82
+  module: plugin-engine-parse
+- name: advance
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 91
+  module: plugin-engine-parse
+- name: pos
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 102
+  module: plugin-engine-parse
+- name: tokens
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 107
+  module: plugin-engine-parse
+- name: lang
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 112
+  module: plugin-engine-parse
+- name: expression
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 125
+  module: plugin-engine-parse
+- name: ParserEngine
+  kind: trait
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 140
+  module: plugin-engine-parse
+- name: parse
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 163
+  module: plugin-engine-parse
+- name: tests
+  kind: module
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 179
+  module: plugin-engine-parse
+- name: parser_marker_constructs
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 185
+  module: plugin-engine-parse
+- name: parser_request_new_from_tokens
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 195
+  module: plugin-engine-parse
+- name: parser_request_with_options
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 207
+  module: plugin-engine-parse
+- name: StubParser
+  kind: type
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 214
+  module: plugin-engine-parse
+- name: expression
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 217
+  module: plugin-engine-parse
+- name: parse
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 227
+  module: plugin-engine-parse
+- name: parser_context_peek_and_advance
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 240
+  module: plugin-engine-parse
+- name: parser_context_advance_at_eof_errors
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 265
+  module: plugin-engine-parse
+- name: parser_context_peek_at_eof_is_none
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 280
+  module: plugin-engine-parse
+- name: parser_context_tokens_and_lang_accessors
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 289
+  module: plugin-engine-parse
+- name: parser_context_expression_delegates_to_engine
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 303
+  module: plugin-engine-parse
+- name: trait_dispatch_parse_returns_ast
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 318
+  module: plugin-engine-parse
+- name: trait_dispatch_empty_input_returns_empty_ast
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 332
+  module: plugin-engine-parse
+- name: trait_dispatch_via_generic
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 341
+  module: plugin-engine-parse
+- name: run_parse
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 342
+  module: plugin-engine-parse
+- name: DefaultParser
+  kind: type
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 362
+  module: plugin-engine-parse
+- name: expression
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 365
+  module: plugin-engine-parse
+- name: default_parse_empty_input
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 375
+  module: plugin-engine-parse
+- name: default_parse_non_empty_input
+  kind: function
+  file: crates/plugin-engine-parse/src/lib.rs
+  line: 384
+  module: plugin-engine-parse
+deps:
+- handl_language
+- handl_language
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+- crates/plugin-engine-parse/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  hashes:
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 1155677de592b6d957641ceee66af560104e2e78
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

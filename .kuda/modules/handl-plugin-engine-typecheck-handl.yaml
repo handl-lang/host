@@ -1,0 +1,37 @@
+name: handl-plugin-engine-typecheck-handl
+path: crates/plugin-engine-typecheck-handl/Cargo.toml
+purpose: A thin Rust adapter that implements the [`TypecheckEngine`] trait by loading and calling the Handl-authored typecheck model (`project/design/adr0103/typecheck_model.hnl`).
+api:
+- name: handl-plugin-engine-typecheck-handl
+  kind: module
+  file: crates/plugin-engine-typecheck-handl/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-typecheck-handl
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-exec
+- handl-plugin-engine-exec-tree-walk
+- handl-plugin-engine-typecheck
+- handl-plugin-lib-handl
+- handl-plugin-lib-stdlib
+- handl-plugin-lib-tag
+- plugin-engine
+- serde_json
+- handl-kit-data-canonical
+- handl-plugin-engine-exec-tree-walk
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-parse
+- handl-plugin-engine-parse-pratt
+- handl-plugin-lib-char-native
+notes: ''
+verify:
+- crates/plugin-engine-typecheck-handl/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-typecheck-handl/Cargo.toml
+  hashes:
+  - 11b0db08c7d30cc9e9aad1fc0457b7671d745573
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

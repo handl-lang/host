@@ -1,0 +1,32 @@
+name: handl-bench
+path: crates/bench/Cargo.toml
+purpose: Shared fixtures for the handl benchmark suite.
+api:
+- name: handl-bench
+  kind: module
+  file: crates/bench/Cargo.toml
+  line: 1
+  module: handl-bench
+deps:
+- handl-language
+- criterion
+- handl-kit-canonical
+- handl-kit-data-canonical
+- handl-plugin-engine-lex
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-parse
+- handl-plugin-engine-parse-pratt
+- handl-plugin-engine-typecheck
+- handl-value
+- serde_json
+notes: ''
+verify:
+- crates/bench/Cargo.toml
+provenance:
+  files:
+  - crates/bench/Cargo.toml
+  hashes:
+  - 1e2eb4fbd95bd1bd5a321224a1f7f3b3ae9b7397
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

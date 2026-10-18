@@ -1,0 +1,408 @@
+name: plugin-sdkgen
+path: crates/plugin-sdkgen/tests/round_trip.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: serde_round_trip
+  kind: function
+  file: crates/plugin-sdkgen/tests/round_trip.rs
+  line: 4
+  module: plugin-sdkgen
+- name: SdkgenRequest
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 30
+  module: plugin-sdkgen
+- name: SdkgenBackendDef
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 53
+  module: plugin-sdkgen
+- name: SdkgenEmitterDef
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 61
+  module: plugin-sdkgen
+- name: SdkgenSpecInput
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 70
+  module: plugin-sdkgen
+- name: SdkgenTarget
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 79
+  module: plugin-sdkgen
+- name: SdkgenRegistry
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 99
+  module: plugin-sdkgen
+- name: SdkgenTargetError
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 107
+  module: plugin-sdkgen
+- name: new
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 116
+  module: plugin-sdkgen
+- name: register_backend
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 121
+  module: plugin-sdkgen
+- name: register_emitter
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 126
+  module: plugin-sdkgen
+- name: register_target
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 131
+  module: plugin-sdkgen
+- name: target
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 136
+  module: plugin-sdkgen
+- name: target_names
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 141
+  module: plugin-sdkgen
+- name: run
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 149
+  module: plugin-sdkgen
+- name: tests
+  kind: module
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 199
+  module: plugin-sdkgen
+- name: StubBackend
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 203
+  module: plugin-sdkgen
+- name: parse_header
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 205
+  module: plugin-sdkgen
+- name: RecordingEmitter
+  kind: type
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 210
+  module: plugin-sdkgen
+- name: emit
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 212
+  module: plugin-sdkgen
+- name: registry
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 217
+  module: plugin-sdkgen
+- name: run_resolves_backend_and_emitter_by_name
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 249
+  module: plugin-sdkgen
+- name: unknown_target_is_usage
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 256
+  module: plugin-sdkgen
+- name: missing_backend_is_a_link_error
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 266
+  module: plugin-sdkgen
+- name: source_filter_flags_are_rejected_per_target
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 284
+  module: plugin-sdkgen
+- name: spec_input_bypasses_the_backend
+  kind: function
+  file: crates/plugin-sdkgen/src/targets.rs
+  line: 303
+  module: plugin-sdkgen
+- name: targets
+  kind: module
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 3
+  module: plugin-sdkgen
+- name: SdkgenModule
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 16
+  module: plugin-sdkgen
+- name: ModuleImport
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 50
+  module: plugin-sdkgen
+- name: Record
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 57
+  module: plugin-sdkgen
+- name: Field
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 67
+  module: plugin-sdkgen
+- name: Function
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 82
+  module: plugin-sdkgen
+- name: default_true
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 100
+  module: plugin-sdkgen
+- name: Arg
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 106
+  module: plugin-sdkgen
+- name: Typedef
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 113
+  module: plugin-sdkgen
+- name: EnumConst
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 122
+  module: plugin-sdkgen
+- name: DocSource
+  kind: trait
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 133
+  module: plugin-sdkgen
+- name: pick_doc
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 147
+  module: plugin-sdkgen
+- name: http_get
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 172
+  module: plugin-sdkgen
+- name: SdkgenBackend
+  kind: trait
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 182
+  module: plugin-sdkgen
+- name: Emitter
+  kind: trait
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 187
+  module: plugin-sdkgen
+- name: generate
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 192
+  module: plugin-sdkgen
+- name: SdkgenError
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 204
+  module: plugin-sdkgen
+- name: fmt
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 207
+  module: plugin-sdkgen
+- name: tests
+  kind: module
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 215
+  module: plugin-sdkgen
+- name: RecordingSource
+  kind: type
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 220
+  module: plugin-sdkgen
+- name: lookup
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 223
+  module: plugin-sdkgen
+- name: pick_doc_queries_external_source_once_with_external_key
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 230
+  module: plugin-sdkgen
+- name: pick_doc_skips_external_when_key_absent
+  kind: function
+  file: crates/plugin-sdkgen/src/lib.rs
+  line: 246
+  module: plugin-sdkgen
+deps:
+- handl_language
+- targets
+- serde
+notes: ''
+verify:
+- crates/plugin-sdkgen/tests/round_trip.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/targets.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+- crates/plugin-sdkgen/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-sdkgen/tests/round_trip.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  hashes:
+  - 98615ce1d135adb5d8262d98de5991f858d3dfb4
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,791 @@
+name: handl-kit-data
+path: crates/handl-kit-data/Cargo.toml
+purpose: The **data-driven kit assembly** framework for ADR-0044 Phase 5.
+api:
+- name: handl-kit-data
+  kind: module
+  file: crates/handl-kit-data/Cargo.toml
+  line: 1
+  module: handl-kit-data
+- name: LibraryPlugin
+  kind: type
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 16
+  module: handl-kit-data
+- name: LibraryRegistry
+  kind: type
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 23
+  module: handl-kit-data
+- name: new
+  kind: function
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 29
+  module: handl-kit-data
+- name: register
+  kind: function
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 36
+  module: handl-kit-data
+- name: resolve
+  kind: function
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 45
+  module: handl-kit-data
+- name: contains
+  kind: function
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 50
+  module: handl-kit-data
+- name: names
+  kind: function
+  file: crates/handl-kit-data/src/library_registry.rs
+  line: 55
+  module: handl-kit-data
+- name: token_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 22
+  module: handl-kit-data
+- name: token_a_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 29
+  module: handl-kit-data
+- name: token_aprime_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 42
+  module: handl-kit-data
+- name: construct_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 53
+  module: handl-kit-data
+- name: cap_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 80
+  module: handl-kit-data
+- name: ast_option_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 88
+  module: handl-kit-data
+- name: seven_construct_languages
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 101
+  module: handl-kit-data
+- name: temp_file
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 163
+  module: handl-kit-data
+- name: lang_file
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 173
+  module: handl-kit-data
+- name: manifest_serde_roundtrip_data_file_sources
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 182
+  module: handl-kit-data
+- name: manifest_serde_roundtrip_single_data_file_source
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 201
+  module: handl-kit-data
+- name: manifest_defaults_are_empty
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 211
+  module: handl-kit-data
+- name: fragment_source_entry_data_file_constructor
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 221
+  module: handl-kit-data
+- name: registry_resolves_kit_manifest
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 232
+  module: handl-kit-data
+- name: registry_unknown_kit_returns_none
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 241
+  module: handl-kit-data
+- name: kit_registry_default_is_empty
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 247
+  module: handl-kit-data
+- name: assemble_merges_fragments_in_declared_order
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 257
+  module: handl-kit-data
+- name: assemble_merges_onto_base_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 271
+  module: handl-kit-data
+- name: base_language_and_data_file_merge_together
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 282
+  module: handl-kit-data
+- name: assemble_produces_language_and_runtime_config
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 295
+  module: handl-kit-data
+- name: assemble_construct_language_merges_all_three_sets
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 309
+  module: handl-kit-data
+- name: exclude_skips_fragment_by_id
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 326
+  module: handl-kit-data
+- name: include_keeps_only_listed_ids
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 341
+  module: handl-kit-data
+- name: include_empty_keeps_all
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 356
+  module: handl-kit-data
+- name: exclude_takes_precedence_over_include
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 366
+  module: handl-kit-data
+- name: exclude_does_not_filter_base_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 379
+  module: handl-kit-data
+- name: exclude_across_multiple_sets
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 389
+  module: handl-kit-data
+- name: exclude_replaces_target_errors_explicitly
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 408
+  module: handl-kit-data
+- name: replace_without_exclude_succeeds
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 431
+  module: handl-kit-data
+- name: extends_assembles_parent_then_child
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 451
+  module: handl-kit-data
+- name: extends_threads_base_language_to_chain_root
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 468
+  module: handl-kit-data
+- name: extends_base_and_child_fragments_merge
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 481
+  module: handl-kit-data
+- name: extends_unknown_parent_errors
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 497
+  module: handl-kit-data
+- name: extends_child_overrides_parent_fragment
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 505
+  module: handl-kit-data
+- name: extends_chain_union_of_capabilities
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 531
+  module: handl-kit-data
+- name: sample_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 553
+  module: handl-kit-data
+- name: empty_language_toml
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 560
+  module: handl-kit-data
+- name: data_file_json_source_loads_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 581
+  module: handl-kit-data
+- name: data_file_yaml_source_loads_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 593
+  module: handl-kit-data
+- name: data_file_toml_source_loads_language
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 605
+  module: handl-kit-data
+- name: data_file_unknown_extension_falls_back_to_json
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 616
+  module: handl-kit-data
+- name: data_file_missing_file_errors_with_path
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 628
+  module: handl-kit-data
+- name: data_file_unparseable_errors_with_path
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 642
+  module: handl-kit-data
+- name: kit_manifest_loads_from_yaml_file
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 658
+  module: handl-kit-data
+- name: kit_manifest_load_from_text_yaml
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 667
+  module: handl-kit-data
+- name: kit_manifest_load_missing_file_errors_with_path
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 673
+  module: handl-kit-data
+- name: into_runtime_binds_pratt_and_tree_walk
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 685
+  module: handl-kit-data
+- name: into_runtime_unknown_eval_engine_errors
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 709
+  module: handl-kit-data
+- name: assemble_seven_sources_produces_expected_counts
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 734
+  module: handl-kit-data
+- name: fragment_source_entry_debug_shows_path
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 759
+  module: handl-kit-data
+- name: data_kit_debug_formats
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 766
+  module: handl-kit-data
+- name: assemble_merges_ast_and_options_fragments
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 777
+  module: handl-kit-data
+- name: assemble_merges_caps_fragment
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 791
+  module: handl-kit-data
+- name: exclude_skips_ast_and_options
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 803
+  module: handl-kit-data
+- name: exclude_skips_eval_and_caps_fragments
+  kind: function
+  file: crates/handl-kit-data/src/tests.rs
+  line: 816
+  module: handl-kit-data
+- name: library_registry
+  kind: module
+  file: crates/handl-kit-data/src/lib.rs
+  line: 58
+  module: handl-kit-data
+- name: FragmentSourceEntry
+  kind: type
+  file: crates/handl-kit-data/src/lib.rs
+  line: 75
+  module: handl-kit-data
+- name: data_file
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 85
+  module: handl-kit-data
+- name: DataKitManifest
+  kind: type
+  file: crates/handl-kit-data/src/lib.rs
+  line: 100
+  module: handl-kit-data
+- name: new
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 134
+  module: handl-kit-data
+- name: with_fragment
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 147
+  module: handl-kit-data
+- name: with_include
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 153
+  module: handl-kit-data
+- name: with_exclude
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 159
+  module: handl-kit-data
+- name: with_extends
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 165
+  module: handl-kit-data
+- name: with_runtime
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 171
+  module: handl-kit-data
+- name: with_caps
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 177
+  module: handl-kit-data
+- name: with_modules
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 183
+  module: handl-kit-data
+- name: load
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 203
+  module: handl-kit-data
+- name: load_from_text
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 215
+  module: handl-kit-data
+- name: default
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 221
+  module: handl-kit-data
+- name: KitRegistry
+  kind: type
+  file: crates/handl-kit-data/src/lib.rs
+  line: 233
+  module: handl-kit-data
+- name: default
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 239
+  module: handl-kit-data
+- name: new
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 246
+  module: handl-kit-data
+- name: register_kit
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 253
+  module: handl-kit-data
+- name: resolve_kit
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 258
+  module: handl-kit-data
+- name: DataKit
+  kind: type
+  file: crates/handl-kit-data/src/lib.rs
+  line: 269
+  module: handl-kit-data
+- name: fmt
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 277
+  module: handl-kit-data
+- name: assemble
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 324
+  module: handl-kit-data
+- name: lang
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 375
+  module: handl-kit-data
+- name: runtime_config
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 380
+  module: handl-kit-data
+- name: into_runtime
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 395
+  module: handl-kit-data
+- name: read_data_file
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 426
+  module: handl-kit-data
+- name: parse_data
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 443
+  module: handl-kit-data
+- name: extension_of
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 461
+  module: handl-kit-data
+- name: merge_filtered
+  kind: function
+  file: crates/handl-kit-data/src/lib.rs
+  line: 479
+  module: handl-kit-data
+- name: tests
+  kind: module
+  file: crates/handl-kit-data/src/lib.rs
+  line: 568
+  module: handl-kit-data
+deps:
+- handl-language
+- handl-platform
+- handl-runtime
+- serde
+- serde_json
+- serde_yaml
+- toml
+- handl-plugin-engine-exec-tree-walk
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-parse-pratt
+- handl_platform
+- handl_language
+- handl_runtime
+- serde_json
+- handl_plugin_engine_exec_tree_walk
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse_pratt
+- handl_runtime
+- handl_plugin_engine_exec_tree_walk
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse_pratt
+- handl_runtime
+- library_registry
+- handl_language
+- handl_runtime
+- serde
+notes: ''
+verify:
+- crates/handl-kit-data/Cargo.toml
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/library_registry.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/tests.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+- crates/handl-kit-data/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-data/Cargo.toml
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/handl-kit-data/src/lib.rs
+  hashes:
+  - e9f78ff82b65489e11dd4e80a8f0478e5fc787d9
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

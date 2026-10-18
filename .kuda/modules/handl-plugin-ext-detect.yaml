@@ -1,0 +1,21 @@
+name: handl-plugin-ext-detect
+path: crates/plugin-ext-detect/Cargo.toml
+purpose: '`handl-plugin-ext-detect` — shared surface-dialect detection (`detect_dialect`) for handl sources.'
+api:
+- name: handl-plugin-ext-detect
+  kind: module
+  file: crates/plugin-ext-detect/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-detect
+deps: []
+notes: ''
+verify:
+- crates/plugin-ext-detect/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-detect/Cargo.toml
+  hashes:
+  - f99612e48daadedc505c2b23550b0a4db50d1dcd
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

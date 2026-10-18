@@ -1,0 +1,898 @@
+name: platform
+root: /home/luis/GitHub/handl-lang/platform
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+modules:
+- _root
+- arrow-calculus-kernel-poc
+- arrow-calculus-poc
+- bench
+- codegen
+- dagger
+- ext-tests
+- handl
+- handl-bench
+- handl-ext-tests
+- handl-host-tooling
+- handl-kit-arrow-lower
+- handl-kit-data
+- handl-platform
+- handl-platform-tests
+- handl-plugin-applier
+- handl-plugin-applier-bootstrap
+- handl-plugin-applier-default
+- handl-plugin-compile
+- handl-plugin-engine-exec
+- handl-plugin-engine-exec-bytecode
+- handl-plugin-engine-exec-tree-walk
+- handl-plugin-engine-fmt
+- handl-plugin-engine-lex
+- handl-plugin-engine-lex-pattern
+- handl-plugin-engine-lint
+- handl-plugin-engine-parse
+- handl-plugin-engine-parse-pratt
+- handl-plugin-engine-test
+- handl-plugin-engine-transform
+- handl-plugin-engine-transform-rewrite
+- handl-plugin-engine-typecheck
+- handl-plugin-engine-typecheck-handl
+- handl-plugin-exec-cache
+- handl-plugin-ext-compile
+- handl-plugin-ext-detect
+- handl-plugin-ext-diag
+- handl-plugin-ext-eval
+- handl-plugin-ext-fmt
+- handl-plugin-ext-kit
+- handl-plugin-ext-lint
+- handl-plugin-ext-plugin
+- handl-plugin-ext-refinement
+- handl-plugin-ext-sdkgen
+- handl-plugin-ext-test
+- handl-plugin-ext-typecheck
+- handl-plugin-lib-handl
+- handl-plugin-lib-scheduler
+- handl-plugin-lib-tag
+- handl-plugin-load
+- handl-plugin-loader-native
+- handl-plugin-loader-native-fixture-echo
+- handl-plugin-module
+- handl-plugin-sdkgen
+- handl-plugin-sdkgen-emitter-file
+- handl-runtime
+- handl-test-utils
+- host-tooling
+- native-echo
+- platform
+- platform-tests
+- plugin-applier
+- plugin-applier-bootstrap
+- plugin-applier-default
+- plugin-compile
+- plugin-engine-exec
+- plugin-engine-exec-bytecode
+- plugin-engine-exec-tree-walk
+- plugin-engine-fmt
+- plugin-engine-lex
+- plugin-engine-lex-pattern
+- plugin-engine-lint
+- plugin-engine-parse
+- plugin-engine-parse-pratt
+- plugin-engine-test
+- plugin-engine-transform
+- plugin-engine-transform-rewrite
+- plugin-engine-typecheck
+- plugin-engine-typecheck-handl
+- plugin-exec-cache
+- plugin-ext-compile
+- plugin-ext-detect
+- plugin-ext-diag
+- plugin-ext-eval
+- plugin-ext-fmt
+- plugin-ext-kit
+- plugin-ext-lint
+- plugin-ext-plugin
+- plugin-ext-refinement
+- plugin-ext-sdkgen
+- plugin-ext-test
+- plugin-ext-typecheck
+- plugin-lib-handl
+- plugin-lib-scheduler
+- plugin-lib-tag
+- plugin-load
+- plugin-loader-native
+- plugin-module
+- plugin-sdkgen
+- plugin-sdkgen-emitter-file
+- python-sdk
+- sdk
+- template
+commands:
+- cargo check
+- cargo test --workspace
+provenance:
+  files:
+  - Cargo.toml
+  - dagger/pyproject.toml
+  - dagger/sdk/pyproject.toml
+  - dagger/sdk/runtime/go.mod
+  - dagger/sdk/runtime/template/pyproject.toml
+  - dagger/sdk/codegen/pyproject.toml
+  - crates/platform/Cargo.toml
+  - crates/plugin-ext-sdkgen/Cargo.toml
+  - crates/plugin-applier-default/Cargo.toml
+  - crates/plugin-engine-lex/Cargo.toml
+  - crates/plugin-lib-scheduler/Cargo.toml
+  - crates/plugin-ext-compile/Cargo.toml
+  - crates/plugin-loader-native/Cargo.toml
+  - crates/plugin-loader-native/tests/fixtures/native-echo/Cargo.toml
+  - crates/plugin-ext-typecheck/Cargo.toml
+  - crates/plugin-ext-lint/Cargo.toml
+  - crates/plugin-sdkgen-emitter-file/Cargo.toml
+  - crates/plugin-engine-exec/Cargo.toml
+  - crates/plugin-engine-transform-rewrite/Cargo.toml
+  - crates/handl-kit-arrow-lower/Cargo.toml
+  - crates/plugin-engine-lint/Cargo.toml
+  - crates/plugin-applier-bootstrap/Cargo.toml
+  - crates/plugin-engine-typecheck-handl/Cargo.toml
+  - crates/ext-tests/Cargo.toml
+  - crates/plugin-ext-eval/Cargo.toml
+  - crates/plugin-engine-lex-pattern/Cargo.toml
+  - crates/plugin-applier/Cargo.toml
+  - crates/plugin-engine-transform/Cargo.toml
+  - crates/plugin-engine-test/Cargo.toml
+  - crates/handl-kit-data/Cargo.toml
+  - crates/bench/Cargo.toml
+  - crates/plugin-ext-test/Cargo.toml
+  - crates/plugin-ext-kit/Cargo.toml
+  - crates/plugin-engine-fmt/Cargo.toml
+  - crates/platform-tests/Cargo.toml
+  - crates/plugin-ext-refinement/Cargo.toml
+  - crates/plugin-engine-typecheck/Cargo.toml
+  - crates/plugin-exec-cache/Cargo.toml
+  - crates/plugin-engine-exec-bytecode/Cargo.toml
+  - crates/plugin-engine-parse-pratt/Cargo.toml
+  - crates/plugin-sdkgen/Cargo.toml
+  - crates/plugin-ext-plugin/Cargo.toml
+  - crates/plugin-lib-handl/Cargo.toml
+  - crates/plugin-engine-exec-tree-walk/Cargo.toml
+  - crates/plugin-ext-fmt/Cargo.toml
+  - crates/plugin-compile/Cargo.toml
+  - crates/plugin-ext-diag/Cargo.toml
+  - crates/plugin-engine-parse/Cargo.toml
+  - crates/plugin-ext-detect/Cargo.toml
+  - crates/handl-runtime/Cargo.toml
+  - crates/plugin-module/Cargo.toml
+  - crates/host-tooling/Cargo.toml
+  - crates/handl-test-utils/Cargo.toml
+  - crates/plugin-lib-tag/Cargo.toml
+  - crates/plugin-load/Cargo.toml
+  - research/arrow-calculus-kernel-poc/Cargo.toml
+  - crates/platform/src/boundary.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/ast_node.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/vm.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/resolve.rs
+  - crates/plugin-ext-sdkgen/src/lib.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-lib-scheduler/src/lib.rs
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/lib.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/src/lib.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
+  - crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
+  - crates/plugin-sdkgen-emitter-file/src/lib.rs
+  - crates/plugin-engine-exec/src/pattern_match.rs
+  - crates/plugin-engine-exec/src/native_ops.rs
+  - crates/plugin-engine-exec/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/benches/transform.rs
+  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-engine-transform-rewrite/tests/engine.rs
+  - crates/plugin-engine-transform-rewrite/src/step.rs
+  - crates/plugin-engine-transform-rewrite/src/dispatch.rs
+  - crates/plugin-engine-transform-rewrite/src/condition.rs
+  - crates/plugin-engine-transform-rewrite/src/walk.rs
+  - crates/plugin-engine-transform-rewrite/src/lib.rs
+  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-engine-transform-rewrite/src/native/mod.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/plugin-engine-lint/src/module.rs
+  - crates/plugin-engine-lint/src/native.rs
+  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib_tests.rs
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-engine-typecheck-handl/tests/handl_typecheck_parity.rs
+  - crates/plugin-engine-typecheck-handl/tests/integration.rs
+  - crates/plugin-engine-typecheck-handl/tests/axis_flow_boundaries.rs
+  - crates/plugin-engine-typecheck-handl/tests/dependent_structure.rs
+  - crates/plugin-engine-typecheck-handl/src/lib.rs
+  - crates/ext-tests/tests/e2e.rs
+  - crates/ext-tests/src/lib.rs
+  - crates/plugin-ext-eval/src/adapters.rs
+  - crates/plugin-ext-eval/src/lib.rs
+  - crates/plugin-engine-lex-pattern/tests/integration.rs
+  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-applier/src/lib.rs
+  - crates/plugin-engine-transform/src/request.rs
+  - crates/plugin-engine-transform/src/native.rs
+  - crates/plugin-engine-transform/src/output.rs
+  - crates/plugin-engine-transform/src/validate.rs
+  - crates/plugin-engine-transform/src/source.rs
+  - crates/plugin-engine-transform/src/lib.rs
+  - crates/plugin-engine-test/tests/runner.rs
+  - crates/plugin-engine-test/src/events.rs
+  - crates/plugin-engine-test/src/runner.rs
+  - crates/plugin-engine-test/src/report.rs
+  - crates/plugin-engine-test/src/config.rs
+  - crates/plugin-engine-test/src/lib.rs
+  - crates/plugin-engine-test/src/provider.rs
+  - crates/plugin-engine-test/src/framework/mod.rs
+  - crates/handl-kit-data/src/library_registry.rs
+  - crates/handl-kit-data/src/tests.rs
+  - crates/handl-kit-data/src/lib.rs
+  - crates/bench/benches/pipeline.rs
+  - crates/bench/benches/infer.rs
+  - crates/bench/benches/typecheck.rs
+  - crates/bench/benches/parser.rs
+  - crates/bench/benches/lexer.rs
+  - crates/bench/benches/core.rs
+  - crates/bench/src/lib.rs
+  - crates/plugin-ext-test/src/plugin.rs
+  - crates/plugin-ext-test/src/lib.rs
+  - crates/plugin-ext-kit/src/lib.rs
+  - crates/plugin-engine-fmt/src/token.rs
+  - crates/plugin-engine-fmt/src/post_process.rs
+  - crates/plugin-engine-fmt/src/tests.rs
+  - crates/plugin-engine-fmt/src/lib.rs
+  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/e2e.rs
+  - crates/platform-tests/tests/mock.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/plugin-ext-refinement/tests/time_contract.rs
+  - crates/plugin-ext-refinement/tests/str_contract.rs
+  - crates/plugin-ext-refinement/tests/module_integration.rs
+  - crates/plugin-ext-refinement/examples/demo.rs
+  - crates/plugin-ext-refinement/examples/hnlc.rs
+  - crates/plugin-ext-refinement/src/trait_inference.rs
+  - crates/plugin-ext-refinement/src/loader_tests.rs
+  - crates/plugin-ext-refinement/src/checker_tests.rs
+  - crates/plugin-ext-refinement/src/checker.rs
+  - crates/plugin-ext-refinement/src/inference.rs
+  - crates/plugin-ext-refinement/src/arrow_lang.rs
+  - crates/plugin-ext-refinement/src/trait_inference_tests.rs
+  - crates/plugin-ext-refinement/src/loop_invariant.rs
+  - crates/plugin-ext-refinement/src/contracts.rs
+  - crates/plugin-ext-refinement/src/types.rs
+  - crates/plugin-ext-refinement/src/arrow_parser.rs
+  - crates/plugin-ext-refinement/src/plugin.rs
+  - crates/plugin-ext-refinement/src/termination.rs
+  - crates/plugin-ext-refinement/src/e2e_tests.rs
+  - crates/plugin-ext-refinement/src/tests.rs
+  - crates/plugin-ext-refinement/src/partial_eval.rs
+  - crates/plugin-ext-refinement/src/state_tests.rs
+  - crates/plugin-ext-refinement/src/arrow_loader.rs
+  - crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  - crates/plugin-ext-refinement/src/parse_tests.rs
+  - crates/plugin-ext-refinement/src/smt.rs
+  - crates/plugin-ext-refinement/src/loader.rs
+  - crates/plugin-ext-refinement/src/lib.rs
+  - crates/plugin-ext-refinement/src/backtrack_tests.rs
+  - crates/plugin-engine-typecheck/tests/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/bootstrap.rs
+  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-exec-cache/src/lib.rs
+  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-engine-exec-bytecode/src/compile.rs
+  - crates/plugin-engine-exec-bytecode/src/instr.rs
+  - crates/plugin-engine-exec-bytecode/src/vm.rs
+  - crates/plugin-engine-exec-bytecode/src/lib.rs
+  - crates/plugin-engine-parse-pratt/tests/parse_conformance.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-sdkgen/tests/round_trip.rs
+  - crates/plugin-sdkgen/src/targets.rs
+  - crates/plugin-sdkgen/src/lib.rs
+  - crates/plugin-ext-plugin/src/lib.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/scope_isolation.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-engine-exec-tree-walk/tests/eval_conformance.rs
+  - crates/plugin-engine-exec-tree-walk/tests/grade_dispatch.rs
+  - crates/plugin-engine-exec-tree-walk/tests/graded_e2e.rs
+  - crates/plugin-engine-exec-tree-walk/tests/eval_error_span.rs
+  - crates/plugin-engine-exec-tree-walk/tests/adr0081_cross_language.rs
+  - crates/plugin-engine-exec-tree-walk/tests/path_transport.rs
+  - crates/plugin-engine-exec-tree-walk/tests/with_handle_e2e.rs
+  - crates/plugin-engine-exec-tree-walk/tests/rewrite_law.rs
+  - crates/plugin-engine-exec-tree-walk/src/lib.rs
+  - crates/plugin-ext-fmt/tests/idempotence.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-compile/src/cache.rs
+  - crates/plugin-compile/src/input.rs
+  - crates/plugin-compile/src/registry.rs
+  - crates/plugin-compile/src/tests.rs
+  - crates/plugin-compile/src/output.rs
+  - crates/plugin-compile/src/compiler.rs
+  - crates/plugin-compile/src/debug_info.rs
+  - crates/plugin-compile/src/config.rs
+  - crates/plugin-compile/src/source_map.rs
+  - crates/plugin-compile/src/lib.rs
+  - crates/plugin-compile/src/value_abi.rs
+  - crates/plugin-compile/src/value_abi/tests.rs
+  - crates/plugin-ext-diag/src/lib.rs
+  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-ext-detect/src/lib.rs
+  - crates/handl-runtime/tests/runtime_pipeline.rs
+  - crates/handl-runtime/tests/factorial_model_test.rs
+  - crates/handl-runtime/tests/value_model_hnl.rs
+  - crates/handl-runtime/tests/runtime_compile.rs
+  - crates/handl-runtime/tests/indexed_family_data.rs
+  - crates/handl-runtime/tests/data_constructor_eval.rs
+  - crates/handl-runtime/tests/call_args_binding.rs
+  - crates/handl-runtime/tests/engine_parity.rs
+  - crates/handl-runtime/tests/assign_let_form.rs
+  - crates/handl-runtime/tests/meta_model_test.rs
+  - crates/handl-runtime/tests/erased_node.rs
+  - crates/handl-runtime/tests/self_ref_binding.rs
+  - crates/handl-runtime/tests/nominal_kernel.rs
+  - crates/handl-runtime/tests/option_b_frontier_e2e.rs
+  - crates/handl-runtime/tests/axis_flow_e2e.rs
+  - crates/handl-runtime/tests/arrow_model_hnl.rs
+  - crates/handl-runtime/tests/dependency_import.rs
+  - crates/handl-runtime/tests/bool_globals.rs
+  - crates/handl-runtime/tests/indexed_family_match.rs
+  - crates/handl-runtime/tests/composite_model_parity.rs
+  - crates/handl-runtime/tests/array_spread_lower.rs
+  - crates/handl-runtime/tests/flow_arrow_lower.rs
+  - crates/handl-runtime/tests/import_bytecode.rs
+  - crates/handl-runtime/tests/exec_model_parity.rs
+  - crates/handl-runtime/tests/runtime_eval_only.rs
+  - crates/handl-runtime/tests/match_arrow_lower.rs
+  - crates/handl-runtime/tests/array_pattern_params.rs
+  - crates/handl-runtime/tests/arrow_model_parity.rs
+  - crates/handl-runtime/tests/module_prep_exports.rs
+  - crates/handl-runtime/tests/import_all_engines.rs
+  - crates/handl-runtime/tests/module_cache_tagged.rs
+  - crates/handl-runtime/tests/model_infrastructure.rs
+  - crates/handl-runtime/tests/value_model_parity.rs
+  - crates/handl-runtime/tests/indexed_family_fin.rs
+  - crates/handl-runtime/tests/import_cranelift.rs
+  - crates/handl-runtime/tests/bare_module_import.rs
+  - crates/handl-runtime/tests/object_spread_lower.rs
+  - crates/handl-runtime/tests/arrow_model_delegate.rs
+  - crates/handl-runtime/tests/type_model_parity.rs
+  - crates/handl-runtime/tests/arrow_serializability.rs
+  - crates/handl-runtime/tests/op_handler_with_e2e.rs
+  - crates/handl-runtime/tests/proof_erasure.rs
+  - crates/handl-runtime/src/module_prep.rs
+  - crates/handl-runtime/src/erase_pass.rs
+  - crates/handl-runtime/src/vm_primitives.rs
+  - crates/handl-runtime/src/desugar_pass.rs
+  - crates/handl-runtime/src/fp.rs
+  - crates/handl-runtime/src/runtime_assert_pass.rs
+  - crates/handl-runtime/src/lib.rs
+  - crates/plugin-module/src/lib.rs
+  - crates/host-tooling/tests/tooling.rs
+  - crates/host-tooling/tests/loader.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/config.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/conformance/run.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/mod.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/tests.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - research/arrow-calculus-kernel-poc/src/ai_code_structure_tests.rs
+  - research/arrow-calculus-kernel-poc/src/decoupled_traits.rs
+  - research/arrow-calculus-kernel-poc/src/law_inference.rs
+  - research/arrow-calculus-kernel-poc/src/examples_check.rs
+  - research/arrow-calculus-kernel-poc/src/v0_1_surface_tests.rs
+  - research/arrow-calculus-kernel-poc/src/quantitative_comparison_tests.rs
+  - research/arrow-calculus-kernel-poc/src/refinement_engine.rs
+  - research/arrow-calculus-kernel-poc/src/recursion_tests.rs
+  - research/arrow-calculus-kernel-poc/src/quantified_laws.rs
+  - research/arrow-calculus-kernel-poc/src/contract_inference_tests.rs
+  - research/arrow-calculus-kernel-poc/src/structural_preservation_tests.rs
+  - research/arrow-calculus-kernel-poc/src/poly_proof_graph_tests.rs
+  - research/arrow-calculus-kernel-poc/src/real_programs_tests.rs
+  - research/arrow-calculus-kernel-poc/src/polymorphic_tests.rs
+  - research/arrow-calculus-kernel-poc/src/liquid_types_comparison_tests.rs
+  - research/arrow-calculus-kernel-poc/src/refinement_inference_tests.rs
+  - research/arrow-calculus-kernel-poc/src/v0_1_surface.rs
+  - research/arrow-calculus-kernel-poc/src/bundled_effects.rs
+  - research/arrow-calculus-kernel-poc/src/type_level_effects.rs
+  - research/arrow-calculus-kernel-poc/src/evaluation_tests.rs
+  - research/arrow-calculus-kernel-poc/src/trait_catalog.rs
+  - research/arrow-calculus-kernel-poc/src/trait_catalog_sqlite.rs
+  - research/arrow-calculus-kernel-poc/src/challenge13_tests.rs
+  - research/arrow-calculus-kernel-poc/src/effect_typing_tests.rs
+  - research/arrow-calculus-kernel-poc/src/handle_elimination_tests.rs
+  - research/arrow-calculus-kernel-poc/src/termination_analysis_tests.rs
+  - research/arrow-calculus-kernel-poc/src/main.rs
+  - research/arrow-calculus-kernel-poc/src/type_inference_tests.rs
+  - research/arrow-calculus-kernel-poc/src/profunctor_structural_tests.rs
+  - research/arrow-calculus-kernel-poc/src/higher_order_tests.rs
+  - research/arrow-calculus-kernel-poc/src/language_protocol_tests.rs
+  - research/arrow-calculus-kernel-poc/src/proof_graph_tests.rs
+  - research/arrow-calculus-kernel-poc/src/effects_handlers_tests.rs
+  - research/arrow-calculus-kernel-poc/src/arrow_apply_tests.rs
+  - research/arrow-calculus-kernel-poc/src/cascade_check.rs
+  - research/arrow-calculus-kernel-poc/src/decoupled_pipeline.rs
+  - research/arrow-calculus-kernel-poc/src/dynamic_handlers.rs
+  - research/arrow-calculus-kernel-poc/src/speculative_compilation.rs
+  - research/arrow-calculus-kernel-poc/src/modules.rs
+  - src/lib.rs
+  - dagger/sdk/runtime/template/main.py
+  - dagger/sdk/runtime/template/runtime.py
+  - dagger/sdk/runtime/template/__init__.py
+  - dagger/sdk/codegen/src/codegen/cli.py
+  - dagger/sdk/codegen/src/codegen/ast.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/__init__.py
+  - dagger/sdk/codegen/src/codegen/__main__.py
+  - dagger/sdk/src/dagger/telemetry.py
+  - dagger/sdk/src/dagger/_managers.py
+  - dagger/sdk/src/dagger/log.py
+  - dagger/sdk/src/dagger/_exceptions.py
+  - dagger/sdk/src/dagger/__init__.py
+  - dagger/sdk/src/dagger/mod/_module.py
+  - dagger/sdk/src/dagger/mod/cli.py
+  - dagger/sdk/src/dagger/mod/_utils.py
+  - dagger/sdk/src/dagger/mod/_types.py
+  - dagger/sdk/src/dagger/mod/_exceptions.py
+  - dagger/sdk/src/dagger/mod/_arguments.py
+  - dagger/sdk/src/dagger/mod/_resolver.py
+  - dagger/sdk/src/dagger/mod/__init__.py
+  - dagger/sdk/src/dagger/mod/_converter.py
+  - dagger/sdk/src/dagger/client/gen.py
+  - dagger/sdk/src/dagger/client/_config.py
+  - dagger/sdk/src/dagger/client/base.py
+  - dagger/sdk/src/dagger/client/_connection.py
+  - dagger/sdk/src/dagger/client/_guards.py
+  - dagger/sdk/src/dagger/client/_session.py
+  - dagger/sdk/src/dagger/client/_core.py
+  - dagger/sdk/src/dagger/client/__init__.py
+  - dagger/src/ci/main.py
+  - dagger/src/ci/__init__.py
+  - scripts/gen-repo-docs.py
+  - scripts/pin-git-revs.py
+  - scripts/docs_split.py
+  - scripts/gen-adr-index.py
+  hashes:
+  - 437b5351823a6c3b3f9320084b4761652c8d9e1b
+  - 29f4a0e285438601643824f02f01d5352f4ff712
+  - 7fc341d98a16d46c3b6b085f079e9ff713ed6dcb
+  - 883bf8591668f2b8b633dded88f24cc400a89126
+  - bb963863c203b3b9885f5448626d64fa53d45279
+  - 4ca5a5e4c7cbea52c46f8aa74ab9d464b275c95a
+  - 2f0b60d6a4f3e55dd962fa7a1fef29a9ca6f7c00
+  - 33568a34215d0399e6560ed95ce3b24325450c9f
+  - 98f40229b4a0700deecc94d6f21e63c8c4acc04f
+  - ca83b220cbb3ddd994cdfb8ac068703d81c5a16c
+  - e4e3cffb2927155f0337e4789de6502bf4d0546a
+  - dc3eb4bb68c48046e34c78fdcc7d8b4cf07ced2d
+  - bccfe173feec70cb51fca3562f36a332c8fe7c11
+  - c3b4dfa7db77efe4de6b72df3f706635b06ba78d
+  - 71eb6ac9672f1dc9c1df9eae8909651f91f144af
+  - 7432304e12049e385dfdec2ef83fd01953b3c05d
+  - f067fd6d5d9cc0b46ba1656c91047ff6702cc782
+  - a0c37cd6454a6d0126d90a2104768eecb44273ef
+  - 240d2c1137452d20dc9ad2b0d69452cb1037a595
+  - 6b3893820373975fd14270f04cbf243f964c9499
+  - a0e6a95e5e2f898019545bdaa644ea22acba838d
+  - 7c6bda5cc84369d894fc486517c3a596d3d7fd1a
+  - 11b0db08c7d30cc9e9aad1fc0457b7671d745573
+  - e442a1ec686ccaf6750b7f32cdcd7742c5f18f57
+  - d71cf36953d5f52974d9f4d77d391d25145eb242
+  - 0d73f9fe454b537eb297c1665553275d49d64adb
+  - a71cb2d4ed0a5e95bcc3c46a8cfe0e475eefcfbf
+  - d3d0eed96bfd7ad2fc635c3e96bad2a1c803a6dc
+  - 028fbb8cb8d14b8a0fd431e7580f1ce8748ceb21
+  - e9f78ff82b65489e11dd4e80a8f0478e5fc787d9
+  - 1e2eb4fbd95bd1bd5a321224a1f7f3b3ae9b7397
+  - ef8c624e2db553b9ce8b98ea9749c03fcdd6e422
+  - de54825efadefd668b9c7a37c7d4332efbd4c92b
+  - 4441c544c7b945ae8eb019d355a6789830857849
+  - 41e68dd341d24e40b8f1e92f80589299bdaeec4d
+  - 1cc2e7634f95ee66ff76ceef553f7c8980a6cfd6
+  - 251a1350c50f679880bb41a2cc16c88ec4be0796
+  - 62ebd5168e1dbf6c762c7e4a81ae8bf4ac5e4eea
+  - 6654956467f9fb1e29be692897178ddebbef13b7
+  - 28b740759db8743d848cb446cafb5f7c07892614
+  - a20bb8fc7588ef4f44366511e2d3d709dfd74a02
+  - d2358ac29f652e22bcbf48fbd58a01ada0b9897c
+  - 617c353ded40d2ac12c9c0ab7ca0cf9e75a4589d
+  - 96620d7ebc8d26029ec1c9d779af65e3ef8b6958
+  - 44e8fc1f959b149d1b042838f01223a298863fcb
+  - 745d4cdd08081ec915a593c604c6a55d34b5c1e1
+  - e4bb3f3ec0f0740c35e60eae7ce690820984da62
+  - bde98f15bef861e55897dfe243cb81f7289194ad
+  - f99612e48daadedc505c2b23550b0a4db50d1dcd
+  - b3e6d31c2e66621f5ca6663364728d9fb174de29
+  - 72caf15cb214105d28d6fa352983cf926361f0f4
+  - 895099e8f221de4344c9408601777362f4683414
+  - 70708fd20dde58445b9e39ca2c11884d142e3913
+  - bcb4ab7d82c3e06bb7a27b5886741bd0b6a7b8a2
+  - c858ba1374159a2298724e9c3fe28494270d1192
+  - 5c5ecd3db102e2f9f8e51efb7fdce60f32e3fc67
+  - 7f2f487810c64c0e96adfae6d3617a2dafa5e535
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 99a8afd5e2d4e84d58864d42cd34a68d3a5e465d
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - 329f2caff6191e0bc7cc779fb19c18904a3bccf0
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  - 24165523b12983eb184d75be1d99c748903c07cb
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - 659343c9af4ccb3d22c3ab0982f77a1fe7d48304
+  - b691ff7aee02874c9321b93f69d4fbea71b98956
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - 4beb5747f9d3869785941491920f54dbebc7fd0c
+  - 5fc073b449144ba08886df5db8548e5cb12e839c
+  - d7670480b382d47e33faf5862d1bf11b853c3d64
+  - c4a2c8c375a808533d3a030b57cc8867258829eb
+  - e1f902df842b4f1635d084607362add9af95fd54
+  - e39cc2cc38e1ed8ca71b59e8e7a709c77afc6c52
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 58baad425a18579b954a8151125492d113142193
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - 1758dc7605e076abed1272b7a9ebf8c5c6f103ce
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - d2dbafbb5e58c9b1719db5b54d6ba08b2fa8b54c
+  - 9325ef7b28c015393d46db5745f042e34257d07e
+  - 69f10c87d75a7b0d542e494dbd05cbf78545cd19
+  - d808933787365bdf167e513ac55d424969fa4819
+  - 7ce5dad77ab641eb067bd3acba4f9bb2c8e41d95
+  - 29eef0607a6626afcf3ffb6c8554e78325008d90
+  - e19beb4b313b3fd52c96488240dae220091a7f47
+  - 34ecac238bac236f9d8cac81b328828b610f834b
+  - f7c4fe440c6e90d4c2289c3022522e8e3c9258b3
+  - 7469638c337920c4434bf68c18112277a98d4e53
+  - 3640bf7c4958a08ba88b78b101e1f70fedda5a11
+  - f7abb7bfbdc39743ae221546c2f9337cb63c5414
+  - 2d8744b65db2954756f71d47056b542deeaf3431
+  - 67b6c715b045a2f1a1d4fab7096928ef03fceede
+  - cac00a2c84c91e52703379cb6a444a1c2680a698
+  - bbfdd5ec3d24a3fa58e91a2992d90fe1d15950c8
+  - d1ad6079bb7b552ddca700004dbe911b20afdf5c
+  - 9078d4da2d38ae77ff53af214487dd1b930dcd6e
+  - 433c4e772ffc972ada18f98311793e833865fbac
+  - 14d45eefd2e48e2a2be94d1e769951c8fa717d10
+  - 0b1cf341e12693d52511717e4ad2a79d3d6aff6c
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - 4a578b4833391dea1674d73cf60f7fecc6baf11f
+  - 18968c9cf6f83f8b3a175e76bc7e1804b91783e5
+  - ee33c216882f68da0787a33ccbb58d86f21fce84
+  - 7e4b481364bd559a1b65fa07c73788417aa6a62e
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 60a23c85c80c14e021ad81266afecee2e3da31aa
+  - e8cba950366f168d6def8e23ffc13c6c079efe92
+  - 7fcc4833280a204900346d3c6b002984a8b5c3e1
+  - f955b429b621b62af181fb72d0f36f9c5a81bd2f
+  - 74222dbab4a96bed008ca767eb727f7108e91e32
+  - f12719e2bf1f7311627a963866bfc9be55fc3514
+  - d381931bbb6a31a8e854e7bc072588e590480fc4
+  - 5e23c81ae238c8fbfe3ea8448acfa0d3db3055ac
+  - c959d26e5a6e4fa6e07d7a01339aa23b4942f453
+  - cd9e2e67a431d6f1848e0538e18b1dd15cb11e1c
+  - eda706e7d398b6afd4a97d74d10c3954343aa5c7
+  - 8801955eade3057f4a4b972047ce01981dfbf1e4
+  - 1bf465b884b17e59055868d0f8d8b2b1da731259
+  - 42d01b49069865faa387777865b4d11eea0d07e8
+  - 915f8ca15bfa4865322ccde8c3dd58af56109dac
+  - 30b9f80df48b0a261b41d19b9c66e0d9fe5682c7
+  - 17f9c2e1d4c82777db5d6c1762223974e822c8fb
+  - e357aa8d6fb14ea1871a2dbe3f8992242414beee
+  - 2b6fa2a0a6c2b316aa046de4e98a58933ba88abd
+  - 0f1be923e95f97d87ae5c99340fea1abfd9dae80
+  - a37e16af970cc44bba2989e89c4cc4525b182cac
+  - c9b9ad6d20c2af4d0e1275e53127701546b23be8
+  - f6ece7dd77cbb61267655c2b442e696cd63c239a
+  - 57aa4a1f1ed3c9773bc43392667fe03536cbe60a
+  - 135e32b3b1fa0c9d6828df252511ac99d2224535
+  - 78bf64215bf2f3268d0d426366da6695665d780e
+  - e8810aa1ed0652b7ba1977b84cf1fc4af9473e22
+  - ff1560b6425f293dfd7ccf2eb70841de3b875d30
+  - 98f8c810c2e423a6eef0fc57af424aafb32483d1
+  - 65f642fddb0b754d99174d3094386265bf46af40
+  - ce49e90f5425e5d528152814c0f54a47704b1b27
+  - 0b649a31db989af8f332c5ee9bb05afe5ac42885
+  - 00dda8c4d768a053de8b6aded058ec8ff2776683
+  - 787fe569c399db7f94de02558f930ae6bcdfd41f
+  - aa88d9f65170a877b7b42050c8e8c26736ce03a3
+  - 55766cd8ad7553bb0d79e9e20d4025f2840233b4
+  - d33e5bf113e2c810b559ad5e281344830a3dfd83
+  - c1d60e24d9121f4baf527a7717042c3312af07c6
+  - f8090ce292c25cd5f8e347095fb06212813474ac
+  - 2bd3a87914b10962c6c5b779c07deab3c8477c33
+  - 1a96bcc8bb2d3b2cda84f473bf5ca031b54e3e00
+  - 8538f543545c1b7dc3175a1b0f19b3f3323e50cd
+  - 43c4545c828a69d8f3680b4b2e32e30a87a74786
+  - 2f58d21dee80058aff3836ca3b7ddd6fc3f2d9e7
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 6767cae8214484d769b5500cf3e9c3a454304425
+  - 486d509177c4e4cc2dca1e298984b2c59c6a14f4
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - aa59be938606763bfa9ec5a8aea8cbf7b671b44d
+  - 4382b9d1f1b19a86cd50ef2a0adf6a4c90b30849
+  - c6e1120499ca5ce58b043f6187a3c16f1dc0ffe9
+  - 69ee8fbc8e1ad7a4786b85e1f1a838a2017aaf1a
+  - de1acbc2ffe4e8fb6d2f7d2a9e27a915690208dc
+  - 5ada7bd0961861a55259b75bb7afcac9cf6550f8
+  - 66f3fdbb96156d8f2620566ebc87d56a6a6f2df3
+  - ad13b71a6d2fb3e55dba86e291edc59e2e866fdc
+  - d619824dc980104c51a04fb86c435d806b9e7650
+  - 721221af7b054ed51d6fea2d589d4f2ea6d1b03c
+  - 7841f72cad1cbd038b58a78c07d9ae89c9ce0a9d
+  - 50238e449409c650daabbb76ccfe46014ed2afad
+  - 7a8669f69a1af1ff87c7dc1676e352b616b6b5ef
+  - bb3e5a144872fd21b3de3c9476846548c65c82fa
+  - ff0d14736b45458edaa0180a32cd8329f9f5ab5b
+  - e096032c2fa95fe8b36f3f03b65eb6f065b14f4f
+  - 8509546e91be761b9130a5d9493bc5051181ae6d
+  - ca4e18bd502dfc20f8dd88a9925bd8bbb76061d5
+  - 5a9b2660cf4877b8f5ad4fe9ab41d56c5a009b32
+  - a9f6964f1560dff0699f612e7199eecb5c999981
+  - 92990abba088b35471fd7e61c4b33af83241adec
+  - 9873f40526ca3d6ac032b754ecc4237732ff6b27
+  - 0c7075e4db6db5afd79cdc1ae6b3a62aef714f11
+  - b16de1fb82cb49a9de755faa89db2e7c1e6bc66c
+  - e0f16ab545533cb6ea2a102e09e1637d271be7c7
+  - e8fbccc1702cfaeb01c2f3482bb15956c9957fac
+  - c9f5a0e4901465d0fdcf94557e14c7736446b4d4
+  - ce6d91a5add1d4e299f1c58071c75cf8f3c692e2
+  - b78d3635a4881f2fa51aa71d7bd33fc37f662cd8
+  - 42612c3d653eae04a942293dde5f47a30903f257
+  - 795f765ee6b7f2df093e8b3ffedf8f50328e6ce3
+  - abbc1dea59161172730575f490712710b1d6345b
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  - e8f377aa7e753e5a9c0c8c1dc67f5e6e8dfecf1a
+  - 028082cfa1bde5a7f1284fe468305914d3057c1a
+  - 60d76f602b55bb26d3b8b26ea59abb462a9de854
+  - af8ef2ab0b7b03fed96aa9610f2abfe5157ea960
+  - 5eedc2b4dca0e58bfabde06d867bd0d83a557d49
+  - 03d24c49bba19f529812ba4cfc69eb34d08d4a20
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - 98615ce1d135adb5d8262d98de5991f858d3dfb4
+  - 2105642fbad5daa7d3d805ecbae0d307be0d5d52
+  - 0c0e33bcdc1bb6b86e1ac825e163acc830277241
+  - 4da904e83f0db1b5763b79114f9144f4089a48d4
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 5f6083fa4775ffbae2e8e63bae666cb36ce5177a
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 3bc9f9a66ce67356f39a881b71899185d5256477
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - 89cb64501936184f704fd8ed6f74f9775c5a7bc5
+  - 2b95972c7675bb962831538e25288b8091613b70
+  - 6755b9da87c3fa2d922dd82e2d165e062b78120e
+  - d1a2ef5877e809220626b8d03dbc2fe1a7776f5a
+  - c77f48dbfe174eff7e32a25e27a17f357d711490
+  - b11397afeb1dab9372ed00d91146588508f336d0
+  - ed9bdcce74e50427c5ed5673756fb14b920ba635
+  - 78707fbaae2a6b151cee2b4ebebaa386ca1c86b9
+  - 2b22ba03149a34f173114912d99c51e77aaae054
+  - a9c0b1213c3b8f3953fe1c3f967ac8ea684c82a8
+  - 1fd4e694e00b348ee9f041cb618be0e0979ec314
+  - 15e21ec2153dca8ad0a1ea9b58a04ead5364e4d9
+  - 29c566b9cd5ad375201a30b1a2595b6a87d41cc7
+  - c3ca62edaeb5749dedc12ff1548ab817fdc05859
+  - 95b9749bd3d58fa0d33a0b667225cc102afae37b
+  - f704cf132eeba93d7bb7aeb3df8b3c8cfa432186
+  - 6512ca8172d04dc129f2035c4d9d7bbd55cbbb96
+  - 052dccec0ae47ed476bc0f426caaea292f0f6d71
+  - 1c290b29e63d21fd693f869ce762541f847be461
+  - 5c3bad4206001e841386826c47608788d1e1d840
+  - 03efc88532be0199bd89a4f18dd3393d17b8d1a8
+  - bf7c15bea0f6fb2f4badd151e86693a8eba2ce75
+  - 8c5c94f90bb8c35d44770569a5a062a5a0dff544
+  - 576c9b0b65c01ef62b9a4af23849c8bec1a9de37
+  - 36408b647e92ad127248f78c49be4005002e5c50
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  - 1155677de592b6d957641ceee66af560104e2e78
+  - 9e0358845e8719c335ab58a41e6bdb9c183c581f
+  - 7b5b5e29bf37deb5d03410616e427c06e5bd0e69
+  - 9b872fa20d1be64083043e5a3808e50769cdc334
+  - a6318babdc8da4ca13f4cd25527b90130aef7197
+  - d271b2929f28cd724dbe74706df170bd905a3a22
+  - 35e59870146868a44f93564ba60b589419c53940
+  - 78ab077d5bffd07629ffa6f45434a0800954717d
+  - 301efa0e05f788891f9443520eb51ba542b9a796
+  - 5a03fce473ff4f85820b34423c8bcef78109f2e9
+  - 3e81efc9049be7af4a4c4f51b1436639213a08c6
+  - 173e6a99b0412fa747d326a99dff0de8581190fa
+  - a0fb5440915d8a6ed8f181301ed61abbed2955ad
+  - 228c35ab631d9ce89e4f974a046e8c1bacfc0b36
+  - b57b7710be6bcb4a2a96f89f450fe429eb082934
+  - 6f6c6fe179aeaaf59f36a158abef8c3b4586705a
+  - 6189a6fff0a9134f2bd96d243c9804f7dc65ee61
+  - b9b9d6904d0726fc07e8cfeda85d4039bcbbdf7f
+  - ec63e1a5651f871e4653af6720cf3f5b5a45652c
+  - 4c4c95efe2295118960f5ac74d90958a6d991510
+  - e3255d09556e08cd4abdd386214258c4ec73bc01
+  - e75f8cde5a10857eb33f63b65982dd7026b9c027
+  - 2941e7f49dab61d3d9f8f4ae273db3d8ac8cb270
+  - b67ca97ee1441ff3cfd079830df68ee614a8294f
+  - ca68cd9e54943a71423aada0a60d411056b4a21e
+  - 457a2276b3cbe95ae33431fe3e615704854fc7e0
+  - 21eb9fc6ac2e8f5e9d3e82680c58696e712f4b33
+  - 93befe6fcb0eeb979b1ae702677c13ba19db432f
+  - deba61bf6004b0ef72373d40f08272ec593ecc89
+  - 6a7d7285602b2c63043f4fc33335fa1e13a49abf
+  - 83cd2e61e11e1c254a545efde05e2d9fa4612d63
+  - dd659a5f96ba02a9d33ea14bdc3fbbe86e87881d
+  - 52645028a0e170bd0333e4f06bec97291218e297
+  - dc1f71f86b1f0bf66db577ba6b7cda51ab7848c8
+  - 15760a24a8bcf3ee2c87ef7c6509de914934ad90
+  - 10846189d4c85fd554d6e282827889690bec3e61
+  - 9e94494ff4346249c42845e1bde1d217d99b5b85
+  - 2019eb024594be8a926cf5982b733589608dd5b5
+  - 9347ad8045947e0972fa362d33686dacc4524f73
+  - 698439b16eb2e57189a7ba91d98a464d081e781d
+  - 8088002708e5b4e7833c5e21dcbc74ee837bb47a
+  - 4bf99376c6dc0ca897677e6e99c6bf7e72fa2d2a
+  - 91aa63df74ad03623bba50277d77dc4ac22d3d85
+  - 65e960a0b0d94805cb9496535e2df3e2d7583b15
+  - 958106563dfdb883ebc302c4f01373fff703e9bd
+  - 6aa486b565d8dfe2029028179ae48d822a438766
+  - 15d594b7baa3ebac6414d9a039292ffa2c3faa25
+  - 4133412a30f1675bd988781b1071b83ef06a6c93
+  - e8b96f86a3edb0cb17f8c95ee39f92e25d7ce8f7
+  - ced76800bce6d8b603e6ddc1688cfeca80e5093c
+  - 80ea88c61da49ac0b8785c3a4878f8322ba513b3
+  - cc1ec0c83704172266cf9322379b089261fa2ed9
+  - 121c2f31ff665ea81fdcd1bbec240626a2e7eb68
+  - 5e74f506e78302f02468cba2e6ccd766a96a407e
+  - 5ddbd0dcbebaa100bb364334dc78bc351bb67452
+  - acd70e68a8d64419fddc4f95df8de283c769a33e
+  - 19419b79e1b5a8462f6471dafae2e19c1126377f
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 3ed14742cb855394320ed255f700f6b7764abd03
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - 2b397bd41bd957037a925b88af10f52067a6ee26
+  - b820ccaa9d8f6f5a870e0dffa150d9c212fb4873
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - b3a860aa1c56ef52a90c5d4de3959ba8c25f4be9
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - bd360ee03ec8557b4a2b8fbf0073b2698605c94d
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - bbd1325a1f5c15a1983b2babfaf80ae168807cf2
+  - 9b5e14700cfe12abe16ab1f1b1473fab84cec99c
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - 26719e2a0f22da18e796de7fa121ea86ab860ba4
+  - ab42f81b0522a346b7c89f114268c9f45a969cfc
+  - e6827d8415c22f2c0fe688ea3135ba173d30c348
+  - 1a042bc228823a95ade224bada4545153af06c89
+  - a5e516b8cbf77f61d35677fb0523d3fc80a76048
+  - b0b6756b3c579cb737fb499d1be580d1595bcc54
+  - d39f54644b455dd5a5c0fdb54f550e382791927c
+  - a27af43b71f5c19c1bd9246d93750e5b4c598657
+  - 72aa1e8d51ec10896d4effef55ed05768634a794
+  - a7f777418fa00ed7aa9ff81ce748f2b603560980
+  - ac18d54a991e114bbe3c684e9cb5d06f2d74b1ea
+  - 3e48760f2bb95fe28b3a7bea96f7fa145dc0bad6
+  - 74c281fc8dcfc633cb97a5b80fa7454012bcb184
+  - ac90229efc0d3ea86d19b74af6993e121898c171
+  - 00cf21980aa9f62d73374d91fb5dcd6fd61b5b8c
+  - 341b9fe937a4d78e94a958f98c2c3026d2c5108c
+  - f31a6c41f83b242d183c562801fbf983add71b67
+  - 5af0b9dc12e9f133f32e497d49f653d6923cdeac
+  - ba2dad20908c4cfa0b862c63992f7365b6ccf0d4
+  - 69848ac27fda706f751f793f23723c86a7c2bc9e
+  - 4df7c522a14f93c3d31bd290461a72af125afaf2
+  - 8bdcd41aaad231e13df74e7fb885e78609055f94
+  - 11520ca93d97f012ae68bd03a7716e50b3f433e2
+  - e20dd9b6463c459057d991d4b31c70fda8d92648
+  - a2de20c9e6b6dc714bde9c4fc211ec2b36b54735
+  - cdbb42ba4116294bc7cfa980ac5cc53a3c16cef4
+  - 938fdad9647426f66213ac160cedd7984d24287f
+  - 577289cfd8a6530163b5651f2ca324c5677d4b83
+  - 3ec077f0fdadb29109a28be64bd0b0b3086a295d
+  - 2b13e2ea90ac702329b2bd8918eef184795d7466
+  - f973fc8e20b305d3383ced74cb41d69e5b69eb71
+  - ec0494628078df0eab407089b36484f345dee9d1
+  - 24f201a5d6810e0f156252e5a6366c93367f98ce
+  - 9b018207035fe1e235b484a359dda7ca62c9114f
+  - ab91f63ba73cb44deb5398575da9103692c2ac56
+  - 073de532cb73439b73b8d6e2576eaee91bd49f8a
+  - 193cfc32d28779b4111f2e07822288671504dbb8
+  - e1fc68811f7886789487999ec9b9c5e1dabacc91
+  - 7b74d48f3ac2f81f8a885f8da4bb891a3eb26e27
+  - ed2c3a07e4a4abe0c8a97698d14b308af6a49739
+  - 3fa51ba6ffc8846b8da095965cbdbf3c2a7753f8
+  - ab9a30250bc49af4031494dad4f4ed4b54f751b4
+  - ae84e4a815f03d568176ed6d8c26a7938ea2be3b
+  - f61de09a7ab86fe76a6a310893b2fea9af98196c
+  - 17016bbd34e05de9728e11f01219f85844848b3a
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+  - 8221d0e33f983679fe8560a987ac31b3c3c10370
+  - 992ca9a9f59e242a31809b7d761b770fff3c8dc7
+  - 3e3a9c633e04a86411556e03b4abb87f165b98fe
+  - 1d0d7ee7f13d5ef5e57e37a76f95dca14e06d8d6
+  - 69849a1ba49e28346cf13a086480eb0fbbc81c66
+  - c82edfef8a8cf6b903b58e28c8a951d451eda84b
+  - a502ebcbc7c65a82787125b657cb889871cf434f
+  - 86d08666fd09a132b3271932f04fab5e3ff3c8e9
+  - 6149876f35882f53c3feba131ba994e713661f4c
+  - 290f9f2b75df53f066c3079e6182bd7751112b2b
+  - a55b09bf337595f002c2a0c8da06dc950da56011
+  - ccf8c0534bf9357a75f682fc7562140da2a4fa61
+  - 83c0abf508c96f9a2a5e60aa8a261c560479bf29
+  - b4ae5e7f1de1792e460e387f022296ab8db58deb
+  - 272ce7a0a6988ae39f2b7f8486cef08584e86a8f
+  - 5442402acef98cafa591201fb2c317735e164125
+  - 73dceb8d2e421990a794294911a845b0e9b171ec
+  - 2c6daaafd0450845f40a1517ce994f66a447adb2
+  - 66403892f8add6e31d5c7c510f2ef9f6d764bede
+  - e931117fec952155b153a0f5cbbac3071de6d225
+  - b32b074231ed1aabebebcddcca8a0c273de12d43
+  - 7e0fd389264ed46a91fe44ce4a0be11a010224e5
+  - e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+  - 5b70f8092584639db96c4af53cc987d44cb122ce
+  - c5ca1c809db47c100558211393c15c82de22717d
+  - 17e448ea55ceb892d8d1b0570b5a37a8418fd22b
+  - 8c0bf0e97c52f3aea3b6c1fdd1b7368f0f2166eb
+  - 036bf7ef0cc1e5ac9ce2e089b2be4d61eecd6c48
+  - fcdee89f0d7427ced527f603791bf4e0af1ab6a0
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda/0.1.0

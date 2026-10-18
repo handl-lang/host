@@ -1,0 +1,29 @@
+name: handl-plugin-applier-default
+path: crates/plugin-applier-default/Cargo.toml
+purpose: Factory for the default applier, selected by `--applier applier.default`.
+api:
+- name: handl-plugin-applier-default
+  kind: module
+  file: crates/plugin-applier-default/Cargo.toml
+  line: 1
+  module: handl-plugin-applier-default
+deps:
+- handl-kit-data
+- handl-platform
+- handl-plugin-applier
+- handl-plugin-ext-kit
+- handl-plugin-load
+- serde_json
+- handl-kit-canonical
+- handl-kit-data-canonical
+notes: ''
+verify:
+- crates/plugin-applier-default/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-applier-default/Cargo.toml
+  hashes:
+  - 98f40229b4a0700deecc94d6f21e63c8c4acc04f
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

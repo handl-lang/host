@@ -1,0 +1,25 @@
+name: handl-ext-tests
+path: crates/ext-tests/Cargo.toml
+purpose: End-to-end tests for the extension (management) capability plugins.
+api:
+- name: handl-ext-tests
+  kind: module
+  file: crates/ext-tests/Cargo.toml
+  line: 1
+  module: handl-ext-tests
+deps:
+- handl-platform
+- handl-plugin-ext-kit
+- handl-plugin-ext-plugin
+- serde_json
+notes: ''
+verify:
+- crates/ext-tests/Cargo.toml
+provenance:
+  files:
+  - crates/ext-tests/Cargo.toml
+  hashes:
+  - e442a1ec686ccaf6750b7f32cdcd7742c5f18f57
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

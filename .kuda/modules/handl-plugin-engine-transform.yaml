@@ -1,0 +1,24 @@
+name: handl-plugin-engine-transform
+path: crates/plugin-engine-transform/Cargo.toml
+purpose: The **abstraction** crate for the AST transform operation (ADR-0094).
+api:
+- name: handl-plugin-engine-transform
+  kind: module
+  file: crates/plugin-engine-transform/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-transform
+deps:
+- handl-language
+- handl-plugin-ext-diag
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-transform/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-transform/Cargo.toml
+  hashes:
+  - d3d0eed96bfd7ad2fc635c3e96bad2a1c803a6dc
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

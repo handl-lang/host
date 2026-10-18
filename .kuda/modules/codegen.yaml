@@ -1,0 +1,757 @@
+name: codegen
+path: dagger/sdk/codegen/pyproject.toml
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: codegen
+  kind: module
+  file: dagger/sdk/codegen/pyproject.toml
+  line: 1
+  module: codegen
+- name: main
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/cli.py
+  line: 15
+  module: codegen
+- name: codegen
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/cli.py
+  line: 46
+  module: codegen
+- name: insert_stubs
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/ast.py
+  line: 6
+  module: codegen
+- name: insert_field_stubs
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/ast.py
+  line: 62
+  module: codegen
+- name: parse_directives
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/ast.py
+  line: 93
+  module: codegen
+- name: joiner
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 81
+  module: codegen
+- name: wrapper
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 85
+  module: codegen
+- name: Scalars
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 91
+  module: codegen
+- name: from_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 103
+  module: codegen
+- name: Context
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 111
+  module: codegen
+- name: legacy_sdk_compat
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 130
+  module: codegen
+- name: process_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 134
+  module: codegen
+- name: render_types
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 140
+  module: codegen
+- name: Handler
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 165
+  module: codegen
+- name: supertype_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 172
+  module: codegen
+- name: type_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 175
+  module: codegen
+- name: render
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 179
+  module: codegen
+- name: render_head
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 185
+  module: codegen
+- name: render_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 189
+  module: codegen
+- name: generate
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 195
+  module: codegen
+- name: get_grouped_types
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 265
+  module: codegen
+- name: _filtered
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 268
+  module: codegen
+- name: is_required_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 288
+  module: codegen
+- name: is_list_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 292
+  module: codegen
+- name: is_list_of_objects_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 298
+  module: codegen
+- name: is_wrapping_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 305
+  module: codegen
+- name: is_scalar_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 309
+  module: codegen
+- name: is_input_object_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 313
+  module: codegen
+- name: is_object_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 317
+  module: codegen
+- name: is_interface_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 321
+  module: codegen
+- name: is_output_leaf_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 325
+  module: codegen
+- name: is_custom_scalar_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 329
+  module: codegen
+- name: is_builtin_scalar_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 334
+  module: codegen
+- name: is_enum_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 338
+  module: codegen
+- name: is_self_chainable
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 342
+  module: codegen
+- name: is_id_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 354
+  module: codegen
+- name: id_from_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 363
+  module: codegen
+- name: legacy_sdk_compat
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 371
+  module: codegen
+- name: parse_version
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 377
+  module: codegen
+- name: legacy_id_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 389
+  module: codegen
+- name: legacy_idable_types
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 393
+  module: codegen
+- name: legacy_id_names
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 409
+  module: codegen
+- name: legacy_id_class
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 416
+  module: codegen
+- name: expected_type_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 426
+  module: codegen
+- name: rewrite_notice
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 458
+  module: codegen
+- name: _format_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 465
+  module: codegen
+- name: format_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 472
+  module: codegen
+- name: format_input_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 482
+  module: codegen
+- name: format_output_type
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 511
+  module: codegen
+- name: output_type_description
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 524
+  module: codegen
+- name: doc
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 532
+  module: codegen
+- name: quote
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 541
+  module: codegen
+- name: _InputField
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 546
+  module: codegen
+- name: __init__
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 549
+  module: codegen
+- name: __str__
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 614
+  module: codegen
+- name: as_param
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 630
+  module: codegen
+- name: as_doc
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 643
+  module: codegen
+- name: as_arg
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 655
+  module: codegen
+- name: _ObjectField
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 665
+  module: codegen
+- name: __init__
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 668
+  module: codegen
+- name: __str__
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 735
+  module: codegen
+- name: func_signature
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 751
+  module: codegen
+- name: func_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 771
+  module: codegen
+- name: _iface_client_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 816
+  module: codegen
+- name: func_doc
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 822
+  module: codegen
+- name: _out
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 823
+  module: codegen
+- name: deprecated
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 884
+  module: codegen
+- name: experimental
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 887
+  module: codegen
+- name: Scalar
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 899
+  module: codegen
+- name: render_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 902
+  module: codegen
+- name: Enum
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 907
+  module: codegen
+- name: render_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 911
+  module: codegen
+- name: _get_value
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 941
+  module: codegen
+- name: Field
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 949
+  module: codegen
+- name: __str__
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 953
+  module: codegen
+- name: ObjectHandler
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 962
+  module: codegen
+- name: fields
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 964
+  module: codegen
+- name: render_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 967
+  module: codegen
+- name: Input
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 982
+  module: codegen
+- name: render_head
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 985
+  module: codegen
+- name: fields
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 988
+  module: codegen
+- name: InterfaceProtocol
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 996
+  module: codegen
+- name: type_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1005
+  module: codegen
+- name: render_head
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1008
+  module: codegen
+- name: render
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1012
+  module: codegen
+- name: render_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1039
+  module: codegen
+- name: Object
+  kind: type
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1058
+  module: codegen
+- name: supertype_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1061
+  module: codegen
+- name: type_name
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1064
+  module: codegen
+- name: fields
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1067
+  module: codegen
+- name: render_head
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1073
+  module: codegen
+- name: render_body
+  kind: function
+  file: dagger/sdk/codegen/src/codegen/generator.py
+  line: 1077
+  module: codegen
+deps: []
+notes: ''
+verify:
+- dagger/sdk/codegen/pyproject.toml
+- dagger/sdk/codegen/src/codegen/cli.py
+- dagger/sdk/codegen/src/codegen/cli.py
+- dagger/sdk/codegen/src/codegen/ast.py
+- dagger/sdk/codegen/src/codegen/ast.py
+- dagger/sdk/codegen/src/codegen/ast.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+- dagger/sdk/codegen/src/codegen/generator.py
+provenance:
+  files:
+  - dagger/sdk/codegen/pyproject.toml
+  - dagger/sdk/codegen/src/codegen/cli.py
+  - dagger/sdk/codegen/src/codegen/cli.py
+  - dagger/sdk/codegen/src/codegen/ast.py
+  - dagger/sdk/codegen/src/codegen/ast.py
+  - dagger/sdk/codegen/src/codegen/ast.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  - dagger/sdk/codegen/src/codegen/generator.py
+  hashes:
+  - 4ca5a5e4c7cbea52c46f8aa74ab9d464b275c95a
+  - f61de09a7ab86fe76a6a310893b2fea9af98196c
+  - f61de09a7ab86fe76a6a310893b2fea9af98196c
+  - 17016bbd34e05de9728e11f01219f85844848b3a
+  - 17016bbd34e05de9728e11f01219f85844848b3a
+  - 17016bbd34e05de9728e11f01219f85844848b3a
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  - dc9f0f187d1b7925468c5f6854540b10dd97cb35
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

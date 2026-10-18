@@ -1,0 +1,214 @@
+name: plugin-load
+path: crates/plugin-load/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: PluginLoader
+  kind: trait
+  file: crates/plugin-load/src/lib.rs
+  line: 9
+  module: plugin-load
+- name: Load
+  kind: type
+  file: crates/plugin-load/src/lib.rs
+  line: 17
+  module: plugin-load
+- name: Request
+  kind: type
+  file: crates/plugin-load/src/lib.rs
+  line: 20
+  module: plugin-load
+- name: LoaderRule
+  kind: type
+  file: crates/plugin-load/src/lib.rs
+  line: 24
+  module: plugin-load
+- name: id
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 32
+  module: plugin-load
+- name: LoaderHostPlugin
+  kind: type
+  file: crates/plugin-load/src/lib.rs
+  line: 38
+  module: plugin-load
+- name: default
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 44
+  module: plugin-load
+- name: id
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 53
+  module: plugin-load
+- name: name
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 57
+  module: plugin-load
+- name: capabilities
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 61
+  module: plugin-load
+- name: metadata
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 65
+  module: plugin-load
+- name: contribute
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 69
+  module: plugin-load
+- name: run
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 76
+  module: plugin-load
+- name: Rule
+  kind: type
+  file: crates/plugin-load/src/lib.rs
+  line: 100
+  module: plugin-load
+- name: accept
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 102
+  module: plugin-load
+- name: LoadedPlugin
+  kind: type
+  file: crates/plugin-load/src/lib.rs
+  line: 109
+  module: plugin-load
+- name: id
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 112
+  module: plugin-load
+- name: name
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 116
+  module: plugin-load
+- name: version
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 120
+  module: plugin-load
+- name: capabilities
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 124
+  module: plugin-load
+- name: requires
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 128
+  module: plugin-load
+- name: optional
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 132
+  module: plugin-load
+- name: metadata
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 136
+  module: plugin-load
+- name: contribute
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 140
+  module: plugin-load
+- name: run
+  kind: function
+  file: crates/plugin-load/src/lib.rs
+  line: 147
+  module: plugin-load
+deps:
+- handl_platform
+notes: ''
+verify:
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+- crates/plugin-load/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  - crates/plugin-load/src/lib.rs
+  hashes:
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  - b00a82f5fc865a9d93d8523d3f383209e5df5aab
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

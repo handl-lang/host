@@ -1,0 +1,31 @@
+name: handl-plugin-ext-lint
+path: crates/plugin-ext-lint/Cargo.toml
+purpose: '`handl-plugin-ext-lint` — bootstrap linter for the v0.1 arrow surface syntax (ADR-0087, rules-as-data per ADR-0097).'
+api:
+- name: handl-plugin-ext-lint
+  kind: module
+  file: crates/plugin-ext-lint/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-lint
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-lint
+- handl-plugin-engine-typecheck
+- handl-plugin-ext-diag
+- handl-plugin-ext-fmt
+- serde_json
+- handl-kit-canonical
+- handl-kit-data-canonical
+- serde_json
+notes: ''
+verify:
+- crates/plugin-ext-lint/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-ext-lint/Cargo.toml
+  hashes:
+  - 7432304e12049e385dfdec2ef83fd01953b3c05d
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

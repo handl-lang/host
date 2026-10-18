@@ -1,0 +1,2406 @@
+name: plugin-lib-handl
+path: crates/plugin-lib-handl/tests/closure_parity.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 28
+  module: plugin-lib-handl
+- name: MAP_HNL
+  kind: const
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 39
+  module: plugin-lib-handl
+- name: MAKER_HNL
+  kind: const
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 41
+  module: plugin-lib-handl
+- name: runtime_for
+  kind: function
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 45
+  module: plugin-lib-handl
+- name: assert_both_engines
+  kind: function
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 67
+  module: plugin-lib-handl
+- name: transform_map_with_arrow_arg
+  kind: function
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 79
+  module: plugin-lib-handl
+- name: module_returns_closure
+  kind: function
+  file: crates/plugin-lib-handl/tests/closure_parity.rs
+  line: 86
+  module: plugin-lib-handl
+- name: lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 20
+  module: plugin-lib-handl
+- name: LANG
+  kind: const
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 21
+  module: plugin-lib-handl
+- name: parse_raw
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 31
+  module: plugin-lib-handl
+- name: desugar_hnl_module
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 41
+  module: plugin-lib-handl
+- name: handl_desugar
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 48
+  module: plugin-lib-handl
+- name: rust_desugar
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 62
+  module: plugin-lib-handl
+- name: same_node
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 74
+  module: plugin-lib-handl
+- name: norm
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 89
+  module: plugin-lib-handl
+- name: PATH
+  kind: const
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 96
+  module: plugin-lib-handl
+- name: same_payload
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 98
+  module: plugin-lib-handl
+- name: dump
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 156
+  module: plugin-lib-handl
+- name: assert_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 166
+  module: plugin-lib-handl
+- name: data_nat_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 182
+  module: plugin-lib-handl
+- name: data_bool_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 187
+  module: plugin-lib-handl
+- name: data_three_ctors_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 192
+  module: plugin-lib-handl
+- name: data_maybe_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 197
+  module: plugin-lib-handl
+- name: match_nat_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 202
+  module: plugin-lib-handl
+- name: match_conditional_declines_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_desugar.rs
+  line: 209
+  module: plugin-lib-handl
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/scope_isolation.rs
+  line: 16
+  module: plugin-lib-handl
+- name: SRC
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_isolation.rs
+  line: 25
+  module: plugin-lib-handl
+- name: callee_bindings_do_not_leak_into_caller
+  kind: function
+  file: crates/plugin-lib-handl/tests/scope_isolation.rs
+  line: 41
+  module: plugin-lib-handl
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 20
+  module: plugin-lib-handl
+- name: T_HNL
+  kind: const
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 29
+  module: plugin-lib-handl
+- name: test_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 35
+  module: plugin-lib-handl
+- name: test_engine
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 60
+  module: plugin-lib-handl
+- name: handl_transform_rewrites_node
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 70
+  module: plugin-lib-handl
+- name: handl_transform_null_declines
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 94
+  module: plugin-lib-handl
+- name: handl_transform_unknown_module_errors
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 115
+  module: plugin-lib-handl
+- name: handl_transform_falls_back_for_non_handl_names
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_transform.rs
+  line: 149
+  module: plugin-lib-handl
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 25
+  module: plugin-lib-handl
+- name: bootstrap
+  kind: module
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 34
+  module: plugin-lib-handl
+- name: strip_comment_lines
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 35
+  module: plugin-lib-handl
+- name: strip_declaration_lines
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 42
+  module: plugin-lib-handl
+- name: top_level_segments
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 82
+  module: plugin-lib-handl
+- name: Lead
+  kind: type
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 84
+  module: plugin-lib-handl
+- name: cut
+  kind: macro
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 102
+  module: plugin-lib-handl
+- name: export_decl_rest
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 249
+  module: plugin-lib-handl
+- name: collect_import_lines
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 262
+  module: plugin-lib-handl
+- name: from_export_to_import
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 283
+  module: plugin-lib-handl
+- name: extract_quoted_path
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 313
+  module: plugin-lib-handl
+- name: drop_import_lines
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 328
+  module: plugin-lib-handl
+- name: import_bound_locals
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 340
+  module: plugin-lib-handl
+- name: is_import_line
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 389
+  module: plugin-lib-handl
+- name: is_valid_ident
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 408
+  module: plugin-lib-handl
+- name: transform_export_to_object
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 418
+  module: plugin-lib-handl
+- name: finalize
+  kind: macro
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 438
+  module: plugin-lib-handl
+- name: strip_export_name
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 618
+  module: plugin-lib-handl
+- name: find_binding_sep
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 637
+  module: plugin-lib-handl
+- name: extract_quoted
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 681
+  module: plugin-lib-handl
+- name: parse_cap_declarations
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 692
+  module: plugin-lib-handl
+- name: parse_tag_declarations
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 714
+  module: plugin-lib-handl
+- name: expand_tag_declarations
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 747
+  module: plugin-lib-handl
+- name: CharResolver
+  kind: type
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 797
+  module: plugin-lib-handl
+- name: resolve
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 800
+  module: plugin-lib-handl
+- name: install
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 809
+  module: plugin-lib-handl
+- name: CORPUS
+  kind: const
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 818
+  module: plugin-lib-handl
+- name: separatorless_export_fails_loudly
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 874
+  module: plugin-lib-handl
+- name: nameless_export_fails_loudly
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 914
+  module: plugin-lib-handl
+- name: single_line_module_exports_evaluate
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 943
+  module: plugin-lib-handl
+- name: loader_parity
+  kind: function
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 1003
+  module: plugin-lib-handl
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 19
+  module: plugin-lib-handl
+- name: T_HNL
+  kind: const
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 28
+  module: plugin-lib-handl
+- name: test_lang
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 34
+  module: plugin-lib-handl
+- name: test_registry
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 50
+  module: plugin-lib-handl
+- name: test_ast
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 61
+  module: plugin-lib-handl
+- name: handl_lint_fires_with_span_and_fix
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 70
+  module: plugin-lib-handl
+- name: handl_lint_null_reports_nothing
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 89
+  module: plugin-lib-handl
+- name: handl_lint_unknown_module_errors
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 101
+  module: plugin-lib-handl
+- name: handl_lint_unknown_function_errors
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 113
+  module: plugin-lib-handl
+- name: handl_lint_resolver_declines_non_handl_names
+  kind: function
+  file: crates/plugin-lib-handl/tests/handl_lint.rs
+  line: 125
+  module: plugin-lib-handl
+- name: CharResolver
+  kind: type
+  file: crates/plugin-lib-handl/examples/loader_bench.rs
+  line: 16
+  module: plugin-lib-handl
+- name: resolve
+  kind: function
+  file: crates/plugin-lib-handl/examples/loader_bench.rs
+  line: 19
+  module: plugin-lib-handl
+- name: STR_HANDL_HNL
+  kind: const
+  file: crates/plugin-lib-handl/examples/loader_bench.rs
+  line: 27
+  module: plugin-lib-handl
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-lib-handl/examples/loader_bench.rs
+  line: 31
+  module: plugin-lib-handl
+- name: main
+  kind: function
+  file: crates/plugin-lib-handl/examples/loader_bench.rs
+  line: 40
+  module: plugin-lib-handl
+- name: RuntimePredicateChecker
+  kind: trait
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 60
+  module: plugin-lib-handl
+- name: OpRegistry
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 98
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 107
+  module: plugin-lib-handl
+- name: register
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 120
+  module: plugin-lib-handl
+- name: register_with_checker
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 133
+  module: plugin-lib-handl
+- name: get
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 150
+  module: plugin-lib-handl
+- name: get_checker
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 159
+  module: plugin-lib-handl
+- name: contains
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 164
+  module: plugin-lib-handl
+- name: len
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 169
+  module: plugin-lib-handl
+- name: is_empty
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 174
+  module: plugin-lib-handl
+- name: OpFunction
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 197
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 206
+  module: plugin-lib-handl
+- name: call
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 215
+  module: plugin-lib-handl
+- name: tests
+  kind: module
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 259
+  module: plugin-lib-handl
+- name: Double
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 263
+  module: plugin-lib-handl
+- name: call
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 265
+  module: plugin-lib-handl
+- name: register_and_get
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 274
+  module: plugin-lib-handl
+- name: op_function_dispatches_to_registry
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 283
+  module: plugin-lib-handl
+- name: op_function_missing_handl_returns_error
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 295
+  module: plugin-lib-handl
+- name: AlwaysPassChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 310
+  module: plugin-lib-handl
+- name: check_requires
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 312
+  module: plugin-lib-handl
+- name: check_guarantee
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 315
+  module: plugin-lib-handl
+- name: RequiresPositiveChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 321
+  module: plugin-lib-handl
+- name: check_requires
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 323
+  module: plugin-lib-handl
+- name: check_guarantee
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 334
+  module: plugin-lib-handl
+- name: GuaranteeEvenChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 340
+  module: plugin-lib-handl
+- name: check_requires
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 342
+  module: plugin-lib-handl
+- name: check_guarantee
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 345
+  module: plugin-lib-handl
+- name: register_with_checker_attaches_checker
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 356
+  module: plugin-lib-handl
+- name: op_without_checker_is_trusted
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 370
+  module: plugin-lib-handl
+- name: op_with_passing_checker_succeeds
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 383
+  module: plugin-lib-handl
+- name: op_requires_rejects_violating_call
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 399
+  module: plugin-lib-handl
+- name: op_requires_allows_satisfying_call
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 420
+  module: plugin-lib-handl
+- name: op_guarantee_rejects_violating_output
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 436
+  module: plugin-lib-handl
+- name: OddOutput
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 441
+  module: plugin-lib-handl
+- name: call
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 443
+  module: plugin-lib-handl
+- name: op_guarantee_allows_satisfying_output
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 468
+  module: plugin-lib-handl
+- name: op_requires_and_guarantee_both_enforced
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 485
+  module: plugin-lib-handl
+- name: BothChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 487
+  module: plugin-lib-handl
+- name: check_requires
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 489
+  module: plugin-lib-handl
+- name: check_guarantee
+  kind: function
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 500
+  module: plugin-lib-handl
+- name: HandlNativeLint
+  kind: type
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 115
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 122
+  module: plugin-lib-handl
+- name: with_module
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 128
+  module: plugin-lib-handl
+- name: with_module_arc
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 135
+  module: plugin-lib-handl
+- name: resolver
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 142
+  module: plugin-lib-handl
+- name: resolve
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 151
+  module: plugin-lib-handl
+- name: serialize_module
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 189
+  module: plugin-lib-handl
+- name: serialize_node
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 210
+  module: plugin-lib-handl
+- name: hits_from_value
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 235
+  module: plugin-lib-handl
+- name: hit_from_value
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 248
+  module: plugin-lib-handl
+- name: span_from_value
+  kind: function
+  file: crates/plugin-lib-handl/src/lint.rs
+  line: 315
+  module: plugin-lib-handl
+- name: HANDL_PREFIX
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 113
+  module: plugin-lib-handl
+- name: KEEP_KEY
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 117
+  module: plugin-lib-handl
+- name: FRESH_KEY
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 121
+  module: plugin-lib-handl
+- name: NODE_KEY
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 126
+  module: plugin-lib-handl
+- name: handl_rewrite_active
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 139
+  module: plugin-lib-handl
+- name: HandlNativeRewrite
+  kind: type
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 156
+  module: plugin-lib-handl
+- name: default
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 164
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 171
+  module: plugin-lib-handl
+- name: with_module
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 180
+  module: plugin-lib-handl
+- name: with_module_arc
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 187
+  module: plugin-lib-handl
+- name: with_fallback
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 194
+  module: plugin-lib-handl
+- name: resolve
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 203
+  module: plugin-lib-handl
+- name: delegate
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 214
+  module: plugin-lib-handl
+- name: rewrite
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 230
+  module: plugin-lib-handl
+- name: provides
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 271
+  module: plugin-lib-handl
+- name: serialize_node_at
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 287
+  module: plugin-lib-handl
+- name: serialize_env
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 326
+  module: plugin-lib-handl
+- name: serialize_node_with_env
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 360
+  module: plugin-lib-handl
+- name: realize
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 376
+  module: plugin-lib-handl
+- name: realize_value
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 471
+  module: plugin-lib-handl
+- name: DESUGAR_HNL
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 515
+  module: plugin-lib-handl
+- name: DESUGAR_FUNCS
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 525
+  module: plugin-lib-handl
+- name: desugar_module
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 533
+  module: plugin-lib-handl
+- name: install_desugar_overlay
+  kind: function
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 545
+  module: plugin-lib-handl
+- name: term_to_value
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 24
+  module: plugin-lib-handl
+- name: HandlModel
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 30
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 36
+  module: plugin-lib-handl
+- name: run
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 43
+  module: plugin-lib-handl
+- name: run_data
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 54
+  module: plugin-lib-handl
+- name: HandlModelEngine
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 77
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 83
+  module: plugin-lib-handl
+- name: from_model
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 90
+  module: plugin-lib-handl
+- name: eval
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 96
+  module: plugin-lib-handl
+- name: box_clone
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 116
+  module: plugin-lib-handl
+- name: HandlModelAdapter
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 135
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 141
+  module: plugin-lib-handl
+- name: from_model
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 148
+  module: plugin-lib-handl
+- name: run_data
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 153
+  module: plugin-lib-handl
+- name: Value
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 170
+  module: plugin-lib-handl
+- name: run
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 172
+  module: plugin-lib-handl
+- name: rewrite
+  kind: function
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 182
+  module: plugin-lib-handl
+- name: lint
+  kind: module
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 81
+  module: plugin-lib-handl
+- name: model
+  kind: module
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 82
+  module: plugin-lib-handl
+- name: op_registry
+  kind: module
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 83
+  module: plugin-lib-handl
+- name: transform
+  kind: module
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 84
+  module: plugin-lib-handl
+- name: ModuleResolver
+  kind: trait
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 117
+  module: plugin-lib-handl
+- name: ImportDecl
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 124
+  module: plugin-lib-handl
+- name: normalize_import_name
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 141
+  module: plugin-lib-handl
+- name: DependencyImportResolver
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 161
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 167
+  module: plugin-lib-handl
+- name: module_bindings_object
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 178
+  module: plugin-lib-handl
+- name: resolve_import
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 195
+  module: plugin-lib-handl
+- name: SharedImportResolver
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 217
+  module: plugin-lib-handl
+- name: resolve_import
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 220
+  module: plugin-lib-handl
+- name: resolve_import_tagged
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 229
+  module: plugin-lib-handl
+- name: bootstrap
+  kind: module
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 248
+  module: plugin-lib-handl
+- name: strip_comment_lines
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 257
+  module: plugin-lib-handl
+- name: strip_declaration_lines
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 294
+  module: plugin-lib-handl
+- name: top_level_segments
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 351
+  module: plugin-lib-handl
+- name: Lead
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 355
+  module: plugin-lib-handl
+- name: cut
+  kind: macro
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 379
+  module: plugin-lib-handl
+- name: export_decl_rest
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 538
+  module: plugin-lib-handl
+- name: collect_import_lines
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 557
+  module: plugin-lib-handl
+- name: from_export_to_import
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 578
+  module: plugin-lib-handl
+- name: extract_quoted_path
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 608
+  module: plugin-lib-handl
+- name: import_bound_locals
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 628
+  module: plugin-lib-handl
+- name: drop_import_lines
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 685
+  module: plugin-lib-handl
+- name: transform_export_to_object
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 719
+  module: plugin-lib-handl
+- name: finalize
+  kind: macro
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 734
+  module: plugin-lib-handl
+- name: find_binding_sep
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 939
+  module: plugin-lib-handl
+- name: strip_export_name
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 992
+  module: plugin-lib-handl
+- name: is_valid_ident
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1015
+  module: plugin-lib-handl
+- name: is_import_line
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1027
+  module: plugin-lib-handl
+- name: parse_import_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1049
+  module: plugin-lib-handl
+- name: parse_from_import_line
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1061
+  module: plugin-lib-handl
+- name: parse_legacy_import_line
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1084
+  module: plugin-lib-handl
+- name: extract_quoted
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1107
+  module: plugin-lib-handl
+- name: parse_cap_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1141
+  module: plugin-lib-handl
+- name: extract_quoted_cap_name
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1170
+  module: plugin-lib-handl
+- name: parse_tag_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1204
+  module: plugin-lib-handl
+- name: expand_tag_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1272
+  module: plugin-lib-handl
+- name: loader_string
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1330
+  module: plugin-lib-handl
+- name: strip_declaration_lines
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1357
+  module: plugin-lib-handl
+- name: parse_import_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1363
+  module: plugin-lib-handl
+- name: parse_cap_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1370
+  module: plugin-lib-handl
+- name: parse_tag_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1382
+  module: plugin-lib-handl
+- name: expand_tag_declarations
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1394
+  module: plugin-lib-handl
+- name: strip_comment_lines
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1400
+  module: plugin-lib-handl
+- name: transform_export_to_object
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1407
+  module: plugin-lib-handl
+- name: SourceAnalysis
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1414
+  module: plugin-lib-handl
+- name: caps_from_json
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1418
+  module: plugin-lib-handl
+- name: tags_from_json
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1425
+  module: plugin-lib-handl
+- name: with_loader_disabled
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1448
+  module: plugin-lib-handl
+- name: Guard
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1450
+  module: plugin-lib-handl
+- name: drop
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1452
+  module: plugin-lib-handl
+- name: analyze_source
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1463
+  module: plugin-lib-handl
+- name: escape_handl_string
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1492
+  module: plugin-lib-handl
+- name: NEXT_MODULE_ID
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1513
+  module: plugin-lib-handl
+- name: RuntimeBuilder
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1521
+  module: plugin-lib-handl
+- name: DEFAULT_LANGUAGE
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1535
+  module: plugin-lib-handl
+- name: install_default_language
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1545
+  module: plugin-lib-handl
+- name: default_language
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1560
+  module: plugin-lib-handl
+- name: module_language
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1567
+  module: plugin-lib-handl
+- name: allocate_module_id
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1640
+  module: plugin-lib-handl
+- name: build_runtime
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1654
+  module: plugin-lib-handl
+- name: LayeredLookup
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1734
+  module: plugin-lib-handl
+- name: lookup
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1740
+  module: plugin-lib-handl
+- name: HandlFunction
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1766
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1781
+  module: plugin-lib-handl
+- name: call
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1799
+  module: plugin-lib-handl
+- name: HandlModule
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1935
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 1988
+  module: plugin-lib-handl
+- name: new_raw
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2040
+  module: plugin-lib-handl
+- name: with_dependency
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2089
+  module: plugin-lib-handl
+- name: with_dependency_arc
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2096
+  module: plugin-lib-handl
+- name: with_global_lookup
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2109
+  module: plugin-lib-handl
+- name: with_import_resolver
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2128
+  module: plugin-lib-handl
+- name: with_language
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2140
+  module: plugin-lib-handl
+- name: with_eval_engine
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2161
+  module: plugin-lib-handl
+- name: with_ops
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2178
+  module: plugin-lib-handl
+- name: rebuild_functions
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2199
+  module: plugin-lib-handl
+- name: with_value_names
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2233
+  module: plugin-lib-handl
+- name: eval_value
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2245
+  module: plugin-lib-handl
+- name: name
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2274
+  module: plugin-lib-handl
+- name: function
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2278
+  module: plugin-lib-handl
+- name: functions
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2286
+  module: plugin-lib-handl
+- name: value_names
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2301
+  module: plugin-lib-handl
+- name: value
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2305
+  module: plugin-lib-handl
+- name: LOADER_HNL
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2336
+  module: plugin-lib-handl
+- name: LOADER_FUNCS
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2339
+  module: plugin-lib-handl
+- name: HandlLoader
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2370
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2387
+  module: plugin-lib-handl
+- name: call
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2397
+  module: plugin-lib-handl
+- name: LOADER
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2410
+  module: plugin-lib-handl
+- name: install_loader
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2415
+  module: plugin-lib-handl
+- name: loader
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2421
+  module: plugin-lib-handl
+- name: loader_call
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2427
+  module: plugin-lib-handl
+- name: STR_HANDL_CALLBACK_INVOKERS
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2440
+  module: plugin-lib-handl
+- name: STR_HANDL_CALLBACK_SCOPE
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2450
+  module: plugin-lib-handl
+- name: str_handl_import_specs
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2473
+  module: plugin-lib-handl
+- name: str_handl_modules
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2492
+  module: plugin-lib-handl
+- name: build_str_handl_module
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2550
+  module: plugin-lib-handl
+- name: build_str_handl_module_with
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2556
+  module: plugin-lib-handl
+- name: HandlLibraryPlugin
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2590
+  module: plugin-lib-handl
+- name: new
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2621
+  module: plugin-lib-handl
+- name: with_dependency
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2645
+  module: plugin-lib-handl
+- name: with_dependency_arc
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2651
+  module: plugin-lib-handl
+- name: with_ops
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2667
+  module: plugin-lib-handl
+- name: with_capabilities
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2679
+  module: plugin-lib-handl
+- name: new_with_caps
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2696
+  module: plugin-lib-handl
+- name: build_module
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2709
+  module: plugin-lib-handl
+- name: id
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2725
+  module: plugin-lib-handl
+- name: name
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2729
+  module: plugin-lib-handl
+- name: capabilities
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2733
+  module: plugin-lib-handl
+- name: metadata
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2737
+  module: plugin-lib-handl
+- name: contribute
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2741
+  module: plugin-lib-handl
+- name: run
+  kind: function
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2747
+  module: plugin-lib-handl
+deps:
+- handl_kit_data_canonical
+- handl_language
+- handl_plugin_engine_exec
+- handl_plugin_engine_exec_bytecode
+- handl_plugin_engine_exec_tree_walk
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse_pratt
+- handl_plugin_lib_handl
+- handl_plugin_module
+- handl_runtime
+- serde_json
+- handl_language
+- handl_plugin_engine_lex
+- handl_plugin_engine_lex_pattern
+- handl_plugin_engine_parse
+- handl_runtime
+- handl_plugin_engine_parse_pratt
+- handl_plugin_engine_transform_rewrite
+- handl_plugin_lib_char_native
+- handl_plugin_lib_handl
+- serde_json
+- handl_platform
+- handl_plugin_lib_handl
+- handl_language
+- handl_plugin_engine_transform_rewrite
+- handl_plugin_lib_handl
+- serde_json
+- handl_platform
+- handl_plugin_lib_char_native
+- handl_plugin_lib_handl
+- handl_language
+- handl_plugin_engine_lint
+- handl_plugin_lib_handl
+- serde_json
+- handl_platform
+- handl_plugin_lib_char_native
+- handl_plugin_lib_handl
+- handl_platform
+- serde_json
+- serde_json
+- handl_language
+- handl_platform
+- handl_plugin_engine_lint
+- serde_json
+- handl_language
+- handl_platform
+- serde_json
+- handl_language
+- handl_platform
+- handl_plugin_engine_exec
+- plugin_engine
+- serde_json
+- lint
+- model
+- op_registry
+- transform
+- handl_plugin_engine_exec
+- handl_language
+- handl_platform
+- handl_plugin_module
+- handl_runtime
+- handl_lib_str_handl
+- handl_lib_dedent
+- handl_lib_str_handl
+- handl_lib_str_handl
+notes: ''
+verify:
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/closure_parity.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/handl_desugar.rs
+- crates/plugin-lib-handl/tests/scope_isolation.rs
+- crates/plugin-lib-handl/tests/scope_isolation.rs
+- crates/plugin-lib-handl/tests/scope_isolation.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/handl_transform.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/loader.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/tests/handl_lint.rs
+- crates/plugin-lib-handl/examples/loader_bench.rs
+- crates/plugin-lib-handl/examples/loader_bench.rs
+- crates/plugin-lib-handl/examples/loader_bench.rs
+- crates/plugin-lib-handl/examples/loader_bench.rs
+- crates/plugin-lib-handl/examples/loader_bench.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/lint.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/transform.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/scope_isolation.rs
+  - crates/plugin-lib-handl/tests/scope_isolation.rs
+  - crates/plugin-lib-handl/tests/scope_isolation.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/tests/handl_lint.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/lint.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  hashes:
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - f2f3a0f9fd13c2f8004b49952815b443e1bbf6b7
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 52e4b65491929c4921e08aa9d47b6be1b8eda4fa
+  - 5f6083fa4775ffbae2e8e63bae666cb36ce5177a
+  - 5f6083fa4775ffbae2e8e63bae666cb36ce5177a
+  - 5f6083fa4775ffbae2e8e63bae666cb36ce5177a
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - e8edd4659ae8685ef6390cc08f7ce7dfd62f8c07
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - ac75e1b58d5d2c3a2be8f5d94223cf7ee5a54f5f
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 6bd25c7567ef04c1c83516b61fcaa01485aea780
+  - 3bc9f9a66ce67356f39a881b71899185d5256477
+  - 3bc9f9a66ce67356f39a881b71899185d5256477
+  - 3bc9f9a66ce67356f39a881b71899185d5256477
+  - 3bc9f9a66ce67356f39a881b71899185d5256477
+  - 3bc9f9a66ce67356f39a881b71899185d5256477
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - bb700eed951cdb60e49fdad51bde909ed3e58e0b
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - b116072a1b53926afd9b208d04d4af9420569a20
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 9448823641b1594c5b9862b8b3c49e85a6a2cfa2
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - 0b5ba64ac1143afd86032f605b2e048d659e40d1
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  - e08cf2c876a30caab66793e56011848df8ec995f
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

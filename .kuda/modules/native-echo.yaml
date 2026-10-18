@@ -1,0 +1,30 @@
+name: native-echo
+path: crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: Request
+  kind: type
+  file: crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+  line: 7
+  module: native-echo
+- name: handl_plugin_run
+  kind: function
+  file: crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+  line: 14
+  module: native-echo
+deps:
+- serde
+notes: ''
+verify:
+- crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+- crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+  - crates/plugin-loader-native/tests/fixtures/native-echo/src/lib.rs
+  hashes:
+  - 1758dc7605e076abed1272b7a9ebf8c5c6f103ce
+  - 1758dc7605e076abed1272b7a9ebf8c5c6f103ce
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

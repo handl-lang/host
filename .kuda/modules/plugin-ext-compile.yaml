@@ -1,0 +1,213 @@
+name: plugin-ext-compile
+path: crates/plugin-ext-compile/src/request.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: CompileFileRequest
+  kind: type
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 13
+  module: plugin-ext-compile
+- name: from_args
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 34
+  module: plugin-ext-compile
+- name: build_input
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 109
+  module: plugin-ext-compile
+- name: root_term_for
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 128
+  module: plugin-ext-compile
+- name: build_ast
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 137
+  module: plugin-ext-compile
+- name: js_input
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 22
+  module: plugin-ext-compile
+- name: js_compiler_emits_expected_output
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 37
+  module: plugin-ext-compile
+- name: compile_dispatcher_js_target_contains_export
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 47
+  module: plugin-ext-compile
+- name: compile_dispatcher_llvm_produces_object_artifact
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 58
+  module: plugin-ext-compile
+- name: llvm_compiler_alone_produces_object_artifact
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 72
+  module: plugin-ext-compile
+- name: compile_file_request_builds_input_with_root_ref
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 84
+  module: plugin-ext-compile
+- name: dispatcher
+  kind: module
+  file: crates/plugin-ext-compile/src/lib.rs
+  line: 4
+  module: plugin-ext-compile
+- name: request
+  kind: module
+  file: crates/plugin-ext-compile/src/lib.rs
+  line: 5
+  module: plugin-ext-compile
+- name: tests
+  kind: module
+  file: crates/plugin-ext-compile/src/lib.rs
+  line: 8
+  module: plugin-ext-compile
+- name: linked_targets
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 16
+  module: plugin-ext-compile
+- name: CompileDispatcher
+  kind: type
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 37
+  module: plugin-ext-compile
+- name: new
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 43
+  module: plugin-ext-compile
+- name: with_registry
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 49
+  module: plugin-ext-compile
+- name: registry_mut
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 54
+  module: plugin-ext-compile
+- name: into_registry
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 59
+  module: plugin-ext-compile
+- name: targets
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 64
+  module: plugin-ext-compile
+- name: compile
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 69
+  module: plugin-ext-compile
+- name: default
+  kind: function
+  file: crates/plugin-ext-compile/src/dispatcher.rs
+  line: 84
+  module: plugin-ext-compile
+deps:
+- handl_language
+- handl_plugin_compile
+- plugin_engine
+- plugin_engine_typecheck
+- serde_json
+- handl_language
+- handl_language
+- handl_plugin_compile
+- handl_plugin_compile_js
+- handl_plugin_compile_llvm
+- plugin_engine
+- serde_json
+- dispatcher
+- handl_platform
+- request
+- handl_plugin_compile
+notes: ''
+verify:
+- crates/plugin-ext-compile/src/request.rs
+- crates/plugin-ext-compile/src/request.rs
+- crates/plugin-ext-compile/src/request.rs
+- crates/plugin-ext-compile/src/request.rs
+- crates/plugin-ext-compile/src/request.rs
+- crates/plugin-ext-compile/src/tests.rs
+- crates/plugin-ext-compile/src/tests.rs
+- crates/plugin-ext-compile/src/tests.rs
+- crates/plugin-ext-compile/src/tests.rs
+- crates/plugin-ext-compile/src/tests.rs
+- crates/plugin-ext-compile/src/tests.rs
+- crates/plugin-ext-compile/src/lib.rs
+- crates/plugin-ext-compile/src/lib.rs
+- crates/plugin-ext-compile/src/lib.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+- crates/plugin-ext-compile/src/dispatcher.rs
+provenance:
+  files:
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/tests.rs
+  - crates/plugin-ext-compile/src/lib.rs
+  - crates/plugin-ext-compile/src/lib.rs
+  - crates/plugin-ext-compile/src/lib.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  - crates/plugin-ext-compile/src/dispatcher.rs
+  hashes:
+  - e39cc2cc38e1ed8ca71b59e8e7a709c77afc6c52
+  - e39cc2cc38e1ed8ca71b59e8e7a709c77afc6c52
+  - e39cc2cc38e1ed8ca71b59e8e7a709c77afc6c52
+  - e39cc2cc38e1ed8ca71b59e8e7a709c77afc6c52
+  - e39cc2cc38e1ed8ca71b59e8e7a709c77afc6c52
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 5eb2d08859e8c99ac0a6c7d8c80affc569178af4
+  - 58baad425a18579b954a8151125492d113142193
+  - 58baad425a18579b954a8151125492d113142193
+  - 58baad425a18579b954a8151125492d113142193
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  - f646c5a078a87c580f313887f06025c8712eb0ea
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

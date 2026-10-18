@@ -1,0 +1,27 @@
+name: handl-platform
+path: crates/platform/Cargo.toml
+purpose: The `handl-platform` crate provides shared platform abstractions for the HAndL language toolchain, including plugins, capabilities, manifests, resolution, hosts, and boundaries.
+api:
+- name: handl-platform
+  kind: module
+  file: crates/platform/Cargo.toml
+  line: 1
+  module: handl-platform
+deps:
+- semver
+- serde
+- serde_json
+- thiserror
+- toml
+- serde_json
+notes: ''
+verify:
+- crates/platform/Cargo.toml
+provenance:
+  files:
+  - crates/platform/Cargo.toml
+  hashes:
+  - 2f0b60d6a4f3e55dd962fa7a1fef29a9ca6f7c00
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

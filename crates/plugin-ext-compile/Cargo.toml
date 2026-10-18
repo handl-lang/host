@@ -26,8 +26,8 @@ hnl-engine-typecheck.workspace = true
 serde_json = { workspace = true }
 # The six compiler targets — optional repo modules behind the features
 # above; the root `[patch]` tables resolve the sibling checkouts.
-handl-plugin-compile-js = { workspace = true, optional = true }
-handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/compile-llvm", branch = "main", optional = true }
+handl-plugin-compile-js = { git = "https://github.com/handl-lang/compile-js", branch = "main" }
+handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/compile-llvm", branch = "main" }
 handl-plugin-compile-handl = { workspace = true, optional = true }
 handl-plugin-compile-term = { workspace = true, optional = true }
 handl-plugin-compile-dot = { workspace = true, optional = true }

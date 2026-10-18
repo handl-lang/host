@@ -1,0 +1,790 @@
+name: handl-kit-arrow-lower
+path: crates/handl-kit-arrow-lower/Cargo.toml
+purpose: Shared canonical AST to arrow-calculus `Term` lowerer (ADR-0100).
+api:
+- name: handl-kit-arrow-lower
+  kind: module
+  file: crates/handl-kit-arrow-lower/Cargo.toml
+  line: 1
+  module: handl-kit-arrow-lower
+- name: var_node
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 7
+  module: handl-kit-arrow-lower
+- name: value_node
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 11
+  module: handl-kit-arrow-lower
+- name: with_children
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 15
+  module: handl-kit-arrow-lower
+- name: with_children_and_name
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 19
+  module: handl-kit-arrow-lower
+- name: graded_arrow_with_op_and_grade_product_lowers_to_named_op
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 24
+  module: handl-kit-arrow-lower
+- name: proj
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 72
+  module: handl-kit-arrow-lower
+- name: id_at_dim
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 76
+  module: handl-kit-arrow-lower
+- name: arr_key
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 86
+  module: handl-kit-arrow-lower
+- name: merge_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 93
+  module: handl-kit-arrow-lower
+- name: merge_roles
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 99
+  module: handl-kit-arrow-lower
+- name: binary_op_lowers_via_eval_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 120
+  module: handl-kit-arrow-lower
+- name: yaml_only_construct_lowers_via_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 148
+  module: handl-kit-arrow-lower
+- name: child_role_placeholder_resolves_named_role
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 176
+  module: handl-kit-arrow-lower
+- name: frontier_cell_lowers_via_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 215
+  module: handl-kit-arrow-lower
+- name: dim_arrow_lowers_via_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 261
+  module: handl-kit-arrow-lower
+- name: if_keeps_pair_tag_lowering_over_eval_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 329
+  module: handl-kit-arrow-lower
+- name: scheme_with_placeholder_in_choice_branch_declines
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 379
+  module: handl-kit-arrow-lower
+- name: return_declines_early_exit
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 398
+  module: handl-kit-arrow-lower
+- name: handle_arrow_with_handler_lowers_to_term_handle
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 407
+  module: handl-kit-arrow-lower
+- name: a_renamed_binder_kind_lowers_unchanged
+  kind: function
+  file: crates/handl-kit-arrow-lower/tests/lower.rs
+  line: 442
+  module: handl-kit-arrow-lower
+- name: EnvEntry
+  kind: type
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 38
+  module: handl-kit-arrow-lower
+- name: elem_op
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 47
+  module: handl-kit-arrow-lower
+- name: id_op
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 51
+  module: handl-kit-arrow-lower
+- name: input_dependent
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 58
+  module: handl-kit-arrow-lower
+- name: is_bare_op_ref
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 75
+  module: handl-kit-arrow-lower
+- name: is_lazy_op_ref
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 85
+  module: handl-kit-arrow-lower
+- name: push_slot
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 98
+  module: handl-kit-arrow-lower
+- name: BindOutcome
+  kind: type
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 135
+  module: handl-kit-arrow-lower
+- name: lower_ast
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 153
+  module: handl-kit-arrow-lower
+- name: lower_node
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 157
+  module: handl-kit-arrow-lower
+- name: SchemeCtx
+  kind: type
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 623
+  module: handl-kit-arrow-lower
+- name: lower_via_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 645
+  module: handl-kit-arrow-lower
+- name: instantiate_scheme
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 686
+  module: handl-kit-arrow-lower
+- name: seq_pastes
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 870
+  module: handl-kit-arrow-lower
+- name: is_pair_tag
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 883
+  module: handl-kit-arrow-lower
+- name: scheme_dim
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 893
+  module: handl-kit-arrow-lower
+- name: instantiate_op
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 919
+  module: handl-kit-arrow-lower
+- name: lift_to_dim
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1014
+  module: handl-kit-arrow-lower
+- name: instantiate_dim
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1043
+  module: handl-kit-arrow-lower
+- name: lower_role_child
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1095
+  module: handl-kit-arrow-lower
+- name: role_child_index
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1106
+  module: handl-kit-arrow-lower
+- name: payload_sentinel
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1123
+  module: handl-kit-arrow-lower
+- name: lower_block
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1134
+  module: handl-kit-arrow-lower
+- name: lower_rec
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1219
+  module: handl-kit-arrow-lower
+- name: bind_stmt
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1273
+  module: handl-kit-arrow-lower
+- name: classify_binding
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1396
+  module: handl-kit-arrow-lower
+- name: decline_self_reference
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1431
+  module: handl-kit-arrow-lower
+- name: check_rebind
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1462
+  module: handl-kit-arrow-lower
+- name: env_entry
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1485
+  module: handl-kit-arrow-lower
+- name: rec_produced_arity
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1530
+  module: handl-kit-arrow-lower
+- name: lower_json
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1561
+  module: handl-kit-arrow-lower
+- name: lower_call
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1594
+  module: handl-kit-arrow-lower
+- name: sequential_app
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1723
+  module: handl-kit-arrow-lower
+- name: lower_object
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1735
+  module: handl-kit-arrow-lower
+- name: push_object_run
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1877
+  module: handl-kit-arrow-lower
+- name: reject_reserved_object_key
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1905
+  module: handl-kit-arrow-lower
+- name: lower_op
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1916
+  module: handl-kit-arrow-lower
+- name: lower_dim_term
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1971
+  module: handl-kit-arrow-lower
+- name: lower_handle
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 1996
+  module: handl-kit-arrow-lower
+- name: lower_arr
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2020
+  module: handl-kit-arrow-lower
+- name: lower_graded_arrow
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2046
+  module: handl-kit-arrow-lower
+- name: lower_bind
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2057
+  module: handl-kit-arrow-lower
+- name: lower_if
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2080
+  module: handl-kit-arrow-lower
+- name: lower_loop
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2110
+  module: handl-kit-arrow-lower
+- name: lower_while
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2179
+  module: handl-kit-arrow-lower
+- name: lower_ternary
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2301
+  module: handl-kit-arrow-lower
+- name: lower_nullish
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2332
+  module: handl-kit-arrow-lower
+- name: lower_match
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2391
+  module: handl-kit-arrow-lower
+- name: Arm
+  kind: type
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2451
+  module: handl-kit-arrow-lower
+- name: compile_pattern
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2553
+  module: handl-kit-arrow-lower
+- name: Entry
+  kind: type
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 2732
+  module: handl-kit-arrow-lower
+- name: static_term_value
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3055
+  module: handl-kit-arrow-lower
+- name: rest_binder_name
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3082
+  module: handl-kit-arrow-lower
+- name: is_wildcard_name
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3123
+  module: handl-kit-arrow-lower
+- name: is_const_true
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3130
+  module: handl-kit-arrow-lower
+- name: and_short
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3147
+  module: handl-kit-arrow-lower
+- name: lower_field_access
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3157
+  module: handl-kit-arrow-lower
+- name: FlowOperand
+  kind: type
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3205
+  module: handl-kit-arrow-lower
+- name: lower_flow_operand
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3233
+  module: handl-kit-arrow-lower
+- name: flow_operand_kind
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3304
+  module: handl-kit-arrow-lower
+- name: function_params
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3338
+  module: handl-kit-arrow-lower
+- name: function_body_index
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3429
+  module: handl-kit-arrow-lower
+- name: is_op_graded_arrow
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3445
+  module: handl-kit-arrow-lower
+- name: op_term_from_graded_arrow
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3457
+  module: handl-kit-arrow-lower
+- name: grade_contains_op
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3483
+  module: handl-kit-arrow-lower
+- name: first_non_op_grade
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3497
+  module: handl-kit-arrow-lower
+- name: op_target_name
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3523
+  module: handl-kit-arrow-lower
+- name: children
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3535
+  module: handl-kit-arrow-lower
+- name: child_at_role_or_pos
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3547
+  module: handl-kit-arrow-lower
+- name: node_index
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3564
+  module: handl-kit-arrow-lower
+- name: quote_term
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3572
+  module: handl-kit-arrow-lower
+- name: unquote_term
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3585
+  module: handl-kit-arrow-lower
+- name: binding_denotes_value
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3600
+  module: handl-kit-arrow-lower
+- name: ensure_quoted
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3614
+  module: handl-kit-arrow-lower
+- name: collect_var_names
+  kind: function
+  file: crates/handl-kit-arrow-lower/src/lib.rs
+  line: 3629
+  module: handl-kit-arrow-lower
+deps:
+- handl-language
+- serde_json
+- serde_json
+- handl_kit_arrow_lower
+- handl_language
+- serde_json
+- handl_language
+- handl_language
+- handl_language
+notes: ''
+verify:
+- crates/handl-kit-arrow-lower/Cargo.toml
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/tests/lower.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+- crates/handl-kit-arrow-lower/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-arrow-lower/Cargo.toml
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/tests/lower.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  - crates/handl-kit-arrow-lower/src/lib.rs
+  hashes:
+  - 6b3893820373975fd14270f04cbf243f964c9499
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - f8154c8f579b664fc1649fa296c2512b6e3a4b29
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  - bbb431020592b5d80fad1d7ee0cb0b24874d3011
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,23 @@
+name: handl-plugin-engine-lex
+path: crates/plugin-engine-lex/Cargo.toml
+purpose: The **abstraction** crate for the lex operation (ADR-0044 §3).
+api:
+- name: handl-plugin-engine-lex
+  kind: module
+  file: crates/plugin-engine-lex/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-lex
+deps:
+- handl-language
+- serde_json
+notes: ''
+verify:
+- crates/plugin-engine-lex/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-lex/Cargo.toml
+  hashes:
+  - ca83b220cbb3ddd994cdfb8ac068703d81c5a16c
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

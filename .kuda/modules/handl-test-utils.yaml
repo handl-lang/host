@@ -1,0 +1,638 @@
+name: handl-test-utils
+path: crates/handl-test-utils/Cargo.toml
+purpose: Test mocks, stubs, and helpers for the eval / module / exec-control infrastructure introduced by ADR 0040.
+api:
+- name: handl-test-utils
+  kind: module
+  file: crates/handl-test-utils/Cargo.toml
+  line: 1
+  module: handl-test-utils
+- name: conformance
+  kind: module
+  file: crates/handl-test-utils/src/lib.rs
+  line: 41
+  module: handl-test-utils
+- name: FnHandler
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 44
+  module: handl-test-utils
+- name: SendSyncFunction
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 74
+  module: handl-test-utils
+- name: call
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 77
+  module: handl-test-utils
+- name: MockModule
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 84
+  module: handl-test-utils
+- name: new
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 91
+  module: handl-test-utils
+- name: with_function
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 99
+  module: handl-test-utils
+- name: with_function_arc
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 110
+  module: handl-test-utils
+- name: function_count
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 121
+  module: handl-test-utils
+- name: name
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 127
+  module: handl-test-utils
+- name: function
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 131
+  module: handl-test-utils
+- name: functions
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 137
+  module: handl-test-utils
+- name: MockFunction
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 157
+  module: handl-test-utils
+- name: new
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 164
+  module: handl-test-utils
+- name: name
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 175
+  module: handl-test-utils
+- name: call
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 181
+  module: handl-test-utils
+- name: CaptureFn
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 204
+  module: handl-test-utils
+- name: new
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 211
+  module: handl-test-utils
+- name: calls
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 219
+  module: handl-test-utils
+- name: call_count
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 224
+  module: handl-test-utils
+- name: call
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 230
+  module: handl-test-utils
+- name: CaptureFnWithHandler
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 238
+  module: handl-test-utils
+- name: with_handler
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 245
+  module: handl-test-utils
+- name: calls
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 255
+  module: handl-test-utils
+- name: call_count
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 260
+  module: handl-test-utils
+- name: call
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 266
+  module: handl-test-utils
+- name: NoopModule
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 283
+  module: handl-test-utils
+- name: new
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 289
+  module: handl-test-utils
+- name: name
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 295
+  module: handl-test-utils
+- name: function
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 299
+  module: handl-test-utils
+- name: test_context
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 310
+  module: handl-test-utils
+- name: test_context_with_scope
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 325
+  module: handl-test-utils
+- name: test_context_with_module
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 335
+  module: handl-test-utils
+- name: MockEvalRule
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 363
+  module: handl-test-utils
+- name: new
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 370
+  module: handl-test-utils
+- name: kind_str
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 378
+  module: handl-test-utils
+- name: result_value
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 383
+  module: handl-test-utils
+- name: kind
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 389
+  module: handl-test-utils
+- name: apply
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 393
+  module: handl-test-utils
+- name: MockExecControl
+  kind: type
+  file: crates/handl-test-utils/src/lib.rs
+  line: 422
+  module: handl-test-utils
+- name: new
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 429
+  module: handl-test-utils
+- name: before_count
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 437
+  module: handl-test-utils
+- name: after_count
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 442
+  module: handl-test-utils
+- name: default
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 448
+  module: handl-test-utils
+- name: before_eval
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 454
+  module: handl-test-utils
+- name: after_eval
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 463
+  module: handl-test-utils
+- name: tests
+  kind: module
+  file: crates/handl-test-utils/src/lib.rs
+  line: 479
+  module: handl-test-utils
+- name: mock_module_registers_and_looks_up_functions
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 491
+  module: handl-test-utils
+- name: mock_module_functions_enumeration
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 506
+  module: handl-test-utils
+- name: mock_module_function_is_callable_through_module
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 521
+  module: handl-test-utils
+- name: capture_fn_records_calls_and_returns_configured_value
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 534
+  module: handl-test-utils
+- name: capture_fn_with_handler_records_and_delegates
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 551
+  module: handl-test-utils
+- name: noop_module_resolves_nothing
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 568
+  module: handl-test-utils
+- name: test_context_with_scope_seeds_variables
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 578
+  module: handl-test-utils
+- name: test_context_is_fresh
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 586
+  module: handl-test-utils
+- name: test_context_with_module_resolves_functions
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 594
+  module: handl-test-utils
+- name: mock_eval_rule_returns_configured_value_when_dispatched
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 612
+  module: handl-test-utils
+- name: mock_eval_rule_kind_and_result_accessors
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 636
+  module: handl-test-utils
+- name: mock_exec_control_counts_hooks_correctly
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 645
+  module: handl-test-utils
+- name: mock_exec_control_default_is_zeroed
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 676
+  module: handl-test-utils
+- name: capture_fn_inside_mock_module_records_via_registry
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 685
+  module: handl-test-utils
+- name: mock_eval_rule_and_exec_control_compose_through_run
+  kind: function
+  file: crates/handl-test-utils/src/lib.rs
+  line: 702
+  module: handl-test-utils
+- name: run_eval_conformance
+  kind: function
+  file: crates/handl-test-utils/src/conformance/run.rs
+  line: 20
+  module: handl-test-utils
+- name: run_parse_conformance
+  kind: function
+  file: crates/handl-test-utils/src/conformance/run.rs
+  line: 62
+  module: handl-test-utils
+- name: asts_equal
+  kind: function
+  file: crates/handl-test-utils/src/conformance/run.rs
+  line: 89
+  module: handl-test-utils
+- name: ast_debug
+  kind: function
+  file: crates/handl-test-utils/src/conformance/run.rs
+  line: 100
+  module: handl-test-utils
+- name: pc
+  kind: function
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 14
+  module: handl-test-utils
+- name: EvalCase
+  kind: type
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 20
+  module: handl-test-utils
+- name: ParseCase
+  kind: type
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 33
+  module: handl-test-utils
+- name: eval_corpus
+  kind: function
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 48
+  module: handl-test-utils
+- name: parse_corpus
+  kind: function
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 253
+  module: handl-test-utils
+- name: arith_lang
+  kind: function
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 255
+  module: handl-test-utils
+- name: tok
+  kind: function
+  file: crates/handl-test-utils/src/conformance/corpus.rs
+  line: 308
+  module: handl-test-utils
+- name: corpus
+  kind: module
+  file: crates/handl-test-utils/src/conformance/mod.rs
+  line: 15
+  module: handl-test-utils
+- name: run
+  kind: module
+  file: crates/handl-test-utils/src/conformance/mod.rs
+  line: 16
+  module: handl-test-utils
+deps:
+- handl-language
+- handl-platform
+- handl-plugin-engine-exec
+- handl-plugin-engine-parse
+- handl-plugin-module
+- serde_json
+- serde_json
+- serde_json
+- handl_platform
+- handl_plugin_module
+- handl_platform
+- serde_json
+- handl_language
+- handl_plugin_engine_exec
+- handl_language
+- corpus
+- run
+notes: ''
+verify:
+- crates/handl-test-utils/Cargo.toml
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/lib.rs
+- crates/handl-test-utils/src/conformance/run.rs
+- crates/handl-test-utils/src/conformance/run.rs
+- crates/handl-test-utils/src/conformance/run.rs
+- crates/handl-test-utils/src/conformance/run.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/corpus.rs
+- crates/handl-test-utils/src/conformance/mod.rs
+- crates/handl-test-utils/src/conformance/mod.rs
+provenance:
+  files:
+  - crates/handl-test-utils/Cargo.toml
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/lib.rs
+  - crates/handl-test-utils/src/conformance/run.rs
+  - crates/handl-test-utils/src/conformance/run.rs
+  - crates/handl-test-utils/src/conformance/run.rs
+  - crates/handl-test-utils/src/conformance/run.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/corpus.rs
+  - crates/handl-test-utils/src/conformance/mod.rs
+  - crates/handl-test-utils/src/conformance/mod.rs
+  hashes:
+  - 70708fd20dde58445b9e39ca2c11884d142e3913
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - c997add69b66f6bd6e1a131bb9df8045e0c19996
+  - b3a860aa1c56ef52a90c5d4de3959ba8c25f4be9
+  - b3a860aa1c56ef52a90c5d4de3959ba8c25f4be9
+  - b3a860aa1c56ef52a90c5d4de3959ba8c25f4be9
+  - b3a860aa1c56ef52a90c5d4de3959ba8c25f4be9
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - 979165fb79924fb21ab80e627a6c4e94768f5e52
+  - bd360ee03ec8557b4a2b8fbf0073b2698605c94d
+  - bd360ee03ec8557b4a2b8fbf0073b2698605c94d
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,27 @@
+name: handl-plugin-engine-exec
+path: crates/plugin-engine-exec/Cargo.toml
+purpose: The **abstraction** crate for the eval operation (ADR-0044 §3, §4, §7).
+api:
+- name: handl-plugin-engine-exec
+  kind: module
+  file: crates/plugin-engine-exec/Cargo.toml
+  line: 1
+  module: handl-plugin-engine-exec
+deps:
+- handl-language
+- handl-platform
+- handl-value
+- rustc-hash
+- serde_json
+- handl-plugin-module
+notes: ''
+verify:
+- crates/plugin-engine-exec/Cargo.toml
+provenance:
+  files:
+  - crates/plugin-engine-exec/Cargo.toml
+  hashes:
+  - a0c37cd6454a6d0126d90a2104768eecb44273ef
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,301 @@
+name: platform-tests
+path: crates/platform-tests/tests/integration.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: core_host
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 10
+  module: platform-tests
+- name: host_reports_every_registered_capability
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 27
+  module: platform-tests
+- name: every_capability_dispatches_to_its_own_plugin
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 42
+  module: platform-tests
+- name: kit_resolves_by_name_and_composes_its_selected_plugins
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 65
+  module: platform-tests
+- name: unknown_capability_is_an_error_at_the_host_boundary
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 105
+  module: platform-tests
+- name: Ledger
+  kind: type
+  file: crates/platform-tests/tests/wiring.rs
+  line: 23
+  module: platform-tests
+- name: EntryPoint
+  kind: type
+  file: crates/platform-tests/tests/wiring.rs
+  line: 32
+  module: platform-tests
+- name: Retired
+  kind: type
+  file: crates/platform-tests/tests/wiring.rs
+  line: 39
+  module: platform-tests
+- name: repo_root
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 50
+  module: platform-tests
+- name: ledger
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 57
+  module: platform-tests
+- name: pkg_name
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 66
+  module: platform-tests
+- name: dep_keys
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 83
+  module: platform-tests
+- name: members
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 120
+  module: platform-tests
+- name: retired_crates_are_no_longer_members
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 142
+  module: platform-tests
+- name: every_member_is_wired_or_declared
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 160
+  module: platform-tests
+- name: ledger_is_not_stale
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 198
+  module: platform-tests
+- name: every_ignored_test_states_a_reason
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 261
+  module: platform-tests
+- name: visit
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 293
+  module: platform-tests
+- name: no_silently_disabled_compilation
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 315
+  module: platform-tests
+- name: adr_exists
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 352
+  module: platform-tests
+- name: simulated_host_loads_kit_and_dispatches
+  kind: function
+  file: crates/platform-tests/tests/e2e.rs
+  line: 13
+  module: platform-tests
+- name: mock_plugin_exposes_name_capabilities_and_metadata
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 7
+  module: platform-tests
+- name: registry_reports_the_mock_capabilities_with_metadata
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 20
+  module: platform-tests
+- name: dispatch_through_the_host_reaches_the_mock
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 39
+  module: platform-tests
+- name: unknown_capability_is_reported_and_logged_nowhere
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 54
+  module: platform-tests
+- name: MockPlugin
+  kind: type
+  file: crates/platform-tests/src/lib.rs
+  line: 36
+  module: platform-tests
+- name: new
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 45
+  module: platform-tests
+- name: with_output
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 55
+  module: platform-tests
+- name: calls
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 61
+  module: platform-tests
+- name: name
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 67
+  module: platform-tests
+- name: capabilities
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 71
+  module: platform-tests
+- name: metadata
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 75
+  module: platform-tests
+- name: run
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 84
+  module: platform-tests
+- name: mock_manifest
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 99
+  module: platform-tests
+- name: request
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 117
+  module: platform-tests
+deps:
+- handl_platform
+- handl_platform_tests
+- serde
+- handl_platform
+- handl_platform_tests
+- handl_platform
+- handl_platform_tests
+- handl_platform
+notes: ''
+verify:
+- crates/platform-tests/tests/integration.rs
+- crates/platform-tests/tests/integration.rs
+- crates/platform-tests/tests/integration.rs
+- crates/platform-tests/tests/integration.rs
+- crates/platform-tests/tests/integration.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/wiring.rs
+- crates/platform-tests/tests/e2e.rs
+- crates/platform-tests/tests/mock.rs
+- crates/platform-tests/tests/mock.rs
+- crates/platform-tests/tests/mock.rs
+- crates/platform-tests/tests/mock.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/src/lib.rs
+provenance:
+  files:
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/wiring.rs
+  - crates/platform-tests/tests/e2e.rs
+  - crates/platform-tests/tests/mock.rs
+  - crates/platform-tests/tests/mock.rs
+  - crates/platform-tests/tests/mock.rs
+  - crates/platform-tests/tests/mock.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/src/lib.rs
+  hashes:
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 7ae0d59ebcca1fd8b39ef46f3e521a8d5869f4d0
+  - 6767cae8214484d769b5500cf3e9c3a454304425
+  - 486d509177c4e4cc2dca1e298984b2c59c6a14f4
+  - 486d509177c4e4cc2dca1e298984b2c59c6a14f4
+  - 486d509177c4e4cc2dca1e298984b2c59c6a14f4
+  - 486d509177c4e4cc2dca1e298984b2c59c6a14f4
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

@@ -1,0 +1,868 @@
+name: plugin-engine-parse-pratt
+path: crates/plugin-engine-parse-pratt/tests/parse_conformance.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: pratt_engine_passes_parse_conformance
+  kind: function
+  file: crates/plugin-engine-parse-pratt/tests/parse_conformance.rs
+  line: 11
+  module: plugin-engine-parse-pratt
+- name: PrattEngine
+  kind: type
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 49
+  module: plugin-engine-parse-pratt
+- name: new
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 56
+  module: plugin-engine-parse-pratt
+- name: atom_payload
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 69
+  module: plugin-engine-parse-pratt
+- name: lookup_row
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 128
+  module: plugin-engine-parse-pratt
+- name: kind_for_label
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 157
+  module: plugin-engine-parse-pratt
+- name: kind_is_label
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 162
+  module: plugin-engine-parse-pratt
+- name: closing_kind
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 169
+  module: plugin-engine-parse-pratt
+- name: kind_in_category
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 175
+  module: plugin-engine-parse-pratt
+- name: is_keyword_kind
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 181
+  module: plugin-engine-parse-pratt
+- name: push_spanned
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 186
+  module: plugin-engine-parse-pratt
+- name: child_span
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 195
+  module: plugin-engine-parse-pratt
+- name: span_union
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 200
+  module: plugin-engine-parse-pratt
+- name: DIMENSION_TARGET_KINDS
+  kind: const
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 217
+  module: plugin-engine-parse-pratt
+- name: dimension_applies
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 235
+  module: plugin-engine-parse-pratt
+- name: dimension_closes
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 280
+  module: plugin-engine-parse-pratt
+- name: parse_dimension
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 318
+  module: plugin-engine-parse-pratt
+- name: default
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 385
+  module: plugin-engine-parse-pratt
+- name: parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 391
+  module: plugin-engine-parse-pratt
+- name: expression
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 427
+  module: plugin-engine-parse-pratt
+- name: lang_token_flag
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 456
+  module: plugin-engine-parse-pratt
+- name: is_ignorable
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 466
+  module: plugin-engine-parse-pratt
+- name: Cursor
+  kind: type
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 479
+  module: plugin-engine-parse-pratt
+- name: ignorable
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 488
+  module: plugin-engine-parse-pratt
+- name: skip_ignorable
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 493
+  module: plugin-engine-parse-pratt
+- name: peek_index
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 504
+  module: plugin-engine-parse-pratt
+- name: peek
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 516
+  module: plugin-engine-parse-pratt
+- name: layout_ahead
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 524
+  module: plugin-engine-parse-pratt
+- name: advance
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 539
+  module: plugin-engine-parse-pratt
+- name: current_span
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 556
+  module: plugin-engine-parse-pratt
+- name: last_span
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 562
+  module: plugin-engine-parse-pratt
+- name: expression_inner
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 576
+  module: plugin-engine-parse-pratt
+- name: consume_trailing_tokens
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1042
+  module: plugin-engine-parse-pratt
+- name: apply_payload_extract
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1212
+  module: plugin-engine-parse-pratt
+- name: try_keyword_clauses
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1258
+  module: plugin-engine-parse-pratt
+- name: extract_child_name
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1302
+  module: plugin-engine-parse-pratt
+- name: consume_separator
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1328
+  module: plugin-engine-parse-pratt
+- name: peek_separator
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1364
+  module: plugin-engine-parse-pratt
+- name: parse_delimited_block
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1389
+  module: plugin-engine-parse-pratt
+- name: DelimitedResult
+  kind: type
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1590
+  module: plugin-engine-parse-pratt
+- name: tests
+  kind: module
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1599
+  module: plugin-engine-parse-pratt
+- name: arith_lang
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1607
+  module: plugin-engine-parse-pratt
+- name: tok
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1665
+  module: plugin-engine-parse-pratt
+- name: empty_input_returns_empty_ast
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1674
+  module: plugin-engine-parse-pratt
+- name: single_atom_parses_to_lit
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1683
+  module: plugin-engine-parse-pratt
+- name: prefix_only_unary_neg
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1695
+  module: plugin-engine-parse-pratt
+- name: infix_only_binary_add
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1713
+  module: plugin-engine-parse-pratt
+- name: both_prefix_and_infix_negation_then_add
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1731
+  module: plugin-engine-parse-pratt
+- name: binding_power_precedence_mul_binds_tighter
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1751
+  module: plugin-engine-parse-pratt
+- name: eof_handling_stops_infix_loop
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1772
+  module: plugin-engine-parse-pratt
+- name: unexpected_token_errors
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1786
+  module: plugin-engine-parse-pratt
+- name: unexpected_token_after_partial_parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1798
+  module: plugin-engine-parse-pratt
+- name: infix_without_binding_power_errors
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1812
+  module: plugin-engine-parse-pratt
+- name: atom_string_payload_for_non_number
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1837
+  module: plugin-engine-parse-pratt
+- name: atom_float_payload_for_float_number
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1858
+  module: plugin-engine-parse-pratt
+- name: root_is_last_node
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1867
+  module: plugin-engine-parse-pratt
+- name: parser_context_expression_delegates
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1881
+  module: plugin-engine-parse-pratt
+- name: trait_expression_method_directly
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1898
+  module: plugin-engine-parse-pratt
+- name: atom_payload_token_kind_not_in_tokens_fragment_set
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1919
+  module: plugin-engine-parse-pratt
+- name: trait_dispatch_via_generic
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1942
+  module: plugin-engine-parse-pratt
+- name: run_parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1943
+  module: plugin-engine-parse-pratt
+- name: default_constructor
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1959
+  module: plugin-engine-parse-pratt
+- name: multiple_parses_reset_arena
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1968
+  module: plugin-engine-parse-pratt
+- name: left_associative_chain
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 1987
+  module: plugin-engine-parse-pratt
+- name: nested_prefix_in_infix
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2009
+  module: plugin-engine-parse-pratt
+- name: number_token_non_numeric_text_falls_back_to_string
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2026
+  module: plugin-engine-parse-pratt
+- name: prefix_op_at_eof_errors
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2036
+  module: plugin-engine-parse-pratt
+- name: next_token_without_infix_rule_stops
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2046
+  module: plugin-engine-parse-pratt
+- name: infix_arity_three_parses_extra_operands
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2071
+  module: plugin-engine-parse-pratt
+- name: optional_else_lang
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2107
+  module: plugin-engine-parse-pratt
+- name: optional_child_present_when_separator_fires
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2132
+  module: plugin-engine-parse-pratt
+- name: optional_child_absent_when_separator_missing
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2152
+  module: plugin-engine-parse-pratt
+- name: optional_child_does_not_swallow_following_expression
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2170
+  module: plugin-engine-parse-pratt
+- name: vau_prefix_parses_child_expression
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2188
+  module: plugin-engine-parse-pratt
+- name: match_lang
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2232
+  module: plugin-engine-parse-pratt
+- name: delimited_block_match_parses_arms
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2310
+  module: plugin-engine-parse-pratt
+- name: delimited_block_empty_and_trailing_separator
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2347
+  module: plugin-engine-parse-pratt
+- name: delimited_block_missing_open_errors
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2385
+  module: plugin-engine-parse-pratt
+- name: literal_lang
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2406
+  module: plugin-engine-parse-pratt
+- name: array_literal_parses_elements
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2820
+  module: plugin-engine-parse-pratt
+- name: object_literal_parses_entries
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2840
+  module: plugin-engine-parse-pratt
+- name: paren_parses_multiple_params
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2868
+  module: plugin-engine-parse-pratt
+- name: function_with_paren_params_parses
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2886
+  module: plugin-engine-parse-pratt
+- name: ungraded_arrow_parses_as_function
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2926
+  module: plugin-engine-parse-pratt
+- name: graded_arrow_parses_ternary
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2956
+  module: plugin-engine-parse-pratt
+- name: graded_arrow_with_array_grade_parses
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 2992
+  module: plugin-engine-parse-pratt
+- name: bracketed_graded_arrow_matches_legacy_spelling
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3025
+  module: plugin-engine-parse-pratt
+- name: bracketed_graded_arrow_with_empty_grade_errors
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3091
+  module: plugin-engine-parse-pratt
+- name: tilde_arrow_maximal_munch_lexes_as_single_token
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3113
+  module: plugin-engine-parse-pratt
+- name: array_literal_parses_rest_explicit
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3129
+  module: plugin-engine-parse-pratt
+- name: empty_array_and_object_parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3174
+  module: plugin-engine-parse-pratt
+- name: spanned_tok
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3204
+  module: plugin-engine-parse-pratt
+- name: dimension_bracket_parses
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3217
+  module: plugin-engine-parse-pratt
+- name: dimension_bracket_takes_multiple_arguments
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3243
+  module: plugin-engine-parse-pratt
+- name: spaced_angle_bracket_is_a_comparison
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3267
+  module: plugin-engine-parse-pratt
+- name: unclosed_angle_bracket_is_a_comparison
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3285
+  module: plugin-engine-parse-pratt
+- name: nested_dimensions_parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3299
+  module: plugin-engine-parse-pratt
+- name: empty_dimension_bracket_errors
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3324
+  module: plugin-engine-parse-pratt
+- name: paren_dimension_then_flow_is_not_a_dimension
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3344
+  module: plugin-engine-parse-pratt
+- name: spans_binary_expression
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3372
+  module: plugin-engine-parse-pratt
+- name: spans_match_block_and_arms
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3389
+  module: plugin-engine-parse-pratt
+- name: spans_string_and_nested_parens
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3411
+  module: plugin-engine-parse-pratt
+- name: cell_theory_prefixes_parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3436
+  module: plugin-engine-parse-pratt
+- name: cell_theory_operators_parse
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3509
+  module: plugin-engine-parse-pratt
+- name: relabeled_block_lang
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3610
+  module: plugin-engine-parse-pratt
+- name: block_child_resolves_through_token_label
+  kind: function
+  file: crates/plugin-engine-parse-pratt/src/lib.rs
+  line: 3685
+  module: plugin-engine-parse-pratt
+deps:
+- handl_plugin_engine_parse_pratt
+- handl_language
+- handl_plugin_engine_parse
+- handl_language
+- handl_plugin_engine_parse
+- serde_json
+- handl_language
+notes: ''
+verify:
+- crates/plugin-engine-parse-pratt/tests/parse_conformance.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+- crates/plugin-engine-parse-pratt/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-engine-parse-pratt/tests/parse_conformance.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-engine-parse-pratt/src/lib.rs
+  hashes:
+  - 03d24c49bba19f529812ba4cfc69eb34d08d4a20
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  - be643d45afc7e9d74d89f942dbcee0f116367275
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0

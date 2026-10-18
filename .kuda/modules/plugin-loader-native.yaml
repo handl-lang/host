@@ -1,0 +1,183 @@
+name: plugin-loader-native
+path: crates/plugin-loader-native/src/lib.rs
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: NativeLoader
+  kind: type
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 11
+  module: plugin-loader-native
+- name: new
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 14
+  module: plugin-loader-native
+- name: resolve_path
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 18
+  module: plugin-loader-native
+- name: can_load
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 37
+  module: plugin-loader-native
+- name: load
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 41
+  module: plugin-loader-native
+- name: name
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 64
+  module: plugin-loader-native
+- name: id
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 68
+  module: plugin-loader-native
+- name: capabilities
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 72
+  module: plugin-loader-native
+- name: metadata
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 76
+  module: plugin-loader-native
+- name: contribute
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 80
+  module: plugin-loader-native
+- name: run
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 90
+  module: plugin-loader-native
+- name: SharedPlugin
+  kind: type
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 99
+  module: plugin-loader-native
+- name: name
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 106
+  module: plugin-loader-native
+- name: capabilities
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 110
+  module: plugin-loader-native
+- name: metadata
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 114
+  module: plugin-loader-native
+- name: run
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 121
+  module: plugin-loader-native
+- name: tests
+  kind: module
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 155
+  module: plugin-loader-native
+- name: load_missing_path_returns_error
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 159
+  module: plugin-loader-native
+- name: target_dir
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 180
+  module: plugin-loader-native
+- name: find_example_cdylib
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 190
+  module: plugin-loader-native
+- name: load_native_example_echo
+  kind: function
+  file: crates/plugin-loader-native/src/lib.rs
+  line: 213
+  module: plugin-loader-native
+deps:
+- handl_platform
+- handl_plugin_load
+notes: ''
+verify:
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+- crates/plugin-loader-native/src/lib.rs
+provenance:
+  files:
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  - crates/plugin-loader-native/src/lib.rs
+  hashes:
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  - 4fd851de3e453e6b024ef7e834d1fdf63bdfe207
+  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
+  generated_at: '1792283902'
+  generator: kuda-template/0.1.0
