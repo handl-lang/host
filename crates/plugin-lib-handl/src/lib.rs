@@ -1676,6 +1676,10 @@ fn build_runtime(
         "bytecode",
         Box::new(hnl_engine_exec_bytecode::BytecodeEngine::new()),
     );
+    registry.register_compile(
+        "bytecode",
+        Box::new(hnl_engine_exec_bytecode::BytecodeCompileEngine::new()),
+    );
     let registry = Rc::new(registry);
 
     // Always wire the canonical FpHostFunctions (for field_access support
