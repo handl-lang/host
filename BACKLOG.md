@@ -1,6 +1,9 @@
 # Backlog
 
-## Tooling (low priority — self-hosting, see `project/rfcs/`)
+## Tooling (deferred — self-hosting, see `project/rfcs/`)
+
+_Not now (2026-10-18): RFC-0001 stays parked until the language and
+compiled backends stabilize._
 
 The ADR-0085..0094 bootstrap tooling implementation is near-term work and
 tracked in `TODO.md`. Everything below is the _low priority_ self-hosting
