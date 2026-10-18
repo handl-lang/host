@@ -18,7 +18,7 @@
 ---   contains(pat)             -- value matcher: substring match
 ---   match_glob(pat, s)        -- `*`/`?` glob over `char` lists
 ---
---- Host-facing entry points (the `plugin-engine-test` filter path):
+--- Host-facing entry points (the `hnl-engine-test` filter path):
 --- the CLI `--filter`/`--tag` surface compiles to a plain-data spec
 --- record `{ names: [patterns], tags: [exprs] }` built host-side;
 --- `build(spec)` turns the spec into the case predicate arrow and

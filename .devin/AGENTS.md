@@ -11,11 +11,11 @@ cargo check --workspace
 cargo test -p handl-kit-data-canonical
 cargo test -p handl-kit-canonical     # kit-canonical (legacy Kit wrapper)
 cargo test -p handl-host-tooling
-cargo test -p handl-plugin-engine-exec-tree-walk
-cargo test -p handl-plugin-engine-exec-bytecode   # v1 + v2 bytecode VM
-cargo test -p handl-plugin-engine-exec-cranelift
-cargo test -p handl-plugin-engine-lex-pattern
-cargo test -p handl-plugin-engine-parse-pratt
+cargo test -p hnl-engine-exec-tree-walk
+cargo test -p hnl-engine-exec-bytecode   # v1 + v2 bytecode VM
+cargo test -p hnl-engine-exec-cranelift
+cargo test -p hnl-engine-lex-pattern
+cargo test -p hnl-engine-parse-pratt
 cargo test -p handl-plugin-lib-arrow-iter          # v2 derived iteration patterns
 ```
 
@@ -42,17 +42,17 @@ handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
                                                     ↓
                               handl-runtime binds Language → engines
                                                     ↓
-                    plugin-engine-lex-pattern      (lex)
-                    plugin-engine-parse-pratt      (parse)
-                    plugin-engine-exec-tree-walk   (eval: reference)
-                    plugin-engine-exec-bytecode    (eval: bytecode)
-                    plugin-engine-exec-cranelift   (eval: native)
+                    hnl-engine-lex-pattern      (lex)
+                    hnl-engine-parse-pratt      (parse)
+                    hnl-engine-exec-tree-walk   (eval: reference)
+                    hnl-engine-exec-bytecode    (eval: bytecode)
+                    hnl-engine-exec-cranelift   (eval: native)
 ```
 
 ### Key crates
 
 - **`handl-language`** — **moved to the sibling `handl-lang/kernel` repo**
-  (with `plugin-engine` and `handl-value`, the ADR-0040 calculus kernel;
+  (with `hnl-engine` and `handl-value`, the ADR-0040 calculus kernel;
   git dep on `main`, patched to `../kernel` for local dev). The `Language`
   data schema. A `Language` is a
   mergeable store of typed fragment sets: `tokens` (`TokenKindDef`),
@@ -112,20 +112,20 @@ handl-kit-data-canonical/data/*.yaml  →  handl-language::Language
 - **`host-cli`** — moved to the sibling `host-cli` repo (ADR-0128 Phase 8). CLI
   host (`hnl`).
 
-### Engine crates (`plugin-engine-*`)
+### Engine crates (`hnl-engine-*`)
 
-- **`plugin-engine-lex`** — Lexer operation abstraction (trait, no engine).
-- **`plugin-engine-lex-pattern`** — Data-driven pattern-matching lexer engine
+- **`hnl-engine-lex`** — Lexer operation abstraction (trait, no engine).
+- **`hnl-engine-lex-pattern`** — Data-driven pattern-matching lexer engine
   (reads `Language.tokens` + `Language.grammar` lexer rules).
-- **`plugin-engine-parse`** — Parser operation abstraction.
-- **`plugin-engine-parse-pratt`** — Pratt parser engine reading
+- **`hnl-engine-parse`** — Parser operation abstraction.
+- **`hnl-engine-parse-pratt`** — Pratt parser engine reading
   `Language.grammar` data rows.
-- **`plugin-engine-exec`** — Eval operation abstraction.
-- **`plugin-engine-exec-tree-walk`** — Reference interpreter: interprets
+- **`hnl-engine-exec`** — Eval operation abstraction.
+- **`hnl-engine-exec-tree-walk`** — Reference interpreter: interprets
   `Scheme` combinators directly.
-- **`plugin-engine-exec-bytecode`** — Compiles `Scheme` to bytecode, executes
+- **`hnl-engine-exec-bytecode`** — Compiles `Scheme` to bytecode, executes
   via VM.
-- **`plugin-engine-exec-cranelift`** — Compiles `Scheme` to native code via
+- **`hnl-engine-exec-cranelift`** — Compiles `Scheme` to native code via
   cranelift. Supports on-disk binaries via `cranelift-object`.
 
 ### Arrow-calculus v2 kernel (ADR-0052, in progress)
@@ -151,7 +151,7 @@ LangError>` implements the ADR lowering table (Vau → error; v1 `App` →
 - **`handl-language::version`** — `SchemeVersion::v2()`; `supports()` is
   backward-compatible: a v2 engine accepts v1 languages; v1 engine rejects
   v2 (a compile-time error per ADR-0052).
-- **`plugin-engine-exec-tree-walk::v2`** — `V2Interpreter`, a reference
+- **`hnl-engine-exec-tree-walk::v2`** — `V2Interpreter`, a reference
   **handler** that interprets `SchemeV2` directly (Sanada's model:
   execution is one handler interpretation). Value shapes: pairs are
   `{"__pair__": [a, b]}` (`First`); Eithers are
@@ -167,7 +167,7 @@ LangError>` implements the ADR lowering table (Vau → error; v1 `App` →
   multi-step `Loop` semantics: `while_loop`/`for_loop`/`fix_loop`
   constructors built from `Loop` + `Choice`. Implements the ADR-0052
   Phase E library patterns.
-- **`plugin-engine-exec-bytecode` v2 modules** — `instr_v2` (the v2 ISA:
+- **`hnl-engine-exec-bytecode` v2 modules** — `instr_v2` (the v2 ISA:
   `Push`/`Load`/`LoadPayloadVar`/`LoadPayload`/`EvalChild`/`Store`/
   `StorePayloadName`/`PopScope`/`Call`/`ChoiceJump`/`Jump`/`NativeOp`/
   `ForeignOp`/`FirstOp`/`Pair`/`LoopCheck`/`Return`), `compile_v2`
@@ -183,7 +183,7 @@ LangError>` implements the ADR lowering table (Vau → error; v1 `App` →
   supported by the v2 bytecode VM (they require recursive sub-program
   execution from within a native op); users construct equivalent behavior
   with `Loop` + `Choice` directly. The v2 tree-walk handler supports them.
-- **`plugin-engine-exec-cranelift` v2 module** — `compile_v2.rs` +
+- **`hnl-engine-exec-cranelift` v2 module** — `compile_v2.rs` +
   `CraneliftEngineV2`. Compiles `SchemeV2` to native code via cranelift
   JIT. v2 functions have signature `fn(*mut EvalCtx, *mut Value) ->
 *mut Value` (ctx, incoming) → result — the incoming value is a
@@ -209,7 +209,7 @@ schemes lower; only `eval.vau` errors).
    tree-walk/bytecode/cranelift) — all agree. The cutover is unblocked.
 2. Rewrite `data/eval.yaml` to v2 schemes per the lowering table; remove
    `eval.assign`/`eval.stmt.let`/`eval.stmt.const` (folded into `x = y`).
-3. Update `plugin-engine-exec-cranelift` to interpret `SchemeV2`
+3. Update `hnl-engine-exec-cranelift` to interpret `SchemeV2`
    (Phase B) — **done additively** (`compile_v2.rs` + `CraneliftEngineV2`
    with v2 helpers; v1 compiler untouched). Both bytecode and cranelift
    v2 engines are complete.

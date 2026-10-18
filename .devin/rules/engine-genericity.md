@@ -16,7 +16,7 @@ recompile.
 
 **Allowed to be fixed in Rust:** only the calculus vocabulary itself — the combinator set, primitive _forms_ (e.g. `LexerPattern` variants), value shapes. Adding a calculus combinator = engine edit; adding a language construct = YAML fragment.
 
-**If you find a hardcoded kind check:** move that knowledge into `Language` data (`AstShapeDef`/`EvalSchemeDef`/`TypeRuleDef`/primitive registry). Flag residual hardcoding in `plugin-engine-exec-*` and `plugin-engine-typecheck-*` as tech debt to close, not patterns to extend.
+**If you find a hardcoded kind check:** move that knowledge into `Language` data (`AstShapeDef`/`EvalSchemeDef`/`TypeRuleDef`/primitive registry). Flag residual hardcoding in `hnl-engine-exec-*` and `hnl-engine-typecheck-*` as tech debt to close, not patterns to extend.
 
 ## Data-driven AST child roles (ADR-0081)
 

@@ -59,7 +59,7 @@ use multiple GB each). Do not raise `-j` on a small machine to save time —
 it costs a reboot.
 
 The suites that dominate wall clock are the interpreted-`.hnl` typecheck
-tests in `plugin-engine-typecheck-handl` (`dependent_structure`,
+tests in `hnl-engine-typecheck-handl` (`dependent_structure`,
 `axis_flow_boundaries` — 15-113 s each) and `plugin-lib-handl::loader`'s
 `loader_parity` (~68 s). `standalone_bootstrap` (cranelift) and
 `kit-canonical`'s slow tests moved to the `native`/`kit-canonical` repos.
@@ -71,7 +71,7 @@ sibling `handl-lang/kit-canonical` repo now (git dep, patched to
 there with `CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical`.
 
 **Note — the calculus kernel moved out (ADR-0040/0128):**
-`plugin-engine`, `handl-language`, and `handl-value` — the `Plugin`/`Host`/
+`hnl-engine`, `handl-language`, and `handl-value` — the `Plugin`/`Host`/
 `Operation`/`Behavior`/`RuleAcceptor`/`Contribution` primitives, the
 `Language` data schema, and the `Term`/`Value` shapes — live in the sibling
 `handl-lang/kernel` repo now (git deps on `main`, patched to `../kernel`
@@ -156,13 +156,13 @@ sibling **`host-lsp`** repo (ADR-0128 Phase 8, renamed ADR-0149).
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Shared diagnostics     | `plugin-ext-diag`                                                                                                                           | `Diagnostic`, `Severity`, `Span`, `Fix`, `render_diagnostic`, `apply_fixes`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Formatter              | `plugin-ext-fmt`                                                                                                                            | `format_source(src)`, `check_source(src)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| AST formatter          | `plugin-engine-fmt`                                                                                                                         | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Linter                 | `plugin-ext-lint` (wiring) + `plugin-engine-lint` (engine, ADR-0097)                                                                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.*`/`builtin.*`; `plugin-ext-lint` overrides `source.fmt`); `!Native "handl:<mod>.<fn>"` routes to `.hnl` functions via `HandlNativeLint` in `plugin-lib-handl` (a `NativeLintResolver` on the registry, mirroring `HandlNativeRewrite`)                        |
-| Typechecker            | `plugin-engine-typecheck`                                                                                                                   | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Test runner            | `plugin-engine-test` (new, ADR-0089)                                                                                                        | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
-| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `plugin-engine-test::framework` (assert side-channel only)                                  | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Transform abstraction  | `plugin-engine-transform` (ADR-0094)                                                                                                        | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms`                                                                                                                                                                                                                                                                                                                                            |
-| Transform engine       | `plugin-engine-transform-rewrite` (ADR-0094)                                                                                                | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives)                                                                                                                                                                                                                                                                                                                                            |
+| AST formatter          | `hnl-engine-fmt`                                                                                                                         | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Linter                 | `plugin-ext-lint` (wiring) + `hnl-engine-lint` (engine, ADR-0097)                                                                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.*`/`builtin.*`; `plugin-ext-lint` overrides `source.fmt`); `!Native "handl:<mod>.<fn>"` routes to `.hnl` functions via `HandlNativeLint` in `plugin-lib-handl` (a `NativeLintResolver` on the registry, mirroring `HandlNativeRewrite`)                        |
+| Typechecker            | `hnl-engine-typecheck`                                                                                                                   | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Test runner            | `hnl-engine-test` (new, ADR-0089)                                                                                                        | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
+| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `hnl-engine-test::framework` (assert side-channel only)                                  | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Transform abstraction  | `hnl-engine-transform` (ADR-0094)                                                                                                        | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms`                                                                                                                                                                                                                                                                                                                                            |
+| Transform engine       | `hnl-engine-transform-rewrite` (ADR-0094)                                                                                                | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives)                                                                                                                                                                                                                                                                                                                                            |
 | SDK generator          | `plugin-sdkgen` (IR) + `plugin-sdkgen-backend-{c,webidl}` + `plugin-sdkgen-emitter-file` + `plugin-ext-sdkgen` (wiring; ADR-0107, ADR-0113) | `SdkgenBackend::parse_header` → `SdkgenModule` → `Emitter::emit`; `FileEmitter` runs `format_source` so output is canonical; `module.source` renders as `--- source:` provenance; generated bindings live under `handl-packages/generated/` (port `<pkg>/` + adapter `<pkg>-<backend>-<target>/`); spec inputs (`*.webidl`/`*.idl`) are gitignored                                                                                                                                                                                                                                   |
 | CLI                    | `host-cli` + `handl-ext` (kernel)                                                                                                            | dumb host + JSON-over-C ABI (`handl_ext_manifest`/`handl_ext_dispatch`/`handl_ext_free`); commands come from `ext-*` cdylibs — `hnl fmt/lint/typecheck/test/run/eval/transform` + `sdkgen <c                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | webidl | python> [<spec> | --from-url <url>] --output <dir>` (`transform <pass> <file> [--pipeline a,b] [--plan] [--trace] [--stats] [--emit tree | json | source] [--write]` — ADR-0094) |
 
@@ -189,7 +189,7 @@ environment lookup, i.e. a macro system, not a rewrite step.
 `validate_transforms` runs at `Language`
 build in `handl-kit-data-canonical::merge_fragments` — Error-severity
 diagnostics fail assembly — and under `hnl typecheck`, whose bootstrap
-`Language` assembly in `plugin-engine-typecheck::bootstrap` mirrors
+`Language` assembly in `hnl-engine-typecheck::bootstrap` mirrors
 `merge_fragments` (embedded `transforms.yaml` + `merge_ast_fragment`
 lowering + validation; errors surface as `CheckError::Language`).
 
@@ -216,24 +216,24 @@ shapes that declare no roles.
 
 ### Cyclic dependency workaround
 
-`plugin-engine-typecheck` takes the assembled `Language` from its caller
+`hnl-engine-typecheck` takes the assembled `Language` from its caller
 (`check_module(lang, src)`; `hnl typecheck` builds it once via
 `handl-kit-canonical`) — the crate used to embed and merge the canonical
 YAML itself because `handl-kit-canonical` → `handl-runtime` →
-`plugin-engine-typecheck` would create a cycle. Tests still need the
+`hnl-engine-typecheck` would create a cycle. Tests still need the
 canonical language, which they get from a `handl-kit-data-canonical`
 **dev-dependency** (dev-dep cycles are allowed). `plugin-ext-fmt` and
-`plugin-engine-test` (ADR-0089)
+`hnl-engine-test` (ADR-0089)
 use `handl-kit-data-canonical` (no eval engine) or
 `handl-kit-canonical` respectively. `plugin-lib-test` is deleted per
 ADR-0092; the framework is now pure-handl under `handl-packages/test/`
-(registered by `handl-kit-canonical`), and `plugin-engine-test::framework`
+(registered by `handl-kit-canonical`), and `hnl-engine-test::framework`
 retains only the `assert` failure side-channel.
 
 ### Source splitting
 
 The Pratt parser parses one statement per call. The typechecker, test runner,
-and linter (`plugin-engine-lint::parse_module`, ADR-0097) all split source
+and linter (`hnl-engine-lint::parse_module`, ADR-0097) all split source
 into top-level statements at bracket-depth zero (respecting strings and `--`
 comments) before parsing each chunk individually — all three share
 `plugin_ext_diag::split_statements` (a comment at a statement boundary is
@@ -264,7 +264,7 @@ Infrastructure that made it green:
 - `plugin-ext-detect::detect_dialect` — `Dialect::{Canonical,Contract,
 Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
   dialect files are skipped by canonical-only tools.
-- `plugin-engine-typecheck::check_module_with_prelude` — the bootstrap
+- `hnl-engine-typecheck::check_module_with_prelude` — the bootstrap
   scope pass handles pattern binders (`AstShapeDef::pattern_role`), `data`
   ctor binding, and type-expression positions; `plugin-ext-lint` delegates
   `unbound-wire` to it instead of its own scope walk.
@@ -335,9 +335,9 @@ apply the guard**. The paths:
 
 | Path | Guard |
 | --- | --- |
-| AST `object` op (`plugin-engine-exec/src/native_ops.rs`) | ✅ both the `entries`-payload and `children` branches |
-| bytecode static-key fast path (`plugin-engine-exec-bytecode/src/compile.rs`) | ✅ |
-| tree-walk `record` op (`plugin-engine-exec-tree-walk/src/lib.rs`, v2 native ops) | ✅ |
+| AST `object` op (`hnl-engine-exec/src/native_ops.rs`) | ✅ both the `entries`-payload and `children` branches |
+| bytecode static-key fast path (`hnl-engine-exec-bytecode/src/compile.rs`) | ✅ |
+| tree-walk `record` op (`hnl-engine-exec-tree-walk/src/lib.rs`, v2 native ops) | ✅ |
 | **Term lowering** (`handl-kit-arrow-lower/src/lib.rs` `lower_object`) | ✅ declines the lowering |
 
 The Term path is the subtle one and was the source of a real bug (the
@@ -346,9 +346,9 @@ The Term path is the subtle one and was the source of a real bug (the
 it). `Runtime::eval` tries `lower_ast` → `interpret_with_handlers` **first**
 and returns that value on success, so a lowered program never reaches the
 AST engine's `object` op. `lower_object` therefore builds the record itself
-via `Term::Op{name:"record"}`, and `plugin-engine/src/term_interpreter.rs`'s
+via `Term::Op{name:"record"}`, and `hnl-engine/src/term_interpreter.rs`'s
 `record` op has no access to `handl_language` (`handl-language` depends on
-`plugin-engine`, so the dep would cycle). The fix is for `lower_object` to
+`hnl-engine`, so the dep would cycle). The fix is for `lower_object` to
 *decline* a reserved key: lowering fails, `Runtime::eval` falls back to the
 bound AST engine, and that engine's `object` guard reports the error.
 
@@ -393,8 +393,8 @@ duplicating the predicate where `handl_language` is unreachable.
   tree-walk, bytecode, and cranelift with identical results. Note:
   several engine/test crates still use a kind literally
   named `"let"` inside **self-contained toy `Language`s** (e.g.
-  `plugin-engine-exec-*` unit tests, `handl-test-utils` conformance
-  corpus, `plugin-engine-lint`/`plugin-engine-fmt` fixtures,
+  `hnl-engine-exec-*` unit tests, `handl-test-utils` conformance
+  corpus, `hnl-engine-lint`/`hnl-engine-fmt` fixtures,
   `handl-runtime/tests/runtime_eval_only.rs`) — those kinds are local to
   their test languages and unrelated to canonical surface syntax.
 - **Engine-genericity residual audit (final)**. A fresh sweep of `crates/`
@@ -404,7 +404,7 @@ duplicating the predicate where `handl_language` is unreachable.
   the major role/token/grammar work is closed. The remainder is deliberate
   bootstrap/identity-specific/role-less-fallback code. Per-item rationale:
   - **(a) Closed in this pass:**
-    - `plugin-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
+    - `hnl-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
       the bare `param_node.kind == "var"` check is now `Language::param_name`,
       which unwraps `type-annot.subject` role data as well as bare `var`.
   - **(a2) Closed by the structural-token pass (ADR-0081).** The Pratt
@@ -423,7 +423,7 @@ duplicating the predicate where `handl_language` is unreachable.
     `dimension_closes` because the canonical kit classifies it as
     `operator`, not `open-bracket`. `token.arrow.comma` was accepted as a
     block separator but is declared in no fragment and lexed nowhere — it
-    is gone (`plugin-engine-parse-pratt/tests` has a
+    is gone (`hnl-engine-parse-pratt/tests` has a
     `block_child_resolves_through_token_label` regression proving a
     language whose block opener is a non-canonical kind still parses).
     `desugar`'s `node_to_type_string` + the `type-param`/`constructor-arg`
@@ -456,7 +456,7 @@ run` when its specifier does not resolve to a file) — the stdlib
       module chain supplies the bindings — but the line now also parses
       under canonical Pratt, so `hnl typecheck`/`lint`/`fmt` accept the
       file. See "Unified import model (ADR-0096)" below.
-    - `plugin-engine-transform-rewrite/src/native/desugar.rs`: only the
+    - `hnl-engine-transform-rewrite/src/native/desugar.rs`: only the
       `data` and `match`→recursor desugar natives
       (`node_to_type_string`, `collect_constructors`, strict positivity,
       arena-wide `data`-declaration lookup) stay Rust — genuinely semantic
@@ -469,28 +469,28 @@ run` when its specifier does not resolve to a file) — the stdlib
       `desugar_if` (never in the pass; `type.if` must observe `if` nodes)
       was deleted — the identical rewrite is covered by the declarative
       `if`→`match` tests.
-    - `plugin-engine-typecheck/src/bootstrap.rs` and related YAML-assembly
+    - `hnl-engine-typecheck/src/bootstrap.rs` and related YAML-assembly
       paths: these are the bootstrap `Language` builder (cyclic-dependency
       workaround) and are allowed to name canonical top-level kinds such as
       `var`, `import`, `export`, `rec`, `entry`, `field-access`.
-    - `plugin-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
-      `plugin-engine-exec-cranelift/src/lib.rs`: object-entry key literal
+    - `hnl-engine-exec-bytecode` (`vm.rs`/`compile.rs`) +
+      `hnl-engine-exec-cranelift/src/lib.rs`: object-entry key literal
       detection is now data-driven for canonical `entry` via
       `Language::literal_child` (`literal_children: { key: [var, string] }`);
       the `var`/`string` fallback only fires for role-less shapes and is an
       acceptable legacy/test-language fallback.
-    - `plugin-engine-exec/src/pattern_match.rs`,
-      `plugin-engine-exec-tree-walk/src/lib.rs`,
-      `plugin-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars_legacy`:
+    - `hnl-engine-exec/src/pattern_match.rs`,
+      `hnl-engine-exec-tree-walk/src/lib.rs`,
+      `hnl-engine-typecheck-nbe/src/lib.rs` `bind_pattern_vars_legacy`:
       canonical pattern dispatch is already `AstShapeDef::pattern_role`-driven;
       residual `kind == "var"/"array"/"object"/"call"/"rest"/"entry"` are
       role-less fallbacks for test/legacy languages plus `call` tag-pattern
       recognition, which names a specific construct.
-    - `plugin-engine-typecheck-nbe/src/totality_check.rs`:
+    - `hnl-engine-typecheck-nbe/src/totality_check.rs`:
       `node.kind == "assign"` is a role-less binding fallback;
       `node.kind == "call"` in `find_recursive_calls` is identity-specific
       recursion detection.
-    - `plugin-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
+    - `hnl-engine-typecheck-nbe/src/predicate_eval.rs` `function_param_body`:
       the legacy `children: [param, body]` layout is still guarded by
       `node.kind == "function"`. `function` is a core calculus combinator
       and the role-less `Language::new()` used in NBE unit tests has no
@@ -510,7 +510,7 @@ run` when its specifier does not resolve to a file) — the stdlib
       YAML* text (prelude names, `cap` rows), not tokens flowing through a
       `Language` — a `token_in_category` call needs a `Language` they do not
       have at those call sites.
-    - `plugin-engine-parse-pratt/src/lib.rs`: the generic Pratt interpreter
+    - `hnl-engine-parse-pratt/src/lib.rs`: the generic Pratt interpreter
       still inspects token kind strings supplied by grammar data. The
       *structural* delimiter checks (block opener, dimension bracket, block
       element separators, keyword-as-identifier) are now data-driven — see
@@ -542,10 +542,10 @@ run` when its specifier does not resolve to a file) — the stdlib
     `ast.let`, `eval.let`, `eval.stmt-let`, `type.let` all deleted;
     `token.keyword.let`/`lex.keyword.let` remain only as a reserved-word
     tombstone); `parity_block_*` (46 tests in
-    `plugin-engine-typecheck-nbe/tests/parity.rs`) all pass.
-- **ADR-0089 prerequisite (done):** (a) `plugin-engine-test` exists as
+    `hnl-engine-typecheck-nbe/tests/parity.rs`) all pass.
+- **ADR-0089 prerequisite (done):** (a) `hnl-engine-test` exists as
   a standalone crate; (b) the **test-language fragment**
-  (`plugin-engine-test/data/test-language.yaml`) declares
+  (`hnl-engine-test/data/test-language.yaml`) declares
   `test`/`property`/`integration_test`/`bench` `AstShapeDef`s (with
   `name`/`body` roles — the name child parses as a `var` node; the rows use
   `binding_power [6, 0]` so the name stops before infix `=`, the same trick
@@ -585,7 +585,7 @@ human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
   `fuzz.hnl`, `snapshot.hnl`, `test.hnl`). `handl-kit-canonical` builds and
   registers these modules through the generic `HandlModule` seam; their
   `op`/`handl` declarations are stripped at load time. The
-  `plugin-engine-test::framework` crate no longer contains the temporary
+  `hnl-engine-test::framework` crate no longer contains the temporary
   Rust handls — it only keeps the thread-local assert-failure side-channel
   consumed by the runner's `TestAssertHandler`. The framework uses the
   **result pattern** only (`{"__tag__":"ok",...}` / `{"__tag__":"err",...}`);
@@ -698,7 +698,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   byte offsets. `char.chars`/`char.from_chars` exist precisely so O(n) bulk
   conversion replaces O(n²) `char.at` loops.
 - **Runtime fix (field-access):** `eval.field-access` is `source: Native`
-  (the `field_access` native op in `plugin-engine-exec-tree-walk`), not a
+  (the `field_access` native op in `hnl-engine-exec-tree-walk`), not a
   `!Foreign` host call. Passing a record of closures through the
   `serde_json` boundary serialized each `Arrow`'s captured env recursively —
   exponential in the number of prior bindings (OOM at ~20 helpers). Native
@@ -745,7 +745,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   parse failures or canonical-files-with-arrow-markers-that-error are
   retried through `parse_arrow_module` (which itself runs the canonical
   grammar data-driven, then a legacy arrow fallback). Routing lives in
-  `host-cli` because `plugin-engine-typecheck` → `plugin-ext-refinement`
+  `host-cli` because `hnl-engine-typecheck` → `plugin-ext-refinement`
   would cycle (`refinement` → `kit-data-canonical` → `handl-runtime` →
   `typecheck`). Sweep result: **30 → 0 parse failures** across the 177-file
   corpus; typecheck failures 128 → 57, all remaining `[unbound-wire]`

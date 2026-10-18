@@ -15,11 +15,11 @@
 ## High-level architecture
 
 - `crates/platform` — core contracts: `Capability`/`CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin`, `PluginRegistry`, `Kit`, `KitRegistry`, `DefaultHost`, `PlatformError`.
-- `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments. **Moved to the sibling `handl-lang/kernel` repo** (with `plugin-engine` and `handl-value`, the ADR-0040 calculus kernel); consumed here as a `main`-floating git dep patched to `../kernel` for local dev.
+- `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments. **Moved to the sibling `handl-lang/kernel` repo** (with `hnl-engine` and `handl-value`, the ADR-0040 calculus kernel); consumed here as a `main`-floating git dep patched to `../kernel` for local dev.
 - `crates/handl-kit-*` / `kit-canonical` — canonical language data assembly and ready-made kit loading.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
 - `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `detect`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin`. The `hnl` *commands* they back live in the `ext-*` repos as dynamic cdylibs (ADR-0149); `cli`/`lsp` moved to their host repos in ADR-0128 Phase 8.
-- `crates/plugin-engine-*` — concrete tooling engines: `lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform` (`transform-rewrite`), `exec` (`tree-walk`, `bytecode`, `cranelift`).
+- `crates/hnl-engine-*` — concrete tooling engines: `lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform` (`transform-rewrite`), `exec` (`tree-walk`, `bytecode`, `cranelift`).
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `compress`, `kv`, `http`, `os`, `unicode`, `rand`, `time`, `tls`, `ws`, etc.).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and plugin loaders (`native`, `wasm`, `web`).
 - `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`host-cli`** repo, `host-lsp` (LSP server) in **`host-lsp`**.
@@ -68,13 +68,13 @@ error; unknown command exits `2` listing the loaded commands.
 
 - `crates/handl-*` — language core: `handl-language`, `handl-kit-data`, `handl-kit-data-canonical`, `kit-canonical`, `handl-runtime`, `handl-value`, `handl-test-utils`, `handl-defining-handl`, `handl-kit-arrow-lower`.
 - `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`, `Kit`); `crates/platform-tests` — its integration tests.
-- `crates/plugin-engine` — the generic engine substrate (staged `Behavior` machinery).
-- `crates/plugin-engine-*` — concrete engines, all data-driven off `Language`:
+- `crates/hnl-engine` — the generic engine substrate (staged `Behavior` machinery).
+- `crates/hnl-engine-*` — concrete engines, all data-driven off `Language`:
   - front end — `lex`, `lex-pattern`, `parse`, `parse-pratt`
   - tooling — `fmt`, `lint`, `typecheck` (bootstrap checker), `typecheck-handl` (the `.hnl` model's inference engine), `test`
   - transforms — `transform`, `transform-rewrite`
   - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
-- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `sdkgen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `plugin-engine-*` engine — see ADR-0085.
+- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `sdkgen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `hnl-engine-*` engine — see ADR-0085.
 - `crates/plugin-exec-cache` / `plugin-compile-*` — the exec result cache and the compiler back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`).
 - `crates/plugin-sdkgen*` — SDK generators (and their back ends/emitters).
 - `crates/plugin-lib-*` / `crate-*` — standard library, native ops, and utility libraries.

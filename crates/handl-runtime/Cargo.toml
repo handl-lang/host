@@ -27,7 +27,7 @@ hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-patte
 hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
 hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
-hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", branch = "main" }
+hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/engine-exec-cranelift", branch = "main" }
 handl-plugin-module = { path = "../plugin-module" }
 handl-kit-data-canonical = { workspace = true }
 handl-kit-canonical = { workspace = true }

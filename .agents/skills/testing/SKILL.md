@@ -25,7 +25,7 @@ Two test surfaces: Rust (`cargo`) and Handl (`.test.hnl`).
 - `*.test.hnl` files next to the package they exercise
   (`handl-packages/bytes/bytes.test.hnl`, `handl-packages/utils/math.test.hnl`).
 - Convention: `from "<pkg>" import * as <alias>` then `test_<name> := assert...`
-  cases; run with `hnl test <path>` (discovery in `plugin-engine-test`).
+  cases; run with `hnl test <path>` (discovery in `hnl-engine-test`).
 - The test framework is pure handl (`handl-packages/test/`) — `assert.*` is a
   Rust side-channel for failure reporting only.
 

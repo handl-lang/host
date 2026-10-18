@@ -306,7 +306,7 @@ Dimensions do not introduce new programming languages. They identify the level a
 
 The architecture is realized by the kernel: the calculus described above is the running implementation, not a target.
 
-The repository's `Term` calculus (`crates/plugin-engine/src/term.rs`) embodies _dimension-as-expression_: the arrow formers `Arr` and `Op` carry `dim: Box<Term>` (defaulting to the constant `1`), so dimension is data inside the calculus rather than a static annotation. `Src`/`Tgt` project the boundary faces of a 2-cell, and `Seq{axis, fst, snd}` carries the composition axis. The law-inference pass (`crates/handl-language/src/law_inference.rs`) normalizes `Term` graphs to a fixpoint and decides law equality by comparing normal forms — the strict fast-path for 2-morphism checking.
+The repository's `Term` calculus (`crates/hnl-engine/src/term.rs`) embodies _dimension-as-expression_: the arrow formers `Arr` and `Op` carry `dim: Box<Term>` (defaulting to the constant `1`), so dimension is data inside the calculus rather than a static annotation. `Src`/`Tgt` project the boundary faces of a 2-cell, and `Seq{axis, fst, snd}` carries the composition axis. The law-inference pass (`crates/handl-language/src/law_inference.rs`) normalizes `Term` graphs to a fixpoint and decides law equality by comparing normal forms — the strict fast-path for 2-morphism checking.
 
 The four engineering prerequisites previously identified have all landed:
 

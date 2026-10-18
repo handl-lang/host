@@ -38,8 +38,8 @@
 --- ## Typecheck engine (Rust)
 ---
 --- The compile-time typecheck engine (NbE-based type synthesis) lives in
---- `handl-plugin-engine-typecheck-nbe`, behind the
---- `handl-plugin-engine-typecheck` abstraction (`check_module`); it is
+--- `hnl-engine-typecheck-nbe`, behind the
+--- `hnl-engine-typecheck` abstraction (`check_module`); it is
 --- not declared as `op`/`handl` here because it operates at the
 --- inference layer, not the eval-time dispatch layer.
 

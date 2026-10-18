@@ -8,4 +8,4 @@
 # that touches typechecking or the loader.
 
 [profile.fast]
-default-filter = 'not (package(handl-plugin-engine-typecheck-handl) and (binary(dependent_structure) or binary(axis_flow_boundaries))) and not test(loader_parity)'
+default-filter = 'not (package(hnl-engine-typecheck-handl) and (binary(dependent_structure) or binary(axis_flow_boundaries))) and not test(loader_parity)'
