@@ -63,7 +63,7 @@ toml = "0.8"
 url = "2"
 
 [dev-dependencies]
-handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/kit-data-canonical", branch = "main" }
 handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-platform = { git = "https://github.com/handl-lang/host", branch = "main" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
