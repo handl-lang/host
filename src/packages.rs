@@ -232,50 +232,62 @@ pub static MODULES: &[ModuleSpec] = &[
         }),
     },
     ModuleSpec {
-        name: "serialize",
-        hnl: handl_lib_serialize::SERIALIZE_HNL,
-        funcs: &[],
-        ops: handl_lib_serialize::SERIALIZE_OPS,
+        name: "json",
+        hnl: handl_lib_json::JSON_FLAT_HNL,
+        funcs: handl_lib_json::JSON_FUNCS,
+        ops: &[],
         values: &[],
-        registry: Some(|| {
-            handl_lib_serialize::serialize_op_registry_with(handl_lib_json::register(
-                handl_lib_serialize::SerializerRegistry::new(),
-            ))
-        }),
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ip",
+        hnl: handl_lib_ip::IP_FLAT_HNL,
+        funcs: handl_lib_ip::IP_FUNCS,
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "serialize",
+        hnl: handl_lib_serialize::SERIALIZE_FLAT_HNL,
+        funcs: handl_lib_serialize::SERIALIZE_FUNCS,
+        ops: &[],
+        values: &[],
+        registry: None,
     },
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
         name: "base64",
-        hnl: handl_lib_base64::BASE64_HNL,
-        funcs: &[],
-        ops: handl_lib_base64::BASE64_OPS,
+        hnl: handl_lib_base64::BASE64_FLAT_HNL,
+        funcs: handl_lib_base64::BASE64_FUNCS,
+        ops: &[],
         values: &[],
-        registry: Some(handl_lib_base64::base64_op_registry),
+        registry: None,
     },
     ModuleSpec {
         name: "hex",
-        hnl: handl_lib_hex::HEX_HNL,
-        funcs: &[],
-        ops: handl_lib_hex::HEX_OPS,
+        hnl: handl_lib_hex::HEX_FLAT_HNL,
+        funcs: handl_lib_hex::HEX_FUNCS,
+        ops: &[],
         values: &[],
-        registry: Some(handl_lib_hex::hex_op_registry),
+        registry: None,
     },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
-        hnl: handl_lib_url_rfc::URL_RFC_HNL,
-        funcs: &[],
-        ops: handl_lib_url_rfc::URL_RFC_OPS,
+        hnl: handl_lib_url_rfc::URL_RFC_FLAT_HNL,
+        funcs: handl_lib_url_rfc::URL_RFC_FUNCS,
+        ops: &[],
         values: &[],
-        registry: Some(handl_lib_url_rfc::url_rfc_op_registry),
+        registry: None,
     },
     ModuleSpec {
         name: "url_whatwg",
-        hnl: handl_lib_url_whatwg::URL_WHATWG_HNL,
-        funcs: &[],
-        ops: handl_lib_url_whatwg::URL_WHATWG_OPS,
+        hnl: handl_lib_url_whatwg::URL_WHATWG_FLAT_HNL,
+        funcs: handl_lib_url_whatwg::URL_WHATWG_FUNCS,
+        ops: &[],
         values: &[],
-        registry: Some(handl_lib_url_whatwg::url_whatwg_op_registry),
+        registry: None,
     },
     // ── cmp (former plugin-lib-cmp) ────────────────────────────────────
     ModuleSpec {
@@ -542,16 +554,15 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "tar",
-        hnl: handl_lib_tar::TAR_HNL,
-        funcs: &[],
-        ops: handl_lib_tar::TAR_OPS,
+        hnl: handl_lib_tar::TAR_FLAT_HNL,
+        funcs: handl_lib_tar::TAR_FUNCS,
+        ops: &[],
         values: &[],
-        registry: Some(handl_lib_tar::tar_op_registry),
+        registry: None,
     },
     // ── intl_c — the `intl` contract implemented over the system ICU4C ─
-    // library via `ffi` (`ucol_*`/`unum_*`, UTF-16 marshalling, UErrorCode
-    // readbacks). Pure-handl module; `available`/`icu_version` report probe
-    // results so callers can gate on host ICU presence.
+    // library via `ffi`. Pure-handl module; `available`/`icu_version` report
+    // probe results so callers can gate on host ICU presence.
     ModuleSpec {
         name: "intl_c",
         hnl: handl_lib_intl_c::INTL_C_HNL,
@@ -920,6 +931,13 @@ pub static PACKAGES: &[PackageSpec] = &[
     },
     // Single-module packages also usable standalone (idempotent with the
     // `utils` aggregate, which contributes the same modules).
+    PackageSpec {
+        lib_name: "json",
+        plugin_id: "lib.json",
+        plugin_name: "lib-json",
+        hnl: handl_lib_json::JSON_FLAT_HNL,
+        modules: &[],
+    },
     PackageSpec {
         lib_name: "base64",
         plugin_id: "lib.base64",
