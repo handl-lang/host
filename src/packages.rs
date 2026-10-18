@@ -1042,6 +1042,18 @@ pub static PACKAGES: &[PackageSpec] = &[
         hnl: handl_lib_unicode::UNICODE_HNL,
         modules: &[],
     },
+    // ── ip (former plugin-lib-ip) — native ops in `lib-ip` ───────────────
+    // The `ip` module dispatches across the `ip` / `cidr` / `socket`
+    // prefixes with colliding local op names (`ip.parse` vs
+    // `ip.cidr.parse`), so it is contributed as the `IpModule` aggregate
+    // rather than table-built sub-modules (see `package_module_names`).
+    PackageSpec {
+        lib_name: "ip",
+        plugin_id: "lib.ip",
+        plugin_name: "lib-ip",
+        hnl: handl_lib_ip::IP_HNL,
+        modules: &[],
+    },
 ];
 
 /// Look up a [`ModuleSpec`] by module name.
@@ -1062,6 +1074,12 @@ fn package_module_names(spec: &PackageSpec) -> Vec<&'static str> {
     }
     if spec.lib_name == "archive-tar" {
         return ARCHIVE_TAR_MODULES.to_vec();
+    }
+    if spec.lib_name == "ip" {
+        // `ip` is contributed as the `IpModule` aggregate (below), not as
+        // table-built sub-modules: its ops share last-segment names
+        // (`parse`, `format`) across the `ip`/`cidr`/`socket` prefixes.
+        return Vec::new();
     }
     if !spec.modules.is_empty() {
         return spec.modules.iter().map(|m| m.name).collect();
@@ -1409,6 +1427,11 @@ impl Plugin for PackagePlugin {
             ctx.contribute::<ModuleRuntime>(ModuleRule::new(
                 ops::collections::CollectionsModule::new(Arc::clone(&fallback)),
             ))?;
+        }
+        if self.spec.lib_name == "ip" {
+            // `ip` is an aggregator module (ip / cidr / socket prefixes);
+            // contribute it directly so dotted lookups resolve.
+            ctx.contribute::<ModuleRuntime>(ModuleRule::new(handl_lib_ip::IpModule))?;
         }
         Ok(())
     }
