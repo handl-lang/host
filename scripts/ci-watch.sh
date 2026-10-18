@@ -36,7 +36,7 @@ log() { printf '[%s] %s\n' "$(date -Is)" "$*" | tee -a "$LOG_FILE"; }
 
 post_status() { # state description
   [ "$POST_STATUS" = "1" ] || return 0
-  gh api "repos/handl-lang/platform/statuses/$1" \
+  gh api "repos/handl-lang/host/statuses/$1" \
     -f state="$2" -f context="ci/dagger" -f description="$3" \
     --silent 2>/dev/null || log "status post failed ($2 $3)"
 }

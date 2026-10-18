@@ -1,5 +1,5 @@
 name: platform
-root: /home/luis/GitHub/handl-lang/platform
+root: /home/luis/GitHub/handl-lang/host
 purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
 modules:
 - _root

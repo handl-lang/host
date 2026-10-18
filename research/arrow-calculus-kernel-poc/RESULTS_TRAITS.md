@@ -701,7 +701,7 @@ Box<Ty>)` represents `F<A>` (ADR §5 angle-bracket syntax);
 ## How to run
 
 From the poc directory
-(`/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc`):
+(`/home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc`):
 
 ```
 cd lean && lake build
@@ -730,7 +730,7 @@ round-trip).
 
 ## References
 
-- ADR: `platform/project/adrs/0075-traits-as-arrow-signatures.md`
+- ADR: `host/project/adrs/0075-traits-as-arrow-signatures.md`
 - Lean mechanization:
   `lean/ArrowMinimalityLib/TraitInference.lean` (law inference via
   CutElim; module doc lines 1-58; Summary + Honest assessment lines

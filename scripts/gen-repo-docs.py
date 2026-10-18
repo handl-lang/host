@@ -20,7 +20,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 ORG = ROOT.parent
 MANIFEST = ROOT / "project" / "docs-split.yaml"
-PLATFORM = "https://github.com/handl-lang/platform/blob/main/project/adrs"
+PLATFORM = "https://github.com/handl-lang/host/blob/main/project/adrs"
 
 PHASE = {
     "python": 1, "c": 2, "stdlib": 3, "otlp": 4, "web": 5, "native": 6,
@@ -101,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
             "# Canonical ADR references",
             "",
             "ADRs that define ports, the kernel, or composition stay in",
-            "`handl-lang/platform/project/adrs/`. They are referenced here, never",
+            "`handl-lang/host/project/adrs/`. They are referenced here, never",
             "copied (ADR-0129 §2/§7).",
             "",
             "| ADR | url |",

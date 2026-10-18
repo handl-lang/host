@@ -7,7 +7,7 @@
   "c": "fd40f800dbcce349.c"},
  "log":
  [{"message":
-   ".> LEAN_PATH=/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean /home/luis/.elan/toolchains/leanprover--lean4---v4.33.1/bin/lean /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/Translation.lean -o /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/Translation.olean -i /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/Translation.ilean -c /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/ir/ArrowMinimalityLib/Translation.c --setup /home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/.lake/build/ir/ArrowMinimalityLib/Translation.setup.json --json",
+   ".> LEAN_PATH=/home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean /home/luis/.elan/toolchains/leanprover--lean4---v4.33.1/bin/lean /home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/Translation.lean -o /home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/Translation.olean -i /home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/.lake/build/lib/lean/ArrowMinimalityLib/Translation.ilean -c /home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/.lake/build/ir/ArrowMinimalityLib/Translation.c --setup /home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/.lake/build/ir/ArrowMinimalityLib/Translation.setup.json --json",
    "level": "trace"},
   {"message":
    "ArrowMinimalityLib/Translation.lean:710:24: This simp argument is unused:\n  subst0\n\nHint: Omit it from the simp argument list.\n  [apply] simp [substAux, LamTerm.shift_zero]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`",
@@ -90,7 +90,7 @@
     ["module plugins", "00000000000006bb"]]],
   ["Lean 4.33.1, commit 819816b2e0a3bf405af45ae5c7af2491d8f5bee6",
    "0051240b7c23c453"],
-  ["/home/luis/GitHub/handl-lang/platform/research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/Translation.lean",
+  ["/home/luis/GitHub/handl-lang/host/research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/Translation.lean",
    "0199754eb05b7269"],
   ["options", "00000000000006bb"],
   ["isModule: false", "feefd2a0d3a1847e"],

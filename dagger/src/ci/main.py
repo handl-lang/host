@@ -1,4 +1,4 @@
-"""CI pipeline for handl-lang/platform — thin orchestration over bupha.
+"""CI pipeline for handl-lang/host — thin orchestration over bupha.
 
 All container plumbing (toolchain image, workspace mount, dev-link +
 self-patch, cargo/sccache caches, token auth) lives in the shared
