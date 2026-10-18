@@ -205,6 +205,27 @@ fn runtime_object_keys_on_compiled_engines() {
     assert_lowered_on_compiled_engines(
         r#"do { n :: 42, match { "a": 1 } { {[n]: x}: x, _: 0 } }"#,
     );
+    // Nested dynamic keys — the staged `Extend` appends a tuple slot at
+    // depth, shared between the discriminant and both binder paths
+    // (`o.k` stays runtime-valued: `static_term_value` cannot fold the
+    // field access).
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "b"}, match { "a": { "b": 1, "c": 2 } } { { "a": {[o.k]: x, "c": y} }: x + y, _: 0 } }"#,
+    );
+    // `o.a` present but not an object → the nested `is_obj` gate fails
+    // and the arm falls through without forcing a key.
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "b"}, match { "a": 5 } { { "a": {[o.k]: x} }: x, _: 0 } }"#,
+    );
+    // Two nested dynamic-key objects → two appended slots (`elem 3`
+    // reads on the 4-tuple).
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "b"}, match { "a": { "b": 1 }, "c": { "b": 4 } } { { "a": {[o.k]: x}, "c": {[o.k]: y} }: x + y, _: 0 } }"#,
+    );
+    // Nested `...rest` reads the forced slot via `obj_except`.
+    assert_lowered_on_compiled_engines(
+        r#"do { o :: {"k": "b"}, match { "a": { "b": 1, "c": 9 } } { { "a": {[o.k]: x, ...r} }: [x, r.c], _: 0 } }"#,
+    );
 }
 
 #[test]
@@ -447,9 +468,53 @@ fn runtime_object_pattern_keys() {
     // Two dynamic keys, both binders used, plus a `...rest` read —
     // via do-block slots (`(k, j) ~>` multi-param dynamic keys are a
     // pre-existing `elem` OOB on the pair projection, unrelated to the
-    // prologue split).
+    // staged dispatch).
     assert_lowered(
         r#"do { k :: "a", j :: "b", match { "a": 1, "b": 2, "c": 3 } { {[k]: x, [j]: y, ...r}: x + y + r.c, _: 0 } }"#,
+    );
+    // Nested dynamic-key objects force their keys once per arm
+    // attempt *behind* the nested `is_obj` gate — a missing/non-object
+    // inner scrutinee falls through without evaluating any key, and a
+    // matched arm shares the forced list between the discriminant and
+    // every binder path.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 1, "c": 2 } } { { "a": {[k]: x, "c": y} }: x + y + x, _: 0 })("b")"#,
+    );
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 1, "c": 2 } } { { "a": {[k]: x, "c": y} }: x + y, _: 0 })("z")"#,
+    );
+    // `o.a` present but not an object → the nested gate fails, the arm
+    // falls through, no key evaluates.
+    assert_lowered(
+        r#"((k) ~> match { "a": 5 } { { "a": {[k]: x} }: x, _: 0 })("b")"#,
+    );
+    // Two nested dynamic-key objects under sibling entries.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 1 }, "c": { "b": 4 } } { { "a": {[k]: x}, "c": {[k]: y} }: x + y, _: 0 })("b")"#,
+    );
+    // Nested dynamic key inside an array pattern.
+    assert_lowered(
+        r#"((k) ~> match [{ "b": 3 }] { [{[k]: x}]: x, _: 0 })("b")"#,
+    );
+    // `...rest` under a nested dynamic key — `obj_except(target, keys)`
+    // reads the forced slot.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 1, "c": 9 } } { { "a": {[k]: x, ...r} }: [x, r.c], _: 0 })("b")"#,
+    );
+    // Two levels deep: `{a: {b: {[k]: x}}}`.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": { "c": 8 } } } { { "a": { "b": {[k]: x} } }: x, _: 0 })("c")"#,
+    );
+    // A *later* entry fails after the nested keys were forced — the
+    // miss arm collapses the extended tuple back to `[v, in]` and the
+    // next arm still sees the plain dispatch pair.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 1 }, "z": 5 } { { "a": {[k]: x}, "z": 99 }: x, _: 0 })("b")"#,
+    );
+    // Same, but the *matching* arm is second — the first arm's forced
+    // keys must not leak into it.
+    assert_lowered(
+        r#"((k) ~> match { "a": { "b": 1 }, "z": 5 } { { "a": {[k]: x}, "z": 99 }: x, { "z": n }: n, _: 0 })("b")"#,
     );
 }
 
@@ -544,6 +609,51 @@ fn runtime_object_key_evaluated_once() {
     assert_eq!(
         obj_key_count(
             r#"do { o :: {"k": "a", "j": "b"}, match { "a": 1, "b": 2 } { {[o.k]: x, [o.j]: y}: x + y, _: 0 } }"#,
+        ),
+        2,
+    );
+}
+
+#[test]
+fn nested_runtime_object_key_evaluated_once() {
+    // The residual the staged dispatch closed: a dynamic key inside a
+    // nested object pattern evaluates once per arm attempt — behind the
+    // nested `is_obj` gate and the outer `has_field "a"` — not once for
+    // the discriminant plus once per binder path. `{a: {[k]: x, "c": y}}`
+    // has two binders, so the inline fold emitted `obj_key` three times;
+    // the staged dispatch emits it once.
+    assert_eq!(
+        obj_key_count(
+            r#"((k) ~> match { "a": { "b": 1, "c": 2 } } { { "a": {[k]: x, "c": y} }: x + y + x, _: 0 })("b")"#,
+        ),
+        1,
+    );
+    // Same shape with a `...rest` read of the forced key list.
+    assert_eq!(
+        obj_key_count(
+            r#"((k) ~> match { "a": { "b": 1, "c": 9 } } { { "a": {[k]: x, ...r} }: [x, r.c], _: 0 })("b")"#,
+        ),
+        1,
+    );
+    // Two levels deep still forces once.
+    assert_eq!(
+        obj_key_count(
+            r#"((k) ~> match { "a": { "b": { "c": 8 } } } { { "a": { "b": {[k]: x} } }: x, _: 0 })("c")"#,
+        ),
+        1,
+    );
+    // Under an array element too.
+    assert_eq!(
+        obj_key_count(
+            r#"((k) ~> match [{ "b": 3 }] { [{[k]: x}]: x, _: 0 })("b")"#,
+        ),
+        1,
+    );
+    // Two nested dynamic-key objects on sibling entries — one forcing
+    // each, both reached on the discriminant walk.
+    assert_eq!(
+        obj_key_count(
+            r#"((k) ~> match { "a": { "b": 1 }, "c": { "b": 4 } } { { "a": {[k]: x}, "c": {[k]: y} }: x + y, _: 0 })("b")"#,
         ),
         2,
     );

@@ -2411,11 +2411,15 @@ fn lower_nullish(
 /// binders/wildcards/globals, literals, nested `array`/`object`
 /// destructuring with `...rest`, `call` tag patterns, literal-eval
 /// expression patterns, and computed object keys (static ones inline,
-/// runtime-valued ones via the `[sv, in, keys]` extended pair and the
-/// two-arg operand forms of `has_field`/`field_access`/`obj_except`):
-/// predicates and binder paths are evaluated on the `[sv, in]` dispatch
-/// pair, so `pat_env`'s `Seq[proj(1), T]` re-anchored bindings let a
-/// pattern expression read the ambient env at any depth.
+/// runtime-valued ones via [`PatStage::Extend`] — an evaluated key list
+/// appended as a dispatch-tuple slot — and the two-arg operand forms of
+/// `has_field`/`field_access`/`obj_except`):
+/// predicates and binder paths are evaluated on the dispatch tuple
+/// `[sv, in, keys…]`, so `pat_env`'s `Seq[proj(1), T]` re-anchored
+/// bindings let a pattern expression read the ambient env at any depth
+/// (`elem 1` is positionally stable under appends), and a forced key
+/// list is shared by every discriminant check after its `Extend` *and*
+/// the arm body's binder paths.
 fn lower_match(
     ast: &Ast,
     lang: &Language,
@@ -2477,15 +2481,17 @@ fn lower_match(
 
     // Collect arms; richer patterns decline the whole node.
     struct Arm {
-        /// Discriminant term evaluated on the `[sv, in]` dispatch pair —
-        /// or on the `[sv, in, keys]` triple when `prologue` is set.
-        pred: Term,
-        /// Pattern-bound names → terms evaluated on the same shape.
+        /// Ordered evaluation stages on the dispatch tuple
+        /// `[sv, in, keys…]` — see [`PatStage`].
+        stages: Vec<PatStage>,
+        /// Pattern-bound names → terms evaluated on the fully extended
+        /// dispatch tuple.
         binds: Vec<(String, Term)>,
-        /// Runtime-valued-key prologue (see [`PatternPrologue`]).
-        prologue: Option<PatternPrologue>,
         body_idx: usize,
     }
+    let root_frame = PatFrame {
+        value: Term::op_native_lit("elem", vec![], 0),
+    };
     let mut arms: Vec<Arm> = Vec::new();
     for &arm_idx in &arm_indices {
         let arm = ast
@@ -2498,11 +2504,22 @@ fn lower_match(
         let body_idx = child_at_role_or_pos(arm, lang, "body", 1)
             .or_else(|| ach.get(1).copied())
             .ok_or_else(|| format!("match arm {} missing body", arm_idx))?;
-        let c = compile_pattern(ast, lang, pat_idx, node, &arm_env)?;
+        // Forced-key-list slots are allocated in stage order — slots
+        // 0|1 are `sv`/`in` — which is exactly the arity walk the
+        // dispatch fold below performs.
+        let mut next_slot = 2i64;
+        let c = compile_pattern(
+            ast,
+            lang,
+            pat_idx,
+            node,
+            &arm_env,
+            &root_frame,
+            &mut next_slot,
+        )?;
         arms.push(Arm {
-            pred: c.pred,
+            stages: c.stages,
             binds: c.binds,
-            prologue: c.prologue,
             body_idx,
         });
     }
@@ -2524,53 +2541,52 @@ fn lower_match(
             );
         }
         let body = lower_node(ast, lang, arm.body_idx, &body_env, &[])?;
-        dispatch = match &arm.prologue {
-            // Object pattern with runtime-valued keys: `gate` (`is_obj`)
-            // runs first — a non-object falls through without evaluating
-            // any key, `try_object_pattern`'s early `Ok(false)` — then
-            // `extend` forces every key once into the `[v, in, keys]`
-            // triple the inner discriminant *and* the arm body share.
-            // A failed inner discriminant collapses the triple back to
-            // `[v, in]` for the next arm (`product(elem 0, elem 1)`).
-            Some(p) => Term::seq(
-                Term::op_native("product", vec![p.gate.clone(), id.clone()]),
-                Term::seq(
-                    Term::op_native("pair_tag", vec![]),
-                    Term::choice(
+        // Fold the stage list into the sequential dispatch, inside-out.
+        // `Check c` wraps the remaining chain in
+        // `Seq[product(c, id), pair_tag, Choice[·, miss]]` — the miss arm
+        // resumes the next arm's dispatch on the collapsed `[sv, in]`
+        // pair (`product(elem 0, elem 1)`, skipped when the tuple is
+        // already a pair). `Extend keys` appends the evaluated key list
+        // (`product(elem 0, …, elem n-1, keys)`), so a runtime-valued
+        // object key — root *or* nested — is forced once per arm
+        // attempt, at exactly the `try_object_pattern` point (after the
+        // object's own `is_obj` gate), and shared between the
+        // discriminant checks that follow and the arm body.
+        let mut inner = body;
+        let mut arity: i64 = 2 + arm
+            .stages
+            .iter()
+            .filter(|s| matches!(s, PatStage::Extend(_)))
+            .count() as i64;
+        for stage in arm.stages.iter().rev() {
+            inner = match stage {
+                PatStage::Check(c) => {
+                    let miss = if arity > 2 {
                         Term::seq(
-                            p.extend.clone(),
-                            Term::seq(
-                                Term::op_native(
-                                    "product",
-                                    vec![arm.pred.clone(), id.clone()],
-                                ),
-                                Term::seq(
-                                    Term::op_native("pair_tag", vec![]),
-                                    Term::choice(
-                                        body,
-                                        Term::seq(
-                                            Term::op_native(
-                                                "product",
-                                                vec![proj(0), proj(1)],
-                                            ),
-                                            dispatch.clone(),
-                                        ),
-                                    ),
-                                ),
-                            ),
+                            Term::op_native("product", vec![proj(0), proj(1)]),
+                            dispatch.clone(),
+                        )
+                    } else {
+                        dispatch.clone()
+                    };
+                    Term::seq(
+                        Term::op_native("product", vec![c.clone(), id.clone()]),
+                        Term::seq(
+                            Term::op_native("pair_tag", vec![]),
+                            Term::choice(inner, miss),
                         ),
-                        dispatch,
-                    ),
-                ),
-            ),
-            None => {
-                let decision = Term::seq(
-                    Term::op_native("product", vec![arm.pred.clone(), id.clone()]),
-                    Term::op_native("pair_tag", vec![]),
-                );
-                Term::seq(decision, Term::choice(body, dispatch))
-            }
-        };
+                    )
+                }
+                PatStage::Extend(keys) => {
+                    arity -= 1;
+                    let mut args: Vec<Term> = (0..arity).map(|i| proj(i)).collect();
+                    args.push(keys.clone());
+                    Term::seq(Term::op_native("product", args), inner)
+                }
+            };
+        }
+        debug_assert_eq!(arity, 2);
+        dispatch = inner;
     }
     Ok(Term::seq(
         Term::op_native("product", vec![scrut_t, Term::op_native("id", vec![])]),
@@ -2578,13 +2594,22 @@ fn lower_match(
     ))
 }
 
-/// Compile one `match` arm pattern to a discriminant term plus the
-/// binders it introduces — **both evaluated on the `[v, in]` dispatch
-/// pair**, where `v` is the (sub-)scrutinee value and `in` is the match
-/// node's input. `pat_env` is [`lower_match`]'s rebased env
-/// (`Seq[proj(1), T]` entries consuming that pair), so a literal-eval
-/// expression lowered under it reads the ambient env — enclosing
-/// params included — at any pattern depth.
+/// Compile one `match` arm pattern to an ordered list of [`PatStage`]s
+/// plus the binders it introduces — **all evaluated on the arm dispatch
+/// tuple `[v, in, keys, …]`**, where `v` is the arm scrutinee value,
+/// `in` is the match node's input, and each `keys` slot is one object
+/// pattern's forced runtime-key list. `pat_env` is [`lower_match`]'s
+/// rebased env (`Seq[proj(1), T]` entries consuming the tuple), so a
+/// literal-eval expression lowered under it reads the ambient env —
+/// enclosing params included — at any pattern depth: `elem 1` keeps its
+/// `in` meaning no matter how many key slots were appended.
+///
+/// Nested sub-patterns recurse with a deeper [`PatFrame`]: `value` is
+/// the `field_access` chain that reaches the sub-scrutinee off `elem 0`,
+/// so every stage reads the same dispatch tuple — which is what lets a
+/// *nested* object pattern's [`PatStage::Extend`] share its forced keys
+/// between the discriminant and the arm body instead of re-evaluating
+/// them per binder-path use.
 ///
 /// The dispatch mirrors `pattern_match::try_pattern` (ADR-0061/0081):
 /// leaf → sequence → entries → tag → literal-eval. Supported shapes:
@@ -2595,8 +2620,8 @@ fn lower_match(
 /// - `array` (`pattern_role: sequence`) — positional *sub-patterns*
 ///   (recursively: literals, nested arrays/objects/tags, binders,
 ///   literal-eval expressions) plus an optional `rest` binder; the
-///   length check guards element projections via short-circuit `and`
-///   chains so a non-match falls through instead of erroring;
+///   length check precedes every element projection in stage order so
+///   a non-match falls through instead of erroring;
 /// - `object` (`pattern_role: entries`) — `entry` children whose keys
 ///   resolve *statically*: a declared literal key
 ///   (`literal_children`), or a computed key (`[expr]`/`(expr)` —
@@ -2604,12 +2629,12 @@ fn lower_match(
 ///   as an env binding `k :: "a"`; nested sub-patterns per key,
 ///   `...rest` via `obj_except`; the empty `{}` pattern is the `is_obj`
 ///   test. A *runtime-valued* computed key lowers through
-///   `lower_node(pat_env)` into a pair-evaluated term: when any entry's
-///   key is dynamic the whole arm's pred is re-anchored on an extended
-///   `[v, in, keys]` triple (`product` fan-out evals every key once,
-///   mirroring `try_object_pattern`'s eager key collection), and
-///   `has_field`/`field_access`/`obj_except` consume slot-2 indexes
-///   via their two-arg operand forms;
+///   `lower_node(pat_env)` into a tuple-evaluated term: when any entry's
+///   key is dynamic the pattern emits `Check(is_obj)` then
+///   `Extend(keys)` — `try_object_pattern`'s "object first, then force
+///   every key once" order — and `has_field`/`field_access`/`obj_except`
+///   consume the allocated slot's indexes via their two-arg operand
+///   forms;
 /// - `call` tag patterns `Tag(b0, b1, …)` (ADR-0077) — `has_field
 ///   "__tag__"` + tag equality; binders take the sorted non-`__tag__`
 ///   payload values positionally via `tag_fields`;
@@ -2622,73 +2647,58 @@ fn lower_match(
 /// `match_shell` covers it via the AST fallback. A computed key that is
 /// *not* a compile-time constant (a param, a call, a concat) lowers to
 /// the dynamic operand forms of `has_field`/`field_access`/`obj_except`
-/// over a slot-2 key list; only a key expression `lower_node` itself
-/// cannot express still declines.
+/// over the pattern's key slot; only a key expression `lower_node`
+/// itself cannot express still declines.
 
 /// What [`compile_pattern`] produced for one arm pattern.
 struct CompiledPattern {
-    /// Discriminant term — evaluated on the dispatch pair `[v, in]`,
-    /// or on the extended `[v, in, keys]` triple when `prologue` is set.
-    pred: Term,
-    /// Pattern-bound names → terms evaluated on the same shape as `pred`.
+    /// Ordered evaluation stages on the arm dispatch tuple — see
+    /// [`PatStage`]. [`lower_match`] folds them into the sequential
+    /// `pair_tag`/`Choice` dispatch, so a `Check` gates every stage that
+    /// follows it.
+    stages: Vec<PatStage>,
+    /// Pattern-bound names → terms evaluated on the fully extended
+    /// dispatch tuple (the arm body's input when every stage passed).
     binds: Vec<(String, Term)>,
-    /// Set when the arm's *root* pattern is an object with runtime-valued
-    /// keys: [`lower_match`] then wraps the arm in `gate` + `extend` so the
-    /// key list is forced once and shared between discriminant and body.
-    prologue: Option<PatternPrologue>,
 }
 
-/// An arm-level prologue for an object pattern with runtime-valued keys:
-/// `try_object_pattern` checks the scrutinee is an object, then evaluates
-/// every computed key once before matching — the lowered counterpart is a
-/// `gate` (the `is_obj` check) guarding `extend`, which pushes the
-/// evaluated key list onto the dispatch pair: `[v, in] → [v, in, keys]`.
-/// Both terms consume the plain `[v, in]` pair; `pred`/`binds` of the
-/// [`CompiledPattern`] then consume the extended triple.
-struct PatternPrologue {
-    /// `[v, in] -> bool` — the `is_obj` scrutinee gate.
-    gate: Term,
-    /// `[v, in] -> [v, in, keys]` — evaluates each dynamic key once.
-    extend: Term,
+/// One step of a compiled pattern's evaluation, in `try_pattern` order.
+enum PatStage {
+    /// A boolean check on the dispatch tuple — a false result falls
+    /// through to the next arm (`Seq[product(c, id), pair_tag,
+    /// Choice[·, miss]]`).
+    Check(Term),
+    /// Force an object pattern's runtime-valued key list once and
+    /// append it as the next dispatch-tuple slot
+    /// (`product(elem 0, …, elem n-1, keys)`). Always emitted right
+    /// after that pattern's `is_obj` gate, mirroring
+    /// `try_object_pattern`'s key-forcing order at any nesting depth.
+    /// `keys` consumes the tuple — its key terms read `elem 1` (`in`).
+    Extend(Term),
 }
 
+/// How a pattern's (sub-)scrutinee is read off the arm dispatch tuple
+/// `[v, in, keys, …]` — the root frame is `elem 0`; each entry/element
+/// descent composes another `field_access` onto it. `elem 1` (`in`) is
+/// positionally stable at every depth, so env/param reads
+/// (`Seq[proj(1), …]`) work in terms evaluated at any nesting level.
+struct PatFrame {
+    /// Term on the dispatch tuple evaluating to this pattern's
+    /// scrutinee.
+    value: Term,
+}
+
+/// `pred` as a one-check [`CompiledPattern`] — a constant-`true`
+/// discriminant (wildcard/binder leaf) contributes no stage.
 fn compiled(pred: Term, binds: Vec<(String, Term)>) -> CompiledPattern {
     CompiledPattern {
-        pred,
+        stages: if is_const_true(&pred) {
+            Vec::new()
+        } else {
+            vec![PatStage::Check(pred)]
+        },
         binds,
-        prologue: None,
     }
-}
-
-/// Compile a pattern for a *nested* position: a sub-pattern's arm-level
-/// prologue is folded inline — the gate rides into the sub-predicate
-/// (`and_short`) and the extension into each binder path — producing
-/// terms evaluated on the local `[v', in]` sub-scrutinee pair, the same
-/// shape [`lower_match`] emits for a prologue-less arm. Sharing the
-/// extension *across* the discriminant/body boundary is only possible at
-/// arm level (the keys depend on `in`, but `try_object_pattern` timing —
-/// keys forced only when the nested object pattern is reached — would
-/// change if a nested extension were hoisted past its own `is_obj`
-/// gate), so nested dynamic keys still evaluate once per binder-path
-/// use — the residual this arm-level split does not close.
-fn compile_pattern_inline(
-    ast: &Ast,
-    lang: &Language,
-    pat_idx: usize,
-    node: &AstNode,
-    pat_env: &HashMap<String, EnvEntry>,
-) -> Result<(Term, Vec<(String, Term)>), String> {
-    let c = compile_pattern(ast, lang, pat_idx, node, pat_env)?;
-    Ok(match c.prologue {
-        None => (c.pred, c.binds),
-        Some(p) => (
-            and_short(p.gate, Term::seq(p.extend.clone(), c.pred)),
-            c.binds
-                .into_iter()
-                .map(|(n, path)| (n, Term::seq(p.extend.clone(), path)))
-                .collect(),
-        ),
-    })
 }
 
 fn compile_pattern(
@@ -2697,18 +2707,21 @@ fn compile_pattern(
     pat_idx: usize,
     node: &AstNode,
     pat_env: &HashMap<String, EnvEntry>,
+    frame: &PatFrame,
+    next_slot: &mut i64,
 ) -> Result<CompiledPattern, String> {
     let pat = ast
         .get(AstRef::new(pat_idx))
         .ok_or_else(|| format!("match pattern {pat_idx} out of bounds"))?;
-    // `[v, in]` accessors: `pv` is the current (sub-)scrutinee value,
-    // `pin` the ambient input.
-    let pv = || Term::op_native_lit("elem", vec![], 0);
-    let pin = || Term::op_native_lit("elem", vec![], 1);
+    // Dispatch-tuple accessors: `pv` is the current (sub-)scrutinee —
+    // `frame.value`, an `elem 0`-rooted `field_access` chain — and `in`
+    // is always `elem 1`, so `pat_env`'s `Seq[proj(1), ·]` entries work
+    // however many key slots were appended.
+    let pv = || frame.value.clone();
     let id = Term::op_native("id", vec![]);
     let true_t = || Term::const_value(Value::from(true));
     // `eq`/`field_access` evaluate their args on the input, so a
-    // pair-level use is `op[pv, …]`; `has_field`/`is_obj`/`arr_len`/
+    // tuple-level use is `op[pv, …]`; `has_field`/`is_obj`/`arr_len`/
     // `arr_drop`/`tag_fields`/`obj_except` read the input itself (their
     // `args` are inert), so they ride behind `Seq[pv, …]` (`on_v`).
     let eq_lit = |v: Value| Term::op_native("eq", vec![pv(), Term::const_value(v)]);
@@ -2722,9 +2735,6 @@ fn compile_pattern(
             Value::from(name),
         ))
     };
-    // Descend into a sub-pattern: `t` yields the sub-scrutinee on the
-    // pair; `product(t, pin)` re-pairs it with `in` → `[v', in]`.
-    let sub_pair = |t: Term| Term::op_native("product", vec![t, pin()]);
     // `try_pattern`'s tail: evaluate the node as an expression in the
     // ambient env and `eq`-compare against `v` — honest for anything
     // `lower_node` covers (`paren` bodies, env-bound vars, calls,
@@ -2790,7 +2800,7 @@ fn compile_pattern(
         // falls through (matching `try_pattern`'s false) instead of
         // erroring mid-dispatch. `[]` uses structural equality so a
         // non-array also falls through.
-        let mut pred = if n == 0 && rest.is_none() {
+        let mut stages: Vec<PatStage> = vec![PatStage::Check(if n == 0 && rest.is_none() {
             eq_lit(Value::Array(vec![]))
         } else {
             Term::op_native(
@@ -2800,19 +2810,23 @@ fn compile_pattern(
                     Term::const_value(Value::from(n as i64)),
                 ],
             )
-        };
-        // Positional sub-patterns recurse on `[sv[i], in]` behind the
-        // length check (short-circuit), so a too-short scrutinee cannot
-        // error on `field_access i`.
+        })];
+        // Positional sub-patterns recurse with a `field_access i` frame
+        // behind the length check — stage order short-circuits, so a
+        // too-short scrutinee cannot error on the projection.
         let mut binds: Vec<(String, Term)> = Vec::new();
         for (i, &p) in positional.iter().enumerate() {
-            let (sub_pred, sub_binds) = compile_pattern_inline(ast, lang, p, node, pat_env)?;
-            if !is_const_true(&sub_pred) {
-                pred = and_short(pred, Term::seq(sub_pair(elem_at(i)), sub_pred));
-            }
-            for (name, path) in sub_binds {
-                binds.push((name, Term::seq(sub_pair(elem_at(i)), path)));
-            }
+            let c = compile_pattern(
+                ast,
+                lang,
+                p,
+                node,
+                pat_env,
+                &PatFrame { value: elem_at(i) },
+                next_slot,
+            )?;
+            stages.extend(c.stages);
+            binds.extend(c.binds);
         }
         if let Some(r) = rest {
             if let Some(name) = rest_binder_name(ast, lang, r, node)? {
@@ -2826,7 +2840,7 @@ fn compile_pattern(
                 ));
             }
         }
-        return Ok(compiled(pred, binds));
+        return Ok(CompiledPattern { stages, binds });
     }
 
     // 3. Entries (`pattern_role: entries`, canonical `object`) —
@@ -2871,12 +2885,12 @@ fn compile_pattern(
         // when `static_term_value` resolves it (a literal payload, a
         // `paren` around one, or an env-bound constant like `k :: "a"`);
         // a genuinely runtime key (a param, a call) lowers to a `Term`
-        // evaluated on the dispatch pair.
+        // evaluated on the dispatch tuple.
         struct Entry {
             /// The field name when the key resolved at compile time.
             static_key: Option<String>,
-            /// The runtime key term (evaluated on the `[v, in]` pair)
-            /// when it did not.
+            /// The runtime key term (evaluated on the dispatch tuple —
+            /// reads `elem 1`, `in`) when it did not.
             dyn_key: Option<Term>,
             /// The entry's value sub-pattern index.
             val_idx: usize,
@@ -2918,51 +2932,67 @@ fn compile_pattern(
         // With any runtime key the evaluated keys are needed at match
         // time. `try_object_pattern` checks the scrutinee is an object
         // *first*, then evaluates every key before matching — mirrored
-        // here by gating on `is_obj` and forcing the key terms once,
-        // ahead of the discriminant chain, into a third slot of the
-        // dispatch pair: `product(v, in, keys)` yields `[v, in, keys]`
-        // where `elem 0|1` keep their `[v, in]` meaning and `elem 2` is
-        // the coerced key list (`obj_key` wraps each dynamic key so a
-        // non-string collapses to `""`, the interpreter's
-        // `as_str().unwrap_or("")` coercion). `has_field`/
+        // by a `Check(is_obj)` stage gating an `Extend` that appends the
+        // coerced key list to the dispatch tuple: `elem 0|1` keep their
+        // `[v, in]` meaning and the new slot is the key list (`obj_key`
+        // wraps each dynamic key so a non-string collapses to `""`, the
+        // interpreter's `as_str().unwrap_or("")` coercion). `has_field`/
         // `field_access`/`obj_except` then read keys by slot index
         // instead of re-evaluating the expressions — one evaluation per
-        // discriminant walk, and an erroring key propagates before any
-        // field check. When this pattern is the arm's *root*, the
-        // extension is returned as a [`PatternPrologue`] so `lower_match`
-        // installs it once ahead of the discriminant and the evaluated
-        // keys ride the dispatched triple into the arm body — instead of
-        // being re-derived per binder-path use. Nested object patterns
-        // fold it inline (see [`compile_pattern_inline`]).
+        // arm attempt, and an erroring key propagates before any field
+        // check. At arm level *and* nested, the stage list installs the
+        // extension once — keys evaluated under the gates that precede
+        // them and shared by the discriminant checks and every binder
+        // path, since all read the same dispatch tuple.
         let has_dynamic = entries.iter().any(|e| e.dyn_key.is_some());
-        let keys_slot = Term::op_native(
-            "array",
-            entries
-                .iter()
-                .map(|e| match &e.dyn_key {
-                    Some(t) => Term::op_native("obj_key", vec![t.clone()]),
-                    None => Term::const_value(Value::from(
-                        e.static_key.as_deref().unwrap_or("").to_string(),
-                    )),
-                })
-                .collect(),
-        );
-        let extend = Term::op_native("product", vec![pv(), pin(), keys_slot]);
+        // Allocate this pattern's key slot before recursing into any
+        // child so the `Extend` — emitted first — precedes every nested
+        // extension, preserving `try_object_pattern`'s order.
+        let key_slot = if has_dynamic {
+            let s = *next_slot;
+            *next_slot += 1;
+            Some(s)
+        } else {
+            None
+        };
         let keyref = |i: usize| {
             Term::op_native_lit(
                 "field_access",
-                vec![Term::op_native_lit("elem", vec![], 2)],
+                vec![Term::op_native_lit(
+                    "elem",
+                    vec![],
+                    key_slot.expect("keyref only under dynamic keys"),
+                )],
                 i as i64,
             )
         };
+        let mut stages: Vec<PatStage> = Vec::new();
+        if key_slot.is_some() {
+            stages.push(PatStage::Check(on_v(Term::op_native(
+                "is_obj",
+                vec![id.clone()],
+            ))));
+            stages.push(PatStage::Extend(Term::op_native(
+                "array",
+                entries
+                    .iter()
+                    .map(|e| match &e.dyn_key {
+                        Some(t) => Term::op_native("obj_key", vec![t.clone()]),
+                        None => Term::const_value(Value::from(
+                            e.static_key.as_deref().unwrap_or("").to_string(),
+                        )),
+                    })
+                    .collect(),
+            )));
+        }
         let mut binds: Vec<(String, Term)> = Vec::new();
         let mut keys: Vec<String> = Vec::new();
-        let mut pred: Option<Term> = None;
         for (i, e) in entries.iter().enumerate() {
             // `has_field k` first — it is the `sv is Obj && k present`
-            // guard — then the sub-predicate on `sv.k`, short-circuited
-            // so a missing key cannot error on `field_access`. A
-            // dynamic key reads `keys[i]` off the extended pair.
+            // guard — then the sub-pattern stages on `sv.k`, so a
+            // missing key falls through instead of erroring on
+            // `field_access`. A dynamic key reads `keys[i]` off the
+            // pattern's dispatch-tuple slot.
             let (has_t, field_t) = match &e.static_key {
                 Some(s) => (has_field(s), field(s)),
                 None => (
@@ -2973,37 +3003,38 @@ fn compile_pattern(
             if let Some(s) = &e.static_key {
                 keys.push(s.clone());
             }
-            let (sub_pred, sub_binds) = compile_pattern_inline(ast, lang, e.val_idx, node, pat_env)?;
-            let entry_pred = if is_const_true(&sub_pred) {
-                has_t
-            } else {
-                and_short(has_t, Term::seq(sub_pair(field_t.clone()), sub_pred))
-            };
-            pred = Some(match pred {
-                Some(p) => and_short(p, entry_pred),
-                None => entry_pred,
-            });
-            // Binder paths read `keys[i]` directly off the extended
-            // triple — the extension is the arm prologue's, not a
-            // per-path `Seq[extend, ·]`. `elem 0|1` keep their `[v, in]`
-            // meaning on the triple, so static-key paths need nothing.
-            for (name, path) in sub_binds {
-                binds.push((name, Term::seq(sub_pair(field_t.clone()), path)));
-            }
+            stages.push(PatStage::Check(has_t));
+            let c = compile_pattern(
+                ast,
+                lang,
+                e.val_idx,
+                node,
+                pat_env,
+                &PatFrame { value: field_t },
+                next_slot,
+            )?;
+            stages.extend(c.stages);
+            binds.extend(c.binds);
         }
         // `{}` — any object matches (`try_object_pattern` checks only
         // that the scrutinee is an Obj).
-        let pred = pred.unwrap_or_else(|| on_v(Term::op_native("is_obj", vec![id.clone()])));
+        if entries.is_empty() {
+            stages.push(PatStage::Check(on_v(Term::op_native(
+                "is_obj",
+                vec![id.clone()],
+            ))));
+        }
         if let Some(r) = rest {
             if let Some(name) = rest_binder_name(ast, lang, r, node)? {
-                if has_dynamic {
-                    // `obj_except(target, keys)` reads the slot-2 key
-                    // list — the whole object minus every matched key.
+                if let Some(s) = key_slot {
+                    // `obj_except(target, keys)` reads the forced key
+                    // list off its dispatch-tuple slot — the whole
+                    // object minus every matched key.
                     binds.push((
                         name,
                         Term::op_native(
                             "obj_except",
-                            vec![pv(), Term::op_native_lit("elem", vec![], 2)],
+                            vec![pv(), Term::op_native_lit("elem", vec![], s)],
                         ),
                     ));
                 } else {
@@ -3020,22 +3051,7 @@ fn compile_pattern(
                 }
             }
         }
-        return Ok(if has_dynamic {
-            // The discriminant and binder paths consume the extended
-            // `[v, in, keys]` triple; `lower_match` installs `gate`
-            // (`is_obj` on the pair) then `extend` once per arm attempt
-            // — `try_object_pattern`'s eval-keys-once order.
-            CompiledPattern {
-                pred,
-                binds,
-                prologue: Some(PatternPrologue {
-                    gate: on_v(Term::op_native("is_obj", vec![id.clone()])),
-                    extend,
-                }),
-            }
-        } else {
-            compiled(pred, binds)
-        });
+        return Ok(CompiledPattern { stages, binds });
     }
 
     // 4. Tag pattern (`callee`-roled shape, canonical `call`;
