@@ -22,6 +22,7 @@ serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
+handl-lib-collections = { workspace = true }
 serde_json = { workspace = true }
 hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
 hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }

@@ -2333,7 +2333,7 @@ pub use handl_lib_dedent::DEDENT_HNL;
 /// installed through [`install_loader`], every `.hnl` text transform
 /// (declaration/comment stripping, export transformation, import/
 /// capability/tag parsing, tag expansion) is evaluated in handl.
-const LOADER_HNL: &str = include_str!("../../../handl-packages/loader/loader.hnl");
+const LOADER_HNL: &str = handl_lib_loader::LOADER_HNL;
 
 /// The record field names exposed by `loader.hnl`.
 pub const LOADER_FUNCS: &[&str] = &[

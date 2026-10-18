@@ -100,6 +100,10 @@ handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", branch
 # include them without owning the files.
 handl-lib-str-handl = { git = "https://github.com/handl-lang/lib-str-handl", branch = "main" }
 handl-lib-dedent = { git = "https://github.com/handl-lang/lib-dedent", branch = "main" }
+handl-lib-loader = { git = "https://github.com/handl-lang/lib-loader", branch = "main" }
+handl-lib-desugar = { git = "https://github.com/handl-lang/lib-desugar", branch = "main" }
+handl-lib-tag = { git = "https://github.com/handl-lang/lib-tag", branch = "main" }
+handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
@@ -308,6 +312,9 @@ handl-plugin-lib-crypto = { path = "../lib-crypto" }
 handl-lib-datetime = { path = "../lib-datetime" }
 [patch."https://github.com/handl-lang/lib-dedent"]
 handl-lib-dedent = { path = "../lib-dedent" }
+
+[patch."https://github.com/handl-lang/lib-desugar"]
+handl-lib-desugar = { path = "../lib-desugar" }
 [patch."https://github.com/handl-lang/lib-encoding"]
 handl-lib-encoding = { path = "../lib-encoding" }
 [patch."https://github.com/handl-lang/lib-hello"]
@@ -338,6 +345,9 @@ handl-plugin-lib-lang-parse = { path = "../lib-lang-parse" }
 handl-plugin-lib-lang-run-compiled = { path = "../lib-lang-run-compiled" }
 [patch."https://github.com/handl-lang/lib-lang-typecheck"]
 handl-plugin-lib-lang-typecheck = { path = "../lib-lang-typecheck" }
+
+[patch."https://github.com/handl-lang/lib-loader"]
+handl-lib-loader = { path = "../lib-loader" }
 [patch."https://github.com/handl-lang/lib-option"]
 handl-lib-option = { path = "../lib-option" }
 [patch."https://github.com/handl-lang/lib-otlp"]
@@ -356,6 +366,9 @@ handl-lib-serialize = { path = "../lib-serialize" }
 handl-lib-stats = { path = "../lib-stats" }
 [patch."https://github.com/handl-lang/lib-str-handl"]
 handl-lib-str-handl = { path = "../lib-str-handl" }
+
+[patch."https://github.com/handl-lang/lib-tag"]
+handl-lib-tag = { path = "../lib-tag" }
 [patch."https://github.com/handl-lang/lib-tar"]
 handl-lib-tar = { path = "../lib-tar" }
 [patch."https://github.com/handl-lang/lib-time-c"]

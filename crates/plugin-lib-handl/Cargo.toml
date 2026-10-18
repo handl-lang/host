@@ -23,6 +23,8 @@ handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-n
 # `.hnl` sources owned by their own repos (ADR-0128 §"1a").
 handl-lib-str-handl = { workspace = true }
 handl-lib-dedent = { workspace = true }
+handl-lib-loader = { workspace = true }
+handl-lib-desugar = { workspace = true }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde_json = { workspace = true }
 

@@ -67,7 +67,7 @@ mod tests;
 /// The handl source declaring the tag `op` interface — the single source
 /// of truth for the tag API surface. Loaded at compile time from the
 /// kit-stdlib data dir.
-const TAG_HNL: &str = include_str!("../../../handl-packages/tag/tag.hnl");
+const TAG_HNL: &str = handl_lib_tag::TAG_HNL;
 
 /// The op names declared in `tag.hnl`.
 const TAG_OPS: &[&str] = &[

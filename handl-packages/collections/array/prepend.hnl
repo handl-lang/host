@@ -1,9 +1,0 @@
---- Return `[v, ...xs]`.
----
---- Puts `v` at the front of `xs`. The original array is unchanged.
----
---- @example
---- `array.prepend([1, 2], 0)`
---- -- => [0, 1, 2]
----
-export prepend<T>: (List(T), T) ~[1]~> List(T) := (xs, v) ~> [v, ...xs]

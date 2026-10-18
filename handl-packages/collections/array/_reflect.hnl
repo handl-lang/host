@@ -1,9 +1,0 @@
---- Private reflection helpers shared by the `collections/array` modules.
----
---- Not part of the advertised package surface; imported via
---- `from "./_reflect.hnl" import is_arr` / `import is_obj`.
-from "typeof" import type_of
-
-export is_arr := (x) ~> type_of(x) == "arr"
-
-export is_obj := (x) ~> type_of(x) == "obj"

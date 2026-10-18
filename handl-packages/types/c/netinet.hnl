@@ -1,8 +1,0 @@
---- types/c/netinet — transparent aliases for `netinet/in.h` vocabulary.
---- @details
---- Transparent aliases (see `types/c/stdint` for the rationale).
-
-from "../../type" import { Nat }
-
-export InAddr := Nat
-export InPort := Nat

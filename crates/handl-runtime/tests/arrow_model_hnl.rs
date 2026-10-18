@@ -47,9 +47,9 @@ fn handl_arrow_model_evaluates_arr_const() {
     // Load the Handl arrow model and wire the runtime modules it uses.
     let module = HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
         .with_dependency_arc(
-            stdlib::load_hnl_file(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../handl-packages/collections/array/index.hnl"
+            stdlib::load_hnl_file(format!(
+                "{}/src/array/index.hnl",
+                handl_lib_collections::ROOT
             ))
             .expect("array module"),
         )

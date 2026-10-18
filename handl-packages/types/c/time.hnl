@@ -1,8 +1,0 @@
---- types/c/time — transparent aliases for `time.h` vocabulary.
---- @details
---- Transparent aliases (see `types/c/stdint` for the rationale).
-
-from "../../type" import { Int }
-
-export Time := Int
-export ClockId := Int

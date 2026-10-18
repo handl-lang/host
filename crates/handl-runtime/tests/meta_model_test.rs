@@ -66,9 +66,9 @@ const META_FUNCS: &[&str] = &[
 fn meta_module() -> HandlModule {
     HandlModule::new("meta_model", META_MODEL_HNL, META_FUNCS)
         .with_dependency_arc(
-            stdlib::load_hnl_file(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../handl-packages/collections/array/index.hnl"
+            stdlib::load_hnl_file(format!(
+                "{}/src/array/index.hnl",
+                handl_lib_collections::ROOT
             ))
             .expect("array module"),
         )

@@ -512,7 +512,7 @@ fn realize_value(
 /// The handl source of `handl-packages/desugar/desugar.hnl` — the
 /// `.hnl`-authored port of the `desugar.data`/`desugar.match_recursor`
 /// natives (the last non-data-driven transform steps).
-pub const DESUGAR_HNL: &str = include_str!("../../../handl-packages/desugar/desugar.hnl");
+pub const DESUGAR_HNL: &str = handl_lib_desugar::DESUGAR_HNL;
 
 /// The exported names of the `desugar` overlay module.
 ///

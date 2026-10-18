@@ -54,9 +54,9 @@ const ARROW_MODEL_HNL: &str = include_str!("fixtures/arrow_model.hnl");
 fn arrow_module() -> HandlModule {
     HandlModule::new("arrow_model", ARROW_MODEL_HNL, &["run"])
         .with_dependency_arc(
-            stdlib::load_hnl_file(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../handl-packages/collections/array/index.hnl"
+            stdlib::load_hnl_file(format!(
+                "{}/src/array/index.hnl",
+                handl_lib_collections::ROOT
             ))
             .expect("array module"),
         )

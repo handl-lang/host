@@ -1382,7 +1382,7 @@ fn test_load_arrow_file_from_disk() {
 #[test]
 fn test_load_all_arrows_from_disk() {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let arrows_dir = format!("{}/../../handl-packages", manifest_dir);
+    let arrows_dir = format!("{}/src", handl_lib_collections::ROOT);
     let fixtures_dir = format!("{}/tests/fixtures", manifest_dir);
 
     let mut map = load_all_arrows(arrow_lang(), &arrows_dir).expect("load all arrows");

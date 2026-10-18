@@ -35,9 +35,9 @@ fn to_term(td: TermData) -> Term {
 fn handl_model() -> HandlModel {
     let module = HandlModule::new("value_model", VALUE_MODEL_HNL, &["run"])
         .with_dependency_arc(
-            stdlib::load_hnl_file(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../handl-packages/collections/array/index.hnl"
+            stdlib::load_hnl_file(format!(
+                "{}/src/array/index.hnl",
+                handl_lib_collections::ROOT
             ))
             .expect("array module"),
         )

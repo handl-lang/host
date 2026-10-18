@@ -1,8 +1,0 @@
---- types/c/socket — transparent aliases for `sys/socket.h` vocabulary.
---- @details
---- Transparent aliases (see `types/c/stdint` for the rationale).
-
-from "../../type" import { Nat }
-
-export Socklen := Nat
-export SaFamily := Nat

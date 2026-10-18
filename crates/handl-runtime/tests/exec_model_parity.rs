@@ -115,9 +115,9 @@ const EXEC_MODEL_FUNCS: &[&str] = &[
 fn exec_model_module() -> HandlModule {
     HandlModule::new("exec_model", EXEC_MODEL_HNL, EXEC_MODEL_FUNCS)
         .with_dependency_arc(
-            stdlib::load_hnl_file(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../handl-packages/collections/array/index.hnl"
+            stdlib::load_hnl_file(format!(
+                "{}/src/array/index.hnl",
+                handl_lib_collections::ROOT
             ))
             .expect("array module"),
         )
@@ -137,9 +137,9 @@ fn exec_model_adapter() -> HandlModelAdapter {
 fn value_model() -> HandlModel {
     let module = HandlModule::new("value_model", VALUE_MODEL_HNL, &["run"])
         .with_dependency_arc(
-            stdlib::load_hnl_file(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../handl-packages/collections/array/index.hnl"
+            stdlib::load_hnl_file(format!(
+                "{}/src/array/index.hnl",
+                handl_lib_collections::ROOT
             ))
             .expect("array module"),
         )
