@@ -72,7 +72,7 @@ pub struct PackageSpec {
 
 const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     name: "clock_gettime",
-    hnl: include_str!("../../../handl-packages/time-c/clock_gettime.hnl"),
+    hnl: handl_lib_time_c::CLOCK_GETTIME_HNL,
     funcs: &["read_ns"],
     ops: &[],
     values: &[],
@@ -81,7 +81,7 @@ const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
 
 const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
     name: "entropy",
-    hnl: include_str!("../../../handl-packages/rand-c/entropy.hnl"),
+    hnl: handl_lib_rand_c::ENTROPY_HNL,
     funcs: &["next_u32"],
     ops: &[],
     values: &[],
