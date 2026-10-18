@@ -14,7 +14,7 @@ handl-platform = { git = "https://github.com/handl-lang/platform", branch = "mai
 handl-plugin-lib-handl = { git = "https://github.com/handl-lang/platform", branch = "main" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
 # Shared op helpers (throwaway — see the lib-ops README).
-handl-lib-ops = { git = "https://github.com/handl-lang/lib-ops", branch = "main" }
+handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 # ADR-0128: port packages live in their own repos.
 handl-lib-datetime = { git = "https://github.com/handl-lang/lib-datetime", branch = "main" }
 handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
@@ -32,8 +32,8 @@ handl-lib-url-whatwg = { git = "https://github.com/handl-lang/lib-url-whatwg", b
 
 handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = "main" }
 handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
-handl-lib-prim = { git = "https://github.com/handl-lang/lib-prim", branch = "main" }
-handl-lib-prim-handl = { git = "https://github.com/handl-lang/lib-prim-handl", branch = "main" }
+handl-lib-prim = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-prim-handl = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-lib-hello = { git = "https://github.com/handl-lang/lib-hello", branch = "main" }
 handl-lib-type = { git = "https://github.com/handl-lang/lib-type", branch = "main" }
 handl-lib-arrow-iter = { git = "https://github.com/handl-lang/lib-arrow-iter", branch = "main" }
