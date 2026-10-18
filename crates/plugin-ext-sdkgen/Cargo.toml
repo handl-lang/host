@@ -24,7 +24,7 @@ handl-plugin-sdkgen-backend-c = { git = "https://github.com/handl-lang/sdkgen-c"
 # ADR-0128 Phase 5: the webidl backend lives in the `web` repo; the root
 # `[patch]` resolves the sibling checkout for local dev.
 handl-plugin-sdkgen-backend-webidl = { git = "https://github.com/handl-lang/sdkgen-webidl", branch = "main", optional = true }
-handl-plugin-sdkgen-emitter-file = { path = "../plugin-sdkgen-emitter-file", optional = true }
+handl-plugin-sdkgen-emitter-file = { git = "https://github.com/handl-lang/sdkgen-file", branch = "main", optional = true }
 # ADR-0128 Phase 1: the python emitter lives in the `python` repo;
 # the root `[patch]` resolves the sibling checkout for local dev.
 handl-plugin-sdkgen-emitter-python = { git = "https://github.com/handl-lang/sdkgen-python", branch = "main", optional = true }

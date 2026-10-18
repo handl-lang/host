@@ -503,7 +503,6 @@ handl-plugin-load = { path = "../platform/crates/plugin-load" }
 handl-plugin-loader-native = { path = "../platform/crates/plugin-loader-native" }
 handl-plugin-module = { path = "../platform/crates/plugin-module" }
 handl-plugin-sdkgen = { path = "../platform/crates/plugin-sdkgen" }
-handl-plugin-sdkgen-emitter-file = { path = "../sdkgen-file" }
 handl-runtime = { path = "../platform/crates/handl-runtime" }
 handl-test-utils = { path = "../platform/crates/handl-test-utils" }
 
@@ -514,6 +513,7 @@ handl-plugin-sdkgen-backend-c = { path = "../sdkgen-c" }
 
 [patch."https://github.com/handl-lang/sdkgen-python"]
 handl-plugin-sdkgen-emitter-python = { path = "../sdkgen-python" }
+handl-plugin-sdkgen-emitter-file = { path = "../sdkgen-file" }
 
 [patch."https://github.com/handl-lang/sdkgen-webidl"]
 handl-plugin-sdkgen-backend-webidl = { path = "../sdkgen-webidl" }

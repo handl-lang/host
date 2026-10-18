@@ -2538,6 +2538,48 @@ fn str_handl_modules(
     (siblings, index)
 }
 
+/// Build a [`HandlModule`] for a multi-file `.hnl` package — the generic
+/// form of [`str_handl_modules`] without its callback-invoker special
+/// cases. `sources` rows are `(name, src, funcs)` and must be ordered so
+/// that every file's `from "./x.hnl"` dep appears earlier in the table;
+/// `from "<mod>"` deps resolve through `resolver`.
+pub fn handl_module_from_sources(
+    mod_name: &'static str,
+    index_src: &'static str,
+    index_funcs: &[&'static str],
+    sources: &[(&'static str, &'static str, &[&'static str])],
+    resolver: &dyn ModuleResolver,
+    eval_name: &'static str,
+) -> HandlModule {
+    let mut siblings: HashMap<String, Arc<dyn handl_platform::Module + Send + Sync>> =
+        HashMap::new();
+    for &(name, src, funcs) in sources {
+        let mut module = HandlModule::new(name, src, funcs).with_eval_engine(eval_name);
+        for spec in str_handl_import_specs(src) {
+            let dep_name = normalize_import_name(&spec);
+            let dep = siblings
+                .get(dep_name)
+                .cloned()
+                .or_else(|| resolver.resolve(dep_name))
+                .unwrap_or_else(|| panic!("{mod_name}: unresolved import '{spec}' in {name}.hnl"));
+            module = module.with_dependency_arc(dep);
+        }
+        siblings.insert(name.to_string(), Arc::new(module));
+    }
+    let mut index =
+        HandlModule::new(mod_name, index_src, index_funcs).with_eval_engine(eval_name);
+    for spec in str_handl_import_specs(index_src) {
+        let dep_name = normalize_import_name(&spec);
+        let dep = siblings
+            .get(dep_name)
+            .cloned()
+            .or_else(|| resolver.resolve(dep_name))
+            .unwrap_or_else(|| panic!("{mod_name}: index imports '{spec}' but no module exists"));
+        index = index.with_dependency_arc(dep);
+    }
+    index
+}
+
 /// Build the [`HandlModule`] for `str-handl`.
 ///
 /// `str-handl` is a package: [`STR_HANDL_HNL`] is an aggregator index and
