@@ -195,3 +195,4 @@ ADR), listed here so a number is never reused across repos.
 | 0146 | Generic Arrow Calculus for Any Dimension | `lang` | `adrs/0146-generic-arrow-calculus-any-dimension.md` |
 | 0147 | Lower the `while` state fold to `Loop` + explicit protocol ops | Accepted | `platform` | `adrs/0147-lowering-state-fold-while.md` |
 | 0148 | Lower `call`/`dimension` application to `App` terms | Accepted | `platform` | `adrs/0148-lower-call-application.md` |
+| 0149 | `host-cli` is a dumb host; `ext-*` extensions load dynamically | Accepted | `host-cli`, `ext-*` | `adrs/0149-dynamic-extension-host.md` |
