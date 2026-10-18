@@ -1,0 +1,75 @@
+[package]
+name = "handl-plugin-lib-stdlib"
+version.workspace = true
+edition.workspace = true
+description = "The handl-backed standard library, consolidated per the \"library-as-data\" architecture: every `plugin-lib-*` shell crate is replaced by a row in [`packages::PACKAGES`] / ..."
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+handl-plugin-module = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-platform = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-plugin-lib-handl = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
+# Shared op helpers (throwaway — see the lib-ops README).
+handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+# ADR-0128: port packages live in their own repos.
+handl-lib-datetime = { git = "https://github.com/handl-lang/lib-datetime", branch = "main" }
+handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
+handl-lib-intl = { git = "https://github.com/handl-lang/lib-intl", branch = "main" }
+handl-lib-intl-c = { git = "https://github.com/handl-lang/lib-intl-c", branch = "main" }
+handl-lib-unicode = { git = "https://github.com/handl-lang/lib-unicode", branch = "main" }
+handl-lib-unicode-c = { git = "https://github.com/handl-lang/lib-unicode-c", branch = "main" }
+handl-lib-option = { git = "https://github.com/handl-lang/lib-option", branch = "main" }
+handl-lib-result = { git = "https://github.com/handl-lang/lib-result", branch = "main" }
+handl-lib-archive = { git = "https://github.com/handl-lang/lib-archive", branch = "main" }
+handl-lib-transform = { git = "https://github.com/handl-lang/lib-transform", branch = "main" }
+handl-lib-parse = { git = "https://github.com/handl-lang/lib-parse", branch = "main" }
+handl-lib-url-rfc = { git = "https://github.com/handl-lang/lib-url-rfc", branch = "main" }
+handl-lib-url-whatwg = { git = "https://github.com/handl-lang/lib-url-whatwg", branch = "main" }
+
+handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = "main" }
+handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
+handl-lib-prim = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-prim-handl = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-hello = { git = "https://github.com/handl-lang/lib-hello", branch = "main" }
+handl-lib-type = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-arrow-iter = { git = "https://github.com/handl-lang/lib-arrow-iter", branch = "main" }
+handl-lib-stats = { git = "https://github.com/handl-lang/lib-stats", branch = "main" }
+handl-lib-combinators = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-mood = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-tar = { git = "https://github.com/handl-lang/lib-tar", branch = "main" }
+handl-lib-obj = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-error = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-cmp = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-bytes = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-ip = { git = "https://github.com/handl-lang/lib-ip", branch = "main" }
+handl-lib-utils = { git = "https://github.com/handl-lang/lib-utils", branch = "main" }
+handl-lib-char = { git = "https://github.com/handl-lang/lib-char", branch = "main" }
+handl-lib-time-c = { git = "https://github.com/handl-lang/lib-time-c", branch = "main" }
+handl-lib-rand-c = { git = "https://github.com/handl-lang/lib-rand-c", branch = "main" }
+handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
+handl-lib-json = { git = "https://github.com/handl-lang/lib-json", branch = "main" }
+handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/lib-crypto", branch = "main" }
+base64 = "0.22"
+tar = "0.4"
+hex = "0.4"
+iri-string = "=0.7.12"
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+url = "2"
+
+[dev-dependencies]
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/kit-data-canonical", branch = "main" }
+handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-platform = { git = "https://github.com/handl-lang/host", branch = "main" }
+hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
+handl-plugin-lib-handl = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-plugin-lib-tag = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
+handl-lib-json = { git = "https://github.com/handl-lang/lib-json", branch = "main" }
+hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
+serde_json = "1"
