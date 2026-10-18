@@ -21,8 +21,8 @@ sexp = ["dep:handl-plugin-compile-sexp"]
 handl-platform = { path = "../platform" }
 handl-plugin-compile.workspace = true
 handl-language.workspace = true
-plugin-engine.workspace = true
-plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }
+hnl-engine.workspace = true
+hnl-engine-typecheck.workspace = true
 serde_json = { workspace = true }
 # The six compiler targets — optional repo modules behind the features
 # above; the root `[patch]` tables resolve the sibling checkouts.

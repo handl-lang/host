@@ -8,7 +8,7 @@
 //! # Role after ADR-0095
 //!
 //! The canonical formatter is the **staged engine pipeline** in
-//! `handl-plugin-engine-fmt` (layout → render → post-process), surfaced by
+//! `hnl-engine-fmt` (layout → render → post-process), surfaced by
 //! `handl-plugin-ext-fmt` (`format_source`/`check_source`/`format_ast`). Those
 //! crates depend on this crate, so `platform` **cannot** dispatch to the engine
 //! here (dependency direction). This `Format` capability therefore remains the

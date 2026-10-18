@@ -10,7 +10,7 @@
 //! - Graphs using neither combinator are not recognized.
 
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 use crate::trait_inference::{
     Law, infer_law_annotations, inferred_trait, law_verified, satisfies_law, uses_first, uses_left,

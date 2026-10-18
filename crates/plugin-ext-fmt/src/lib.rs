@@ -3,7 +3,7 @@
 //! (ADR-0095).
 //!
 //! This crate is a **thin surface** over the language-generic engine in
-//! `handl-plugin-engine-fmt`. It owns only what is canonical to the v0.1
+//! `hnl-engine-fmt`. It owns only what is canonical to the v0.1
 //! surface:
 //! - the **parse** stage (lex + Pratt) that validates and tokenizes source,
 //! - the selection of the canonical v0.1 layout/post-process rule sets,
@@ -22,7 +22,7 @@
 //! where **layout** ([`TokenCat`]/[`FormattingRule`]), **render**
 //! ([`TokenFormatter`] for the token stream, [`FormatEngine`] for an `Ast`),
 //! and **post-process** ([`PostProcessRule`]) all live in
-//! `handl-plugin-engine-fmt` and are reusable/replaceable.
+//! `hnl-engine-fmt` and are reusable/replaceable.
 //!
 //! Public API (thin wrappers over the pipeline):
 //! - [`format_source_with_language`] — parse + canonical layout + source
@@ -50,14 +50,14 @@ pub use handl_language::Language;
 pub use handl_platform::{BasicFormatter, Format, FormatBehavior, FormatRequest, RuleAcceptor};
 
 pub mod plugin;
-pub use handl_plugin_engine_fmt::{
+pub use hnl_engine_fmt::{
     CanonicalFormattingRule, FormatEngine, FormatOptions, FormattingRule, PostProcessRule,
     TokenCat, TokenFormatter, canonical_post_process, classify_token, needs_space,
 };
 pub use plugin::{FMT_CAPABILITY, FmtPlugin};
 
 use handl_language::{Ast, AstRef, LangError};
-use handl_plugin_engine_lex_pattern::lex;
+use hnl_engine_lex_pattern::lex;
 
 // ---------------------------------------------------------------------------
 // FormatError
@@ -216,12 +216,12 @@ mod tests {
 
     #[test]
     fn format_ast_renders_a_parsed_arena() {
-        use handl_plugin_engine_parse::ParserEngine as _;
+        use hnl_engine_parse::ParserEngine as _;
 
         let lang = lang();
-        let tokens = handl_plugin_engine_lex_pattern::lex(lang, "x   =   1;").expect("lexes");
-        let request = handl_plugin_engine_parse::ParserRequest::new(tokens);
-        let ast = handl_plugin_engine_parse_pratt::PrattEngine::new()
+        let tokens = hnl_engine_lex_pattern::lex(lang, "x   =   1;").expect("lexes");
+        let request = hnl_engine_parse::ParserRequest::new(tokens);
+        let ast = hnl_engine_parse_pratt::PrattEngine::new()
             .parse(lang, &request)
             .expect("parses");
         assert!(!ast.is_empty(), "the parse must produce a node");

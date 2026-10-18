@@ -17,7 +17,7 @@ use crate::contracts::ContractRegistry;
 use crate::smt::implies;
 use crate::types::Pred;
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 /// Simplify a predicate (delegates to `Pred::simplify`).
 fn simplify(p: &Pred) -> Pred {

@@ -1,7 +1,7 @@
 //! Integration test: the `import`/`from ... import` binding modes run
 //! identically through all three eval engines (ADR-0096 unified import
 //! model; the `import` op semantics live in the shared
-//! `plugin-engine-exec::native_ops` table behind `OpService::Import`).
+//! `hnl-engine-exec::native_ops` table behind `OpService::Import`).
 //!
 //! Each engine is wired with a stub [`ImportResolver`] returning a fixed
 //! module record; the same sources are evaluated through the tree-walk,
@@ -11,12 +11,12 @@
 //! error.
 
 use handl_language::{LangError, Source, Value};
-use handl_plugin_engine_exec::{EvalEngine, ImportResolver};
-use handl_plugin_engine_exec_bytecode::BytecodeEngine;
-use handl_plugin_engine_exec_cranelift::CraneliftEngine;
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
-use handl_plugin_engine_parse_pratt::PrattEngine;
+use hnl_engine_exec::{EvalEngine, ImportResolver};
+use hnl_engine_exec_bytecode::BytecodeEngine;
+use hnl_engine_exec_cranelift::CraneliftEngine;
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::Runtime;
 use serde_json::json;
 use std::rc::Rc;

@@ -7,7 +7,7 @@
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 /// Convert `TermData` back to `Term` (bootstrap compatibility).
 fn td(t: TermData) -> Term {

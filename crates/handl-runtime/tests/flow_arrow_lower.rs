@@ -11,11 +11,11 @@
 
 use handl_kit_arrow_lower::lower_ast;
 use handl_language::{AstRef, Source, Value};
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
-use handl_plugin_engine_parse_pratt::PrattEngine;
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::Runtime;
-use plugin_engine::term_interpreter::interpret;
+use hnl_engine::term_interpreter::interpret;
 use std::collections::HashMap;
 
 fn canonical_lang() -> handl_language::Language {

@@ -306,7 +306,7 @@ fn visit(dir: &Path, f: &mut impl FnMut(&Path)) {
 
 /// A module behind an empty `cfg(any())` is **never compiled** — invisible to
 /// the compiler *and* to coverage, so nothing can report it. One such block hid
-/// 458 lines of pre-ADR-0119 tests in `plugin-engine/src/term_data.rs` until it
+/// 458 lines of pre-ADR-0119 tests in `hnl-engine/src/term_data.rs` until it
 /// was found by hand.
 ///
 /// Skipping a compilation is therefore a decision that must be declared, not

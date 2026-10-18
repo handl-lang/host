@@ -11,9 +11,9 @@
 use std::rc::Rc;
 
 use handl_language::Source;
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
-use handl_plugin_engine_parse_pratt::PrattEngine;
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::{EngineRegistry, Runtime};
 
 /// Build a tree-walk runtime over the canonical data kit (no typecheck).

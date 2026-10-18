@@ -21,7 +21,7 @@
 use crate::contracts::ContractRegistry;
 use crate::types::Measure;
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 /// Termination analysis result for a `Term`.
 #[derive(Debug, Clone)]

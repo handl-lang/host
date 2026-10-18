@@ -23,7 +23,7 @@ use handl_language::{Ast, Language, Term, Value};
 use handl_plugin_lib_handl::{HandlModel, HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
-use plugin_engine::{AstNode, Model, ModelCtx, TermData};
+use hnl_engine::{AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
 

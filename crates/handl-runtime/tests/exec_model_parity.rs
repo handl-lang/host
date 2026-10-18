@@ -50,13 +50,13 @@ use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
 use handl_platform::{EvalContext, Module};
-use handl_plugin_engine_exec_tree_walk::ValueModel;
+use hnl_engine_exec_tree_walk::ValueModel;
 use handl_plugin_lib_handl::{HandlModel, HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use handl_runtime::vm_primitives::VmPrimitivesModule;
-use plugin_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
+use hnl_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
 
@@ -152,7 +152,7 @@ fn value_model() -> HandlModel {
 /// Build the pure Rust tree-walk `ValueModel` (the exec engine reference).
 fn rust_model() -> ValueModel {
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(TagModule));
-    ValueModel::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
+    ValueModel::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
 }
 
 /// Call a structural op by name on the exec model module, returning the

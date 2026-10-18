@@ -23,7 +23,7 @@
 //! If a non-canonical `Language` ever needs checking through this capability,
 //! the extension point is a `language` payload field deserialized into
 //! [`handl_language::Language`] and handed to
-//! `handl_plugin_engine_typecheck::check_module_with_prelude` (which *does*
+//! `hnl_engine_typecheck::check_module_with_prelude` (which *does*
 //! take `&Language`); that returns diagnostics rather than a synthesized type,
 //! so it would be an additive `status` variant, not a replacement.
 

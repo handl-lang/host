@@ -18,10 +18,10 @@
 //! scope-cleanup probe: a leaked binding would shadow the probe).
 
 use handl_language::{Ast, AstNode, LangError, Language};
-use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
-use handl_plugin_engine_exec_bytecode::BytecodeEngine;
-use handl_plugin_engine_exec_cranelift::CraneliftEngine;
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_exec::{EvalEngine, EvalRequest};
+use hnl_engine_exec_bytecode::BytecodeEngine;
+use hnl_engine_exec_cranelift::CraneliftEngine;
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use serde_json::{Value, json};
 
 fn canonical_lang() -> Language {

@@ -13,12 +13,12 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
-use handl_plugin_engine_exec_tree_walk::ValueModel;
+use hnl_engine_exec_tree_walk::ValueModel;
 use handl_plugin_lib_handl::{HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
-use plugin_engine::{ArrSource, AstNode, CompositeModel, Model, ModelCtx, TermData, is_hott_tag};
+use hnl_engine::{ArrSource, AstNode, CompositeModel, Model, ModelCtx, TermData, is_hott_tag};
 use serde_json::json;
 
 
@@ -63,7 +63,7 @@ fn handl_adapter() -> HandlModelAdapter {
 /// Build the pure Rust `ValueModel` (the bootstrap engine).
 fn rust_model() -> ValueModel {
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(TagModule));
-    ValueModel::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
+    ValueModel::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
 }
 
 /// Build the composite model: `ValueModel` (primary) + `HandlModelAdapter`

@@ -9,7 +9,7 @@
 //! - The Pratt parser can be loaded and inferred end-to-end from disk
 
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::{ParsedFile, parse_arrow_file};

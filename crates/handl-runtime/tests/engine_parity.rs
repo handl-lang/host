@@ -19,12 +19,12 @@
 use std::collections::HashMap;
 
 use handl_language::{LangError, Source, Value};
-use handl_plugin_engine_exec::EvalEngine;
-use handl_plugin_engine_exec_bytecode::BytecodeEngine;
-use handl_plugin_engine_exec_cranelift::CraneliftEngine;
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
-use handl_plugin_engine_parse_pratt::PrattEngine;
+use hnl_engine_exec::EvalEngine;
+use hnl_engine_exec_bytecode::BytecodeEngine;
+use hnl_engine_exec_cranelift::CraneliftEngine;
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::Runtime;
 use serde_json::json;
 
@@ -131,7 +131,7 @@ fn arithmetic_ops() {
     assert_parity("2 ** 8", json!(256.0));
     // Int/Int division is integer division (the `Num::Div` contract every
     // engine implements; the term interpreter mirrors it — see the
-    // `plugin-engine` fix note in this file's header history).
+    // `hnl-engine` fix note in this file's header history).
     assert_parity("7 / 2", json!(3));
     assert_parity("7.0 / 2", json!(3.5));
     assert_parity("6 / 3", json!(2));
@@ -217,7 +217,7 @@ fn logical_and_or_short_circuit() {
     // `&&`/`||` produce Bool, not operand values.
     assert_parity("true && (41 + 1 == 42)", json!(true));
     // Truthiness: `0`/`""`/`null`/`false` are falsy; everything else —
-    // including `[]` — is truthy (`is_truthy` in `plugin-engine-exec`).
+    // including `[]` — is truthy (`is_truthy` in `hnl-engine-exec`).
     assert_parity("1 && 2", json!(true));
     assert_parity("\"\" || \"x\"", json!(true));
     assert_parity("null || false", json!(false));

@@ -23,10 +23,10 @@ use std::rc::Rc;
 
 use handl_language::{Source, Value};
 use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
-use handl_plugin_engine_exec::ImportResolver;
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
-use handl_plugin_engine_parse_pratt::PrattEngine;
+use hnl_engine_exec::ImportResolver;
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse_pratt::PrattEngine;
 use handl_plugin_module::ModuleRegistry;
 use handl_runtime::{ModuleLoader, Runtime};
 use serde_json::json;

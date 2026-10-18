@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, AstShapeDef, Language, TransformDef, TransformRule};
-use handl_plugin_engine_transform_rewrite::RewriteEngine;
+use hnl_engine_transform_rewrite::RewriteEngine;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
 use serde_json::json;
 
@@ -148,7 +148,7 @@ fn handl_transform_unknown_module_errors() {
 #[test]
 fn handl_transform_falls_back_for_non_handl_names() {
         ensure_lang();
-    use handl_plugin_engine_transform::native::NativeRewriteRegistry;
+    use hnl_engine_transform::native::NativeRewriteRegistry;
 
     let mut fallback = NativeRewriteRegistry::new();
     fallback.register(

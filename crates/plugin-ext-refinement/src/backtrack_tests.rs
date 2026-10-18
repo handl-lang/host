@@ -10,7 +10,7 @@
 //! - End-to-end load and infer from disk works
 
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_arrow_file};
 use crate::arrow_parser::parse_arrow_file;

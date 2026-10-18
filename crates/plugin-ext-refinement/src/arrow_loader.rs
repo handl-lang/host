@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use handl_language::{ArrSource, Language, Term, Value};
 
-use plugin_engine::{RewriteWitness, TermData};
+use hnl_engine::{RewriteWitness, TermData};
 
 use crate::arrow_parser::{
     ExportDecl, ImportDecl, ParsedFile, parse_arrow_module, parse_arrow_module_no_rewrite,

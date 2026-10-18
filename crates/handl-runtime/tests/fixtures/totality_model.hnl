@@ -4,7 +4,7 @@
 --- Models".
 ---
 --- This is the *totality model* — the structural-recursion / termination
---- checker. It replaces `crates/plugin-engine-typecheck-nbe/src/
+--- checker. It replaces `crates/hnl-engine-typecheck-nbe/src/
 --- totality_check.rs` (407 lines). It is Handl code (data) compiled to
 --- bytecode and run on the VM; the kernel runs models, models are data.
 ---

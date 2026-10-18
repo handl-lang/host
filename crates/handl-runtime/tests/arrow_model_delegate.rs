@@ -14,12 +14,12 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
-use handl_plugin_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
+use hnl_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
 use handl_plugin_lib_handl::{HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
-use plugin_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
+use hnl_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
 use serde_json::json;
 
 

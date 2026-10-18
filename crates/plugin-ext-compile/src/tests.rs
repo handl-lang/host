@@ -10,7 +10,7 @@ use handl_plugin_compile_js::{JsCompiler, JsConfig};
 #[cfg(feature = "llvm")]
 use handl_plugin_compile_llvm::{LlvmCompiler, LlvmConfig, X86_64};
 #[cfg(any(feature = "js", feature = "llvm"))]
-use plugin_engine::Term;
+use hnl_engine::Term;
 #[cfg(any(feature = "js", feature = "llvm"))]
 use serde_json::{Number, Value};
 
@@ -28,7 +28,7 @@ fn js_input(term: Term) -> CompilerInput {
         root,
         Language::new(),
         term,
-        plugin_engine_typecheck::TypecheckReport::default(),
+        hnl_engine_typecheck::TypecheckReport::default(),
     )
 }
 
@@ -96,7 +96,7 @@ fn compile_file_request_builds_input_with_root_ref() {
     let ast = CompileFileRequest::build_ast(src);
     let lang = Language::new();
     let term = CompileFileRequest::root_term_for(&lang);
-    let report = plugin_engine_typecheck::TypecheckReport::default();
+    let report = hnl_engine_typecheck::TypecheckReport::default();
     let input = req.build_input(src, &ast, &lang, &term, &report);
     assert_eq!(input.root.index(), 0);
     assert_eq!(input.ast.len(), 1);

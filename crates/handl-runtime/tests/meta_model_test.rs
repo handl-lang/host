@@ -427,12 +427,12 @@ fn build_parse_runtime() -> Result<Runtime, LangError> {
     let mut registry = EngineRegistry::new();
     registry.register_lex(
         "data",
-        Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
+        Box::new(hnl_engine_lex_pattern::DataLexerEngine::new()),
     );
-    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+    registry.register_parse("pratt", hnl_engine_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
+        Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     let registry = Rc::new(registry);
     let globals = handl_runtime::fp::canonical_fp_host_functions(None);

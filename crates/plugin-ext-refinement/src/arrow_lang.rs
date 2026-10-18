@@ -18,7 +18,7 @@ use handl_language::{
     AstShapeRef, ChildSeparator, DelimitedShape, EvalSchemeDef, GrammarPosition, GrammarRow,
     Language, PairShape,
 };
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 /// Cached arrow DSL [`Language`], loaded once and reused.
 /// Derive the arrow DSL [`Language`] from `base`: the canonical handl

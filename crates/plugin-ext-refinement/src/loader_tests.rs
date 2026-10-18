@@ -11,7 +11,7 @@
 //!   reported.
 
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 use crate::contracts::ContractRegistry;
 use crate::inference::infer_refinement;

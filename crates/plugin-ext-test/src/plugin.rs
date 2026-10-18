@@ -39,7 +39,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
-use handl_plugin_engine_test::{self as engine, TestKitSource};
+use hnl_engine_test::{self as engine, TestKitSource};
 
 /// Capability id served by [`TestPlugin`].
 pub const TEST_CAPABILITY: &str = "test";

@@ -9,7 +9,7 @@ use handl_plugin_lib_handl::{HandlModelEngine, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 
 /// Install the canonical default language once per test binary.

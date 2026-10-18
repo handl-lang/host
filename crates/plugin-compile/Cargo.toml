@@ -8,8 +8,8 @@ repository.workspace = true
 
 [dependencies]
 handl-language = { workspace = true }
-plugin-engine = { workspace = true }
-plugin-engine-typecheck = { path = "../plugin-engine-typecheck", package = "handl-plugin-engine-typecheck" }
+hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
+hnl-engine-typecheck.workspace = true
 rayon = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

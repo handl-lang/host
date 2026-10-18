@@ -10,8 +10,8 @@ repository.workspace = true
 handl-platform = { path = "../platform" }
 handl-plugin-ext-diag = { path = "../plugin-ext-diag", features = ["lang-span"] }
 handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
-handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
-handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
+hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
+hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
 handl-language = { workspace = true }
 serde_json = { workspace = true }
 

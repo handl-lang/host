@@ -44,7 +44,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use handl_value::{TaggedValue, resource, tagged_to_value};
-use plugin_engine::{Term, TermData};
+use hnl_engine::{Term, TermData};
 use rustc_hash::FxHashMap;
 use serde_json::{Value, json};
 
@@ -655,9 +655,9 @@ fn arrow_identity_is_its_serializable_data() {
 
 /// Build a canonical runtime with lex + Pratt parse + tree-walk eval.
 fn canonical_runtime() -> handl_runtime::Runtime {
-    use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-    use handl_plugin_engine_lex_pattern::DataLexerEngine;
-    use handl_plugin_engine_parse_pratt::PrattEngine;
+    use hnl_engine_exec_tree_walk::TreeWalkEngine;
+    use hnl_engine_lex_pattern::DataLexerEngine;
+    use hnl_engine_parse_pratt::PrattEngine;
     use handl_runtime::{EngineRegistry, Runtime};
 
     let kit = handl_kit_data_canonical::assemble().expect("full kit assembles");

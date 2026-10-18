@@ -17,9 +17,9 @@
 //! match. The host populates an [`EngineRegistry`] — a name→engine map — and
 //! [`Runtime::from_registry`] resolves the [`RuntimeConfig`] names against it.
 //! `handl-runtime` names **no** engine impl crate; the engine impls
-//! (`plugin-engine-lex-pattern`, `plugin-engine-parse-pratt`,
-//! `plugin-engine-exec-tree-walk`, `plugin-engine-exec-bytecode`,
-//! `plugin-engine-exec-cranelift`) are deps of the **host**, which registers
+//! (`hnl-engine-lex-pattern`, `hnl-engine-parse-pratt`,
+//! `hnl-engine-exec-tree-walk`, `hnl-engine-exec-bytecode`,
+//! `hnl-engine-exec-cranelift`) are deps of the **host**, which registers
 //! them. Adding an engine = register it; no `handl-runtime` edit.
 //!
 //! [`RuntimeConfig`] carries engine names as strings (e.g. `"pratt"`,
@@ -45,7 +45,7 @@
 //! and runs it. The non-serializable artifact never crosses the trait
 //! boundary; only the serializable handle does. The `CompileEngine` /
 //! `CompiledArtifact` impls live in the engine crates
-//! (`plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`), not here.
+//! (`hnl-engine-exec-bytecode`, `hnl-engine-exec-cranelift`), not here.
 //!
 //! ## Dyn-compatibility note
 //!
@@ -74,16 +74,16 @@ use serde::{Deserialize, Serialize};
 
 use handl_kit_arrow_lower::lower_ast;
 use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
-use handl_plugin_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
-use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
-use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
+use hnl_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
+use hnl_engine_lex::{LexerEngine, LexerRequest};
+use hnl_engine_parse::{ParserEngine, ParserRequest};
 /// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
 /// implementations can name it without a direct dependency on
-/// `handl-plugin-engine-typecheck` (ADR-0054).
-pub use handl_plugin_engine_typecheck::TypecheckResult;
-use handl_plugin_engine_typecheck::{TypecheckEngine, TypecheckRequest};
+/// `hnl-engine-typecheck` (ADR-0054).
+pub use hnl_engine_typecheck::TypecheckResult;
+use hnl_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 use handl_value::{TaggedValue, tagged_to_value};
-use plugin_engine::term_interpreter::interpret_with_handlers;
+use hnl_engine::term_interpreter::interpret_with_handlers;
 use rustc_hash::FxHashMap;
 
 // ---------------------------------------------------------------------------
@@ -109,8 +109,8 @@ pub struct CompiledHandle {
 /// A compiled artifact — engine-specific, non-serializable, held in the
 /// [`COMPILED_REGISTRY`] behind a trait object.
 ///
-/// Each compile engine (`plugin-engine-exec-bytecode`,
-/// `plugin-engine-exec-cranelift`) produces its own impl carrying the
+/// Each compile engine (`hnl-engine-exec-bytecode`,
+/// `hnl-engine-exec-cranelift`) produces its own impl carrying the
 /// compiled artifact plus the `Language` and `Ast` it was compiled from
 /// (needed to execute: the bytecode VM lazily compiles child nodes using
 /// `lang` + `ast`; the cranelift helpers read `ast` node payloads and `lang`
@@ -144,8 +144,8 @@ pub trait CompiledArtifact {
 
 /// A compile engine — produces [`CompiledArtifact`] impls from an [`Ast`].
 ///
-/// Impl live in the engine crates (`plugin-engine-exec-bytecode`,
-/// `plugin-engine-exec-cranelift`), not in `handl-runtime`. The runtime
+/// Impl live in the engine crates (`hnl-engine-exec-bytecode`,
+/// `hnl-engine-exec-cranelift`), not in `handl-runtime`. The runtime
 /// looks one up by target name in the [`EngineRegistry`] and calls
 /// `compile` to obtain a `Box<dyn CompiledArtifact>`.
 pub trait CompileEngine {
@@ -2033,10 +2033,10 @@ mod tests {
         TokenKindDef,
     };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-    use handl_plugin_engine_lex::Lexer;
-    use handl_plugin_engine_parse::{Parser, ParserContext};
+    use hnl_engine_lex::Lexer;
+    use hnl_engine_parse::{Parser, ParserContext};
     use handl_plugin_module::ModuleRegistry;
-    use plugin_engine::TermData;
+    use hnl_engine::TermData;
     use serde_json::{Value, json};
 
     // -----------------------------------------------------------------------
@@ -2187,11 +2187,11 @@ mod tests {
     /// `CompileEngine` trait). Compile-engine registration is tested in
     /// `kit-canonical` instead.
     fn default_registry() -> Rc<EngineRegistry> {
-        use handl_plugin_engine_exec_bytecode::BytecodeEngine;
-        use handl_plugin_engine_exec_cranelift::CraneliftEngine;
-        use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-        use handl_plugin_engine_lex_pattern::DataLexerEngine;
-        use handl_plugin_engine_parse_pratt::PrattEngine;
+        use hnl_engine_exec_bytecode::BytecodeEngine;
+        use hnl_engine_exec_cranelift::CraneliftEngine;
+        use hnl_engine_exec_tree_walk::TreeWalkEngine;
+        use hnl_engine_lex_pattern::DataLexerEngine;
+        use hnl_engine_parse_pratt::PrattEngine;
         let mut reg = EngineRegistry::new();
         reg.register_lex("data", Box::new(DataLexerEngine::new()));
         reg.register_parse("pratt", PrattEngine::new());
@@ -2367,7 +2367,7 @@ mod tests {
     #[test]
     fn eval_only_runtime_lex_returns_error_eval_works() {
         let rt = Runtime::new(arith_lang()).with_eval_engine(Box::new(
-            handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new(),
+            hnl_engine_exec_tree_walk::TreeWalkEngine::new(),
         ));
         // lex returns NotImplemented (no lex engine).
         assert_eq!(
@@ -2691,7 +2691,7 @@ mod tests {
     fn operation_markers_are_accessible() {
         let _ = Lexer;
         let _ = Parser;
-        let _ = handl_plugin_engine_exec::Eval;
+        let _ = hnl_engine_exec::Eval;
     }
 
     // -----------------------------------------------------------------------
@@ -2731,7 +2731,7 @@ mod tests {
         // StubParse overrides parse(), so its expression() method is never
         // called through the normal dispatch path. Call it directly to
         // verify the trait impl is correct and cover those lines.
-        use handl_plugin_engine_parse::ParserEngine as _;
+        use hnl_engine_parse::ParserEngine as _;
         let engine = StubParse;
         let lang = Language::new();
         let toks = vec![Token {
@@ -2856,7 +2856,7 @@ mod tests {
                 _lang: &Language,
                 _req: &TypecheckRequest,
             ) -> Result<TypecheckResult, LangError> {
-                use handl_plugin_engine_typecheck::TypecheckDiagnostic;
+                use hnl_engine_typecheck::TypecheckDiagnostic;
                 Ok(TypecheckResult {
                     typ: json!(null),
                     diagnostics: vec![TypecheckDiagnostic {

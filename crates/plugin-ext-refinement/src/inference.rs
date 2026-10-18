@@ -16,7 +16,7 @@ use crate::loop_invariant::{FIXPOINT_MAX_ITERATIONS, discover_invariant_fixpoint
 use crate::termination::analyze_termination;
 use crate::types::{BaseTy, LoopInvariant, Pred, RefTy, RefinementResult};
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 /// Infer refinement properties from a `Term`, without annotations.
 ///

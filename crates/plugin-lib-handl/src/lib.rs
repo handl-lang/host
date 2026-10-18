@@ -89,8 +89,8 @@ pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
 
 /// Re-export of the engine's [`ImportResolver`] trait so `.hnl` library
 /// builders (e.g. `plugin-lib-stdlib`) can supply an import resolver
-/// without taking a direct `plugin-engine-exec` dependency.
-pub use handl_plugin_engine_exec::ImportResolver;
+/// without taking a direct `hnl-engine-exec` dependency.
+pub use hnl_engine_exec::ImportResolver;
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -1665,16 +1665,16 @@ fn build_runtime(
     let mut registry = EngineRegistry::new();
     registry.register_lex(
         "data",
-        Box::new(handl_plugin_engine_lex_pattern::DataLexerEngine::new()),
+        Box::new(hnl_engine_lex_pattern::DataLexerEngine::new()),
     );
-    registry.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+    registry.register_parse("pratt", hnl_engine_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
+        Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     registry.register_eval(
         "bytecode",
-        Box::new(handl_plugin_engine_exec_bytecode::BytecodeEngine::new()),
+        Box::new(hnl_engine_exec_bytecode::BytecodeEngine::new()),
     );
     let registry = Rc::new(registry);
 
@@ -2147,7 +2147,7 @@ impl HandlModule {
     /// (`"tree-walk"`, `"bytecode"`).
     ///
     /// `"bytecode"` runs module bodies on the bytecode VM
-    /// (`handl_plugin_engine_exec_bytecode::BytecodeEngine`): the
+    /// (`hnl_engine_exec_bytecode::BytecodeEngine`): the
     /// per-call record construction and function bodies compile to
     /// instructions once per eval instead of paying tree-walk scheme
     /// dispatch per node — measured ~100-400× faster on eval-heavy

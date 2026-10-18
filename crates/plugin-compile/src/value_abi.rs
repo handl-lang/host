@@ -18,7 +18,7 @@
 //! here as `unsafe extern "C" fn` function-pointer types. They use the
 //! `*mut Value` and `*mut EvalCtx` aliases below. `EvalCtx` is deliberately an
 //! opaque `c_void` alias so this crate does not need to depend on the helper
-//! implementation; the actual runtime uses `crates/plugin-engine-exec-cranelift`.
+//! implementation; the actual runtime uses `crates/hnl-engine-exec-cranelift`.
 
 use std::collections::HashMap;
 use std::ffi::c_void;
@@ -489,7 +489,7 @@ impl ValueAbi {
 /// Helper name constants and `unsafe extern "C" fn` signatures.
 ///
 /// This registry matches the cranelift runtime in
-/// `crates/plugin-engine-exec-cranelift/src/lib.rs`. The function pointer
+/// `crates/hnl-engine-exec-cranelift/src/lib.rs`. The function pointer
 /// types use the `Value` and `EvalCtx` aliases from this module so that the
 /// ABI is self-contained.
 pub mod helpers {

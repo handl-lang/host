@@ -24,7 +24,7 @@ PLATFORM = "https://github.com/handl-lang/platform/blob/main/project/adrs"
 
 PHASE = {
     "python": 1, "c": 2, "stdlib": 3, "otlp": 4, "web": 5, "native": 6,
-    "dot": 7, "term": 7, "sexp": 7, "handl": 7, "cli": 8, "lsp": 8,
+    "compile-dot": 7, "compile-term": 7, "compile-sexp": 7, "compile-handl": 7, "host-cli": 8, "host-lsp": 8,
     "meta": 9, "ffi": 10, "lang": 11, "kit-canonical": 11, "docs": 12,
 }
 
@@ -36,8 +36,8 @@ REF_BY_REPO = {
     "python": ["0107", "0129"],
     "c": ["0107", "0129"],
     "native": ["0114", "0129"],
-    "cli": ["0029", "0085", "0090", "0129"],
-    "lsp": ["0100", "0124", "0129"],
+    "host-cli": ["0029", "0085", "0090", "0129"],
+    "host-lsp": ["0100", "0124", "0129"],
     "meta": ["0050", "0085", "0103", "0105", "0125", "0129"],
     "ffi": ["0083", "0107", "0129"],
     "platform": ["0128", "0129"],

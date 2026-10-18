@@ -5,9 +5,9 @@
 //! that node before eval, so the final value is `null`.
 
 use handl_language::{Ast, AstNode, LangError, Language, Source, Tokens, Value};
-use handl_plugin_engine_exec_tree_walk::TreeWalkEngine;
-use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
-use handl_plugin_engine_parse::{ParserContext, ParserEngine, ParserRequest};
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_engine_lex::{LexerEngine, LexerRequest};
+use hnl_engine_parse::{ParserContext, ParserEngine, ParserRequest};
 use handl_runtime::{Runtime, TypecheckResult};
 use serde_json::json;
 use std::collections::HashMap;
@@ -49,11 +49,11 @@ struct StubTypecheck {
     node_types: HashMap<usize, Value>,
 }
 
-impl handl_plugin_engine_typecheck::TypecheckEngine for StubTypecheck {
+impl hnl_engine_typecheck::TypecheckEngine for StubTypecheck {
     fn typecheck(
         &self,
         _lang: &Language,
-        _req: &handl_plugin_engine_typecheck::TypecheckRequest,
+        _req: &hnl_engine_typecheck::TypecheckRequest,
     ) -> Result<TypecheckResult, LangError> {
         Ok(TypecheckResult {
             typ: json!({"__tag__": "type.refl", "__registry__": "handl.canonical"}),
@@ -62,7 +62,7 @@ impl handl_plugin_engine_typecheck::TypecheckEngine for StubTypecheck {
         })
     }
 
-    fn box_clone(&self) -> Box<dyn handl_plugin_engine_typecheck::TypecheckEngine> {
+    fn box_clone(&self) -> Box<dyn hnl_engine_typecheck::TypecheckEngine> {
         Box::new(self.clone())
     }
 }

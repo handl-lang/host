@@ -9,8 +9,8 @@ use std::rc::Rc;
 
 use handl_language::{AstRef, LangError, Language, LanguageView, RewriteWitness, Term, Value};
 use handl_platform::{EvalContext, Module};
-use handl_plugin_engine_exec::{EvalEngine, EvalRequest};
-use plugin_engine::{Model, ModelCtx, RewriteResult, TermData};
+use hnl_engine_exec::{EvalEngine, EvalRequest};
+use hnl_engine::{Model, ModelCtx, RewriteResult, TermData};
 use serde_json::json;
 
 use crate::HandlModule;
@@ -19,7 +19,7 @@ use crate::HandlModule;
 /// `__tag__` field and one field per variant payload.
 ///
 /// This delegates to [`TermData::from_term`], the canonical conversion shared
-/// with `plugin-engine`, so the JSON shape stays identical to what
+/// with `hnl-engine`, so the JSON shape stays identical to what
 /// Handl-authored models consume.
 pub fn term_to_value(term: &Term) -> Value {
     TermData::from_term(term).into_value()
@@ -128,8 +128,8 @@ impl EvalEngine for HandlModelEngine {
 /// to a JSON context record. Results flow back as `serde_json::Value`.
 ///
 /// Errors from the Handl model (`handl_language::LangError`) are collapsed to
-/// `plugin_engine::LangError::NotImplemented`, matching the `ValueModel`
-/// convention — the `plugin_engine::LangError` enum is intentionally minimal
+/// `hnl_engine::LangError::NotImplemented`, matching the `ValueModel`
+/// convention — the `hnl_engine::LangError` enum is intentionally minimal
 /// (ADR-0103 TODO: give it a payload so real errors propagate).
 #[derive(Clone)]
 pub struct HandlModelAdapter {
@@ -174,9 +174,9 @@ impl Model for HandlModelAdapter {
         term: &Term,
         incoming: serde_json::Value,
         ctx: &mut ModelCtx,
-    ) -> Result<serde_json::Value, plugin_engine::LangError> {
+    ) -> Result<serde_json::Value, hnl_engine::LangError> {
         self.run_data(&TermData::from_term(term), &incoming, ctx)
-            .map_err(|_| plugin_engine::LangError::NotImplemented)
+            .map_err(|_| hnl_engine::LangError::NotImplemented)
     }
 
     fn rewrite(
@@ -186,7 +186,7 @@ impl Model for HandlModelAdapter {
         _witness: &RewriteWitness,
         incoming: &serde_json::Value,
         ctx: &mut ModelCtx,
-    ) -> Result<RewriteResult<serde_json::Value>, plugin_engine::LangError> {
+    ) -> Result<RewriteResult<serde_json::Value>, hnl_engine::LangError> {
         // For now, just run the target (rewrites evaluate to target).
         let result = self.run(target, incoming.clone(), ctx)?;
         Ok(RewriteResult::Rewritten(result))

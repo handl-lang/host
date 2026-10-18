@@ -46,7 +46,7 @@
 use std::fmt;
 
 use handl_language::Term;
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 // ============================================================================
 // The `Law` type: named equational laws (mirrors Lean4 `Law`)

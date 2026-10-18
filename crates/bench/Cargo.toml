@@ -17,11 +17,11 @@ criterion = { version = "0.5", default-features = false, features = [
 ] }
 handl-kit-canonical = { workspace = true }
 handl-kit-data-canonical = { workspace = true }
-handl-plugin-engine-lex = { workspace = true }
-handl-plugin-engine-lex-pattern = { workspace = true }
-handl-plugin-engine-parse = { workspace = true }
-handl-plugin-engine-parse-pratt = { workspace = true }
-handl-plugin-engine-typecheck = { workspace = true }
+hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
+hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
+hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
+hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
+hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
 handl-value = { workspace = true }
 serde_json = { workspace = true }
 

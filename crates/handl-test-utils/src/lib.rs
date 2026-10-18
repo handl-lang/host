@@ -37,7 +37,7 @@ use handl_platform::{
 };
 use handl_plugin_module::ModuleRegistry;
 
-/// Conformance test harness for `plugin-engine-*` engines (ADR-0044).
+/// Conformance test harness for `hnl-engine-*` engines (ADR-0044).
 pub mod conformance;
 
 /// Closure type backing [`MockFunction`] and [`CaptureFnWithHandler`].

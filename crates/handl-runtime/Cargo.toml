@@ -11,23 +11,23 @@ handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-value = { workspace = true }
 handl-kit-arrow-lower = { path = "../handl-kit-arrow-lower" }
-plugin-engine = { workspace = true }
-handl-plugin-engine-lex = { path = "../plugin-engine-lex" }
-handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
-handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
-handl-plugin-engine-typecheck = { path = "../plugin-engine-typecheck" }
-handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
+hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
+hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
+hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
+hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
+hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
+hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
 serde_json = { workspace = true }
-handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
-handl-plugin-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", branch = "main" }
+hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
+hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
+hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
+hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
+hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/native", branch = "main" }
 handl-plugin-module = { path = "../plugin-module" }
 handl-kit-data-canonical = { workspace = true }
 handl-kit-canonical = { workspace = true }

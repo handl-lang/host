@@ -7,7 +7,7 @@
 //! time (ADR-0094 §6, `handl-language`), and the `desugar.*` native
 //! rewrites (`while`, `do-while`, `for`, `nullish`, `opt-chain`, `data`,
 //! `match`) live in
-//! `handl-plugin-engine-transform-rewrite::native::desugar` behind the
+//! `hnl-engine-transform-rewrite::native::desugar` behind the
 //! `NativeRewrite` registry — consulted as a fallback for kinds with no
 //! declarative rule, preserving the legacy ordering.
 //!
@@ -26,15 +26,15 @@
 //!   `Runtime::typecheck`, so the full pipeline is: lex → parse → desugar
 //!   → typecheck.
 //!
-//! The bootstrap `check_module` in `plugin-engine-typecheck` parses
+//! The bootstrap `check_module` in `hnl-engine-typecheck` parses
 //! directly (without desugar) due to a cyclic dependency constraint
-//! (`plugin-engine-typecheck` cannot depend on `handl-runtime`). This is
+//! (`hnl-engine-typecheck` cannot depend on `handl-runtime`). This is
 //! a known limitation: the bootstrap checker does not handle `data`
 //! declarations. The runtime pipeline (`Kit`/`Runtime`) is the
 //! recommended path for typechecking `data` declarations.
 
 use handl_language::{Ast, AstRef, LangError, Language};
-use handl_plugin_engine_transform_rewrite::RewriteEngine;
+use hnl_engine_transform_rewrite::RewriteEngine;
 
 /// Apply the `"desugar"` transform pass to an [`Ast`].
 ///

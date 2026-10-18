@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 
 use handl_language::{ArrSource, Term};
-use plugin_engine::TermData;
+use hnl_engine::TermData;
 
 use crate::arrow_loader::{infer_file, load_all_arrows, load_arrow_file, resolve_apps};
 use crate::arrow_parser::{

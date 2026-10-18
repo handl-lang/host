@@ -5,7 +5,7 @@
 //! with `fmt`, `lint`, and `typecheck`.
 //!
 //! The implementation is [`plugin::TestPlugin`], a thin adapter over
-//! [`handl_plugin_engine_test`] — the *same* functions `host-cli` calls, so
+//! [`hnl_engine_test`] — the *same* functions `host-cli` calls, so
 //! the capability path and the direct call cannot drift.
 //!
 //! # Division of responsibility

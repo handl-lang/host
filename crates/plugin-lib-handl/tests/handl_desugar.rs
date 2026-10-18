@@ -5,13 +5,13 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstRef, Language, Source};
-use handl_plugin_engine_lex::{LexerEngine, LexerRequest};
-use handl_plugin_engine_lex_pattern::DataLexerEngine;
-use handl_plugin_engine_parse::ParserRequest;
+use hnl_engine_lex::{LexerEngine, LexerRequest};
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse::ParserRequest;
 use handl_runtime::ParseEngineDyn;
-use handl_plugin_engine_parse_pratt::PrattEngine;
-use handl_plugin_engine_transform_rewrite::native::desugar_native_registry;
-use handl_plugin_engine_transform_rewrite::RewriteEngine;
+use hnl_engine_parse_pratt::PrattEngine;
+use hnl_engine_transform_rewrite::native::desugar_native_registry;
+use hnl_engine_transform_rewrite::RewriteEngine;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::transform::DESUGAR_HNL;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};

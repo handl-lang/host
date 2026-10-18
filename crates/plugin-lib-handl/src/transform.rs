@@ -86,7 +86,7 @@
 //! - The `.hnl` function cannot observe or produce raw arena indices —
 //!   `__keep__` is the only handle onto existing subtrees.
 //! - Invocation goes through [`HandlFunction`]'s per-thread cached bridge
-//!   `Runtime` (the `pred.hnl`/`plugin-engine-test` pattern): the node
+//!   `Runtime` (the `pred.hnl`/`hnl-engine-test` pattern): the node
 //!   record crosses as an `__arg_0` global and the result returns through
 //!   the serde_json boundary, so the function must not return arrow values
 //!   or other reserved-key (`__arrow__`/`__tag__`/…) shapes.
@@ -101,7 +101,7 @@ use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language};
 use handl_platform::{EvalContext, Function, Module};
-use handl_plugin_engine_transform::native::{
+use hnl_engine_transform::native::{
     NativeRewrite, RewriteCtx, install_transform_overlay,
 };
 use serde_json::Value;

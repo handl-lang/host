@@ -14,10 +14,10 @@ native-z3 = ["dep:z3"]
 handl-platform = { path = "../platform" }
 handl-plugin-ext-detect = { path = "../plugin-ext-detect" }
 handl-language = { workspace = true }
-plugin-engine = { workspace = true }
-handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
-handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
+hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
+hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
+hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
+hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
 handl-plugin-lib-handl = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

@@ -1,6 +1,6 @@
 //! Typechecker benchmarks.
 //!
-//! Measures `plugin-engine-typecheck::check_module` directly, so a regression
+//! Measures `hnl-engine-typecheck::check_module` directly, so a regression
 //! is attributable to the checker rather than to parse or eval. This is the
 //! `typecheck` bench the pre-refactor suite had; it targeted
 //! `handl-typecheck-{core,infer,schema-json}`, all of which are gone, so it is
@@ -22,7 +22,7 @@ fn bench_typecheck(c: &mut Criterion) {
     let lang = canonical_lang();
     c.bench_function("typecheck/check_module", |b| {
         b.iter(|| {
-            handl_plugin_engine_typecheck::check_module(&lang, black_box(SAMPLE))
+            hnl_engine_typecheck::check_module(&lang, black_box(SAMPLE))
                 .expect("sample typechecks")
         });
     });

@@ -16,12 +16,12 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
-use handl_plugin_engine_exec_tree_walk::ValueModel;
+use hnl_engine_exec_tree_walk::ValueModel;
 use handl_plugin_lib_handl::{HandlModel, HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
-use plugin_engine::{
+use hnl_engine::{
     ArrSource, AstNode, CompositeDataModel, CompositeModel, Model, ModelCtx, ModelData, TermData,
     is_hott_tag,
 };
@@ -78,7 +78,7 @@ fn handl_model() -> HandlModel {
 /// Build the pure Rust `ValueModel` (bootstrap engine).
 fn rust_model() -> ValueModel {
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(TagModule));
-    ValueModel::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
+    ValueModel::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
 }
 
 /// Build the composite model: `ValueModel` (primary) + `HandlModelAdapter`
@@ -452,7 +452,7 @@ fn termdata_is_hott_tag_true_for_hott_tags() {
     assert!(TermData::cell_comp_v(TermData::arr(json!(1)), TermData::arr(json!(2))).is_hott_tag());
     assert!(
         TermData::whisker(
-            &plugin_engine::Side::Left,
+            &hnl_engine::Side::Left,
             TermData::arr(json!(1)),
             TermData::arr(json!(2)),
         )
@@ -481,7 +481,7 @@ fn termdata_is_hott_tag_true_for_hott_tags() {
         TermData::rewrite(
             TermData::arr(json!(1)),
             TermData::arr(json!(2)),
-            &plugin_engine::RewriteWitness::Compute,
+            &hnl_engine::RewriteWitness::Compute,
         )
         .is_hott_tag()
     );
@@ -531,7 +531,7 @@ impl ModelData for PrimaryData {
         term: &TermData,
         _incoming: &Value,
         _ctx: &ModelCtx,
-    ) -> Result<Value, plugin_engine::LangError> {
+    ) -> Result<Value, hnl_engine::LangError> {
         Ok(json!({ "model": "primary", "tag": term.tag() }))
     }
 }
@@ -545,7 +545,7 @@ impl ModelData for DelegateData {
         term: &TermData,
         _incoming: &Value,
         _ctx: &ModelCtx,
-    ) -> Result<Value, plugin_engine::LangError> {
+    ) -> Result<Value, hnl_engine::LangError> {
         Ok(json!({ "model": "delegate", "tag": term.tag() }))
     }
 }

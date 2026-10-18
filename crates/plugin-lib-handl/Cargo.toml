@@ -12,27 +12,27 @@ handl-platform = { path = "../platform" }
 handl-language = { workspace = true }
 handl-runtime = { path = "../handl-runtime" }
 handl-value = { workspace = true }
-handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
-handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
-handl-plugin-engine-exec-tree-walk = { path = "../plugin-engine-exec-tree-walk" }
-handl-plugin-engine-exec-bytecode = { path = "../plugin-engine-exec-bytecode" }
-handl-plugin-engine-transform = { path = "../plugin-engine-transform" }
-handl-plugin-engine-lint = { path = "../plugin-engine-lint" }
+hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
+hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
+hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
+hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
+hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
+hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform", branch = "main" }
+hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
 handl-plugin-lib-char-native = { workspace = true }
 # `.hnl` sources owned by their own repos (ADR-0128 §"1a").
 handl-lib-str-handl = { workspace = true }
 handl-lib-dedent = { workspace = true }
-plugin-engine = { workspace = true }
+hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 handl-kit-data-canonical = { workspace = true }
-handl-plugin-engine-exec = { path = "../plugin-engine-exec" }
-handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
-handl-plugin-engine-lex = { path = "../plugin-engine-lex" }
+hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
+hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
+hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
 handl-runtime = { path = "../handl-runtime" }
-handl-plugin-engine-transform-rewrite = { path = "../plugin-engine-transform-rewrite" }
+hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
 handl-plugin-lib-char-native = { workspace = true }
 # Cyclic dev-dep (stdlib's normal deps include this crate): tests consume the
 # `TRANSFORM_*_HNL` `pub const` re-exports of `handl-packages/transform/`,

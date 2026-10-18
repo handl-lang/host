@@ -2,7 +2,7 @@
 //! `Source` via the `Runtime`.
 //!
 //! No lex engine crate exists in Phase 3 (ADR-0044 §3 lists
-//! `plugin-engine-lex-logos` as a future engine). The lex stage is therefore
+//! `hnl-engine-lex-logos` as a future engine). The lex stage is therefore
 //! stubbed/manual: this test manually constructs `Tokens`, feeds them to
 //! `Runtime::parse` (Pratt engine), then feeds the resulting `Ast` to
 //! `Runtime::eval` (tree-walk engine), and asserts the final `Value`.
@@ -15,7 +15,7 @@ use handl_language::{
     Source, Token, Tokens,
 };
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
-use plugin_engine::{ArrSource, TermData};
+use hnl_engine::{ArrSource, TermData};
 use serde_json::{Value, json};
 use std::rc::Rc;
 
@@ -23,10 +23,10 @@ use std::rc::Rc;
 /// registered under their canonical names.
 fn test_registry() -> Rc<EngineRegistry> {
     let mut reg = EngineRegistry::new();
-    reg.register_parse("pratt", handl_plugin_engine_parse_pratt::PrattEngine::new());
+    reg.register_parse("pratt", hnl_engine_parse_pratt::PrattEngine::new());
     reg.register_eval(
         "tree-walk",
-        Box::new(handl_plugin_engine_exec_tree_walk::TreeWalkEngine::new()),
+        Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()),
     );
     Rc::new(reg)
 }

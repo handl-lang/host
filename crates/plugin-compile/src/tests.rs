@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use handl_language::{Ast, AstNode, AstRef, Language};
-use plugin_engine::Term;
-use plugin_engine_typecheck::TypecheckReport;
+use hnl_engine::Term;
+use hnl_engine_typecheck::TypecheckReport;
 use serde_json::Value;
 
 use crate::{

@@ -7,9 +7,9 @@
 
 use handl_kit_canonical::Kit;
 use handl_language::{Ast, AstNode, AstRef};
-use handl_plugin_engine_lex_pattern::lex;
-use handl_plugin_engine_parse::{ParserEngine, ParserRequest};
-use handl_plugin_engine_parse_pratt::PrattEngine;
+use hnl_engine_lex_pattern::lex;
+use hnl_engine_parse::{ParserEngine, ParserRequest};
+use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::desugar_pass::apply_desugar;
 use serde_json::json;
 

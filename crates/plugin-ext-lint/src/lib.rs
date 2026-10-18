@@ -4,7 +4,7 @@
 //! Re-exports the platform `Lint` operation machinery ([`BasicLinter`], the
 //! generic rule/capability registry) and runs the rule set declared in
 //! `lang.lints` of the injected [`Language`] through the data-driven
-//! [`LintEngine`] in `plugin-engine-lint`. The canonical rule set lives in
+//! [`LintEngine`] in `hnl-engine-lint`. The canonical rule set lives in
 //! `handl-kit-data-canonical`'s `lints.yaml`; the host supplies the language
 //! via [`LintContext`] (ADR-0128 §"The 0.8 seam") — this crate keeps no
 //! normal dependency on the canonical kit.
@@ -45,7 +45,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use handl_language::LangError;
-use handl_plugin_engine_lint::{
+use hnl_engine_lint::{
     DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, NativeLintResolver,
     canonical_lint_natives,
 };
@@ -159,7 +159,7 @@ fn unbound_wire_diagnostics_with_language(
     src: &str,
     prelude: &HashSet<String>,
 ) -> Vec<Diagnostic> {
-    match handl_plugin_engine_typecheck::check_module_with_prelude(lang, src, prelude) {
+    match hnl_engine_typecheck::check_module_with_prelude(lang, src, prelude) {
         Ok(report) => report
             .diagnostics
             .into_iter()

@@ -8,11 +8,11 @@ repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }
-handl-plugin-engine-fmt = { path = "../plugin-engine-fmt" }
+hnl-engine-fmt = { git = "https://github.com/handl-lang/engine-fmt", branch = "main" }
 handl-plugin-ext-diag = { path = "../plugin-ext-diag" }
-handl-plugin-engine-parse = { path = "../plugin-engine-parse" }
-handl-plugin-engine-parse-pratt = { path = "../plugin-engine-parse-pratt" }
-handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }
+hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
+hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
+hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
 handl-language = { workspace = true }
 serde_json = { workspace = true }
 

@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 handl-platform = { path = "../platform" }
-handl-plugin-engine-test = { path = "../plugin-engine-test" }
+hnl-engine-test = { git = "https://github.com/handl-lang/engine-test", branch = "main" }
 handl-plugin-lib-scheduler = { path = "../plugin-lib-scheduler" }
 serde_json = { workspace = true }
 
