@@ -105,131 +105,13 @@ pub use trait_inference::{
 };
 pub use types::{BaseTy, Contract, LoopInvariant, Measure, Pred, RefTy, RefinementResult};
 
-/// Source dialect detected from surface syntax.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Dialect {
-    Canonical,
-    Contract,
-    Arrow,
-}
-
-/// A top-level (column-0) source line, with `--` line comments removed.
-/// Returns `None` for blank lines, comments, and indented lines (contract
-/// clause lines are indented and never carry a directive keyword).
-fn top_level_line(line: &str) -> Option<&str> {
-    if line.chars().next().is_none_or(|c| c.is_whitespace()) {
-        return None;
-    }
-    let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
-    let t = code.trim_end();
-    (!t.is_empty()).then_some(t)
-}
-
-/// True when the source is a contract-dialect file: the first top-level
-/// statement line starts with `axiom `.
-fn is_contract_source(src: &str) -> bool {
-    src.lines()
-        .filter_map(top_level_line)
-        .next()
-        .is_some_and(|l| l.starts_with("axiom "))
-}
-
-/// True when the source shows arrow-dialect markers: top-level
-/// `cap`/`op`/`handl`/`tag` declaration lines or arrow-combinator
-/// expressions (`arr(`, `first(`, `choice(`, `loop(`, `comp(`, `app(`,
-/// `|||`, `rec {`).
-fn has_arrow_markers(src: &str) -> bool {
-    const DIRECTIVES: [&str; 4] = ["cap ", "op ", "handl ", "tag "];
-    src.lines().any(|line| {
-        let code = line.split_once("--").map(|(c, _)| c).unwrap_or(line);
-        if let Some(top) = top_level_line(line) {
-            if DIRECTIVES.iter().any(|d| top.starts_with(d)) {
-                return true;
-            }
-        }
-        contains_arrow_combinator(code)
-    })
-}
-
-/// True when `code` mentions an arrow-calculus combinator as a *standalone*
-/// expression, rather than as the tail of a longer identifier or a field
-/// access. Handl surface code that calls a function like `array.first(…)` or
-/// `fn.comp(…)` must not be mistaken for the arrow kernel's `first`/`comp`
-/// combinators, so each combinator name is matched word-bounded (not preceded
-/// by `.` or an identifier character).
-fn contains_arrow_combinator(code: &str) -> bool {
-    // `>>>` and `|||` are now canonical dimension-polymorphic composition
-    // operators (ADR-0119); arrow-dialect files are recognized by
-    // `cap`/`op`/`handl`/`tag` directives and call-form combinators.
-
-    // `name(` — call-form combinators.
-    for name in ["arr", "first", "choice", "loop", "comp", "app"] {
-        if standalone_call(code, name) {
-            return true;
-        }
-    }
-
-    // `rec {` — `rec` standalone followed by optional whitespace and `{`.
-    standalone_rec(code)
-}
-
-/// Whether `name` occurs in `code` as a standalone `name(` call: not preceded
-/// by an identifier character or `.`, and immediately followed by `(`.
-fn standalone_call(code: &str, name: &str) -> bool {
-    let mut search = 0;
-    while let Some(rel) = code[search..].find(name) {
-        let start = search + rel;
-        let end = start + name.len();
-        let before_ok = code[..start]
-            .chars()
-            .next_back()
-            .map_or(true, |c| !(c.is_alphanumeric() || c == '_' || c == '.'));
-        let after_ok = code[end..].chars().next() == Some('(');
-        if before_ok && after_ok {
-            return true;
-        }
-        search = end;
-    }
-    false
-}
-
-/// Whether `rec` occurs in `code` as a standalone identifier followed by
-/// (optional whitespace and) `{`.
-fn standalone_rec(code: &str) -> bool {
-    let mut search = 0;
-    while let Some(rel) = code[search..].find("rec") {
-        let start = search + rel;
-        let end = start + 3;
-        let before_ok = code[..start]
-            .chars()
-            .next_back()
-            .map_or(true, |c| !(c.is_alphanumeric() || c == '_' || c == '.'));
-        if before_ok {
-            let after = code[end..].trim_start().chars().next();
-            if after == Some('{') {
-                return true;
-            }
-        }
-        search = end;
-    }
-    false
-}
-
-/// Detect the surface dialect of `src`.
-///
-/// Contract files (`axiom`/`requires:`/`guarantee:`) and arrow-module files
-/// (`cap`/`op`/`handl`/`tag` decls, arrow combinators) are routed to the
-/// refinement loaders. Arrow detection requires the source to successfully
-/// parse as an arrow module, not just contain marker tokens.
-pub fn detect_dialect(src: &str) -> Dialect {
-    if is_contract_source(src) {
-        return Dialect::Contract;
-    }
-    if has_arrow_markers(src) {
-        return Dialect::Arrow;
-    }
-    Dialect::Canonical
-}
+// Surface-dialect detection is shared tooling plumbing (`plugin-ext-detect`,
+// like `plugin-ext-diag`): it lives there so light consumers — `hnl fmt`,
+// `lint`, `typecheck`, `run`, the test runner, and the ADR-0149 `hnl_ext_*`
+// extension crates — do not pull the whole refinement engine graph for a
+// routing decision. Re-exported here so existing `plugin-ext-refinement`
+// callers keep compiling unchanged.
+pub use handl_plugin_ext_detect::{Dialect, detect_dialect};
 
 #[cfg(test)]
 mod tests;

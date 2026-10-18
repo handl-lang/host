@@ -12,6 +12,7 @@ native-z3 = ["dep:z3"]
 
 [dependencies]
 handl-platform = { path = "../platform" }
+handl-plugin-ext-detect = { path = "../plugin-ext-detect" }
 handl-language = { workspace = true }
 plugin-engine = { workspace = true }
 handl-plugin-engine-lex-pattern = { path = "../plugin-engine-lex-pattern" }

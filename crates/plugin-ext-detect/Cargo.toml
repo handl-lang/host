@@ -1,0 +1,9 @@
+[package]
+name = "handl-plugin-ext-detect"
+version.workspace = true
+edition.workspace = true
+description = "`handl-plugin-ext-detect` — shared surface-dialect detection (`detect_dialect`) for handl sources."
+license.workspace = true
+repository.workspace = true
+
+[dependencies]

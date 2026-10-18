@@ -11,6 +11,7 @@ members = [
   "crates/bench",
   "crates/ext-tests",
   "crates/platform-tests",
+  "crates/plugin-ext-detect",
   "crates/plugin-ext-diag",
   "crates/plugin-ext-compile",
   "crates/plugin-ext-eval",
@@ -90,6 +91,7 @@ glob = "0.3"
 heck = "0.5"
 target-lexicon = "0.12"
 
+handl-plugin-ext-detect = { path = "crates/plugin-ext-detect" }
 handl-plugin-ext-diag = { path = "crates/plugin-ext-diag" }
 handl-plugin-ext-compile = { path = "crates/plugin-ext-compile" }
 handl-plugin-ext-eval = { path = "crates/plugin-ext-eval" }
