@@ -141,3 +141,51 @@ fn flow_op_decl_in_stacked_block_uses_quote() {
         "op-decl rhs should be the lazy `Op{{inc}}` reference, got {op:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// `f >>> g` where BOTH operands are env-bound quoted arrows: the node's
+// value is the composite `Arrow{first, second}` record (`eval.flow`),
+// not `Seq[f, g]` — which runs the composite on the ambient input wherever
+// the value escapes the pipeline (bound name, call callee, return).
+// ---------------------------------------------------------------------------
+
+/// `g := f >>> f` binds the composite arrow *value*: the slot push
+/// `product(id, flow(f, g))` evaluates `flow` once at the bind site and
+/// `g(1)` applies the composite — `f(f(1))` = 3. Under the `Seq[f, f]`
+/// reading the bound term applied the composition to the block input
+/// (`f(f(Null))` — "non-numeric argument").
+#[test]
+fn flow_quoted_arrows_compose_to_value() {
+    assert_lowered("do {\n  f := (n) ~> n + 1\n  g := f >>> f\n  g(1)\n}");
+    // Composite returned from a function body, then applied.
+    assert_lowered("do {\n  f := (n) ~> n + 1\n  (((x) ~> f >>> f)(0))(5)\n}");
+    // `>>>` node in App callee position — evaluates to the composite.
+    assert_lowered("do {\n  f := (n) ~> n + 1\n  g := (x) ~> (f >>> f)(x)\n  g(1)\n}");
+}
+
+/// The composite value itself is an `Arrow`-tagged record in both the
+/// interpreter and the engine (the field payloads differ — serialized
+/// `Term`s vs `__arrow__` closures — so only the tag is compared).
+#[test]
+fn flow_quoted_arrows_yield_arrow_record() {
+    let rt = runtime();
+    let src = "do {\n  f := (n) ~> n + 1\n  f >>> f\n}";
+    let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
+    let ast = rt.parse(&toks).expect("parse+desugar must succeed");
+    let root = AstRef::new(ast.len() - 1);
+    let term = lower_ast(&ast, rt.lang(), root).expect("must lower");
+    let got = interpret(&term, Value::Null).expect("interp");
+    assert_eq!(
+        got.get("__tag__").and_then(Value::as_str),
+        Some("Arrow"),
+        "composite should be an Arrow record, got {got:?}"
+    );
+}
+
+/// Value-lhs composition keeps the `Seq` inlining (`10 >>> f` runs the
+/// rhs body on the lhs value) — the form compiled backends can run.
+#[test]
+fn flow_value_lhs_still_applies() {
+    assert_lowered("do {\n  f := (n) ~> n + 1\n  10 >>> f\n}");
+    assert_lowered("((x) ~> x >>> ((n) ~> n + 1))(5)");
+}

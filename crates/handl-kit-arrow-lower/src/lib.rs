@@ -320,8 +320,27 @@ fn lower_node(
                 .ok_or_else(|| format!("flow at {} missing right child", idx))?;
             let l = lower_node(ast, lang, l_idx, env, params)?;
             let (r, r_kind) = lower_flow_operand(ast, lang, r_idx, env, params)?;
-            if r_kind == FlowOperand::Value {
-                Ok(Term::op_native("flow", vec![l, r]))
+            if r_kind == FlowOperand::Value || flow_lhs_is_arrow_value(&l) {
+                // `x >>> f` where an operand is a held *value* — or where
+                // the lhs itself *denotes* an arrow value (`f >>> g` with
+                // `f` an env-bound quoted arrow): the node's result is the
+                // `eval.flow` dispatch — `Op{flow}` evaluates both operands
+                // on the input, composing to `Arrow{first, second}` when
+                // both are arrow-like and applying otherwise. `Seq` would
+                // run the composite on `in`, which is only the honest
+                // reading while the node's value stays inside a pipeline;
+                // bound to a name (`g := f >>> f`) or returned it must
+                // produce the composite *arrow value*. An Arrow-kind rhs
+                // is a body arrow — `ensure_quoted` marshals it to the
+                // arrow value `flow` dispatches on.
+                Ok(Term::op_native("flow", vec![
+                    l,
+                    if r_kind == FlowOperand::Arrow {
+                        ensure_quoted(&unquote_term(r))
+                    } else {
+                        r
+                    },
+                ]))
             } else {
                 Ok(Term::seq(unquote_term(l), unquote_term(r)))
             }
@@ -349,8 +368,17 @@ fn lower_node(
             let l = lower_node(ast, lang, l_idx, env, params)?;
             let axis = lower_node(ast, lang, axis_idx, env, params)?;
             let (r, r_kind) = lower_flow_operand(ast, lang, r_idx, env, params)?;
-            if axis.nat_literal() == Some(0) && r_kind == FlowOperand::Value {
-                Ok(Term::op_native("flow", vec![l, r]))
+            if axis.nat_literal() == Some(0)
+                && (r_kind == FlowOperand::Value || flow_lhs_is_arrow_value(&l))
+            {
+                Ok(Term::op_native("flow", vec![
+                    l,
+                    if r_kind == FlowOperand::Arrow {
+                        ensure_quoted(&unquote_term(r))
+                    } else {
+                        r
+                    },
+                ]))
             } else {
                 Ok(Term::seq_axis(axis, unquote_term(l), unquote_term(r)))
             }
@@ -2449,10 +2477,13 @@ fn lower_match(
 
     // Collect arms; richer patterns decline the whole node.
     struct Arm {
-        /// Discriminant term evaluated on the `[sv, in]` dispatch pair.
+        /// Discriminant term evaluated on the `[sv, in]` dispatch pair —
+        /// or on the `[sv, in, keys]` triple when `prologue` is set.
         pred: Term,
-        /// Pattern-bound names → terms evaluated on `[sv, in]`.
+        /// Pattern-bound names → terms evaluated on the same shape.
         binds: Vec<(String, Term)>,
+        /// Runtime-valued-key prologue (see [`PatternPrologue`]).
+        prologue: Option<PatternPrologue>,
         body_idx: usize,
     }
     let mut arms: Vec<Arm> = Vec::new();
@@ -2467,10 +2498,11 @@ fn lower_match(
         let body_idx = child_at_role_or_pos(arm, lang, "body", 1)
             .or_else(|| ach.get(1).copied())
             .ok_or_else(|| format!("match arm {} missing body", arm_idx))?;
-        let (pred, binds) = compile_pattern(ast, lang, pat_idx, node, &arm_env)?;
+        let c = compile_pattern(ast, lang, pat_idx, node, &arm_env)?;
         arms.push(Arm {
-            pred,
-            binds,
+            pred: c.pred,
+            binds: c.binds,
+            prologue: c.prologue,
             body_idx,
         });
     }
@@ -2492,11 +2524,53 @@ fn lower_match(
             );
         }
         let body = lower_node(ast, lang, arm.body_idx, &body_env, &[])?;
-        let decision = Term::seq(
-            Term::op_native("product", vec![arm.pred.clone(), id.clone()]),
-            Term::op_native("pair_tag", vec![]),
-        );
-        dispatch = Term::seq(decision, Term::choice(body, dispatch));
+        dispatch = match &arm.prologue {
+            // Object pattern with runtime-valued keys: `gate` (`is_obj`)
+            // runs first — a non-object falls through without evaluating
+            // any key, `try_object_pattern`'s early `Ok(false)` — then
+            // `extend` forces every key once into the `[v, in, keys]`
+            // triple the inner discriminant *and* the arm body share.
+            // A failed inner discriminant collapses the triple back to
+            // `[v, in]` for the next arm (`product(elem 0, elem 1)`).
+            Some(p) => Term::seq(
+                Term::op_native("product", vec![p.gate.clone(), id.clone()]),
+                Term::seq(
+                    Term::op_native("pair_tag", vec![]),
+                    Term::choice(
+                        Term::seq(
+                            p.extend.clone(),
+                            Term::seq(
+                                Term::op_native(
+                                    "product",
+                                    vec![arm.pred.clone(), id.clone()],
+                                ),
+                                Term::seq(
+                                    Term::op_native("pair_tag", vec![]),
+                                    Term::choice(
+                                        body,
+                                        Term::seq(
+                                            Term::op_native(
+                                                "product",
+                                                vec![proj(0), proj(1)],
+                                            ),
+                                            dispatch.clone(),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        dispatch,
+                    ),
+                ),
+            ),
+            None => {
+                let decision = Term::seq(
+                    Term::op_native("product", vec![arm.pred.clone(), id.clone()]),
+                    Term::op_native("pair_tag", vec![]),
+                );
+                Term::seq(decision, Term::choice(body, dispatch))
+            }
+        };
     }
     Ok(Term::seq(
         Term::op_native("product", vec![scrut_t, Term::op_native("id", vec![])]),
@@ -2550,13 +2624,80 @@ fn lower_match(
 /// the dynamic operand forms of `has_field`/`field_access`/`obj_except`
 /// over a slot-2 key list; only a key expression `lower_node` itself
 /// cannot express still declines.
-fn compile_pattern(
+
+/// What [`compile_pattern`] produced for one arm pattern.
+struct CompiledPattern {
+    /// Discriminant term — evaluated on the dispatch pair `[v, in]`,
+    /// or on the extended `[v, in, keys]` triple when `prologue` is set.
+    pred: Term,
+    /// Pattern-bound names → terms evaluated on the same shape as `pred`.
+    binds: Vec<(String, Term)>,
+    /// Set when the arm's *root* pattern is an object with runtime-valued
+    /// keys: [`lower_match`] then wraps the arm in `gate` + `extend` so the
+    /// key list is forced once and shared between discriminant and body.
+    prologue: Option<PatternPrologue>,
+}
+
+/// An arm-level prologue for an object pattern with runtime-valued keys:
+/// `try_object_pattern` checks the scrutinee is an object, then evaluates
+/// every computed key once before matching — the lowered counterpart is a
+/// `gate` (the `is_obj` check) guarding `extend`, which pushes the
+/// evaluated key list onto the dispatch pair: `[v, in] → [v, in, keys]`.
+/// Both terms consume the plain `[v, in]` pair; `pred`/`binds` of the
+/// [`CompiledPattern`] then consume the extended triple.
+struct PatternPrologue {
+    /// `[v, in] -> bool` — the `is_obj` scrutinee gate.
+    gate: Term,
+    /// `[v, in] -> [v, in, keys]` — evaluates each dynamic key once.
+    extend: Term,
+}
+
+fn compiled(pred: Term, binds: Vec<(String, Term)>) -> CompiledPattern {
+    CompiledPattern {
+        pred,
+        binds,
+        prologue: None,
+    }
+}
+
+/// Compile a pattern for a *nested* position: a sub-pattern's arm-level
+/// prologue is folded inline — the gate rides into the sub-predicate
+/// (`and_short`) and the extension into each binder path — producing
+/// terms evaluated on the local `[v', in]` sub-scrutinee pair, the same
+/// shape [`lower_match`] emits for a prologue-less arm. Sharing the
+/// extension *across* the discriminant/body boundary is only possible at
+/// arm level (the keys depend on `in`, but `try_object_pattern` timing —
+/// keys forced only when the nested object pattern is reached — would
+/// change if a nested extension were hoisted past its own `is_obj`
+/// gate), so nested dynamic keys still evaluate once per binder-path
+/// use — the residual this arm-level split does not close.
+fn compile_pattern_inline(
     ast: &Ast,
     lang: &Language,
     pat_idx: usize,
     node: &AstNode,
     pat_env: &HashMap<String, EnvEntry>,
 ) -> Result<(Term, Vec<(String, Term)>), String> {
+    let c = compile_pattern(ast, lang, pat_idx, node, pat_env)?;
+    Ok(match c.prologue {
+        None => (c.pred, c.binds),
+        Some(p) => (
+            and_short(p.gate, Term::seq(p.extend.clone(), c.pred)),
+            c.binds
+                .into_iter()
+                .map(|(n, path)| (n, Term::seq(p.extend.clone(), path)))
+                .collect(),
+        ),
+    })
+}
+
+fn compile_pattern(
+    ast: &Ast,
+    lang: &Language,
+    pat_idx: usize,
+    node: &AstNode,
+    pat_env: &HashMap<String, EnvEntry>,
+) -> Result<CompiledPattern, String> {
     let pat = ast
         .get(AstRef::new(pat_idx))
         .ok_or_else(|| format!("match pattern {pat_idx} out of bounds"))?;
@@ -2588,9 +2729,9 @@ fn compile_pattern(
     // ambient env and `eq`-compare against `v` — honest for anything
     // `lower_node` covers (`paren` bodies, env-bound vars, calls,
     // field accesses, object/array literals).
-    let lit_eval = |expr_idx: usize| -> Result<(Term, Vec<(String, Term)>), String> {
+    let lit_eval = |expr_idx: usize| -> Result<CompiledPattern, String> {
         let e = lower_node(ast, lang, expr_idx, pat_env, &[])?;
-        Ok((Term::op_native("eq", vec![pv(), e]), vec![]))
+        Ok(compiled(Term::op_native("eq", vec![pv(), e]), vec![]))
     };
     let role = |r: &str, kind: &str| {
         lang.pattern_role_is(&pat.kind, r)
@@ -2601,15 +2742,17 @@ fn compile_pattern(
     //    or global value pattern.
     if role("leaf", "var") {
         return match pat.payload.as_str() {
-            Some(name) if name.is_empty() || is_wildcard_name(name) => Ok((true_t(), vec![])),
+            Some(name) if name.is_empty() || is_wildcard_name(name) => {
+                Ok(compiled(true_t(), vec![]))
+            }
             Some(name) => {
                 if let Some(global) = lang.globals.get(name) {
-                    return Ok((eq_lit(global.clone()), vec![]));
+                    return Ok(compiled(eq_lit(global.clone()), vec![]));
                 }
                 // Bare `var` binds the whole scrutinee; an env-bound name
                 // still binds (binders shadow — `try_pattern` checks only
                 // `ctx.global_value`).
-                Ok((true_t(), vec![(name.to_string(), pv())]))
+                Ok(compiled(true_t(), vec![(name.to_string(), pv())]))
             }
             // A leaf without a string payload (e.g. `arr`) is a literal
             // in `try_pattern` — evaluate it in the ambient env and
@@ -2663,7 +2806,7 @@ fn compile_pattern(
         // error on `field_access i`.
         let mut binds: Vec<(String, Term)> = Vec::new();
         for (i, &p) in positional.iter().enumerate() {
-            let (sub_pred, sub_binds) = compile_pattern(ast, lang, p, node, pat_env)?;
+            let (sub_pred, sub_binds) = compile_pattern_inline(ast, lang, p, node, pat_env)?;
             if !is_const_true(&sub_pred) {
                 pred = and_short(pred, Term::seq(sub_pair(elem_at(i)), sub_pred));
             }
@@ -2683,7 +2826,7 @@ fn compile_pattern(
                 ));
             }
         }
-        return Ok((pred, binds));
+        return Ok(compiled(pred, binds));
     }
 
     // 3. Entries (`pattern_role: entries`, canonical `object`) —
@@ -2785,8 +2928,12 @@ fn compile_pattern(
         // `field_access`/`obj_except` then read keys by slot index
         // instead of re-evaluating the expressions — one evaluation per
         // discriminant walk, and an erroring key propagates before any
-        // field check. Binder paths (which run on the plain `[v, in]`
-        // pair) re-apply `extend` themselves.
+        // field check. When this pattern is the arm's *root*, the
+        // extension is returned as a [`PatternPrologue`] so `lower_match`
+        // installs it once ahead of the discriminant and the evaluated
+        // keys ride the dispatched triple into the arm body — instead of
+        // being re-derived per binder-path use. Nested object patterns
+        // fold it inline (see [`compile_pattern_inline`]).
         let has_dynamic = entries.iter().any(|e| e.dyn_key.is_some());
         let keys_slot = Term::op_native(
             "array",
@@ -2826,7 +2973,7 @@ fn compile_pattern(
             if let Some(s) = &e.static_key {
                 keys.push(s.clone());
             }
-            let (sub_pred, sub_binds) = compile_pattern(ast, lang, e.val_idx, node, pat_env)?;
+            let (sub_pred, sub_binds) = compile_pattern_inline(ast, lang, e.val_idx, node, pat_env)?;
             let entry_pred = if is_const_true(&sub_pred) {
                 has_t
             } else {
@@ -2836,40 +2983,27 @@ fn compile_pattern(
                 Some(p) => and_short(p, entry_pred),
                 None => entry_pred,
             });
+            // Binder paths read `keys[i]` directly off the extended
+            // triple — the extension is the arm prologue's, not a
+            // per-path `Seq[extend, ·]`. `elem 0|1` keep their `[v, in]`
+            // meaning on the triple, so static-key paths need nothing.
             for (name, path) in sub_binds {
-                let inner = Term::seq(sub_pair(field_t.clone()), path);
-                binds.push((
-                    name,
-                    if e.dyn_key.is_some() {
-                        Term::seq(extend.clone(), inner)
-                    } else {
-                        inner
-                    },
-                ));
+                binds.push((name, Term::seq(sub_pair(field_t.clone()), path)));
             }
         }
         // `{}` — any object matches (`try_object_pattern` checks only
         // that the scrutinee is an Obj).
         let pred = pred.unwrap_or_else(|| on_v(Term::op_native("is_obj", vec![id.clone()])));
-        let pred = if has_dynamic {
-            and_short(
-                on_v(Term::op_native("is_obj", vec![id.clone()])),
-                Term::seq(extend.clone(), pred),
-            )
-        } else {
-            pred
-        };
         if let Some(r) = rest {
             if let Some(name) = rest_binder_name(ast, lang, r, node)? {
                 if has_dynamic {
+                    // `obj_except(target, keys)` reads the slot-2 key
+                    // list — the whole object minus every matched key.
                     binds.push((
                         name,
-                        Term::seq(
-                            extend.clone(),
-                            Term::op_native(
-                                "obj_except",
-                                vec![pv(), Term::op_native_lit("elem", vec![], 2)],
-                            ),
+                        Term::op_native(
+                            "obj_except",
+                            vec![pv(), Term::op_native_lit("elem", vec![], 2)],
                         ),
                     ));
                 } else {
@@ -2886,7 +3020,22 @@ fn compile_pattern(
                 }
             }
         }
-        return Ok((pred, binds));
+        return Ok(if has_dynamic {
+            // The discriminant and binder paths consume the extended
+            // `[v, in, keys]` triple; `lower_match` installs `gate`
+            // (`is_obj` on the pair) then `extend` once per arm attempt
+            // — `try_object_pattern`'s eval-keys-once order.
+            CompiledPattern {
+                pred,
+                binds,
+                prologue: Some(PatternPrologue {
+                    gate: on_v(Term::op_native("is_obj", vec![id.clone()])),
+                    extend,
+                }),
+            }
+        } else {
+            compiled(pred, binds)
+        });
     }
 
     // 4. Tag pattern (`callee`-roled shape, canonical `call`;
@@ -2951,13 +3100,15 @@ fn compile_pattern(
                 ),
             ));
         }
-        return Ok((pred, binds));
+        return Ok(compiled(pred, binds));
     }
 
     match pat.kind.as_str() {
         // Literal values — `value`/`lit`/`number`/`string`/`bool` nodes
         // carry their payload directly.
-        "value" | "lit" | "number" | "string" | "bool" => Ok((eq_lit(pat.payload.clone()), vec![])),
+        "value" | "lit" | "number" | "string" | "bool" => {
+                Ok(compiled(eq_lit(pat.payload.clone()), vec![]))
+            }
         // `paren` is a transparent wrapper — literal-eval of the inner
         // expression (`lower_node` unwraps the `body` child), which
         // covers literals, env-bound vars, and arbitrary expressions.
@@ -3032,7 +3183,7 @@ fn compile_pattern(
                 .filter(|name| !name.is_empty() && !is_wildcard_name(name))
                 .map(|name| vec![(name, field("value"))])
                 .unwrap_or_default();
-            Ok((pred, binds))
+            Ok(compiled(pred, binds))
         }
         // `try_pattern`'s literal-eval tail — any other expression node
         // (binary ops, field accesses, object/array literals, calls)
@@ -3604,6 +3755,23 @@ fn binding_denotes_value(term: &Term) -> bool {
         // *value* (quoted); an `Arr` holding anything else is a
         // constant — evaluate it and let App dispatch on the value.
         Term::Arr { value, .. } => serde_json::from_value::<Term>(value.clone()).is_err(),
+        _ => false,
+    }
+}
+
+/// Whether a `flow`/`axis_flow` left operand *denotes* an arrow value —
+/// a quoted `Arr` (serialized `Term` payload, the function-literal
+/// lowering) or an `Op{flow}` dispatch, whose result may be arrow-like.
+/// For those, `Seq[l, r]` is not the honest reading: it runs the
+/// composite on the ambient input instead of producing it wherever the
+/// node's value escapes the pipeline (bound name, call callee, function
+/// return). `Op{flow}` — the `eval.flow` value dispatch — composes when
+/// both operands evaluate arrow-like and applies otherwise, matching
+/// the engines for both outcomes.
+fn flow_lhs_is_arrow_value(t: &Term) -> bool {
+    match t {
+        Term::Arr { value, .. } => serde_json::from_value::<Term>(value.clone()).is_ok(),
+        Term::Op { name, .. } => name == "flow",
         _ => false,
     }
 }

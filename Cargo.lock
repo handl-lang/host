@@ -810,6 +810,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-char"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/lib-char?branch=main#fff428c76909da85f2d5a83d8966df9a6098473b"
+
+[[package]]
 name = "handl-lib-cmp"
 version = "0.1.0"
 dependencies = [
@@ -886,6 +891,16 @@ name = "handl-lib-intl-c"
 version = "0.1.0"
 
 [[package]]
+name = "handl-lib-ip"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/lib-ip?branch=main#cc6d9d652bab856bfe48fcb4835daee6be8a8fdd"
+dependencies = [
+ "handl-platform",
+ "handl-plugin-lib-handl",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-lib-json"
 version = "0.1.0"
 dependencies = [
@@ -948,6 +963,11 @@ name = "handl-lib-prim-handl"
 version = "0.1.0"
 
 [[package]]
+name = "handl-lib-rand-c"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/lib-rand-c?branch=main#9d6bd426fcb257e4ed99083f94a1a24095f59c70"
+
+[[package]]
 name = "handl-lib-result"
 version = "0.1.0"
 
@@ -982,6 +1002,11 @@ dependencies = [
  "serde_json",
  "tar",
 ]
+
+[[package]]
+name = "handl-lib-time-c"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/lib-time-c?branch=main#fc948ab5a7dc70ee64cb09c69b04ae940ab61086"
 
 [[package]]
 name = "handl-lib-transform"
@@ -1026,6 +1051,11 @@ dependencies = [
  "serde_json",
  "url",
 ]
+
+[[package]]
+name = "handl-lib-utils"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/lib-utils?branch=main#a594cad72488347f5a77b4e3d2a1286da927c7c3"
 
 [[package]]
 name = "handl-platform"
@@ -1362,6 +1392,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-ext-detect"
+version = "0.1.0"
+
+[[package]]
 name = "handl-plugin-ext-diag"
 version = "0.1.0"
 dependencies = [
@@ -1442,6 +1476,7 @@ dependencies = [
  "handl-plugin-engine-lex-pattern",
  "handl-plugin-engine-parse",
  "handl-plugin-engine-parse-pratt",
+ "handl-plugin-ext-detect",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "plugin-engine",
@@ -1500,6 +1535,7 @@ dependencies = [
 name = "handl-plugin-lib-char-native"
 version = "0.1.0"
 dependencies = [
+ "handl-lib-char",
  "handl-platform",
  "serde_json",
 ]
@@ -1676,6 +1712,7 @@ dependencies = [
  "handl-lib-arrow-iter",
  "handl-lib-base64",
  "handl-lib-bytes",
+ "handl-lib-char",
  "handl-lib-cmp",
  "handl-lib-collections",
  "handl-lib-combinators",
@@ -1686,6 +1723,7 @@ dependencies = [
  "handl-lib-hex",
  "handl-lib-intl",
  "handl-lib-intl-c",
+ "handl-lib-ip",
  "handl-lib-json",
  "handl-lib-mood",
  "handl-lib-obj",
@@ -1694,16 +1732,19 @@ dependencies = [
  "handl-lib-parse",
  "handl-lib-prim",
  "handl-lib-prim-handl",
+ "handl-lib-rand-c",
  "handl-lib-result",
  "handl-lib-serialize",
  "handl-lib-stats",
  "handl-lib-tar",
+ "handl-lib-time-c",
  "handl-lib-transform",
  "handl-lib-type",
  "handl-lib-unicode",
  "handl-lib-unicode-c",
  "handl-lib-url-rfc",
  "handl-lib-url-whatwg",
+ "handl-lib-utils",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-module",

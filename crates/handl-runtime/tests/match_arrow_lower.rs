@@ -434,6 +434,119 @@ fn runtime_object_pattern_keys() {
     );
     // Runtime key over a non-object scrutinee falls through cleanly.
     assert_lowered(r#"((k) ~> match [1, 2] { {[k]: x}: x, _: 0 })("a")"#);
+    // A dynamic-key binder used *twice* in the body — the key list is
+    // forced once ahead of the discriminant and rides the dispatched
+    // `[v, in, keys]` triple into the body; the binder reads `keys[i]`
+    // rather than re-evaluating the key term per use.
+    assert_lowered(
+        r#"((k) ~> match { "a": 9 } { {[k]: x}: x + x + x, _: 0 })("a")"#,
+    );
+    assert_lowered(
+        r#"((k) ~> match { "a": 9 } { {[k]: x}: [x, x, x], _: 0 })("a")"#,
+    );
+    // Two dynamic keys, both binders used, plus a `...rest` read —
+    // via do-block slots (`(k, j) ~>` multi-param dynamic keys are a
+    // pre-existing `elem` OOB on the pair projection, unrelated to the
+    // prologue split).
+    assert_lowered(
+        r#"do { k :: "a", j :: "b", match { "a": 1, "b": 2, "c": 3 } { {[k]: x, [j]: y, ...r}: x + y + r.c, _: 0 } }"#,
+    );
+}
+
+/// Count `Op{name}` occurrences in a term — the structural witness that
+/// a runtime-valued key expression is emitted *once* (evaluated once per
+/// arm attempt into the slot-2 key list), not once per discriminant walk
+/// plus once per binder-path use.
+fn count_op(t: &Term, name: &str) -> usize {
+    let mut n = 0;
+    // Quoted arrows (`Arr` carrying a serialized `Term`) hide their body
+    // in the payload — descend so ops inside a bound function count too.
+    if let Term::Arr { value, .. } = t {
+        if let Ok(inner) = serde_json::from_value::<Term>(value.clone()) {
+            n += count_op(&inner, name);
+        }
+    }
+    if let Term::Op {
+        name: op,
+        args,
+        dim,
+        ..
+    } = t
+    {
+        if op == name {
+            n += 1;
+        }
+        n += count_op(dim, name);
+        for a in args {
+            n += count_op(a, name);
+        }
+    }
+    match t {
+        Term::Seq { axis, fst, snd } => {
+            n += count_op(axis, name) + count_op(fst, name) + count_op(snd, name)
+        }
+        Term::First { inner } => n += count_op(inner, name),
+        Term::Choice { l, r } => n += count_op(l, name) + count_op(r, name),
+        Term::Loop { body } => n += count_op(body, name),
+        Term::App { callee, args } => {
+            n += count_op(callee, name);
+            for a in args {
+                n += count_op(a, name);
+            }
+        }
+        Term::Iter {
+            fuel,
+            predicate,
+            step,
+            initial,
+        } => {
+            n += count_op(fuel, name)
+                + count_op(predicate, name)
+                + count_op(step, name)
+                + count_op(initial, name)
+        }
+        Term::Handle { body, impl_, .. } => n += count_op(body, name) + count_op(impl_, name),
+        _ => {}
+    }
+    n
+}
+
+/// Lower `src` and count `obj_key` ops in the emitted term.
+fn obj_key_count(src: &str) -> usize {
+    let rt = runtime();
+    let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
+    let ast = rt.parse(&toks).expect("parse+desugar must succeed");
+    let root = AstRef::new(ast.len() - 1);
+    let term = lower_ast(&ast, rt.lang(), root)
+        .unwrap_or_else(|e| panic!("lower_ast declined {src:?}: {e}"));
+    count_op(&term, "obj_key")
+}
+
+#[test]
+fn runtime_object_key_evaluated_once() {
+    // One runtime key whose binder is used three times: the `obj_key`
+    // coercion (and thus the key term under it) appears exactly once in
+    // the lowered term — the arm prologue's `extend` — instead of once
+    // in the discriminant plus once per binder path.
+    assert_eq!(
+        obj_key_count(r#"((k) ~> match { "a": 9 } { {[k]: x}: x + x + x, _: 0 })("a")"#),
+        1,
+    );
+    // Same under a `...rest` binder — `obj_except` reads the shared
+    // slot-2 list rather than re-forcing the keys.
+    assert_eq!(
+        obj_key_count(r#"((k) ~> match { "a": 1, "b": 2 } { {[k]: x, ...r}: [x, r], _: 0 })("a")"#),
+        1,
+    );
+    // Two dynamic keys → two `obj_key` ops total (one per key), shared
+    // between the discriminant walk and both binder paths. Do-block
+    // bound keys stay runtime-valued (`o.k` does not static-fold).
+    assert_eq!(
+        obj_key_count(
+            r#"do { o :: {"k": "a", "j": "b"}, match { "a": 1, "b": 2 } { {[o.k]: x, [o.j]: y}: x + y, _: 0 } }"#,
+        ),
+        2,
+    );
 }
 
 #[test]
