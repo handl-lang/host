@@ -317,6 +317,15 @@ mod bootstrap {
                         }
                     }
                 }
+                // Strip `handle "op.name" with <impl>` declarations — the
+                // contract-decl form (a string literal target), not the
+                // dynamic-extent `handle <expr> with <handler>` statement
+                // used inside arrows (which doesn't take a string literal).
+                if let Some(rest) = trimmed.strip_prefix("handle") {
+                    if rest.trim_start().starts_with('"') {
+                        return false;
+                    }
+                }
                 // NOTE: `import`/`from` lines are deliberately KEPT here --
                 // the runtime evaluates them (`grammar.stmt-from.prefix` +
                 // `prim_import`); `transform_export_to_object` hoists them
