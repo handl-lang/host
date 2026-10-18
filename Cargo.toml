@@ -41,7 +41,6 @@ members = [
   "crates/handl-runtime",
   "crates/handl-kit-data",
   "crates/plugin-sdkgen",
-  "crates/plugin-sdkgen-emitter-file",
   "crates/plugin-ext-sdkgen",
 ]
 resolver = "3"
@@ -161,7 +160,6 @@ handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
-handl-plugin-sdkgen-emitter-file = { path = "crates/plugin-sdkgen-emitter-file" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
@@ -416,7 +414,7 @@ handl-lib-mood = { path = "../lib-mood" }
 handl-lib-obj = { path = "../lib-obj" }
 
 [patch."https://github.com/handl-lang/lib-ops"]
-handl-lib-ops = { path = "../lib-ops" }
+handl-lib-ops = { path = "../kernel/crates/ops" }
 
 [patch."https://github.com/handl-lang/lib-option"]
 handl-lib-option = { path = "../lib-option" }
@@ -431,10 +429,10 @@ handl-plugin-lib-otlp-std = { path = "../lib-otlp-std" }
 handl-lib-parse = { path = "../lib-parse" }
 
 [patch."https://github.com/handl-lang/lib-prim"]
-handl-lib-prim = { path = "../lib-prim" }
+handl-lib-prim = { path = "../kernel/crates/prim" }
 
 [patch."https://github.com/handl-lang/lib-prim-handl"]
-handl-lib-prim-handl = { path = "../lib-prim-handl" }
+handl-lib-prim-handl = { path = "../kernel/crates/prim-handl" }
 
 [patch."https://github.com/handl-lang/lib-result"]
 handl-lib-result = { path = "../lib-result" }
@@ -505,7 +503,7 @@ handl-plugin-load = { path = "../platform/crates/plugin-load" }
 handl-plugin-loader-native = { path = "../platform/crates/plugin-loader-native" }
 handl-plugin-module = { path = "../platform/crates/plugin-module" }
 handl-plugin-sdkgen = { path = "../platform/crates/plugin-sdkgen" }
-handl-plugin-sdkgen-emitter-file = { path = "../platform/crates/plugin-sdkgen-emitter-file" }
+handl-plugin-sdkgen-emitter-file = { path = "../sdkgen-file" }
 handl-runtime = { path = "../platform/crates/handl-runtime" }
 handl-test-utils = { path = "../platform/crates/handl-test-utils" }
 
