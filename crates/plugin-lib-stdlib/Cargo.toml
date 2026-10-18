@@ -7,11 +7,11 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-handl-plugin-module = { git = "https://github.com/handl-lang/host", branch = "main" }
-handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
-handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
-handl-platform = { git = "https://github.com/handl-lang/host", branch = "main" }
-handl-plugin-lib-handl = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-plugin-module = { path = "../plugin-module" }
+handl-value = { workspace = true }
+handl-language = { workspace = true }
+handl-platform = { path = "../platform" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
@@ -64,10 +64,10 @@ url = "2"
 
 [dev-dependencies]
 handl-kit-data-canonical = { git = "https://github.com/handl-lang/kit-data-canonical", branch = "main" }
-handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
-handl-platform = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-language = { workspace = true }
+handl-platform = { path = "../platform" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
-handl-plugin-lib-handl = { git = "https://github.com/handl-lang/host", branch = "main" }
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-tag = { git = "https://github.com/handl-lang/host", branch = "main" }
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-lib-json = { git = "https://github.com/handl-lang/lib-json", branch = "main" }

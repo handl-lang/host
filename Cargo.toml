@@ -30,6 +30,7 @@ members = [
 
   "crates/plugin-lib-scheduler",
   "crates/plugin-lib-tag",
+    "crates/plugin-lib-stdlib",
   "crates/plugin-applier",
   "crates/platform",
   "crates/plugin-exec-cache",
@@ -94,7 +95,7 @@ handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
 handl-kit-canonical = { git = "https://github.com/handl-lang/kit-canonical", branch = "main" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
-handl-plugin-lib-stdlib = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
 # ADR-0128 §"1a": the `.hnl` sources of `str-handl` and `dedent` live in their
 # own repos; those crates export the sources as consts so this workspace can
 # include them without owning the files.
@@ -114,11 +115,11 @@ handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/lib-kv-hash
 # ADR-0128 Phase 4: the otlp modules live in the `otlp` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
-handl-plugin-lib-parse = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-parse = { git = "https://github.com/handl-lang/host", branch = "main" }
 
 handl-plugin-applier-bootstrap = { path = "crates/plugin-applier-bootstrap" }
 handl-plugin-applier-default = { path = "crates/plugin-applier-default" }
-handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/stdlib", branch = "main" }
+handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/host", branch = "main" }
 handl-plugin-lib-scheduler = { path = "crates/plugin-lib-scheduler" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-platform = { path = "crates/platform" }
@@ -241,6 +242,8 @@ hnl-engine-typecheck = { path = "../engine-typecheck" }
 [patch."https://github.com/handl-lang/engine-typecheck-handl"]
 hnl-engine-typecheck-handl = { path = "../engine-typecheck-handl" }
 [patch."https://github.com/handl-lang/host"]
+handl-plugin-lib-stdlib = { path = "../host/crates/plugin-lib-stdlib" }
+# dev-link: end
 handl = { path = "../host" }
 handl-bench = { path = "../host/crates/bench" }
 handl-ext-tests = { path = "../host/crates/ext-tests" }
@@ -393,6 +396,3 @@ handl-plugin-sdkgen-emitter-file = { path = "../sdkgen-file" }
 handl-plugin-sdkgen-emitter-python = { path = "../sdkgen-python" }
 [patch."https://github.com/handl-lang/sdkgen-webidl"]
 handl-plugin-sdkgen-backend-webidl = { path = "../sdkgen-webidl" }
-[patch."https://github.com/handl-lang/stdlib"]
-handl-plugin-lib-stdlib = { path = "../stdlib/crates/plugin-lib-stdlib" }
-# dev-link: end

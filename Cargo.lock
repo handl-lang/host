@@ -1449,6 +1449,7 @@ name = "handl-plugin-lib-stdlib"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "handl-kit-data-canonical",
  "handl-language",
  "handl-lib-archive",
  "handl-lib-arrow-iter",
@@ -1490,9 +1491,12 @@ dependencies = [
  "handl-platform",
  "handl-plugin-lib-crypto",
  "handl-plugin-lib-handl",
+ "handl-plugin-lib-tag",
  "handl-plugin-module",
  "handl-value",
  "hex",
+ "hnl-engine",
+ "hnl-engine-exec-tree-walk",
  "iri-string",
  "serde_json",
  "serde_yaml",
