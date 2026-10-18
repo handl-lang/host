@@ -161,7 +161,7 @@ hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform",
 hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-kit-data = { path = "crates/handl-kit-data" }
-handl-kit-data-canonical = { git = "https://github.com/handl-lang/lang", branch = "main" }
+handl-kit-data-canonical = { git = "https://github.com/handl-lang/kit-data-canonical", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
@@ -190,8 +190,8 @@ serde_json = "1"
 #
 #   CARGO_NET_GIT_FETCH_WITH_CLI=true \
 #   GIT_CONFIG_COUNT=2 \
-#   GIT_CONFIG_KEY_0="url.file:///home/luis/GitHub/handl-lang/lang.insteadOf" \
-#   GIT_CONFIG_VALUE_0="https://github.com/handl-lang/lang" \
+#   GIT_CONFIG_KEY_0="url.file:///home/luis/GitHub/handl-lang/kit-data-canonical.insteadOf" \
+#   GIT_CONFIG_VALUE_0="https://github.com/handl-lang/kit-data-canonical" \
 #   GIT_CONFIG_KEY_1="url.file:///home/luis/GitHub/handl-lang/kit-canonical.insteadOf" \
 #   GIT_CONFIG_VALUE_1="https://github.com/handl-lang/kit-canonical" \
 #   cargo check --workspace
@@ -292,8 +292,8 @@ handl-lib-type = { path = "../kernel/crates/type" }
 [patch."https://github.com/handl-lang/kit-canonical"]
 handl-kit-canonical = { path = "../kit-canonical/crates/kit-canonical" }
 handl-plugin-ffi = { path = "../kit-canonical/modules/ffi" }
-[patch."https://github.com/handl-lang/lang"]
-handl-kit-data-canonical = { path = "../lang/crates/handl-kit-data-canonical" }
+[patch."https://github.com/handl-lang/kit-data-canonical"]
+handl-kit-data-canonical = { path = "../kit-data-canonical/crates/handl-kit-data-canonical" }
 [patch."https://github.com/handl-lang/lib-archive"]
 handl-lib-archive = { path = "../lib-archive" }
 [patch."https://github.com/handl-lang/lib-arrow-iter"]
