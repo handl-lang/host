@@ -1,4 +1,4 @@
-# ADR-0128: Target repos — ports stay in `platform`, modules live in ecosystem repositories
+# ADR-0128: Target repos — ports stay in `host`, modules live in ecosystem repositories
 
 ## Context
 
@@ -116,7 +116,7 @@ other `plugin-lib-*` moves to `stdlib/`.
 
 `plugin-compile-handl` moves to **`handl/`** — the repo for Handl as a
 target — under strict target-per-repo consistency. **Naming:** the
-platform repo (today `handl-lang/handl`) is renamed **platform/**, since
+platform repo (today `handl-lang/handl`) is renamed **host/**, since
 "platform" is exactly what it now holds; `handl/` then means the
 *language target*, not the workspace. `host-tooling` stays — it is the
 shared host contract
@@ -160,10 +160,10 @@ Git deps + `[patch]` for local development — **local only, no
 publishing** for now:
 
 ```toml
-handl-plugin-sdkgen = { git = "https://github.com/handl-lang/platform", tag = "v0.1.0" }
+handl-plugin-sdkgen = { git = "https://github.com/handl-lang/host", tag = "v0.1.0" }
 
-[patch."https://github.com/handl-lang/platform"]
-handl-plugin-sdkgen = { path = "../platform/crates/plugin-sdkgen" }
+[patch."https://github.com/handl-lang/host"]
+handl-plugin-sdkgen = { path = "../host/crates/plugin-sdkgen" }
 ```
 
 `[patch]` is local-dev only; CI resolves the tag. A `dev-link` script

@@ -3,23 +3,23 @@
 # Maps every path under `project/` to the repo that owns it. Consumed by
 # `scripts/split-project-docs.sh`, which writes one paths-file per repo and
 # runs `git filter-repo --paths-from-file <file> --path-rename project/:`
-# on a CLONE of platform, emitting an orphan `project` branch per repo.
+# on a CLONE of host, emitting an orphan `project` branch per repo.
 #
 # Invariants (checked by the script):
 #   * every path under project/ appears exactly once, or as a `splits:` parent;
-#   * a `splits:` parent's file stays in `platform` and its halves are new
+#   * a `splits:` parent's file stays in `host` and its halves are new
 #     ADRs allocated from project/adrs/INDEX.md.
 #
 # Paths are relative to `project/` (e.g. `adrs/0040-....md`).
 
 version: 1
 
-# Cross-cutting ADRs: the parent file stays in `platform`; each target gets a
+# Cross-cutting ADRs: the parent file stays in `host`; each target gets a
 # NEW ADR (allocated from INDEX.md) carrying the moved half. Numbers are never
-# reused, so `platform` keeps the canonical citation.
+# reused, so `host` keeps the canonical citation.
 splits:
   - parent: adrs/0044-language-as-data-and-runtime-split.md
-    stays: platform
+    stays: host
     targets:
       - repo: lang
         number: "0130"
@@ -27,7 +27,7 @@ splits:
         title: "Language data assembly in the lang repo"
         topic: "language data assembly (data/*.yaml + pinned handl-packages)"
   - parent: adrs/0077-stdlib-migration-to-handl.md
-    stays: platform
+    stays: host
     targets:
       - repo: stdlib
         number: "0131"
@@ -35,7 +35,7 @@ splits:
         title: "The stdlib package table and its .hnl impls"
         topic: "stdlib package table + .hnl impls"
   - parent: adrs/0083-ffi-native-stdlib.md
-    stays: platform
+    stays: host
     targets:
       - repo: stdlib
         number: "0132"
@@ -48,7 +48,7 @@ splits:
         title: "The C-ABI marshalling backend"
         topic: "C-ABI marshalling backend"
   - parent: adrs/0092-test-framework-in-handl.md
-    stays: platform
+    stays: host
     targets:
       - repo: kit-canonical
         number: "0134"
@@ -56,7 +56,7 @@ splits:
         title: "Test-framework package ownership in kit-canonical"
         topic: "handl-packages/test ownership + registration"
   - parent: adrs/0093-string-char-unicode-layering.md
-    stays: platform
+    stays: host
     targets:
       - repo: stdlib
         number: "0135"
@@ -64,7 +64,7 @@ splits:
         title: "str-handl and the char backends"
         topic: "str-handl / char backends"
   - parent: adrs/0107-handl-sdk-generator.md
-    stays: platform
+    stays: host
     targets:
       - repo: c
         number: "0136"
@@ -82,7 +82,7 @@ splits:
         title: "The sdkgen-python emitter"
         topic: "sdkgen-python emitter"
   - parent: adrs/0114-handl-compile-plugin-architecture.md
-    stays: platform
+    stays: host
     targets:
       - repo: compile-dot
         number: "0139"
@@ -115,13 +115,13 @@ splits:
         title: "compile-llvm target"
         topic: "compile-llvm target"
   - parent: adrs/0128-target-repos.md
-    stays: platform
+    stays: host
     targets:
       - repo: "each target repo"
         topic: "that repo's extraction plan (its Phase row, expanded) as a task"
 
 repos:
-  platform:
+  host:
     root:
       - TODO.md
       - BACKLOG.md

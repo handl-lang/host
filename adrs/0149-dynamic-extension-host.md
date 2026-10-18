@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-17
-- Repos: `host-cli` (renamed from `cli`), `host-lsp` (renamed from `lsp`), `ext-*` (new), `platform`, `kernel`
+- Repos: `host-cli` (renamed from `cli`), `host-lsp` (renamed from `lsp`), `ext-*` (new), `host`, `kernel`
 
 ## Context
 
