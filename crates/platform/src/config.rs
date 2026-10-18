@@ -34,19 +34,41 @@ pub struct PluginReference {
     pub manifest: Option<String>,
 }
 
-/// A project dependency declared in `[dependencies]` of `.handl.toml`.
+/// A project dependency declared in `[dependencies]` (or `[patch]`) of
+/// `.handl.toml`.
 ///
-/// Phase 9.5 package management supports **vendored / path dependencies
-/// only** — a dependency names a local package directory containing `.hnl`
-/// sources. The name is the import specifier's first path segment:
-/// `import "arrows/transform/map.hnl"` resolves inside the `arrows` dependency's
-/// directory. Registry/content-addressed resolution is future work
-/// (ADR-0010).
+/// The name is the import specifier's first path segment:
+/// `import "arrows/transform/map.hnl"` resolves inside the `arrows`
+/// dependency's directory.
+///
+/// A dependency has exactly one **source**:
+///
+/// - `path` — a vendored / sibling package directory containing `.hnl`
+///   sources (relative to the manifest directory, or absolute).
+/// - `git` — a repo-hosted package specifier (URL or
+///   `host:owner/repo` shorthand) with an optional `rev`/`branch`/`tag`
+///   pin. The loader does not fetch: at resolve time the name maps to
+///   the package's slot under [`package_cache_dir`], which a `hnl`-side
+///   fetch hook (ADR-0010's registry half — the follow-up seam)
+///   materializes. A `[patch]` entry of the same name overrides the
+///   source with a local checkout — the Cargo `[patch]` dev-link story
+///   (`scripts/dev-link.sh`), so a *committed* manifest can name the
+///   repo portably while a local machine resolves the sibling dir.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DependencySpec {
     /// Path to the package root, relative to the manifest directory
-    /// (or absolute).
-    pub path: String,
+    /// (or absolute). `None` when the dep is git-sourced.
+    pub path: Option<String>,
+    /// Git source specifier for a repo-hosted package. `None` when the
+    /// dep is path-sourced.
+    pub git: Option<String>,
+    /// Exact revision pin for a git dep (`rev`/`branch`/`tag` are
+    /// mutually exclusive in intent; at most one is meaningful).
+    pub rev: Option<String>,
+    /// Branch pin for a git dep.
+    pub branch: Option<String>,
+    /// Tag pin for a git dep.
+    pub tag: Option<String>,
 }
 
 /// The in-memory description of which plugins to load, what to exclude, and
@@ -65,6 +87,12 @@ pub struct HostConfig {
     /// `import "<name>/<rest>"` resolves `<rest>` inside the named
     /// dependency's directory.
     pub dependencies: HashMap<String, DependencySpec>,
+    /// Local-override table (`[patch]`): same `name → source` grammar as
+    /// `[dependencies]`. A patch entry whose named directory exists wins
+    /// over the `[dependencies]` source for that name — the consumer-side
+    /// half of the git-package→dir bridge (dev-link to a sibling
+    /// checkout). See [`resolve_dependencies`].
+    pub patch: HashMap<String, DependencySpec>,
 }
 
 impl HostConfig {
@@ -103,19 +131,61 @@ impl HostConfig {
                 .into_iter()
                 .map(|(k, v)| (k, toml_value_to_json(v)))
                 .collect(),
-            dependencies: raw
-                .dependencies
-                .into_iter()
-                .map(|(k, v)| {
-                    let path = match v {
-                        RawDependency::Path(p) => p,
-                        RawDependency::Spec { path } => path,
-                    };
-                    (k, DependencySpec { path })
-                })
-                .collect(),
+            dependencies: parse_dependency_table("dependencies", raw.dependencies)?,
+            patch: parse_dependency_table("patch", raw.patch)?,
         })
     }
+}
+
+/// Parse one `[dependencies]`/`[patch]` table into `name →
+/// DependencySpec`, validating the single-source rule: an entry must
+/// declare exactly one of `path`/`git`, and `rev`/`branch`/`tag` pins are
+/// only meaningful on a `git` source.
+fn parse_dependency_table(
+    table: &str,
+    raw: HashMap<String, RawDependency>,
+) -> Result<HashMap<String, DependencySpec>, PlatformError> {
+    raw.into_iter()
+        .map(|(name, v)| {
+            let spec = match v {
+                RawDependency::Path(path) => RawDependencySpec {
+                    path: Some(path),
+                    ..RawDependencySpec::default()
+                },
+                RawDependency::Spec(s) => s,
+            };
+            if spec.path.is_some() && spec.git.is_some() {
+                return Err(PlatformError::InvalidMetadata(format!(
+                    "[{table}] entry `{name}` declares both `path` and `git` — \
+                     a dependency has exactly one source"
+                )));
+            }
+            if spec.path.is_none() && spec.git.is_none() {
+                return Err(PlatformError::InvalidMetadata(format!(
+                    "[{table}] entry `{name}` declares no source — \
+                     a dependency needs `path` or `git`"
+                )));
+            }
+            if spec.git.is_none()
+                && (spec.rev.is_some() || spec.branch.is_some() || spec.tag.is_some())
+            {
+                return Err(PlatformError::InvalidMetadata(format!(
+                    "[{table}] entry `{name}` pins `rev`/`branch`/`tag` without a \
+                     `git` source — ref pins only apply to git dependencies"
+                )));
+            }
+            Ok((
+                name,
+                DependencySpec {
+                    path: spec.path,
+                    git: spec.git,
+                    rev: spec.rev,
+                    branch: spec.branch,
+                    tag: spec.tag,
+                },
+            ))
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -136,15 +206,32 @@ struct RawPlugin {
     manifest: Option<String>,
 }
 
-/// A `[dependencies]` entry: either a bare path string (`arrows =
-/// "vendor/arrows"`) or a table with a `path` key (`arrows = { path =
-/// "vendor/arrows" }`). The table form leaves room for future specifiers
-/// (hashes, tags) without changing the schema.
+/// A `[dependencies]`/`[patch]` entry: either a bare path string
+/// (`arrows = "vendor/arrows"`) or a source table (`arrows = { path =
+/// "vendor/arrows" }`, `host-tensor = { git = "…", tag = "v0.1" }`).
+/// The table form is where source specifiers grow (hashes, tags) without
+/// changing the schema.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 enum RawDependency {
     Path(String),
-    Spec { path: String },
+    Spec(RawDependencySpec),
+}
+
+/// The table form of a dependency entry. All fields are optional in the
+/// grammar; [`parse_dependency_table`] validates the single-source rule.
+#[derive(Debug, Clone, Default, Deserialize)]
+struct RawDependencySpec {
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    git: Option<String>,
+    #[serde(default)]
+    rev: Option<String>,
+    #[serde(default)]
+    branch: Option<String>,
+    #[serde(default)]
+    tag: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -159,6 +246,8 @@ struct RawHostConfig {
     options: HashMap<String, toml::Value>,
     #[serde(default)]
     dependencies: HashMap<String, RawDependency>,
+    #[serde(default)]
+    patch: HashMap<String, RawDependency>,
 }
 
 /// Walk up from `start` (a file or directory) looking for a `.handl.toml`
@@ -182,14 +271,83 @@ pub fn discover_manifest_dir(start: &Path) -> Option<std::path::PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// Read `<manifest_dir>/.handl.toml` and resolve its `[dependencies]` table
-/// into an import-name → absolute package-directory map.
+/// The directory a `git`-sourced `[dependencies]` entry resolves to when
+/// no `[patch]` override applies: `<package_cache_dir>/<name>` is the
+/// slot a `hnl`-side package fetch materializes the package's `.hnl`
+/// tree into (ADR-0010's registry half — the follow-up seam; today
+/// nothing populates it).
+///
+/// Location: `$HANDL_PKG_DIR` when set, otherwise `~/.handl/pkg`.
+/// Keeping the unresolved name in the dep map — pointing at its cache
+/// slot — means an `import` of an unfetched package fails naming the
+/// directory a fetch would populate, instead of silently falling through
+/// to relative-path resolution.
+pub fn package_cache_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("HANDL_PKG_DIR") {
+        return PathBuf::from(dir);
+    }
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|home| PathBuf::from(home).join(".handl").join("pkg"))
+        .unwrap_or_else(|| PathBuf::from(".handl").join("pkg"))
+}
+
+/// Resolve one manifest dependency entry to the directory it names.
+///
+/// A `path` source resolves relative to `manifest_dir` (canonicalized
+/// when possible so module-cache keys are stable); a `git` source
+/// resolves to its [`package_cache_dir`] slot — the location the package
+/// fetch hook is expected to materialize.
+fn dep_dir(manifest_dir: &Path, pkg_dir: &Path, name: &str, spec: &DependencySpec) -> PathBuf {
+    match spec.path.as_deref() {
+        Some(path) => {
+            let p = PathBuf::from(path);
+            let abs = if p.is_absolute() {
+                p
+            } else {
+                manifest_dir.join(p)
+            };
+            // Canonicalize when possible so the module cache keys are
+            // stable; fall back to the joined path otherwise.
+            std::fs::canonicalize(&abs).unwrap_or(abs)
+        }
+        None => pkg_dir.join(name),
+    }
+}
+
+/// Read `<manifest_dir>/.handl.toml` and resolve its `[dependencies]` and
+/// `[patch]` tables into an import-name → absolute package-directory map.
 ///
 /// Dependency paths are relative to the manifest directory; absolute paths
 /// are honored as-is. A missing manifest yields an empty map (no
 /// dependencies). A present-but-unparseable manifest is an error — silent
 /// fallback would make `import` failures look like missing files rather than
 /// a broken manifest.
+///
+/// # The git-package→dir bridge
+///
+/// A `[dependencies]` entry may name its package **portably** by git
+/// source — `host-tensor = { git = "https://github.com/handl-lang/lib-host-tensor",
+/// tag = "v0.1" }` — instead of a machine-local `path`. Such an entry
+/// resolves to its [`package_cache_dir`] slot, which a package fetch
+/// (ADR-0010 follow-up) populates. The `[patch]` table is the
+/// consumer-supplied local override for the same names — the Cargo
+/// `[patch]`/dev-link story (`scripts/dev-link.sh`):
+///
+/// ```toml
+/// [dependencies]
+/// host-tensor = { git = "https://github.com/handl-lang/lib-host-tensor", tag = "v0.1" }
+///
+/// [patch]
+/// host-tensor = "../lib-host-tensor"   # sibling checkout, machine-local
+/// ```
+///
+/// A patch entry wins **when its named directory exists**; a patch that
+/// names a missing directory is inert and the declared source applies,
+/// so a committed manifest resolves the sibling checkout where one is
+/// linked and the package cache elsewhere. `[patch]` may also name a
+/// package `[dependencies]` does not declare — it simply enters the map
+/// like a dep entry.
 ///
 /// This is the seam that lets `.hnl` packages import each other *by name*
 /// across repository boundaries (ADR-0128 Phase 5): `from "ws-c" import …`
@@ -215,22 +373,29 @@ pub fn resolve_dependencies(
         let config = HostConfig::from_toml(&src).map_err(|e| {
             PlatformError::InvalidMetadata(format!("invalid {}: {e}", manifest_path.display()))
         })?;
-        config
-            .dependencies
+        let pkg_dir = package_cache_dir();
+        let HostConfig {
+            dependencies,
+            patch,
+            ..
+        } = config;
+        let mut deps: HashMap<String, PathBuf> = dependencies
             .into_iter()
             .map(|(name, spec)| {
-                let p = PathBuf::from(&spec.path);
-                let abs = if p.is_absolute() {
-                    p
-                } else {
-                    manifest_dir.join(p)
-                };
-                // Canonicalize when possible so the module cache keys are
-                // stable; fall back to the joined path otherwise.
-                let abs = std::fs::canonicalize(&abs).unwrap_or(abs);
-                (name, abs)
+                let dir = dep_dir(manifest_dir, &pkg_dir, &name, &spec);
+                (name, dir)
             })
-            .collect()
+            .collect();
+        // `[patch]` — the local-override table: a patch whose named
+        // directory exists wins over the `[dependencies]` source for
+        // that name; a missing patch dir is inert.
+        for (name, spec) in patch {
+            let dir = dep_dir(manifest_dir, &pkg_dir, &name, &spec);
+            if dir.is_dir() {
+                deps.insert(name, dir);
+            }
+        }
+        deps
     } else {
         HashMap::new()
     };
@@ -243,7 +408,7 @@ pub fn resolve_dependencies(
 }
 
 /// Discover the project manifest by walking up from `start` and resolve its
-/// `[dependencies]` table. Equivalent to `discover_manifest_dir` +
+/// `[dependencies]`/`[patch]` tables. Equivalent to `discover_manifest_dir` +
 /// [`resolve_dependencies`]; returns an empty map when no manifest exists.
 ///
 /// # Errors
@@ -492,8 +657,140 @@ utils = { path = "../shared/utils" }
         let config = HostConfig::from_toml(source).unwrap();
 
         assert_eq!(config.dependencies.len(), 2);
-        assert_eq!(config.dependencies["arrows"].path, "vendor/arrows");
-        assert_eq!(config.dependencies["utils"].path, "../shared/utils");
+        assert_eq!(
+            config.dependencies["arrows"].path.as_deref(),
+            Some("vendor/arrows")
+        );
+        assert_eq!(
+            config.dependencies["utils"].path.as_deref(),
+            Some("../shared/utils")
+        );
+    }
+
+    /// The git-package→dir bridge grammar: a `[dependencies]` entry may
+    /// name its package by git source, and `[patch]` carries the local
+    /// override (`name → dir`) — the Cargo `[patch]` dev-link story.
+    #[test]
+    fn host_config_parses_git_deps_and_patch() {
+        let source = r#"
+[dependencies]
+host-tensor = { git = "https://github.com/handl-lang/lib-host-tensor", tag = "v0.1" }
+arrows = "vendor/arrows"
+
+[patch]
+host-tensor = "../lib-host-tensor"
+vendored = { path = "../lib-vendored" }
+"#;
+
+        let config = HostConfig::from_toml(source).unwrap();
+
+        let git_dep = &config.dependencies["host-tensor"];
+        assert_eq!(
+            git_dep.git.as_deref(),
+            Some("https://github.com/handl-lang/lib-host-tensor")
+        );
+        assert_eq!(git_dep.tag.as_deref(), Some("v0.1"));
+        assert_eq!(git_dep.path, None);
+        assert_eq!(
+            config.dependencies["arrows"].path.as_deref(),
+            Some("vendor/arrows")
+        );
+
+        assert_eq!(
+            config.patch["host-tensor"].path.as_deref(),
+            Some("../lib-host-tensor")
+        );
+        assert_eq!(
+            config.patch["vendored"].path.as_deref(),
+            Some("../lib-vendored")
+        );
+    }
+
+    /// A dependency entry must declare exactly one source (`path` xor
+    /// `git`), and ref pins require a git source.
+    #[test]
+    fn dependency_source_is_validated() {
+        assert!(
+            HostConfig::from_toml("[dependencies]\nx = { path = \"a\", git = \"b\" }\n").is_err(),
+            "path + git is ambiguous"
+        );
+        assert!(
+            HostConfig::from_toml("[dependencies]\nx = {}\n").is_err(),
+            "no source at all"
+        );
+        assert!(
+            HostConfig::from_toml("[dependencies]\nx = { path = \"a\", tag = \"v1\" }\n").is_err(),
+            "a ref pin without a git source"
+        );
+        // The same rules apply to `[patch]` entries.
+        assert!(HostConfig::from_toml("[patch]\nx = {}\n").is_err());
+    }
+
+    /// `[patch]` is the local override: a patch entry whose directory
+    /// exists wins over the declared `[dependencies]` source — whether
+    /// that source is a git spec (→ the package-cache slot) or a vendored
+    /// path. A patch naming a missing directory is inert.
+    #[test]
+    fn resolve_dependencies_patch_overrides_declared_source() {
+        let root = std::env::temp_dir().join(format!("hnl-patch-{}", std::process::id()));
+        let proj = root.join("repo");
+        let sibling = root.join("lib-host-tensor");
+        let vendored = proj.join("vendor/arrows");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::create_dir_all(&sibling).unwrap();
+        std::fs::create_dir_all(&vendored).unwrap();
+        std::fs::write(
+            proj.join(".handl.toml"),
+            concat!(
+                "[dependencies]\n",
+                "host-tensor = { git = \"https://github.com/handl-lang/lib-host-tensor\", tag = \"v0.1\" }\n",
+                "arrows = \"vendor/arrows\"\n",
+                "unpatched-git = { git = \"github:handl-lang/lib-upstream\" }\n",
+                "\n[patch]\n",
+                // Sibling checkout exists → overrides the git source.
+                "host-tensor = \"../lib-host-tensor\"\n",
+                // Missing dir → inert; `arrows` keeps its vendored path.
+                "arrows = \"../lib-arrows\"\n",
+                // Patch may name a package `[dependencies]` does not declare.
+                "extra = \"../lib-host-tensor\"\n",
+            ),
+        )
+        .unwrap();
+
+        let deps = resolve_dependencies(&proj).unwrap();
+        assert_eq!(
+            deps["host-tensor"],
+            std::fs::canonicalize(&sibling).unwrap()
+        );
+        assert_eq!(deps["arrows"], std::fs::canonicalize(&vendored).unwrap());
+        assert_eq!(deps["extra"], std::fs::canonicalize(&sibling).unwrap());
+        // An unpatched git dep resolves to its package-cache slot — the
+        // dir the fetch hook (follow-up seam) materializes.
+        assert_eq!(
+            deps["unpatched-git"],
+            package_cache_dir().join("unpatched-git")
+        );
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A `git`-sourced dep keeps a stable cache-slot key in the dep map
+    /// even though nothing has fetched it yet — an `import` of the name
+    /// fails naming the slot a fetch would populate.
+    #[test]
+    fn unpatched_git_dependency_maps_to_the_package_cache() {
+        let root = std::env::temp_dir().join(format!("hnl-gitdep-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(
+            root.join(".handl.toml"),
+            "[dependencies]\nws-c = { git = \"https://github.com/handl-lang/c\", rev = \"abc123\" }\n",
+        )
+        .unwrap();
+
+        let deps = resolve_dependencies(&root).unwrap();
+        assert_eq!(deps["ws-c"], package_cache_dir().join("ws-c"));
+
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

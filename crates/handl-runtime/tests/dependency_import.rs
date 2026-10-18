@@ -16,7 +16,11 @@
 //!   resolving relative to the dep file's directory (in-repo imports are
 //!   untouched — only cross-repo edges go through the name table);
 //! - a dep name shadows a same-named directory next to the importer
-//!   (matching `ModuleLoader::resolve_path` precedence).
+//!   (matching `ModuleLoader::resolve_path` precedence);
+//! - the git-package→dir bridge: a `.handl.toml` that names a dep
+//!   *portably* by `git` source plus a `[patch]` local override resolves
+//!   the sibling checkout — `handl_platform::resolve_dependencies`
+//!   produces the name→dir map the loader consumes.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -188,6 +192,88 @@ fn dependency_names_shadow_same_named_relative_dirs() {
         ))
         .expect("the dep name must win over the sibling directory");
     assert_eq!(value, json!(6), "dep `libc` shadows `./libc`");
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// The git-package→dir bridge, end to end: the fixture project commits a
+/// `.handl.toml` that names the dep portably —
+/// `host-tensor = { git = "…", tag = "v0.1" }` — and a `[patch]` entry
+/// dev-links the name to a sibling checkout (the Cargo `[patch]` story).
+/// `resolve_dependencies` maps the name to the sibling dir and
+/// `from "host-tensor" import tensor` resolves through the loader.
+#[test]
+fn patch_bridges_a_git_dependency_to_a_sibling_checkout() {
+    let root = scratch_dir("patch");
+    let project = root.join("project");
+    let dep = root.join("lib-host-tensor");
+    std::fs::create_dir_all(&project).unwrap();
+    std::fs::create_dir_all(&dep).unwrap();
+
+    // The package dir the sibling checkout stands in for: an
+    // `index.hnl` exporting a `tensor` record of arrow fields.
+    std::fs::write(
+        dep.join("index.hnl"),
+        "export tensor := { add: (a, b) ~> a + b }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project.join(".handl.toml"),
+        concat!(
+            "[dependencies]\n",
+            "host-tensor = { git = \"https://github.com/handl-lang/lib-host-tensor\", tag = \"v0.1\" }\n",
+            "\n[patch]\n",
+            "host-tensor = \"../lib-host-tensor\"\n",
+        ),
+    )
+    .unwrap();
+
+    // The manifest half of the bridge: git source + patch → sibling dir.
+    let deps =
+        handl_platform::resolve_dependencies(&project).expect("the fixture manifest resolves");
+    assert_eq!(
+        deps["host-tensor"],
+        std::fs::canonicalize(&dep).unwrap(),
+        "[patch] must win over the git source"
+    );
+
+    let (_loader, rt) = loader_and_runtime(project.clone(), deps);
+    let value = rt
+        .run(&Source::new(
+            r#"do { from "host-tensor" import tensor; tensor.add(2, 3) }"#,
+        ))
+        .expect("`from \"host-tensor\" import tensor` resolves via the patch");
+    assert_eq!(value, json!(5));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// The missing-sibling half of the bridge: a committed `[patch]` whose
+/// directory does not exist is inert — a git dep then resolves to its
+/// `~/.handl/pkg/<name>` package-cache slot (the dir the fetch hook,
+/// follow-up seam, populates) rather than failing manifest resolution.
+#[test]
+fn an_inert_patch_leaves_the_git_dep_at_its_cache_slot() {
+    let root = scratch_dir("inert-patch");
+    let project = root.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+    std::fs::write(
+        project.join(".handl.toml"),
+        concat!(
+            "[dependencies]\n",
+            "host-tensor = { git = \"https://github.com/handl-lang/lib-host-tensor\" }\n",
+            "\n[patch]\n",
+            "host-tensor = \"../lib-host-tensor\"\n", // does not exist
+        ),
+    )
+    .unwrap();
+
+    let deps = handl_platform::resolve_dependencies(&project).unwrap();
+    assert_eq!(
+        deps["host-tensor"],
+        handl_platform::package_cache_dir().join("host-tensor"),
+        "missing patch dir → the dep stays at its package-cache slot"
+    );
 
     std::fs::remove_dir_all(&root).ok();
 }

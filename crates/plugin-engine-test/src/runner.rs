@@ -304,10 +304,10 @@ fn is_import_decl(trimmed: &str) -> bool {
 ///
 /// Resolution mirrors [`ModuleLoader::resolve_path`]: a specifier whose
 /// first `/`-separated segment names a `.handl.toml` `[dependencies]` entry
-/// resolves inside that package's directory (discovered by walking up from
-/// the module's directory — ADR-0128 Phase 5's name-based seam); otherwise
-/// the spec resolves under the module's directory, then the working
-/// directory.
+/// (or a `[patch]` local override for one) resolves inside that package's
+/// directory (discovered by walking up from the module's directory —
+/// ADR-0128 Phase 5's name-based seam); otherwise the spec resolves under
+/// the module's directory, then the working directory.
 ///
 /// Module-name imports (`from "str" import ...`, `import <name> from ...`)
 /// are declarations the kit's module chain already satisfies; they lower to

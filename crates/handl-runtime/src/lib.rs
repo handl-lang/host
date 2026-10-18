@@ -1470,7 +1470,9 @@ impl ModuleLoader {
         }
     }
 
-    /// Declare project dependencies (`.handl.toml` `[dependencies]`):
+    /// Declare project dependencies (`.handl.toml` `[dependencies]`,
+    /// with `[patch]` local overrides — see
+    /// `handl_platform::resolve_dependencies`, which produces this map):
     /// import-name → absolute package root directory. See
     /// [`ModuleLoader::resolve_path`] for the resolution semantics.
     pub fn with_dependencies(mut self, deps: HashMap<String, PathBuf>) -> Self {

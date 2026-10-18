@@ -296,6 +296,17 @@ export`). A spec that does **not** resolve to a file (bare host-module
   because the kit's module chain already supplies the bindings. A
   `resolve_import` module-name fallback (registry → module-namespace
   value) is deferred pending `loader.hnl` default install.
+- **`.handl.toml` dep sources**: a `[dependencies]` entry is `name =
+  "dir"` / `name = { path = "dir" }` (vendored/sibling) or
+  `name = { git = "…", rev|branch|tag = "…" }` (repo-hosted, resolved to
+  its `package_cache_dir()` slot — `$HANDL_PKG_DIR` else `~/.handl/pkg`,
+  the dir the ADR-0010 fetch hook populates). The `[patch]` table is the
+  consumer-side local override — `name = "../sibling-checkout"` wins over
+  the declared source **when the dir exists** (the Cargo `[patch]` /
+  `dev-link.sh` story), so a committed manifest can name the git package
+  portably while a linked machine resolves the checkout. All in
+  `handl_platform::config::resolve_dependencies`; the loader itself only
+  ever sees a `name → dir` map.
 - **`hnl typecheck`** scopes every `stmt.import`'s bound names (child var,
   `payload.names`, `payload.alias`) at module level and inside `do { ... }`
   blocks — statements bind sequentially, so block-level imports and
