@@ -272,9 +272,11 @@ impl CollectionsModule {
                 std::sync::Arc::clone(&resolver),
             )
         };
-        let array = crate::load_hnl_file(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../handl-packages/collections/array/index.hnl"
+        // The tree ships in `lib-collections` (ADR-0128): `array/index.hnl`
+        // imports its siblings by path, so the loader needs a real directory.
+        let array = crate::load_hnl_file(format!(
+            "{}/src/array/index.hnl",
+            handl_lib_collections::ROOT
         ))
         .expect("array module");
         Self {

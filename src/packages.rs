@@ -294,7 +294,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `error.raise` — the `error` dep resolves through the table.
     ModuleSpec {
         name: "vec",
-        hnl: include_str!("../../../handl-packages/collections/vec.hnl"),
+        hnl: handl_lib_collections::VEC_HNL,
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::VEC_OPS,
         values: &[],
@@ -302,7 +302,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list",
-        hnl: include_str!("../../../handl-packages/collections/list/index.hnl"),
+        hnl: handl_lib_collections::LIST_INDEX_HNL,
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         values: &[],
@@ -320,7 +320,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `len: list_len.len`, and so on.
     ModuleSpec {
         name: "list_len",
-        hnl: include_str!("../../../handl-packages/collections/list/len.hnl"),
+        hnl: handl_lib_collections::LIST_LEN_HNL,
         funcs: &["len"],
         ops: &[],
         values: &[],
@@ -328,7 +328,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_is_empty",
-        hnl: include_str!("../../../handl-packages/collections/list/is_empty.hnl"),
+        hnl: handl_lib_collections::LIST_IS_EMPTY_HNL,
         funcs: &["is_empty"],
         ops: &[],
         values: &[],
@@ -336,7 +336,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_push",
-        hnl: include_str!("../../../handl-packages/collections/list/push.hnl"),
+        hnl: handl_lib_collections::LIST_PUSH_HNL,
         funcs: &["push"],
         ops: &[],
         values: &[],
@@ -344,7 +344,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_peek",
-        hnl: include_str!("../../../handl-packages/collections/list/peek.hnl"),
+        hnl: handl_lib_collections::LIST_PEEK_HNL,
         funcs: &["peek"],
         ops: &[],
         values: &[],
@@ -352,7 +352,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_pop",
-        hnl: include_str!("../../../handl-packages/collections/list/pop.hnl"),
+        hnl: handl_lib_collections::LIST_POP_HNL,
         funcs: &["pop"],
         ops: &[],
         values: &[],
@@ -360,7 +360,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "queue",
-        hnl: include_str!("../../../handl-packages/collections/queue.hnl"),
+        hnl: handl_lib_collections::QUEUE_HNL,
         funcs: &["len", "is_empty", "enqueue", "dequeue", "peek"],
         ops: ops::collections::QUEUE_OPS,
         values: &[],
@@ -368,7 +368,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "stack",
-        hnl: include_str!("../../../handl-packages/collections/stack.hnl"),
+        hnl: handl_lib_collections::STACK_HNL,
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::STACK_OPS,
         values: &[],
@@ -376,7 +376,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "deque",
-        hnl: include_str!("../../../handl-packages/collections/deque.hnl"),
+        hnl: handl_lib_collections::DEQUE_HNL,
         funcs: &[
             "len",
             "is_empty",
@@ -396,7 +396,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // pure handl over the `obj` introspection primitives.
     ModuleSpec {
         name: "hash_map",
-        hnl: include_str!("../../../handl-packages/collections/hash_map.hnl"),
+        hnl: handl_lib_collections::HASH_MAP_HNL,
         funcs: &[
             "keys",
             "values",
@@ -413,7 +413,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "hash_set",
-        hnl: include_str!("../../../handl-packages/collections/hash_set.hnl"),
+        hnl: handl_lib_collections::HASH_SET_HNL,
         funcs: &[],
         ops: ops::collections::HASH_SET_OPS,
         values: &[],
@@ -424,7 +424,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `hash_map` still depends on the leaf `len` and `contains` submodules.
     ModuleSpec {
         name: "len",
-        hnl: include_str!("../../../handl-packages/collections/array/len.hnl"),
+        hnl: handl_lib_collections::ARRAY_LEN_HNL,
         funcs: &["len"],
         ops: &[],
         values: &[],
@@ -432,7 +432,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "contains",
-        hnl: include_str!("../../../handl-packages/collections/array/contains.hnl"),
+        hnl: handl_lib_collections::ARRAY_CONTAINS_HNL,
         funcs: &["contains"],
         ops: &[],
         values: &[],
@@ -908,7 +908,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "collections",
         plugin_id: "lib.collections",
         plugin_name: "lib-collections",
-        hnl: include_str!("../../../handl-packages/collections/collections.hnl"),
+        hnl: handl_lib_collections::COLLECTIONS_HNL,
         modules: &[], // resolved via COLLECTIONS_MODULES (see package_module_names)
     },
     PackageSpec {

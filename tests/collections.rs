@@ -25,13 +25,13 @@ fn ensure_lang() {
     }
 }
 
-/// The `array` package is file-driven (loaded from
-/// `collections/array/index.hnl`, not a table `ModuleSpec`).
+/// The `array` package is file-driven (loaded from the `lib-collections`
+/// source tree, not a table `ModuleSpec`).
 fn array_module() -> Arc<handl_plugin_lib_handl::HandlModule> {
     ensure_lang();
-    load_hnl_file(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../handl-packages/collections/array/index.hnl"
+    load_hnl_file(format!(
+        "{}/src/array/index.hnl",
+        handl_lib_collections::ROOT
     ))
     .expect("array module")
 }
