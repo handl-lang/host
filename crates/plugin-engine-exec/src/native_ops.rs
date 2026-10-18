@@ -177,6 +177,10 @@ pub fn type_tag(v: &TaggedValue) -> &'static str {
         TaggedValue::Resource(_) => "resource",
         // ADR-0106: nominal identity object (`sym()` / `sym(A)`).
         TaggedValue::Sym(_) => "sym",
+        // Dense f64 tensor — an opaque host value carried through host
+        // functions (the `{"__tensor__": …}` wire form); engines never
+        // interpret it.
+        TaggedValue::Tensor(_) => "tensor",
     }
 }
 
