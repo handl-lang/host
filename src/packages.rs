@@ -231,6 +231,15 @@ pub static MODULES: &[ModuleSpec] = &[
             handl_lib_parse::parse_op_registry_with(parsers)
         }),
     },
+    // ── crypto — pure-handl SHA-1/SHA-256/MD5 over math/bytes/typeof ─────
+    ModuleSpec {
+        name: "crypto",
+        hnl: handl_plugin_lib_crypto::CRYPTO_HNL,
+        funcs: handl_plugin_lib_crypto::CRYPTO_FUNCS,
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
     ModuleSpec {
         name: "json",
         hnl: handl_lib_json::JSON_FLAT_HNL,
@@ -931,6 +940,13 @@ pub static PACKAGES: &[PackageSpec] = &[
     },
     // Single-module packages also usable standalone (idempotent with the
     // `utils` aggregate, which contributes the same modules).
+    PackageSpec {
+        lib_name: "crypto",
+        plugin_id: "lib.crypto",
+        plugin_name: "lib-crypto",
+        hnl: handl_plugin_lib_crypto::CRYPTO_HNL,
+        modules: &[],
+    },
     PackageSpec {
         lib_name: "json",
         plugin_id: "lib.json",
