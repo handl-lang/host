@@ -117,7 +117,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── utils (former plugin-lib-utils) ────────────────────────────────
     ModuleSpec {
         name: "bool",
-        hnl: include_str!("../../../handl-packages/utils/bool.hnl"),
+        hnl: handl_lib_utils::BOOL_HNL,
         funcs: &["and", "or", "not", "xor", "nand", "nor", "implies", "eq"],
         ops: &[],
         values: &["true", "false"],
@@ -125,7 +125,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "math",
-        hnl: include_str!("../../../handl-packages/utils/math.hnl"),
+        hnl: handl_lib_utils::MATH_HNL,
         funcs: &[],
         ops: ops::math::MATH_OPS,
         values: &[],
@@ -133,7 +133,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "str",
-        hnl: include_str!("../../../handl-packages/utils/str.hnl"),
+        hnl: handl_lib_utils::STR_HNL,
         funcs: &[],
         ops: ops::strs::STR_OPS,
         values: &[],
@@ -894,7 +894,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "utils",
         plugin_id: "lib.utils",
         plugin_name: "lib-utils",
-        hnl: include_str!("../../../handl-packages/utils/utils.hnl"),
+        hnl: handl_lib_utils::UTILS_HNL,
         modules: &[], // resolved via UTILS_MODULES (see package_modules)
     },
     PackageSpec {
