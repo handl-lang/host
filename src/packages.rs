@@ -252,7 +252,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ip",
         hnl: handl_lib_ip::IP_FLAT_HNL,
         funcs: handl_lib_ip::IP_FUNCS,
-        ops: &[],
+        ops: handl_lib_ip::IP_OPS,
         values: &[],
         registry: None,
     },
