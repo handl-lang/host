@@ -230,6 +230,14 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
+        name: "kv_map",
+        hnl: handl_lib_kv_map::KV_MAP_HNL,
+        funcs: handl_lib_kv_map::KV_MAP_FUNCS,
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
         name: "json",
         hnl: handl_lib_json::JSON_FLAT_HNL,
         funcs: handl_lib_json::JSON_FUNCS,

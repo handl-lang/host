@@ -13,6 +13,7 @@ handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
+handl-lib-kv-map = { git = "https://github.com/handl-lang/lib-kv-map", branch = "main" }
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 # ADR-0128: port packages live in their own repos.
