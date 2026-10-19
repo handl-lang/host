@@ -94,6 +94,12 @@
 //!   `(source).fn(arg)`; since it builds its own canonical `Language`,
 //!   user-authored `handl:` rules never fire inside the bridge — no
 //!   recursion through the transform engine.
+//! - **Record-literal trap**: a bare `{` directly after `~>` parses as a
+//!   *block body*, not an object literal — `x ~> { a: x, b: y }` evaluates
+//!   each entry as a bare `type-annot` statement and returns the last
+//!   entry's value (`y`), silently not the record. Write `~> ({ ... })`.
+//!   `realize` hints at this when a returned spec is malformed; the
+//!   `lint.record-as-block` rule flags it statically.
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -124,6 +130,14 @@ pub const FRESH_KEY: &str = "__fresh__";
 /// realized subtree index at an arbitrary payload position:
 /// `{ "__node__": <spec> }` (e.g. a `function` node's `body` field).
 pub const NODE_KEY: &str = "__node__";
+
+/// Diagnostic hint appended when a `.hnl` transform's return value fails
+/// the node-spec shape check. The most common cause is a record literal
+/// written without parentheses after `~>` — a bare `{` there parses as a
+/// *block body* (`lint.record-as-block`), so the arrow silently evaluates
+/// to the last statement's value instead of the record.
+const RECORD_AS_BLOCK_HINT: &str =
+    " (hint: a bare `{` after `~>` parses as a block, not a record — write `~> ({ ... })`)";
 
 thread_local! {
     /// Reentrancy guard: `true` while a `handl:` rewrite invocation is in
@@ -429,14 +443,17 @@ fn realize(
     }
     let obj = spec.as_object().ok_or_else(|| {
         LangError::engine(format!(
-            "handl transform must return null, a node spec record, a '{KEEP_KEY}' marker, or a '{FRESH_KEY}' marker; got {spec}"
+            "handl transform must return null, a node spec record, a '{KEEP_KEY}' marker, or a '{FRESH_KEY}' marker; got {spec}{RECORD_AS_BLOCK_HINT}"
         ))
     })?;
     let kind = obj
         .get("kind")
         .and_then(Value::as_str)
         .ok_or_else(|| {
-            LangError::engine("node spec record requires a string 'kind' field".to_string())
+            LangError::engine(format!(
+                "node spec record requires a string 'kind' field (got keys {:?}){RECORD_AS_BLOCK_HINT}",
+                obj.keys().collect::<Vec<_>>()
+            ))
         })?
         .to_string();
     let mut child_indices = Vec::new();
