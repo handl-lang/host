@@ -9,7 +9,7 @@ use std::time::Instant;
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{
-    DEDENT_HNL, HandlLoader, ModuleResolver, build_str_handl_module, install_loader,
+    HandlLoader, ModuleResolver, build_str_handl_module, install_loader,
     strip_declaration_lines, transform_export_to_object,
 };
 
@@ -78,18 +78,9 @@ fn main() {
     );
 
     let t = Instant::now();
-    let out = strip_declaration_lines(DEDENT_HNL);
+    let out = transform_export_to_object(STR_HANDL_HNL);
     println!(
-        "loader strip_decls dedent.hnl ({} chars): {:>9?} -> {} chars",
-        DEDENT_HNL.len(),
-        t.elapsed(),
-        out.len()
-    );
-
-    let t = Instant::now();
-    let out = transform_export_to_object(DEDENT_HNL);
-    println!(
-        "loader transform_export dedent.hnl: {:>9?} -> {} chars",
+        "loader transform_export str-handl.hnl: {:>9?} -> {} chars",
         t.elapsed(),
         out.len()
     );

@@ -1845,8 +1845,8 @@ impl Function for HandlFunction {
         let func_name = &self.func_name;
         // Clone the `Rc<Runtime>` out of the cache and release the
         // `RefCell` borrow *before* `run`: a `.hnl` function may itself call
-        // another `HandlFunction` (e.g. `str-handl` → `char.*`, or `dedent`
-        // → `str.*`), which re-enters `call` and would otherwise hit
+        // another `HandlFunction` (e.g. `str-handl` → `char.*`), which
+        // re-enters `call` and would otherwise hit
         // `RefCell already borrowed`.
         let runtime = RUNTIME_CACHE.with(|cache| {
             std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
@@ -2333,12 +2333,6 @@ impl Module for HandlModule {
 /// package; other consumers — e.g. `examples/loader_bench.rs` — take this
 /// `pub const`).
 pub use handl_lib_str_handl::STR_HANDL_HNL;
-
-/// The handl source of `dedent.hnl` — owned by the `lib-dedent` repo
-/// (ADR-0128 §".hnl ownership": one `include_str!` per package, in the crate
-/// that owns it; other consumers — `handl-kit-canonical` in the
-/// `kit-canonical/` repo — take this `pub const`).
-pub use handl_lib_dedent::DEDENT_HNL;
 
 /// The canonical text-transform loader source (ADR-0094).
 ///
