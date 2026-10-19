@@ -1,11 +1,10 @@
 # Nextest profiles — the default profile runs everything (the full gate).
 #
-# `fast` is the local-iteration lane: it skips the interpreted-.hnl
-# heavyweights — `dependent_structure` and `axis_flow_boundaries`
-# (each test is 15-113 s of real dependent-type/axis typecheck work)
-# and `loader_parity` (68 s). The remaining ~2560 tests finish in
-# minutes at `-j 2`. Run the default profile before pushing anything
-# that touches typechecking or the loader.
+# `fast` is the local-iteration lane: it skips `loader_parity` (68 s).
+# `dependent_structure`/`axis_flow_boundaries` moved to the
+# `engine-typecheck-handl` repo — they no longer apply here. The
+# remaining tests finish in minutes at `-j 2`. Run the default profile
+# before pushing anything that touches the loader.
 
 [profile.fast]
-default-filter = 'not (package(hnl-engine-typecheck-handl) and (binary(dependent_structure) or binary(axis_flow_boundaries))) and not test(loader_parity)'
+default-filter = 'not test(loader_parity)'
