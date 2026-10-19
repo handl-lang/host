@@ -294,6 +294,27 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
+    // ── serialize backends (lib-serialize-{toml,yaml}-c) ──────────────
+    // Native `toml_c.*`/`yaml_c.*` ops — the Rust `Function` impls extracted
+    // from `ops::toml`/`ops::yaml` into their own `-c` crates. The
+    // `serialize` contract's `toml()`/`yaml()` producers build serializer
+    // records whose arrow fields call these ops.
+    ModuleSpec {
+        name: "toml_c",
+        hnl: handl_plugin_lib_serialize_toml_c::TOML_C_HNL,
+        funcs: &[],
+        ops: handl_plugin_lib_serialize_toml_c::TOML_C_OPS,
+        values: &[],
+        registry: Some(handl_plugin_lib_serialize_toml_c::toml_c_op_registry),
+    },
+    ModuleSpec {
+        name: "yaml_c",
+        hnl: handl_plugin_lib_serialize_yaml_c::YAML_C_HNL,
+        funcs: &[],
+        ops: handl_plugin_lib_serialize_yaml_c::YAML_C_OPS,
+        values: &[],
+        registry: Some(handl_plugin_lib_serialize_yaml_c::yaml_c_op_registry),
+    },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
