@@ -1305,7 +1305,16 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
 pub struct TableModuleLookup {
     resolver: Arc<dyn ModuleResolver>,
     fallback: Mutex<HashMap<String, &'static (dyn Module + Send + Sync)>>,
-    in_progress: Mutex<HashSet<String>>,
+    // Keyed by (thread, name): `in_progress` is a same-thread *recursion*
+    // guard — a module build re-entering `resolve_fallback` for its own name
+    // on this thread is a cycle. A *different* thread resolving the same name
+    // is a concurrent build, not a cycle: it must proceed (the `fallback`
+    // cache's `or_insert` dedups the result). Keying by name alone raced:
+    // the second thread misread the first thread's in-flight build as a
+    // cycle and `lookup` returned `None` — e.g. `entropy.next_u32`'s
+    // `ffi.call` flaking to "function 'ffi.call' not found" under parallel
+    // first-use (kit-prelude `rand_c`).
+    in_progress: Mutex<HashSet<(std::thread::ThreadId, String)>>,
 }
 
 impl TableModuleLookup {
@@ -1328,16 +1337,18 @@ impl TableModuleLookup {
                 return Some(*module);
             }
         }
+        let key = (std::thread::current().id(), normalized.to_string());
         {
             let mut in_progress = self.in_progress.lock().ok()?;
-            if !in_progress.insert(normalized.to_string()) {
-                // Already building this module further up the stack: a cycle.
+            if !in_progress.insert(key.clone()) {
+                // Same thread already building this module further up the
+                // stack: a cycle.
                 return None;
             }
         }
         let built = self.resolver.resolve(normalized);
         if let Ok(mut in_progress) = self.in_progress.lock() {
-            in_progress.remove(normalized);
+            in_progress.remove(&key);
         }
         let module = built?;
         let boxed: &'static Arc<dyn Module + Send + Sync> = Box::leak(Box::new(module));
