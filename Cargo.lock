@@ -657,6 +657,7 @@ name = "handl-kit-core"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-lib-type-handl",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
@@ -698,6 +699,7 @@ name = "handl-kit-ffi"
 version = "0.1.0"
 dependencies = [
  "handl-kit-core",
+ "handl-lib-ffi",
  "handl-platform",
  "handl-plugin-ffi",
  "handl-plugin-lib-handl",
@@ -731,6 +733,7 @@ dependencies = [
  "handl-kit-stdlib",
  "handl-kit-test",
  "handl-language",
+ "handl-lib-comb",
  "handl-platform",
  "handl-plugin-ext-diag",
  "handl-plugin-lib-char-native",
@@ -773,7 +776,9 @@ dependencies = [
  "handl-lib-hex",
  "handl-lib-ip",
  "handl-lib-json",
+ "handl-lib-perlin",
  "handl-lib-serialize",
+ "handl-lib-simplex",
  "handl-lib-tar",
  "handl-lib-url-rfc",
  "handl-lib-url-whatwg",
@@ -788,6 +793,8 @@ name = "handl-kit-test"
 version = "0.1.0"
 dependencies = [
  "handl-kit-core",
+ "handl-lib-rand-stub",
+ "handl-lib-test",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
@@ -852,6 +859,10 @@ name = "handl-lib-collections"
 version = "0.1.0"
 
 [[package]]
+name = "handl-lib-comb"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-combinators"
 version = "0.1.0"
 dependencies = [
@@ -889,6 +900,10 @@ dependencies = [
  "handl-plugin-lib-handl",
  "serde_json",
 ]
+
+[[package]]
+name = "handl-lib-ffi"
+version = "0.1.0"
 
 [[package]]
 name = "handl-lib-hello"
@@ -983,6 +998,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-perlin"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-pred"
 version = "0.1.0"
 
@@ -996,6 +1015,10 @@ version = "0.1.0"
 
 [[package]]
 name = "handl-lib-rand-c"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-rand-stub"
 version = "0.1.0"
 
 [[package]]
@@ -1015,6 +1038,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-lib-simplex"
+version = "0.1.0"
+
+[[package]]
 name = "handl-lib-stats"
 version = "0.1.0"
 
@@ -1028,6 +1055,10 @@ version = "0.1.0"
 
 [[package]]
 name = "handl-lib-tar"
+version = "0.1.0"
+
+[[package]]
+name = "handl-lib-test"
 version = "0.1.0"
 
 [[package]]
@@ -1047,6 +1078,10 @@ dependencies = [
  "handl-plugin-lib-handl",
  "serde_json",
 ]
+
+[[package]]
+name = "handl-lib-type-handl"
+version = "0.1.0"
 
 [[package]]
 name = "handl-lib-unicode"
@@ -3244,18 +3279,6 @@ name = "handl-kit-pkg"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "handl-plugin-applier-bootstrap"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-applier-default"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-ext"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "sepia-acp"
 version = "0.0.0"
 
@@ -3272,15 +3295,7 @@ name = "sepia-driver"
 version = "0.0.0"
 
 [[patch.unused]]
-name = "sepia-driver-claude"
-version = "0.0.0"
-
-[[patch.unused]]
 name = "sepia-driver-cline"
-version = "0.0.0"
-
-[[patch.unused]]
-name = "sepia-driver-cursor"
 version = "0.0.0"
 
 [[patch.unused]]
@@ -3306,3 +3321,15 @@ version = "0.0.0"
 [[patch.unused]]
 name = "sepia-testkit"
 version = "0.0.0"
+
+[[patch.unused]]
+name = "handl-ext"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-bootstrap"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-default"
+version = "0.1.0"
