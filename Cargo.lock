@@ -944,7 +944,6 @@ version = "0.1.0"
 [[package]]
 name = "handl-lib-kv-map"
 version = "0.1.0"
-source = "git+https://github.com/handl-lang/lib-kv-map?branch=main#68848e6598943c3229a9cbb91d0cc3723b9b25fc"
 
 [[package]]
 name = "handl-lib-loader"
@@ -3275,11 +3274,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[patch.unused]]
+name = "handl-kit-pkg"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-lib-dedent"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "handl-ext"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "handl-kit-pkg"
+name = "handl-plugin-applier-bootstrap"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-default"
 version = "0.1.0"
 
 [[patch.unused]]
@@ -3325,11 +3336,3 @@ version = "0.0.0"
 [[patch.unused]]
 name = "sepia-testkit"
 version = "0.0.0"
-
-[[patch.unused]]
-name = "handl-plugin-applier-bootstrap"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-applier-default"
-version = "0.1.0"

@@ -441,3 +441,9 @@ handl-lib-ffi = { path = "../lib-ffi" }
 
 [patch."https://github.com/handl-lang/lib-comb"]
 handl-lib-comb = { path = "../lib-comb" }
+
+[patch."https://github.com/handl-lang/lib-dedent"]
+handl-lib-dedent = { path = "../lib-dedent" }
+
+[patch."https://github.com/handl-lang/lib-kv-map"]
+handl-lib-kv-map = { path = "../lib-kv-map" }
