@@ -23,7 +23,7 @@ impl ImportResolver for StubResolver {
 }
 
 fn make_runtime() -> Runtime {
-    let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     let lang = kit.lang().clone();
 
     let eval_engine: Box<dyn hnl_engine_exec::EvalEngine> =

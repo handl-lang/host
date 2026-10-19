@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use handl_kit_data_canonical::assemble;
+use handl_kit_data_prelude::assemble;
 use handl_language::{Ast, AstNode, EvalSchemeDef, Value};
 use handl_plugin_lib_handl::{HandlModelEngine, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
@@ -20,7 +20,7 @@ use hnl_engine::TermData;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles"),
         );
     }

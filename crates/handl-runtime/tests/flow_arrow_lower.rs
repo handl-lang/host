@@ -19,7 +19,7 @@ use hnl_engine::term_interpreter::interpret;
 use std::collections::HashMap;
 
 fn canonical_lang() -> handl_language::Language {
-    handl_kit_data_canonical::assemble()
+    handl_kit_data_prelude::assemble()
         .expect("canonical kit assembles")
         .lang()
         .clone()

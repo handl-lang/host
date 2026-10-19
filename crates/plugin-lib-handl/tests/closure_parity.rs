@@ -7,7 +7,7 @@
 
 use std::rc::Rc;
 
-use handl_kit_data_canonical;
+use handl_kit_data_prelude;
 use handl_language::{Source, Value};
 use hnl_engine_exec::EvalEngine;
 use hnl_engine_exec_bytecode::BytecodeEngine;
@@ -28,7 +28,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles"),
         );
     }
@@ -43,7 +43,7 @@ export make :: x ~> (y ~> x + y)
 "#;
 
 fn runtime_for(engine_name: &'static str) -> Runtime {
-    let kit = handl_kit_data_canonical::assemble().unwrap();
+    let kit = handl_kit_data_prelude::assemble().unwrap();
     let lang = kit.lang().clone();
 
     let modules: Rc<dyn handl_platform::ModuleLookup> = Rc::new(

@@ -3,7 +3,7 @@
 //! Parses `Nat` and `Fin` from surface syntax and checks the generated
 //! predicate, constructors, recursor, and surface `match` desugaring.
 
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, AstRef};
 use hnl_engine_lex_pattern::lex;
 use hnl_engine_parse::{ParserEngine, ParserRequest};

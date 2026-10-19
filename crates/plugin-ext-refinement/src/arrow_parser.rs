@@ -73,7 +73,7 @@ pub enum ParsedFile {
 /// `Term` graph.
 /// `lang` is the arrow-dialect [`Language`] — derive it from the host's
 /// base language via [`arrow_language_for`] (ADR-0128 §"The 0.8 seam";
-/// this crate must not link `handl-kit-data-canonical`).
+/// this crate must not link `handl-kit-data-prelude`).
 pub fn parse_arrow_file(lang: &Language, src: &str) -> Result<ParsedFile, String> {
     let stripped = strip_comments(src);
     let trimmed = stripped.trim();

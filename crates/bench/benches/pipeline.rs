@@ -12,7 +12,7 @@
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use handl_bench::{EVAL_SAMPLE, SAMPLE};
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 
 fn bench_parse(c: &mut Criterion) {
     let kit = Kit::new().expect("kit assembly");

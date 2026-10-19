@@ -44,7 +44,7 @@ fn scratch_dir(tag: &str) -> PathBuf {
 /// Build a `ModuleLoader` + `Runtime` rooted at `module_root` with `deps` as
 /// the `[dependencies]` name → package-dir map.
 fn loader_and_runtime(module_root: PathBuf, deps: HashMap<String, PathBuf>) -> (Rc<ModuleLoader>, Runtime) {
-    let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     let lang_rc = Rc::new(kit.lang().clone());
 
     let loader = Rc::new(

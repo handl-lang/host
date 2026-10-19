@@ -1,4 +1,4 @@
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode};
 use serde_json::Value;
 

@@ -28,7 +28,7 @@ fn arrow_lang() -> &'static handl_language::Language {
         std::sync::OnceLock::new();
     LANG.get_or_init(|| {
         crate::arrow_lang::arrow_language_for(
-            &handl_kit_data_canonical::language_from_yaml()
+            &handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles"),
         )
     })

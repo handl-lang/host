@@ -58,7 +58,7 @@ impl TypecheckPlugin {
     /// Create the plugin, declaring the `typecheck` capability.
     ///
     /// `check` performs the typecheck. The host supplies it — e.g.
-    /// `handl_kit_canonical::Kit::typecheck_handl_with_prelude` bound to a
+    /// `handl_kit_prelude::Kit::typecheck_handl_with_prelude` bound to a
     /// thread-cached canonical kit.
     pub fn new(check: Arc<TypecheckFn>) -> Self {
         Self {
@@ -146,7 +146,7 @@ mod tests {
     use super::*;
     use std::cell::RefCell;
 
-    use handl_kit_canonical::Kit;
+    use handl_kit_prelude::Kit;
     use handl_platform::{KitRegistry, PluginRegistry};
 
     thread_local! {

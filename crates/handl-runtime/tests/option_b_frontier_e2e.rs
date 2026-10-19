@@ -6,7 +6,7 @@
 
 use std::rc::Rc;
 
-use handl_kit_data_canonical;
+use handl_kit_data_prelude;
 use handl_language::Source;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
@@ -15,7 +15,7 @@ use handl_runtime::{EngineRegistry, Runtime};
 use serde_json::json;
 
 fn frontier_runtime() -> Runtime {
-    let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
 
     let mut reg = EngineRegistry::new();
     reg.register_lex("data", Box::new(DataLexerEngine::new()));

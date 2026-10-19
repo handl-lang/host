@@ -10,7 +10,7 @@ use handl_platform::{
 };
 
 // ADR-0128 §0.4: `library_registry::populate` moved to the kit repo —
-// `handl_kit_canonical::populate` / `canonical_library_registry()`.
+// `handl_kit_prelude::populate` / `prelude_library_registry()`.
 
 pub struct KitManagerPlugin {
     capabilities: Vec<CapabilityId>,
@@ -345,9 +345,9 @@ impl Plugin for BasicKit {
 /// `extends` chain.
 ///
 /// Injected by the host (ADR-0128 §"The 0.8 seam"): the embedded kit
-/// manifests live in `handl-kit-data-canonical` (the `lang/` repo), which
+/// manifests live in `handl-kit-data-prelude` (the `lang/` repo), which
 /// this crate must not link. A host wires
-/// `handl_kit_data_canonical::kit_module_names` in as a capture-less
+/// `handl_kit_data_prelude::kit_module_names` in as a capture-less
 /// closure; other languages supply their own manifest tables.
 pub type KitModuleNames = Arc<dyn Fn(&str) -> Result<Vec<String>, String> + Send + Sync>;
 
@@ -364,7 +364,7 @@ pub struct BasicKitLoaderPlugin {
 impl BasicKitLoaderPlugin {
     /// Creates a new `BasicKitLoaderPlugin` bound to the host's
     /// kit-manifest resolver and the kit's library-module registry
-    /// (`handl_kit_canonical::canonical_library_registry()` for the
+    /// (`handl_kit_prelude::prelude_library_registry()` for the
     /// canonical kit; other kits supply their own).
     pub fn new(module_names: KitModuleNames, libraries: Arc<LibraryRegistry>) -> Self {
         Self {
@@ -381,7 +381,7 @@ impl BasicKitLoaderPlugin {
         }
 
         // Kit composition is data: resolve the kit name through the injected
-        // manifest lookup (`handl-kit-data-canonical/data/kits/<name>.yaml`
+        // manifest lookup (`handl-kit-data-prelude/data/kits/<name>.yaml`
         // in the canonical host), then resolve each listed library module
         // through the populated `LibraryRegistry`.
         let module_names = (self.module_names)(name_or_path)
@@ -454,9 +454,9 @@ mod tests {
     fn builtin_kit_module_names_resolve() {
         let loader = BasicKitLoaderPlugin::new(
             std::sync::Arc::new(|name: &str| {
-                handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
+                handl_kit_data_prelude::kit_module_names(name).map_err(|e| e.to_string())
             }),
-            handl_kit_canonical::canonical_library_registry(),
+            handl_kit_prelude::prelude_library_registry(),
         );
         for kit in ["hello", "stdlib", "cli", "config", "server"] {
             loader
@@ -465,7 +465,7 @@ mod tests {
         }
         // The table-driven packages resolve to PackagePlugins with the
         // same ids/names as the deleted per-crate shells.
-        let registry = handl_kit_canonical::canonical_library_registry();
+        let registry = handl_kit_prelude::prelude_library_registry();
         let utils = registry.resolve("utils").expect("utils plugin");
         assert_eq!(utils.id(), "lib.utils");
         assert_eq!(utils.name(), "lib-utils");

@@ -102,7 +102,7 @@ fn generate_textmate_empty_rules() {
 // --- Data-driven grammar generation tests (ADR-0044) ---
 
 fn canonical_rules() -> Vec<GrammarRule> {
-    let kit = handl_kit_canonical::Kit::new().unwrap();
+    let kit = handl_kit_prelude::Kit::new().unwrap();
     grammar_rules_from_language(kit.runtime().lang())
 }
 

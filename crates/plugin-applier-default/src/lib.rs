@@ -13,7 +13,7 @@ use handl_plugin_load::LoaderHostPlugin;
 /// Carries the host-injected kit-manifest resolver (ADR-0128 §"The 0.8
 /// seam"): the applier registers a [`BasicKitLoaderPlugin`], which needs a
 /// kit-name → module-names lookup it cannot source itself (the embedded
-/// manifests live in `handl-kit-data-canonical`, a `lang/` crate).
+/// manifests live in `handl-kit-data-prelude`, a `lang/` crate).
 pub struct DefaultApplierFactory {
     module_names: KitModuleNames,
     libraries: Arc<LibraryRegistry>,

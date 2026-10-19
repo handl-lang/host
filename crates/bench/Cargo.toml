@@ -15,8 +15,8 @@ criterion = { version = "0.5", default-features = false, features = [
   "plotters",
   "cargo_bench_support",
 ] }
-handl-kit-canonical = { workspace = true }
-handl-kit-data-canonical = { workspace = true }
+handl-kit-prelude = { workspace = true }
+handl-kit-data-prelude = { workspace = true }
 hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
 hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
 hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }

@@ -8,13 +8,13 @@ use std::sync::Arc;
 /// dev-dep data crate.
 fn kit_module_names() -> KitModuleNames {
     Arc::new(|name: &str| {
-        handl_kit_data_canonical::kit_module_names(name).map_err(|e| e.to_string())
+        handl_kit_data_prelude::kit_module_names(name).map_err(|e| e.to_string())
     })
 }
 
 /// The canonical library-module table for tests (ADR-0128 §0.4).
 fn libraries() -> Arc<LibraryRegistry> {
-    handl_kit_canonical::canonical_library_registry()
+    handl_kit_prelude::prelude_library_registry()
 }
 
 #[test]

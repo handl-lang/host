@@ -3,7 +3,7 @@
 //! compile engines). Lives in `tests/` to avoid the dev-dependency cycle
 //! that prevents `handl-runtime` lib tests from using compile-engine crates.
 
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, Value, language_value};
 use handl_runtime::Runtime;
 use serde_json::json;

@@ -660,7 +660,7 @@ fn canonical_runtime() -> handl_runtime::Runtime {
     use hnl_engine_parse_pratt::PrattEngine;
     use handl_runtime::{EngineRegistry, Runtime};
 
-    let kit = handl_kit_data_canonical::assemble().expect("full kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("full kit assembles");
     let mut reg = EngineRegistry::new();
     reg.register_lex("data", Box::new(DataLexerEngine::new()));
     reg.register_parse("pratt", PrattEngine::new());

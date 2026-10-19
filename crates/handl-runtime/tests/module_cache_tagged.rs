@@ -40,7 +40,7 @@ fn scratch_dir(tag: &str) -> PathBuf {
 /// `Runtime` whose import resolver is the same loader — the wiring
 /// `kit-canonical` performs for `import "<file>"`.
 fn loader_and_runtime(module_root: PathBuf) -> (Rc<ModuleLoader>, Runtime) {
-    let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     let lang_rc = Rc::new(kit.lang().clone());
     let loader = Rc::new(ModuleLoader::new(
         Rc::clone(&lang_rc),

@@ -37,7 +37,7 @@ use serde_json::{Value, json};
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles"),
         );
     }
@@ -418,7 +418,7 @@ const MINI_MODEL_SOURCE: &str = r#"{
 /// engine, no dependency modules) for the mock `parse` primitive to evaluate
 /// a model source string into a value.
 fn build_parse_runtime() -> Result<Runtime, LangError> {
-    let kit = handl_kit_data_canonical::assemble()?;
+    let kit = handl_kit_data_prelude::assemble()?;
     let lang = kit.lang().clone();
     let config = RuntimeConfig::new()
         .with_lex("data")

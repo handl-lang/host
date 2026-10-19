@@ -26,7 +26,7 @@ use handl_runtime::Runtime;
 use serde_json::json;
 
 fn canonical_lang() -> handl_language::Language {
-    handl_kit_data_canonical::assemble()
+    handl_kit_data_prelude::assemble()
         .expect("canonical kit assembles")
         .lang()
         .clone()

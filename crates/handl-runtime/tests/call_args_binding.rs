@@ -18,7 +18,7 @@ use handl_runtime::{EngineRegistry, Runtime};
 
 /// Build a tree-walk runtime over the canonical data kit (no typecheck).
 fn tree_walk_runtime() -> Runtime {
-    let kit = handl_kit_data_canonical::assemble().expect("full kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("full kit assembles");
     let mut reg = EngineRegistry::new();
     reg.register_lex("data", Box::new(DataLexerEngine::new()));
     reg.register_parse("pratt", PrattEngine::new());

@@ -16,7 +16,7 @@ use handl_plugin_ext_refinement::{
 /// the `arrow_language_for` overrides.
 fn lang() -> Language {
     arrow_language_for(
-        &handl_kit_data_canonical::language_from_yaml()
+        &handl_kit_data_prelude::language_from_yaml()
             .expect("canonical language assembles"),
     )
 }

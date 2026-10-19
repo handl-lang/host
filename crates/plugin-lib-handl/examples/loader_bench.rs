@@ -31,7 +31,7 @@ const STR_HANDL_HNL: &str = handl_plugin_lib_handl::STR_HANDL_HNL;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles"),
         );
     }

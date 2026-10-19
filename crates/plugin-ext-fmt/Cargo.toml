@@ -17,5 +17,5 @@ handl-language = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-kit-data-canonical = { workspace = true }
+handl-kit-data-prelude = { workspace = true }
 serde_json = { workspace = true }

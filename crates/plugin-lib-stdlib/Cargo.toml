@@ -14,6 +14,9 @@ handl-platform = { path = "../platform" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
 handl-lib-kv-map = { git = "https://github.com/handl-lang/lib-kv-map", branch = "main" }
+handl-lib-otlp = { git = "https://github.com/handl-lang/lib-otlp", branch = "main" }
+handl-plugin-lib-otlp-c = { git = "https://github.com/handl-lang/lib-otlp-c", branch = "main" }
+handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 # ADR-0128: port packages live in their own repos.
@@ -64,7 +67,7 @@ toml = "0.8"
 url = "2"
 
 [dev-dependencies]
-handl-kit-data-canonical = { git = "https://github.com/handl-lang/kit-data-canonical", branch = "main" }
+handl-kit-data-prelude = { git = "https://github.com/handl-lang/kit-data-prelude", branch = "main" }
 handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }

@@ -208,7 +208,7 @@ mod tests {
     fn canonical_ctx() -> LintContext {
         static CTX: OnceLock<LintContext> = OnceLock::new();
         CTX.get_or_init(|| {
-            let kit = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+            let kit = handl_kit_prelude::Kit::new().expect("canonical kit assembles");
             LintContext::with_resolver(
                 kit.language().clone(),
                 kit.handl_lint_adapter().resolver(),
@@ -373,7 +373,7 @@ mod tests {
         // Exercises the `(Some(language), Some(prelude))` dispatch arm.
         let plugin = plugin();
         let lang =
-            handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles");
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles");
         let serialized = serde_json::to_value(&lang).expect("Language serializes");
         let res = with_ctx(|ctx| {
             plugin
@@ -446,7 +446,7 @@ mod tests {
         // the caller's language need not be this crate's built-in default.
         let plugin = plugin();
         let lang =
-            handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles");
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles");
         let serialized = serde_json::to_value(&lang).expect("Language serializes");
         let res = with_ctx(|ctx| {
             plugin

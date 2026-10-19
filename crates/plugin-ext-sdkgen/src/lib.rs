@@ -36,7 +36,7 @@ pub fn linked_targets() -> SdkgenRegistry {
 ///
 /// `lang` is the language the emitted `.hnl` port/adapter sources are
 /// canonicalized against — injected by the host (ADR-0128 §"The 0.8 seam")
-/// because this crate must not link `handl-kit-data-canonical`.
+/// because this crate must not link `handl-kit-data-prelude`.
 pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
     let registry = linked_targets();
     let usage = format!(

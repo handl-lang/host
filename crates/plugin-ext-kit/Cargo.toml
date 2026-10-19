@@ -13,6 +13,6 @@ handl-plugin-module = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-kit-data-canonical = { workspace = true }
-handl-kit-canonical = { workspace = true }
+handl-kit-data-prelude = { workspace = true }
+handl-kit-prelude = { workspace = true }
 serde_json = { workspace = true }

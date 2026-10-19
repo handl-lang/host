@@ -14,5 +14,5 @@ handl-plugin-ext-kit = { path = "../plugin-ext-kit" }
 handl-kit-data = { workspace = true }
 
 [dev-dependencies]
-handl-kit-canonical = { workspace = true }
-handl-kit-data-canonical = { workspace = true }
+handl-kit-prelude = { workspace = true }
+handl-kit-data-prelude = { workspace = true }

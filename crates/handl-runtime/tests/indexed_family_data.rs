@@ -11,7 +11,7 @@
 //! nodes into a single arena, flatten `block` roots, and append the manually
 //! built recursor calls.
 
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, AstRef};
 use serde_json::{Value, json};
 

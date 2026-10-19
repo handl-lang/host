@@ -71,7 +71,7 @@ fn scratch_dir(tag: &str) -> PathBuf {
 
 /// Build a `ModuleLoader` + `Runtime` whose module chain contains `libc`.
 fn loader_and_runtime(module_root: PathBuf) -> (Rc<ModuleLoader>, Runtime) {
-    let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     let lang_rc = Rc::new(kit.lang().clone());
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(LibcModule));
 

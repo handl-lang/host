@@ -15,4 +15,4 @@ serde_json = { workspace = true }
 # Tests bind the canonical checker to a thread-local kit — the same shape
 # the host uses (ADR-0128 §0.8). Dev-only: only normal deps create the
 # platform↔lang cycle.
-handl-kit-canonical = { workspace = true }
+handl-kit-prelude = { workspace = true }

@@ -15,7 +15,7 @@ use handl_bench::SAMPLE;
 
 /// The canonical language, assembled from the embedded YAML fragments.
 fn canonical_lang() -> handl_language::Language {
-    handl_kit_data_canonical::language_from_yaml().expect("canonical language assembles")
+    handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles")
 }
 
 fn bench_typecheck(c: &mut Criterion) {

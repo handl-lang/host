@@ -25,7 +25,7 @@ use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use serde_json::{Value, json};
 
 fn canonical_lang() -> Language {
-    handl_kit_data_canonical::assemble()
+    handl_kit_data_prelude::assemble()
         .expect("canonical kit assembles")
         .lang()
         .clone()

@@ -9,7 +9,7 @@
 //! gone: what matters is the *behaviour* being delegated, and that it scales.
 
 use handl_host_tooling::{Severity, ToolingHost};
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use handl_plugin_ext_lint::LintContext;
 
 /// The canonical lint context the host would inject — the kit's language

@@ -30,8 +30,8 @@ hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-t
 hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
 hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/engine-exec-cranelift", branch = "main" }
 handl-plugin-module = { path = "../plugin-module" }
-handl-kit-data-canonical = { workspace = true }
-handl-kit-canonical = { workspace = true }
+handl-kit-data-prelude = { workspace = true }
+handl-kit-prelude = { workspace = true }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-stdlib = { workspace = true }
 handl-plugin-lib-tag = { path = "../plugin-lib-tag" }

@@ -14,7 +14,7 @@
 //! A [`DataKitManifest`] is an ordered list of data-file fragment sources
 //! (ADR §6 end state) plus include/exclude filters and a [`RuntimeConfig`]
 //! for engine selection (ADR §7). A caller that already holds a [`Language`]
-//! — e.g. `handl-kit-data-canonical::language_from_yaml` — passes it to
+//! — e.g. `handl-kit-data-prelude::language_from_yaml` — passes it to
 //! [`DataKit::assemble`] as `base_language`: the kit stack merges on top of
 //! it. The manifest-named Rust emitters of the ADR §6 migration scaffold
 //! are retired (see `project/parked.yaml`).
@@ -50,7 +50,7 @@
 //! The legacy `kit-config` / `kit-server` / `kit-cli` / `kit-hello` /
 //! `kit-stdlib` Rust-monolith kits have been **deleted** — kit composition is
 //! now data-driven via the `data/kits/*.yaml` manifests in
-//! `handl-kit-data-canonical` (resolved through [`LibraryRegistry`] into
+//! `handl-kit-data-prelude` (resolved through [`LibraryRegistry`] into
 //! `ModuleKit`s). `kit-canonical` remains as the canonical runtime assembly.
 
 #![warn(missing_docs)]

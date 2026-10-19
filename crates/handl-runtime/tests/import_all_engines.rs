@@ -30,7 +30,7 @@ impl ImportResolver for StubResolver {
 }
 
 fn make_runtime(engine: Box<dyn EvalEngine>) -> Runtime {
-    let kit = handl_kit_data_canonical::assemble().expect("canonical kit assembles");
+    let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     Runtime::new(kit.lang().clone())
         .with_lex_engine(Box::new(DataLexerEngine::new()))
         .with_parse_engine(PrattEngine::new())

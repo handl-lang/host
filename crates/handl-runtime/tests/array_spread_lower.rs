@@ -21,7 +21,7 @@ use hnl_engine::term_interpreter::interpret;
 use serde_json::json;
 
 fn runtime() -> Runtime {
-    let lang = handl_kit_data_canonical::assemble()
+    let lang = handl_kit_data_prelude::assemble()
         .expect("canonical kit assembles")
         .lang()
         .clone();

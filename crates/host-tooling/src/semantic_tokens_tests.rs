@@ -5,7 +5,7 @@ use crate::{
     BasicSemanticTokens, CanonicalTokenClassifier, SemanticTokenLegend, SemanticTokensPlugin,
     SemanticTokensRequest, TokenClassifier,
 };
-use handl_kit_canonical::{Kit, SpannedToken};
+use handl_kit_prelude::{Kit, SpannedToken};
 use handl_language::Token;
 
 thread_local! {

@@ -153,7 +153,7 @@ mod tests {
     /// crate (tests may depend on `lang/` data; the plugin must not).
     fn lang() -> std::sync::Arc<handl_language::Language> {
         std::sync::Arc::new(
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles"),
         )
     }

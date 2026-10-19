@@ -28,8 +28,8 @@ use hnl_engine::TermData;
 ///
 /// The *base* language is injected by the host (ADR-0128 §"The 0.8 seam"):
 /// this crate stays in `platform`, so it must not link
-/// `handl-kit-data-canonical` — the caller supplies the canonical language
-/// (e.g. `handl_kit_data_canonical::language_from_yaml()`). Hosts that call
+/// `handl-kit-data-prelude` — the caller supplies the canonical language
+/// (e.g. `handl_kit_data_prelude::language_from_yaml()`). Hosts that call
 /// it repeatedly should memoize the result.
 ///
 /// # Panics
@@ -250,7 +250,7 @@ mod tests {
     fn canonical() -> &'static Language {
         static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
         LANG.get_or_init(|| {
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles")
         })
     }

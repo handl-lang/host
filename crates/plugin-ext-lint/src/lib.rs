@@ -5,7 +5,7 @@
 //! generic rule/capability registry) and runs the rule set declared in
 //! `lang.lints` of the injected [`Language`] through the data-driven
 //! [`LintEngine`] in `hnl-engine-lint`. The canonical rule set lives in
-//! `handl-kit-data-canonical`'s `lints.yaml`; the host supplies the language
+//! `handl-kit-data-prelude`'s `lints.yaml`; the host supplies the language
 //! via [`LintContext`] (ADR-0128 §"The 0.8 seam") — this crate keeps no
 //! normal dependency on the canonical kit.
 //!
@@ -348,7 +348,7 @@ mod tests {
     fn canonical_ctx() -> LintContext {
         static CTX: OnceLock<LintContext> = OnceLock::new();
         CTX.get_or_init(|| {
-            let kit = handl_kit_canonical::Kit::new().expect("canonical kit assembles");
+            let kit = handl_kit_prelude::Kit::new().expect("canonical kit assembles");
             LintContext::with_resolver(
                 kit.language().clone(),
                 kit.handl_lint_adapter().resolver(),

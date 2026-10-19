@@ -5,7 +5,7 @@
 //! can dispatch it uniformly alongside `fmt` and `lint`.
 //!
 //! The implementation is [`plugin::TypecheckPlugin`], backed by
-//! [`handl_kit_canonical::Kit::typecheck_handl_with_prelude`] — the *same*
+//! [`handl_kit_prelude::Kit::typecheck_handl_with_prelude`] — the *same*
 //! entry point `host-cli` uses, so the capability path and the direct call
 //! cannot drift.
 //!
@@ -16,7 +16,7 @@
 //! "canonical" — which is exactly what happened to `lint` (`host-cli` used
 //! `load_canonical_language()`, the plugin's default was `lint_language()`).
 //! `typecheck` has no such hazard: both sides obtain their language from the
-//! single assembly path [`Kit::new`] (`handl_kit_data_canonical::assemble`),
+//! single assembly path [`Kit::new`] (`handl_kit_data_prelude::assemble`),
 //! which is deterministic. Two `Kit`s built from the same canonical data are
 //! therefore identical, so a language payload would carry no information.
 //!

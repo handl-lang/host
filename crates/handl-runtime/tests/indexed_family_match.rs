@@ -5,7 +5,7 @@
 //! (with and without a `return ... with` motive) to desugar to a recursor
 //! application.
 
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, AstRef};
 use hnl_engine_lex_pattern::lex;
 use hnl_engine_parse::{ParserEngine, ParserRequest};

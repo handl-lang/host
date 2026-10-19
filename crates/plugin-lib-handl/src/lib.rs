@@ -1533,7 +1533,7 @@ type RuntimeBuilder = Arc<dyn Fn() -> Result<Runtime, handl_language::LangError>
 /// [`HandlModule`] bridge runtimes (ADR-0128 §"The 0.8 seam").
 ///
 /// This crate is the generic `.hnl` module loader — machinery that stays in
-/// platform — so it must not link `handl-kit-data-canonical`: the language
+/// platform — so it must not link `handl-kit-data-prelude`: the language
 /// a `.hnl` module evaluates under is supplied by the host instead. Hosts
 /// install it once at startup ([`install_default_language`], e.g. inside
 /// `Kit::new`); a [`HandlModule`] may also carry an explicit per-module

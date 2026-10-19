@@ -11,7 +11,7 @@
 //!
 //! The [`Language`] the formatter runs against is **injected by the host**
 //! (ADR-0128 §"The 0.8 seam"): this crate stays in `platform`, so it must
-//! not link `handl-kit-data-canonical` — every entry point takes `lang`
+//! not link `handl-kit-data-prelude` — every entry point takes `lang`
 //! (the `*_with_language` convention) or, for [`FmtPlugin`], an
 //! `Arc<Language>` at construction.
 //!
@@ -199,7 +199,7 @@ mod tests {
     fn lang() -> &'static Language {
         static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
         LANG.get_or_init(|| {
-            handl_kit_data_canonical::language_from_yaml()
+            handl_kit_data_prelude::language_from_yaml()
                 .expect("canonical language assembles")
         })
     }

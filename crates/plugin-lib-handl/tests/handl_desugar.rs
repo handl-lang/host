@@ -20,7 +20,7 @@ use serde_json::Value;
 fn lang() -> &'static Language {
     static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
-        let l = handl_kit_data_canonical::language_from_yaml()
+        let l = handl_kit_data_prelude::language_from_yaml()
             .expect("canonical language");
         let _ = handl_plugin_lib_handl::install_default_language(l.clone());
         l

@@ -29,7 +29,7 @@ hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-handl-kit-data-canonical = { workspace = true }
+handl-kit-data-prelude = { workspace = true }
 hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
 hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
 hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }

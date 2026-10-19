@@ -368,11 +368,11 @@ fn run() -> Result<(), String> {
     }
 
     // 1. Build the resolver + loader. The canonical base language is
-    // assembled from `handl-kit-data-canonical` (a dev-dependency — `hnlc`
+    // assembled from `handl-kit-data-prelude` (a dev-dependency — `hnlc`
     // is a dev tool, not a shipped artifact) and overridden to the arrow
     // dialect via `arrow_language_for`.
     let lang: Language = arrow_language_for(
-        &handl_kit_data_canonical::language_from_yaml()
+        &handl_kit_data_prelude::language_from_yaml()
             .map_err(|e| format!("canonical language failed to assemble: {e}"))?,
     );
     let resolver = FileResolver::new(root.clone());

@@ -29,7 +29,7 @@ pub const SAMPLE: &str =
 ///
 /// Note: this previously used the `|>` pipe operator (`"f = x ~> x; 1 |> f"`),
 /// inherited from `kit-canonical/benches/perf.rs`. `|>` was **removed** from
-/// the canonical grammar (`handl-kit-data-canonical/data/ast.yaml`,
+/// the canonical grammar (`handl-kit-data-prelude/data/ast.yaml`,
 /// "Removed: … pipe …"), so the sample no longer parsed and
 /// `pipeline/parse_and_eval` panicked on its first iteration. Plain
 /// application is the supported form.

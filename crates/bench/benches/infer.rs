@@ -16,7 +16,7 @@
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use handl_bench::INFERENCE_SAMPLE;
-use handl_kit_canonical::Kit;
+use handl_kit_prelude::Kit;
 use std::collections::HashSet;
 
 fn bench_infer(c: &mut Criterion) {
