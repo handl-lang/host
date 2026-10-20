@@ -659,6 +659,7 @@ dependencies = [
  "handl-language",
  "handl-lib-type-handl",
  "handl-platform",
+ "handl-plugin-ext-lint",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
  "handl-plugin-module",
@@ -736,6 +737,7 @@ dependencies = [
  "handl-lib-comb",
  "handl-platform",
  "handl-plugin-ext-diag",
+ "handl-plugin-ext-lint",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
@@ -1308,6 +1310,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-fmt",
+ "handl-plugin-lib-handl",
  "hnl-engine-lint",
  "hnl-engine-typecheck",
  "serde_json",
@@ -1422,7 +1425,6 @@ dependencies = [
  "hnl-engine-exec-tree-walk",
  "hnl-engine-lex",
  "hnl-engine-lex-pattern",
- "hnl-engine-lint",
  "hnl-engine-parse",
  "hnl-engine-parse-pratt",
  "hnl-engine-transform",
@@ -3274,6 +3276,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[patch.unused]]
+name = "handl-kit-pkg"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-bootstrap"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-default"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "sepia-acp"
 version = "0.0.0"
 
@@ -3318,21 +3332,9 @@ name = "sepia-testkit"
 version = "0.0.0"
 
 [[patch.unused]]
-name = "handl-plugin-applier-bootstrap"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-applier-default"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-lib-dedent"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "handl-ext"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "handl-kit-pkg"
+name = "handl-lib-dedent"
 version = "0.1.0"

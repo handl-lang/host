@@ -5,7 +5,8 @@
 
 use handl_language::{Ast, AstNode, AstRef, AstShapeDef, Language, LintCheck, LintRuleDef, Span};
 use hnl_engine_lint::{LintEngine, NativeLintRegistry};
-use handl_plugin_lib_handl::{HandlModule, HandlNativeLint};
+use handl_plugin_ext_lint::HandlNativeLint;
+use handl_plugin_lib_handl::HandlModule;
 use serde_json::json;
 
 /// A trivial .hnl lint module: `check` reports one hit (with a fix),

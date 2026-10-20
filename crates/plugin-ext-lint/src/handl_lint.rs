@@ -89,8 +89,8 @@
 //!   language) uses when it wants `.hnl`-authored lint rules.
 //!
 //! [`LintCheck::Native`]: handl_language::LintCheck::Native
-//! [`HandlFunction`]: crate::HandlFunction
-//! [`HandlNativeRewrite`]: crate::HandlNativeRewrite
+//! [`HandlFunction`]: handl_plugin_lib_handl::HandlFunction
+//! [`HandlNativeRewrite`]: handl_plugin_lib_handl::HandlNativeRewrite
 //! [`NativeLintRegistry`]: hnl_engine_lint::NativeLintRegistry
 
 use std::collections::{BTreeMap, HashMap};
@@ -101,12 +101,11 @@ use handl_platform::{EvalContext, Module};
 use hnl_engine_lint::{LintCtx, LintFixOut, NativeHit, NativeLintFn, NativeLintResolver};
 use serde_json::Value;
 
-use crate::HandlModule;
-use crate::transform::HANDL_PREFIX;
+use handl_plugin_lib_handl::{HANDL_PREFIX, HandlModule};
 
 /// A [`NativeLintResolver`] that routes `handl:<module>.<fn>` lint rule
 /// names to functions on registered [`HandlModule`]s — the lint analogue
-/// of [`HandlNativeRewrite`](crate::HandlNativeRewrite).
+/// of [`HandlNativeRewrite`](handl_plugin_lib_handl::HandlNativeRewrite).
 ///
 /// Non-`handl:` names are declined (`None`), so map entries and earlier
 /// resolvers keep resolving; wire it with

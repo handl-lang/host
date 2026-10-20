@@ -38,7 +38,9 @@
 pub use handl_language::Language;
 pub use handl_platform::{BasicLinter, Lint, LintBehavior, LintRequest, RuleAcceptor};
 
+pub mod handl_lint;
 pub mod plugin;
+pub use handl_lint::HandlNativeLint;
 pub use plugin::{LINT_CAPABILITY, LintPlugin};
 
 use std::collections::HashSet;

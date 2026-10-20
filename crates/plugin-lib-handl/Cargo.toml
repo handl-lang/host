@@ -18,7 +18,6 @@ hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = 
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
 hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
 hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform", branch = "main" }
-hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 # `.hnl` sources owned by their own repos (ADR-0128 §"1a").
 handl-lib-str-handl = { workspace = true }
