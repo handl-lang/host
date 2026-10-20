@@ -239,7 +239,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "otlp_c",
-        hnl: "",
+        hnl: handl_plugin_lib_otlp_c::OTLP_C_HNL,
         funcs: &[],
         ops: handl_plugin_lib_otlp_c::OTLP_OPS,
         values: &[],
