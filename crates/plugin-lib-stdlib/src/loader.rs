@@ -581,12 +581,10 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
             if name.is_empty() {
                 panic!("module prep: `export` declaration has no binding name: {trimmed}");
             }
-            let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
-            let expr_start = if is_type_only {
-                "null"
-            } else {
-                rest[sep_pos + sep_len..].trim()
-            };
+            let rhs = rest[sep_pos + sep_len..].trim();
+            let is_type_only = (sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':'))
+                || is_signature_rhs(rhs);
+            let expr_start = if is_type_only { "null" } else { rhs };
             let mut expr_lines = Vec::new();
             if !expr_start.is_empty() {
                 expr_lines.push(expr_start.to_string());
@@ -1022,6 +1020,69 @@ fn import_line_spec(line: &str) -> Option<String> {
     let after = &rest[quote.len_utf8()..];
     let end = after.find(quote)?;
     Some(after[..end].to_string())
+}
+
+/// Whether `rhs` is a top-level graded-arrow signature `A ~[N]~> B` —
+/// i.e. it contains `~[` at bracket depth 0. Signature exports
+/// (`export Run := (Params) ~[N]~> Codomain`) are contract data whose
+/// domain/codomain are *type* expressions: evaluating them is an
+/// Agda-style violation (annotations are static metadata owned by the
+/// typecheck engine), and generic applications like `Result<T, E>` in a
+/// codomain crash eval because the former application is not a runtime
+/// arrow. A `dim_arrow` node always mints an `Arrow` descriptor record —
+/// never a callable — so erasing the binding to `null` (the same value
+/// type-only `export Name: Type` gets) loses no runtime behavior.
+/// Ungraded `A ~> B` is untouched: `(x) ~> body` is a real arrow literal.
+/// Mirrors `handl_runtime::module_prep::is_signature_rhs`.
+fn is_signature_rhs(rhs: &str) -> bool {
+    let bytes = rhs.as_bytes();
+    let mut depth: i32 = 0;
+    let mut paren_depth: i32 = 0;
+    let mut in_str: Option<u8> = None;
+    let mut prev_sig = 0u8;
+    let mut list_type_param = false;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'"' | b'\'' => in_str = Some(c),
+            b'(' => {
+                depth += 1;
+                paren_depth += 1;
+            }
+            b'[' | b'{' => {
+                depth += 1;
+                if paren_depth > 0 && (prev_sig == b'(' || prev_sig == b',') {
+                    list_type_param = true;
+                }
+            }
+            b')' => {
+                depth -= 1;
+                paren_depth -= 1;
+            }
+            b']' | b'}' => depth -= 1,
+            b'~' if depth == 0 => match bytes.get(i + 1) {
+                Some(&b'[') => return true,
+                Some(&b'>') => return list_type_param,
+                _ => {}
+            },
+            _ => {}
+        }
+        if !c.is_ascii_whitespace() {
+            prev_sig = c;
+        }
+        i += 1;
+    }
+    false
 }
 
 fn find_binding_sep(s: &str) -> Option<(usize, usize)> {

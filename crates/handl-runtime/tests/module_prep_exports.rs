@@ -170,6 +170,61 @@ fn indented_export_is_still_an_export() {
     std::fs::remove_dir_all(&root).ok();
 }
 
+/// Agda-style erasure: `export Name := (Params) ~[N]~> Codomain` — a
+/// signature export whose RHS is a graded-arrow signature — must NOT
+/// evaluate its boundary children. `Result<Output, Spawn>` is a type-level
+/// generic application (a `dimension` node): evaluating it applies the
+/// former as a runtime arrow and crashes. The export binds `null` — the
+/// same value type-only `export Name: Type` gets — and importing it is a
+/// working export.
+#[test]
+fn graded_signature_export_does_not_evaluate_type_children() {
+    let root = scratch_dir("sig-export");
+    // `Pair` is a parameter'd export (a former); `Sig`'s codomain is the
+    // un-evaluable generic application `Pair<Output, Output>` — exactly
+    // the `cli` port's `Run := ([String]) ~[1]~> Result<Output, Spawn>`
+    // shape. Before the fix the import crashed eval with
+    // "callee is not an arrow-value".
+    let src = "export Output := { code: Int, msg: String }\n\
+               export Sig := (Int) ~[1]~> Pair<Output, Output>\n\
+               export f := (x) ~> x + 1\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import { Output, Sig, f }; { sig: Sig, sum: f(41) } }"#,
+    )
+    .expect("signature export must not evaluate its type children");
+    assert_eq!(value["sig"], json!(null), "signature export is erased");
+    assert_eq!(value["sum"], json!(42), "sibling value export unaffected");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// `export f: A ~[N]~> B := body` — an *annotated* implementation — still
+/// binds `f` to the body: the annotation between `:` and `:=` is erased,
+/// the arrow body evaluates normally.
+#[test]
+fn annotated_export_keeps_body_evaluation() {
+    let root = scratch_dir("annotated-export");
+    let src = "export f: (Int) ~[1]~> Pair<Int, Int> := (x) ~> x * 2\n";
+    let value = run(&root, src, r#"do { from "mod.hnl" import f; f(21) }"#)
+        .expect("annotated export body evaluates");
+    assert_eq!(value, json!(42));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A `~[n]~>` nested inside a larger value expression is runtime cell
+/// data, not a signature: only a graded arrow at depth 0 of the RHS is
+/// erased, so a list containing a `dim_arrow` cell still evaluates.
+#[test]
+fn nested_graded_arrow_still_evaluates() {
+    let root = scratch_dir("nested-graded");
+    let src = "export cell := [ (x) ~> x ~[2]~> (y) ~> y ]\n";
+    let value = run(&root, src, r#"do { from "mod.hnl" import cell; cell[0] != null }"#)
+        .expect("nested graded arrow evaluates");
+    assert_eq!(value, json!(true));
+    std::fs::remove_dir_all(&root).ok();
+}
+
 /// The inverse of the regression: an `export` the transform cannot make
 /// sense of is a loud error, never a silent `{}`.
 #[test]

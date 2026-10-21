@@ -190,7 +190,10 @@ fn strip_declaration_lines(src: &str) -> String {
 
 /// Transform top-level `export name <::|:=|:|=> expr` declarations into an
 /// object literal.  Type-only `export Name: Type` declarations are given the
-/// value `null` so that type expressions are not evaluated at runtime.
+/// value `null` so that type expressions are not evaluated at runtime. The
+/// same erasure applies to signature exports `export Name := A ~[N]~> B`
+/// whose RHS is a bare graded-arrow signature ([`is_signature_rhs`]): its
+/// boundary children are type expressions that exec must not evaluate.
 ///
 /// The source is consumed as top-level *statements*
 /// ([`top_level_segments`]) — not lines — so an `export` is recognized
@@ -292,12 +295,10 @@ fn transform_export_to_object(
                     trimmed
                 )));
             }
-            let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
-            let expr_start = if is_type_only {
-                "null"
-            } else {
-                rest[sep_pos + sep_len..].trim()
-            };
+            let rhs = rest[sep_pos + sep_len..].trim();
+            let is_type_only = (sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':'))
+                || is_signature_rhs(rhs);
+            let expr_start = if is_type_only { "null" } else { rhs };
             let mut expr_lines = Vec::new();
             if !expr_start.is_empty() {
                 expr_lines.push(expr_start.to_string());
@@ -1103,6 +1104,79 @@ fn is_import_line(trimmed: &str) -> bool {
         if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
             return true;
         }
+    }
+    false
+}
+
+/// Whether `rhs` is a top-level arrow *signature* — contract data whose
+/// domain/codomain are *type* expressions that exec must not evaluate
+/// (Agda-style erasure; annotations are static metadata owned by the
+/// typecheck engine). Two shapes, both un-callable at runtime:
+///
+/// - a graded arrow `A ~[N]~> B` (`~[` at bracket depth 0) — always mints
+///   an `Arrow` descriptor record, and codomains like `Result<T, E>` are
+///   generic applications (`dimension` nodes) that crash eval;
+/// - an ungraded arrow `(…, [T], …) ~> B` whose parenthesized params
+///   contain a *bare* `[` element (a list type `[String]` — never
+///   preceded by `:` like a `x: [T]` annotation, nor part of an index
+///   expression) — `closure` only binds `var`/`type-annot` params, so the
+///   `~>` can only ever be a signature.
+///
+/// Erasing binds `null` — the same value type-only `export Name: Type`
+/// gets — losing no runtime behavior. Real arrow literals
+/// (`export f := (x) ~> body`, `export f := (x: [Int]) ~> body`) and
+/// morphism/cell expressions (`export alpha := f ~[2]~> g`'s nested
+/// forms) are untouched.
+fn is_signature_rhs(rhs: &str) -> bool {
+    let bytes = rhs.as_bytes();
+    let mut depth: i32 = 0;
+    let mut paren_depth: i32 = 0;
+    let mut in_str: Option<u8> = None;
+    let mut prev_sig = 0u8;
+    let mut list_type_param = false;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if let Some(q) = in_str {
+            if c == b'\\' {
+                i += 1;
+            } else if c == q {
+                in_str = None;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'"' | b'\'' => in_str = Some(c),
+            b'(' => {
+                depth += 1;
+                paren_depth += 1;
+            }
+            b'[' | b'{' => {
+                depth += 1;
+                // A `[`/`{` element inside a params list — a list/record
+                // *type* — is bare only when it directly follows `(` or
+                // `,` (`x: [T]` annotations and `xs[i]` indexes don't).
+                if paren_depth > 0 && (prev_sig == b'(' || prev_sig == b',') {
+                    list_type_param = true;
+                }
+            }
+            b')' => {
+                depth -= 1;
+                paren_depth -= 1;
+            }
+            b']' | b'}' => depth -= 1,
+            b'~' if depth == 0 => match bytes.get(i + 1) {
+                Some(&b'[') => return true,
+                Some(&b'>') => return list_type_param,
+                _ => {}
+            },
+            _ => {}
+        }
+        if !c.is_ascii_whitespace() {
+            prev_sig = c;
+        }
+        i += 1;
     }
     false
 }
