@@ -196,3 +196,5 @@ ADR), listed here so a number is never reused across repos.
 | 0147 | Lower the `while` state fold to `Loop` + explicit protocol ops | Accepted | `platform` | `adrs/0147-lowering-state-fold-while.md` |
 | 0148 | Lower `call`/`dimension` application to `App` terms | Accepted | `platform` | `adrs/0148-lower-call-application.md` |
 | 0149 | `host-cli` is a dumb host; `ext-*` extensions load dynamically | Accepted | `host-cli`, `ext-*` | `adrs/0149-dynamic-extension-host.md` |
+| 0150 | Repo visibility is derived from the dep closure | Accepted | `host` | `adrs/0150-visibility-closure-model.md` |
+| 0151 | Exec erases type annotations — signatures are typecheck-owned metadata | Accepted | `host`, `kit-prelude-lang`, `lib-loader` | `adrs/0151-exec-erases-type-annotations.md` |
