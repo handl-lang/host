@@ -1,4 +1,0 @@
--- helper: secret is private, public_value is exported.
-secret = x ~> x + 1
-public_value = secret
-export public_value

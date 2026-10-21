@@ -1,4 +1,0 @@
--- visibility: import only the exported name from a sibling module.
-import public_value from "visibility/helper"
-
-main = public_value(41)

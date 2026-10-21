@@ -1,4 +1,0 @@
--- Base atom arrows (library primitives).
-id = x ~> x
-compare = [a, b] ~> a < b
-cons = [x, xs] ~> [x, xs]
