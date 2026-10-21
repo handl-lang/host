@@ -414,6 +414,8 @@ handl-lib-url-whatwg = { path = "../lib-url-whatwg" }
 handl-lib-utils = { path = "../lib-utils" }
 [patch."https://github.com/handl-lang/sdkgen-c"]
 handl-plugin-sdkgen-backend-c = { path = "../sdkgen-c" }
+[patch."https://github.com/handl-lang/sdkgen-cli"]
+handl-plugin-sdkgen-cli = { path = "../sdkgen-cli" }
 [patch."https://github.com/handl-lang/sdkgen-file"]
 handl-plugin-sdkgen-emitter-file = { path = "../sdkgen-file" }
 [patch."https://github.com/handl-lang/sdkgen-python"]

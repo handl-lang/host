@@ -29,6 +29,8 @@ pub fn linked_targets() -> SdkgenRegistry {
     handl_plugin_sdkgen_backend_webidl::register(&mut registry);
     #[cfg(feature = "python")]
     handl_plugin_sdkgen_emitter_python::register(&mut registry);
+    #[cfg(feature = "cli")]
+    handl_plugin_sdkgen_cli::register(&mut registry);
     registry
 }
 

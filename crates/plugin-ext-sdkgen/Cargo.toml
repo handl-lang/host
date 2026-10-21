@@ -10,10 +10,13 @@ repository.workspace = true
 # on its own manifest. `python` implies `c`: the `python` target record
 # names backend `c` (resolved through the registry, not a crate dep).
 [features]
-default = ["c", "webidl", "python"]
+default = ["c", "webidl", "python", "cli"]
 c = ["dep:handl-plugin-sdkgen-backend-c", "dep:handl-plugin-sdkgen-emitter-file"]
 webidl = ["dep:handl-plugin-sdkgen-backend-webidl", "dep:handl-plugin-sdkgen-emitter-file"]
 python = ["c", "dep:handl-plugin-sdkgen-emitter-python"]
+# ADR-0128 Phase: the cli backend + hnl-cli emitter live in the `cli`
+# repo; the root `[patch]` resolves the sibling checkout for local dev.
+cli = ["dep:handl-plugin-sdkgen-cli"]
 
 [dependencies]
 handl-language = { workspace = true }
@@ -28,3 +31,4 @@ handl-plugin-sdkgen-emitter-file = { git = "https://github.com/handl-lang/sdkgen
 # ADR-0128 Phase 1: the python emitter lives in the `python` repo;
 # the root `[patch]` resolves the sibling checkout for local dev.
 handl-plugin-sdkgen-emitter-python = { git = "https://github.com/handl-lang/sdkgen-python", branch = "main", optional = true }
+handl-plugin-sdkgen-cli = { git = "https://github.com/handl-lang/sdkgen-cli", branch = "main", optional = true }

@@ -477,6 +477,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
 
 [[package]]
+name = "fastrand"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+
+[[package]]
 name = "filetime"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -687,10 +693,8 @@ name = "handl-kit-data-prelude"
 version = "0.1.0"
 dependencies = [
  "handl-kit-data",
+ "handl-kit-prelude-lang",
  "handl-language",
- "handl-plugin-ext-diag",
- "handl-runtime",
- "hnl-engine-transform",
  "serde_json",
  "serde_yaml",
 ]
@@ -755,6 +759,18 @@ dependencies = [
  "hnl-engine-typecheck-handl",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "handl-kit-prelude-lang"
+version = "0.1.0"
+source = "git+https://github.com/handl-lang/kit-prelude-lang?branch=main#b5db5479ab152497391221200c27a26f82c9aa8e"
+dependencies = [
+ "handl-language",
+ "handl-plugin-ext-diag",
+ "hnl-engine-transform",
+ "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -1353,6 +1369,7 @@ dependencies = [
  "handl-plugin-sdkgen",
  "handl-plugin-sdkgen-backend-c",
  "handl-plugin-sdkgen-backend-webidl",
+ "handl-plugin-sdkgen-cli",
  "handl-plugin-sdkgen-emitter-file",
  "handl-plugin-sdkgen-emitter-python",
 ]
@@ -1724,6 +1741,19 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "handl-plugin-sdkgen-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-ext-fmt",
+ "handl-plugin-sdkgen",
+ "heck",
+ "serde",
+ "serde_yaml",
+ "tempfile",
 ]
 
 [[package]]
@@ -2761,6 +2791,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
+name = "tempfile"
+version = "3.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
+dependencies = [
+ "fastrand",
+ "getrandom 0.3.4",
+ "once_cell",
+ "rustix",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3276,18 +3319,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[patch.unused]]
-name = "handl-kit-pkg"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-applier-bootstrap"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-applier-default"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "sepia-acp"
 version = "0.0.0"
 
@@ -3336,5 +3367,17 @@ name = "handl-ext"
 version = "0.1.0"
 
 [[patch.unused]]
+name = "handl-kit-pkg"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "handl-lib-dedent"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-bootstrap"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-applier-default"
 version = "0.1.0"
