@@ -40,12 +40,11 @@ surface last.
 
 ## Papers and background
 
-The papers live in the product repos; these are vendored copies:
+The papers live in the product repos' `paper/` dirs (PDFs on GitHub):
 
 - [Platform overview](../overview) — the plugin/host model at a glance.
-- [Arrow-First Language Kernel](../PAPER) — the kernel paper.
-- [Staged Arrow Engines](../SAE) — stackless spatial execution for the
-  kernel's resolvable fragment.
+- [The kernel paper (PDF)](https://github.com/handl-lang/kernel/blob/main/paper/paper.pdf) — the closed arrow calculus.
+- [The platform paper (PDF)](https://github.com/handl-lang/host/blob/main/paper/paper.pdf) — the composable host.
 - [Arrow support vs arrow-native](../comparison) — how handl compares to
   Haskell and other arrow-capable languages.
 - [Cross-repo ADR index](../../adrs/) — every public decision
