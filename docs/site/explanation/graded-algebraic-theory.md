@@ -50,7 +50,7 @@ lookup  : 1 → int
 update  : int → 1
 ```
 
-The grade of `lookup` is the morphism that takes a unit state and produces an `int` state. The grade of `update` does the opposite. This is the foundation of Kura et al.'s CatEff system.
+The grade of `lookup` is the morphism that takes a unit state and produces an `int` state. The grade of `update` does the opposite. This is the foundation of Sanada's CatEff system.
 
 ## How Handl maps onto this
 
@@ -216,7 +216,7 @@ The graded-theory frame explains several design choices:
 ## References
 
 - S. Kura, _Graded Algebraic Theories_ (2020).
-- S. Kura et al., _Category-Graded Algebraic Theories and Effect Handlers_ (CatEff, 2022).
+- T. Sanada, _Category-Graded Algebraic Theories and Effect Handlers_ (CatEff, MFPS 2022).
 - T. Sanada, _Algebraic Effects and Handlers for Arrows_ (2024).
 - J. Brachthäuser et al., _Effects as Capabilities: Effect Handlers and Lightweight Effect Polymorphism_ (Effekt, 2020).
 - J. Hughes, _Generalising Monads to Arrows_ (2000).
