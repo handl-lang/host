@@ -181,3 +181,13 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   parity gate before deleting `engine-typecheck-handl`. The ported
   file is preserved at the working-tree level only (failing until
   WS-C); `axis_flow_boundaries.rs` not yet attempted.
+- **2026-10-22 (cont.)** — WS-D first slice (`engine-typecheck-nbe`
+  `9c0469c`): former signatures are `FormerSig::{Tel, Pi, Hom}` —
+  judgment rules as data. `Checker::new()` auto-registers `type.pi` +
+  `type.hom`. `infer_hom`: `Hom(1,A,B) : Type(max(levels))`;
+  `Hom(2,f,g)` requires both cells' types `≡ Hom(1,a,b)` with
+  convertible boundaries; `n ≥ 3`/non-literal `n` store unchecked
+  (ADR-0153 honest bound). `Pi` = universe-max; `Val::Arrow` codomain
+  → `CannotInfer` pending `apply_arrow` engine hook. 12 checker tests
+  green (278 lib). Remaining WS-D: `>>>[k]` *term* typing (the
+  `cell_comp_axis` op the eval delegates to), `id_k`, `Path`-as-data.
