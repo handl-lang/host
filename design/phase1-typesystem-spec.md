@@ -796,3 +796,56 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   - Test: `cargo test -p hnl-engine-typecheck-nbe` — `dependent_structure`
     **24/24**, `--lib` **283**, `parity` **46/46** (whole crate green).
     engine-typecheck-nbe `10c05ab`.
+
+- [2026-03-19] **`IO(sig)` runtime wiring + `__tag__`/`{tag}` bridge deletion** —
+  - **IO dispatch (tree-walk `Handle`)**: an `IO` former object
+    (`{"__former__": <type.io sym>, "indices": [sig]}`) produced under
+    `handle … with` is interpreted *in place*: each sig field name is
+    dispatched through `dispatch_op` (the same op-name →
+    `handler.impls[op]`/`handler[op]` lookup an `arr <op>` dispatch
+    uses, with the sig entry's value as the operand) and the entry is
+    replaced by the handler's result. Ops no handler covers keep their
+    value — the `IO` object stays data for outer handlers or user
+    destructuring; a non-IO value (or `IO` with no object sig) passes
+    through unchanged. This is the minimal semantics consistent with
+    `handle <expr> with <record>` in lib files (handler record fields
+    are op names) and ADR-0153 §4 "ops interpreted by a handler".
+    `interpret_io_former` in `hnl-engine-exec-tree-walk`; bytecode/
+    cranelift handle paths unchanged (they eliminate handlers
+    statically). The `term_interpreter` PoC does not interpret IO —
+    it has no deep-carry either.
+  - **Bridge arms deleted**: `handl-value`'s `legacy_type_seed` +
+    `legacy_tag_roles`, the `__tag__` arms in `nominal_head`,
+    `type_link`, and `instance_of` (a `{"__tag__": t}` datum is now a
+    plain `type.Obj` member — tests updated to assert the
+    post-deletion read); the `v.tag == name` disjunct in BOTH
+    `desugar.rs::build_fold_chain` and `lib-desugar`'s `fold_chain`
+    (cond is the bare `__ctor__` eq — `binary.or` wrapper gone, parity
+    preserved); the `tag.tag`/`tag.construct` producers in
+    `plugin-lib-tag` (`Tag`/`Construct` structs, registry entries,
+    `TagModule` fns, `TAG_OPS`) and their `cap`/`op`/`handle` decls in
+    `lib-tag/src/index.hnl` — `match` tag patterns still work on
+    host-internal `__tag__` records (Cell/Arrow/Handler/law/rewrite),
+    inspection ops `untag`/`tag_of`/`is_tag`/`match_type` kept.
+  - **Kept (verified)**: `canonical_tag_seed`/`lift`'s `__tag__` arm —
+    actively used (`domain_lift`/`judgments.rs:789`/`lib.rs` unify
+    paths lift the checker's `{"__tag__": "type.*"}` encodings — the
+    tagged-domain type representation, not the deleted runtime
+    bridge). `dependent.hnl`'s `{"__tag__": "type.sigma"}` literal
+    stays: `sym.seeded` is a host call (`field-access(var "sym",
+    "seeded")`) and the checker's term-eval env has no `sym` module
+    binding — the reserved-key literal is still the only
+    `.hnl`-expressible mint. `native_ops`' `"tag.construct"` op kept —
+    eval.yaml `rewrite`/`law` schemes stamp law records through it
+    (internal machinery, not a user mint). `type.of`'s kind-string
+    read for unlinked values is the defined kind-introspection
+    semantics (`type.is_*` predicates depend on it), not a bridge arm —
+    only its docs were updated; no tag-specific fallback arm existed.
+  - **Not yet swept**: `host/handl-runtime` tests that call
+    `tag.tag`/`tag.construct` (`engine_parity`, `exec_model_parity`,
+    `composite_model_parity`, `nominal_kernel`'s bridge assertions)
+    will need updates in the full-suite sweep.
+  - Green: `handl-value` 110/110; `cargo check` clean on
+    engine-transform-rewrite, engine-exec-tree-walk,
+    handl-plugin-lib-tag (incl. --tests); `desugar_parity` 21/21;
+    `handl_desugar` parity 6/6.
