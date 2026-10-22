@@ -42,6 +42,12 @@ pub struct SdkgenRequest<'a> {
     pub exclude: Option<&'a str>,
     /// `--config` override file.
     pub config: Option<&'a Path>,
+    /// `--emit-spec <path|->` — a backend hint to dump the resolved
+    /// spec after input processing. The `cli` backend folds it into
+    /// its `CliConfig.emit_spec` after the config loads (the flag
+    /// wins); `-` writes the spec to stdout. Backends without an
+    /// emit-spec concept ignore it.
+    pub emit_spec: Option<&'a Path>,
     /// The language emitted `.hnl` sources are canonicalized against —
     /// consumed by emitter factories such as `hnl-file`.
     pub lang: &'a Language,
@@ -240,6 +246,7 @@ mod tests {
             include: None,
             exclude: None,
             config: None,
+            emit_spec: None,
             lang,
         };
         (reg, req)

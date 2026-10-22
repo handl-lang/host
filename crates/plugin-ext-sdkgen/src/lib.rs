@@ -42,7 +42,7 @@ pub fn linked_targets() -> SdkgenRegistry {
 pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
     let registry = linked_targets();
     let usage = format!(
-        "usage: hnl sdkgen <{}> [<header|spec> | --from-url <url>] --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>]",
+        "usage: hnl sdkgen <{}> [<header|spec> | --from-url <url>] --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>] [--source-url <url>] [--emit-spec <path|->]",
         registry.target_names().join("|")
     );
     if args.is_empty() {
@@ -63,6 +63,8 @@ pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
     let mut exclude: Option<String> = None;
     let mut config_path: Option<String> = None;
     let mut from_url: Option<String> = None;
+    let mut source_url_flag: Option<String> = None;
+    let mut emit_spec: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -91,6 +93,17 @@ pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
                 i += 1;
                 from_url = args.get(i).map(String::to_string);
             }
+            "--source-url" => {
+                i += 1;
+                // Provenance only: stamp `--- source:` without fetching.
+                source_url_flag = args.get(i).map(String::to_string);
+            }
+            "--emit-spec" => {
+                i += 1;
+                // Backend hint (`cli` target): dump the resolved spec —
+                // `-` writes it to stdout.
+                emit_spec = args.get(i).map(String::to_string);
+            }
             s if s.starts_with("--") => {
                 eprintln!("sdkgen: unknown flag `{s}`");
                 return 2;
@@ -115,6 +128,10 @@ pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
         eprintln!("sdkgen: <header|spec> and --from-url are mutually exclusive");
         return 2;
     }
+    if from_url.is_some() && source_url_flag.is_some() {
+        eprintln!("sdkgen: --from-url already records the fetched URL as the source");
+        return 2;
+    }
 
     let output_path = Path::new(&output);
 
@@ -123,7 +140,7 @@ pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
     // convention) so the port's `module.library` still derives from the
     // upstream basename. `source_url` is kept to stamp the module's
     // provenance (emitted as `--- source:` header lines).
-    let source_url = from_url.clone();
+    let source_url = from_url.clone().or(source_url_flag);
     let header: PathBuf = match (header, from_url) {
         (Some(h), None) => PathBuf::from(h),
         (None, Some(url)) => {
@@ -157,6 +174,7 @@ pub fn sdkgen_command(lang: &Language, args: &[String]) -> i32 {
         include: include.as_deref(),
         exclude: exclude.as_deref(),
         config: config_path.as_deref().map(Path::new),
+        emit_spec: emit_spec.as_deref().map(Path::new),
         lang,
     };
     match registry.run(kind, &request) {

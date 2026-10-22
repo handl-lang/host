@@ -14,7 +14,7 @@ typechecks.
 ```text
 hnl sdkgen <target> [<header|spec> | --from-url <url>] --output <dir>
            [--target <triple>] [--include <glob>] [--exclude <glob>]
-           [--config <yaml>]
+           [--config <yaml>] [--emit-spec <path|->]
 ```
 
 `<target>` is looked up in the `SdkgenRegistry`; the usage line lists
@@ -28,6 +28,7 @@ the registered names (`c|webidl|python|cli` with default features).
 | `--include <glob>` | Comma-separated globs; only accepted on targets with `source_filters` (`c`, `python`). Unioned with config `headers:` entries. |
 | `--exclude <glob>` | Same shape; a match vetoes even an include match. |
 | `--config <yaml>` | Backend-specific overlay file (`*.sdkgen.yaml`). Loaded inside the backend's `make`, so each backend defines its own schema. |
+| `--emit-spec <path\|->` | Backend hint delivered on `req.emit_spec`; the `cli` backend folds it into its config's `emit_spec` post-load (the flag wins). `-` writes the resolved spec to stdout — the dump is the only stdout output; diagnostics stay on stderr. |
 | `--from-url <url>` | Fetch the spec over HTTP (`http_get`, 30 s) into the dir next to `--output`, under the URL basename — the `generated/` spec convention, so `module.library` still derives from the upstream file stem. The URL is stamped as `module.source` and emitted as `--- source:` lines. |
 
 ## Exit codes
