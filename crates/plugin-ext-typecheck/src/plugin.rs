@@ -58,7 +58,7 @@ impl TypecheckPlugin {
     /// Create the plugin, declaring the `typecheck` capability.
     ///
     /// `check` performs the typecheck. The host supplies it — e.g.
-    /// `handl_kit_prelude::Kit::typecheck_handl_with_prelude` bound to a
+    /// `handl_kit_prelude::Kit::typecheck_with_prelude` bound to a
     /// thread-cached canonical kit.
     pub fn new(check: Arc<TypecheckFn>) -> Self {
         Self {
@@ -165,7 +165,7 @@ mod tests {
                 }
                 slot.as_ref()
                     .expect("kit populated above")
-                    .typecheck_handl_with_prelude(src, prelude)
+                    .typecheck_with_prelude(src, prelude)
             })
         })
     }

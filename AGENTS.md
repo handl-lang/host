@@ -58,10 +58,9 @@ machine** (heavy cases such as the cranelift JIT and `standalone_bootstrap`
 use multiple GB each). Do not raise `-j` on a small machine to save time —
 it costs a reboot.
 
-The suites that dominate wall clock are the interpreted-`.hnl` typecheck
-tests in `hnl-engine-typecheck-handl` (`dependent_structure`,
-`axis_flow_boundaries` — 15-113 s each) and `plugin-lib-handl::loader`'s
-`loader_parity` (~68 s). `standalone_bootstrap` (cranelift) and
+The suites that dominate wall clock are `hnl-engine-typecheck-nbe`'s
+dependent-structure/axis-flow tests (15-113 s each) and
+`plugin-lib-handl::loader`'s `loader_parity` (~68 s). `standalone_bootstrap` (cranelift) and
 `kit-canonical`'s slow tests moved to the `native`/`kit-canonical` repos.
 Check `ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
 

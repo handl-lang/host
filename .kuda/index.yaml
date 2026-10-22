@@ -34,7 +34,6 @@ modules:
 - handl-plugin-engine-transform
 - handl-plugin-engine-transform-rewrite
 - handl-plugin-engine-typecheck
-- handl-plugin-engine-typecheck-handl
 - handl-plugin-exec-cache
 - handl-plugin-ext-compile
 - handl-plugin-ext-detect
@@ -80,7 +79,6 @@ modules:
 - plugin-engine-transform
 - plugin-engine-transform-rewrite
 - plugin-engine-typecheck
-- plugin-engine-typecheck-handl
 - plugin-exec-cache
 - plugin-ext-compile
 - plugin-ext-detect
@@ -132,7 +130,6 @@ provenance:
   - crates/handl-kit-arrow-lower/Cargo.toml
   - crates/plugin-engine-lint/Cargo.toml
   - crates/plugin-applier-bootstrap/Cargo.toml
-  - crates/plugin-engine-typecheck-handl/Cargo.toml
   - crates/ext-tests/Cargo.toml
   - crates/plugin-ext-eval/Cargo.toml
   - crates/plugin-engine-lex-pattern/Cargo.toml
@@ -224,11 +221,6 @@ provenance:
   - crates/plugin-engine-lint/src/lib.rs
   - crates/plugin-applier-bootstrap/src/lib_tests.rs
   - crates/plugin-applier-bootstrap/src/lib.rs
-  - crates/plugin-engine-typecheck-handl/tests/handl_typecheck_parity.rs
-  - crates/plugin-engine-typecheck-handl/tests/integration.rs
-  - crates/plugin-engine-typecheck-handl/tests/axis_flow_boundaries.rs
-  - crates/plugin-engine-typecheck-handl/tests/dependent_structure.rs
-  - crates/plugin-engine-typecheck-handl/src/lib.rs
   - crates/ext-tests/tests/e2e.rs
   - crates/ext-tests/src/lib.rs
   - crates/plugin-ext-eval/src/adapters.rs

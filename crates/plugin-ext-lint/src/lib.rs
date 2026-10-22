@@ -146,17 +146,18 @@ pub fn lint_source_with_prelude(
     let mut out: Vec<Diagnostic> = diags
         .iter()
         .map(|d| convert(src, d))
-        // `unbound-wire` comes from the typechecker, not the engine's native.
-        .filter(|d| d.rule != "unbound-wire")
+        // `unbound-wire`/`unbound-export` come from the typechecker's
+        // scope pass, not the engine's natives.
+        .filter(|d| d.rule != "unbound-wire" && d.rule != "unbound-export")
         .collect();
-    out.extend(unbound_wire_diagnostics_with_language(ctx.lang(), src, prelude));
+    out.extend(scope_diagnostics_with_language(ctx.lang(), src, prelude));
     out.sort_by_key(|d| d.span.start);
     Ok(out)
 }
 
-/// `unbound-wire` diagnostics delegated to the bootstrap typechecker using the
-/// supplied [`Language`].
-fn unbound_wire_diagnostics_with_language(
+/// `unbound-wire`/`unbound-export` diagnostics delegated to the bootstrap
+/// typechecker's module scope pass using the supplied [`Language`].
+fn scope_diagnostics_with_language(
     lang: &Language,
     src: &str,
     prelude: &HashSet<String>,
@@ -165,7 +166,7 @@ fn unbound_wire_diagnostics_with_language(
         Ok(report) => report
             .diagnostics
             .into_iter()
-            .filter(|d| d.rule == "unbound-wire")
+            .filter(|d| d.rule == "unbound-wire" || d.rule == "unbound-export")
             .collect(),
         Err(_) => Vec::new(),
     }
@@ -273,6 +274,10 @@ fn lint_engine(resolver: Option<NativeLintResolver>) -> LintEngine {
         // a no-op so the `lint.scope.unbound-wire` data rule still
         // resolves but emits nothing here.
         .with_native("scope.unbound-wire", |_ctx| Ok(Vec::new()))
+        // `scope.unbound-export` is delegated to the bootstrap
+        // typechecker's scope pass alongside `unbound-wire` — same
+        // no-op registration so the data rule still resolves.
+        .with_native("scope.unbound-export", |_ctx| Ok(Vec::new()))
         .with_native("source.fmt", |ctx| Ok(fmt_rule(ctx.lang, ctx.src)))
 }
 

@@ -450,6 +450,20 @@ pub trait ModuleLookup: 'static {
         let func = self.lookup(qualified_name)?;
         func.as_type_signature().map(|ts| ts.type_signature())
     }
+
+    /// Enumerate a module's exported names for signature-record
+    /// construction (phase-1 spec WS-B: `import m` binds `m : Sig_m`).
+    ///
+    /// Returns `(export_name, type_signature)` pairs — `Some(ty)` where
+    /// the export exposes a declared signature (ADR-0083), `None` where
+    /// it does not (the checker binds the field to `type.unknown`).
+    /// `None` for the whole call means no module by that name is
+    /// registered — the caller treats the import as dynamic
+    /// (`resolve`/file imports → `type.unknown` bindings).
+    fn lookup_module_exports(&self, module_name: &str) -> Option<Vec<(String, Option<Value>)>> {
+        let _ = module_name;
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------

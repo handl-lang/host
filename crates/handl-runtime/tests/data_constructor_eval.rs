@@ -121,19 +121,20 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
         .and_then(|v| v.as_u64())
         .unwrap() as usize;
     let body_json = desugared.get(AstRef::new(body_json_idx)).unwrap();
+    // ADR-0152 (WS-C): the ctor body is an `object` node producing the
+    // `{"__ctor__": cSym, "pred": …, "type": {"__former__": fSym}}`
+    // value — the `{"tag"}` template is gone.
     assert_eq!(
-        body_json.kind, "json",
-        "the Succ body must be a json template node (Bug #1 fix)"
+        body_json.kind, "object",
+        "the Succ body must be an object node producing a __ctor__ value"
     );
 
-    // Now eval the desugared `json` body with a `Zero` value bound to `pred`.
-    // We build: assign { children: [var("pred"), lit({"tag":"Zero"}), <body_json>] }
-    // — i.e. `pred = {"tag":"Zero"} in <body_json>`. The `assign` op (3 children)
-    // binds `pred` in a fresh scope and evaluates the body, so the body's
-    // `var("pred")` resolves to the Zero value and the `json` op substitutes
-    // that value into the template.
+    // Now eval the desugared `object` body with a `Zero` value bound to `pred`.
+    // `Zero` under the new encoding is `{"__ctor__": <zero-sym>, "type": …}`.
     let zero_idx = desugared.len();
-    desugared.push(AstNode::new("lit").with_payload(json!({ "tag": "Zero" })));
+    desugared.push(AstNode::new("lit").with_payload(json!({
+        "__ctor__": {"__sym__": {"handle": 1, "name": "Zero"}},
+    })));
 
     let pred_target_idx = desugared.len();
     desugared.push(AstNode::new("var").with_payload(json!("pred")));
@@ -145,10 +146,15 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
 
     // Eval the root (last node = the assign).
     let result = rt.eval(&desugared).expect("eval should succeed");
-    let expected = json!({ "tag": "Succ", "pred": { "tag": "Zero" } });
-    assert_eq!(
-        result, expected,
-        "Succ(Zero) must yield {{ tag: Succ, pred: {{ tag: Zero }} }} — \
-         the arg VALUE substituted into the template, not the arg NAME string"
+    // The arg VALUE (the Zero ctor object) must be substituted into the
+    // `pred` field — not the arg NAME string.
+    let pred = result.get("pred").cloned().unwrap_or(Value::Null);
+    assert!(
+        pred.get("__ctor__").is_some(),
+        "Succ(Zero) must yield a __ctor__ value whose pred field is the Zero ctor object, got: {result}"
+    );
+    assert!(
+        result.get("__ctor__").is_some(),
+        "Succ(Zero) must itself be a __ctor__ object, got: {result}"
     );
 }

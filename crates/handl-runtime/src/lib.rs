@@ -2144,6 +2144,7 @@ mod tests {
                 typ: self.typ.clone(),
                 diagnostics: Vec::new(),
                 node_types: Default::default(),
+                signature: serde_json::Value::Null,
             })
         }
 
@@ -2894,6 +2895,7 @@ mod tests {
                         span: None,
                     }],
                     node_types: Default::default(),
+                    signature: serde_json::Value::Null,
                 })
             }
             fn box_clone(&self) -> Box<dyn TypecheckEngine> {

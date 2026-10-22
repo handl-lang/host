@@ -59,6 +59,7 @@ impl hnl_engine_typecheck::TypecheckEngine for StubTypecheck {
             typ: json!({"__tag__": "type.refl", "__registry__": "handl.canonical"}),
             diagnostics: vec![],
             node_types: self.node_types.clone(),
+            signature: serde_json::Value::Null,
         })
     }
 

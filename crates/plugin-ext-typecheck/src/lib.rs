@@ -5,7 +5,7 @@
 //! can dispatch it uniformly alongside `fmt` and `lint`.
 //!
 //! The implementation is [`plugin::TypecheckPlugin`], backed by
-//! [`handl_kit_prelude::Kit::typecheck_handl_with_prelude`] — the *same*
+//! [`handl_kit_prelude::Kit::typecheck_with_prelude`] — the *same*
 //! entry point `host-cli` uses, so the capability path and the direct call
 //! cannot drift.
 //!

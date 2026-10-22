@@ -435,18 +435,27 @@ impl Function for ArrayDropLastFn {
 // Nominal identity primitives (ADR-0106 §2 — Phase 2 kernel)
 // ---------------------------------------------------------------------------
 
-/// `sym()` / `sym(parent)` — mint a fresh nominal identity (ADR-0106 §2).
+/// `sym()` / `sym(parent)` / `sym("seed")` / `sym("seed", parent[, ty])`
+/// — nominal identity mints (ADR-0106 §2, ADR-0154 §1/§2).
 ///
 /// - `sym()` — fresh nominal identity with no parent (a root sym).
 /// - `sym(A)` — fresh nominal identity whose nominal parent is `A`; `A`
 ///   must itself be a nominal object (`{"__sym__": ...}`), otherwise a
 ///   `TypeMismatch` error is returned.
+/// - `sym("seed")` — the *deterministic* mint of ADR-0154 §1: the
+///   nominal for a declared name, idempotent and stable across
+///   processes (the handle is a content hash of the seed, not the fresh
+///   counter). `sym("type.Int")` twice is the *same* nominal; plain
+///   `sym()` stays fresh for locals.
+/// - `sym("seed", parent)` / `sym("seed", parent, ty)` — the declared
+///   nominal with its links: `parent` is the `<:` edge, `ty` the
+///   `type`/membership edge (`Int.ty = Type`; `null` = absent).
 ///
 /// The returned value is the explicit JSON encoding
-/// `{"__sym__": {"handle": <n>, "name": "...", "parent": <sym or null>}}`.
-/// Identity is the `handle`, minted from a global counter: two distinct
-/// `sym()` calls are never equal, even though both display the same
-/// presentation name (`"sym"` — names are presentation only).
+/// `{"__sym__": {"handle": <n>, "name": "...", "parent": <sym or null>,
+/// "type": <sym or null>}}`. Identity is the `handle`: two distinct
+/// `sym()` calls are never equal; two `sym("seed")` mints are always
+/// equal.
 ///
 /// The implementation delegates to `handl-value`, the single owner of the
 /// nominal value model and its serialization (ADR-0106 "Implementation
@@ -460,11 +469,36 @@ impl Function for SymFn {
         const DEFAULT_NAME: &str = "sym";
         let tv = match args.len() {
             0 => handl_value::sym(DEFAULT_NAME),
-            1 => sym_from_parent_value(DEFAULT_NAME, &TaggedValue::from(args[0].clone()))
-                .map_err(EvalError::TypeMismatch)?,
+            // `sym(parent)` — fresh child; `sym("seed")` — seeded root.
+            1 => match &args[0] {
+                Value::String(seed) => handl_value::sym_seeded(seed),
+                other => {
+                    sym_from_parent_value(DEFAULT_NAME, &TaggedValue::from(other.clone()))
+                        .map_err(EvalError::TypeMismatch)?
+                }
+            },
+            // `sym("seed", parent[, ty])` — the declared mint carrying
+            // the `parent` (<:) and `type` (membership) links.
+            2 | 3 => {
+                let Value::String(seed) = &args[0] else {
+                    return Err(EvalError::Other(format!(
+                        "sym: expected sym() / sym(parent) / sym(\"seed\"[, parent[, type]]); \
+                         {}-argument form takes a seed string first",
+                        args.len()
+                    )));
+                };
+                let parent = TaggedValue::from(args[1].clone());
+                let ty = args
+                    .get(2)
+                    .map(|v| TaggedValue::from(v.clone()))
+                    .unwrap_or(TaggedValue::Null);
+                handl_value::sym_seeded_with_links(seed, &parent, &ty)
+                    .map_err(EvalError::TypeMismatch)?
+            }
             n => {
                 return Err(EvalError::Other(format!(
-                    "sym: expected 0 or 1 argument (sym() or sym(parent)), got {}",
+                    "sym: expected 0–3 arguments \
+                     (sym() / sym(parent) / sym(\"seed\"[, parent[, type]])), got {}",
                     n
                 )));
             }
@@ -473,39 +507,27 @@ impl Function for SymFn {
     }
 }
 
-/// `instance_of(value, nominal)` — instanceof over the nominal parent chain
-/// (ADR-0106 §2).
+/// `instance_of(value, nominal)` — instanceof over the nominal links
+/// (ADR-0106 §2, reread per ADR-0154 §2).
 ///
-/// Walks `value`'s nominal parent chain (inclusive of the value itself):
-/// `Float instanceof Number` and `Float instanceof Float` are both true;
-/// `Number instanceof Float` is false (parent→child is not an instance).
+/// The kernel (`handl_value::instance_of`) owns the semantics: `x : T`
+/// resolves `x`'s `type`-link head, then the `<:` walk is
+/// `head.has_ancestor(nominal)` over `parent` links.
 ///
-/// - The `nominal` argument must itself be a nominal object; otherwise a
-///   `TypeMismatch` error is returned.
-/// - A non-nominal `value` is simply not an instance of any nominal:
-///   returns `Bool(false)` (no error) — EXCEPT for the Phase 4
-///   legacy-tag bridge below.
-///
-/// Phase 4 legacy-tag bridge (ADR-0106 migration note): built-in tagged
-/// values from `type.hnl` (`{"__tag__": "int", "__registry__": "type",
-/// ...}` etc.) do not carry nominal identities, so a `__tag__`-tagged datum
-/// bridges onto the standard nominal chain by name:
-///
-/// ```text
-/// datum `__tag__` ⇒ roles it satisfies
-///   "int"    ⇒ Int, Number
-///   "float"  ⇒ Float, Number
-///   "nat"    ⇒ Nat, Int, Number
-///   "number" ⇒ Number
-/// ```
-///
-/// `instanceof` holds iff the queried nominal's own presentation name is one
-/// of the datum's roles, so siblings (`int` vs `Float`) and descendants
-/// (`number` datum vs `Int` nominal) are correctly `false`. The `__tag__`
-/// string is legacy junk; the datum's *meaning* is the roles it bridges onto.
-/// See [`legacy_tag_instance_of`] for the exact rule and its limitation.
-///
-/// Plain values (`42`, `"x"`, …) still return `false` (no error).
+/// - `value` a nominal reads both its own `parent` chain (the `<:` read
+///   — `Float instanceof Number`) and its `ty` link (the membership read
+///   — `Int instanceof Type`).
+/// - `value` an object reads its `"type"` field first (ctor values),
+///   then the `__tag__` bridge: the datum's seeded nominal's real
+///   parent walk, or — for unseeded hand-minted nominals — the legacy
+///   presentation-name role match.
+/// - `value` a scalar resolves through the literal defaults
+///   (`1 instanceof Nat`, `1.5 instanceof Float`, ADR-0154 §5).
+/// - `nominal` resolves through `nominal_head` — a sym, a
+///   `{"__former__": s}` family object, or a `{"__type__": i}` universe
+///   encoding (→ `type.Type`); anything else is a `TypeMismatch`.
+/// - A value with no resolvable head is simply not an instance:
+///   `Bool(false)`, no error.
 struct InstanceOfFn;
 
 impl Function for InstanceOfFn {
@@ -515,89 +537,27 @@ impl Function for InstanceOfFn {
             EvalError::Other("instance_of: expected two arguments (value, nominal)".to_string())
         })?;
         let nominal_tv = TaggedValue::from(nominal.clone());
-        if !nominal_tv.is_sym() {
+        if handl_value::nominal_head(&nominal_tv).is_none() {
             return Err(EvalError::TypeMismatch(
                 "instance_of: second argument must be a nominal object (see ADR-0106 §2)"
                     .to_string(),
             ));
         }
-        let value_tv = TaggedValue::from(value.clone());
-        // Fast path: genuine nominal values walk the real parent chain.
-        if value_tv.is_sym() {
-            return Ok(Value::Bool(handl_value::has_ancestor(
-                &value_tv,
-                &nominal_tv,
-            )));
-        }
-        // Phase 4 legacy-tag bridge: a `__tag__`-tagged datum (no nominal
-        // identity of its own) bridges onto the standard chain when the
-        // queried nominal is in it — see the tag→nominal mapping table on
-        // `InstanceOfFn`.
-        if let Some(tag) = value.get("__tag__").and_then(|t| t.as_str()) {
-            if legacy_tag_roles(tag).is_some() {
-                return Ok(Value::Bool(legacy_tag_instance_of(&nominal, tag)));
-            }
-        }
-        Ok(Value::Bool(false))
+        // The kernel owns the read (ADR-0154 §2): `x : T` is the `type`
+        // link's head, `<:` walks `parent`; nominal values read both
+        // links; `__tag__` data bridge through the seeded walk or the
+        // legacy name-role match; scalars through the literal defaults.
+        Ok(Value::Bool(handl_value::instance_of(
+            &TaggedValue::from(value.clone()),
+            &nominal_tv,
+        )))
     }
 }
 
-// ---------------------------------------------------------------------------
-// Phase 4 legacy-tag bridge helpers (ADR-0106 migration note).
-// ---------------------------------------------------------------------------
-
-/// The standard nominal roles a legacy-tagged datum satisfies, nearest
-/// first. `instanceof` holds iff the queried nominal's *own* presentation
-/// name (its outermost `__sym__.name`) is one of the datum's roles.
-///
-/// ```text
-/// datum `__tag__` ⇒ roles it satisfies
-///   "int"    ⇒ Int, Number
-///   "float"  ⇒ Float, Number
-///   "nat"    ⇒ Nat, Int, Number
-///   "number" ⇒ Number
-/// ```
-fn legacy_tag_roles(tag: &str) -> Option<&'static [&'static str]> {
-    match tag {
-        "int" => Some(&["Int", "Number"]),
-        "float" => Some(&["Float", "Number"]),
-        "nat" => Some(&["Nat", "Int", "Number"]),
-        "number" => Some(&["Number"]),
-        _ => None,
-    }
-}
-
-/// Whether a legacy-`__tag__` datum is an instance of `nominal`.
-///
-/// The bridge is name-based because a tagged datum carries no handle: the
-/// queried nominal's own name must be one of the datum's
-/// [`legacy_tag_roles`]. Only the queried nominal's *own* node is consulted,
-/// so a datum is never an instance of one of its own subtypes
-/// (`Int` datum vs `MyInt := sym(Int)` is `false`, matching the real
-/// parent-chain rule that `instanceof` is "is-a", not "has-subtype").
-/// Anonymous/named-less nominals (`sym()` with no name) never bridge.
-///
-/// Documented limitation: the match is by presentation name, so a nominal
-/// that merely *claims* a standard name bridges too — the same trust model
-/// as the legacy `__tag__` strings themselves, and a non-issue once
-/// `type.hnl` mints real nominal identities.
-fn legacy_tag_instance_of(nominal: &Value, tag: &str) -> bool {
-    let roles = match legacy_tag_roles(tag) {
-        Some(r) => r,
-        None => return false,
-    };
-    let own = match nominal
-        .get("__sym__")
-        .and_then(|v| v.as_object())
-        .and_then(|m| m.get("name"))
-        .and_then(|v| v.as_str())
-    {
-        Some(n) if !n.is_empty() => n.to_ascii_lowercase(),
-        _ => return false,
-    };
-    roles.iter().any(|role| role.to_ascii_lowercase() == own)
-}
-
+// The Phase 4 legacy-tag bridge helpers (`legacy_tag_roles` /
+// `legacy_tag_instance_of`) moved into `handl-value` with WS-E —
+// `handl_value::instance_of` owns both the seeded walk and the
+// name-role fallback in one place.
 // ---------------------------------------------------------------------------
 // VmPrimitivesModule — the Module that registers all VM primitive host fns
 // ---------------------------------------------------------------------------
@@ -790,7 +750,7 @@ impl Module for SymModule {
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
-            "sym" => self.inner.function("sym"),
+            "sym" | "seeded" => self.inner.function("sym"),
             "instanceof" => self.inner.function("instance_of"),
             "instance_of" => self.inner.function("instance_of"),
             _ => None,
@@ -801,6 +761,9 @@ impl Module for SymModule {
         let mut out = Vec::new();
         if let Some(f) = self.inner.function("sym") {
             out.push(("sym", f));
+            // `seeded` is the explicit spelling of `sym("seed")`
+            // (ADR-0154 §1) — same function, arity distinguishes.
+            out.push(("seeded", f));
         }
         if let Some(f) = self.inner.function("instance_of") {
             out.push(("instanceof", f));
@@ -882,52 +845,137 @@ mod sym_module_tests {
 
     #[test]
     fn sym_module_functions_lists_both_aliases() {
-        // `functions()` enumerates the module's public surface: `sym` once and
-        // `instanceof` under both its surface name and the primitive name.
+        // `functions()` enumerates the module's public surface: `sym` and
+        // its `seeded` alias once, `instanceof` under both its surface
+        // name and the primitive name.
         let m = SymModule::new();
         let mut names: Vec<&str> = m.functions().into_iter().map(|(n, _)| n).collect();
         names.sort_unstable();
-        assert_eq!(names, vec!["instance_of", "instanceof", "sym"]);
+        assert_eq!(names, vec!["instance_of", "instanceof", "seeded", "sym"]);
     }
 
     #[test]
-    fn legacy_tag_roles_maps_every_known_tag_and_rejects_others() {
-        // Every arm of the tag->roles table, nearest-first.
-        assert_eq!(legacy_tag_roles("int"), Some(&["Int", "Number"][..]));
-        assert_eq!(legacy_tag_roles("float"), Some(&["Float", "Number"][..]));
-        assert_eq!(legacy_tag_roles("nat"), Some(&["Nat", "Int", "Number"][..]));
-        assert_eq!(legacy_tag_roles("number"), Some(&["Number"][..]));
-        // Non-numeric / unknown legacy tags carry no nominal roles.
-        for tag in ["str", "bool", "nope", ""] {
-            assert_eq!(legacy_tag_roles(tag), None, "tag {tag:?}");
+    fn sym_module_seeded_mints_are_deterministic() {
+        // `sym("seed")` / `sym.seeded("seed")` — the ADR-0154 §1
+        // deterministic mint: same seed, same handle, every call.
+        let m = SymModule::new();
+        let a = call(&m, "sym", &[json!("type.Kilo")]).expect("seeded mint");
+        let b = call(&m, "seeded", &[json!("type.Kilo")]).expect("seeded mint");
+        let c = call(&m, "sym", &[json!("type.Other")]).expect("seeded mint");
+        assert_eq!(a, b, "same seed → same nominal (content-hash handle)");
+        assert_ne!(a, c, "distinct seeds → distinct nominals");
+        assert_eq!(a["__sym__"]["name"], json!("Kilo"));
+        // Two `sym()` mints are still distinct (fresh counter).
+        let x = call(&m, "sym", &[]).unwrap();
+        let y = call(&m, "sym", &[]).unwrap();
+        assert_ne!(x, y);
+    }
+
+    #[test]
+    fn sym_module_seeded_with_links_mints_parent_and_type() {
+        // `sym("seed", parent, ty)` — the declared-type mint carrying
+        // both links (ADR-0154 §2).
+        let m = SymModule::new();
+        let number = call(&m, "sym", &[json!("type.Number")]).unwrap();
+        let ty = call(&m, "sym", &[json!("type.Type")]).unwrap();
+        let int = call(
+            &m,
+            "sym",
+            &[json!("type.Int"), number.clone(), ty.clone()],
+        )
+        .expect("seeded mint with links");
+        // `parent` and `type` links serialize in the payload.
+        assert_eq!(
+            int["__sym__"]["parent"]["__sym__"]["handle"],
+            number["__sym__"]["handle"]
+        );
+        assert_eq!(
+            int["__sym__"]["type"]["__sym__"]["handle"],
+            ty["__sym__"]["handle"]
+        );
+        // `instanceof` reads both: `Int <: Number` (parent walk) and
+        // `Int : Type` (membership via the ty link).
+        assert_eq!(
+            call(&m, "instanceof", &[int.clone(), number.clone()]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[int.clone(), ty.clone()]),
+            Ok(json!(true))
+        );
+    }
+
+    #[test]
+    fn sym_module_instanceof_literals_and_builtin_graph() {
+        // The builtin `type.*` graph + literal defaults (ADR-0154 §5):
+        // `1 instanceof Nat/Int/Number`, `1.5 instanceof Float`.
+        let m = SymModule::new();
+        let nat = call(&m, "sym", &[json!("type.Nat")]).unwrap();
+        let int = call(&m, "sym", &[json!("type.Int")]).unwrap();
+        let number = call(&m, "sym", &[json!("type.Number")]).unwrap();
+        let float = call(&m, "sym", &[json!("type.Float")]).unwrap();
+        let strs = call(&m, "sym", &[json!("type.Str")]).unwrap();
+        for nominal in [&nat, &int, &number] {
+            assert_eq!(
+                call(&m, "instanceof", &[json!(1), nominal.clone()]),
+                Ok(json!(true))
+            );
         }
+        assert_eq!(
+            call(&m, "instanceof", &[json!(1), float.clone()]),
+            Ok(json!(false))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[json!(-1), nat.clone()]),
+            Ok(json!(false))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[json!(-1), int.clone()]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[json!(1.5), float.clone()]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[json!("s"), strs.clone()]),
+            Ok(json!(true))
+        );
     }
 
     #[test]
-    fn legacy_tag_instance_of_unknown_tag_and_nameless_nominal_never_bridge() {
+    fn sym_module_instanceof_legacy_tag_bridge_still_walks() {
+        // `__tag__` data bridge (kept until tag deletion): a tagged
+        // datum reaches the seeded nominal graph AND the legacy
+        // presentation-name match.
+        let m = SymModule::new();
+        let datum = json!({"__tag__": "int", "__registry__": "type", "kind": "primitive"});
+        let int = call(&m, "sym", &[json!("type.Int")]).unwrap();
+        let number = call(&m, "sym", &[json!("type.Number")]).unwrap();
+        let float = call(&m, "sym", &[json!("type.Float")]).unwrap();
+        assert_eq!(
+            call(&m, "instanceof", &[datum.clone(), int]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[datum.clone(), number]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[datum.clone(), float]),
+            Ok(json!(false))
+        );
+        // Hand-minted named nominals still bridge by name.
         let named = json!({"__sym__": {"handle": 301, "name": "Int", "parent": null}});
-        // Genuine named nominal + known tag bridges.
-        assert!(legacy_tag_instance_of(&named, "int"));
-
-        // Unknown tag: no roles at all -> false (the `None => return false`
-        // arm). This is the defensive arm the `InstanceOfFn` guard normally
-        // makes unreachable, so it is exercised directly here.
-        assert!(!legacy_tag_instance_of(&named, "nope"));
-
-        // Named-less / empty-presentation-name nominals never bridge: the
-        // `_ => return false` arm (`Some(n) if !n.is_empty()` guard fails).
-        let empty_name = json!({"__sym__": {"handle": 302, "name": "", "parent": null}});
-        assert!(!legacy_tag_instance_of(&empty_name, "int"));
-
-        // A bare `__sym__` object with no `name` field is likewise rejected
-        // before consulting the roles.
-        let no_name = json!({"__sym__": {"handle": 303}});
-        assert!(!legacy_tag_instance_of(&no_name, "int"));
-
-        // `__sym__` that is not an object at all (the `as_object` hop fails;
-        // unreachable through `InstanceOfFn`, whose guard rejects non-syms
-        // first, but part of the helper's defensive contract).
-        let non_object = json!({"__sym__": 5});
-        assert!(!legacy_tag_instance_of(&non_object, "int"));
+        assert_eq!(
+            call(&m, "instanceof", &[datum.clone(), named.clone()]),
+            Ok(json!(true))
+        );
+        // Unknown tags never bridge.
+        let unknown = json!({"__tag__": "custom", "__registry__": "type"});
+        assert_eq!(
+            call(&m, "instanceof", &[unknown, named]),
+            Ok(json!(false))
+        );
     }
 }

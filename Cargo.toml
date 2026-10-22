@@ -149,7 +149,6 @@ hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-patte
 hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
 hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
 hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
-hnl-engine-typecheck-handl = { git = "https://github.com/handl-lang/engine-typecheck-handl", branch = "main" }
 hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
 hnl-engine-test = { git = "https://github.com/handl-lang/engine-test", branch = "main" }
@@ -238,8 +237,8 @@ hnl-engine-transform = { path = "../engine-transform" }
 hnl-engine-transform-rewrite = { path = "../engine-transform-rewrite" }
 [patch."https://github.com/handl-lang/engine-typecheck"]
 hnl-engine-typecheck = { path = "../engine-typecheck" }
-[patch."https://github.com/handl-lang/engine-typecheck-handl"]
-hnl-engine-typecheck-handl = { path = "../engine-typecheck-handl" }
+[patch."https://github.com/handl-lang/engine-typecheck-nbe"]
+hnl-engine-typecheck-nbe = { path = "../engine-typecheck-nbe" }
 [patch."https://github.com/handl-lang/kit-core"]
 handl-kit-core = { path = "../kit-core/crates/kit-core" }
 

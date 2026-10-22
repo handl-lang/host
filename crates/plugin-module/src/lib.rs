@@ -135,6 +135,21 @@ impl ModuleLookup for ModuleRegistry {
         let func = self.lookup(qualified_name)?;
         func.as_type_signature().map(|ts| ts.type_signature())
     }
+
+    fn lookup_module_exports(&self, module_name: &str) -> Option<Vec<(String, Option<Value>)>> {
+        let m = self.module(module_name)?;
+        let mut out: Vec<(String, Option<Value>)> = Vec::new();
+        for (name, f) in m.functions() {
+            out.push((
+                name.to_string(),
+                f.as_type_signature().map(|ts| ts.type_signature()),
+            ));
+        }
+        for name in m.value_names() {
+            out.push((name, None));
+        }
+        Some(out)
+    }
 }
 
 impl std::fmt::Debug for ModuleRegistry {
@@ -283,6 +298,10 @@ impl ModuleLookup for ModuleRuntime {
 
     fn lookup_type_signature(&self, qualified_name: &str) -> Option<Value> {
         self.registry.lookup_type_signature(qualified_name)
+    }
+
+    fn lookup_module_exports(&self, module_name: &str) -> Option<Vec<(String, Option<Value>)>> {
+        self.registry.lookup_module_exports(module_name)
     }
 }
 

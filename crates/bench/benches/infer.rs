@@ -3,7 +3,7 @@
 //! The pre-refactor `infer` bench targeted
 //! `handl-typecheck-infer::{infer, infer_cached, parse_expr, FunctionTable,
 //! ParseCache}` — a crate that is gone. Inference now lives in the `.hnl`
-//! model behind `Kit::typecheck_handl_with_prelude` (ADR-0105), which is a
+//! model behind `Kit::typecheck_with_prelude` (ADR-0105), which is a
 //! *different* entry point from the `typecheck` bench's
 //! `hnl-engine-typecheck::check_module` (the bootstrap checker), so the two
 //! benches do not overlap.
@@ -27,12 +27,12 @@ fn bench_infer(c: &mut Criterion) {
     // Warm the kit's lazily-built Handl engine so the measurement is
     // inference, not first-call model construction (the warm/cold distinction
     // the old `infer_cached` drew).
-    kit.typecheck_handl_with_prelude(INFERENCE_SAMPLE, &prelude)
+    kit.typecheck_with_prelude(INFERENCE_SAMPLE, &prelude)
         .expect("inference sample typechecks");
 
     c.bench_function("infer/check_handl", |b| {
         b.iter(|| {
-            kit.typecheck_handl_with_prelude(black_box(INFERENCE_SAMPLE), &prelude)
+            kit.typecheck_with_prelude(black_box(INFERENCE_SAMPLE), &prelude)
                 .expect("inference sample typechecks")
         });
     });

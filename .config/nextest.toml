@@ -2,7 +2,7 @@
 #
 # `fast` is the local-iteration lane: it skips `loader_parity` (68 s).
 # `dependent_structure`/`axis_flow_boundaries` moved to the
-# `engine-typecheck-handl` repo — they no longer apply here. The
+# `engine-typecheck-nbe` repo — they no longer apply here. The
 # remaining tests finish in minutes at `-j 2`. Run the default profile
 # before pushing anything that touches the loader.
 

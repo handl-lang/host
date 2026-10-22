@@ -71,7 +71,7 @@ error; unknown command exits `2` listing the loaded commands.
 - `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`, `Kit`); `crates/platform-tests` — its integration tests.
 - `hnl-engine` / `crates/hnl-engine-*` — the generic engine substrate and concrete engines, all data-driven off `Language`, moved to the sibling **`engine*`** repos:
   - front end — `lex`, `lex-pattern`, `parse`, `parse-pratt`
-  - tooling — `fmt`, `lint`, `typecheck` (bootstrap checker), `typecheck-handl` (the `.hnl` model's inference engine), `test`
+  - tooling — `fmt`, `lint`, `typecheck` (NBE engine + bootstrap scope checker), `test`
   - transforms — `transform`, `transform-rewrite`
   - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
 - `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `sdkgen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `hnl-engine-*` engine — see ADR-0085.
