@@ -201,3 +201,5 @@ ADR), listed here so a number is never reused across repos.
 | 0152 | `data` is a nominal former + constructor arrows + dependent eliminator | Accepted | `kernel`, `kit-prelude-lang`, `engine-transform-rewrite`, `engine-typecheck-nbe`, `lib-type` | `adrs/0152-data-nominal-inductive-families.md` |
 | 0153 | `~[n]~>` is a dimension index — n-cells as one indexed former | Accepted | `kernel`, `kit-prelude-lang`, `engine-typecheck-nbe`, `lib-type` | `adrs/0153-grades-as-arrow-indices.md` |
 | 0154 | Typecheck semantics: identity, equality, universes, literals, erasure | Accepted | `kernel`, `kit-prelude-lang`, `engine-typecheck-nbe`, `lib-type` | `adrs/0154-typecheck-semantics.md` |
+| 0155 | Scope-bound arrow environments — deps as lexical arrow records, no registry dispatch | Proposed | `kernel`, `engine-exec`, `engine-exec-tree-walk`, `engine-exec-bytecode`, `engine-exec-cranelift`, `host`, `kit-core`, `lib-loader`, `lib-str-handl` | `adrs/0155-scope-bound-arrow-environments.md` |
+| 0156 | Module environments are parameters, not construction state | Proposed | `host`, `kernel` | `adrs/0156-module-env-as-parameter.md` |
