@@ -697,17 +697,31 @@ pub fn resolve_pkg_dependencies(
     let Ok(src) = std::fs::read_to_string(&path) else {
         return Ok(HashMap::new());
     };
-    let Some(body) = pkg_deps_body(&src) else {
-        return Ok(HashMap::new());
-    };
     let mut out = HashMap::new();
-    for (name, _spec) in pkg_dep_entries(&body) {
+    for (name, _spec) in pkg_dep_specs(&src) {
         // Local-dev convention: the dep lives in the sibling `lib-<name>` repo.
         let dir = manifest_dir.join("..").join(format!("lib-{name}"));
         let dir = std::fs::canonicalize(&dir).unwrap_or(dir);
         out.insert(name, dir);
     }
     Ok(out)
+}
+
+/// `(name, spec)` pairs from a `pkg.hnl` source's `deps` table — the
+/// source-level half of [`resolve_pkg_dependencies`], sharing its scan
+/// (`pkg_deps_body`/`pkg_dep_entries`) without touching the filesystem.
+///
+/// Consumers that resolve the declared names somewhere other than the
+/// sibling-`lib-<name>` convention (e.g. building a module environment
+/// through a `ModuleResolver`) read the manifest without duplicating the
+/// brace-balanced parse. A source with no `deps` table — or a malformed
+/// one — yields an empty vec, the same leniency
+/// [`resolve_pkg_dependencies`] applies so a bad manifest can never
+/// break an unrelated build.
+pub fn pkg_dep_specs(src: &str) -> Vec<(String, String)> {
+    pkg_deps_body(src)
+        .map(|body| pkg_dep_entries(&body))
+        .unwrap_or_default()
 }
 
 /// The text between the braces of the `deps:` table in a `pkg.hnl` source.
@@ -1107,6 +1121,25 @@ vendored = { path = "../lib-vendored" }
         assert!(resolve_pkg_dependencies(&root).unwrap().is_empty());
 
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `pkg_dep_specs` reads the `deps` table straight from a `pkg.hnl`
+    /// source — the source-level half [`resolve_pkg_dependencies`] is
+    /// built on.
+    #[test]
+    fn pkg_dep_specs_reads_deps_from_source() {
+        let src = "--- deps of this package\n{ deps: { math: \"branch:main\", \"math-c\": \"branch:main\" } }\n";
+        assert_eq!(
+            pkg_dep_specs(src),
+            vec![
+                ("math".to_string(), "branch:main".to_string()),
+                ("math-c".to_string(), "branch:main".to_string()),
+            ]
+        );
+        // No `deps` table — or a malformed one — is leniently empty.
+        assert!(pkg_dep_specs("{ modules: [\"cli\"] }").is_empty());
+        assert!(pkg_dep_specs("").is_empty());
+        assert!(pkg_dep_specs("{ deps: { math: ").is_empty());
     }
 
     /// `.handl.toml` wins; `pkg.hnl` only fills names it does not declare.

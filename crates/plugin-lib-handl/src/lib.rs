@@ -2125,6 +2125,69 @@ impl ModuleEnv {
         }
     }
 
+    /// Build an env from a dependency manifest (ADR-0154): each
+    /// `(name, spec)` pair resolves through `resolver`, and every
+    /// declared name must resolve.
+    ///
+    /// This is the declarative form of
+    /// `ModuleEnv::new().with_dependency_arc(a).with_dependency_arc(b)`:
+    /// the pairs are a `pkg.hnl` `deps` record (e.g.
+    /// `{ deps: { math: "branch:main" } }`), as parsed by
+    /// [`handl_platform::pkg_dep_specs`] — see [`from_pkg_hnl`](Self::from_pkg_hnl)
+    /// for the one-call form. The spec half (`"branch:main"`) is
+    /// declarative data: fetching over git is the package manager's job
+    /// (ADR-0010), so the resolver answers by name alone today.
+    ///
+    /// A name the resolver does not know is an error listing *every*
+    /// missing name — nothing is skipped silently. The built env gets
+    /// one fresh [`env_id`](Self::env_id) (it is a new env), and the
+    /// `with_*` builders still apply for overrides on top.
+    pub fn from_manifest(
+        deps: &[(String, String)],
+        resolver: &dyn ModuleResolver,
+    ) -> Result<Self, handl_language::LangError> {
+        let mut dependencies = Vec::with_capacity(deps.len());
+        let mut missing: Vec<String> = Vec::new();
+        for (name, spec) in deps {
+            match resolver.resolve(name) {
+                Some(module) => dependencies.push(module),
+                None => missing.push(format!("`{name}` (spec \"{spec}\")")),
+            }
+        }
+        if !missing.is_empty() {
+            return Err(handl_language::LangError::engine(format!(
+                "from_manifest: unresolved deps: {}",
+                missing.join(", ")
+            )));
+        }
+        Ok(Self {
+            dependencies,
+            global_lookup: None,
+            import_resolver: None,
+            env_id: allocate_env_id(),
+        })
+    }
+
+    /// [`from_manifest`](Self::from_manifest) over a `pkg.hnl` source:
+    /// the `deps` table is parsed by [`handl_platform::pkg_dep_specs`] —
+    /// the same lenient scan [`resolve_pkg_dependencies`] uses, so no
+    /// parsing is duplicated here — and each declared name then resolves
+    /// through `resolver`.
+    ///
+    /// A source without a `deps` table — or with a malformed one —
+    /// yields an empty env (not an error): `pkg.hnl` files are authored
+    /// by package repos this workspace may not own, and a bad manifest
+    /// must not break an unrelated build, the leniency
+    /// [`resolve_pkg_dependencies`] already applies.
+    ///
+    /// [`resolve_pkg_dependencies`]: handl_platform::resolve_pkg_dependencies
+    pub fn from_pkg_hnl(
+        src: &str,
+        resolver: &dyn ModuleResolver,
+    ) -> Result<Self, handl_language::LangError> {
+        Self::from_manifest(&handl_platform::pkg_dep_specs(src), resolver)
+    }
+
     /// This env's identity (ADR-0154): stable across `clone`, fresh for
     /// `new`/`default`/`fork` and for every `with_*` reconfiguration.
     ///
