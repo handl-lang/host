@@ -849,3 +849,40 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     engine-transform-rewrite, engine-exec-tree-walk,
     handl-plugin-lib-tag (incl. --tests); `desugar_parity` 21/21;
     `handl_desugar` parity 6/6.
+
+### 2026-10-22 — __tag__/{tag} bridge-deletion test sweep (runtime + libs)
+
+The reds flagged by the previous entry are swept. Post-deletion mint path
+in `.hnl` code is `hash_map.set(payload, "__tag__", name)` — object
+payloads merge, non-objects wrap under `value`, `null` mints an empty
+payload (mirrors `tag_value`); a `tag_mint` helper carries that in the
+runtime fixtures. Ctor/former/type links remain the only membership
+reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
+
+- `handl-runtime`: `nominal_kernel` Phase-4 bridge section rewritten to
+  assert the plain-object read (seeded + hand-minted nominals);
+  `vm_primitives` sym-module bridge test + `InstanceOfFn` docs updated;
+  `engine_parity` mint tests → inspection-op coverage + deleted-producer
+  error parity; `*_model_parity` `App(arr "tag.tag")` cases →
+  `tag.untag` on a host-internal record; the five model fixtures
+  (`value/arrow/type/exec/meta_model.hnl`) migrated to `tag_mint`.
+- `kit-prelude tagged_values`: rewritten — deleted-op error assertions,
+  inspection ops on untagged values and on the host-internal
+  `{__tag__: "Arrow"}` `>>>` composite.
+- `lib-option`/`lib-result`/`lib-test` (assert/property/snapshot/
+  benchmark/fuzz): `tag.tag` calls → `hash_map.set` mints, same record
+  shape.
+- `{tag}` declaration codegen emits `hash_map.set` constructors instead
+  of `tag.tag` — `plugin-lib-handl` bootstrap, `lib-loader` `expand_tags`,
+  `plugin-ext-refinement` `arrow_parser`, and the loader test mirror all
+  emit identical text.
+- Green: `cargo test -p handl-runtime` all 45 binaries 0 failures;
+  `hnl-engine-typecheck-nbe` all binaries 0 failures;
+  `hnl-engine-transform-rewrite` all binaries 0 failures;
+  `handl-kit-prelude --test tagged_values` 6/6.
+- Flagged residual: `engine/src/term_interpreter.rs` still has a
+  `"tag.construct"` native arm (stamps `__tag__` locally — dead path,
+  no producer emits it); `compile-js`'s JS prelude still emits
+  `__handl_rt.tag.tag` (separate JS runtime — not the deleted host op);
+  `handl-kit-arrow-lower/tests/lower.rs` uses `"tag.construct"` only as
+  an arbitrary op-name label in a synthetic lowering scheme.
