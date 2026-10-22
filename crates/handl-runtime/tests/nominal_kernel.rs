@@ -152,10 +152,11 @@ fn vm_sym_same_name_distinct_syms_unequal() {
 
 #[test]
 fn vm_sym_non_nominal_parent_errors() {
-    // sym(A) where A is not a nominal -> clean error.
+    // sym(A) where A is not a nominal -> clean error. A *string* argument
+    // is not a parent — it is the ADR-0154 §1 seeded mint — so it is
+    // excluded here and covered by `vm_sym_string_arg_is_seeded_mint`.
     for bad in [
         json!(42),
-        json!("str"),
         json!(null),
         json!([1, 2]),
         json!({"a": 1}),
@@ -168,11 +169,38 @@ fn vm_sym_non_nominal_parent_errors() {
 }
 
 #[test]
+fn vm_sym_string_arg_is_seeded_mint() {
+    // ADR-0154 §1: `sym("seed")` is the deterministic mint — the same seed
+    // yields the same nominal (handle equality), distinct seeds differ,
+    // and a seeded root has null parent/type links.
+    let a1 = call("sym", &[json!("test.seed.A")]);
+    let a2 = call("sym", &[json!("test.seed.A")]);
+    let b = call("sym", &[json!("test.seed.B")]);
+    assert!(nominal_eq_json(&a1, &a2), "seeded mints are deterministic");
+    assert!(!nominal_eq_json(&a1, &b), "distinct seeds are distinct syms");
+    // The seeded name is the short segment (presentation only) — identity
+    // is the handle, asserted equal above.
+    let inner = a1.get("__sym__").unwrap();
+    assert_eq!(inner.get("name").unwrap(), &json!("A"));
+    assert!(inner.get("parent").unwrap().is_null());
+    assert!(inner.get("type").unwrap().is_null());
+}
+
+#[test]
 fn vm_sym_too_many_args_errors() {
     let (root, _number, _float) = vm_chain();
-    let err = call_err("sym", &[root, json!(1)]);
+    // The 2-argument form is `sym("seed", parent)` — a non-string first
+    // argument is a contract error naming the seed requirement.
+    let err = call_err("sym", &[root.clone(), json!(1)]);
     let msg = format!("{:?}", err);
-    assert!(msg.contains("expected 0 or 1 argument"), "{}", msg);
+    assert!(msg.contains("takes a seed string first"), "{}", msg);
+    // Arity caps at 3: `sym("seed", parent, ty)` is the widest mint.
+    let err = call_err(
+        "sym",
+        &[json!("seed"), root.clone(), root.clone(), root],
+    );
+    let msg = format!("{:?}", err);
+    assert!(msg.contains("expected 0–3 arguments"), "{}", msg);
 }
 
 // ---------------------------------------------------------------------------

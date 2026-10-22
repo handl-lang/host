@@ -109,6 +109,23 @@ fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
 
 #[test]
 fn vec_indexed_family_predicate_and_recursor() {
+    // `Runtime::parse` runs the `desugar` pass, whose `handl:desugar.*`
+    // overlay (ADR-0094) evaluates the `.hnl` desugar module under the
+    // tree-walk engine — a metacircular program whose nested arrow
+    // applications legitimately need ~16–32 MiB of *debug* stack (each
+    // `.hnl` apply is ~25 unoptimized eval frames). Run the body on a
+    // large-stack thread, matching the `dependent_structure` pattern —
+    // the assertion is about desugar/eval semantics, not the recursion
+    // budget.
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(vec_indexed_family_predicate_and_recursor_impl)
+        .expect("spawn eval thread")
+        .join()
+        .expect("eval thread panicked");
+}
+
+fn vec_indexed_family_predicate_and_recursor_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
     let nat_src = "data Nat :: Zero | Succ(Nat)";

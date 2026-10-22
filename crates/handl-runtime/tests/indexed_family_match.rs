@@ -128,6 +128,21 @@ fn flatten_top_level_blocks(ast: &mut Ast) {
 
 #[test]
 fn vec_indexed_family_match_with_and_without_motive() {
+    // The `desugar` pass's `handl:desugar.*` overlay (ADR-0094) evaluates
+    // the `.hnl` desugar module under the tree-walk engine — a
+    // metacircular program whose nested arrow applications legitimately
+    // need ~16–32 MiB of *debug* stack. Run the body on a large-stack
+    // thread, matching the `dependent_structure` pattern — the assertion
+    // is about desugar/eval semantics, not the recursion budget.
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(vec_indexed_family_match_with_and_without_motive_impl)
+        .expect("spawn eval thread")
+        .join()
+        .expect("eval thread panicked");
+}
+
+fn vec_indexed_family_match_with_and_without_motive_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
     let nat_src = "data Nat :: Zero | Succ(Nat)";
