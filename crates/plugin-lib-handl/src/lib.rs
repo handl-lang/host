@@ -2442,10 +2442,10 @@ impl HandlModule {
     /// The current module ID — the key into the per-thread
     /// `RUNTIME_CACHE`/`AST_CACHE`/`MODULE_VALUE_CACHE` tables.
     ///
-    /// Exposed so hosts (and tests) can observe that [`instantiate`] /
-    /// `with_dependency*` re-keyed the caches: two [`HandlModule`]s with
-    /// different module IDs evaluate against disjoint per-thread cache
-    /// entries even on the same thread.
+    /// Exposed so hosts (and tests) can observe that
+    /// [`instantiate`][Self::instantiate] / `with_dependency*` re-keyed
+    /// the caches: two [`HandlModule`]s with different module IDs evaluate
+    /// against disjoint per-thread cache entries even on the same thread.
     pub fn module_id(&self) -> usize {
         self.module_id
     }
