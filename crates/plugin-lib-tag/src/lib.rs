@@ -20,24 +20,25 @@
 //! [`HandlLibraryPlugin`] with the op registry, eliminating the per-library
 //! `Module`/`Plugin` trait scaffolding.
 //!
-//! This crate exposes the `tag` module with six callables:
+//! This crate exposes the `tag` module with four callables — inspection
+//! and dispatch only; the `__tag__` mint producers (`tag.tag`,
+//! `tag.construct`) were deleted with the `__tag__`/`{tag}` bridge
+//! (ADR-0152 §Migration):
 //!
 //! | Callable | Role |
 //! |---|---|
-//! | `tag.tag(name, payload)` | **mint** a tagged value (host capability) |
 //! | `tag.untag(v)` | return the payload of a tagged value (inspection) |
 //! | `tag.tag_of(v)` | return the tag name of a tagged value (inspection) |
 //! | `tag.is_tag(v)` | test whether `v` is a tagged value (inspection) |
-//! | `tag.construct(tag_name, payload)` | **mint** a registry-scoped type value (ADR-0054) |
 //! | `tag.match_type(v, cases)` | **dispatch** on the type tag of `v` (ADR-0054) |
 //!
-//! `tag.construct` and `tag.match_type` are the user-facing surface of the
-//! ADR-0054 judgment ops `construct` and `match_type`: they are backed by a
-//! [`TypeRegistry`] with registry id `"handl.canonical"`.
+//! `tag.match_type` is the user-facing surface of the ADR-0054 judgment
+//! op `match_type`, backed by a [`TypeRegistry`] with registry id
+//! `"handl.canonical"`.
 //!
-//! `tag.tag` is the minting capability (host-secured); the inspection ops are
-//! available to any code that holds a tagged value — matching the capability
-//! discipline of ADR-0055 §1 (`tag` is restricted; inspection is not).
+//! Tagged values are still produced internally (law/rewrite/cell
+//! records); the inspection ops are available to any code that holds
+//! one — matching the capability discipline of ADR-0055 §1.
 //! Tag dispatch on `__tag__` identity is handled by the native `match`
 //! construct via tag patterns (`ok(v) => ...`), not a dedicated op
 //! (ADR-0077).
@@ -53,7 +54,7 @@
 
 use std::sync::Arc;
 
-use handl_language::{Value, as_tag, is_tag_value, tag_value};
+use handl_language::{Value, as_tag, is_tag_value};
 use handl_platform::{EvalContext, EvalError, Function, Module};
 use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
 
@@ -69,52 +70,21 @@ mod tests;
 /// kit-stdlib data dir.
 const TAG_HNL: &str = handl_lib_tag::TAG_HNL;
 
-/// The op names declared in `tag.hnl`.
+/// The op names declared in `tag.hnl` — inspection ops only. The
+/// `__tag__` mint producers (`tag.tag`/`tag.construct`) were deleted
+/// with the `__tag__`/`{tag}` bridge (ADR-0152 §Migration): user code
+/// no longer mints tagged values; host-internal `__tag__` records
+/// (Cell/Arrow/Handler/law) remain inspectable.
 const TAG_OPS: &[&str] = &[
-    "tag.tag",
     "tag.untag",
     "tag.tag_of",
     "tag.is_tag",
-    "tag.construct",
     "tag.match_type",
 ];
 
 // ---------------------------------------------------------------------------
 // Function impls (the handls — Rust bodies for the `op` declarations)
 // ---------------------------------------------------------------------------
-
-/// `tag.tag(name, payload)` — mint a tagged value (ADR-0055 §1, §2).
-///
-/// Mints `{"__tag__": name, ...payload}`. The `payload` object's fields
-/// become the tagged value's payload. A `null` payload is treated as empty.
-/// Non-object payloads are wrapped in `{value: payload}` (ADR-0077).
-/// Returns an error if `name` is not a string or if `payload` already
-/// contains a reserved `__tag__` key (a minted value cannot be re-tagged
-/// through its payload — forgery prevention, ADR-0055 §3).
-///
-/// This is the eval-time `Function` impl registered under the op name
-/// `"tag.tag"` in the [`OpRegistry`].
-#[derive(Clone, Copy)]
-pub struct Tag;
-
-impl Function for Tag {
-    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
-        if args.len() != 2 {
-            return Err(EvalError::Other(format!(
-                "tag.tag: expected 2 arguments (name, payload), got {}",
-                args.len()
-            )));
-        }
-        let name = args[0]
-            .as_str()
-            .ok_or_else(|| EvalError::Other("tag.tag: name must be a string".to_string()))?;
-        tag_value(name, &args[1]).ok_or_else(|| {
-            EvalError::Other(
-                "tag.tag: payload contains a reserved __tag__ key (forgery prevention)".to_string(),
-            )
-        })
-    }
-}
 
 /// Extract the payload of a tagged value: a clone of `v` with the `__tag__`
 /// key removed. For a non-tagged value, returns `v` unchanged.
@@ -204,44 +174,9 @@ fn require_one_arg<'a>(args: &'a [Value], fn_name: &str) -> Result<&'a Value, Ev
 // ---------------------------------------------------------------------------
 
 /// The registry id of the canonical handl typechecker, used by the
-/// `tag.construct` / `tag.match_type` host functions.
+/// `tag.match_type` host function (and formerly `tag.construct`, the
+/// deleted `__tag__` type-value producer).
 pub const CANONICAL_REGISTRY_ID: &str = "handl.canonical";
-
-/// `tag.construct(tag_name, payload)` — mint a registry-scoped type value
-/// (ADR-0054 §"construct").
-///
-/// Mints `{"__tag__": tag_name, "__registry__": "handl.canonical",
-/// ...payload}` via the canonical [`TypeRegistry`]. This is the
-/// `construct` judgment op of ADR-0054: the `tag` op (ADR-0055) called
-/// against the host type registry. Returns an error if `tag_name` is not a
-/// string, if `payload` is not an object/null, or if `payload` smuggles a
-/// reserved `__tag__` or `__registry__` key (forgery prevention).
-///
-/// This is the eval-time `Function` impl registered under the op name
-/// `"tag.construct"` in the [`OpRegistry`].
-#[derive(Clone, Copy)]
-pub struct Construct;
-
-impl Function for Construct {
-    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
-        if args.len() != 2 {
-            return Err(EvalError::Other(format!(
-                "tag.construct: expected 2 arguments (tag_name, payload), got {}",
-                args.len()
-            )));
-        }
-        let tag_name = args[0].as_str().ok_or_else(|| {
-            EvalError::Other("tag.construct: tag_name must be a string".to_string())
-        })?;
-        let registry = TypeRegistry::new(CANONICAL_REGISTRY_ID);
-        registry.construct(tag_name, &args[1]).ok_or_else(|| {
-            EvalError::Other(
-                "tag.construct: payload must be an object (or null) without reserved __tag__/__registry__ keys"
-                    .to_string(),
-            )
-        })
-    }
-}
 
 /// `tag.match_type(v, cases)` — dispatch on the type tag of `v` (ADR-0054
 /// §"match_type").
@@ -280,19 +215,18 @@ impl Function for MatchType {
 /// their op names.
 ///
 /// This registry maps:
-/// - `"tag.tag"` → [`Tag`] (no runtime checker; axioms trusted)
 /// - `"tag.untag"` → [`Untag`] (no runtime checker; axioms trusted)
 /// - `"tag.tag_of"` → [`TagOf`] (no runtime checker; axioms trusted)
 /// - `"tag.is_tag"` → [`IsTag`] (no runtime checker; axioms trusted)
-/// - `"tag.construct"` → [`Construct`] (no runtime checker; axioms trusted)
 /// - `"tag.match_type"` → [`MatchType`] (no runtime checker; axioms trusted)
+///
+/// The `tag.tag`/`tag.construct` producers are deleted — the `__tag__`
+/// mint capability retired with the tag bridge (ADR-0152 §Migration).
 pub fn tag_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
-    registry.register("tag.tag", Arc::new(Tag));
     registry.register("tag.untag", Arc::new(Untag));
     registry.register("tag.tag_of", Arc::new(TagOf));
     registry.register("tag.is_tag", Arc::new(IsTag));
-    registry.register("tag.construct", Arc::new(Construct));
     registry.register("tag.match_type", Arc::new(MatchType));
     registry
 }
@@ -301,11 +235,9 @@ pub fn tag_op_registry() -> OpRegistry {
 // TagModule (backward compat — delegates to op functions)
 // ---------------------------------------------------------------------------
 
-static TAG: Tag = Tag;
 static UNTAG: Untag = Untag;
 static TAG_OF: TagOf = TagOf;
 static IS_TAG: IsTag = IsTag;
-static CONSTRUCT: Construct = Construct;
 static MATCH_TYPE: MatchType = MatchType;
 
 /// The `tag` module — a thin wrapper that delegates to the op-backed
@@ -313,8 +245,9 @@ static MATCH_TYPE: MatchType = MatchType;
 ///
 /// This is preserved for backward compatibility with downstream crates
 /// (e.g. [`kit-canonical`]) that register `TagModule` directly. The
-/// module exposes `tag`, `untag`, `tag_of`, `is_tag`, `construct`, and
-/// `match_type` functions that dispatch to the [`OpRegistry`].
+/// module exposes `untag`, `tag_of`, `is_tag`, and `match_type`
+/// functions that dispatch to the [`OpRegistry`]. The `tag`/`construct`
+/// mint producers are deleted — `__tag__` is host-internal data now.
 #[derive(Clone, Copy)]
 pub struct TagModule;
 
@@ -325,11 +258,9 @@ impl Module for TagModule {
 
     fn function(&self, name: &str) -> Option<&dyn Function> {
         match name {
-            "tag" => Some(&TAG),
             "untag" => Some(&UNTAG),
             "tag_of" => Some(&TAG_OF),
             "is_tag" => Some(&IS_TAG),
-            "construct" => Some(&CONSTRUCT),
             "match_type" => Some(&MATCH_TYPE),
             _ => None,
         }
@@ -337,11 +268,9 @@ impl Module for TagModule {
 
     fn functions(&self) -> Vec<(&str, &dyn Function)> {
         vec![
-            ("tag", &TAG as &dyn Function),
             ("untag", &UNTAG as &dyn Function),
             ("tag_of", &TAG_OF as &dyn Function),
             ("is_tag", &IS_TAG as &dyn Function),
-            ("construct", &CONSTRUCT as &dyn Function),
             ("match_type", &MATCH_TYPE as &dyn Function),
         ]
     }

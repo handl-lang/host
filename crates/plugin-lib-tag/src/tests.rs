@@ -1,12 +1,10 @@
 //! Tests for the `tag` tagged-values capability (ADR-0055).
 
-use handl_language::{as_tag, is_tag_value, tag_value};
+use handl_language::tag_value;
 use handl_platform::{EvalContext, Function, Module};
 use serde_json::{Value, json};
 
-use crate::{
-    CANONICAL_REGISTRY_ID, Construct, IsTag, MatchType, Tag, TagModule, TagOf, TypeRegistry, Untag,
-};
+use crate::{IsTag, MatchType, TagModule, TagOf, TypeRegistry, Untag};
 
 /// Call a `Function` with a fresh `EvalContext`.
 fn call_fn(f: &dyn Function, args: &[Value]) -> Result<Value, handl_platform::EvalError> {
@@ -15,60 +13,18 @@ fn call_fn(f: &dyn Function, args: &[Value]) -> Result<Value, handl_platform::Ev
 }
 
 // ---------------------------------------------------------------------------
-// tag.tag — minting
+// tag.tag — minting (deleted with the `__tag__`/`{tag}` bridge)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn tag_mints_tagged_value() {
-    let v = call_fn(
-        &Tag,
-        &[json!("type.collection"), json!({ "name": "number" })],
-    )
-    .unwrap();
-    assert!(is_tag_value(&v));
-    assert_eq!(as_tag(&v), Some("type.collection"));
-    assert_eq!(v["name"], json!("number"));
-    assert_eq!(v["__tag__"], json!("type.collection"));
-}
-
-#[test]
-fn tag_null_payload_is_empty() {
-    let v = call_fn(&Tag, &[json!("unit"), Value::Null]).unwrap();
-    assert_eq!(as_tag(&v), Some("unit"));
-    assert_eq!(v.as_object().unwrap().len(), 1);
-}
-
-#[test]
-fn tag_rejects_non_string_name() {
-    let err = call_fn(&Tag, &[json!(5), json!({})]).unwrap_err();
-    assert!(err.to_string().contains("name must be a string"));
-}
-
-#[test]
-fn tag_wraps_non_object_payload_in_value() {
-    // ADR-0077: non-object payloads are wrapped in {value: ...} so
-    // that tag.tag("ok", 42) produces {"__tag__": "ok", "value": 42}.
-    let v = call_fn(&Tag, &[json!("ok"), json!(42)]).unwrap();
-    assert_eq!(as_tag(&v), Some("ok"));
-    assert_eq!(v["value"], json!(42));
-}
-
-#[test]
-fn tag_rejects_smuggled_tag_key() {
-    // Forgery prevention (ADR-0055 §3): a payload carrying `__tag__` cannot
-    // be re-tagged through the payload.
-    let err = call_fn(
-        &Tag,
-        &[json!("type.pi"), json!({ "__tag__": "type.collection" })],
-    )
-    .unwrap_err();
-    assert!(err.to_string().contains("reserved __tag__ key"));
-}
-
-#[test]
-fn tag_rejects_wrong_arity() {
-    assert!(call_fn(&Tag, &[json!("unit")]).is_err());
-    assert!(call_fn(&Tag, &[json!("unit"), json!({}), json!(1)]).is_err());
+fn tag_mint_op_is_unregistered() {
+    // The `tag.tag`/`tag.construct` producers were deleted (ADR-0152
+    // §Migration): the op registry and module surface no longer mint.
+    let registry = crate::tag_op_registry();
+    assert!(registry.get("tag.tag").is_none());
+    assert!(registry.get("tag.construct").is_none());
+    assert!(registry.get("tag.untag").is_some());
+    assert!(registry.get("tag.match_type").is_some());
 }
 
 // ---------------------------------------------------------------------------
@@ -120,27 +76,17 @@ fn is_tag_recognizes_tagged_value() {
 fn module_exposes_all_callables() {
     let m = TagModule;
     assert_eq!(m.name(), "tag");
-    assert!(m.function("tag").is_some());
+    assert!(m.function("tag").is_none());
     assert!(m.function("untag").is_some());
     assert!(m.function("tag_of").is_some());
     assert!(m.function("is_tag").is_some());
-    assert!(m.function("construct").is_some());
+    assert!(m.function("construct").is_none());
     assert!(m.function("match_type").is_some());
     assert!(m.function("match_tag").is_none());
     assert!(m.function("nope").is_none());
     let fns = m.functions();
     let names: Vec<&str> = fns.iter().map(|(n, _)| *n).collect();
-    assert_eq!(
-        names,
-        vec![
-            "tag",
-            "untag",
-            "tag_of",
-            "is_tag",
-            "construct",
-            "match_type"
-        ]
-    );
+    assert_eq!(names, vec!["untag", "tag_of", "is_tag", "match_type"]);
 }
 
 // ---------------------------------------------------------------------------
@@ -286,69 +232,15 @@ fn registry_match_type_no_default_fallback() {
 }
 
 // ---------------------------------------------------------------------------
-// tag.construct / tag.match_type host functions (ADR-0054)
+// tag.match_type host function (ADR-0054) — `tag.construct` producer deleted
 // ---------------------------------------------------------------------------
 
 #[test]
-fn construct_host_function_mints_type_value() {
-    let v = call_fn(
-        &Construct,
-        &[json!("type.collection"), json!({ "name": "number" })],
-    )
-    .unwrap();
-    assert_eq!(v["__tag__"], json!("type.collection"));
-    assert_eq!(v["__registry__"], json!(CANONICAL_REGISTRY_ID));
-    assert_eq!(v["name"], json!("number"));
-}
-
-#[test]
-fn construct_host_function_rejects_smuggled_keys() {
-    let err = call_fn(
-        &Construct,
-        &[json!("type.pi"), json!({ "__tag__": "type.collection" })],
-    )
-    .unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("reserved __tag__/__registry__ keys")
-    );
-
-    let err = call_fn(
-        &Construct,
-        &[json!("type.pi"), json!({ "__registry__": "evil" })],
-    )
-    .unwrap_err();
-    assert!(
-        err.to_string()
-            .contains("reserved __tag__/__registry__ keys")
-    );
-}
-
-#[test]
-fn construct_host_function_rejects_non_string_name() {
-    let err = call_fn(&Construct, &[json!(5), json!({})]).unwrap_err();
-    assert!(err.to_string().contains("tag_name must be a string"));
-}
-
-#[test]
-fn construct_host_function_rejects_non_object_payload() {
-    let err = call_fn(&Construct, &[json!("type.pi"), json!(5)]).unwrap_err();
-    assert!(err.to_string().contains("payload must be an object"));
-}
-
-#[test]
-fn construct_host_function_rejects_wrong_arity() {
-    assert!(call_fn(&Construct, &[json!("type.pi")]).is_err());
-    assert!(call_fn(&Construct, &[json!("type.pi"), json!({}), json!(1)]).is_err());
-}
-
-#[test]
 fn match_type_host_function_dispatches() {
-    let v = call_fn(
-        &Construct,
-        &[json!("type.collection"), json!({ "name": "number" })],
-    )
-    .unwrap();
+    let reg = TypeRegistry::new(crate::CANONICAL_REGISTRY_ID);
+    let v = reg
+        .construct("type.collection", &json!({ "name": "number" }))
+        .unwrap();
     let cases = json!({ "type.collection": "is-collection", "type.pi": "is-pi" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, json!("is-collection"));
@@ -356,7 +248,8 @@ fn match_type_host_function_dispatches() {
 
 #[test]
 fn match_type_host_function_returns_null_when_no_case() {
-    let v = call_fn(&Construct, &[json!("type.sigma"), json!({ "name": "x" })]).unwrap();
+    let reg = TypeRegistry::new(crate::CANONICAL_REGISTRY_ID);
+    let v = reg.construct("type.sigma", &json!({ "name": "x" })).unwrap();
     let cases = json!({ "type.collection": "is-collection" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, Value::Null);
@@ -371,7 +264,8 @@ fn match_type_host_function_returns_null_for_non_type_value() {
 
 #[test]
 fn match_type_host_function_no_default_fallback() {
-    let v = call_fn(&Construct, &[json!("type.sigma"), json!({ "name": "x" })]).unwrap();
+    let reg = TypeRegistry::new(crate::CANONICAL_REGISTRY_ID);
+    let v = reg.construct("type.sigma", &json!({ "name": "x" })).unwrap();
     let cases = json!({ "type.collection": "is-collection", "_": "fallback" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, Value::Null);
