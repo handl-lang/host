@@ -543,13 +543,15 @@ const DESUGAR_FUNCS: &[&str] = &["data"];
 
 /// Build the `desugar` [`HandlModule`] backing `handl:desugar.*` rewrites.
 ///
-/// `char` is the only dependency (the port tokenizes type expressions on
-/// the `char` floor); `bytecode` keeps the per-call module evaluation
-/// cheap (the desugar pass fires once per `data`/`match` node in every
-/// parse).
+/// `char` tokenizes type expressions; `sym` provides the ADR-0154 §1
+/// seeded mints (`sym("data.F.C")`) the ADR-0152 ctor/former `lit`
+/// payloads need. `tree-walk` evaluates the ~1300-line metacircular
+/// overlay (the desugar pass fires once per `data`/`match` node in
+/// every parse).
 pub fn desugar_module() -> HandlModule {
     HandlModule::new("desugar", DESUGAR_HNL, DESUGAR_FUNCS)
         .with_dependency_arc(Arc::new(handl_plugin_lib_char_native::CharModule))
+        .with_dependency_arc(Arc::new(handl_runtime::vm_primitives::SymModule::new()))
         .with_eval_engine("tree-walk")
 }
 

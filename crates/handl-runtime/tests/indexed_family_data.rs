@@ -1,7 +1,9 @@
-//! End-to-end test for ADR-0082 step 5: value-indexed inductive families.
+//! End-to-end test for ADR-0082 step 5 / ADR-0152: value-indexed inductive
+//! families.
 //!
 //! Parses `Nat` and `Vec` from surface syntax and evaluates the generated
-//! predicate, constructors, and recursor. The recursor is invoked by manually
+//! former (family membership via `instanceof` on the ctor `type` link),
+//! constructors, and recursor. The recursor is invoked by manually
 //! constructing the `Vec.rec(...)(...)` call node, because the surface syntax
 //! `Vec.rec` is not a plain identifier.
 //!
@@ -108,7 +110,7 @@ fn push_array(out: &mut Ast, elems: Vec<usize>) -> usize {
 }
 
 #[test]
-fn vec_indexed_family_predicate_and_recursor() {
+fn vec_indexed_family_membership_and_recursor() {
     // `Runtime::parse` runs the `desugar` pass, whose `handl:desugar.*`
     // overlay (ADR-0094) evaluates the `.hnl` desugar module under the
     // tree-walk engine — a metacircular program whose nested arrow
@@ -119,13 +121,13 @@ fn vec_indexed_family_predicate_and_recursor() {
     // budget.
     std::thread::Builder::new()
         .stack_size(64 * 1024 * 1024)
-        .spawn(vec_indexed_family_predicate_and_recursor_impl)
+        .spawn(vec_indexed_family_membership_and_recursor_impl)
         .expect("spawn eval thread")
         .join()
         .expect("eval thread panicked");
 }
 
-fn vec_indexed_family_predicate_and_recursor_impl() {
+fn vec_indexed_family_membership_and_recursor_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
     let nat_src = "data Nat :: Zero | Succ(Nat)";
@@ -147,13 +149,23 @@ fn vec_indexed_family_predicate_and_recursor_impl() {
         &mut combined,
         &parse(&kit, "v1 :: VCons(42, v0)"),
     ));
+    // ADR-0152: `Vec(i⃗)` is the canonical `{"__former__", "indices"}`
+    // family application, not a predicate arrow — membership is read off
+    // the ctor value's `type` link via `instanceof`.
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r0 :: Vec(0, a, v0)"),
+        &parse(&kit, "r0 :: sym.instanceof(v0, Vec(0, a))"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r1 :: Vec(1, a, v1)"),
+        &parse(&kit, "r1 :: sym.instanceof(v1, Vec(1, a))"),
+    ));
+    // The `type` link carries the ctor's declared result indices:
+    // `VNil : Vec(0, a)` mints indices `[0, null]` — `0` computes at
+    // runtime, the implicit `a` stays `null` (type-level only).
+    children.extend(append_parsed(
+        &mut combined,
+        &parse(&kit, "r2 :: v0.type.indices[0]"),
     ));
 
     // Manually call the generated recursor: Vec.rec(null, 0, step)(n, a, v).
@@ -183,12 +195,16 @@ fn vec_indexed_family_predicate_and_recursor_impl() {
     let len1 = push_assign(&mut combined, "len1", len1_call);
     children.push(len1);
 
-    // result = [r0, r1, len0, len1]
+    // result = [r0, r1, r2, len0, len1]
     let r0_var = push_var(&mut combined, "r0");
     let r1_var = push_var(&mut combined, "r1");
+    let r2_var = push_var(&mut combined, "r2");
     let len0_var = push_var(&mut combined, "len0");
     let len1_var = push_var(&mut combined, "len1");
-    let result = push_array(&mut combined, vec![r0_var, r1_var, len0_var, len1_var]);
+    let result = push_array(
+        &mut combined,
+        vec![r0_var, r1_var, r2_var, len0_var, len1_var],
+    );
     children.push(result);
 
     combined.push(AstNode::new("block").with_payload(json!({ "children": children })));
@@ -196,13 +212,22 @@ fn vec_indexed_family_predicate_and_recursor_impl() {
     let val = kit.runtime().eval(&combined).expect("eval must succeed");
 
     let arr = val.as_array().expect("result must be an array");
-    assert_eq!(arr.len(), 4);
-    assert_eq!(arr[0], json!(true), "Vec(0, a)(VNil) must be true");
+    assert_eq!(arr.len(), 5);
+    assert_eq!(
+        arr[0],
+        json!(true),
+        "VNil must be a member of the Vec family"
+    );
     assert_eq!(
         arr[1],
         json!(true),
-        "Vec(1, a)(VCons(42, VNil)) must be true"
+        "VCons(42, VNil) must be a member of the Vec family"
     );
-    assert_eq!(arr[2], json!(0), "length of Vec(0, ...) must be 0");
-    assert_eq!(arr[3], json!(1), "length of Vec(1, ...) must be 1");
+    assert_eq!(
+        arr[2].as_f64(),
+        Some(0.0),
+        "VNil's declared `Vec(0, a)` index must compute at runtime"
+    );
+    assert_eq!(arr[3], json!(0), "length of Vec(0, ...) must be 0");
+    assert_eq!(arr[4], json!(1), "length of Vec(1, ...) must be 1");
 }

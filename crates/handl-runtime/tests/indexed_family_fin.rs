@@ -1,7 +1,8 @@
 //! End-to-end test for ADR-0082 step 5.3: `Fin` value-indexed family.
 //!
 //! Parses `Nat` and `Fin` from surface syntax and checks the generated
-//! predicate, constructors, recursor, and surface `match` desugaring.
+//! former (family membership via `instanceof` on the ctor `type` link,
+//! ADR-0152), constructors, recursor, and surface `match` desugaring.
 
 use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, AstRef};
@@ -125,7 +126,7 @@ fn flatten_top_level_blocks(ast: &mut Ast) {
 }
 
 #[test]
-fn fin_indexed_family_predicate_and_match() {
+fn fin_indexed_family_membership_and_match() {
     // The `desugar` pass's `handl:desugar.*` overlay (ADR-0094) evaluates
     // the `.hnl` desugar module under the tree-walk engine — a
     // metacircular program whose nested arrow applications legitimately
@@ -134,13 +135,13 @@ fn fin_indexed_family_predicate_and_match() {
     // is about desugar/eval semantics, not the recursion budget.
     std::thread::Builder::new()
         .stack_size(64 * 1024 * 1024)
-        .spawn(fin_indexed_family_predicate_and_match_impl)
+        .spawn(fin_indexed_family_membership_and_match_impl)
         .expect("spawn eval thread")
         .join()
         .expect("eval thread panicked");
 }
 
-fn fin_indexed_family_predicate_and_match_impl() {
+fn fin_indexed_family_membership_and_match_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
     let nat_src = "data Nat :: Zero | Succ(Nat)";
@@ -163,18 +164,23 @@ fn fin_indexed_family_predicate_and_match_impl() {
         &parse_raw(&kit, "f0_in_Fin0_bad :: FS(FZ)"),
     ));
 
-    // Predicate membership checks: Fin(n, value).
+    // ADR-0152: `Fin(i)` is the canonical `{"__former__", "indices"}`
+    // family application, not a predicate arrow — membership is read off
+    // the ctor value's `type` link via `instanceof`. `instanceof` reads
+    // the *former head* only: index equality is a type-level fact the
+    // checker owns (the runtime `indices` lower to `null` where no
+    // extractor exists), so `FS(FZ)` is a `Fin` member at runtime.
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p0 :: Fin(0, f0)"),
+        &parse_raw(&kit, "p0 :: sym.instanceof(f0, Fin(0))"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p1 :: Fin(1, f1)"),
+        &parse_raw(&kit, "p1 :: sym.instanceof(f1, Fin(1))"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p_bad :: Fin(0, f0_in_Fin0_bad)"),
+        &parse_raw(&kit, "p_bad :: sym.instanceof(f0_in_Fin0_bad, Fin(0))"),
     ));
 
     // Surface `match` without a motive.
@@ -225,9 +231,13 @@ fn fin_indexed_family_predicate_and_match_impl() {
 
     let arr = val.as_array().expect("result must be an array");
     assert_eq!(arr.len(), 6);
-    assert_eq!(arr[0], json!(true), "Fin(0, f0) must be true");
-    assert_eq!(arr[1], json!(true), "Fin(1, f1) must be true");
-    assert_eq!(arr[2], json!(false), "Fin(0, FS(FZ)) must be false");
+    assert_eq!(arr[0], json!(true), "FZ must be a Fin member");
+    assert_eq!(arr[1], json!(true), "FS(FZ) must be a Fin member");
+    assert_eq!(
+        arr[2],
+        json!(true),
+        "FS(FZ) is a Fin member (former-head read; the index is type-level)"
+    );
     assert_eq!(arr[3], json!(0), "match on f0 in Fin(0) must be 0");
     assert_eq!(arr[4], json!(1), "match on f1 in Fin(1) must be 1");
     assert_eq!(

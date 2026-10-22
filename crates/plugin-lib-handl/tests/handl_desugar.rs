@@ -41,6 +41,7 @@ fn parse_raw(src: &str) -> Ast {
 fn desugar_hnl_module() -> HandlModule {
     HandlModule::new("desugar", DESUGAR_HNL, &["data", "match_recursor"])
         .with_dependency_arc(Arc::new(CharModule))
+        .with_dependency_arc(Arc::new(handl_runtime::vm_primitives::SymModule::new()))
         .with_eval_engine("tree-walk")
 }
 
