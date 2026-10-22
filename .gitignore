@@ -46,10 +46,10 @@ node_modules
 # Local project plans/notes
 #/project/
 
-# sdkgen spec inputs fetched via `hnl sdkgen --from-url` (upstream artifacts)
-/handl-packages/generated/*.webidl
-/handl-packages/generated/*.idl
-/handl-packages/generated/.mdn-cache.json
+# generated/ dirs are build artifacts — sdkgen output (ports, adapters,
+# fetched `--from-url` spec inputs, the .mdn-cache.json doc cache) is
+# regenerated from committed specs/configs by each package repo's gate.
+generated/
 
 # python test fixtures imported by a test run
 __pycache__/
