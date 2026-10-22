@@ -107,6 +107,16 @@ option (`flag`|`string`|`int`|`strings`) · `rest:<name>` variadic tail ·
 `meta:<hint>` emitter hints (e.g. `meta:json-capable`), ignored when
 rebuilding argv.
 
+`meta:json-capable` is rendered on the adapter binding as a doc comment
+pointing at the free-function composition —
+`parse(tag.untag(r).value.stdout)` with `parse` from lib-json
+(`from "json" import { parse }`) — never a helper. The rejected shape
+was a method adapter (`x.json()`): not composable, not treeshakeable,
+and it would hide the
+pure `~>` boundary. Same story for line-oriented output: `lines` from
+`str-handl`. `Output.stdout` is already a `String`, so nothing needs a
+`text()`-style accessor.
+
 Descriptors that consume no Handl arg (`out_buf:*`, `out_ptr:*`,
 `io_buf:*`, `out_struct:*`, `io_struct:*`, `void`) expand to
 callee-allocated slots; `port_args` lists only the consuming ones.
