@@ -2057,6 +2057,7 @@ dependencies = [
  "hnl-engine",
  "hnl-engine-exec",
  "hnl-engine-typecheck",
+ "rustc-hash 2.1.3",
  "serde_json",
 ]
 
@@ -3320,15 +3321,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[patch.unused]]
-name = "handl-kit-pkg"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-ext"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "handl-lib-dedent"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-kit-pkg"
 version = "0.1.0"
 
 [[patch.unused]]
@@ -3374,6 +3371,10 @@ version = "0.0.0"
 [[patch.unused]]
 name = "sepia-testkit"
 version = "0.0.0"
+
+[[patch.unused]]
+name = "handl-ext"
+version = "0.1.0"
 
 [[patch.unused]]
 name = "handl-plugin-applier-bootstrap"

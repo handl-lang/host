@@ -797,7 +797,37 @@ impl Runtime {
         engine.lex(&self.lang, &req)
     }
 
-    /// Parse a token stream into an [`Ast`] using the bound parse engine.
+    /// Parse a token stream into an [`Ast`] using the bound parse engine,
+    /// **without** running the desugar pass.
+    ///
+    /// This is the *source-level* AST: surface forms (`data`, `match`,
+    /// `while`, `for`, `nullish`, `opt-chain`, `type-annot` annotation
+    /// positions, `dim_arrow`/`axis_flow` sugar) remain as parsed. The
+    /// typecheck pipeline consumes this form — the NBE checker's type
+    /// rules and judgments (`synth_data`, `synth_match_arms`,
+    /// `synth_assign`, `synth_dim_arrow`, …) are written against source
+    /// shapes, and the desugared output mints internal nodes (`lit`
+    /// `__sym__` payloads, `__former__`/`__ctor__` objects, recursor
+    /// folds) that have no typing rules by design.
+    ///
+    /// Use [`parse`](Self::parse) for the exec pipeline (eval/compile):
+    /// the evaluator only understands the desugared core forms.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::NotImplemented`] if no parse engine is bound, or
+    /// propagates the engine's error.
+    pub fn parse_raw(&self, toks: &Tokens) -> Result<Ast, LangError> {
+        let engine = self
+            .parse_engine
+            .as_ref()
+            .ok_or(LangError::NotImplemented)?;
+        let req = ParserRequest::new(toks.clone());
+        engine.parse_dyn(&self.lang, &req)
+    }
+
+    /// Parse a token stream into an [`Ast`] using the bound parse engine,
+    /// then run the `"desugar"` transform pass.
     ///
     /// # Errors
     ///
@@ -806,21 +836,20 @@ impl Runtime {
     ///
     /// # Desugar pipeline (ADR-0082, Option A)
     ///
-    /// The desugar pass runs **at parse time** (here in `Runtime::parse`),
-    /// before both typecheck and eval. The typechecker and evaluator always
-    /// see the desugared AST — they never observe raw `data`/`while`/`for`/
-    /// `nullish`/`opt-chain` nodes. This is Option A from the Phase 1 task
-    /// spec: desugar at parse time is the current and preferred behavior.
-    /// `data` declarations (ADR-0082) are rewritten into `block` definitions
-    /// (predicate + constructors + recursor) by `desugar_data` before any
-    /// downstream tool sees them.
+    /// The desugar pass runs **at parse time** for the *exec* pipeline:
+    /// `Runtime::parse` (this method) is `parse_raw` +
+    /// [`desugar_pass::apply_desugar`], so `eval`/`run` never observe raw
+    /// `data`/`while`/`for`/`nullish`/`opt-chain` nodes. `data`
+    /// declarations (ADR-0082) are rewritten into `block` definitions
+    /// (predicate + constructors + recursor) by `desugar_data`.
+    ///
+    /// The *typecheck* pipeline is the exception: `run_checked` and
+    /// `Kit::typecheck*` feed the checker the **raw** AST from
+    /// [`parse_raw`](Self::parse_raw) — the type model is authored
+    /// against source-level shapes, then the same raw AST is desugared
+    /// for eval (see [`run_checked`](Self::run_checked)).
     pub fn parse(&self, toks: &Tokens) -> Result<Ast, LangError> {
-        let engine = self
-            .parse_engine
-            .as_ref()
-            .ok_or(LangError::NotImplemented)?;
-        let req = ParserRequest::new(toks.clone());
-        let ast = engine.parse_dyn(&self.lang, &req)?;
+        let ast = self.parse_raw(toks)?;
         // ADR-0094 §6: run the "desugar" transform pass between parse and
         // eval; a failed transform propagates (no silent fallthrough).
         desugar_pass::apply_desugar(&self.lang, &ast)
@@ -1010,10 +1039,18 @@ impl Runtime {
         self.eval(&ast)
     }
 
-    /// `lex → parse → typecheck → eval` (ADR-0054, Phase 10.1).
+    /// `lex → parse → typecheck → desugar → eval` (ADR-0054, Phase 10.1).
     ///
     /// Like [`Runtime::run`], but inserts a typecheck stage between parse and
-    /// eval. If the typecheck engine reports any `Severity::Error` diagnostics
+    /// eval. The checker consumes the **raw** (source-level) AST — the type
+    /// model is authored against surface shapes (`data`, `match`,
+    /// `type-annot`, `dim_arrow`), while the desugared output mints
+    /// rule-less internal nodes (`lit` `__sym__` payloads, `__former__`
+    /// objects). After checking, the *same* raw AST runs the
+    /// runtime-assert and proof-erasure rewrites (their `node_types`
+    /// indices refer to the checked arena), then desugars for eval.
+    ///
+    /// If the typecheck engine reports any `Severity::Error` diagnostics
     /// (or returns `Err`), eval is short-circuited and the error is returned
     /// immediately — surfacing type errors as compile-time diagnostics rather
     /// than runtime crashes or silent wrong results. Warnings and info-level
@@ -1029,7 +1066,7 @@ impl Runtime {
     /// [`LangError::Engine`] carrying the first error diagnostic's message.
     pub fn run_checked(&self, src: &Source) -> Result<Value, LangError> {
         let toks = self.lex(src)?;
-        let mut ast = self.parse(&toks)?;
+        let mut ast = self.parse_raw(&toks)?;
         // If a typecheck engine is bound, run it before eval. Fatal type
         // errors are reported via `Err` (per `TypecheckDiagnostic` docs); we
         // also scan the diagnostics vec for any `Severity::Error` entries as a
@@ -1042,6 +1079,7 @@ impl Runtime {
                     // The bound typecheck engine cannot handle this source yet
                     // (e.g. the maturing Handl model). Degrade to plain eval
                     // rather than surfacing NotImplemented to the caller.
+                    let ast = desugar_pass::apply_desugar(&self.lang, &ast)?;
                     return self.eval(&ast);
                 }
                 Err(e) => return Err(e),
@@ -1070,6 +1108,7 @@ impl Runtime {
             // a singleton proof constructor with `erased` before eval.
             erase_pass::apply_erase(&self.lang, &mut ast, &result.node_types);
         }
+        let ast = desugar_pass::apply_desugar(&self.lang, &ast)?;
         self.eval(&ast)
     }
 
