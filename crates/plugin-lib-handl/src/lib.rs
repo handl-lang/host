@@ -1646,6 +1646,11 @@ pub fn escape_handl_string(s: &str) -> String {
 /// can independently build and cache a `Runtime` for the module.
 static NEXT_MODULE_ID: AtomicUsize = AtomicUsize::new(0);
 
+/// Counter backing [`ModuleEnv::env_id`] (ADR-0154) — the identity sharing
+/// layers above `HandlModule` (kit caches, stdlib `module_ref`, loaders) key
+/// their env-aware entries by. Mirrors [`NEXT_MODULE_ID`].
+static NEXT_ENV_ID: AtomicUsize = AtomicUsize::new(0);
+
 /// A shared, thread-safe runtime builder closure.
 ///
 /// The builder captures the module's dependency configuration (which is
@@ -1773,6 +1778,12 @@ thread_local! {
 /// Allocate a unique module ID (called at [`HandlModule`] construction time).
 fn allocate_module_id() -> usize {
     NEXT_MODULE_ID.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Allocate a unique env ID for a [`ModuleEnv`] (ADR-0154) — mirrors
+/// [`allocate_module_id`].
+fn allocate_env_id() -> usize {
+    NEXT_ENV_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 /// Build a minimal runtime for evaluating `.hnl` sources, optionally with
@@ -2058,7 +2069,25 @@ impl Function for HandlFunction {
 /// [`ImportResolver`] for `import`/`from` statements. Lifting it into a
 /// value lets one prepared source run under several dep bindings — see
 /// [`HandlModule::instantiate`].
-#[derive(Clone, Default)]
+///
+/// # Identity (ADR-0154 follow-up)
+///
+/// An env carries an [`env_id`](ModuleEnv::env_id) allocated from the same
+/// kind of global counter as [`HandlModule::module_id`]. The name-keyed
+/// singleton caches above `HandlModule` (kit caches, stdlib `module_ref`,
+/// loaders) historically collapsed one name to one env; env-aware variants
+/// key by `(name, env_id)`, and the id is what makes that keying sound:
+///
+/// - `new`/`default` mint a fresh id — two independently created envs are
+///   distinct even with identical contents;
+/// - [`clone`](Clone) *preserves* the id — clones are the same env, so
+///   env-keyed caches share one entry across them;
+/// - [`fork`](Self::fork) keeps the contents but mints a fresh id — the
+///   "same deps, deliberately separate cache" case;
+/// - the `with_*` builders re-mint, mirroring how
+///   [`HandlModule::with_dependency`] re-allocates its `module_id` so
+///   stale cache entries are abandoned when the dependency set changes.
+#[derive(Clone)]
 pub struct ModuleEnv {
     /// Dependency modules registered in the bridge runtime.
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
@@ -2068,43 +2097,94 @@ pub struct ModuleEnv {
     /// Optional explicit [`ImportResolver`]; `None` lets `build_runtime`
     /// derive a [`DependencyImportResolver`] from `dependencies`.
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
+    /// Identity of this env value (see the section docs): allocated once
+    /// per env lineage, preserved by `clone`, re-minted by `fork` and by
+    /// the `with_*` builders. Env-aware caches key on it.
+    env_id: usize,
+}
+
+impl Default for ModuleEnv {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ModuleEnv {
     /// Create an empty environment — no dependencies, no global lookup,
-    /// no explicit import resolver.
+    /// no explicit import resolver — with a fresh env id.
     ///
     /// Equivalent to [`ModuleEnv::default`]; `instantiate`d under an empty
     /// env a module still evaluates, but `mod.fn` calls and `import`s fail
     /// to resolve unless the source's names are reachable some other way.
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            dependencies: Vec::new(),
+            global_lookup: None,
+            import_resolver: None,
+            env_id: allocate_env_id(),
+        }
+    }
+
+    /// This env's identity (ADR-0154): stable across `clone`, fresh for
+    /// `new`/`default`/`fork` and for every `with_*` reconfiguration.
+    ///
+    /// Sharing layers above `HandlModule` use it to key env-aware cache
+    /// entries: `(module name, env_id)` names the module built under this
+    /// env, so one name can mean several envs.
+    pub fn env_id(&self) -> usize {
+        self.env_id
+    }
+
+    /// Same contents, fresh identity: the "same deps, deliberately separate
+    /// cache" case (ADR-0154).
+    ///
+    /// `fork` resolves exactly like `self`, but env-aware caches treat the
+    /// fork as a distinct env — unlike [`clone`](Clone), which shares the
+    /// id and therefore the env-keyed entries.
+    pub fn fork(&self) -> Self {
+        Self {
+            env_id: allocate_env_id(),
+            ..self.clone()
+        }
     }
 
     /// Add a dependency module to the environment — the env-side
     /// equivalent of [`HandlModule::with_dependency`].
+    ///
+    /// Re-mints the env id: the contents changed, so env-keyed caches must
+    /// not keep serving entries built for the previous configuration.
     pub fn with_dependency(mut self, module: impl Module + Send + Sync + 'static) -> Self {
         self.dependencies.push(Arc::new(module));
+        self.env_id = allocate_env_id();
         self
     }
 
     /// Add a dependency module (already `Arc`ed) to the environment.
+    ///
+    /// Re-mints the env id (see [`with_dependency`](Self::with_dependency)).
     pub fn with_dependency_arc(mut self, module: Arc<dyn Module + Send + Sync>) -> Self {
         self.dependencies.push(module);
+        self.env_id = allocate_env_id();
         self
     }
 
     /// Attach a global [`ModuleLookup`] layered under the dependency
     /// registry — see [`HandlModule::with_global_lookup`].
+    ///
+    /// Re-mints the env id (see [`with_dependency`](Self::with_dependency)).
     pub fn with_global_lookup(mut self, lookup: Arc<dyn ModuleLookup + Send + Sync>) -> Self {
         self.global_lookup = Some(lookup);
+        self.env_id = allocate_env_id();
         self
     }
 
     /// Attach the [`ImportResolver`] for `import`/`from` statements —
     /// see [`HandlModule::with_import_resolver`].
+    ///
+    /// Re-mints the env id (see [`with_dependency`](Self::with_dependency)).
     pub fn with_import_resolver(mut self, resolver: Arc<dyn ImportResolver + Send + Sync>) -> Self {
         self.import_resolver = Some(resolver);
+        self.env_id = allocate_env_id();
         self
     }
 }
@@ -2431,11 +2511,19 @@ impl HandlModule {
     /// produces a sibling identical to `self` except for a fresh
     /// `module_id`, and `m.instantiate(m.env().with_dependency(extra))`
     /// layers a dep onto the existing binding.
+    ///
+    /// Each call mints a fresh [`ModuleEnv::env_id`]: the snapshot is a new
+    /// env value (the module does not hold a `ModuleEnv` itself), so
+    /// env-keyed caches treat snapshots as separate envs — [`fork`] them
+    /// or share via `clone` if a stable identity is wanted.
+    ///
+    /// [`fork`]: ModuleEnv::fork
     pub fn env(&self) -> ModuleEnv {
         ModuleEnv {
             dependencies: self.dependencies.clone(),
             global_lookup: self.global_lookup.clone(),
             import_resolver: self.import_resolver.clone(),
+            env_id: allocate_env_id(),
         }
     }
 

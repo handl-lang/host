@@ -136,3 +136,56 @@ fn instantiate_shares_module_surface() {
     let names: Vec<&str> = a.functions().iter().map(|(n, _)| *n).collect();
     assert_eq!(names, vec!["ask"]);
 }
+
+/// Env identity (ADR-0154 follow-up): `env_id` is what env-aware caches
+/// above `HandlModule` key on, so one module name can mean several envs.
+/// Fresh for `new`/`default`, preserved by `clone`, re-minted by `fork`
+/// and by every `with_*` reconfiguration.
+#[test]
+fn env_id_is_identity_not_content() {
+    let a = ModuleEnv::new();
+    let b = ModuleEnv::new();
+    // Independently created envs are distinct even with identical
+    // contents — and `default` allocates fresh too (no shared id-0
+    // bucket the env-keyed caches could collapse into).
+    assert_ne!(a.env_id(), b.env_id());
+    assert_ne!(ModuleEnv::default().env_id(), a.env_id());
+    assert_ne!(ModuleEnv::default().env_id(), b.env_id());
+    // Clone preserves identity: clones are the same env, so env-keyed
+    // caches share one entry across them.
+    assert_eq!(a.clone().env_id(), a.env_id());
+    // Fork: same deps, deliberately separate identity.
+    assert_ne!(a.fork().env_id(), a.env_id());
+    // Reconfiguring re-mints: the contents changed, so caches keyed by
+    // the old id must not serve entries for the new configuration.
+    assert_ne!(
+        a.clone().with_dependency(StubDep::new("x")).env_id(),
+        a.env_id()
+    );
+    assert_ne!(
+        a.clone()
+            .with_dependency_arc(std::sync::Arc::new(StubDep::new("x")))
+            .env_id(),
+        a.env_id()
+    );
+}
+
+/// `fork()` keeps the deps but splits the identity: instantiating under a
+/// fork yields the same answers through a distinct env id.
+#[test]
+fn fork_reuses_deps_with_fresh_identity() {
+    ensure_lang();
+    let module = HandlModule::new("m", SRC, &["ask"]);
+    let env = ModuleEnv::new().with_dependency(StubDep::new("alpha"));
+
+    let a = module.instantiate(env.clone());
+    let f = module.instantiate(env.fork());
+
+    // Same dep binding → same answers; fresh module per instance.
+    assert_eq!(call_ask(&a, "x"), serde_json::json!("alpha:x"));
+    assert_eq!(call_ask(&f, "x"), serde_json::json!("alpha:x"));
+    assert_ne!(a.module_id(), f.module_id());
+    // The fork is a distinct env from the original, a clone is not.
+    assert_ne!(env.fork().env_id(), env.env_id());
+    assert_eq!(env.clone().env_id(), env.env_id());
+}
