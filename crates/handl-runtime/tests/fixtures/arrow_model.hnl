@@ -38,6 +38,14 @@ do {
   tget :: [obj, key] ~> hash_map.get(obj, key, null)
 
   is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  --- tag_mint: mint a `__tag__` record — the post-deletion replacement
+  --- for the deleted `tag.tag` producer (ADR-0152 §Migration). Mirrors
+  --- `tag_value` semantics: object payloads merge; non-object payloads
+  --- wrap under `value`; `null` mints an empty payload.
+  tag_mint :: [tag_name, payload] ~> hash_map.set(
+    if is_obj(payload) { payload }
+    else { if payload == null { {} } else { hash_map.set({}, "value", payload) } },
+    "__tag__", tag_name)
 
   is_pair :: v ~> if is_obj(v) {
     if hash_map.get_or(v, "__pair__", null) != null { true } else { false }
@@ -60,7 +68,7 @@ do {
   either_left :: v ~> hash_map.set(hash_map.set({}, "__either__", "left"), "value", v)
   either_right :: v ~> hash_map.set(hash_map.set({}, "__either__", "right"), "value", v)
 
-  arrow_compose :: [a, b] ~> tag.tag("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
+  arrow_compose :: [a, b] ~> tag_mint("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
 
   eval_args :: [self, args, incoming, ctx] ~> while { result: [], remaining: args } {
     [state] ~> if array.is_empty(state.remaining) {
@@ -123,7 +131,7 @@ do {
     a :: array.first(operands)
     b :: array.at(operands, 1)
     payload :: tag.untag(a)
-    tag.tag("Number", hash_map.set(payload, "value", a.value + b.value))
+    tag_mint("Number", hash_map.set(payload, "value", a.value + b.value))
   }
 
   run_ :: [self, term, incoming, ctx] ~> match tget(term, "__tag__") {
@@ -141,11 +149,11 @@ do {
         self(self, tget(term, "r"), either_value(incoming), ctx)
       }
     } else {
-      tag.tag("LangError", hash_map.set({}, "message", "Choice: incoming is not an Either"))
+      tag_mint("LangError", hash_map.set({}, "message", "Choice: incoming is not an Either"))
     },
     "Loop": while { state: incoming, count: 0 } {
       [state, count] ~> if count > 100000 {
-        { out: tag.tag("LangError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
+        { out: tag_mint("LangError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
       } else {
         do {
           body_val :: self(self, tget(term, "body"), state, ctx)
@@ -159,7 +167,7 @@ do {
                 { state: { state: either_value(body_val), count: count + 1 } }
               }
             } else {
-              { out: tag.tag("LangError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
+              { out: tag_mint("LangError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
             }
           }
         }
@@ -173,7 +181,7 @@ do {
         [a]: callee_val(a),
         [a, b]: callee_val(a, b),
         [a, b, c]: callee_val(a, b, c),
-        _: tag.tag("LangError", hash_map.set({}, "message", "App: too many arguments"))
+        _: tag_mint("LangError", hash_map.set({}, "message", "App: too many arguments"))
       }
     },
     "Iter": do {
@@ -195,7 +203,7 @@ do {
         }
       }
     },
-    "Child": tag.tag("LangError", hash_map.set({}, "message", "Child: no AST context in Handl model")),
+    "Child": tag_mint("LangError", hash_map.set({}, "message", "Child: no AST context in Handl model")),
     "Handle": do {
       handler_val :: self(self, tget(term, "impl_"), incoming, ctx)
       new_stack :: array.concat(hash_map.get_or(ctx, "handler_stack", []), [handler_val])
@@ -211,7 +219,7 @@ do {
       } else {
         self(self, tget(term, "witness"), incoming, ctx)
       }
-      tag.tag("Path", hash_map.set(hash_map.set(hash_map.set({}, "from", a_val), "to", b_val), "witness", w_val))
+      tag_mint("Path", hash_map.set(hash_map.set(hash_map.set({}, "from", a_val), "to", b_val), "witness", w_val))
     },
     "Equiv": do {
       a_val :: self(self, tget(term, "a"), incoming, ctx)
@@ -243,7 +251,7 @@ do {
     },
     "CellId": do {
       arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
-      tag.tag("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", arrow_val), "__tgt__", arrow_val), "value", arrow_val))
+      tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", arrow_val), "__tgt__", arrow_val), "value", arrow_val))
     },
     "CellCompV": do {
       first_val :: self(self, tget(term, "first"), incoming, ctx)
@@ -251,7 +259,7 @@ do {
       src :: if is_obj(first_val) { hash_map.get_or(first_val, "__src__", first_val) } else { first_val }
       tgt :: if is_obj(second_val) { hash_map.get_or(second_val, "__tgt__", second_val) } else { second_val }
       value :: if is_obj(second_val) { hash_map.get_or(second_val, "value", second_val) } else { second_val }
-      tag.tag("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", src), "__tgt__", tgt), "value", value))
+      tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", src), "__tgt__", tgt), "value", value))
     },
     "Whisker": do {
       arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
@@ -269,13 +277,13 @@ do {
       } else {
         arrow_compose(arrow_val, tgt)
       }
-      tag.tag("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", new_src), "__tgt__", new_tgt), "value", value))
+      tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", new_src), "__tgt__", new_tgt), "value", value))
     },
     "Univalence": do {
       equiv_val :: self(self, tget(term, "equiv"), incoming, ctx)
       if is_obj(equiv_val) {
         if hash_map.get_or(equiv_val, "__tag__", "") == "Equiv" {
-          tag.tag("Path", hash_map.set(
+          tag_mint("Path", hash_map.set(
             hash_map.set(
               hash_map.set({}, "a", hash_map.get_or(equiv_val, "a", null)),
               "b",
@@ -329,11 +337,11 @@ do {
       base :: if is_obj(record_val) { record_val } else { {} }
       hash_map.set(base, tget(term, "field"), value_val)
     },
-    "Tag": tag.tag(tget(term, "tag"), self(self, tget(term, "value"), incoming, ctx)),
+    "Tag": tag_mint(tget(term, "tag"), self(self, tget(term, "value"), incoming, ctx)),
     "Refine": if self(self, tget(term, "predicate"), incoming, ctx) {
       incoming
     } else {
-      tag.tag("LangError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
+      tag_mint("LangError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
     },
     "Cobind": self(self, tget(term, "body"), incoming, ctx),
     "Op": do {
@@ -381,12 +389,12 @@ do {
             } else {
               if typeof.type_of(arg0) == "arr" { array.at(arg0, arg1) } else { null }
             },
-            _: tag.tag("LangError", hash_map.set({}, "message", "Op " + op_name + " not implemented"))
+            _: tag_mint("LangError", hash_map.set({}, "message", "Op " + op_name + " not implemented"))
           }
         }
       }
     },
-    _: tag.tag("LangError", hash_map.set({}, "message", "unimplemented term tag: " + tget(term, "__tag__")))
+    _: tag_mint("LangError", hash_map.set({}, "message", "unimplemented term tag: " + tget(term, "__tag__")))
   }
 
   { run: [term, incoming, ctx] ~> run_(run_, term, incoming, ctx) }

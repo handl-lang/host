@@ -870,7 +870,7 @@ mod bootstrap {
         let mut out = String::from("do {\n");
         for (name, _payload_type) in &tags {
             out.push_str(&format!(
-                "  {name} :: _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
+                "  {name} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{name}\")\n"
             ));
         }
         for line in remaining.lines() {

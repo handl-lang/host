@@ -83,6 +83,14 @@ do {
 
   --- is_obj: true iff `v` is a runtime object (hash map) value.
   is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  --- tag_mint: mint a `__tag__` record — the post-deletion replacement
+  --- for the deleted `tag.tag` producer (ADR-0152 §Migration). Mirrors
+  --- `tag_value` semantics: object payloads merge; non-object payloads
+  --- wrap under `value`; `null` mints an empty payload.
+  tag_mint :: [tag_name, payload] ~> hash_map.set(
+    if is_obj(payload) { payload }
+    else { if payload == null { {} } else { hash_map.set({}, "value", payload) } },
+    "__tag__", tag_name)
 
   --- is_pair: true iff `v` is a serialized pair (`__pair__` marker).
   is_pair :: v ~> if is_obj(v) {
@@ -110,7 +118,7 @@ do {
 
   --- arrow_compose: build a tagged `Arrow` cell from two sub-arrows.
   --- Used by 2-cell whiskering to compose faces.
-  arrow_compose :: [a, b] ~> tag.tag("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
+  arrow_compose :: [a, b] ~> tag_mint("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
 
   --- eval_args: evaluate a list of argument sub-terms against `incoming`
   --- and `ctx`, collecting the results. A `while` fold over the remaining
@@ -181,22 +189,22 @@ do {
   compose_type :: [a, b] ~> if typeof.type_of(b) == "fn" {
     b(a)
   } else {
-    tag.tag("Compose", hash_map.set(hash_map.set({}, "fst", a), "snd", b))
+    tag_mint("Compose", hash_map.set(hash_map.set({}, "fst", a), "snd", b))
   }
 
   --- sum_type: sum type construction (tagged union). The type of a
   --- `Choice` is the coproduct of the two branch types: `l + r`.
-  sum_type :: [l, r] ~> tag.tag("Sum", hash_map.set(hash_map.set({}, "left", l), "right", r))
+  sum_type :: [l, r] ~> tag_mint("Sum", hash_map.set(hash_map.set({}, "left", l), "right", r))
 
   --- identity_type: the identity type `Id_A(a, b)`. In HoTT, `Path a b` is
   --- the identity type family; the type model constructs a `Path`-tagged
   --- type witnessing that `from` and `to` are equal points.
-  identity_type :: [frm, to] ~> tag.tag("Path", hash_map.set(hash_map.set({}, "from", frm), "to", to))
+  identity_type :: [frm, to] ~> tag_mint("Path", hash_map.set(hash_map.set({}, "from", frm), "to", to))
 
   --- equivalence_type: the equivalence type. An equivalence `a ≃ b` is a
   --- proposition (bijection + paths), so its type is `Bool` carrying the
   --- propositional witness `a == b`.
-  equivalence_type :: [a, b] ~> tag.tag("type.bool", hash_map.set({}, "value", a == b))
+  equivalence_type :: [a, b] ~> tag_mint("type.bool", hash_map.set({}, "value", a == b))
 
   --- refine_type: refinement type (subtype). A refinement is a proposition
   --- over a type: when the predicate holds, the incoming type is the
@@ -204,7 +212,7 @@ do {
   refine_type :: [predicate, incoming] ~> if predicate {
     incoming
   } else {
-    tag.tag("TypeError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
+    tag_mint("TypeError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
   }
 
   --- graded_type: graded type with coeffects. Attaches the `__coeffects__`
@@ -340,7 +348,7 @@ do {
   --- `body_closure`). Returns `{ok, metas, path}` — a Path witness on
   --- success.
   unify_fields :: [self, a, b, metas, keys] ~> if array.is_empty(keys) {
-    { ok: true, metas: metas, path: tag.tag("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
+    { ok: true, metas: metas, path: tag_mint("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
   } else {
     do {
       key :: array.first(keys)
@@ -373,7 +381,7 @@ do {
   --- (the path is deferred — there is no decidable structural equality
   --- in HoTT, only path equality).
   unify_ :: [self, a, b, metas] ~> if a == b {
-    { ok: true, metas: metas, path: tag.tag("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
+    { ok: true, metas: metas, path: tag_mint("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
   } else {
     if is_meta(a) {
       do {
@@ -381,7 +389,7 @@ do {
         if occurs_in(a_id, b) {
           { ok: false, metas: metas, path: null }
         } else {
-          { ok: true, metas: metas_solve(metas, a_id, b), path: tag.tag("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
+          { ok: true, metas: metas_solve(metas, a_id, b), path: tag_mint("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
         }
       }
     } else {
@@ -391,7 +399,7 @@ do {
           if occurs_in(b_id, a) {
             { ok: false, metas: metas, path: null }
           } else {
-            { ok: true, metas: metas_solve(metas, b_id, a), path: tag.tag("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
+            { ok: true, metas: metas_solve(metas, b_id, a), path: tag_mint("Path", hash_map.set(hash_map.set({}, "from", a), "to", b)) }
           }
         }
       } else {
@@ -421,7 +429,7 @@ do {
   --- the argument); otherwise it is a non-dependent function type. In
   --- HoTT, `Pi(x:A, B(x))` is the type of dependent functions (the
   --- dependent product).
-  construct_pi :: [domain, codomain] ~> tag.tag("type.pi", hash_map.set(hash_map.set({}, "param", domain), "body", codomain))
+  construct_pi :: [domain, codomain] ~> tag_mint("type.pi", hash_map.set(hash_map.set({}, "param", domain), "body", codomain))
 
   --- pi_apply: apply a Pi-type to an argument. If the codomain is a
   --- runtime function (dependent case), substitute the argument by
@@ -441,13 +449,13 @@ do {
   --- In HoTT, `Sigma(x:A, B(x))` is the type of dependent pairs (the
   --- dependent sum) — the first component has type `A`, and the second
   --- component has type `B(first)`.
-  construct_sigma :: [domain, codomain] ~> tag.tag("type.sigma", hash_map.set(hash_map.set({}, "param", domain), "body", codomain))
+  construct_sigma :: [domain, codomain] ~> tag_mint("type.sigma", hash_map.set(hash_map.set({}, "param", domain), "body", codomain))
 
   --- construct_forall: construct a forall type `Forall(x:K, B(x))`.
   --- Takes a kind `K` (the kind of the type parameter) and a codomain
   --- `B`. In HoTT, `Forall` is parametric polymorphism — the parameter
   --- is a type, not a value. This mirrors `Pi` but at the type level.
-  construct_forall :: [kind, codomain] ~> tag.tag("type.forall", hash_map.set(hash_map.set({}, "kind", kind), "body", codomain))
+  construct_forall :: [kind, codomain] ~> tag_mint("type.forall", hash_map.set(hash_map.set({}, "kind", kind), "body", codomain))
 
   --- forall_apply: instantiate a Forall type with a type argument.
   --- If the codomain is a runtime function, substitute by application;
@@ -466,7 +474,7 @@ do {
   --- Like Pi but the parameter is NOT evaluated before substitution
   --- (call-by-name). In HoTT, this is a non-evaluating dependent
   --- function type — the argument is passed unevaluated.
-  construct_vau :: [domain, codomain] ~> tag.tag("type.vau", hash_map.set(hash_map.set({}, "param", domain), "body", codomain))
+  construct_vau :: [domain, codomain] ~> tag_mint("type.vau", hash_map.set(hash_map.set({}, "param", domain), "body", codomain))
 
   --- vau_apply: apply a Vau-type to an argument. Mirrors `pi_apply` —
   --- if the codomain is a runtime function, substitute by application;
@@ -484,12 +492,12 @@ do {
   --- the identity type is the type of paths between `a` and `b`. It is
   --- inhabited (by `refl`) iff `a` and `b` are definitionally equal.
   --- This is the propositional equality, not the judgmental equality.
-  construct_eq :: [lhs, rhs] ~> tag.tag("type.eq", hash_map.set(hash_map.set({}, "left", lhs), "right", rhs))
+  construct_eq :: [lhs, rhs] ~> tag_mint("type.eq", hash_map.set(hash_map.set({}, "left", lhs), "right", rhs))
 
   --- construct_empty: construct the empty type (contradiction / False).
   --- In HoTT, the empty type is uninhabited — it has no constructors.
   --- It is used as the result when equality or membership fails.
-  construct_empty :: unit ~> tag.tag("type.empty", {})
+  construct_empty :: unit ~> tag_mint("type.empty", {})
 
   --- check_refl: check if `refl` is a valid proof of the identity type.
   --- Returns `type.refl` if `left == right` (reflexivity holds — the
@@ -499,9 +507,9 @@ do {
     lhs :: hash_map.get_or(eq_type, "left", null)
     rhs :: hash_map.get_or(eq_type, "right", null)
     if lhs == rhs {
-      tag.tag("type.refl", {})
+      tag_mint("type.refl", {})
     } else {
-      tag.tag("type.empty", {})
+      tag_mint("type.empty", {})
     }
   }
 
@@ -514,9 +522,9 @@ do {
     lhs :: hash_map.get_or(eq_type, "left", null)
     rhs :: hash_map.get_or(eq_type, "right", null)
     if lhs == rhs {
-      tag.tag("type.refl", {})
+      tag_mint("type.refl", {})
     } else {
-      tag.tag("type.empty", {})
+      tag_mint("type.empty", {})
     }
   }
 
@@ -524,7 +532,7 @@ do {
   --- universe `Type_n` is the type of all types at level < n. The
   --- cumulative hierarchy is `Type_0 ⊆ Type_1 ⊆ ...` (universe
   --- cumulativity, ADR-0054). The level is a natural number.
-  construct_universe :: [level] ~> tag.tag("type.universe", hash_map.set({}, "level", level))
+  construct_universe :: [level] ~> tag_mint("type.universe", hash_map.set({}, "level", level))
 
   --- universe_level: extract the universe level of a type value. For a
   --- `type.universe` value, returns its `level` field. For other type
@@ -546,7 +554,7 @@ do {
   --- `value ∈ collection`. In HoTT, this is the proposition that
   --- `value` is a member of the collection type. The collection is a
   --- tagged type value (e.g. `type.number`, `type.string`).
-  construct_membership :: [value, collection] ~> tag.tag("type.membership", hash_map.set(hash_map.set({}, "value", value), "collection", collection))
+  construct_membership :: [value, collection] ~> tag_mint("type.membership", hash_map.set(hash_map.set({}, "value", value), "collection", collection))
 
   --- is_marshalable: check if a type is FFI-marshalable (can cross the
   --- foreign function interface). Returns true for primitive FFI types
@@ -597,7 +605,7 @@ do {
     ),
     "Loop": while { state: incoming, count: 0 } {
       [state, count] ~> if count > 100000 {
-        { out: tag.tag("TypeError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
+        { out: tag_mint("TypeError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
       } else {
         do {
           body_val :: self(self, tget(term, "body"), state, ctx)
@@ -611,7 +619,7 @@ do {
                 { state: { state: either_value(body_val), count: count + 1 } }
               }
             } else {
-              { out: tag.tag("TypeError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
+              { out: tag_mint("TypeError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
             }
           }
         }
@@ -625,7 +633,7 @@ do {
         [a]: callee_val(a),
         [a, b]: callee_val(a, b),
         [a, b, c]: callee_val(a, b, c),
-        _: tag.tag("TypeError", hash_map.set({}, "message", "App: too many arguments"))
+        _: tag_mint("TypeError", hash_map.set({}, "message", "App: too many arguments"))
       }
     },
     "Iter": do {
@@ -647,7 +655,7 @@ do {
         }
       }
     },
-    "Child": tag.tag("TypeError", hash_map.set({}, "message", "Child: AST recursion is the exec model's job, not the type model's")),
+    "Child": tag_mint("TypeError", hash_map.set({}, "message", "Child: AST recursion is the exec model's job, not the type model's")),
     "Handle": do {
       handler_val :: self(self, tget(term, "impl_"), incoming, ctx)
       new_stack :: array.concat(hash_map.get_or(ctx, "handler_stack", []), [handler_val])
@@ -686,7 +694,7 @@ do {
     },
     "CellId": do {
       arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
-      tag.tag("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", arrow_val), "__tgt__", arrow_val), "value", arrow_val))
+      tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", arrow_val), "__tgt__", arrow_val), "value", arrow_val))
     },
     "CellCompV": do {
       first_val :: self(self, tget(term, "first"), incoming, ctx)
@@ -694,7 +702,7 @@ do {
       src :: if is_obj(first_val) { hash_map.get_or(first_val, "__src__", first_val) } else { first_val }
       tgt :: if is_obj(second_val) { hash_map.get_or(second_val, "__tgt__", second_val) } else { second_val }
       value :: if is_obj(second_val) { hash_map.get_or(second_val, "value", second_val) } else { second_val }
-      tag.tag("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", src), "__tgt__", tgt), "value", value))
+      tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", src), "__tgt__", tgt), "value", value))
     },
     "Whisker": do {
       arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
@@ -712,13 +720,13 @@ do {
       } else {
         arrow_compose(arrow_val, tgt)
       }
-      tag.tag("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", new_src), "__tgt__", new_tgt), "value", value))
+      tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", new_src), "__tgt__", new_tgt), "value", value))
     },
     "Univalence": do {
       equiv_val :: self(self, tget(term, "equiv"), incoming, ctx)
       if is_obj(equiv_val) {
         if hash_map.get_or(equiv_val, "__tag__", "") == "Equiv" {
-          tag.tag("Path", hash_map.set(
+          tag_mint("Path", hash_map.set(
             hash_map.set(
               hash_map.set({}, "a", hash_map.get_or(equiv_val, "a", null)),
               "b",
@@ -772,7 +780,7 @@ do {
       base :: if is_obj(record_val) { record_val } else { {} }
       hash_map.set(base, tget(term, "field"), value_val)
     },
-    "Tag": tag.tag(tget(term, "tag"), self(self, tget(term, "value"), incoming, ctx)),
+    "Tag": tag_mint(tget(term, "tag"), self(self, tget(term, "value"), incoming, ctx)),
     "Op": do {
       arg_vals :: eval_args(self, tget(term, "args"), incoming, ctx)
       op_name :: tget(term, "name")
@@ -788,10 +796,10 @@ do {
           self(self, handler_term, handler_in, ctx)
         }
       } else {
-        tag.tag("OpSig", hash_map.set(hash_map.set({}, "name", op_name), "args", arg_vals))
+        tag_mint("OpSig", hash_map.set(hash_map.set({}, "name", op_name), "args", arg_vals))
       }
     },
-    _: tag.tag("TypeError", hash_map.set({}, "message", "unknown tag: " + tget(term, "__tag__")))
+    _: tag_mint("TypeError", hash_map.set({}, "message", "unknown tag: " + tget(term, "__tag__")))
   }
 
   {

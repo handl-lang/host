@@ -1375,7 +1375,10 @@ mod bootstrap {
     /// (ADR-0077).
     ///
     /// Scans for `tag name = Type` lines, strips them from the source, and
-    /// generates constructor bindings: `name = _0 ~> tag.tag("name", {value: _0})`.
+    /// generates constructor bindings:
+    /// `name = _0 ~> hash_map.set({value: _0}, "__tag__", "name")`.
+    /// (The `tag.tag` mint producer was deleted with the `__tag__` bridge
+    /// — ADR-0152 §Migration; `hash_map.set` mints the same record shape.)
     /// If there are tag declarations, the remaining source is wrapped in a
     /// `do { ... }` block with the constructor bindings prepended.
     ///
@@ -1396,8 +1399,8 @@ mod bootstrap {
     /// Output:
     /// ```text
     /// do {
-    ///   ok = _0 ~> tag.tag("ok", {value: _0})
-    ///   err = _0 ~> tag.tag("err", {value: _0})
+    ///   ok = _0 ~> hash_map.set({value: _0}, "__tag__", "ok")
+    ///   err = _0 ~> hash_map.set({value: _0}, "__tag__", "err")
     ///   {
     ///     result_ok: value ~> value >>> ok,
     ///   }
@@ -1438,7 +1441,7 @@ mod bootstrap {
         let mut out = String::from("do {\n");
         for (name, _payload_type) in &tags {
             out.push_str(&format!(
-                "  {name} :: _0 ~> tag.tag(\"{name}\", {{value: _0}})\n"
+                "  {name} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{name}\")\n"
             ));
         }
         // Append the remaining source, indented by 2 spaces.
@@ -1522,7 +1525,7 @@ pub fn parse_tag_declarations(src: &str) -> Vec<(String, String)> {
     bootstrap::parse_tag_declarations(src)
 }
 
-/// Expand `tag` declarations into `tag.tag` constructor bindings wrapped in
+/// Expand `tag` declarations into `__tag__` constructor bindings wrapped in
 /// a `do { ... }` block.  Delegates to `loader.expand_tags` when a
 /// [`HandlLoader`] is installed; otherwise uses the bootstrap implementation.
 pub fn expand_tag_declarations(src: &str) -> String {

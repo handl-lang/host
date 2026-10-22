@@ -244,7 +244,8 @@ pub struct ParsedModule {
 /// A `tag name = Type` declaration (ADR-0077).
 ///
 /// At module load time, each tag declaration generates a constructor
-/// arrow: `name = _0 ~> tag.tag("name", {value: _0})`. The payload type
+/// arrow: `name = _0 ~> hash_map.set({value: _0}, "__tag__", "name")`
+/// (post-deletion mint, ADR-0152 §Migration). The payload type
 /// is recorded for future typechecking but does not affect runtime
 /// behavior.
 #[derive(Debug, Clone)]
@@ -421,10 +422,13 @@ fn parse_arrow_module_inner(lang: &Language, src: &str) -> Result<ParsedModule, 
     }
 
     // Generate constructor arrows for each tag declaration.
-    // Each `tag name = Type` produces: `name :: _0 ~> tag.tag("name", {value: _0})`
+    // Each `tag name = Type` produces:
+    // `name :: _0 ~> hash_map.set({value: _0}, "__tag__", "name")`.
+    // (`tag.tag` was deleted with the `__tag__` bridge — ADR-0152
+    // §Migration; `hash_map.set` mints the same record shape.)
     let tag_constructor_src: String = tags
         .iter()
-        .map(|t| format!("{} :: _0 ~> tag.tag(\"{}\", {{value: _0}})", t.name, t.name))
+        .map(|t| format!("{} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{}\")", t.name, t.name))
         .collect::<Vec<_>>()
         .join("\n");
 

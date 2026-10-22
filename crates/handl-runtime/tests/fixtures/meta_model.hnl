@@ -74,6 +74,14 @@ do {
   --- is_obj: true iff `v` is a runtime object (hash map) value.
   --- A model is always an object (a record of handlers).
   is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  --- tag_mint: mint a `__tag__` record — the post-deletion replacement
+  --- for the deleted `tag.tag` producer (ADR-0152 §Migration). Mirrors
+  --- `tag_value` semantics: object payloads merge; non-object payloads
+  --- wrap under `value`; `null` mints an empty payload.
+  tag_mint :: [tag_name, payload] ~> hash_map.set(
+    if is_obj(payload) { payload }
+    else { if payload == null { {} } else { hash_map.set({}, "value", payload) } },
+    "__tag__", tag_name)
 
   --- is_fn: true iff `v` is a function value. A model's `run` handler
   --- must be a function accepting `(term, incoming, ctx)`. Runtime
@@ -87,7 +95,7 @@ do {
   --- model_error: construct a `ModelError`-tagged value carrying a
   --- diagnostic message. Returned by validation / lookup failures so
   --- callers can pattern-match on `__tag__ == "ModelError"`.
-  model_error :: message ~> tag.tag("ModelError", hash_map.set({}, "message", message))
+  model_error :: message ~> tag_mint("ModelError", hash_map.set({}, "message", message))
 
   --- load_model: load a model from a file path.
   ---

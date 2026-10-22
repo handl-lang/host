@@ -339,7 +339,9 @@ fn exec_model_array_identity() {
 #[test]
 fn exec_model_tag_construct() {
         ensure_lang();
-    // tag_construct: merge __tag__ with the payload fields (via tag.tag).
+    // tag_construct: merge __tag__ with the payload fields (via
+    // `hash_map.set` — the `tag.tag` mint producer was deleted,
+    // ADR-0152 §Migration).
     let args = vec![json!("ok"), json!({ "value": 42 })];
     let result = call_op("tag_construct", &args);
     assert_eq!(result, json!({ "__tag__": "ok", "value": 42 }));
@@ -916,17 +918,18 @@ fn exec_model_run_choice_right() {
 }
 
 #[test]
-fn exec_model_run_app_tag() {
+fn exec_model_run_app_tag_inspection() {
         ensure_lang();
+    // `app` to a `tag.*` op through the module registry — post-deletion
+    // the surviving op is `tag.untag` (the `tag.tag` producer is gone,
+    // ADR-0152 §Migration): applied to a host-internal tagged record it
+    // returns the payload.
     let term = to_term(TermData::app(
-        TermData::arr(json!("tag.tag")),
-        vec![
-            TermData::arr(json!("ok")),
-            TermData::arr(json!({ "value": 42 })),
-        ],
+        TermData::arr(json!("tag.untag")),
+        vec![TermData::arr(json!({ "__tag__": "ok", "value": 42 }))],
     ));
     let result = exec_model_run(&term, Value::Null);
-    assert_eq!(result, json!({ "__tag__": "ok", "value": 42 }));
+    assert_eq!(result, json!({ "value": 42 }));
     assert_eq!(result, rust_run(&term, Value::Null));
 }
 

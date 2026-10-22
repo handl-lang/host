@@ -84,9 +84,11 @@
 ---     `array_at`, `array_len`, `array_slice`, `tag_untag`) were replaced
 ---     with their stdlib module equivalents (`hash_map`, `array`,
 ---     `typeof`, `tag`).
----   - `tag_construct` was fixed to merge the payload via `tag.tag`
----     (matching `value_model.hnl`'s `number_add` semantics) instead of
----     nesting it under a `"value"` key.
+---   - `tag_construct` was fixed to merge the payload's fields with
+---     `__tag__` (matching `value_model.hnl`'s `number_add` semantics)
+---     instead of nesting it under a `"value"` key. The deleted `tag.tag`
+---     producer is now `tag_mint` (a local `hash_map.set` record merge —
+---     ADR-0152 §Migration).
 ---   - `import`/`export` function names were renamed to `import_module`/
 ---     `export_binding` to avoid reserved-keyword parse errors.
 ---   - A `run(term, incoming, ctx)` arrow was added for Model-trait
@@ -115,6 +117,14 @@ do {
 
   --- is_obj: true iff `v` is a runtime object (hash map) value.
   is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  --- tag_mint: mint a `__tag__` record — the post-deletion replacement
+  --- for the deleted `tag.tag` producer (ADR-0152 §Migration). Mirrors
+  --- `tag_value` semantics: object payloads merge; non-object payloads
+  --- wrap under `value`; `null` mints an empty payload.
+  tag_mint :: [tag_name, payload] ~> hash_map.set(
+    if is_obj(payload) { payload }
+    else { if payload == null { {} } else { hash_map.set({}, "value", payload) } },
+    "__tag__", tag_name)
 
   --- is_pair: true iff `v` is a serialized pair (`__pair__` marker).
   is_pair :: v ~> if is_obj(v) {
@@ -141,7 +151,7 @@ do {
   either_left :: v ~> hash_map.set(hash_map.set({}, "__either__", "left"), "value", v)
   either_right :: v ~> hash_map.set(hash_map.set({}, "__either__", "right"), "value", v)
 
-  arrow_compose :: [a, b] ~> tag.tag("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
+  arrow_compose :: [a, b] ~> tag_mint("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
 
   --- has_field: true iff the record has a field named `name`.
   has_field :: [record, name] ~> hash_map.get_or(record, name, null) != null
@@ -405,9 +415,9 @@ do {
   --- `__tag__` label and a payload. Tagged values are the universal
   --- data representation in the exec model (ADR-0103: `Term` is
   --- `serde_json::Value`, tagged records). This merges the payload's
-  --- fields with `__tag__` set to `tag` (via `tag.tag`), matching the
+  --- fields with `__tag__` set to `tag` (via `tag_mint`), matching the
   --- `value_model.hnl` prototype pattern.
-  tag_construct :: [tag_name, payload] ~> tag.tag(tag_name, payload)
+  tag_construct :: [tag_name, payload] ~> tag_mint(tag_name, payload)
 
   --- arrow_field: project a named `field` from an arrow cell. Arrow
   --- cells are tagged `Arrow` records composed of sub-arrows (e.g.
@@ -640,11 +650,11 @@ do {
         self(self, tget(term, "r"), either_value(incoming), ctx)
       }
     } else {
-      tag.tag("LangError", hash_map.set({}, "message", "Choice: incoming is not an Either"))
+      tag_mint("LangError", hash_map.set({}, "message", "Choice: incoming is not an Either"))
     },
     "Loop": while { state: incoming, count: 0 } {
       [state, count] ~> if count > 100000 {
-        { out: tag.tag("LangError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
+        { out: tag_mint("LangError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
       } else {
         do {
           body_val :: self(self, tget(term, "body"), state, ctx)
@@ -658,7 +668,7 @@ do {
                 { state: { state: either_value(body_val), count: count + 1 } }
               }
             } else {
-              { out: tag.tag("LangError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
+              { out: tag_mint("LangError", hash_map.set({}, "message", "Loop: body did not return a pair or Either")) }
             }
           }
         }
@@ -672,7 +682,7 @@ do {
         [a]: callee_val(a),
         [a, b]: callee_val(a, b),
         [a, b, c]: callee_val(a, b, c),
-        _: tag.tag("LangError", hash_map.set({}, "message", "App: too many arguments"))
+        _: tag_mint("LangError", hash_map.set({}, "message", "App: too many arguments"))
       }
     },
     "Iter": do {
@@ -694,7 +704,7 @@ do {
         }
       }
     },
-    "Child": tag.tag("LangError", hash_map.set({}, "message", "Child: AST recursion requires VM eval primitives not yet available")),
+    "Child": tag_mint("LangError", hash_map.set({}, "message", "Child: AST recursion requires VM eval primitives not yet available")),
     "Handle": do {
       handler_val :: self(self, tget(term, "impl_"), incoming, ctx)
       new_stack :: array.concat(hash_map.get_or(ctx, "handler_stack", []), [handler_val])
@@ -825,7 +835,7 @@ do {
     "Refine": if self(self, tget(term, "predicate"), incoming, ctx) {
       incoming
     } else {
-      tag.tag("LangError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
+      tag_mint("LangError", hash_map.set({}, "message", "Refine: predicate not satisfied"))
     },
     "Cobind": self(self, tget(term, "body"), incoming, ctx),
     "Op": do {
@@ -869,12 +879,12 @@ do {
             "inc": incoming + 1,
             "number_add": if array.len(arg_vals) > 1 { number_add(arg_vals) } else { number_add(incoming) },
             "field_access": field_access(arg0, arg1),
-            _: tag.tag("LangError", hash_map.set({}, "message", "Op " + op_name + " not implemented"))
+            _: tag_mint("LangError", hash_map.set({}, "message", "Op " + op_name + " not implemented"))
           }
         }
       }
     },
-    _: tag.tag("LangError", hash_map.set({}, "message", "exec model: unimplemented term tag: " + tget(term, "__tag__")))
+    _: tag_mint("LangError", hash_map.set({}, "message", "exec model: unimplemented term tag: " + tget(term, "__tag__")))
   }
 
   {

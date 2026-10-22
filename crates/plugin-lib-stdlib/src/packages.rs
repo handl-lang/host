@@ -518,14 +518,12 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
-    // ── result (former plugin-lib-result) — pure handl over `tag.*` ───
-    // `result.ok`/`result.err` are `tag` constructor arrows: the
-    // `tag ok = Value` / `tag err = Error` declarations expand to
-    // `tag.tag("ok", {value: _0})` / `tag.tag("err", {value: _0})` calls,
-    // so the `tag` module must resolve through the ambient
-    // [`ModuleResolver`]. The default table resolver does not know
-    // `"tag"` (it stays in `plugin-lib-tag`); the injected global table
-    // lookup resolves it through the resolver passed to `module_with`
+    // ── result (former plugin-lib-result) — pure handl over `__tag__` ──
+    // `result.ok`/`result.err` mint `{"__tag__": "ok"/"err", "value": _0}`
+    // records via `hash_map.set` (the `tag.tag` producer was deleted —
+    // ADR-0152 §Migration), so the `hash_map` module must resolve through
+    // the ambient [`ModuleResolver`]. The injected global table lookup
+    // resolves it through the resolver passed to `module_with`
     // (e.g. kit-canonical's `StdlibResolver`).
     ModuleSpec {
         name: "result",

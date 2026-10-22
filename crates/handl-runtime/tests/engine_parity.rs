@@ -646,43 +646,58 @@ fn runtime_with_tag(engine: Box<dyn EvalEngine>) -> Runtime {
 }
 
 #[test]
-fn tag_mint_untag_tag_of() {
-    // `tag.tag`/`tag.untag` dispatch through `call_host` → the module
-    // registry — the `field_access` string-concat fallback builds the
-    // qualified name `tag.tag` from `tag.tag` surface syntax.
+fn tag_inspection_ops_on_untagged_values() {
+    // The `tag.*` inspection ops survive the `__tag__` bridge deletion
+    // (ADR-0152 §Migration): `tag.untag`/`tag.tag_of`/`tag.is_tag`
+    // dispatch through `call_host` → the module registry — the
+    // `field_access` string-concat fallback builds the qualified name
+    // `tag.untag` from `tag.untag` surface syntax. On non-tagged values
+    // they return `null`/`null`/`false` identically on every engine.
     for (name, rt) in [
         ("tree-walk", runtime_with_tag(Box::new(TreeWalkEngine::new()))),
         ("bytecode", runtime_with_tag(Box::new(BytecodeEngine::new()))),
         ("cranelift", runtime_with_tag(Box::new(CraneliftEngine::new()))),
     ] {
-        let src = r#"do { v := tag.tag("ok", { "value": 42 }); tag.untag(v) }"#;
-        let got = eval_engine_path(&rt, src)
-            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
-        assert_eq!(got, json!({"value": 42}), "{name} on {src:?}");
-
-        let src = r#"do { v := tag.tag("ok", { "value": 42 }); tag.tag_of(v) }"#;
-        let got = eval_engine_path(&rt, src)
-            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
-        assert_eq!(got, json!("ok"), "{name} on {src:?}");
-
         let src = r#"tag.untag(5)"#;
         let got = eval_engine_path(&rt, src)
             .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
         assert_eq!(got, Value::Null, "{name} on {src:?}");
+
+        let src = r#"tag.tag_of(5)"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, Value::Null, "{name} on {src:?}");
+
+        let src = r#"tag.is_tag({ "a": 1 })"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, json!(false), "{name} on {src:?}");
     }
 }
 
 #[test]
-fn tagged_value_shape_and_match() {
-    // A minted tag flows through `match` object patterns on every engine.
+fn tag_mint_producers_deleted_error_everywhere() {
+    // `tag.tag`/`tag.construct` were deleted with the `__tag__`/`{tag}`
+    // bridge (ADR-0152 §Migration): calling them fails on every engine —
+    // parity in the error case. The engines' messages differ in shape
+    // but all name the missing function.
     for (name, rt) in [
         ("tree-walk", runtime_with_tag(Box::new(TreeWalkEngine::new()))),
         ("bytecode", runtime_with_tag(Box::new(BytecodeEngine::new()))),
         ("cranelift", runtime_with_tag(Box::new(CraneliftEngine::new()))),
     ] {
-        let src = r#"do { v := tag.tag("ok", { "value": 42 }); v.__tag__ }"#;
-        let got = eval_engine_path(&rt, src)
-            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
-        assert_eq!(got, json!("ok"), "{name} on {src:?}");
+        for src in [
+            r#"tag.tag("ok", { "value": 42 })"#,
+            r#"tag.construct("type.pi", { "param": 1, "body": 2 })"#,
+        ] {
+            let err = match eval_engine_path(&rt, src) {
+                Err(e) => e,
+                Ok(v) => panic!("{name} engine-path should fail on {src:?}, got {v}"),
+            };
+            assert!(
+                err.to_string().contains("tag.tag") || err.to_string().contains("tag.construct"),
+                "{name} engine-path on {src:?}: expected error naming the deleted op, got: {err}"
+            );
+        }
     }
 }

@@ -517,10 +517,9 @@ impl Function for SymFn {
 /// - `value` a nominal reads both its own `parent` chain (the `<:` read
 ///   — `Float instanceof Number`) and its `ty` link (the membership read
 ///   — `Int instanceof Type`).
-/// - `value` an object reads its `"type"` field first (ctor values),
-///   then the `__tag__` bridge: the datum's seeded nominal's real
-///   parent walk, or — for unseeded hand-minted nominals — the legacy
-///   presentation-name role match.
+/// - `value` an object reads its `"type"` field (ctor values); anything
+///   else — including a `__tag__` datum — is a plain `type.Obj` member.
+///   (The `__tag__` nominal bridge was deleted, ADR-0152 §Migration.)
 /// - `value` a scalar resolves through the literal defaults
 ///   (`1 instanceof Nat`, `1.5 instanceof Float`, ADR-0154 §5).
 /// - `nominal` resolves through `nominal_head` — a sym, a
@@ -545,8 +544,8 @@ impl Function for InstanceOfFn {
         }
         // The kernel owns the read (ADR-0154 §2): `x : T` is the `type`
         // link's head, `<:` walks `parent`; nominal values read both
-        // links; `__tag__` data bridge through the seeded walk or the
-        // legacy name-role match; scalars through the literal defaults.
+        // links; `__tag__` data are plain objects (the tag bridge was
+        // deleted); scalars resolve through the literal defaults.
         Ok(Value::Bool(handl_value::instance_of(
             &TaggedValue::from(value.clone()),
             &nominal_tv,
@@ -555,9 +554,8 @@ impl Function for InstanceOfFn {
 }
 
 // The Phase 4 legacy-tag bridge helpers (`legacy_tag_roles` /
-// `legacy_tag_instance_of`) moved into `handl-value` with WS-E —
-// `handl_value::instance_of` owns both the seeded walk and the
-// name-role fallback in one place.
+// `legacy_tag_instance_of`) were deleted with the `__tag__` bridge —
+// `handl_value::instance_of` reads ctor/former/type links only.
 // ---------------------------------------------------------------------------
 // VmPrimitivesModule — the Module that registers all VM primitive host fns
 // ---------------------------------------------------------------------------
@@ -944,37 +942,36 @@ mod sym_module_tests {
     }
 
     #[test]
-    fn sym_module_instanceof_legacy_tag_bridge_still_walks() {
-        // `__tag__` data bridge (kept until tag deletion): a tagged
-        // datum reaches the seeded nominal graph AND the legacy
-        // presentation-name match.
+    fn sym_module_instanceof_tag_datum_is_plain_object() {
+        // Post-deletion (ADR-0152 §Migration): a `__tag__` datum has no
+        // nominal bridge — it is a plain object, a `type.Obj` member and
+        // nothing else, regardless of the tag string.
         let m = SymModule::new();
         let datum = json!({"__tag__": "int", "__registry__": "type", "kind": "primitive"});
+        let obj = call(&m, "sym", &[json!("type.Obj")]).unwrap();
+        let value = call(&m, "sym", &[json!("type.Value")]).unwrap();
         let int = call(&m, "sym", &[json!("type.Int")]).unwrap();
         let number = call(&m, "sym", &[json!("type.Number")]).unwrap();
-        let float = call(&m, "sym", &[json!("type.Float")]).unwrap();
+        assert_eq!(
+            call(&m, "instanceof", &[datum.clone(), obj]),
+            Ok(json!(true))
+        );
+        assert_eq!(
+            call(&m, "instanceof", &[datum.clone(), value]),
+            Ok(json!(true))
+        );
         assert_eq!(
             call(&m, "instanceof", &[datum.clone(), int]),
-            Ok(json!(true))
+            Ok(json!(false))
         );
         assert_eq!(
             call(&m, "instanceof", &[datum.clone(), number]),
-            Ok(json!(true))
-        );
-        assert_eq!(
-            call(&m, "instanceof", &[datum.clone(), float]),
             Ok(json!(false))
         );
-        // Hand-minted named nominals still bridge by name.
+        // Hand-minted nominals named like builtins never bridge either.
         let named = json!({"__sym__": {"handle": 301, "name": "Int", "parent": null}});
         assert_eq!(
             call(&m, "instanceof", &[datum.clone(), named.clone()]),
-            Ok(json!(true))
-        );
-        // Unknown tags never bridge.
-        let unknown = json!({"__tag__": "custom", "__registry__": "type"});
-        assert_eq!(
-            call(&m, "instanceof", &[unknown, named]),
             Ok(json!(false))
         );
     }

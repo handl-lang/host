@@ -189,18 +189,19 @@ fn arrow_parity_iter() {
 }
 
 #[test]
-fn arrow_parity_app_tag() {
+fn arrow_parity_app_tag_inspection() {
         ensure_lang();
+    // `app` to a `tag.*` op through the module registry — post-deletion
+    // the surviving op is `tag.untag` (the `tag.tag` producer is gone,
+    // ADR-0152 §Migration): applied to a host-internal tagged record it
+    // returns the payload.
     let term = to_term(TermData::app(
-        TermData::arr(json!("tag.tag")),
-        vec![
-            TermData::arr(json!("ok")),
-            TermData::arr(json!({ "value": 42 })),
-        ],
+        TermData::arr(json!("tag.untag")),
+        vec![TermData::arr(json!({ "__tag__": "ok", "value": 42 }))],
     ));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, handl);
-    assert_eq!(rust, json!({ "__tag__": "ok", "value": 42 }));
+    assert_eq!(rust, json!({ "value": 42 }));
 }
 
 #[test]
