@@ -886,3 +886,52 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   `__handl_rt.tag.tag` (separate JS runtime — not the deleted host op);
   `handl-kit-arrow-lower/tests/lower.rs` uses `"tag.construct"` only as
   an arbitrary op-name label in a synthetic lowering scheme.
+
+## Progress log — hnl typecheck/run integration fixes (raw-parse split)
+
+- **Bug 1 (architectural, landed):** `Kit::typecheck_with_prelude`/`Kit::typecheck`
+  now check the **raw** AST — new `Runtime::parse_raw`/`Kit::parse_raw`
+  (handl-runtime, kit-prelude). `Runtime::parse` stays desugared for exec;
+  `run_checked` reordered to lex → parse_raw → typecheck → runtime-assert +
+  erase passes → apply_desugar → eval. Dissolves the `lit __sym__`
+  "no type rule" failures wholesale: `data Nat`, `Succ`, `match`,
+  `x : T := v`, `IO(sig)` annotations all reach the source-level judgments
+  they were authored for.
+- **Bug 2 (landed):** `dep_synth_var_type` scope order is now
+  Γ → results → builtins → injected globals — `with_global`
+  `type.unknown` prelude seeds no longer shadow `Bool`/`Nat`/`IO` or
+  results-bound index vars. `fail_io_widen`/`c5` reject; `io.hnl` accepts.
+- **Bug 3 (landed):** not a checker bug — `ext-typecheck`/`ext-eval`
+  resolved `handl-kit-prelude-lang` from git b5db547, missing
+  `type.assign → synth_assign` (last-child dispatch was correct;
+  the loaded rule was stale `construct type.unit`). Added the
+  sibling `[patch]` to both ext Cargo.tomls; `x : Bool := 3` last
+  now errors. `token.keyword.j` ships in the same commit (bug 6's
+  grammar half was already landed upstream).
+- **Bug 4 (landed):** `synth_assign` handles `dim_arrow`/`axis_flow`/`flow`
+  lhs (`f : A ~[k]~> B` wraps `type-annot` in the arrow src);
+  `dep_synth_type` gained a `dim_arrow` arm → `Former{type.hom}`.
+  `x ~> (x,x) : Nat ~[1]~> Nat` now rejects as a real type error.
+- **Bug 5:** moot — raw-parse path means the checker never sees
+  desugared `function{body}` payloads.
+- **Bug 6:** `J eq_n, m, v` inside `do{}` match arms parses under the
+  patched kit-prelude-lang (`token.keyword.j` + `grammar.j.prefix`
+  already on local main); `path_j.hnl` now parses but fails later in
+  dependent checking (see remaining).
+- **Eval-side (landed):** `desugar.data`'s emitted `block` is flagged
+  `__splice__`; `apply_desugar` splices flagged children into the
+  parent's statement list (desugar_pass.rs) — data assigns bind in
+  the enclosing scope instead of a popped nested one.
+- **Remaining:** (a) `hnl run`/`hnl eval` on `data` programs stack-
+  overflows inside `eval_rec`/fold-machine execution (op trace:
+  proj_env/proj_child/match/route_on_type loop — the `rec` region
+  re-evals or applies the fold step eagerly; deeper than the typecheck
+  bugs, pre-dates the splice — Succ was simply unreachable before).
+  (b) `vec.hnl`/`path_j.hnl`/`alias.hnl` still fail `stuck index
+  type.unknown vs type.bool` / unify `type.unknown` — an index/
+  family-app elaboration gap in the dependent checker (ctor_sig arg
+  nodes produce `type.unknown`), unrelated to prelude shadowing —
+  verified not a `results`/globals ordering artifact (persists with
+  renamed params).
+- Verified: `hnl typecheck` ok on nat/t1/io/c2/c4; correct rejection
+  on alias/c5/c6/fail_io_widen/fail_ctor/last-stmt annotations.
