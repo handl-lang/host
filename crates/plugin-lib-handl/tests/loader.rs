@@ -415,6 +415,102 @@ mod bootstrap {
         }
     }
 
+    /// Whether `rhs` is a top-level arrow *signature* — contract data
+    /// erased to `null`. Mirrors
+    /// `handl_runtime::module_prep::is_signature_rhs`: a depth-0 `~[` is
+    /// only a signature when `graded_arrow_is_signature` holds (an
+    /// n-cell *value* export like `export alpha := f ~[2]~> g` is kept);
+    /// an ungraded `~>` is a signature only when a params list carries a
+    /// bare `[`/`{` element (a list/record *type* in params position).
+    fn is_signature_rhs(rhs: &str) -> bool {
+        let bytes = rhs.as_bytes();
+        let mut depth: i32 = 0;
+        let mut paren_depth: i32 = 0;
+        let mut in_str: Option<u8> = None;
+        let mut prev_sig = 0u8;
+        let mut list_type_param = false;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+                i += 1;
+                continue;
+            }
+            match c {
+                b'"' | b'\'' => in_str = Some(c),
+                b'(' => {
+                    depth += 1;
+                    paren_depth += 1;
+                }
+                b'[' | b'{' => {
+                    depth += 1;
+                    if paren_depth > 0 && (prev_sig == b'(' || prev_sig == b',') {
+                        list_type_param = true;
+                    }
+                }
+                b')' => {
+                    depth -= 1;
+                    paren_depth -= 1;
+                }
+                b']' | b'}' => depth -= 1,
+                b'~' if depth == 0 => match bytes.get(i + 1) {
+                    Some(&b'[') => return graded_arrow_is_signature(rhs, i),
+                    Some(&b'>') => return list_type_param,
+                    _ => {}
+                },
+                _ => {}
+            }
+            if !c.is_ascii_whitespace() {
+                prev_sig = c;
+            }
+            i += 1;
+        }
+        false
+    }
+
+    /// Whether a depth-0 `~[` at byte `tilde` opens a graded-arrow
+    /// *signature* `Type ~[1]~> Type` (erase) rather than a genuine
+    /// n-cell *value* `f ~[N]~> g` (keep): all corpus signatures grade
+    /// `~[1]~>`; any other grade is a cell term. Grade `1` erases only
+    /// when the domain is type-shaped — `(...)`/`{...}` params, a bare
+    /// `[T]` list type, or a `Capitalized` type head. Mirrors
+    /// `handl_runtime::module_prep::graded_arrow_is_signature`.
+    fn graded_arrow_is_signature(rhs: &str, tilde: usize) -> bool {
+        let bytes = rhs.as_bytes();
+        let mut gdepth = 1i32;
+        let mut gend = bytes.len();
+        let mut j = tilde + 2;
+        while j < bytes.len() {
+            match bytes[j] {
+                b'[' => gdepth += 1,
+                b']' => {
+                    gdepth -= 1;
+                    if gdepth == 0 {
+                        gend = j;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            j += 1;
+        }
+        if rhs[tilde + 2..gend].trim() != "1" {
+            return false;
+        }
+        let lhs = rhs[..tilde].trim();
+        match lhs.as_bytes().last() {
+            None => true,
+            Some(b')') | Some(b'}') => true,
+            Some(b']') => lhs.starts_with('['),
+            Some(_) => lhs.as_bytes()[0].is_ascii_uppercase(),
+        }
+    }
+
     pub fn transform_export_to_object(src: &str) -> String {
         // Mirrors `loader.hnl`'s `transform_export_to_object`: the source is
         // segmented into top-level statements (`top_level_segments`), so an
@@ -474,12 +570,10 @@ mod bootstrap {
                 if name.is_empty() {
                     panic!("module prep: `export` declaration has no binding name: {trimmed}");
                 }
-                let is_type_only = sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':');
-                let expr_start = if is_type_only {
-                    "null"
-                } else {
-                    rest[sep_pos + sep_len..].trim()
-                };
+                let rhs = rest[sep_pos + sep_len..].trim();
+                let is_type_only = (sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':'))
+                    || is_signature_rhs(rhs);
+                let expr_start = if is_type_only { "null" } else { rhs };
                 let mut expr_lines = Vec::new();
                 if !expr_start.is_empty() {
                     expr_lines.push(expr_start.to_string());
@@ -860,6 +954,10 @@ const CORPUS: &[&str] = &[
     "helper :: x ~> x + 1\nother := helper(1)",
     // Private multi-line arrow between exports.
     "export a :: x ~> helper(x)\nhelper :: x ~> do {\n  y :: x + 1\n  y\n}\nexport b :: x ~> helper(x)",
+    // Graded-arrow signature exports erase to `null`; n-cell *value*
+    // exports (`f ~[2]~> g`, string-law domains) stay. A grade-1 arrow
+    // over a capitalized type head is still a signature.
+    "export Sig := (Int) ~[1]~> Result<Int, String>\nexport BareSig := Int ~[1]~> Int\nexport f := (x) ~> x\nexport alpha := f ~[2]~> f\nexport law := \"a >>> b\" ~[2]~> \"id\"",
     // NOTE: whole-package sources (e.g. str-handl.hnl) are excluded: the
     // interpreted transform over ~25k chars is far too slow for a test —
     // see AGENTS.md "loader self-hosting" for the performance note.

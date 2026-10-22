@@ -1113,9 +1113,12 @@ fn is_import_line(trimmed: &str) -> bool {
 /// (Agda-style erasure; annotations are static metadata owned by the
 /// typecheck engine). Two shapes, both un-callable at runtime:
 ///
-/// - a graded arrow `A ~[N]~> B` (`~[` at bracket depth 0) — always mints
-///   an `Arrow` descriptor record, and codomains like `Result<T, E>` are
-///   generic applications (`dimension` nodes) that crash eval;
+/// - a grade-1 signature arrow `Type ~[1]~> Type` (`~[` at bracket
+///   depth 0, distinguished from n-cell *value* exports like
+///   `export alpha := f ~[2]~> g` by [`graded_arrow_is_signature`]) —
+///   always mints an `Arrow` descriptor record, and codomains like
+///   `Result<T, E>` are generic applications (`dimension` nodes) that
+///   crash eval;
 /// - an ungraded arrow `(…, [T], …) ~> B` whose parenthesized params
 ///   contain a *bare* `[` element (a list type `[String]` — never
 ///   preceded by `:` like a `x: [T]` annotation, nor part of an index
@@ -1124,17 +1127,8 @@ fn is_import_line(trimmed: &str) -> bool {
 ///
 /// Erasing binds `null` — the same value type-only `export Name: Type`
 /// gets — losing no runtime behavior. Real arrow literals
-/// (`export f := (x) ~> body`, `export f := (x: [Int]) ~> body`) are
-/// untouched.
-///
-/// TODO(footgun): a *top-level* `export alpha := f ~[2]~> g` (a genuine
-/// n-cell export, not a signature) also trips the depth-0 `~[` rule and
-/// silently binds `null` — nested `f ~[2]~> g` inside bodies is fine,
-/// only the export-RHS shape erases. Zero such exports exist in the
-/// corpus today (verified by sweep); distinguishing them needs a
-/// type-vs-value check on the `~[` operands (paren/record-led = type
-/// signature, bare-term = cell) — implement if a cell-export ever
-/// appears.
+/// (`export f := (x) ~> body`, `export f := (x: [Int]) ~> body`) and
+/// n-cell value exports (`export alpha := f ~[2]~> g`) are untouched.
 fn is_signature_rhs(rhs: &str) -> bool {
     let bytes = rhs.as_bytes();
     let mut depth: i32 = 0;
@@ -1175,7 +1169,7 @@ fn is_signature_rhs(rhs: &str) -> bool {
             }
             b']' | b'}' => depth -= 1,
             b'~' if depth == 0 => match bytes.get(i + 1) {
-                Some(&b'[') => return true,
+                Some(&b'[') => return graded_arrow_is_signature(rhs, i),
                 Some(&b'>') => return list_type_param,
                 _ => {}
             },
@@ -1187,6 +1181,67 @@ fn is_signature_rhs(rhs: &str) -> bool {
         i += 1;
     }
     false
+}
+
+/// Whether a depth-0 `~[` at byte `tilde` opens a graded-arrow
+/// *signature* `Type ~[1]~> Type` (erase) rather than a genuine n-cell
+/// *value* `f ~[N]~> g` (keep) — the `export alpha := f ~[2]~> g`
+/// footgun this guard used to erase to `null`. Corpus sweep (every `~[`
+/// across lib-*/kit-*/handl-packages, ~7,200 sites): **all** signatures
+/// grade `~[1]~>`, and every `~[2]~>`+/`~[N]~>` is a cell term (the
+/// `effects`/`optimize` law exports, `lib-type`'s dependent
+/// unit/counit). So:
+///
+/// - any grade other than the literal `1` → a cell value, keep;
+/// - grade `1` → the *domain operand* decides: a signature's domain is a
+///   type expression — a parenthesized params `(...)`, a record
+///   `{...}`, a bare list type `[T]`, or a `Capitalized` type head
+///   (`Int`, `Result<A, B>`, `T`). A lowercase/literal/index-led LHS
+///   (`f`, `map inc`, `"a >>> b"`, `xs[i]`) is a value expression → a
+///   cell, keep.
+///
+/// Documented limits (no corpus instance today): a grade-1 cell over a
+/// parenthesized domain `(f >>> g) ~[1]~> h` still erases; a grade-1
+/// signature over *lowercase* type vars `a ~[1]~> b` now evals (a loud
+/// unbound-name error) rather than binding `null`; a symbolic grade
+/// (`A ~[n]~> B` contract) is kept and evals — none exist outside
+/// comments.
+fn graded_arrow_is_signature(rhs: &str, tilde: usize) -> bool {
+    let bytes = rhs.as_bytes();
+    // Grade text between `~[` and its matching `]` (balance nested
+    // brackets defensively — grades are flat today).
+    let mut gdepth = 1i32;
+    let mut gend = bytes.len();
+    let mut j = tilde + 2;
+    while j < bytes.len() {
+        match bytes[j] {
+            b'[' => gdepth += 1,
+            b']' => {
+                gdepth -= 1;
+                if gdepth == 0 {
+                    gend = j;
+                    break;
+                }
+            }
+            _ => {}
+        }
+        j += 1;
+    }
+    if rhs[tilde + 2..gend].trim() != "1" {
+        return false;
+    }
+    let lhs = rhs[..tilde].trim();
+    match lhs.as_bytes().last() {
+        // `~[1]~>` with no domain text — degenerate; keep erasing.
+        None => true,
+        // Parenthesized params / record-type domain.
+        Some(b')') | Some(b'}') => true,
+        // `[T]`-led list-type domain; `xs[i]` is an index — a value.
+        Some(b']') => lhs.starts_with('['),
+        // `Int`/`Result<A, B>`/`T` type head vs a lowercase-led value
+        // term (`f`, `map inc`, `"a >>> b"`, `xs[i]` handled above).
+        Some(_) => lhs.as_bytes()[0].is_ascii_uppercase(),
+    }
 }
 
 fn find_binding_sep(s: &str) -> Option<(usize, usize)> {

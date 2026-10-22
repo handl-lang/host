@@ -199,6 +199,52 @@ fn graded_signature_export_does_not_evaluate_type_children() {
     std::fs::remove_dir_all(&root).ok();
 }
 
+/// The inverse erasure boundary: an export RHS that is a genuine n-cell
+/// *value* — `f ~[2]~> g`, `"a >>> b" ~[2]~> "id"` — must bind the Arrow
+/// cell it evaluates to, not `null`. Before `graded_arrow_is_signature`
+/// the depth-0 `~[` erased these wholesale (the footgun). Grade-2+ and
+/// value-led LHS operands (`f`, `"…"`) are cells; a grade-1 lowercase
+/// term `f ~[1]~> g` is a cell too.
+#[test]
+fn n_cell_value_exports_are_preserved() {
+    let root = scratch_dir("cell-export");
+    let src = "f := (x) ~> x\ng := (x) ~> x + 1\n\
+               export alpha := f ~[2]~> g\n\
+               export rule := \"a >>> b\" ~[2]~> \"id\"\n\
+               export beta := f ~[1]~> g\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import { alpha, rule, beta }; { a: alpha != null, l: rule != null, b: beta != null } }"#,
+    )
+    .expect("cell exports must bind");
+    assert_eq!(value["a"], json!(true), "f ~[2]~> g is a value — kept");
+    assert_eq!(value["l"], json!(true), "string-law cell is a value — kept");
+    assert_eq!(value["b"], json!(true), "lowercase-led grade-1 term is a value — kept");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A paren-less `Type ~[1]~> Type` RHS is still a signature — the domain
+/// is a `Capitalized` type head, so it erases like the `(Params)` shape.
+/// And a lambda whose *body* holds a depth-0 cell
+/// (`export sigma := (Q, f, Sf) ~> Q ~[2]~> (f >>> Sf(Q))`, the
+/// `lib-type` dependent shape) still binds the closure.
+#[test]
+fn bare_type_signature_erases_lambda_cell_body_keeps() {
+    let root = scratch_dir("bare-sig");
+    let src = "export BareSig := Int ~[1]~> Result<Int, String>\n\
+               export sigma := (Q, f, Sf) ~> Q ~[2]~> (f >>> Sf(Q))\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import { BareSig, sigma }; { sig: BareSig, s: sigma != null } }"#,
+    )
+    .expect("bare-type signature erases; cell-bodied lambda binds");
+    assert_eq!(value["sig"], json!(null), "Int ~[1]~> Result<…> is a signature");
+    assert_eq!(value["s"], json!(true), "lambda with a cell body is a value");
+    std::fs::remove_dir_all(&root).ok();
+}
+
 /// `export f: A ~[N]~> B := body` — an *annotated* implementation — still
 /// binds `f` to the body: the annotation between `:` and `:=` is erased,
 /// the arrow body evaluates normally.

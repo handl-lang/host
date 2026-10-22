@@ -194,6 +194,7 @@ impl OpRegistry {
 /// This plugs into the existing eval engine without changes: the
 /// `OpFunction` is a regular `Function` stored in a `Module`, looked up via
 /// `ModuleLookup::lookup(name)`.
+#[derive(Clone)]
 pub struct OpFunction {
     /// The op name (e.g. `"base64.encode"`).
     op_name: String,

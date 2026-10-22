@@ -935,17 +935,20 @@ mod bootstrap {
         }
     }
 
-    /// Whether `rhs` is a top-level graded-arrow signature `A ~[N]~> B` —
-    /// i.e. it contains `~[` at bracket depth 0. Signature exports
-    /// (`export Run := (Params) ~[N]~> Codomain`) are contract data whose
-    /// domain/codomain are *type* expressions: evaluating them is an
-    /// Agda-style violation (annotations are static metadata owned by the
-    /// typecheck engine), and generic applications like `Result<T, E>` in a
-    /// codomain crash eval because the former application is not a runtime
-    /// arrow. A `dim_arrow` node always mints an `Arrow` descriptor record —
-    /// never a callable — so erasing the binding to `null` (the same value
-    /// type-only `export Name: Type` gets) loses no runtime behavior.
-    /// Ungraded `A ~> B` is untouched: `(x) ~> body` is a real arrow literal.
+    /// Whether `rhs` is a top-level arrow *signature* — contract data
+    /// whose domain/codomain are *type* expressions that exec must not
+    /// evaluate (Agda-style erasure; annotations are static metadata
+    /// owned by the typecheck engine). Signature exports
+    /// (`export Run := (Params) ~[1]~> Codomain`) mint an `Arrow`
+    /// descriptor record — never a callable — and codomains like
+    /// `Result<T, E>` are generic applications (`dimension` nodes) that
+    /// crash eval, so the binding erases to `null` (the same value
+    /// type-only `export Name: Type` gets). A depth-0 `~[` is only a
+    /// signature when [`graded_arrow_is_signature`] holds — an n-cell
+    /// *value* export like `export alpha := f ~[2]~> g` is kept.
+    /// Ungraded `A ~> B` is untouched unless its params carry a bare
+    /// list/record type (`closure` binds only `var`/`type-annot` params,
+    /// so `(…, [T], …) ~> B` can only be a signature).
     /// Mirrors `handl_runtime::module_prep::is_signature_rhs`.
     fn is_signature_rhs(rhs: &str) -> bool {
         let bytes = rhs.as_bytes();
@@ -984,7 +987,7 @@ mod bootstrap {
                 }
                 b']' | b'}' => depth -= 1,
                 b'~' if depth == 0 => match bytes.get(i + 1) {
-                    Some(&b'[') => return true,
+                    Some(&b'[') => return graded_arrow_is_signature(rhs, i),
                     Some(&b'>') => return list_type_param,
                     _ => {}
                 },
@@ -996,6 +999,69 @@ mod bootstrap {
             i += 1;
         }
         false
+    }
+
+    /// Whether a depth-0 `~[` at byte `tilde` opens a graded-arrow
+    /// *signature* `Type ~[1]~> Type` (erase) rather than a genuine
+    /// n-cell *value* `f ~[N]~> g` (keep) — the
+    /// `export alpha := f ~[2]~> g` footgun this guard used to erase to
+    /// `null`. Corpus sweep (every `~[` across
+    /// lib-*/kit-*/handl-packages, ~7,200 sites): **all** signatures
+    /// grade `~[1]~>`, and every `~[2]~>`+/`~[N]~>` is a cell term (the
+    /// `effects`/`optimize` law exports, `lib-type`'s dependent
+    /// unit/counit). So:
+    ///
+    /// - any grade other than the literal `1` → a cell value, keep;
+    /// - grade `1` → the *domain operand* decides: a signature's domain
+    ///   is a type expression — a parenthesized params `(...)`, a
+    ///   record `{...}`, a bare list type `[T]`, or a `Capitalized`
+    ///   type head (`Int`, `Result<A, B>`, `T`). A
+    ///   lowercase/literal/index-led LHS (`f`, `map inc`, `"a >>> b"`,
+    ///   `xs[i]`) is a value expression → a cell, keep.
+    ///
+    /// Documented limits (no corpus instance today): a grade-1 cell over
+    /// a parenthesized domain `(f >>> g) ~[1]~> h` still erases; a
+    /// grade-1 signature over *lowercase* type vars `a ~[1]~> b` now
+    /// evals (a loud unbound-name error) rather than binding `null`; a
+    /// symbolic grade (`A ~[n]~> B` contract) is kept and evals — none
+    /// exist outside comments.
+    /// Mirrors `handl_runtime::module_prep::graded_arrow_is_signature`.
+    fn graded_arrow_is_signature(rhs: &str, tilde: usize) -> bool {
+        let bytes = rhs.as_bytes();
+        // Grade text between `~[` and its matching `]` (balance nested
+        // brackets defensively — grades are flat today).
+        let mut gdepth = 1i32;
+        let mut gend = bytes.len();
+        let mut j = tilde + 2;
+        while j < bytes.len() {
+            match bytes[j] {
+                b'[' => gdepth += 1,
+                b']' => {
+                    gdepth -= 1;
+                    if gdepth == 0 {
+                        gend = j;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+            j += 1;
+        }
+        if rhs[tilde + 2..gend].trim() != "1" {
+            return false;
+        }
+        let lhs = rhs[..tilde].trim();
+        match lhs.as_bytes().last() {
+            // `~[1]~>` with no domain text — degenerate; keep erasing.
+            None => true,
+            // Parenthesized params / record-type domain.
+            Some(b')') | Some(b'}') => true,
+            // `[T]`-led list-type domain; `xs[i]` is an index — a value.
+            Some(b']') => lhs.starts_with('['),
+            // `Int`/`Result<A, B>`/`T` type head vs a lowercase-led value
+            // term (`f`, `map inc`, `"a >>> b"`, `xs[i]` handled above).
+            Some(_) => lhs.as_bytes()[0].is_ascii_uppercase(),
+        }
     }
 
     /// Find the position and length of the binding separator in `s`: the `::`
@@ -1980,6 +2046,70 @@ impl Function for HandlFunction {
 }
 
 // ---------------------------------------------------------------------------
+// ModuleEnv (ADR-0154)
+// ---------------------------------------------------------------------------
+
+/// A [`HandlModule`]'s dependency environment as a first-class value
+/// (ADR-0154).
+///
+/// The env is the tuple [`build_runtime`] threads through: the dependency
+/// modules registered in the bridge runtime, an optional global
+/// [`ModuleLookup`] layered under the dependency registry, and an optional
+/// [`ImportResolver`] for `import`/`from` statements. Lifting it into a
+/// value lets one prepared source run under several dep bindings — see
+/// [`HandlModule::instantiate`].
+#[derive(Clone, Default)]
+pub struct ModuleEnv {
+    /// Dependency modules registered in the bridge runtime.
+    dependencies: Vec<Arc<dyn Module + Send + Sync>>,
+    /// Optional global [`ModuleLookup`] layered under the dependency
+    /// registry.
+    global_lookup: Option<Arc<dyn ModuleLookup + Send + Sync>>,
+    /// Optional explicit [`ImportResolver`]; `None` lets `build_runtime`
+    /// derive a [`DependencyImportResolver`] from `dependencies`.
+    import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
+}
+
+impl ModuleEnv {
+    /// Create an empty environment — no dependencies, no global lookup,
+    /// no explicit import resolver.
+    ///
+    /// Equivalent to [`ModuleEnv::default`]; `instantiate`d under an empty
+    /// env a module still evaluates, but `mod.fn` calls and `import`s fail
+    /// to resolve unless the source's names are reachable some other way.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a dependency module to the environment — the env-side
+    /// equivalent of [`HandlModule::with_dependency`].
+    pub fn with_dependency(mut self, module: impl Module + Send + Sync + 'static) -> Self {
+        self.dependencies.push(Arc::new(module));
+        self
+    }
+
+    /// Add a dependency module (already `Arc`ed) to the environment.
+    pub fn with_dependency_arc(mut self, module: Arc<dyn Module + Send + Sync>) -> Self {
+        self.dependencies.push(module);
+        self
+    }
+
+    /// Attach a global [`ModuleLookup`] layered under the dependency
+    /// registry — see [`HandlModule::with_global_lookup`].
+    pub fn with_global_lookup(mut self, lookup: Arc<dyn ModuleLookup + Send + Sync>) -> Self {
+        self.global_lookup = Some(lookup);
+        self
+    }
+
+    /// Attach the [`ImportResolver`] for `import`/`from` statements —
+    /// see [`HandlModule::with_import_resolver`].
+    pub fn with_import_resolver(mut self, resolver: Arc<dyn ImportResolver + Send + Sync>) -> Self {
+        self.import_resolver = Some(resolver);
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
 // HandlModule
 // ---------------------------------------------------------------------------
 
@@ -2292,6 +2422,77 @@ impl HandlModule {
         }
         self.builder = builder;
         self.module_id = module_id;
+    }
+
+    /// Clone this module's dependency environment out as a [`ModuleEnv`]
+    /// (ADR-0154).
+    ///
+    /// Useful for clone-instantiate patterns: `m.instantiate(m.env())`
+    /// produces a sibling identical to `self` except for a fresh
+    /// `module_id`, and `m.instantiate(m.env().with_dependency(extra))`
+    /// layers a dep onto the existing binding.
+    pub fn env(&self) -> ModuleEnv {
+        ModuleEnv {
+            dependencies: self.dependencies.clone(),
+            global_lookup: self.global_lookup.clone(),
+            import_resolver: self.import_resolver.clone(),
+        }
+    }
+
+    /// The current module ID — the key into the per-thread
+    /// `RUNTIME_CACHE`/`AST_CACHE`/`MODULE_VALUE_CACHE` tables.
+    ///
+    /// Exposed so hosts (and tests) can observe that [`instantiate`] /
+    /// `with_dependency*` re-keyed the caches: two [`HandlModule`]s with
+    /// different module IDs evaluate against disjoint per-thread cache
+    /// entries even on the same thread.
+    pub fn module_id(&self) -> usize {
+        self.module_id
+    }
+
+    /// Instantiate a sibling module under a different dependency
+    /// environment (ADR-0154).
+    ///
+    /// The returned [`HandlModule`] shares this module's prepared source,
+    /// language, eval engine, op functions and value names, but its env is
+    /// `env` — this module's own `dependencies`/`global_lookup`/
+    /// `import_resolver` are *not* carried over. A fresh `module_id` is
+    /// allocated through the same `rebuild_functions` path, so the
+    /// per-thread runtime/AST caches key the two instances apart: each
+    /// evaluates the same source against its own dep bindings.
+    ///
+    /// `self` is unchanged; each instance owns its own [`HandlFunction`]s
+    /// bound to its own `module_id`.
+    pub fn instantiate(&self, env: ModuleEnv) -> Self {
+        let mut module = Self {
+            name: self.name.clone(),
+            functions: self
+                .functions
+                .keys()
+                .map(|fname| {
+                    let func = HandlFunction::new(
+                        self.name.clone(),
+                        fname.clone(),
+                        self.source.clone(),
+                        self.module_id,
+                        Arc::clone(&self.builder),
+                    );
+                    (fname.clone(), func)
+                })
+                .collect(),
+            op_functions: self.op_functions.clone(),
+            dependencies: env.dependencies,
+            global_lookup: env.global_lookup,
+            eval_name: self.eval_name,
+            import_resolver: env.import_resolver,
+            language: self.language.clone(),
+            source: self.source.clone(),
+            builder: Arc::clone(&self.builder),
+            module_id: self.module_id,
+            value_names: self.value_names.clone(),
+        };
+        module.rebuild_functions();
+        module
     }
 
     /// Declare `names` as value exports — record fields exposed as plain
