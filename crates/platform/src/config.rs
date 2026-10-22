@@ -525,9 +525,51 @@ fn run_git(dir: &Path, args: &[&str]) -> Result<(), String> {
     }
 }
 
-/// Clone `spec`'s git source into `slot` and check out the declared
-/// selector. On any failure the partially-created slot is removed so the
-/// next resolve retries instead of treating a half-clone as populated.
+/// Claim a unique private temp directory next to `slot` for an
+/// out-of-place clone. `create_dir`'s exclusive semantics make the name
+/// collision-proof across processes and threads; a dot prefix keeps
+/// crash leftovers out of the slot's namespace (`live_git_deps` only
+/// trusts the slot itself, so a stale temp never looks populated).
+fn claim_temp_slot(parent: &Path, slot: &Path) -> Result<PathBuf, String> {
+    let name = slot
+        .file_name()
+        .map_or_else(|| "dep".to_string(), |n| n.to_string_lossy().into_owned());
+    for attempt in 0..64u32 {
+        let tmp = parent.join(format!(
+            ".{name}.fetch-{}-{attempt}",
+            std::process::id(),
+        ));
+        match std::fs::create_dir(&tmp) {
+            Ok(()) => return Ok(tmp),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => {
+                return Err(format!("cannot create temp slot {}: {e}", tmp.display()))
+            }
+        }
+    }
+    Err(format!(
+        "cannot claim a temp slot next to {}",
+        slot.display()
+    ))
+}
+
+/// Clone `spec`'s git source, check out the declared selector, and
+/// publish the result into `slot`.
+///
+/// The clone runs in a private temp directory ([`claim_temp_slot`]) and
+/// is published with an atomic `rename`, so concurrent fetches of the
+/// same dep (parallel `hnl` processes / test binaries resolving the same
+/// `.handl.toml`) can never observe or destroy each other's clones: the
+/// previous cleanup-on-failure removed the *shared* slot itself, so the
+/// loser of a clone race deleted the winner's fresh checkout and the
+/// winner's follow-up `git checkout` then failed with a bare
+/// "No such file or directory" (the intermittent dep-checkout build
+/// flake). A `rename` that finds `slot` already populated means another
+/// fetch won the race — a populated slot is trusted by design
+/// (fetch-on-miss never refetches), so that is success. Only the
+/// caller's own temp dir is ever removed, on failure or on losing the
+/// publish race; a crash mid-fetch leaves a dot-prefixed temp behind,
+/// never a half-cloned slot that would be mistaken for populated.
 fn materialize_git_dep(slot: &Path, spec: &DependencySpec) -> Result<(), String> {
     let url = git_remote_url(spec.git.as_deref().unwrap_or_default());
     let Some(parent) = slot.parent() else {
@@ -535,15 +577,30 @@ fn materialize_git_dep(slot: &Path, spec: &DependencySpec) -> Result<(), String>
     };
     std::fs::create_dir_all(parent)
         .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
-    let slot_str = slot.to_string_lossy().into_owned();
-    let result = run_git(parent, &["clone", "--quiet", &url, &slot_str]).and_then(|()| {
-        match git_selector(spec) {
-            Some(sel) => run_git(slot, &["checkout", "--quiet", sel]),
+    let tmp = claim_temp_slot(parent, slot)?;
+    let tmp_str = tmp.to_string_lossy().into_owned();
+    let result = run_git(parent, &["clone", "--quiet", &url, &tmp_str])
+        .and_then(|()| match git_selector(spec) {
+            Some(sel) => run_git(&tmp, &["checkout", "--quiet", sel]),
             None => Ok(()),
-        }
-    });
+        })
+        .and_then(|()| match std::fs::rename(&tmp, slot) {
+            Ok(()) => Ok(()),
+            // Lost the publish race: the slot is populated by the other
+            // fetch — same end state, so this is success. Drop our own
+            // clone; the winner's slot stays untouched.
+            Err(_e) if slot.is_dir() => {
+                std::fs::remove_dir_all(&tmp).ok();
+                Ok(())
+            }
+            Err(e) => Err(format!(
+                "cannot publish git dependency clone {} -> {}: {e}",
+                tmp.display(),
+                slot.display()
+            )),
+        });
     if result.is_err() {
-        std::fs::remove_dir_all(slot).ok();
+        std::fs::remove_dir_all(&tmp).ok();
     }
     result
 }
@@ -1425,6 +1482,88 @@ vendored = { path = "../lib-vendored" }
         let deps = resolve_dependencies_in(&proj, &pkg).unwrap();
         assert_eq!(deps["gone"], pkg.join("gone"));
         assert!(!pkg.join("gone").exists(), "failed clone leaves no slot");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// Concurrent fetches of the same git dep must not destroy each
+    /// other's clones (BACKLOG: dep-checkout build flakes). The
+    /// fetch-on-miss hook used to clean up a failed clone by
+    /// `remove_dir_all`ing the *shared* slot; when several resolvers
+    /// raced on the same absent slot (parallel `hnl` processes / test
+    /// binaries resolving one `.handl.toml`), the loser's cleanup
+    /// deleted the winner's fresh clone and the winner's `git checkout`
+    /// then failed with a bare "No such file or directory". The clone
+    /// now runs in a private temp slot published by an atomic rename, so
+    /// every racer either publishes or defers to the winner — and no
+    /// dot-prefixed temp may linger afterwards.
+    #[test]
+    fn concurrent_fetches_keep_the_slot_intact() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-race-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        let (repo, sha) = fixture_git_repo(&root, "upstream");
+        let url = format!("file://{}", repo.display());
+        std::fs::write(
+            proj.join(".handl.toml"),
+            format!("[dependencies]\ndep = {{ git = \"{url}\", branch = \"main\" }}\n"),
+        )
+        .unwrap();
+
+        const RACERS: usize = 8;
+        const ROUNDS: usize = 4;
+        for _ in 0..ROUNDS {
+            std::fs::remove_dir_all(&pkg).ok();
+            let barrier = std::sync::Arc::new(std::sync::Barrier::new(RACERS));
+            let handles: Vec<_> = (0..RACERS)
+                .map(|_| {
+                    let barrier = std::sync::Arc::clone(&barrier);
+                    let proj = proj.clone();
+                    let pkg = pkg.clone();
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        // `PlatformError` is not `Send` (it carries an
+                        // `Rc`-backed `EvalContext`), so reduce to a
+                        // plain count / error string at the boundary.
+                        fetch_dependencies_in(&proj, &pkg)
+                            .map(|fetched| fetched.len())
+                            .map_err(|e| e.to_string())
+                    })
+                })
+                .collect();
+            let mut reported = 0usize;
+            for handle in handles {
+                let fetched = handle
+                    .join()
+                    .expect("racer thread")
+                    .expect("fetch survives the race");
+                if fetched == 1 {
+                    reported += 1;
+                }
+            }
+
+            let slot = pkg.join("dep");
+            assert!(
+                slot.join("index.hnl").is_file(),
+                "the winner's clone must survive the race"
+            );
+            assert_eq!(head_sha(&slot), sha, "the selector stays checked out");
+            assert!(
+                reported >= 1,
+                "at least one racer must report the materialized dep"
+            );
+
+            // No dot-prefixed temp leftovers once every racer finished.
+            for entry in std::fs::read_dir(&pkg).unwrap() {
+                let name = entry.unwrap().file_name();
+                assert!(
+                    !name.to_string_lossy().starts_with('.'),
+                    "no temp slot may linger: {name:?}"
+                );
+            }
+        }
 
         std::fs::remove_dir_all(&root).ok();
     }
