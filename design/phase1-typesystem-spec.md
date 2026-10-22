@@ -773,3 +773,26 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     dependent_structure` — 23/24 green (the IO negative case the one
     expected failure); `cargo test -p hnl-engine-transform-rewrite`
     green (41/21/35).
+
+- [2026-03-18] **IO widen-rejection edge — closed.** The accept was not
+  the missing `rule.check` route sketched above: `x ~> x` under a
+  `type.function` annotation *synthesizes* (`synth_function` binds the
+  param to a fresh meta `?m`, body `x` reads the same cell) and the
+  `assign` judgment then `dep_unify`s `type.function{?m, ?m}` against
+  the annotation — domain solved `?m := IO({puts,gets})`, the codomain
+  `?m` vs `IO({puts})` hit the meta shortcut and `solve_meta` blindly
+  *overwrote* the cell, so the IO arm never ran. (The same shared-meta
+  hole accepted `Nat ~> Bool = x ~> x` — now rejects.)
+  - `dep_unify` dereferences an already-solved top-level meta through
+    `zonk` before the solve shortcut, so the second constraint checks
+    against the *solution*: `dep_unify(IO({puts,gets}), IO({puts}))`
+    reaches the IO arm's `vcheck.subtype` (mark/restore) and rejects;
+    the narrow/bare-IO cases still subtype through.
+  - `io_headed` was dead since landing — it compared the `__sym__`
+    display `name` against `"type.io"`, but `Sym::seeded` spells the
+    short name `"io"`; now compares the quoted `handle` against
+    `type_sym("type.io").handle()` (authoritative when present), with
+    the `type.io`/`io` name check only for handle-less spellings.
+  - Test: `cargo test -p hnl-engine-typecheck-nbe` — `dependent_structure`
+    **24/24**, `--lib` **283**, `parity` **46/46** (whole crate green).
+    engine-typecheck-nbe `10c05ab`.
