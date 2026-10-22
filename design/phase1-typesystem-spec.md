@@ -143,5 +143,41 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   residual closure for `Val::Arrow`/`TaggedValue::Arrow`
   (`OpHandler::apply_arrow` hook for engine-owned body reduction).
   Out-of-fragment variants → `NotImplemented`. 10 tests green.
-  Next: WS-B — `infer`/`check`/`conv` over `Val` in
-  `engine-typecheck-nbe`; port `.hnl` model coverage.
+- **2026-10-22 (cont.)** — WS-B slices 1–3 landed
+  (`engine-typecheck-nbe` commits `880b6f6`, `95e265a`, `dbf9b0d`;
+  `kernel` commit `c1187b2`):
+  - `checker.rs` — `Checker`: `infer`/`check`/`conv`/`subtype` over
+    `Val` (Γ level-indexed; nominal parent-walk subtyping; cumulative
+    universes `Type(i):Type(i+1)`, `Pi` level = max; literals =
+    `DescendantOf` metas + `default_unsolved`; `Telescope` former sigs
+    with dependent index subst; `lift` = inverse of `quote` incl. the
+    `__tag__` legacy bridge).
+  - `judgments.rs` — `JudgmentOps` (`OpHandler`): constructors
+    `nominal`/`former`/`universe`/`pi`/`hom`/`meta`/`literal`/`lift`/
+    `quote`/`decl_parent`, judges `infer`/`check`/`unify`/`subtype`/
+    `bind`/`lookup`, and pure index arithmetic (`add`/`sub`/`mul`/`div`
+    — `Vec(1+1) ≡ Vec(2)` by evaluation).
+  - Engine seam — `TypecheckContext.vcheck` + `vconv`/`vsubtype`/
+    `vinfer`/`vbind`/`vlookup`/`veval` judgment ops wired into
+    `eval_judgment`; `veval` runs sub-schemes through
+    `hnl_engine::nbe::eval`.
+  - kernel: `Sym::seeded_with_parent` upgrades a parentless memoized
+    sym (same handle — mint order can no longer orphan a parent).
+  Next: port `dependent_structure`/`axis_flow_boundaries` `.hnl`-model
+  tests to NBE coverage; then imports (`Sig_m`), `types.yaml` demotion,
+  `hnl typecheck` NBE, scope lints.
+- **2026-10-22 (cont.)** — WS-B coverage-port *probe* (not landed):
+  `engine-typecheck-handl/tests/dependent_structure.rs` was
+  mechanically ported to `NbeTypecheckEngine` (20 tests): **1/20
+  pass**. The failure inventory is the real WS-B remainder and is
+  mostly WS-C-shaped: `synth_data` judgment op missing in NBE;
+  `interpret_type_expr` has no `call` kind (dependent former
+  application `Vec(n, a)` as a type expr); match index-refinement /
+  `absurd` / `transport` / `J` are `.hnl`-model-only.
+  Recommendation: port these against the ADR-0152 encoding (ctor-sym
+  formers + `F.rec`), not the legacy `{"tag"}` pipeline — i.e. land
+  WS-C (`desugar.data` emits former/ctor syms, match lowers to `F.rec`,
+  positivity in the checker), then re-run the ported suite as the
+  parity gate before deleting `engine-typecheck-handl`. The ported
+  file is preserved at the working-tree level only (failing until
+  WS-C); `axis_flow_boundaries.rs` not yet attempted.
