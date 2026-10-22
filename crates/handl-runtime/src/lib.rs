@@ -57,8 +57,10 @@
 
 #![warn(missing_docs)]
 
+pub mod artifact_lint;
 pub mod desugar_pass;
 pub mod erase_pass;
+pub mod exec_erasure_pass;
 pub mod fp;
 pub mod module_prep;
 pub mod runtime_assert_pass;
@@ -837,7 +839,20 @@ impl Runtime {
     ///
     /// Returns [`LangError::NotImplemented`] if no eval engine is bound, or
     /// propagates the engine's error.
+    ///
+    /// # Exec-transform erasure + artifact lint (ADR-0154 §6)
+    ///
+    /// Before dispatch, the AST runs through
+    /// [`exec_erasure_pass::prepare_exec_artifact`]: the `"exec-erasure"`
+    /// pass strips type-level positions (e.g. `type-annot` → its
+    /// subject, generalizing ADR-0151's scheme-level erasure), and the
+    /// artifact lint asserts only 1-arrows + runtime values remain. A
+    /// stuck former application / metavariable / undecided type-level
+    /// node is a `LangError` diagnostic here rather than a silent
+    /// no-scheme payload fallback.
     pub fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
+        let prepared = exec_erasure_pass::prepare_exec_artifact(&self.lang, ast)?;
+        let ast = &prepared;
         if !ast.is_empty() {
             let root = AstRef::new(ast.len() - 1);
             match lower_ast(ast, &self.lang, root) {
@@ -913,7 +928,9 @@ impl Runtime {
         for (name, val) in globals {
             engine = engine.with_global(name, val.clone());
         }
-        let req = EvalRequest::new(ast.clone());
+        // ADR-0154 §6: erase type-level positions + lint the artifact.
+        let prepared = exec_erasure_pass::prepare_exec_artifact(&self.lang, ast)?;
+        let req = EvalRequest::new(prepared);
         engine.eval(&self.lang, &req)
     }
 
@@ -941,7 +958,9 @@ impl Runtime {
         for (name, val) in globals {
             engine = engine.with_global(name, val.clone());
         }
-        engine.eval_shared(&self.lang, ast)
+        // ADR-0154 §6: erase type-level positions + lint the artifact.
+        let prepared = Rc::new(exec_erasure_pass::prepare_exec_artifact(&self.lang, ast)?);
+        engine.eval_shared(&self.lang, &prepared)
     }
 
     /// Evaluate an [`Ast`] held behind an `Rc`, binding `args` directly into
@@ -972,7 +991,9 @@ impl Runtime {
         args: &[(String, Value)],
     ) -> Result<Value, LangError> {
         let engine = self.eval_engine.as_ref().ok_or(LangError::NotImplemented)?;
-        engine.eval_shared_with_call_args(&self.lang, ast, args)
+        // ADR-0154 §6: erase type-level positions + lint the artifact.
+        let prepared = Rc::new(exec_erasure_pass::prepare_exec_artifact(&self.lang, ast)?);
+        engine.eval_shared_with_call_args(&self.lang, &prepared, args)
     }
 
     /// Convenience: `eval(parse(lex(src)?)?)`.
@@ -1064,12 +1085,20 @@ impl Runtime {
     ///
     /// Returns [`LangError::Engine`] if no compile engine is registered for
     /// `target`, or propagates the engine's compilation error.
+    ///
+    /// # Exec-transform erasure + artifact lint (ADR-0154 §6)
+    ///
+    /// The AST is prepared ([`exec_erasure_pass::prepare_exec_artifact`])
+    /// before compilation — the compiled artifact is a runnable artifact
+    /// too, so the same "1-arrows + runtime values" invariant is asserted
+    /// for bytecode/cranelift targets.
     pub fn compile(&self, ast: &Ast, target: &str) -> Result<CompiledHandle, LangError> {
         let engine = self
             .compile_engines
             .get(target)
             .ok_or_else(|| LangError::engine(format!("unknown compile target: {}", target)))?;
-        let artifact = engine.compile(&self.lang, ast, target)?;
+        let prepared = exec_erasure_pass::prepare_exec_artifact(&self.lang, ast)?;
+        let artifact = engine.compile(&self.lang, &prepared, target)?;
         let id = COMPILED_NEXT_ID.fetch_add(1, Ordering::SeqCst) + 1;
         COMPILED_REGISTRY.with(|r| {
             r.borrow_mut().insert(id, artifact);
