@@ -717,3 +717,59 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     — its `.hnl` port exists but isn't the production path.
   - Not run: `lib-desugar` hnl-gate (no `hnl` binary on this box —
     build `host-cli` to gate the `.hnl` typecheck/lint pass).
+
+- [2026-03-18] **Surface open-items: `J` eliminator, `type.Name` aliases, `IO(sig)`** —
+  - **`J` eliminator surface (`J p, motive, base`)**: `lex.keyword.j`
+    emits `token.keyword.j` for the CAPITAL `J` spelling (lowercase `j`
+    stays an identifier — ~250 live uses in lib-desugar/lib-noise/
+    lib-str/…); `grammar.j.prefix` + `types.yaml` `type.j -> synth_j`
+    were already landed. `apply_motive` gained a var arm so a
+    results-bound `Lam`/`LamVal` motive (`_motive := (i,w) ~> T`)
+    applies like a literal arrow. `dependent_structure`'s
+    `j_eliminates_branch_path_through_motive` now parses the real
+    surface form; `j_surface_literal_motive` covers literal motives.
+    22/22 green at commit; kit-prelude-lang `7824a7c`,
+    engine-typecheck-nbe `98a1a53`, lib-type `079629d` (doc).
+  - **`type.Name := body` / `type.Name(params) := body` aliases** —
+    the chosen surface reuses `assign` (no grammar changes): the
+    `type.` namespace head on an `assign` lhs (field-access or call on
+    `var "type"`) is the transparent alias form per ADR-0154 §3.
+    `desugar_generic_assign` rewrites it to `Name := body` /
+    `Name := (params) ~> body`; `synth_assign` binds a
+    `type.alias{params, body}` expansion record;
+    `dep_synth_var_type`/`dep_synth_call_type`/`type.Name` field-access
+    expand it by plain substitution (params bound to arg types or
+    fresh metas, body re-synthesized) — structural, no former mint.
+    Also landed: `dep_synth_type` `paren` multi-child reads as
+    `type.array{elements}` (the tuple convention `synth_function`
+    already mints), `dep_check_intro` positional `type.array{elements}`
+    check, `type.array` added to the dependent `check_node` list.
+    `type_alias_expands_transparently` covers `Score`/`Id`/`Pair`
+    accept + reject. engine-transform-rewrite `4b253a9`,
+    engine-typecheck-nbe `1d23fb7`.
+  - **`IO(sig)` indexed typed effects (ADR-0153 §4)**: `FormerSig::Io`
+    registered at `type_sym("type.io")` (`IO(sig) : Type(0)`, arity 0
+    = `IO(⊤)` compat). `Checker::subtype` record-width arm —
+    `IO(sa) <: IO(sb)` iff `sb` names ⊇ the ops of `sa`.
+    `dep_synth_call_type` `Some("IO")` + `dep_builtin_or_tag` `"IO"`
+    emit canonical `Former{type.io}`; `io_sig` reads sig records from
+    `entries` payloads, `entry` children, or object-literal-block
+    `type-annot` children; `dep_unify` routes IO-headed pairs through
+    `vcheck.subtype`. `dep_synth_type` `function` arm now only
+    descends into `paren` params for the domain — call-headed domains
+    (`IO(s) ~> T`, `Vec(n,a) ~> T`) previously read their last arg.
+    lib-type `ec07203` exports `IO := (sig) ~> {"__former__":
+    sym.seeded("type.io"), "indices": [sig]}`.
+    engine-typecheck-nbe `48d9690`.
+  - **Open edge (IO)**: `io_signature_subtyping`'s negative case —
+    `IO({puts,gets}) ~> IO({puts}) = x ~> x` — still accepts. The
+    positive cases (`IO({puts}) <: IO({puts,gets})`, `IO({puts}) <: IO`
+    bare) pass, and the domain `FormerSig::Io`/`sig_width_subtype` arm
+    is landed; the widen-rejection needs the `var`-check path (the
+    `rule.check`/`check_subtype` scheme that runs before
+    `dep_unify`'s IO arm) routed through `vcheck.subtype` — one
+    follow-up arm, not a new subsystem.
+  - Test: `cargo test -p hnl-engine-typecheck-nbe --test
+    dependent_structure` — 23/24 green (the IO negative case the one
+    expected failure); `cargo test -p hnl-engine-transform-rewrite`
+    green (41/21/35).
