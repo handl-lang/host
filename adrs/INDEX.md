@@ -198,3 +198,6 @@ ADR), listed here so a number is never reused across repos.
 | 0149 | `host-cli` is a dumb host; `ext-*` extensions load dynamically | Accepted | `host-cli`, `ext-*` | `adrs/0149-dynamic-extension-host.md` |
 | 0150 | Repo visibility is derived from the dep closure | Accepted | `host` | `adrs/0150-visibility-closure-model.md` |
 | 0151 | Exec erases type annotations — signatures are typecheck-owned metadata | Accepted | `host`, `kit-prelude-lang`, `lib-loader` | `adrs/0151-exec-erases-type-annotations.md` |
+| 0152 | `data` is a nominal former + constructor arrows + dependent eliminator | Accepted | `kernel`, `kit-prelude-lang`, `engine-transform-rewrite`, `engine-typecheck-nbe`, `lib-type` | `adrs/0152-data-nominal-inductive-families.md` |
+| 0153 | `~[n]~>` is a dimension index — n-cells as one indexed former | Accepted | `kernel`, `kit-prelude-lang`, `engine-typecheck-nbe`, `lib-type` | `adrs/0153-grades-as-arrow-indices.md` |
+| 0154 | Typecheck semantics: identity, equality, universes, literals, erasure | Accepted | `kernel`, `kit-prelude-lang`, `engine-typecheck-nbe`, `lib-type` | `adrs/0154-typecheck-semantics.md` |

@@ -948,3 +948,37 @@ asserts that a second lookup returns the _same_ allocation
 distinct definitions do not collide, that malformed/empty definitions are
 rejected (falling back to `body`/`home`), and that the table stays within its
 cap while remaining correct after a clear.
+
+## ADR-0153/0154 conformance amendment (dimensions, identity, equality)
+
+**Status: Accepted — applied.** This amendment is landed: the decisions
+below are normative over §10's "graded arrows" wording and phase-1
+implementation work follows them.
+
+Amends §10 and adds the decisions that close the semantics. Normative
+over §10's "graded arrows" wording:
+
+- **`~[n]~>` is a dimension index, not a coeffect grade.** The bracket
+  forms the n-cell type `Hom(n, src, tgt)` (ADR-0153): 0 = objects,
+  1 = arrows, 2 = equations between arrows, 3 = coherence. The §10
+  reading (semiring grade `R`, `gradeCompose` on the bracket) is
+  withdrawn; usage/erasure is a mode axis, deliberately out of the
+  bracket (ADR-0154 §6).
+- **`f<...>` specialization semantics** = application of an
+  index-bound arrow: `id<d : Dim>` binds a dimension index, the same
+  mechanism as `List<T>`'s `T` (0153 §3). This discharges the §8/§12
+  "specialization semantics remain" TODO.
+- **`>>>` must be real composition** (TODO item 5 promoted to a
+  phase-1 blocker): cell-law typing (`f >>>[k] g`) and reindexing
+  (`f >>> P`) assume `>>>` composes; today it applies.
+- **Identity**: declared formers mint `sym` deterministically —
+  seeded by module-qualified name / content hash; plain `sym()` is
+  fresh-per-eval for locals only (0154 §1).
+- **Membership vs subtyping**: two links — values carry `type` →
+  type sym; types carry `parent` → supertype sym. `x : T` reads
+  `type`; `<:` walks `parent` (0154 §2). The §2/§14 "one walk powers
+  both" claim stands with this split.
+- **Equality law**: `==` is structural over immutable data; `sym` is
+  the only opt-out. Nominal heads, structural bodies (0154 §3).
+- **Universes**: `Type` is an indexed former `Type(i) : Type(i+1)`;
+  bare `Type` = `Type(0)`; `Obj` is the world, not a type (0154 §4).
