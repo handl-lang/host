@@ -1124,9 +1124,17 @@ fn is_import_line(trimmed: &str) -> bool {
 ///
 /// Erasing binds `null` — the same value type-only `export Name: Type`
 /// gets — losing no runtime behavior. Real arrow literals
-/// (`export f := (x) ~> body`, `export f := (x: [Int]) ~> body`) and
-/// morphism/cell expressions (`export alpha := f ~[2]~> g`'s nested
-/// forms) are untouched.
+/// (`export f := (x) ~> body`, `export f := (x: [Int]) ~> body`) are
+/// untouched.
+///
+/// TODO(footgun): a *top-level* `export alpha := f ~[2]~> g` (a genuine
+/// n-cell export, not a signature) also trips the depth-0 `~[` rule and
+/// silently binds `null` — nested `f ~[2]~> g` inside bodies is fine,
+/// only the export-RHS shape erases. Zero such exports exist in the
+/// corpus today (verified by sweep); distinguishing them needs a
+/// type-vs-value check on the `~[` operands (paren/record-led = type
+/// signature, bare-term = cell) — implement if a cell-export ever
+/// appears.
 fn is_signature_rhs(rhs: &str) -> bool {
     let bytes = rhs.as_bytes();
     let mut depth: i32 = 0;
