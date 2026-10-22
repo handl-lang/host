@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use handl_platform::Module;
-use handl_plugin_lib_handl::HandlModule;
+use handl_plugin_lib_handl::{HandlModule, ModuleEnv};
 
 use crate::packages::module;
 
@@ -24,6 +24,15 @@ use crate::packages::module;
 
 fn top_module_cache() -> &'static Mutex<HashMap<PathBuf, Arc<HandlModule>>> {
     static CACHE: OnceLock<Mutex<HashMap<PathBuf, Arc<HandlModule>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Env-keyed sibling of [`top_module_cache`] (ADR-0154 follow-up): shared
+/// on-disk module instances per `(path, env_id)`. The path-keyed singleton
+/// above is untouched — one path still means one env there; this table is
+/// additive, so one file can mean several envs.
+fn top_module_env_cache() -> &'static Mutex<HashMap<(PathBuf, usize), Arc<HandlModule>>> {
+    static CACHE: OnceLock<Mutex<HashMap<(PathBuf, usize), Arc<HandlModule>>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -98,6 +107,42 @@ pub fn load_hnl_file<P: AsRef<Path>>(path: P) -> Option<Arc<HandlModule>> {
         cache.insert(path, Arc::clone(&module));
     }
     Some(module)
+}
+
+/// Build a [`HandlModule`] from an on-disk `.hnl` file instantiated under
+/// `env` (ADR-0154 follow-up) — the env-parameterized sibling of
+/// [`load_hnl_file`].
+///
+/// The base still comes from the path-keyed [`load_hnl_file`] (the source
+/// analysis and the file's own relative/table imports are resolved once
+/// per path, shared by every env); the returned instance is
+/// [`HandlModule::instantiate`]d under `env` — the env replaces the
+/// base's dependency binding wholesale — and is cached by
+/// `(path, env_id)`. Clones of one env share a single instance; distinct
+/// envs (distinct [`ModuleEnv::env_id`]s) get distinct `module_id`s.
+///
+/// A useful env shape is `base.env().with_dependency(extra)`: the
+/// snapshot carries the file's own resolved imports as dependencies, and
+/// the layered dep shadows them for that instance.
+/// [`load_hnl_file`] itself is unchanged.
+pub fn load_hnl_file_with_env<P: AsRef<Path>>(
+    path: P,
+    env: &ModuleEnv,
+) -> Option<Arc<HandlModule>> {
+    let path = path.as_ref().to_path_buf();
+    let key = (path.clone(), env.env_id());
+    if let Ok(cache) = top_module_env_cache().lock() {
+        if let Some(m) = cache.get(&key) {
+            return Some(Arc::clone(m));
+        }
+    }
+    // `instantiate` shares the base's prepared source (no re-analysis),
+    // so it runs outside the lock without `load_hnl_file`'s cycle-guard
+    // concern.
+    let base = load_hnl_file(&path)?;
+    let instance = Arc::new(base.instantiate(env.clone()));
+    let mut cache = top_module_env_cache().lock().ok()?;
+    Some(Arc::clone(cache.entry(key).or_insert(instance)))
 }
 
 // ---------------------------------------------------------------------------

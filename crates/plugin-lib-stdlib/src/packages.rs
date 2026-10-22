@@ -20,7 +20,9 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, ContributionContext,
     Function, Module, ModuleLookup, PlatformError, Plugin, PluginContext,
 };
-use handl_plugin_lib_handl::{HandlModule, ModuleResolver, OpRegistry, parse_cap_declarations};
+use handl_plugin_lib_handl::{
+    HandlModule, ModuleEnv, ModuleResolver, OpRegistry, parse_cap_declarations,
+};
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
 use crate::ops;
@@ -1432,6 +1434,50 @@ pub fn module_ref(name: &str) -> Option<&'static HandlModule> {
         )));
     let mut cache = module_cache().lock().ok()?;
     Some(*cache.entry(name.to_string()).or_insert(built))
+}
+
+/// Env-keyed sibling of [`module_cache`] (ADR-0154 follow-up): shared
+/// table-module instances per `(name, env_id)`.
+///
+/// The name-keyed singleton above is untouched — through [`module_ref`]
+/// one name still means one env there; this table is additive, so one
+/// name can mean several envs.
+fn env_module_cache() -> &'static Mutex<HashMap<(String, usize), Arc<HandlModule>>> {
+    static CACHE: OnceLock<Mutex<HashMap<(String, usize), Arc<HandlModule>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Get a shared [`Arc<HandlModule>`] for the table module `name`
+/// instantiated under `env` (ADR-0154 follow-up).
+///
+/// Env-aware sibling of [`module_ref`]: the *base* still comes from the
+/// name-keyed singleton (the source analysis runs once per name and is
+/// reused by every env), and the instance —
+/// [`HandlModule::instantiate`]d under `env`, which replaces the table's
+/// global lookup/import resolver with the env's — is cached by
+/// `(name, env_id)`. Clones of one env share a single instance; distinct
+/// envs (distinct [`ModuleEnv::env_id`]s) get distinct `module_id`s.
+///
+/// A useful env shape is `base.env().with_dependency(extra)`: the
+/// snapshot carries the table wiring (global lookup + import resolver)
+/// and the layered dep shadows the table for that instance (the
+/// dependency registry is consulted before the global lookup). The
+/// `&'static` [`module_ref`] singleton keeps its single-env behavior
+/// unchanged.
+pub fn module_ref_with_env(name: &str, env: &ModuleEnv) -> Option<Arc<HandlModule>> {
+    let key = (name.to_string(), env.env_id());
+    if let Ok(cache) = env_module_cache().lock() {
+        if let Some(m) = cache.get(&key) {
+            return Some(Arc::clone(m));
+        }
+    }
+    // `instantiate` shares the base's prepared source (no re-analysis),
+    // so it runs outside the lock without the loader recursion concern
+    // documented on `module_ref`.
+    let base = module_ref(name)?;
+    let instance = Arc::new(base.instantiate(env.clone()));
+    let mut cache = env_module_cache().lock().ok()?;
+    Some(Arc::clone(cache.entry(key).or_insert(instance)))
 }
 
 // ---------------------------------------------------------------------------
