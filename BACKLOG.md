@@ -180,3 +180,23 @@ The decoupled parser/lexer/formatter model makes it possible to load modules wri
    - A module can declare `syntax "my-dsl"`.
    - The host loads the corresponding syntax plugin if not already present.
    - The module is parsed to the common `AstNode` shape and participates in the normal pipeline.
+
+## host-tensor / lib-tensor
+
+The pair is at 28 ops with 11 registered deriv pairs (every
+non-constructor op has an adjoint); lib-tensor mirrors all 28 and
+verifies 45/45 differentially under `hnl-run`.
+
+- **dtype beyond `f64`** — kernel slice first: `handl-value`'s
+  `TensorValue` is `Vec<f64>`; a second dtype needs an enum payload +
+  codec there (same shape the `Tensor` variant took). Then here:
+  `Tensor.data` becomes the enum and each op picks a rule — same-dtype
+  with an error on mixing is the likely default (promotion lattices are
+  where the bugs live). The wire field is already reserved
+  (`"dtype": "f64"`; decode rejects everything else today).
+- **`.hnl`-function autodiff** — `tensor.derive` is a registered-pairs
+  table, deliberately not autodiff: a host `Function` sees only
+  evaluated argument values, so a `.hnl` arrow's name resolves to
+  `null`. Real autodiff on `.hnl` functions needs engine machinery
+  (source-to-source transform or a tape in eval) — an engine slice,
+  not a host-tensor one.

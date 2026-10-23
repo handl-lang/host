@@ -262,3 +262,27 @@ metaprograms.
 ## Progress log
 
 - *(spec drafted — no work landed yet)*
+
+- **WS-C wave-1 (implicit index binders + surface sugar) — landed.**
+  `f{a, b} : T` implicit index binders (adjacent `{` brace on an
+  `assign`/`type-annot` subject desugars to implicit `type.pi` binders —
+  never lambda-consuming, erased at runtime); `F{i, …}` index-argument
+  application in annotation position (`Vec{n, a}` ≡ `Vec(n, a)` former
+  index-app; `Vec{Succ n, a}` — whitespace inside braces is application,
+  ctor callees become `App` index terms); `forall n : Nat, T` ≡ `Pi(Nat,
+  n ~> T)` parse-level alias (`forall` keyword minted — free, only used
+  in comments before); `match` may drop `return … with` when an expected
+  type exists — motive inferred from the expected type's family-app
+  index pattern (constant motive otherwise). Implicit app-site solving =
+  ordinary meta + `unify_index` (plus `App` ctor-injective arg unification).
+  Parse: `{` index-app is a special production in the Pratt engine
+  (adjacency-gated like `dimension` — `Vec{n}` vs `v { … }`); kit data
+  adds `token.keyword.forall`/`lex.keyword.forall`, `grammar.forall.prefix`,
+  `ast.index_app` (callee+args roles — payload_extract/binding resolution
+  work via `callee`), `eval.index_app` (= `eval.call` scheme),
+  `type.index_app` (= `synth_call`). Blocker: sibling `engine` repo has
+  uncommitted WS-E WIP (`compose_cell_vals`/`is_cell_val` — nbe.rs fails
+  to compile), so `hnl-engine-typecheck-nbe` lib check +
+  `dependent_structure` + `hnl typecheck`/`hnl run` e2e verification are
+  pending on that branch finishing (dependent.rs itself: zero errors,
+  warnings only; engine-parse-pratt 57/57 green).

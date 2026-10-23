@@ -991,3 +991,77 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   (c) `hnl run io.hnl` — `narrow : IO(…) ~> IO(…) := x ~> x` parses to
   `assign(function(…), …)` and `lower_ast`/`eval_block` only bind
   identifier targets (type-signed function bindings unevaluable).
+
+## Progress log — eval-side gaps closed (vec/path_j/io) + engine-test stack
+
+- **vec.hnl `match: no arm matched` (landed):** the diagnosis was *not*
+  a `__ctor__`/sym-handle issue — seeded syms round-trip intact through
+  `lit`/`body_def` (`sym_from_json` reuses the serialized handle;
+  `Sym::seeded` stays idempotent). The match never desugared: both
+  `match_recursor` implementations (lib-desugar overlay +
+  engine-transform-rewrite native) require an *annotated* scrutinee
+  `v : T(idx…)` for indexed families AND full arm coverage — but the
+  checker's refinement semantics *rejects* unreachable arms on indexed
+  families (`match (v : Vec(2,Bool)) { VNil: … }` → "unreachable
+  constructor arm"), so post-typecheck matches are bare-var scrutinees
+  with *incomplete* coverage and always fell through to the generic
+  `match` op, which only knew `__tag__` records. Fix (engine-exec
+  `pattern_match.rs`): `try_tag_pattern` falls through to ctor-object
+  dispatch when the scrutinee has no `__tag__` — `{"__ctor__": sym,
+  fields…, "type": F(i⃗)}` matches a `Ctor(binder…)` pattern when the
+  seeded `__ctor__` sym's display name equals the callee name (the
+  seed's last `.`-segment, mirroring `fold_chain`'s
+  `eq(v.__ctor__, cSym)`). Binders bind positionally to the declared
+  arg fields — order comes from the ctor arrow's `params` resolved via
+  the new `PatternMatchCtx::scope_value` (implemented in tree-walk/
+  bytecode/cranelift; `None` default keeps the sorted-field fallback
+  minus `__ctor__`/`type`). A `var` pattern naming a scope-bound ctor
+  object eq-matches like a global value pattern (0-arg ctors —
+  `VNil:`); non-ctor scope values still bind. `hnl run`/`hnl eval`
+  vec.hnl → `false`.
+- **path_j.hnl `j` node artifact-lint rejection (landed):**
+  `kit-prelude-lang` `eval.yaml` gained `eval.j` — `proj_child` of the
+  `base` role (child 2). Runtime iota: `J p, motive, base` computes on
+  a canonical refl witness to the motive's base — every runtime path is
+  a proof cell (ADR-0032 `erase_pass` rewrites proof-typed nodes to
+  `erased`), so the eliminator reduces to `base` unconditionally, the
+  same proof-erasure reading `transport`'s native op already uses.
+  `path`/`motive` are static (`eq_<name>` witnesses have no runtime
+  binding) — only `base` evaluates. A genuinely stuck `j` remains the
+  `artifact.type-level-node` diagnostic upstream; the scheme is the
+  ADR-0154 §6 runtime backstop for the decided iota.
+  `kit-data-prelude` fragment-count test bumped 87→88. `hnl run`
+  path_j.hnl evaluates `id_vec` to its arrow.
+- **io.hnl `eval_block: binding target must be an identifier`
+  (landed):** `narrow : IO(sa) ~> IO(sb) := x ~> x` parses as
+  `assign(function(type-annot(narrow, IO(sa)), IO(sb)), f)` — the
+  annotated name lives under the `function` target's `params` role (the
+  `body` is the result type). Exec `binding_target_name`
+  (engine-exec `native_ops.rs`) now mirrors the checker's scope-pass
+  role descent — `field`/`callee` first, then
+  `source`/`target`/`subject`/`params`/`body`/`expr` — instead of
+  `subject`-only unwrap. `expr` covers `runtime-assert` targets: the
+  ADR-0068 pass rewrites `type-annot` → `runtime-assert` in place
+  whenever typecheck succeeds (the "over-eager wrapping" it documents),
+  so under `hnl run` the name sits under `expr`; under `hnl eval`
+  exec-erasure's `Replace path:[0]` correctly extracts the `subject`.
+  Same descent added to `handl-kit-arrow-lower`'s `lower_ast` so the
+  fast Term path binds function/annotated targets instead of falling
+  back. `hnl run`/`hnl eval` io.hnl evaluates.
+- **engine-test SIGABRTs (landed — stack, not cycles):**
+  `filter_eval_via_pred_module` and
+  `assert_keyword_truthy_failure_carries_detail` overflow the 8 MiB
+  test-thread stack evaluating the `pred` `.hnl` module metacircularly
+  (the ~16–32 MiB budget the `dependent_structure`/`indexed_family_*`
+  tests already spawn threads for) — both pass at 64 MiB. Bodies
+  wrapped in a 64 MiB spawned thread (the established pattern) +
+  `engine-test/.cargo/config.toml` `[env] RUST_MIN_STACK` so the whole
+  suite survives in-repo runs. `cargo test -p hnl-engine-test`: 79 —
+  0 failures.
+- **Verified:** `hnl run`/`hnl eval` on vec/path_j/io.hnl all evaluate;
+  nat/alias/run_demo/vann repros unchanged; fail_* repros still reject
+  at typecheck. Suites: `hnl-engine-exec`/`tree-walk`/`bytecode`/
+  `cranelift`/`transform-rewrite`/`handl-runtime`/
+  `engine-typecheck-nbe` (283 lib + 24 dependent + 46 parity)/
+  `hnl-engine-test` (79)/`kit-prelude-lang`/`kit-data-prelude` — 0
+  failures.

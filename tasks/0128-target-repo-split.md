@@ -526,6 +526,18 @@ and `host-cli`'s decl-stripping/splice-seeding gained dep awareness; the
 tooling kit is `Kit::discover`-based. Regression:
 `handl-runtime/tests/dependency_import.rs`.
 
+**The git-package→dir bridge (landed).** `[dependencies]` entries also
+accept a repo-hosted source — `name = { git = "…", rev|branch|tag = "…" }`
+— and the manifest carries a `[patch]` table (`name = "../sibling-dir"`)
+as the consumer-side local override, mirroring the Cargo `[patch]` +
+`dev-link.sh` story: the committed manifest names the package portably,
+and a patch whose directory exists wins (a missing patch dir is inert).
+An unpatched git dep resolves to `package_cache_dir()/name`
+(`$HANDL_PKG_DIR`, else `~/.handl/pkg`) — the slot the ADR-0010 fetch
+hook materializes; nothing populates it yet, so the fetch half remains
+the follow-up seam. See `handl_platform::config::resolve_dependencies`
+and `handl-runtime/tests/dependency_import.rs`.
+
 Residual, if module-chain registration is ever wanted on top: dep names
 take precedence over module lowering by design, so registering `libc` et
 al. as modules remains compatible. ~~`math-c` and `generated/icu{,-uc}*`
