@@ -582,3 +582,24 @@ metaprograms.
      evals, raw `eval` unchanged. Note: `~>` bodies parse `{…}` as a
      *block* — object literals in arrow-body position need parens
      (`x ~> ({…})`).
+
+- **Reconcile + carried gaps (phase-2 final state, pushed).** All
+  workstream strays reconciled; `engine-typecheck-nbe` lib 293 +
+  dependent_structure 30/30 + stack_probe 1/1 + parity 46/46,
+  `handl-value` lib 33 — all green. Two known gaps carry forward
+  (documented, not blocking):
+  1. **`eval_body_node` drops object-payload `lit` nodes** —
+     `engine-typecheck-nbe/src/judgments.rs` (`"value" | "lit"` arm):
+     a `lit` whose payload is an object (`{"value": …}`-less shapes —
+     the desugar-minted `lit __sym__`/`__former__` encodings) evaluates
+     to `Null` inside checked arrow bodies, so the payload's value is
+     lost. Needs an eval arm that keeps `lit` payloads (mint the
+     `TaggedValue` the exec engines' `instantiate` convention already
+     produces for them).
+  2. **`x ~> {…}` parses `{…}` as a block, not an object literal** —
+     `.hnl` arrow bodies in brace position go down the block
+     production, so returning an object literal needs parens:
+     `x ~> ({…})`. Documented workaround; the proper fix is contextual
+     object-literal disambiguation in the Pratt parser (arrow-body
+     position should prefer the object production, mirroring
+     `paren`-wrapped expression contexts).
