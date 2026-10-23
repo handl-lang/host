@@ -189,6 +189,101 @@ pub fn module_bindings_object(module: &dyn Module) -> handl_language::Value {
     handl_language::Value::Object(obj)
 }
 
+// ---------------------------------------------------------------------------
+// Scope-bound env wrappers (ADR-0155 Phase 0)
+// ---------------------------------------------------------------------------
+
+/// The `rest`-param name a dep wrapper arrow binds its whole argument
+/// array to — and the `var` name its `callv` body reads it back through.
+/// Kept in one constant so the minted arena and the arrow record cannot
+/// drift apart.
+const DEP_WRAP_REST: &str = "args";
+
+/// Mint a **wrapper arrow** for a dep function (ADR-0155 §1): the
+/// callable-record payload a scope-bound env binds for `name`.
+///
+/// The arrow is `params: [], rest: "args"` over a `callv` body
+/// (`data/eval.yaml` `eval.callv`): applying it collects every call
+/// argument into `args` as an `Arr[…]` and hands that array to
+/// `call_host` with `name` as the incoming callee string — the same
+/// `(name, packed-args-array)` leaf an ordinary `mod.fn(x)` call lands
+/// on. Unlike a `call`-node body, `callv` forwards the evaluated array
+/// itself rather than re-packing it through `proj_rest`, so the leaf
+/// receives `args[0]` = the whole argument list regardless of arity
+/// (`Function::call` has no arity metadata — `platform/src/eval.rs`
+/// `Function::call`).
+///
+/// The `body_def` arena is built directly (`Ast::push` +
+/// [`handl_language::ast_value`], the `def_with_body` precedent) — **not**
+/// via `Ast::instantiate`: the qualified name must stay an ambient `lit`
+/// string so it re-resolves through the *applying* runtime's module
+/// chain at `call_host` (ADR-0155 §"Wrappers are ambient re-resolution,
+/// not pinning"). Nothing is captured — `binds`/`handlers` are empty —
+/// and construction forces no evaluation.
+///
+/// `name` is the qualified leaf name the chain resolves (`"mod.fn"`).
+/// Mint-time resolution is deliberately *not* checked — there is no
+/// chain in scope here; a wrapper carried into a runtime whose chain
+/// lacks `mod` fails at call time (`call_host: function '…' not found`),
+/// the same failure an unbound dotted callee produces today.
+pub fn wrap_dep_fn(name: &str) -> handl_value::TaggedValue {
+    // `callv` children: [lit "mod.fn", var "args"] — child 0 evals to the
+    // callee name (`LIT_KIND` declares no eval scheme, so it returns its
+    // payload on every engine), child 1 evals to the rest-bound args
+    // array. Layout must match `eval.callv`'s scheme.
+    let mut body = handl_language::Ast::new();
+    let callee = body.push(
+        handl_language::AstNode::new(handl_language::LIT_KIND)
+            .with_payload(serde_json::json!(name)),
+    );
+    let args = body.push(
+        handl_language::AstNode::new("var")
+            .with_payload(serde_json::json!(DEP_WRAP_REST)),
+    );
+    body.push(
+        handl_language::AstNode::new("callv").with_payload(serde_json::json!({
+            "children": [callee.index(), args.index()],
+        })),
+    );
+    handl_value::TaggedValue::Arrow {
+        params: Rc::from(Vec::<String>::new()),
+        rest: Some(Rc::from(DEP_WRAP_REST)),
+        array_pattern: false,
+        body_def: Rc::new(handl_value::TaggedValue::from(
+            handl_language::ast_value(&body),
+        )),
+        binds: Default::default(),
+        handlers: Default::default(),
+    }
+}
+
+/// Build a dep module's env record of wrapper arrows (ADR-0155 §3):
+/// `{"fn": <wrap_dep_fn "mod.fn">, …}` over [`Module::functions`], with
+/// [`Module::value_names`] carried over as plain values — the
+/// arrow-encoding counterpart of [`module_bindings_object`].
+///
+/// The record is pure data: `TaggedValue::Obj` of self-contained arrows,
+/// serializable as ordinary `{"__arrow__": …}` wire values.
+pub fn wrap_dep_module(module: &dyn Module) -> handl_value::TaggedValue {
+    let mut obj = serde_json::Map::new();
+    for (fname, _f) in module.functions() {
+        obj.insert(
+            fname.to_string(),
+            handl_language::Value::from(wrap_dep_fn(&format!(
+                "{}.{}",
+                module.name(),
+                fname
+            ))),
+        );
+    }
+    for vname in module.value_names() {
+        if let Some(v) = module.value(&vname) {
+            obj.insert(vname, v);
+        }
+    }
+    handl_value::TaggedValue::from(handl_language::Value::Object(obj))
+}
+
 impl ImportResolver for DependencyImportResolver {
     fn resolve_import(
         &self,
