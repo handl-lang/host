@@ -311,6 +311,42 @@ pub fn module_bindings_tagged(module: &dyn Module) -> Rc<handl_value::TaggedValu
         .unwrap_or_else(|| Rc::new(wrap_dep_module(module)))
 }
 
+/// Materialize a module's dependency set as **scope-bound env bindings**
+/// (ADR-0155 Phase 2, §3): a `dep-name → bindings record` map that
+/// [`build_runtime`] injects into the eval engine's globals, so every
+/// eval in the module's runtime resolves dep names **scope-first**.
+///
+/// `dep.f(x)` then evaluates as ordinary `record.field(args)`: the field
+/// is a [`wrap_dep_fn`] wrapper arrow (or a field of `dep`'s own
+/// [`Module::bindings_tagged`] record) applied through the engine's
+/// `route_on_type → !App` path, and the wrapper's `callv` body lands on
+/// the same `call_host` leaf an unbound `"dep.f"` callee dispatches to.
+/// Dep modules therefore stay registered in the [`ModuleLookup`] chain —
+/// **demoted to leaf dispatch**: the record is the scope path, the chain
+/// is the leaf. The `proj_env` unbound→string fallback is unchanged, so
+/// ops, FFI, and ambient names (e.g. the stdlib table reached through
+/// `global_lookup`) still resolve as string callees (ADR-0155 §2).
+///
+/// Each record crosses into the engine as its `{"__arrow__": …}` wire
+/// value — ordinary serializable data (ADR-0155 §1 marshal story). The
+/// records live in the engine-globals layer of `ScopeStack`: resolved
+/// after local scopes (so locals and `import` splices still shadow dep
+/// names) and excluded from `capture()`, so arrows minted in the module
+/// body keep dep names free and re-resolve them per call.
+fn dep_env_globals(
+    dependencies: &[Arc<dyn Module + Send + Sync>],
+) -> HashMap<String, serde_json::Value> {
+    dependencies
+        .iter()
+        .map(|dep| {
+            (
+                dep.name().to_string(),
+                handl_value::tagged_to_value(&module_bindings_tagged(dep.as_ref())),
+            )
+        })
+        .collect()
+}
+
 impl ImportResolver for DependencyImportResolver {
     fn resolve_import(
         &self,
@@ -1936,6 +1972,12 @@ fn allocate_env_id() -> usize {
 /// given modules and layered under the canonical `FpHostFunctions` (for
 /// field-access support). If no dependencies are needed, no module registry
 /// is wired (matching the `hello` bridge pattern).
+///
+/// ADR-0155 Phase 2: the dependency set is *also* materialized as an env
+/// record ([`dep_env_globals`]) injected into the eval engine's globals —
+/// dep names resolve scope-first as records of wrapper arrows, and the
+/// registry is demoted to `call_host` leaf dispatch (plus the unchanged
+/// unbound→string fallback for ops/FFI/ambient names).
 fn build_runtime(
     lang: handl_language::Language,
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
@@ -1985,6 +2027,15 @@ fn build_runtime(
         None => derived_resolver.map(|r| Rc::new(r) as Rc<dyn ImportResolver>),
     };
 
+    // ADR-0155 Phase 2 (§3): materialize the dep env as call-frame
+    // bindings — `dep.name()` → its `module_bindings_tagged` record —
+    // injected into the eval engine's globals below, so `dep.f` resolves
+    // scope-first through the record's wrapper arrows. The dep modules
+    // stay registered in the chain (demoted to `call_host` leaf
+    // dispatch): a wrapper's `callv` body re-resolves `"dep.f"` through
+    // the applying runtime's `ModuleLookup`, which lands on the same
+    // registry entry the unbound-identifier callee used.
+    let env_globals = dep_env_globals(&dependencies);
     let dep_registry = if dependencies.is_empty() {
         None
     } else {
@@ -2004,12 +2055,18 @@ fn build_runtime(
             }) as Rc<dyn ModuleLookup>)
         };
     let globals = handl_runtime::fp::canonical_fp_host_functions(module_chain);
+    // The dep env record rides the runtime's `globals` channel (engine
+    // globals merged into every eval's `ScopeStack` globals — resolved
+    // scope-first after locals, excluded from `capture()`), so `dep.f`
+    // is `record.field` + `!App` in every eval of this runtime: the
+    // module-record eval (`__mod`), each applied call, and `Module::value`
+    // projections alike — no per-call arg assembly needed.
     let runtime = Runtime::from_registry_with_resolver(
         lang,
         &registry,
         &config,
         Some(globals),
-        None,
+        Some(&env_globals),
         resolver,
         None,
     )?;
@@ -2124,11 +2181,24 @@ impl Function for HandlFunction {
         // another `HandlFunction` (e.g. `str-handl` → `char.*`), which
         // re-enters `call` and would otherwise hit
         // `RefCell already borrowed`.
-        let runtime = RUNTIME_CACHE.with(|cache| {
-            std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
-                std::rc::Rc::new(builder().expect("handl module runtime build failed"))
-            }))
-        });
+        //
+        // The build itself runs in two phases — check under a shared
+        // borrow, build outside any borrow, then insert — because
+        // `builder()` materializes the dep env record (ADR-0155 Phase 2),
+        // which evaluates `dep.value(...)` projections and so re-enters
+        // `RUNTIME_CACHE` for the dep's own runtime.
+        let runtime = RUNTIME_CACHE.with(|cache| cache.borrow().get(&module_id).cloned());
+        let runtime = match runtime {
+            Some(runtime) => runtime,
+            None => {
+                let runtime =
+                    std::rc::Rc::new(builder().expect("handl module runtime build failed"));
+                RUNTIME_CACHE.with(|cache| {
+                    cache.borrow_mut().insert(module_id, std::rc::Rc::clone(&runtime));
+                });
+                runtime
+            }
+        };
         let errf = |e: handl_language::LangError| {
             EvalError::Other(format!("{module_name}.{func_name}: {e}"))
         };
@@ -2809,11 +2879,21 @@ impl HandlModule {
     fn eval_value(&self, name: &str) -> Option<serde_json::Value> {
         let module_id = self.module_id;
         let builder = Arc::clone(&self.builder);
-        let runtime = RUNTIME_CACHE.with(|cache| {
-            std::rc::Rc::clone(cache.borrow_mut().entry(module_id).or_insert_with(|| {
-                std::rc::Rc::new(builder().expect("handl module runtime build failed"))
-            }))
-        });
+        // Two-phase cache access — `builder()` may re-enter `RUNTIME_CACHE`
+        // while materializing dep value exports for the env record
+        // (ADR-0155 Phase 2), so it must not run under `borrow_mut`.
+        let runtime = RUNTIME_CACHE.with(|cache| cache.borrow().get(&module_id).cloned());
+        let runtime = match runtime {
+            Some(runtime) => runtime,
+            None => {
+                let runtime =
+                    std::rc::Rc::new(builder().expect("handl module runtime build failed"));
+                RUNTIME_CACHE.with(|cache| {
+                    cache.borrow_mut().insert(module_id, std::rc::Rc::clone(&runtime));
+                });
+                runtime
+            }
+        };
         let ast_key = (module_id, name.to_string());
         let ast = VALUE_AST_CACHE.with(|cache| cache.borrow().get(&ast_key).cloned());
         let ast = match ast {
@@ -2919,6 +2999,13 @@ pub const LOADER_FUNCS: &[&str] = &[
 /// native floor (no loader needed) and `str` (`str-handl`) is prepared by
 /// the bootstrap transforms — this is the two-phase resolution of the
 /// bootstrap paradox.
+///
+/// ADR-0155 Phase 2 (§4): `loader.hnl`'s `str.*`/`char.*` calls resolve
+/// **scope-first** — each dep name is bound to a record of wrapper arrows
+/// in the loader runtime's eval globals, and only the wrapper's `callv`
+/// leaf still dispatches `"str.find"`/`"char.at"` through the module
+/// registry. The registry is no longer load-bearing for the first hop —
+/// only for the leaf.
 ///
 /// Once a `HandlLoader` is installed via [`install_loader`], all public
 /// transform functions in this crate (and [`HandlModule::new`]'s

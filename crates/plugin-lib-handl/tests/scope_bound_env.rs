@@ -17,8 +17,11 @@
 //! story: the arrow is ordinary serializable data that re-decodes to a
 //! callable value inside the runtime.
 
-use handl_platform::{EvalContext, EvalError, Function, Module};
-use handl_plugin_lib_handl::{HandlModule, wrap_dep_fn, wrap_dep_module};
+use std::rc::Rc;
+use std::sync::Arc;
+
+use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
+use handl_plugin_lib_handl::{HandlModule, ModuleEnv, wrap_dep_fn, wrap_dep_module};
 use serde_json::{Value, json};
 
 /// Install the canonical default language once per test binary (see
@@ -299,4 +302,177 @@ fn both_binding_encodings_apply_through_call() {
         ),
         json!("orig:x")
     );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 — dep names bound scope-first in the module runtime (ADR-0155 §3-4)
+// ---------------------------------------------------------------------------
+
+/// Mint an arrow that ignores its arguments and returns `result` — a
+/// `lit`-body counterpart of `wrap_dep_fn`, used to give a dep a *bespoke*
+/// scope record that answers differently than its chain dispatch, so a
+/// `dep.f(x)` call reports which resolution path it took.
+fn const_arrow(result: &str) -> handl_value::TaggedValue {
+    let mut body = handl_language::Ast::new();
+    body.push(handl_language::AstNode::new(handl_language::LIT_KIND).with_payload(json!(result)));
+    handl_value::TaggedValue::Arrow {
+        params: Rc::from(Vec::<String>::new()),
+        rest: Some(Rc::from("args")),
+        array_pattern: false,
+        body_def: Rc::new(handl_value::TaggedValue::from(
+            handl_language::ast_value(&body),
+        )),
+        binds: Default::default(),
+        handlers: Default::default(),
+    }
+}
+
+/// A `dep` module whose **scope record** deliberately disagrees with its
+/// **chain dispatch**: `bindings_tagged` hands the env a record whose
+/// `who` field is a const arrow answering `"scope"`, while the module
+/// registry's `dep.who` (reached through the `call_host` leaf) still
+/// answers `"chain"`/`"chain:…"`. The `cat` field stays the standard
+/// `wrap_dep_fn` wrapper, so it still leaf-dispatches to the chain.
+///
+/// The record is kept as its `serde_json::Value` wire form — `Rc`-shared
+/// `TaggedValue`s are not `Send`, and dep modules must be `Send + Sync`.
+struct ShadowedDep(StubDep, Value);
+
+fn shadowed_dep() -> ShadowedDep {
+    let record = json!({
+        "who": Value::from(const_arrow("scope")),
+        "cat": Value::from(wrap_dep_fn("dep.cat")),
+    });
+    ShadowedDep(StubDep::new("chain"), record)
+}
+
+impl Module for ShadowedDep {
+    fn name(&self) -> &str {
+        self.0.name()
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        self.0.function(name)
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        self.0.functions()
+    }
+
+    fn bindings_tagged(&self) -> Option<Rc<handl_value::TaggedValue>> {
+        Some(Rc::new(handl_value::TaggedValue::from(self.1.clone())))
+    }
+}
+
+/// A module whose exports exercise the dep-name paths Phase 2 rewires:
+/// `who`/`cat` are first-hop dep calls, `probe` reaches a name that is
+/// *not* a declared dep, `shadow` takes a param that collides with the
+/// dep name.
+const DEP_CALL_SRC: &str = r#"
+export who := (x) ~> dep.who() + ":" + x
+export cat := (a, b) ~> dep.cat(a, b)
+export probe := (x) ~> ghost.f(x)
+export shadow := (dep) ~> dep
+"#;
+
+const DEP_CALL_FUNCS: &[&str] = &["who", "cat", "probe", "shadow"];
+
+/// `dep.f(x)` resolves **scope-first**: the env record bound in the
+/// runtime's eval globals wins over the `ModuleLookup` chain the
+/// unbound-identifier fallback would have consulted (ADR-0155 §3). The
+/// record's `who` field is the env's bespoke arrow — `"scope"`, not
+/// `"chain"` — while `cat` stays a standard wrapper and still
+/// leaf-dispatches `dep.cat` to the chain's real answer.
+#[test]
+fn dep_calls_resolve_scope_first_via_env_record() {
+    ensure_lang();
+    let m = HandlModule::new("m", DEP_CALL_SRC, DEP_CALL_FUNCS).with_dependency(shadowed_dep());
+    assert_eq!(call(&m, "who", &[json!("x")]), json!("scope:x"));
+    assert_eq!(call(&m, "cat", &[json!("a"), json!("b")]), json!("a|b"));
+}
+
+/// The env record is bound during the module-record eval itself: a
+/// field computed from a dep at record-construction time resolves
+/// scope-first through the same globals channel (`Module::value`
+/// projections ride it too — the record is built inside the module's
+/// own runtime).
+#[test]
+fn env_binds_during_module_record_eval() {
+    ensure_lang();
+    const EAGER_SRC: &str = "export eager := dep.who(\"E\")";
+    let m = HandlModule::new("m", EAGER_SRC, &[])
+        .with_dependency(shadowed_dep())
+        .with_value_names(&["eager"]);
+    assert_eq!(m.value("eager"), Some(json!("scope")));
+}
+
+/// A local binding shadows the dep env record: `shadow`'s `dep` param
+/// binds in a scope *above* the engine-globals layer, so the record is
+/// invisible and the arg value passes through unchanged.
+#[test]
+fn local_bindings_shadow_the_env_record() {
+    ensure_lang();
+    let m = HandlModule::new("m", DEP_CALL_SRC, DEP_CALL_FUNCS).with_dependency(shadowed_dep());
+    assert_eq!(call(&m, "shadow", &[json!("x")]), json!("x"));
+}
+
+/// A name that is *not* a declared dep never enters the env record — it
+/// still resolves through the `global_lookup` fallback layer as a
+/// string callee, so the ambient surface stays intact (ADR-0155 §2:
+/// `proj_env`'s unbound→string fallback is unchanged).
+#[test]
+fn undeclared_names_still_fall_back_through_the_chain() {
+    ensure_lang();
+    struct GhostFn;
+    impl Function for GhostFn {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+            Ok(json!(format!(
+                "table:{}",
+                args[0].as_str().unwrap_or("?")
+            )))
+        }
+    }
+    struct GhostLookup {
+        f: GhostFn,
+    }
+    impl ModuleLookup for GhostLookup {
+        fn lookup(&self, name: &str) -> Option<&dyn Function> {
+            (name == "ghost.f").then_some(&self.f as &dyn Function)
+        }
+    }
+    let m = HandlModule::new("m", DEP_CALL_SRC, DEP_CALL_FUNCS)
+        .with_dependency(StubDep::new("orig"))
+        .with_global_lookup(Arc::new(GhostLookup { f: GhostFn }));
+    // `dep.*` still works through its env record → wrapper → chain leaf;
+    // `ghost.f` was never bound — it falls back to the global lookup.
+    assert_eq!(call(&m, "who", &[json!("x")]), json!("orig:x"));
+    assert_eq!(call(&m, "probe", &[json!("x")]), json!("table:x"));
+}
+
+/// Two envs, one source: `instantiate` re-keys the per-thread caches, so
+/// the same `dep.who` call scope-resolves against each instance's own
+/// env — the leaf answer differs per env exactly as it does on the
+/// chain path (ADR-0155 §5: env-keyed caching by `module_id`).
+#[test]
+fn instantiated_modules_scope_resolve_against_their_own_env() {
+    ensure_lang();
+    const WHO_SRC: &str = "export who := (x) ~> dep.who() + \":\" + x";
+    let m = HandlModule::new("m", WHO_SRC, &["who"]);
+    let a = m.instantiate(ModuleEnv::new().with_dependency(StubDep::new("A")));
+    let b = m.instantiate(ModuleEnv::new().with_dependency(StubDep::new("B")));
+    assert_eq!(call(&a, "who", &[json!("x")]), json!("A:x"));
+    assert_eq!(call(&b, "who", &[json!("x")]), json!("B:x"));
+}
+
+/// The bytecode engine merges engine globals into its `ScopeStack`
+/// globals the same way — scope-first dep resolution is
+/// engine-agnostic (the loader's eval engine).
+#[test]
+fn dep_calls_resolve_scope_first_on_bytecode() {
+    ensure_lang();
+    let m = HandlModule::new("m", DEP_CALL_SRC, DEP_CALL_FUNCS)
+        .with_dependency(shadowed_dep())
+        .with_eval_engine("bytecode");
+    assert_eq!(call(&m, "who", &[json!("x")]), json!("scope:x"));
+    assert_eq!(call(&m, "cat", &[json!("a"), json!("b")]), json!("a|b"));
 }
