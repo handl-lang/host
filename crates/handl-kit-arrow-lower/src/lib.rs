@@ -1338,14 +1338,8 @@ fn bind_stmt(
     if is_binding(&child.kind) && is_assign_layout {
         let target_idx = child_at_role_or_pos(child, lang, "target", 0)
             .ok_or_else(|| format!("assign at {} missing target child", idx))?;
-        let target = ast
-            .get(AstRef::new(target_idx))
-            .ok_or_else(|| format!("assign target {} out of bounds", target_idx))?;
-        let name = target
-            .payload
-            .as_str()
-            .ok_or_else(|| format!("assign target at {} is not a string", target_idx))?
-            .to_string();
+        let name = binding_target_name(ast, lang, target_idx, 8)
+            .ok_or_else(|| format!("assign target at {} is not a string", target_idx))?;
         check_rebind(&name, env, local, params)?;
         let value_idx = child_at_role_or_pos(child, lang, "value", 1)
             .ok_or_else(|| format!("assign at {} missing value child", idx))?;
@@ -3697,6 +3691,58 @@ fn op_target_name(term: &Term) -> Option<&str> {
         } if args.is_empty() => Some(name),
         _ => None,
     }
+}
+
+/// The bound name of a binding's `target` child. Mirrors the checker's
+/// scope-pass resolution (engine-typecheck `binding_target_name`) so the
+/// lowered `Term` binds the same names the exec engines do: a bare `var`
+/// payload is the name; wrappers delegate by role — `field`/`callee`
+/// first (a field-access target binds the *field*, a `call` target the
+/// callee head), then `source`/`target`/`subject`/`params`/`body`/`expr`
+/// in that order. `params` precedes `body` so a `function` target
+/// (`narrow : T ~> U := f` parses as
+/// `assign(function(type-annot(narrow, T), U), f)`) binds the annotated
+/// name, not the result type; `expr` unwraps `runtime-assert` targets
+/// (the ADR-0068 pass rewrites `type-annot` in place).
+fn binding_target_name(ast: &Ast, lang: &Language, idx: usize, depth: usize) -> Option<String> {
+    if depth == 0 {
+        return None;
+    }
+    let node = ast.get(AstRef::new(idx))?;
+    if let Some(name) = node.payload.as_str() {
+        return Some(name.to_string());
+    }
+    let kids = children(node);
+    // `field` — before the role loop so the access's `target` role can't
+    // capture the namespace name (`type.Score` binds `Score`).
+    if let Ok(Some(field_pos)) = lang.child_role_index(&node.kind, "field") {
+        if let Some(field) = node.payload.get("field").and_then(Value::as_str) {
+            return Some(field.to_string());
+        }
+        if let Some(&raw) = kids.get(field_pos) {
+            if let Some(name) = binding_target_name(ast, lang, raw, depth - 1) {
+                return Some(name);
+            }
+        }
+    }
+    // `callee` — a `call` target binds the callee head's name.
+    if let Ok(Some(callee_pos)) = lang.child_role_index(&node.kind, "callee") {
+        if let Some(&raw) = kids.get(callee_pos) {
+            if let Some(name) = binding_target_name(ast, lang, raw, depth - 1) {
+                return Some(name);
+            }
+        }
+    }
+    for role in ["source", "target", "subject", "params", "body", "expr"] {
+        if let Ok(Some(pos)) = lang.child_role_index(&node.kind, role) {
+            if let Some(&raw) = kids.get(pos) {
+                if let Some(name) = binding_target_name(ast, lang, raw, depth - 1) {
+                    return Some(name);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn children(node: &AstNode) -> Vec<usize> {
