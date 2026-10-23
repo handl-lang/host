@@ -82,7 +82,7 @@ use hnl_engine_parse::{ParserEngine, ParserRequest};
 /// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
 /// implementations can name it without a direct dependency on
 /// `hnl-engine-typecheck` (ADR-0054).
-pub use hnl_engine_typecheck::TypecheckResult;
+pub use hnl_engine_typecheck::{TypecheckDiagnostic, TypecheckResult};
 use hnl_engine_typecheck::{TypecheckEngine, TypecheckRequest};
 use handl_value::{TaggedValue, tagged_to_value};
 use hnl_engine::term_interpreter::interpret_with_handlers;
@@ -443,6 +443,22 @@ pub trait RuntimeHandle {
     ///
     /// Returns [`LangError`] on parse failure or if no parse engine is bound.
     fn parse(&self, toks: &Tokens) -> Result<Ast, LangError>;
+
+    /// Parse a token stream into an [`Ast`] **without** running the desugar
+    /// pass — the source-level form the typecheck pipeline consumes
+    /// (`parse` = `parse_raw` + desugar).
+    ///
+    /// The default delegates to [`parse`](Self::parse) — conservative for
+    /// handles that do not distinguish the two (the desugared output is a
+    /// strict subset of what eval accepts); [`Runtime`] overrides it with
+    /// the true raw parse.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] on parse failure or if no parse engine is bound.
+    fn parse_raw(&self, toks: &Tokens) -> Result<Ast, LangError> {
+        self.parse(toks)
+    }
 
     /// Evaluate an [`Ast`] into a [`Value`].
     ///
@@ -1397,6 +1413,10 @@ impl RuntimeHandle for Runtime {
 
     fn parse(&self, toks: &Tokens) -> Result<Ast, LangError> {
         Runtime::parse(self, toks)
+    }
+
+    fn parse_raw(&self, toks: &Tokens) -> Result<Ast, LangError> {
+        Runtime::parse_raw(self, toks)
     }
 
     fn eval(&self, ast: &Ast) -> Result<Value, LangError> {
