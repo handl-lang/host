@@ -935,3 +935,59 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   renamed params).
 - Verified: `hnl typecheck` ok on nat/t1/io/c2/c4; correct rejection
   on alias/c5/c6/fail_io_widen/fail_ctor/last-stmt annotations.
+
+## Progress log — data stack-overflow fix + Bug 2 (type.unknown shadowing)
+
+- **Bug 1 (`hnl run` `data` stack-overflow, landed):** the `data`
+  rewrite's emitted block left a `function` node's `body` arena ref in
+  input-arena coordinates — `Ast::subtree` then walked a closed cycle
+  forever. Fixes per repo: `kernel` `subtree_into` carries a per-call
+  visiting stack and reports the cycle's node path (`handl-language`);
+  `engine-transform` `RewriteCtx::pass_through` and
+  `engine-transform-rewrite` `visit_children`/`remap_children`/
+  `build_rewrite` remap `ARENA_REF_PAYLOAD_KEYS` like `children`;
+  `lib-desugar` `blk_splice` marks the `data` rewrite's declaration
+  group `{__splice__: true}` so `splice_decl_blocks` flattens it into
+  the enclosing statement list; `engine-typecheck` `pattern_bound_names`
+  binds names under `call`-shaped ctor patterns (`Succ(p)`) via the
+  `callee` role.
+- **Bug 2 (landed):** the *term-level* `lookup` op — not
+  `instantiate_ctor_full`'s domain elaboration — produced the
+  `type.unknown`: `hnl typecheck`/`hnl run` seed the prelude wire-name
+  set as `type.unknown` globals, which cover the `bool` module's
+  `true`/`false` value exports, and `ctx.lookup` hit the placeholder
+  before the `lang.globals` arm could mint `type.bool`. `VCons(true, …)`
+  then unified `?a := type.unknown`, leaving `Vec(?n+1, type.unknown)`
+  to stall against `Vec(2, Bool)`. The `lookup` op now demotes an
+  injected `type.unknown` global when `lang.globals` binds the name (Γ
+  still wins); alias files failed the same way through `Id(Nat)`/
+  `Pair(Nat, Bool)` value positions.
+- **Scope-pass coverage (the ADR-0105 safety net, landed):** once the
+  NBE stage passed, the bootstrap scope check still rejected the same
+  files — it predated the dependent surface forms.
+  `collect_data_ctors` descends the `subject` role for
+  `type-annot`-wrapped ctors (`VNil : Vec(0, a)`);
+  `binding_target_name` resolves `field-access` targets via `field`
+  (`type.Score` → `Score`) and `call` targets via `callee`
+  (`type.Id(A)` → `Id`), and `function` targets via `params` (the
+  annotated name — `body` is the result type, same trap as
+  `dim_arrow`'s `source`); `collect_data_params` seeds `eq_<param>`
+  match-refinement witnesses; `refl`/`type` are ambient seeds; new
+  `check_pattern_refs` wire-checks `call` callees in patterns (the
+  callee-skip left `somemod.trim(input) ~> input` unchecked).
+- **Verified:** `hnl typecheck` ok on nat/vec/path_j/alias/io.hnl;
+  `hnl run` nat.hnl evaluates `pred(Succ(Succ(Zero)))` → `Succ(Zero)`;
+  alias.hnl runs to `1`. `cargo test -p hnl-engine-typecheck-nbe`:
+  283 lib + 24 dependent_structure + 46 parity — 0 failures;
+  `cargo test -p hnl-engine-typecheck`: 58 — 0 failures;
+  `hnl-engine-transform-rewrite`: 97 — 0 failures. Also un-staled
+  `typecheck_no_rule_errors` (unruled kind → `type.unknown` + warning,
+  not `Err` — behavior changed on main without the test).
+- **Remaining (eval-side, pre-existing — not typecheck bugs):**
+  (a) `hnl run vec.hnl` — `match: no arm matched` on the indexed
+  family (eval-time ctor-value shape); (b) `hnl run path_j.hnl` —
+  `j`/`transport` nodes reach the runnable artifact with no `lang.eval`
+  scheme (artifact lint, ADR-0154 §6 missing runtime backstop);
+  (c) `hnl run io.hnl` — `narrow : IO(…) ~> IO(…) := x ~> x` parses to
+  `assign(function(…), …)` and `lower_ast`/`eval_block` only bind
+  identifier targets (type-signed function bindings unevaluable).
