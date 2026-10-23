@@ -333,4 +333,130 @@ unify failures render internal encodings, not source-level types.
 
 ## Progress log
 
-- *(spec drafted — no work landed yet)*
+- **WS-D landed** (`engine-typecheck-nbe`): `data`-declared ctor index
+  projections — decision 3 resolved to **(b)**. `synth_data` recognizes
+  the Nat-former shape: a unary ctor `S(arg : F)` building `F` registers
+  `ctor_proj[S] ↦ λx.x+1`, and a family with a successor ctor plus
+  exactly one bare ctor registers `Z ↦ 0`. `eval_index` applies the
+  projection *before* ring normalization (`App{Succ,x} → x+1`,
+  `var{Zero} → 0`), so `Vec(Succ n) ≡ Vec(n+1)` and
+  `Vec(Succ(Succ n)) ≡ Vec(n+2)` are definitional both directions;
+  `Succ ?k ≡ 2` solves `?k := 1` through the existing linear fragment.
+  Two elaboration fixes ride along: ctor-`App` index args read through
+  `node_to_index_term` (`Succ n`'s arg is the rigid atom `var{n}`, not
+  the sort `Nat`), and a bare `var` naming a `type.ctor_sig` in index
+  position is the atom `var{C}` (so `Zero` projects to `0`) instead of
+  instantiating the ctor's signature type. Unregistered `App` heads stay
+  honest atoms — `f n ≢ n+1` is `Unknown`, arity mismatches don't
+  project; decided-vs-stuck contract unchanged (`Vec(Succ n)` vs
+  `Vec(n+2)` still rejects; `?k+1 ≡ n+1` pointwise-Bin unification stays
+  `Unknown` — the WS-C split tree is where arm-level coverage lands).
+  The metacircular overlay (`lib-desugar`'s model) doesn't carry the
+  table — noted under open items if overlay parity on `Succ`-indexed
+  families is ever exercised. Tests: `dependent_structure` 33 (3 new),
+  lib `index_solver_tests` +2, `dependent.hnl`/`indexed_family_*`/parity
+  green. Generality: nothing `Succ`-shaped is in the solver — the table
+  is `ctor_sym → (arity, template)` declared metadata any `data` with
+  the shape populates.
+
+- **WS-F landed** (decision 5 resolved to option (a) — grammar lookahead):
+  - `eval_body_node` lit-payload bug fixed in
+    `engine-typecheck-nbe/src/judgments.rs`: a `lit`/`value` node whose
+    payload is a boundary-encoded object (`__sym__`/`__former__`/
+    `__type__`/`__neutral__`/`__meta__`) now decodes through
+    `TaggedValue::from` + `lift` instead of `Null` — desugar-minted
+    `lit{__sym__}` (push_sym_lit in `data` blocks) and `reify_ast`
+    products evaluate through `apply_arrow`. The `{"value": …}`
+    envelope read is kept; ambient `Lvl` is threaded through
+    `eval_arrow_body`/`eval_body_node`/`apply_body_value` for
+    `__neutral__` rigid restore. Repro tests in judgments.rs.
+  - `x ~> {k: v}` parses as a *record* now: `brace_is_record` in
+    `engine-parse-pratt` scans the brace at token level — non-empty and
+    every top-level element entry-shaped (`key :`, or the shape's rest
+    token) — and the infix `block_children` arm falls through to the
+    `{` prefix row. Multi-statement blocks whose first statement is a
+    type-annot keep the block reading (a non-entry element fails the
+    shape test); empty braces stay blocks. Reparse tradeoff (decision
+    5): a brace that is all-entries is now a record — `{x: Int}`
+    single-statement blocks change meaning (accepted).
+  - `lib-option`/`lib-result` mint `__ctor__`+`type` objects (seeds
+    `data.Option.{Some,None}`/`data.Result.{ok,err}` — display names
+    keep the old tag spellings, so `match` patterns are unchanged).
+    Manual mint kept over `data` decls: `data`'s `__splice__` assigns
+    bind module scope but produce no `export` record entry (the export
+    transform is text-level) — `data Option` is the follow-up once
+    `export` understands `data`. `option` exports `Some`/`None` under
+    ctor names (`None` = the nullary ctor object `match` compares
+    against). Consumers migrated to ctor-sym dispatch:
+    `option.test.hnl`/`result.test.hnl` assert via `match`;
+    `lib-ws-frame-handl` projects the ctor with an `opt_tag` `match`
+    helper; `engine-test` `is_err_result` reads `__ctor__` name `err`
+    alongside the host `__tag__` assert channel; stdlib tests assert
+    ctor sym names.
+  - Verified: engine-typecheck-nbe lib tests 297/297,
+    dependent_structure 33/33, engine-parse-pratt 62/62 +
+    parse_conformance, engine-test `cargo check` clean. **Blocked**:
+    parity 46/46 and the stdlib lib suite could not build —
+    `hnl-engine-exec-bytecode` lacks `handler_push`/`handler_pop`/
+    `handler_lookup` impls for a `NativeOpCtx` trait extension landed
+    by the in-flight handler workstream (sibling-repo drift, unrelated
+    to this change).
+
+- **WS-E landed** (`host-cli` + `engine-exec` + `engine-exec-bytecode` +
+  `engine-exec-cranelift` + `engine-exec-tree-walk`): `hnl` rebuilt and
+  the exec-backend parity question is resolved — **bytecode and
+  cranelift now run `handle`/IO dispatch**, they do not merely drop it.
+  - *`hnl` build*: `cargo build -p handl-host-cli` →
+    `~/.cargo/shared-target/debug/hnl` (shared `CARGO_TARGET_DIR`);
+    `libhnl_ext_{typecheck,eval,lint,compile,sdkgen}.so` rebuilt from
+    the ext repos. `hnl ext list` shows all five; `hnl typecheck` +
+    `hnl run` green on `/tmp/hnl-verify/{nat,vec,sugar,io,path_j,
+    alias}.hnl`.
+  - *The gap found was bigger than IO*: `eval.handle` is a
+    `!Handle` scheme whose `body`/`impl_` are `!Child{role}`
+    placeholders — `Term::Child` was `NotImplemented` on both compiled
+    backends, so **any** `handle` node escaping the
+    `interpret_with_handlers` fast path crashed (`handle str.upper("x")
+    with h`, any host-call program — not just IO). Fix: `Term::Child`
+    now compiles on bytecode (`EvalChild` via
+    `lang.child_role_index_for` — also fixes the other `!Child`
+    schemes); cranelift's compile arm has no `lang`/`node` context so
+    `Term::Child` stays `NotImplemented` there (honest bound — only
+    reachable via *named*-target `Handle` elimination, which surface
+    `.hnl` never produces: `eval.handle` fixes `target: ""`).
+  - *The port*: unnamed-target `Handle` (`""`, i.e. all surface
+    `handle … with …`) no longer statically eliminates — it compiles to
+    the new shared **`handle_dyn`** op in `engine-exec`'s `native_ops`
+    (same pattern as `match_shell`), behind a new
+    `OpService::HandlerStack` + `NativeOpCtx::{handler_push,
+    handler_pop, handler_lookup}` (3 impls: VmCtx/ClCtx/TwCtx). The op
+    runs the tree-walk `Handle` semantics: eval impl child → push
+    runtime handler stack → eval body child → `interpret_io_former`
+    (shared port — sig fields dispatch through `handler_lookup`,
+    Arrow impls via `ctx.apply_arrow`, serialized-Term impls via the
+    `{__term__}` bound-arrow convention) → `attach_carried_handler`
+    (moved to shared) → pop on every exit. `handler_impl` deduplicated
+    into `native_ops`. `arr_dispatch` on both compiled backends now
+    consults the stack innermost-first before operand-carried impls;
+    `apply_arrow_body` (bytecode) reinstalls carried `Arrow.handlers`
+    (cranelift gets it free via `apply_value_treewalk`). Named-target
+    `Handle` keeps `eliminate_handlers` (unchanged).
+  - *Verdict*: `handle IO({puts:"hello"}) with {puts: s ~> 42}` →
+    `puts: 42` identically on all three engines; uncovered `gets` stays
+    residual data; `match` ctor-object dispatch + seeded-`Sym` round
+    trip (handle `16969724874574109231`) verified identical;
+    `handle 1 with {}`/`handle str.upper("hi") with {…}` run on
+    bytecode (previously crashed). **Residual gap, pre-existing**:
+    `.hnl` module calls on cranelift panic (`HandlFunction::call`
+    builds a runtime lacking the `cranelift` eval-engine name —
+    `plugin-lib-handl` ~L2231; `str.upper("hi")` alone crashes on
+    cranelift, unrelated to `handle`).
+  - *Artifact sanity*: `hnl compile sexp` on `data`-using files shows
+    `__former__`/`__ctor__` only as live runtime `record` values
+    (sym handles are concrete data — the permitted shape); exec-erasure
+    + artifact lint (`prepare_exec_artifact`) runs on the eval path.
+  - *Tests*: engine-exec 9/9, bytecode 91, cranelift 82 + conformance
+    2/2 (the `child_role` bytecode cell re-pinned PASS — intentional
+    fix), tree-walk ~137 — all `--test-threads=1`. Commits landed per
+    repo; the WS-F log's noted bytecode-parity blocker
+    (`handler_push/pop/lookup` trait extension) is now unblocked.
