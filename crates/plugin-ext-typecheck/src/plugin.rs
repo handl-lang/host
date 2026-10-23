@@ -125,7 +125,15 @@ impl Plugin for TypecheckPlugin {
         let response = match outcome {
             Ok(typ) => serde_json::json!({ "status": "ok", "type": format!("{typ}") }),
             Err(err) => {
-                let message = format!("{err}");
+                // `message` is the pure error text — the "engine error:"
+                // prefix and " at N..M in kind" suffix are positional
+                // context that the structured `span` conveys losslessly,
+                // letting consumers render `file:line:col` via the shared
+                // diagnostics crate (e.g. `hnl typecheck`, the LSP).
+                let message = match &err {
+                    LangError::Engine { message, .. } => message.clone(),
+                    other => other.to_string(),
+                };
                 // `host-cli` treats "typecheck errors: …" as a reported
                 // failure (stdout, exit 0) and everything else — lex, parse,
                 // language errors — as a hard error (stderr, exit 2).
@@ -134,7 +142,12 @@ impl Plugin for TypecheckPlugin {
                 } else {
                     "error"
                 };
-                serde_json::json!({ "status": status, "message": message })
+                serde_json::json!({
+                    "status": status,
+                    "message": message,
+                    // Byte offsets into `source`, or null when unknown.
+                    "span": err.span(),
+                })
             }
         };
         Ok(CapabilityResponse(response))

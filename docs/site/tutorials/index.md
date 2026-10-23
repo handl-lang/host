@@ -16,6 +16,9 @@ working result.
   plugins and runs a capability.
 - [Write a plugin](./write-a-plugin) — implement `Plugin` and contribute
   a rule to an operation.
+- [Dependent types in handl](./dependent-types) — indexed `data`
+  families, `match` refinement, `Path`/transport/`J`, `IO(sig)`
+  handlers, and implicit `{…}` binders.
 
 ## The research track
 
