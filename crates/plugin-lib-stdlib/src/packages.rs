@@ -168,7 +168,10 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "option",
         hnl: handl_lib_option::OPTION_HNL,
-        funcs: &["Option", "some", "none"],
+        // `Some`/`None` are exported under their ctor names too (phase-3
+        // WS-F `__ctor__` mint): `Some` aliases the `some` arrow and
+        // `None` binds the nullary ctor object `match` discriminates on.
+        funcs: &["Option", "some", "none", "Some", "None"],
         ops: &[],
         values: &[],
         registry: None,

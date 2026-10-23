@@ -62,20 +62,50 @@ fn option_module_exposes_constructors() {
     assert!(module.function("none").is_some());
 }
 
+/// Phase-3 WS-F: `some`/`none` mint the canonical `__ctor__` object
+/// shape (ADR-0152 §2 — the post-`__tag__` mint): `{"__ctor__": <sym>,
+/// value: _, type: {__former__: <family sym>, indices: _}}`.
 #[test]
 fn some_wraps_value() {
     let result = call("some", &[json!(42.0)]);
-    assert_eq!(result, json!({"__tag__": "Some", "value": 42.0}));
+    assert_eq!(result["value"], json!(42.0));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("Some"));
+    assert_eq!(
+        result["type"]["__former__"]["__sym__"]["name"],
+        json!("Option")
+    );
 }
 
 #[test]
 fn some_wraps_string() {
     let result = call("some", &[json!("hi")]);
-    assert_eq!(result, json!({"__tag__": "Some", "value": "hi"}));
+    assert_eq!(result["value"], json!("hi"));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("Some"));
 }
 
 #[test]
-fn none_constructs_empty_tag() {
+fn none_constructs_ctor_object() {
     let result = call("none", &[]);
-    assert_eq!(result, json!({"__tag__": "None"}));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("None"));
+    assert_eq!(
+        result["type"]["__former__"]["__sym__"]["name"],
+        json!("Option")
+    );
+    assert!(result.get("value").is_none() || result["value"].is_null());
+}
+
+/// `Some`/`None` are also exported under their ctor names — `Some` the
+/// constructor arrow, `None` the nullary ctor object (so `match v {
+/// None: … }` discriminates by equality; ADR-0152 §2).
+#[test]
+fn option_module_exposes_ctor_names() {
+    let module =
+        stdlib::module_with("option", Arc::new(TagResolver)).expect("option module should exist");
+    assert!(module.function("Some").is_some());
+    let none = module
+        .function("None")
+        .expect("option.None should exist")
+        .call(&[], &mut EvalContext::new())
+        .expect("option.None should eval");
+    assert_eq!(none["__ctor__"]["__sym__"]["name"], json!("None"));
 }

@@ -49,37 +49,48 @@ fn call(name: &str, args: &[serde_json::Value]) -> serde_json::Value {
         .unwrap_or_else(|e| panic!("result.{name} failed: {e}"))
 }
 
+/// Phase-3 WS-F: `ok`/`err` mint the canonical `__ctor__` object shape
+/// (ADR-0152 §2 — the post-`__tag__` mint): `{"__ctor__": <sym>,
+/// value: _, type: {__former__: <family sym>, indices: _}}`.
 #[test]
 fn ok_wraps_value() {
     let result = call("ok", &[json!(42.0)]);
-    assert_eq!(result, json!({"__tag__": "ok", "value": 42.0}));
+    assert_eq!(result["value"], json!(42.0));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("ok"));
+    assert_eq!(
+        result["type"]["__former__"]["__sym__"]["name"],
+        json!("Result")
+    );
 }
 
 #[test]
 fn err_wraps_error() {
     let result = call("err", &[json!("nope")]);
-    assert_eq!(result, json!({"__tag__": "err", "value": "nope"}));
+    assert_eq!(result["value"], json!("nope"));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("err"));
 }
 
 #[test]
-fn ok_and_err_have_different_tags() {
+fn ok_and_err_have_different_ctors() {
     let ok_val = call("ok", &[json!(42.0)]);
     let err_val = call("err", &[json!(42.0)]);
     assert_ne!(ok_val, err_val);
-    assert_eq!(ok_val.get("__tag__"), Some(&json!("ok")));
-    assert_eq!(err_val.get("__tag__"), Some(&json!("err")));
+    assert_eq!(ok_val["__ctor__"]["__sym__"]["name"], json!("ok"));
+    assert_eq!(err_val["__ctor__"]["__sym__"]["name"], json!("err"));
 }
 
 #[test]
 fn ok_wraps_string() {
     let result = call("ok", &[json!("hello")]);
-    assert_eq!(result, json!({"__tag__": "ok", "value": "hello"}));
+    assert_eq!(result["value"], json!("hello"));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("ok"));
 }
 
 #[test]
 fn err_wraps_number() {
     let result = call("err", &[json!(404.0)]);
-    assert_eq!(result, json!({"__tag__": "err", "value": 404.0}));
+    assert_eq!(result["value"], json!(404.0));
+    assert_eq!(result["__ctor__"]["__sym__"]["name"], json!("err"));
 }
 
 #[test]
