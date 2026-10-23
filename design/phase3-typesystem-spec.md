@@ -460,3 +460,46 @@ unify failures render internal encodings, not source-level types.
     fix), tree-walk ~137 — all `--test-threads=1`. Commits landed per
     repo; the WS-F log's noted bytecode-parity blocker
     (`handler_push/pop/lookup` trait extension) is now unblocked.
+
+- **WS-G landed** (`engine-typecheck-nbe` + `kit-prelude` + `host` +
+  `ext-typecheck`): judgment errors carry source spans and render
+  expected-vs-actual in surface syntax; `hnl typecheck` prints
+  `file:line:col` diagnostics through `plugin-ext-diag`.
+  - *Spans*: `synth_node`/`check_node` attach `node.span` to propagated
+    `LangError`s via `with_node` (fills an empty span only, so the
+    innermost node's position wins); the no-type-rule warning records
+    `node.span` instead of `None`. `typecheck_with_prelude` keeps the
+    `Engine` span on `typecheck errors:` wraps — shifted back by the
+    `do {` wrapper prefix so byte offsets stay source-relative — and
+    adopts the bootstrap scope-pass diagnostic's span (already
+    source-relative). `plugin-ext-typecheck` puts `span` + the pure
+    `message` on the capability response; `ext-typecheck` renders via
+    `render_diagnostic` (the lint shape), stripping the internal
+    `typecheck errors:`/`typecheck:` prefixes; spanless responses keep
+    the legacy `{path}: {msg}` line.
+  - *Expected-vs-actual*: `unify`/`dep_unify` failures render
+    `cannot unify — expected <T>, got <U>` through the new
+    `display_type` (dependent.rs) — `type.function` → `A ~> B`,
+    `family_app` → `Vec(n + 1, Bool)`, `Pi`/`Sigma`/`Forall`/`Vau`
+    print binders, quote spellings by head, index terms infix
+    (`n + 1`), record/effects rows spelled, solved tagged metas zonked.
+    The `cannot unify` phrase is kept for consumers matching on it.
+  - *Docs*: `host/docs/site/tutorials/dependent-types.md` — `data`
+    families, indexed `Vec`, `match` refinement, `Path`/`refl`/`#`/`J`,
+    `IO(sig)` handlers, implicit `{…}` binders; every snippet verified
+    on the rebuilt `hnl`, with a typecheck-vs-run honesty table;
+    indexed in `tutorials/index.md`.
+  - *Verified output*: `vec.hnl:2:20: error [typecheck]: cannot unify
+    — expected Vec(3, Bool), got Vec(1 + 1, Bool)`; scope errors
+    `scope.hnl:1:5: error [typecheck]: unbound wire: `y` is not in
+    scope`. Tests: engine-typecheck-nbe all suites green
+    (lib 297, dependent_structure 33, parity 46, …),
+    plugin-ext-typecheck 10/10, hnl-ext-typecheck 4/4.
+  - *Bytecode-parity re-check* (the WS-F blocker): `handler_push/pop/
+    lookup` impls have landed on `engine-exec` — bytecode suite 91
+    (86 unit + 5 conformance) green, `handl_desugar` parity 6/6 green,
+    kit-prelude `fp_integration`/`ordered_annotations`/`tagged_values`
+    green. Pre-existing, unrelated: kit-prelude `intl_c` (13/13 fail —
+    the `from "../../../lib-intl-c/src" import *` module resolves to
+    `null` on this box: `field_access` on null; environment/ICU,
+    not the parity path).

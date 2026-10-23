@@ -1,6 +1,10 @@
 # ADR-0155: Scope-bound arrow environments — deps as lexical arrow records, no registry dispatch
 
-- Status: Proposed
+- Status: Landed (2026-10-22) — wrapper-arrow revision; phases:
+  P0 `callv`+wrap helpers (kit-prelude-lang `c006ac7`/`ac4ed55`, host
+  `e895debb`), P1 arrow-emitting resolvers (host `796037a2`), P2
+  scope-first env globals (host `9101ba0e`, lib-desugar `e1845e12`),
+  P3 explicit default env (host `0f40623e`)
 - Date: 2026-10-22
 - Repos: `engine-exec`, `kit-prelude-lang`, `engine-exec-bytecode`,
   `engine-exec-tree-walk`, `host` (`platform`, `plugin-module`,
