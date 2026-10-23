@@ -1,4 +1,4 @@
-//! ADR-0154: `ModuleEnv::from_manifest` — declarative env construction
+//! ADR-0156: `ModuleEnv::from_manifest` — declarative env construction
 //! from a `pkg.hnl` `deps` record, resolved through a `ModuleResolver`
 //! (the data-driven counterpart of hand-rolled
 //! `ModuleEnv::new().with_dependency_arc(..)` chains).

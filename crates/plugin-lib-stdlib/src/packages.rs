@@ -1434,7 +1434,7 @@ pub fn module_ref(name: &str) -> Option<&'static HandlModule> {
     Some(*cache.entry(name.to_string()).or_insert(built))
 }
 
-/// Env-keyed sibling of [`module_cache`] (ADR-0154 follow-up): shared
+/// Env-keyed sibling of [`module_cache`] (ADR-0156 follow-up): shared
 /// table-module instances per `(name, env_id)`.
 ///
 /// The name-keyed singleton above is untouched — through [`module_ref`]
@@ -1446,7 +1446,7 @@ fn env_module_cache() -> &'static Mutex<HashMap<(String, usize), Arc<HandlModule
 }
 
 /// Get a shared [`Arc<HandlModule>`] for the table module `name`
-/// instantiated under `env` (ADR-0154 follow-up).
+/// instantiated under `env` (ADR-0156 follow-up).
 ///
 /// Env-aware sibling of [`module_ref`]: the *base* still comes from the
 /// name-keyed singleton (the source analysis runs once per name and is

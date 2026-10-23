@@ -1649,7 +1649,7 @@ pub fn escape_handl_string(s: &str) -> String {
 /// can independently build and cache a `Runtime` for the module.
 static NEXT_MODULE_ID: AtomicUsize = AtomicUsize::new(0);
 
-/// Counter backing [`ModuleEnv::env_id`] (ADR-0154) — the identity sharing
+/// Counter backing [`ModuleEnv::env_id`] (ADR-0156) — the identity sharing
 /// layers above `HandlModule` (kit caches, stdlib `module_ref`, loaders) key
 /// their env-aware entries by. Mirrors [`NEXT_MODULE_ID`].
 static NEXT_ENV_ID: AtomicUsize = AtomicUsize::new(0);
@@ -1783,7 +1783,7 @@ fn allocate_module_id() -> usize {
     NEXT_MODULE_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-/// Allocate a unique env ID for a [`ModuleEnv`] (ADR-0154) — mirrors
+/// Allocate a unique env ID for a [`ModuleEnv`] (ADR-0156) — mirrors
 /// [`allocate_module_id`].
 fn allocate_env_id() -> usize {
     NEXT_ENV_ID.fetch_add(1, Ordering::Relaxed)
@@ -2060,11 +2060,11 @@ impl Function for HandlFunction {
 }
 
 // ---------------------------------------------------------------------------
-// ModuleEnv (ADR-0154)
+// ModuleEnv (ADR-0156)
 // ---------------------------------------------------------------------------
 
 /// A [`HandlModule`]'s dependency environment as a first-class value
-/// (ADR-0154).
+/// (ADR-0156).
 ///
 /// The env is the tuple [`build_runtime`] threads through: the dependency
 /// modules registered in the bridge runtime, an optional global
@@ -2073,7 +2073,7 @@ impl Function for HandlFunction {
 /// value lets one prepared source run under several dep bindings — see
 /// [`HandlModule::instantiate`].
 ///
-/// # Identity (ADR-0154 follow-up)
+/// # Identity (ADR-0156 follow-up)
 ///
 /// An env carries an [`env_id`](ModuleEnv::env_id) allocated from the same
 /// kind of global counter as [`HandlModule::module_id`]. The name-keyed
@@ -2128,7 +2128,7 @@ impl ModuleEnv {
         }
     }
 
-    /// Build an env from a dependency manifest (ADR-0154): each
+    /// Build an env from a dependency manifest (ADR-0156): each
     /// `(name, spec)` pair resolves through `resolver`, and every
     /// declared name must resolve.
     ///
@@ -2191,7 +2191,7 @@ impl ModuleEnv {
         Self::from_manifest(&handl_platform::pkg_dep_specs(src), resolver)
     }
 
-    /// This env's identity (ADR-0154): stable across `clone`, fresh for
+    /// This env's identity (ADR-0156): stable across `clone`, fresh for
     /// `new`/`default`/`fork` and for every `with_*` reconfiguration.
     ///
     /// Sharing layers above `HandlModule` use it to key env-aware cache
@@ -2202,7 +2202,7 @@ impl ModuleEnv {
     }
 
     /// Same contents, fresh identity: the "same deps, deliberately separate
-    /// cache" case (ADR-0154).
+    /// cache" case (ADR-0156).
     ///
     /// `fork` resolves exactly like `self`, but env-aware caches treat the
     /// fork as a distinct env — unlike [`clone`](Clone), which shares the
@@ -2571,7 +2571,7 @@ impl HandlModule {
     }
 
     /// Clone this module's dependency environment out as a [`ModuleEnv`]
-    /// (ADR-0154).
+    /// (ADR-0156).
     ///
     /// Useful for clone-instantiate patterns: `m.instantiate(m.env())`
     /// produces a sibling identical to `self` except for a fresh
@@ -2605,7 +2605,7 @@ impl HandlModule {
     }
 
     /// Instantiate a sibling module under a different dependency
-    /// environment (ADR-0154).
+    /// environment (ADR-0156).
     ///
     /// The returned [`HandlModule`] shares this module's prepared source,
     /// language, eval engine, op functions and value names, but its env is

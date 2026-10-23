@@ -1,4 +1,4 @@
-//! ADR-0154 follow-up: env-aware sharing in the stdlib layers.
+//! ADR-0156 follow-up: env-aware sharing in the stdlib layers.
 //!
 //! The name-keyed singleton caches (`module_ref`, `top_module_cache`) map
 //! one name/path to one env; their env-aware siblings —

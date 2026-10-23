@@ -1,4 +1,4 @@
-//! ADR-0154: `HandlModule::instantiate` runs the same prepared source
+//! ADR-0156: `HandlModule::instantiate` runs the same prepared source
 //! under multiple dependency environments — one file, several dep
 //! bindings (stub/mock/A-B dep surfaces).
 
@@ -137,7 +137,7 @@ fn instantiate_shares_module_surface() {
     assert_eq!(names, vec!["ask"]);
 }
 
-/// Env identity (ADR-0154 follow-up): `env_id` is what env-aware caches
+/// Env identity (ADR-0156 follow-up): `env_id` is what env-aware caches
 /// above `HandlModule` key on, so one module name can mean several envs.
 /// Fresh for `new`/`default`, preserved by `clone`, re-minted by `fork`
 /// and by every `with_*` reconfiguration.

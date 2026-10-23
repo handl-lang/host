@@ -27,7 +27,7 @@ fn top_module_cache() -> &'static Mutex<HashMap<PathBuf, Arc<HandlModule>>> {
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Env-keyed sibling of [`top_module_cache`] (ADR-0154 follow-up): shared
+/// Env-keyed sibling of [`top_module_cache`] (ADR-0156 follow-up): shared
 /// on-disk module instances per `(path, env_id)`. The path-keyed singleton
 /// above is untouched — one path still means one env there; this table is
 /// additive, so one file can mean several envs.
@@ -110,7 +110,7 @@ pub fn load_hnl_file<P: AsRef<Path>>(path: P) -> Option<Arc<HandlModule>> {
 }
 
 /// Build a [`HandlModule`] from an on-disk `.hnl` file instantiated under
-/// `env` (ADR-0154 follow-up) — the env-parameterized sibling of
+/// `env` (ADR-0156 follow-up) — the env-parameterized sibling of
 /// [`load_hnl_file`].
 ///
 /// The base still comes from the path-keyed [`load_hnl_file`] (the source
