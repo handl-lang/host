@@ -1383,11 +1383,84 @@ impl ModuleLookup for TableModuleLookup {
     }
 }
 
-/// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and an
-/// injected global [`TableModuleLookup`]. Resolution is global, so the module
-/// reaches every other table module (and the resolver's non-table modules)
-/// through the lookup.
-pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
+// ---------------------------------------------------------------------------
+// Default env (ADR-0155 Phase 3) — the ambient table as explicit env globals
+// ---------------------------------------------------------------------------
+
+/// The function fields of a table [`ModuleSpec`] as an env-record object:
+/// one [`wrap_dep_fn`](handl_plugin_lib_handl::wrap_dep_fn) wrapper arrow
+/// per `funcs` name and per `ops` local name (the segment after the last
+/// `.`), keyed by field name.
+///
+/// Pure data — minted from the spec row, no module construction and no
+/// evaluation. Applying a field re-resolves `"spec.field"` through the
+/// *calling* module's `ModuleLookup` leaf (`callv` → `call_host`), so the
+/// record is portable across resolvers: the leaf stays `resolver`-keyed
+/// even though the record is shared.
+fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
+    let mut obj = serde_json::Map::new();
+    for &fname in spec.funcs {
+        obj.insert(
+            fname.to_string(),
+            handl_language::Value::from(handl_plugin_lib_handl::wrap_dep_fn(&format!(
+                "{}.{fname}",
+                spec.name
+            ))),
+        );
+    }
+    for &op_name in spec.ops {
+        let local = op_name.rsplit('.').next().unwrap_or(op_name);
+        obj.entry(local.to_string()).or_insert_with(|| {
+            handl_language::Value::from(handl_plugin_lib_handl::wrap_dep_fn(&format!(
+                "{}.{local}",
+                spec.name
+            )))
+        });
+    }
+    serde_json::Value::Object(obj)
+}
+
+/// A [`DefaultEnv`](handl_plugin_lib_handl::DefaultEnv) provider that
+/// binds every [`MODULES`] table name to its bindings record — the
+/// ambient std surface made explicit (ADR-0155 Phase 3).
+///
+/// Scope-first layering falls out of `build_runtime`'s merge: locals and
+/// `import` splices resolve first, declared deps next, these defaults
+/// last — a dep named `math` shadows the table's `math`, and a `.hnl`
+/// source that never declared `str` still finds `str.trim` bound.
+///
+/// The records are **pure data** minted from the spec rows
+/// ([`spec_arrow_record`]) — no module construction, no evaluation, no
+/// resolver. Value exports (`spec.values`, e.g. `bool`'s `true`/`false`)
+/// are deliberately *not* projected: projecting them would evaluate the
+/// module's `.hnl` record during env materialization, and some table
+/// rows' sources self-import through the table's basename normalization
+/// (`icu-uc-c-linux-x86_64/uchar.hnl` imports `../icu-uc/uchar` — both
+/// normalize to `uchar`), so evaluation can recurse. Ambient
+/// `mod.value` reads were never usable anyway — an unbound `bool.true`
+/// evaluated to the *string* `"bool.true"`, not `true`; via the env
+/// record it now reads `Null`. `from "bool" import true` remains the
+/// real-value binding path.
+///
+/// The residual ambient: non-table names the module's resolver knows
+/// (`char`, `tag`, `sym`, `ffi`, kit aliases like `fn`) are *not* bound
+/// here — they keep resolving as unbound→string callees through the
+/// `global_lookup` leaf, as do the `field_access`/`fn.fanout_fn`
+/// builtins. A dotted callee matching none of these layers fails at
+/// `call_host` (`function '<name>' not found`).
+pub fn std_default_env() -> handl_plugin_lib_handl::DefaultEnv {
+    Arc::new(|| {
+        MODULES
+            .iter()
+            .map(|spec| (spec.name.to_string(), spec_arrow_record(spec)))
+            .collect()
+    })
+}
+
+/// `build_module` minus the Phase-3 default env — the shared base: the
+/// provider itself is pure data, but hosts constructing a module without
+/// ambient bindings get the same table wiring.
+fn build_module_shallow(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
     let lookup = Arc::new(TableModuleLookup::new(Arc::clone(&resolver)));
     let mut module = HandlModule::new(spec.name, spec.hnl, spec.funcs)
         .with_value_names(spec.values)
@@ -1399,6 +1472,20 @@ pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> Han
         module = module.with_ops(spec.ops, Arc::new(registry()));
     }
     module
+}
+
+/// Build a [`HandlModule`] from a [`ModuleSpec`], wiring op dispatch and an
+/// injected global [`TableModuleLookup`]. Resolution is global, so the module
+/// reaches every other table module (and the resolver's non-table modules)
+/// through the lookup.
+///
+/// ADR-0155 Phase 3: the module table is *also* bound as env globals via
+/// [`std_default_env`] — table names resolve scope-first (as records of
+/// wrapper arrows, shadowed by declared deps and imports) while the
+/// lookup remains the `call_host` leaf the wrappers re-resolve through,
+/// plus the residual ambient for non-table names.
+pub fn build_module(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) -> HandlModule {
+    build_module_shallow(spec, resolver).with_default_env(std_default_env())
 }
 
 /// Build the table module named `name` (e.g. `"bool"`, `"math"`,

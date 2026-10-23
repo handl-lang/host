@@ -476,3 +476,167 @@ fn dep_calls_resolve_scope_first_on_bytecode() {
     assert_eq!(call(&m, "who", &[json!("x")]), json!("scope:x"));
     assert_eq!(call(&m, "cat", &[json!("a"), json!("b")]), json!("a|b"));
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 — ambient names as explicit default-env globals (ADR-0155 §2.4/§6)
+// ---------------------------------------------------------------------------
+
+/// A module source where `ghost` is a *default-env* name (not a declared
+/// dep) and `dep`/`param` probe the layering.
+const DEFAULT_ENV_SRC: &str = r#"
+export who := (x) ~> ghost.who() + ":" + x
+export depw := (x) ~> dep.who() + ":" + x
+export flag := () ~> cfg.enabled
+export probe := (x) ~> nomod.f(x)
+"#;
+
+const DEFAULT_ENV_FUNCS: &[&str] = &["who", "depw", "flag", "probe"];
+
+/// A default env binding `ghost` (a bespoke record — `who` answers
+/// `"env"` rather than the chain's `"chain:…"`, so scope-first vs leaf
+/// resolution is observable) and `cfg` (a plain value field — env
+/// records carry non-callable fields too, parity with dep envs).
+fn test_default_env() -> handl_plugin_lib_handl::DefaultEnv {
+    let record = json!({
+        "who": Value::from(const_arrow("env")),
+        "cat": Value::from(wrap_dep_fn("ghost.cat")),
+    });
+    Arc::new(move || {
+        let mut globals = std::collections::HashMap::new();
+        globals.insert("ghost".to_string(), record.clone());
+        globals.insert("cfg".to_string(), json!({"enabled": true}));
+        globals
+    })
+}
+
+/// The leaf `ghost.*` re-resolves through — the default env's `who`
+/// bypasses it (const arrow), while `cat` is a standard wrapper landing
+/// on `call_host("ghost.cat")`.
+struct GhostModule {
+    who: GhostWho,
+    cat: GhostCat,
+}
+struct GhostWho;
+struct GhostCat;
+
+impl Function for GhostWho {
+    fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        Ok(json!("chain"))
+    }
+}
+impl Function for GhostCat {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        Ok(json!(format!("chain:{}", args[0].as_str().unwrap_or("?"))))
+    }
+}
+impl Module for GhostModule {
+    fn name(&self) -> &str {
+        "ghost"
+    }
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        match name {
+            "who" => Some(&self.who),
+            "cat" => Some(&self.cat),
+            _ => None,
+        }
+    }
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        vec![("who", &self.who), ("cat", &self.cat)]
+    }
+}
+
+/// A name the default env binds resolves **scope-first** — the env
+/// record's `who` answers `"env"`, not the chain's `"chain"`. The env
+/// carries no `Module` for `ghost` at all: only the record.
+#[test]
+fn default_env_binds_ambient_names_scope_first() {
+    ensure_lang();
+    let m = HandlModule::new("m", DEFAULT_ENV_SRC, DEFAULT_ENV_FUNCS)
+        .with_default_env(test_default_env());
+    assert_eq!(call(&m, "who", &[json!("x")]), json!("env:x"));
+    assert_eq!(call(&m, "flag", &[]), json!(true));
+}
+
+/// A declared dep shadows a default-env binding of the same name:
+/// `build_runtime` merges dep globals over the default layer
+/// (ADR-0155 §2: "the ambient becomes shadowed by declared deps and
+/// imports"). `dep` is bound by both — the dep's record answers.
+#[test]
+fn declared_deps_shadow_the_default_env() {
+    ensure_lang();
+    let default_env: handl_plugin_lib_handl::DefaultEnv = {
+        let record = json!({
+            "who": Value::from(const_arrow("default")),
+        });
+        Arc::new(move || {
+            let mut globals = std::collections::HashMap::new();
+            globals.insert("dep".to_string(), record.clone());
+            globals.insert("ghost".to_string(), {
+                json!({"who": Value::from(const_arrow("env"))})
+            });
+            globals
+        })
+    };
+    let m = HandlModule::new("m", DEFAULT_ENV_SRC, DEFAULT_ENV_FUNCS)
+        .with_default_env(default_env)
+        .with_dependency(shadowed_dep());
+    // The dep's bespoke record wins over the default layer.
+    assert_eq!(call(&m, "depw", &[json!("x")]), json!("scope:x"));
+    // …while non-shadowed default-env names still bind scope-first.
+    assert_eq!(call(&m, "who", &[json!("x")]), json!("env:x"));
+}
+
+/// A name bound by **no** layer — not a dep, not a default env, not a
+/// `global_lookup` hit — fails loudly at the `call_host` leaf
+/// (`function 'nomod.f' not found`): the ambient is explicit now.
+#[test]
+fn unlisted_names_fail_at_the_leaf() {
+    ensure_lang();
+    let m = HandlModule::new("m", DEFAULT_ENV_SRC, DEFAULT_ENV_FUNCS)
+        .with_default_env(test_default_env());
+    let err = m
+        .function("probe")
+        .unwrap()
+        .call(&[json!("x")], &mut EvalContext::new())
+        .expect_err("unlisted callee must fail");
+    assert!(
+        err.to_string().contains("nomod.f"),
+        "error names the unresolved callee: {err}"
+    );
+}
+
+/// A default-env wrapper field that does resolve through the leaf lands
+/// on the same `call_host` dispatch as a declared dep's — the env only
+/// changes *where the name lives*, not where it dispatches.
+#[test]
+fn default_env_wrappers_re_resolve_through_the_leaf() {
+    ensure_lang();
+    let ghost: Arc<dyn handl_platform::ModuleLookup + Send + Sync> = Arc::new({
+        struct L(GhostModule);
+        impl ModuleLookup for L {
+            fn lookup(&self, name: &str) -> Option<&dyn Function> {
+                let (m, f) = name.split_once('.')?;
+                (m == "ghost").then(|| self.0.function(f)).flatten()
+            }
+        }
+        L(GhostModule {
+            who: GhostWho,
+            cat: GhostCat,
+        })
+    });
+    // Env record for `ghost` is a *plain* wrapper record (no bespoke
+    // arrows): `ghost.cat` applies through the chain like any dep.
+    let default_env: handl_plugin_lib_handl::DefaultEnv = Arc::new(move || {
+        let mut globals = std::collections::HashMap::new();
+        globals.insert(
+            "ghost".to_string(),
+            json!({"cat": Value::from(wrap_dep_fn("ghost.cat"))}),
+        );
+        globals
+    });
+    const SRC: &str = "export cat := (x) ~> ghost.cat(x)";
+    let m = HandlModule::new("m", SRC, &["cat"])
+        .with_default_env(default_env)
+        .with_global_lookup(ghost);
+    assert_eq!(call(&m, "cat", &[json!("x")]), json!("chain:x"));
+}

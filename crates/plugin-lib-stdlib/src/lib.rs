@@ -31,4 +31,5 @@ pub use packages::{
     DEFAULT_RESOLVER, GREET_HNL, MODULES, ModuleSpec, PACKAGES, PackagePlugin, PackageResolver,
     PackageSpec, TRANSFORM_FILTER_HNL, TRANSFORM_MAP_HNL, TRANSFORM_REDUCE_HNL, TableModuleLookup,
     build_module, library, module, module_ref, module_ref_with_env, module_spec, module_with,
+    std_default_env,
 };

@@ -323,9 +323,11 @@ pub fn module_bindings_tagged(module: &dyn Module) -> Rc<handl_value::TaggedValu
 /// the same `call_host` leaf an unbound `"dep.f"` callee dispatches to.
 /// Dep modules therefore stay registered in the [`ModuleLookup`] chain —
 /// **demoted to leaf dispatch**: the record is the scope path, the chain
-/// is the leaf. The `proj_env` unbound→string fallback is unchanged, so
-/// ops, FFI, and ambient names (e.g. the stdlib table reached through
-/// `global_lookup`) still resolve as string callees (ADR-0155 §2).
+/// is the leaf. `proj_env`'s unbound→string fallback is unchanged: a name
+/// bound by neither the dep env nor the [`DefaultEnv`] layer still
+/// resolves as a string callee — the leaf dispatch for ops, FFI, and
+/// resolver-provided ambient names (`global_lookup`'s non-table surface)
+/// (ADR-0155 §2).
 ///
 /// Each record crosses into the engine as its `{"__arrow__": …}` wire
 /// value — ordinary serializable data (ADR-0155 §1 marshal story). The
@@ -346,6 +348,29 @@ fn dep_env_globals(
         })
         .collect()
 }
+
+/// A lazily materialized layer of **default env globals** (ADR-0155
+/// Phase 3): ambient names a host wants bound scope-first in every eval
+/// of a module's runtime, at the *lowest* env precedence — declared
+/// deps shadow them ([`build_runtime`] merges dep globals over them),
+/// and `import`/local bindings shadow both (locals resolve before
+/// engine globals).
+///
+/// The provider is invoked once per runtime build — per module, per
+/// thread, inside the `RuntimeBuilder` closure — so materialization may
+/// itself evaluate modules (value projections into a dep-less sibling
+/// runtime) without re-entering the caller's construction path. The
+/// returned map is the same `name → bindings record` shape
+/// [`dep_env_globals`] produces for declared deps; the canonical
+/// producer is `plugin-lib-stdlib`'s `std_default_env`, which binds
+/// every module-table name to a record of [`wrap_dep_fn`] arrows.
+///
+/// A host that wants the residual ambient instead — names unbound until
+/// the `call_host` leaf's `ModuleLookup` chain resolves them — simply
+/// does not install a provider; [`global_lookup`](HandlModule::with_global_lookup)
+/// is orthogonal and remains the leaf either way.
+pub type DefaultEnv =
+    Arc<dyn Fn() -> HashMap<String, serde_json::Value> + Send + Sync>;
 
 impl ImportResolver for DependencyImportResolver {
     fn resolve_import(
@@ -1978,12 +2003,18 @@ fn allocate_env_id() -> usize {
 /// dep names resolve scope-first as records of wrapper arrows, and the
 /// registry is demoted to `call_host` leaf dispatch (plus the unchanged
 /// unbound→string fallback for ops/FFI/ambient names).
+///
+/// ADR-0155 Phase 3: `default_env` materializes the *ambient* surface as
+/// the same kind of env globals, at the lowest precedence — the merged
+/// map inserts it first so a declared dep of the same name shadows the
+/// default binding.
 fn build_runtime(
     lang: handl_language::Language,
     dependencies: Vec<Arc<dyn Module + Send + Sync>>,
     eval_name: &str,
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
     global_lookup: Option<Arc<dyn ModuleLookup + Send + Sync>>,
+    default_env: Option<DefaultEnv>,
 ) -> Result<Runtime, handl_language::LangError> {
     let config = RuntimeConfig::new()
         .with_lex("data")
@@ -2027,7 +2058,7 @@ fn build_runtime(
         None => derived_resolver.map(|r| Rc::new(r) as Rc<dyn ImportResolver>),
     };
 
-    // ADR-0155 Phase 2 (§3): materialize the dep env as call-frame
+    // ADR-0155 Phase 2/3 (§3): materialize the env as call-frame
     // bindings — `dep.name()` → its `module_bindings_tagged` record —
     // injected into the eval engine's globals below, so `dep.f` resolves
     // scope-first through the record's wrapper arrows. The dep modules
@@ -2035,7 +2066,12 @@ fn build_runtime(
     // dispatch): a wrapper's `callv` body re-resolves `"dep.f"` through
     // the applying runtime's `ModuleLookup`, which lands on the same
     // registry entry the unbound-identifier callee used.
-    let env_globals = dep_env_globals(&dependencies);
+    //
+    // Phase-3 layering: the `default_env` provider (e.g. the stdlib
+    // module table) seeds the map first, then declared deps merge over
+    // it — a dep of the same name shadows the ambient default.
+    let mut env_globals = default_env.map(|p| p()).unwrap_or_default();
+    env_globals.extend(dep_env_globals(&dependencies));
     let dep_registry = if dependencies.is_empty() {
         None
     } else {
@@ -2307,6 +2343,9 @@ pub struct ModuleEnv {
     /// Optional explicit [`ImportResolver`]; `None` lets `build_runtime`
     /// derive a [`DependencyImportResolver`] from `dependencies`.
     import_resolver: Option<Arc<dyn ImportResolver + Send + Sync>>,
+    /// Optional [`DefaultEnv`] provider (ADR-0155 Phase 3) — ambient
+    /// names materialized as eval globals beneath `dependencies`.
+    default_env: Option<DefaultEnv>,
     /// Identity of this env value (see the section docs): allocated once
     /// per env lineage, preserved by `clone`, re-minted by `fork` and by
     /// the `with_*` builders. Env-aware caches key on it.
@@ -2331,6 +2370,7 @@ impl ModuleEnv {
             dependencies: Vec::new(),
             global_lookup: None,
             import_resolver: None,
+            default_env: None,
             env_id: allocate_env_id(),
         }
     }
@@ -2374,6 +2414,7 @@ impl ModuleEnv {
             dependencies,
             global_lookup: None,
             import_resolver: None,
+            default_env: None,
             env_id: allocate_env_id(),
         })
     }
@@ -2460,6 +2501,17 @@ impl ModuleEnv {
         self.env_id = allocate_env_id();
         self
     }
+
+    /// Attach a [`DefaultEnv`] provider — ambient names materialized as
+    /// env globals beneath this env's `dependencies` (ADR-0155 Phase 3).
+    /// See [`HandlModule::with_default_env`].
+    ///
+    /// Re-mints the env id (see [`with_dependency`](Self::with_dependency)).
+    pub fn with_default_env(mut self, provider: DefaultEnv) -> Self {
+        self.default_env = Some(provider);
+        self.env_id = allocate_env_id();
+        self
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2529,6 +2581,10 @@ pub struct HandlModule {
     /// host via [`HandlModule::with_value_names`] — `from "<mod>" import
     /// <name>` binds the evaluated value rather than a string callee.
     value_names: Vec<String>,
+    /// Optional [`DefaultEnv`] provider (ADR-0155 Phase 3) — ambient
+    /// names materialized as eval globals at the lowest precedence,
+    /// shadowed by declared deps and imports.
+    default_env: Option<DefaultEnv>,
 }
 
 impl HandlModule {
@@ -2554,7 +2610,7 @@ impl HandlModule {
         // replace this with a builder that includes the dependencies.
         let builder: RuntimeBuilder = Arc::new(|| {
             module_language(&None)
-                .and_then(|lang| build_runtime(lang, Vec::new(), eval_name, None, None))
+                .and_then(|lang| build_runtime(lang, Vec::new(), eval_name, None, None, None))
         });
 
         let functions = func_names
@@ -2584,6 +2640,7 @@ impl HandlModule {
             builder,
             module_id,
             value_names: Vec::new(),
+            default_env: None,
         }
     }
 
@@ -2602,7 +2659,7 @@ impl HandlModule {
         // replace this with a builder that includes the dependencies.
         let builder: RuntimeBuilder = Arc::new(|| {
             module_language(&None)
-                .and_then(|lang| build_runtime(lang, Vec::new(), eval_name, None, None))
+                .and_then(|lang| build_runtime(lang, Vec::new(), eval_name, None, None, None))
         });
 
         let functions = func_names
@@ -2632,6 +2689,7 @@ impl HandlModule {
             builder,
             module_id,
             value_names: Vec::new(),
+            default_env: None,
         }
     }
 
@@ -2661,8 +2719,28 @@ impl HandlModule {
     /// dependencies, it is resolved through this lookup. This is how stdlib
     /// packages reach the whole module table without pre-listing `deps`
     /// (see `plugin-lib-stdlib`'s table lookup).
+    ///
+    /// ADR-0155 Phase 3: this stays the *leaf* dispatch — the ambient
+    /// names themselves move to env globals via [`with_default_env`].
     pub fn with_global_lookup(mut self, lookup: Arc<dyn ModuleLookup + Send + Sync>) -> Self {
         self.global_lookup = Some(lookup);
+        self.rebuild_functions();
+        self
+    }
+
+    /// Install a [`DefaultEnv`] provider — ambient names materialized as
+    /// env globals at the lowest precedence (ADR-0155 Phase 3).
+    ///
+    /// Declared deps shadow it ([`build_runtime`] merges dep globals over
+    /// the default layer), and `import` splices / local bindings shadow
+    /// both. Names bound here resolve scope-first as records of wrapper
+    /// arrows; names bound by neither layer still fall back to the
+    /// unbound→string callee path and the `global_lookup` leaf.
+    ///
+    /// The canonical provider is `plugin-lib-stdlib`'s `std_default_env`,
+    /// which binds every module-table name — wired by its `build_module`.
+    pub fn with_default_env(mut self, provider: DefaultEnv) -> Self {
+        self.default_env = Some(provider);
         self.rebuild_functions();
         self
     }
@@ -2757,6 +2835,7 @@ impl HandlModule {
         let import_resolver = self.import_resolver.clone();
         let global_lookup = self.global_lookup.clone();
         let language = self.language.clone();
+        let default_env = self.default_env.clone();
         let builder: RuntimeBuilder = Arc::new(move || {
             module_language(&language).and_then(|lang| {
                 build_runtime(
@@ -2765,6 +2844,7 @@ impl HandlModule {
                     eval_name,
                     import_resolver.clone(),
                     global_lookup.clone(),
+                    default_env.clone(),
                 )
             })
         });
@@ -2796,6 +2876,7 @@ impl HandlModule {
             dependencies: self.dependencies.clone(),
             global_lookup: self.global_lookup.clone(),
             import_resolver: self.import_resolver.clone(),
+            default_env: self.default_env.clone(),
             env_id: allocate_env_id(),
         }
     }
@@ -2817,7 +2898,8 @@ impl HandlModule {
     /// The returned [`HandlModule`] shares this module's prepared source,
     /// language, eval engine, op functions and value names, but its env is
     /// `env` — this module's own `dependencies`/`global_lookup`/
-    /// `import_resolver` are *not* carried over. A fresh `module_id` is
+    /// `import_resolver`/`default_env` are *not* carried over. A fresh
+    /// `module_id` is
     /// allocated through the same `rebuild_functions` path, so the
     /// per-thread runtime/AST caches key the two instances apart: each
     /// evaluates the same source against its own dep bindings.
@@ -2851,6 +2933,7 @@ impl HandlModule {
             builder: Arc::clone(&self.builder),
             module_id: self.module_id,
             value_names: self.value_names.clone(),
+            default_env: env.default_env,
         };
         module.rebuild_functions();
         module
