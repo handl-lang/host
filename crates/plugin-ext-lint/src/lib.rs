@@ -501,7 +501,7 @@ mod tests {
         let ctx = canonical_ctx();
         let prelude = HashSet::new();
         assert!(
-            unbound_wire_diagnostics_with_language(ctx.lang(), UNLEXABLE, &prelude).is_empty(),
+            scope_diagnostics_with_language(ctx.lang(), UNLEXABLE, &prelude).is_empty(),
             "a check failure must degrade to no diagnostics, not propagate"
         );
     }
