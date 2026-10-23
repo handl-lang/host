@@ -6,6 +6,18 @@ use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};
 use std::sync::Arc;
 
+/// Install the canonical default language once per test binary — the
+/// pure-.hnl `hex` module evaluates through a `HandlModule` bridge
+/// runtime that resolves it lazily (see `json.rs`/`otlp.rs`).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_prelude::language_from_yaml()
+                .expect("canonical language assembles"),
+        );
+    }
+}
+
 #[test]
 fn encode_works() {
     let func = HexEncode;
@@ -47,6 +59,7 @@ fn op_registry_registers_both_ops() {
 
 #[test]
 fn hex_module_exposes_functions() {
+    ensure_lang();
     let module = module("hex").unwrap();
     assert_eq!(module.name(), "hex");
 
@@ -61,12 +74,22 @@ fn hex_module_exposes_functions() {
 }
 
 #[test]
-fn hex_module_legacy_name_function() {
+fn hex_module_codec_function() {
+    ensure_lang();
     let module = module("hex").unwrap();
     let mut ctx = EvalContext::new();
-    let name_func = module.function("hex").expect("hex should exist");
-    let result = name_func.call(&[], &mut ctx).unwrap();
-    assert_eq!(result, json!({"type": "encoding", "name": "hex"}));
+    let codec_func = module.function("codec").expect("codec should exist");
+    let result = codec_func.call(&[], &mut ctx).unwrap();
+    assert_eq!(
+        result.get("type").and_then(Value::as_str),
+        Some("codec")
+    );
+    assert_eq!(
+        result.get("name").and_then(Value::as_str),
+        Some("hex")
+    );
+    assert!(result.get("encode").is_some(), "codec.encode field");
+    assert!(result.get("decode").is_some(), "codec.decode field");
 }
 
 #[test]
@@ -85,6 +108,7 @@ fn handl_plugin_id_and_name() {
 
 #[test]
 fn hex_module_works_in_module_registry() {
+    ensure_lang();
     let module = module("hex").unwrap();
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
@@ -191,16 +215,18 @@ fn hex_decode_op_has_no_checker_trusted() {
 fn hex_plugin_exposes_declared_capabilities() {
     let plugin = library("hex").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
+    assert_eq!(caps.len(), 3);
     assert_eq!(caps[0].as_str(), "hex.encode");
     assert_eq!(caps[1].as_str(), "hex.decode");
+    assert_eq!(caps[2].as_str(), "hex.codec");
 }
 
 #[test]
 fn hex_handl_plugin_exposes_declared_capabilities() {
     let plugin = library("hex").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
+    assert_eq!(caps.len(), 3);
     assert_eq!(caps[0].as_str(), "hex.encode");
     assert_eq!(caps[1].as_str(), "hex.decode");
+    assert_eq!(caps[2].as_str(), "hex.codec");
 }
