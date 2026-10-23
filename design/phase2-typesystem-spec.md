@@ -319,3 +319,61 @@ metaprograms.
   `dependent_structure` + `hnl typecheck`/`hnl run` e2e verification are
   pending on that branch finishing (dependent.rs itself: zero errors,
   warnings only; engine-parse-pratt 57/57 green).
+
+- **WS-C wave-2 (e2e verify — deferred from wave-1, now green).** The
+  wave-1 machinery was committed unexercised (`engine` was mid-edit);
+  first `hnl typecheck`/`hnl run` of the sugar sketch surfaced **six
+  real defects**, all fixed and committed (no push):
+  1. `synth_assign` `function`-lhs and `dim_arrow`/`axis_flow`/`flow`
+     branches resolved the bound name through `node_name` only — an
+     `index_app` subject (`id_vec{n,a} : Vec{n,a} ~> _`) fell through
+     to "annot var". Both branches now try `implicit_binder_head`
+     first (`engine-typecheck-nbe dc604d8`).
+  2. `synth_call` drained implicit `type.pi`s with fresh metas for
+     *every* argument — `head{2,Bool}` checked `2` against
+     `Vec{Succ ?n, ?a}` ("function is not a family member" → the
+     number-vs-family_app unify error). `index_app` arguments now
+     *fill* the next implicit pi as index terms; exhausted pis fall
+     through to the ordinary domain check (`dc604d8`).
+  3. `grammar.forall.prefix` parsed its body at rbp 0, capturing a
+     trailing `:=`/`=` inside the forall — the sugar could never
+     annotate a definition. Body now parses at rbp 6
+     (`child_binding_powers`, the `data` convention) — assign stays
+     outside, `~>`/`:` still bind inside (`kit-prelude-lang ac4ed55`).
+  4. `eval.index_app` applied brace args as call arguments —
+     `head{2,Bool}` bound `v := 2` and the match failed on `Int(2)`.
+     Implicit index args have no runtime counterpart: the scheme now
+     projects the callee only (same erasure class as
+     `eval.type-annot`) — implicit args fully erased at runtime
+     (`ac4ed55`).
+  5. The bootstrap scope pass bound `f` but not the `{n,a}` binder
+     names — `vec_map`'s own `a`/`b` reported as unbound wires.
+     `implicit_binder_names` descends the binding target through
+     `subject`/`params`/`source` to the `index_app` head and scopes
+     the binder vars over the value only (`engine-typecheck 35bf9cb`).
+  6. `synth_assign` bound the name *after* checking the value, so
+     annotated recursion (`vec_map` calling itself) was unbound. The
+     name is now Γ-visible at the annotation's type before the value
+     checks — matching the scope pass's documented self-recursive
+     semantics (`dc604d8`).
+  *Verdict*: the sketch typechecks and runs end-to-end —
+  `data Nat`/`data Vec(n : Nat, a : Type)` indexed families;
+  `head{n,a} : Vec{Succ n, a} ~> a` (implicit binders + ctor-app
+  index term) with a motive-inferred `match` (no `return` clause);
+  `id_vec{n,a}`; `forall n : Nat, Vec(n+0,Bool) ~> Vec(n+0,Bool)` —
+  `forall_demo(Succ(Zero))(VNil)` is correctly **rejected** (index
+  `0` vs `Succ(Zero)` — a real dependent length check), the
+  `VCons` tail accepted; motive-inferred `match` on `Nat`
+  (`is_zero` runs `true`/`false`). Headline: **`vec_map{n,a,b}`
+  typechecks and runs** — recursive calls `vec_map{k,a,b}(f, xs)`
+  inside the `match` arm resolve through the implicit pis; `hnl run`
+  returns the mapped `VCons` structure with all index args erased.
+  Notes: `forall` is the *explicit* `Pi` alias — `x : forall n, T :=
+  n ~> (v ~> v)`; a bare index name in type position still reads as
+  its sort (`Vec(n,a)` → `Nat`), so length-indexed types write
+  `Vec(n + 0, a)` per the dependent.hnl convention; `data Nat`
+  ctor args need `Succ`-numerals (literal `1 : Nat` ≠ the inductive
+  family — `Succ(3)` still rejected by design). Verify:
+  `engine-typecheck-nbe` lib 285 + dependent_structure 24/24 +
+  parity 46/46 green; `engine-typecheck` 15+43 green;
+  `ext-typecheck`/`ext-eval` `.so`s rebuilt.
