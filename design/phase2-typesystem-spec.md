@@ -261,6 +261,49 @@ metaprograms.
 
 ## Progress log
 
+- **WS-F wave-3 (landed) — typed-effect handler typing + effect-row
+  polymorphism.** `handle <body> with <h>` now *types* the handler's op
+  coverage against the body's `IO(S)` — a new `synth_handle` judgment op
+  (`dependent.rs`; dispatched from `eval_judgment`; `types.yaml`
+  `type.handle` repointed from `synth_child(0)`):
+  - *Semantics (chosen, mirrors runtime `interpret_io_former`)*: result
+    is `IO(S')` where `S'[k] =` the impl `h.k`'s declared **return** type
+    when `h` covers `k` (interpreted in place) else `S[k]` (uncovered
+    ops stay `IO` data — the residual for outer handlers). `S'` is the
+    spec's `IO(S \ S_h) × results` shape; an impl `dom ~> ret` must
+    accept the op's declared sig entry (`S[k] <: dom`; `type.unknown`
+    entries are unstated and skip the check — a shared return meta then
+    defaults to the request).
+  - *Diagnostics*: impls `h` declares for ops `S` never names → error
+    (spurious); `S` non-empty with `h` covering none of it → error
+    (guaranteed no-op); `h` op-untyped (`type.Obj`/meta/unknown) or `S`
+    symbolic (row var `IO(s)`) → honest passthrough.
+  - *Deep handler*: `handle f with h` on an arrow `A ~> IO(S)` (the
+    runtime's `attach_carried_handler` case) produces `A ~> IO(S')`;
+    `type.pi` codomains pass through (closures can't rewrite
+    statically).
+  - *Effect-row polymorphism — landed (closed-sig + row-metas)*:
+    `f{s} : A ~> IO(s)` / `f{s : Sig} : …` bind a sig var via the WS-C
+    implicit-`type.pi` machinery (`Sig` minted as the `Obj` sort in the
+    builtin table); `IO(s)` carries `s` as `Former{var}` inside the
+    former args — `subst_index` learned the `Former{var}` spelling so
+    app-site fill substitutes it with a meta, and `IO(?m) ≡ IO({puts})`
+    solves by the domain `conv` (`sig_width_subtype`/`dep_unify` IO arm
+    unchanged). **Not landed (stretch)**: open-row tails `{puts | r}` —
+    no surface syntax for row extension; a `Sig` binder binds a whole
+    row only.
+  - *Surface*: `IO({puts})` bare-name sig shorthand — a `var` child of
+    the sig object declares the op with an unstated request
+    (`type.unknown`).
+  - *Verify*: dependent_structure 30/30 (incl. 6 new WS-F e2e:
+    covered/missing/uncovered/deep-arrow/row-meta/bare-name), lib 293,
+    parity 46/46, import_sig 10/10 — `--test-threads=1`, single crate.
+    `hnl typecheck`/`hnl run` binary e2e still gated by the missing
+    `hnl` build (carried open item).
+  - *Note*: sibling `engine-typecheck-nbe` has uncommitted WS-H WIP
+    (`checker.rs` `force_head_rc`, `stacker` dep, `tests/stack_probe.rs`)
+    — left untouched and unstaged.
+
 - **WS-E wave-2 (landed) — `>>>` composition + `Hom(3)` checking.**
   - *`>>>` verdict*: the flag was **half-stale**. Runtime `f >>> g`
     already composes (exec `flow` arm → `cell_comp_axis(0,1)` →
@@ -378,6 +421,50 @@ metaprograms.
   parity 46/46 green; `engine-typecheck` 15+43 green;
   `ext-typecheck`/`ext-eval` `.so`s rebuilt.
 
+- **WS-H wave-1 (conv fast paths + growable-stack seams) — landed.**
+  - *`conv` hot path* (`kernel 0b64fee`): `MetaEntry.solution` is
+    `Rc<Val>`; new `MetaStore::force_head_rc` returns a `Forced` view
+    (input borrow or `Rc` bump — **no deep clone**, and it does not
+    borrow the store so solving stays available). `conv` forced-cloned
+    both operands per recursion level before (O(depth²) clones on
+    `Former` nests — now O(depth)). `solve_rc` adopts a forced `Rc`
+    without re-cloning. Fast paths: `ptr::eq` on operands (excludes
+    `Flex` to keep the `conv(?m,?m)` occurs verdict), `Rc::ptr_eq` on
+    `Former`/`Nominal` heads, `Arrow` payloads, `Unfold` names; spine/
+    args-length short-circuits and the `Const` arm were already there.
+    `checker.rs` `subtype`/`sig_width_subtype`/`infer` moved to the
+    zero-copy view.
+  - *Microbench baseline* (`nbe::conv_tests`, `--nocapture`):
+    `conv_bench_deep_former` 200 convs over a 64-deep `Former` nest ≈
+    **236µs** (~1.2µs/conv); `conv_bench_flex_solve` 1000 solves ≈
+    **163µs** (~163ns/solve).
+  - *Stack verdict: **fixed**.* `eval_judgment` is a ~2700-line match;
+    measured the defect: pre-change `dependent.hnl` check **overflows
+    a 2 MiB stack, needs ~3–4 MiB** (the 64 MiB spawn was
+    over-provisioned). `stacker::maybe_grow` (4 MiB red zone, 8 MiB
+    segments) now wraps all 20 structurally-recursive judgment entry
+    points in `lib.rs`/`dependent.rs` — depth is memory-bounded, not
+    thread-stack-bounded. **`dependent_hnl_parses_and_typechecks` runs
+    on the default test stack** (spawn removed); new
+    `tests/stack_probe.rs` pins it — passes down to
+    `STACK_PROBE_MIB=1`. Per-hop `maybe_grow` overhead is one
+    stack-pointer compare — suite time unchanged-to-faster:
+    dependent_structure 24/24 in **~0.41s** (baseline ~0.59–0.82s).
+  - *`Env::len`* — now O(1) (`EnvNode` caches the length). Verified
+    first: `nbe::Env` has **no callers** outside `nbe.rs` (the
+    checker's Γ is a `Vec`; `ctx.extend` is `TypecheckContext`), so
+    the O(n) walk was never on a hot path — cached anyway.
+  - *`MetaStore` growth* — `mark`/`truncate` exist and are used
+    (`ctx.vcheck.store_mark`/`store_restore` in the `IO` arm; the
+    parallel `meta_tys`/`meta_constraints` truncate in lockstep).
+    Per-module growth is the monotone-solve NbE convention — fine.
+  - Verify: engine-typecheck-nbe lib 290 + dependent_structure 24/24 +
+    parity 46/46 + import_sig/grade/handle suites + stack_probe — all
+    green; handl-value suite green. Commits: `kernel 0b64fee`,
+    `engine-typecheck-nbe 7cad7ef`. Note: `.orig` side-effects of the
+    parallel WS-D/WS-F in-flight work were left untouched (partial
+    staging — only WS-H hunks committed).
+
 - **WS-D wave-2 (index-solver hardening) — landed.** `eval_index` now
   canonicalizes `Bin`/`Un` `add`/`sub`/`mul`/`neg` index terms into a
   bounded **polynomial normal form**: sorted monomials keyed by canonical
@@ -443,3 +530,55 @@ metaprograms.
   Verify: `kit-prelude` `ordered_annotations` 2/2, `fp_integration`
   37/37, `sugars` 14/14; `engine-typecheck-nbe` lib 285/285 +
   dependent_structure 24/24 + parity 46/46 — all green.
+
+- **WS-G (eval + metaprogramming — runtime-minted types/laws/cells).**
+  ADR-0154 §6: runtime-minted cells are *legal values* — a law or type
+  constructed at runtime is a feature, not an escape hatch. Three
+  deliverables landed across `kernel`, `host`, `lib-lang-eval`, and
+  `kit-prelude`:
+  1. **`Val → Ast` reification** — `handl_language::quote_ast`
+     (`reify_ast`/`reify_ast_value`): the AST-surface half of `quote`.
+     A `lit` payload *is* a boundary value (every exec engine evaluates
+     `TaggedValue::from(payload)` — the `instantiate` convention), so
+     reification targets boundary-faithful payloads: `Const`/`Nominal`/
+     `Universe`/`Former` → `lit` carrying `tagged_to_value`/`__sym__`/
+     `__type__`/`__former__`; `Arrow` → `lit` carrying the
+     `TaggedValue::Arrow` wire form (params + `body_def` + quoted
+     `binds` — decodes back to a *runnable* arrow, unlike `quote`'s
+     display-only `{params, binds}`); `Unfold`/named `Rigid` →
+     `var`/`call` (a `var` re-entered under its binder resolves again —
+     how a metaprogram closes an open term); unnamed `Rigid`/`Flex` →
+     honest `__neutral__`/`__meta__` literals. **The boundary:** `Flex`
+     and `Unfold`'s lazy `OnceCell` never serialize (a meta is a
+     `MetaStore` index, an unfold thunk is process-local); closed
+     values round-trip, open terms reify honestly but re-enter *fresh*
+     — store identity does not cross the boundary. New dep:
+     `handl-language → handl-value` (no cycle: `handl-value` stays
+     dependency-free). 11/11 unit tests green.
+  2. **`eval.checked` — the checked eval path** (`lib-lang-eval`):
+     `eval.checked(lang, src)` runs `lex → parse_raw → typecheck →
+     desugar → eval` → `{value, type}`; `eval.checked(lang, ast)`
+     accepts `__ast__`/serialized `Ast` → `typecheck → desugar → eval`.
+     Any `error`-severity diagnostic (or checker `Err`) is an
+     `EvalError` — the checked path never evaluates an unchecked term;
+     raw `eval.eval` is unchanged (dynamic = `type.unknown`). To feed
+     the checker the *raw* AST it is authored against, `RuntimeHandle`
+     gained `parse_raw` (default delegates to `parse`; `Runtime`
+     overrides with the true raw parse) and `handl-runtime` re-exports
+     `TypecheckDiagnostic`. The kit's `RuntimeFactory` config
+     (`typecheck: nbe`) binds the checker for sub-runtimes. Interface
+     declared in `lang_eval.hnl`. 18/18 crate tests + e2e green.
+  3. **Runtime-mint verification** — `kit-prelude` `runtime_mint` suite
+     (9/9): `.hnl` programs mint a `data`-shaped former
+     (`{"__former__": sym.seeded("data.RTNat"), "indices": []}`) and
+     ctor (`{"__ctor__": sym.seeded("data.RTNat.Zero"), "type": F}`)
+     at runtime — the exact encodings `desugar.data` emits — and
+     `type.instanceof(z, F)` parent-walks the ctor's `type` link to the
+     former head (`true`), `type.ty(z)` resolves the link, negative
+     cases hold, seeded mints are idempotent, and a ctor minted inside
+     an applied arrow (dynamic-extent construction) is still recognized
+     — no declaration form required. Also e2e: `eval.checked(self,
+     "1+2")` → `{value: 3, type: <synth>}`, a check failure never
+     evals, raw `eval` unchanged. Note: `~>` bodies parse `{…}` as a
+     *block* — object literals in arrow-body position need parens
+     (`x ~> ({…})`).
