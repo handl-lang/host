@@ -377,3 +377,32 @@ metaprograms.
   `engine-typecheck-nbe` lib 285 + dependent_structure 24/24 +
   parity 46/46 green; `engine-typecheck` 15+43 green;
   `ext-typecheck`/`ext-eval` `.so`s rebuilt.
+
+- **WS-C wave-3 (kit-prelude sweep reds — `ordered_annotations` 2/2
+  green).** Two `kit-prelude` `ordered_annotations` fails surfaced in
+  the post-sweep retest, both NBE-only gaps (the deleted `.hnl` model
+  covered them; the suite moved to `typecheck_source` in WS-B):
+  1. `generic_dim_arrow_binds` (`dedupe<N> := (g >>> g) ~[N]~> g`) —
+     the `dimension` lhs shape (`name<N>` generic dim params,
+     ADR-0106 §12) hit `synth_assign`'s bare-lhs `node_name` fallback
+     ("synth_assign: var name"). `implicit_binder_head` now accepts
+     `dimension` heads (same `[target, args…]` shape as `index_app`),
+     the bare-lhs arm tries it before `node_name`, and generic
+     binders on an *unannotated* assign scope rigidly (`var{N}` in
+     results + Γ) over the initializer — the scope pass's
+     `dim_param_names` semantics. `synth_dim_arrow` endpoints are
+     quoted law terms: free vars (`g`) bind fresh metas under a
+     scoped `law_mark` (pattern mode, ADR-0119), and a scope-bound
+     dim var elaborates as its rigid index term instead of a fresh
+     `Dim` meta (same in `dep_synth_type`'s dim_arrow arm)
+     (`engine-typecheck-nbe 819b593`).
+  2. `ordered_value_annotations` (`x : 5 >>> inc := 6`) — bf4affd's
+     unruled-kind fallback made `dep_synth_type` succeed with
+     `type.unknown` on a `flow` annotation, so the ADR-0103
+     term-eval fallback never ran and the value's `type.number`
+     unified against `type.unknown`. A `type.unknown` annotation
+     result now takes the term-eval path first (`5 >>> inc` → `6`),
+     keeping the placeholder only when eval also fails (`819b593`).
+  Verify: `kit-prelude` `ordered_annotations` 2/2, `fp_integration`
+  37/37, `sugars` 14/14; `engine-typecheck-nbe` lib 285/285 +
+  dependent_structure 24/24 + parity 46/46 — all green.
