@@ -378,6 +378,43 @@ metaprograms.
   parity 46/46 green; `engine-typecheck` 15+43 green;
   `ext-typecheck`/`ext-eval` `.so`s rebuilt.
 
+- **WS-D wave-2 (index-solver hardening) — landed.** `eval_index` now
+  canonicalizes `Bin`/`Un` `add`/`sub`/`mul`/`neg` index terms into a
+  bounded **polynomial normal form**: sorted monomials keyed by canonical
+  atom string (`var` by name, metas by id, `App`/opaque `div`/`mod`/
+  `pow`/`eq` nodes by serialized term), like terms collected
+  (`a+b+a → a*2+b`), constants pooled (`(n+2)+3 → n+5`), products
+  distributed (`n*(m+k) → n*m+n*k`), all under `POLY_*` caps —
+  over-bounded products keep the factored `canon_bin` shape rather than
+  expanding. Because normalization runs inside `eval_index`, every
+  consumer (`unify_index`, `dep_unify` family_app/`Path` arms, match
+  refinement, `closed_num`, `eval_ann_term`) sees normal forms **before**
+  meta-solving: `Vec(n+m) ≡ Vec(m+n)`, `Vec(2*n) ≡ Vec(n*2)`,
+  `Vec(n+1+0) ≡ Vec(n+1)`, `n+0/0+n/n*1/1*n/n*0` identities — all hold
+  definitionally, including under rigid Pi binders. `unify_index`'s
+  numeric tail now routes through a **`trait IndexSolver`**
+  (`prove(a,b) -> Proven|Disproven|Unknown`, `BuiltinIndexSolver` impl +
+  `static INDEX_SOLVER`) — the documented seam a Z3/CVC-class SMT
+  backend slots behind later with no call-site changes. Decided-vs-
+  stuck contract kept: distinct numerals / non-divisible products /
+  absent roots → Disproven (error); two symbolic factors (`?n*?m`)
+  → Unknown (stuck), never silent-accept. Bonus: distribution makes
+  `c*(X+d)`/`(X+d)*c` shapes linear-solvable where they were stuck.
+  Notes: `Vec(n+1+0) ≡ Vec(Succ n)` literally means `n+1` vs the
+  `App{Succ}` index term — still stuck by design (the `Succ p ≡ k+1`
+  bridge is the ctor-result instantiation `?k+1`, not `Succ`→`+1`
+  rewriting); kernel `nbe::conv` on `Val::Const` index objects is
+  structural — a `Val`-domain port is the documented follow-up if
+  needed. New tests: `dependent::index_solver_tests` 5/5. Verify: lib
+  **290**/290 (285 + 5), dependent_structure **24/24**, parity **46/46**
+  — all green single-threaded. Commit: `engine-typecheck-nbe fcb1134`.
+  Collision note: concurrent WS-F/WS-H agents were editing this repo
+  mid-run — a mid-session file overwrite wiped the first patch;
+  reapplied on top of their WIP and staged only WS-D hunks (`git apply
+  --cached`). A 1-char borrow fix inside the in-flight `handle_sig_check`
+  block (`self.zonk` signature) was needed to compile; left in the
+  worktree for the WS-F agent's commit.
+
 - **WS-C wave-3 (kit-prelude sweep reds — `ordered_annotations` 2/2
   green).** Two `kit-prelude` `ordered_annotations` fails surfaced in
   the post-sweep retest, both NBE-only gaps (the deleted `.hnl` model
