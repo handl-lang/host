@@ -236,3 +236,67 @@ fn wrapper_arrow_applies_on_bytecode() {
         json!("a|b")
     );
 }
+
+// ---------------------------------------------------------------------------
+// Phase 1 — resolvers emit the callable record (ADR-0155 §3)
+// ---------------------------------------------------------------------------
+
+/// The resolver-emitted record's function fields are `{"__arrow__":…}`
+/// wire values, while the legacy `module_bindings_object` fields stay
+/// `"mod.fn"` strings — both payload encodings coexist, per ADR-0155 §2.
+#[test]
+fn module_bindings_tagged_emits_arrows_not_strings() {
+    let dep = StubDep::new("orig");
+    let tagged = handl_plugin_lib_handl::module_bindings_tagged(&dep);
+    let wire = Value::from(tagged.as_ref().clone());
+    assert_eq!(wire["who"]["__arrow__"], json!(true));
+    assert_eq!(wire["cat"]["__arrow__"], json!(true));
+    // The string encoding is unchanged for hosts that pin it.
+    let legacy = handl_plugin_lib_handl::module_bindings_object(&dep);
+    assert_eq!(legacy["who"], json!("dep.who"));
+    assert_eq!(legacy["cat"], json!("dep.cat"));
+}
+
+/// `from "dep" import cat` binds a **wrapper arrow** (not the string
+/// `"dep.cat"`): `cat(a, b)` routes `route_on_type` → `!App`, and the
+/// `callv` body lands on `call_host` with the two forwarded args. The
+/// `* as d` form binds the whole callable record, so `d.who()` applies
+/// through ordinary field access.
+#[test]
+fn dependency_resolver_binds_callable_arrows() {
+    ensure_lang();
+    const IMPORT_SRC: &str = r#"
+from "dep" import cat
+from "dep" import * as d
+export pair := (a, b) ~> cat(a, b)
+export ask2 := (x) ~> d.who() + ":" + x
+"#;
+    let m = HandlModule::new("imp", IMPORT_SRC, &["pair", "ask2"])
+        .with_dependency(StubDep::new("orig"));
+    assert_eq!(call(&m, "pair", &[json!("a"), json!("b")]), json!("a|b"));
+    assert_eq!(call(&m, "ask2", &[json!("x")]), json!("orig:x"));
+}
+
+/// The two encodings are dispatch-equivalent: a bare `"dep.who"` string
+/// bound as `f` still applies through `call`'s string arm (`call_host`),
+/// and a `wrap_dep_fn` arrow for the same name applies through `!App` —
+/// same leaf, same result (ADR-0155 §2 value-first/string-fallback).
+#[test]
+fn both_binding_encodings_apply_through_call() {
+    ensure_lang();
+    let m = module();
+    // Legacy string callee — the `host_import_lines` lowering's encoding.
+    assert_eq!(
+        call(&m, "apply", &[json!("dep.who"), json!("x")]),
+        json!("orig:x")
+    );
+    // Callable-record field — the resolver's Phase-1 payload.
+    assert_eq!(
+        call(
+            &m,
+            "apply",
+            &[Value::from(wrap_dep_fn("dep.who")), json!("x")]
+        ),
+        json!("orig:x")
+    );
+}

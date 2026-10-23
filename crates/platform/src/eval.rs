@@ -426,6 +426,30 @@ pub trait Module: 'static {
         let _ = name;
         None
     }
+
+    /// The module's export record as a shared [`TaggedValue`] — the
+    /// callable-env payload of ADR-0155 (§3): a record of callables bound
+    /// in the importer's lexical scope by the `import` op, alongside the
+    /// module's plain value exports.
+    ///
+    /// The default is `None`: the module has no bespoke record, and the
+    /// caller synthesizes the standard fallback — a record of wrapper
+    /// arrows over [`Module::functions`] names, each re-resolving
+    /// `"<mod>.<fn>"` through the applying runtime's module chain (e.g.
+    /// `plugin-lib-handl`'s `module_bindings_tagged`, which wraps
+    /// `wrap_dep_module`). `.hnl`-backed modules override this to hand
+    /// out their evaluated export record directly, so their arrows arrive
+    /// as real values rather than name indirections.
+    ///
+    /// Both payload encodings apply: a `Str` field routes `call` to the
+    /// `call_host` leaf (the legacy string-callee encoding), an `Arrow`
+    /// field routes to ordinary `!App` application — so this surface is
+    /// additive and the string encoding remains the fallback.
+    ///
+    /// [`TaggedValue`]: handl_value::TaggedValue
+    fn bindings_tagged(&self) -> Option<Rc<handl_value::TaggedValue>> {
+        None
+    }
 }
 
 /// Lookup handle for qualified function names, held by [`EvalContext`].

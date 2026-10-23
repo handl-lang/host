@@ -145,17 +145,20 @@ fn normalize_import_name(path: &str) -> &str {
 /// The default [`ImportResolver`] used by a [`HandlModule`] runtime.
 ///
 /// A `.hnl` import statement is evaluated by the runtime (`prim_import`),
-/// which asks the resolver for the target module's bindings as a
-/// [`handl_language::Value::Object`]. A handl closure cannot cross that
-/// `serde_json` boundary as a callable, so -- to stay *exactly* compatible
-/// with how `mod.fn` already resolves today (a **string** callee
-/// `"mod.fn"` is dispatched to the importer's module registry) -- every
-/// binding is the string `"<module>.<field>"`.
+/// which asks the resolver for the target module's bindings record.
+/// Since ADR-0155 Phase 1 the payload is a **callable record** — one
+/// [`wrap_dep_fn`] wrapper arrow per function export (plus plain value
+/// exports) via [`module_bindings_tagged`]. Applying such a binding
+/// (`m.f(x)`, or a bare named import `f(x)`) routes the arrow through
+/// the ordinary `!App` path, and the wrapper's `callv` body lands on the
+/// same `call_host` leaf a `"<module>.<field>"` string callee did —
+/// resolving through the importer's [`ModuleLookup`] registry, whose
+/// `<module>` entry comes from the dependency chain or, failing that,
+/// the injected global module lookup.
 ///
-/// Applying such a binding (`m.f(x)`, or a bare named import `f(x)`)
-/// therefore routes through the importer's [`ModuleLookup`] registry, whose
-/// `<module>` entry is resolved from the module's dependency chain or, failing
-/// that, the injected global module lookup.
+/// The string-callee encoding remains available via
+/// [`module_bindings_object`] for hosts that pin it — both encodings
+/// apply (ADR-0155 §2).
 pub struct DependencyImportResolver {
     modules: Vec<Arc<dyn Module + Send + Sync>>,
 }
@@ -167,10 +170,17 @@ impl DependencyImportResolver {
     }
 }
 
-/// Build the bindings object a [`resolve_import`] returns for a module:
-/// function exports as `mod.fn` string callees plus *value* exports
-/// ([`Module::value_names`]) as their evaluated values — so
-/// `from "bool" import true` binds a `Bool`, not the string `"bool.true"`.
+/// Build the bindings object a [`resolve_import`] returns for a module,
+/// in the **legacy string-callee encoding**: function exports as `mod.fn`
+/// string callees plus *value* exports ([`Module::value_names`]) as their
+/// evaluated values — so `from "bool" import true` binds a `Bool`, not
+/// the string `"bool.true"`.
+///
+/// ADR-0155 Phase 1 supersedes this payload with callable records —
+/// [`module_bindings_tagged`]/[`wrap_dep_module`] emit a wrapper arrow
+/// per function export. Both encodings apply (a `Str` field routes to
+/// `call_host`, an `Arrow` field to `!App`); this emitter remains for
+/// hosts that pin the old encoding.
 ///
 /// [`resolve_import`]: ImportResolver::resolve_import
 pub fn module_bindings_object(module: &dyn Module) -> handl_language::Value {
@@ -284,11 +294,43 @@ pub fn wrap_dep_module(module: &dyn Module) -> handl_value::TaggedValue {
     handl_value::TaggedValue::from(handl_language::Value::Object(obj))
 }
 
+/// The bindings record a resolver hands to the `import` op under
+/// ADR-0155 (§3): `module`'s own [`Module::bindings_tagged`] when it
+/// provides one — the evaluated export record of a `.hnl`-backed module —
+/// else a synthesized [`wrap_dep_module`] record of wrapper arrows over
+/// [`Module::functions`].
+///
+/// This is the callable counterpart of [`module_bindings_object`]: an
+/// `Arrow` field applies through the ordinary `!App` path, so
+/// `from "<mod>" import f` binds `f` as a real callable value rather
+/// than a string callee — while the wrapper's `callv` body still lands
+/// on the same `call_host` leaf the string encoding dispatched to.
+pub fn module_bindings_tagged(module: &dyn Module) -> Rc<handl_value::TaggedValue> {
+    module
+        .bindings_tagged()
+        .unwrap_or_else(|| Rc::new(wrap_dep_module(module)))
+}
+
 impl ImportResolver for DependencyImportResolver {
     fn resolve_import(
         &self,
         path: &str,
     ) -> Result<handl_language::Value, handl_language::LangError> {
+        // The `Value` boundary re-encodes the shared tagged record; the
+        // `{"__arrow__": …}` wire form decodes back losslessly on any
+        // `TaggedValue::from` consumer (ADR-0155 §1 marshal story).
+        self.resolve_import_tagged(path)
+            .map(|rc| handl_value::tagged_to_value(&rc))
+    }
+
+    /// The callable record arrives pre-tagged (ADR-0155 Phase 1): an
+    /// [`Rc`] of wrapper-arrow fields — no `serde_json` round-trip, and
+    /// `module`'s bespoke [`Module::bindings_tagged`] record is shared
+    /// rather than rebuilt.
+    fn resolve_import_tagged(
+        &self,
+        path: &str,
+    ) -> Result<Rc<handl_value::TaggedValue>, handl_language::LangError> {
         let name = normalize_import_name(path);
         let module = self
             .modules
@@ -299,7 +341,7 @@ impl ImportResolver for DependencyImportResolver {
                     "import: no dependency module `{name}` (path `{path}`) is registered"
                 ))
             })?;
-        Ok(module_bindings_object(module.as_ref()))
+        Ok(module_bindings_tagged(module.as_ref()))
     }
 }
 

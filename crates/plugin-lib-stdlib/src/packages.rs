@@ -1230,14 +1230,17 @@ fn default_resolver_arc() -> Arc<dyn ModuleResolver> {
 /// `.hnl` import statements through the **module table**.
 ///
 /// The runtime evaluates `import`/`from` statements via `prim_import`, which
-/// asks the resolver for the target module's bindings as a
-/// `serde_json::Value::Object`. A handl closure cannot cross that boundary as
-/// a callable, so each binding is the *string* `"<module>.<field>"` -- exactly
-/// the callee form a qualified `mod.fn` already produces. The string is then
-/// dispatched to the importer's module lookup, whose `<module>` entry resolves
-/// through the dependency chain or the injected global table lookup. This keeps
-/// `from "x" import * as m` (`m.f`) working *and* enables named imports
-/// (`from "./x.hnl" import f` -> bare `f(...)`).
+/// asks the resolver for the target module's bindings record. Since ADR-0155
+/// Phase 1 the payload is a **callable record** — one `wrap_dep_fn` wrapper
+/// arrow per function export (plus value exports as values) via
+/// [`handl_plugin_lib_handl::module_bindings_tagged`]. Applying a binding
+/// (`m.f(x)`, or a bare named import `f(x)`) routes the arrow through `!App`
+/// to the same `call_host` leaf a `"<module>.<field>"` string callee
+/// dispatched to — resolving through the dependency chain or the injected
+/// global table lookup. This keeps `from "x" import * as m` (`m.f`) working
+/// *and* enables named imports (`from "./x.hnl" import f` -> bare `f(...)`),
+/// now with real callable values (both encodings apply — the string arm
+/// stays as fallback for hosts that emit it).
 ///
 /// `path` is normalized to a module name ([`normalize_module_name`]) and the
 /// module is built from the table -- cached, so repeated imports of the same
@@ -1284,7 +1287,12 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
             ))
         })?;
         let module = build_module(spec, Arc::clone(&self.resolver));
-        let value = Arc::new(handl_plugin_lib_handl::module_bindings_object(&module));
+        // ADR-0155 Phase 1: the record fields are wrapper arrows (callable
+        // values), encoded through the `Value` boundary as `{"__arrow__":…}`
+        // and decoded back by `TaggedValue::from` on the tagged fast path.
+        let value = Arc::new(handl_value::tagged_to_value(
+            &handl_plugin_lib_handl::module_bindings_tagged(&module),
+        ));
         if let Ok(mut cache) = self.cache.lock() {
             cache.insert(name, Arc::clone(&value));
         }
