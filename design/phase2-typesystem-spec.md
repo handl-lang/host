@@ -261,6 +261,39 @@ metaprograms.
 
 ## Progress log
 
+- **WS-E wave-2 (landed) — `>>>` composition + `Hom(3)` checking.**
+  - *`>>>` verdict*: the flag was **half-stale**. Runtime `f >>> g`
+    already composes (exec `flow` arm → `cell_comp_axis(0,1)` →
+    `Arrow{first,second}`; `eval.axis_flow` k=0 routes through it;
+    `Seq{0}` on body-arrow schemes is correct composite semantics —
+    `(g∘f)(x) = g(f(x))`; `Op{flow}` value-operand dispatch landed
+    with `d8f1e0b7`). The residual wrong reading was `nbe::eval` /
+    `term_interpreter` `Seq{0}` on *operand terms denoting cell
+    values* — `eval(snd, mid)` treated `snd` as an arrow on `mid`, so
+    an input-free `snd` returned its own value with `fst` silently
+    dropped. Fixed: input-free `snd` (`Arr`/`Const`) + both evaluated
+    operands cell/morphism-valued → `cell_comp_axis` seam (`Const`
+    payloads → kernel `Arrow{first,second}` mint; domain cells → the
+    checker's `infer_comp_axis` — `Hom(1,a,b) ∘ Hom(1,b,c)`). Also
+    added the missing `flow` arm to `JudgmentOps` (was
+    unknown-op error under `veval`). Commits: `engine 308ef2c`,
+    `engine-typecheck-nbe b2ab3e7`.
+  - *`Hom(3)` checked* (was stored): `infer_hom` n=3 via
+    `cell_faces_at` (`tgt_j = src_j` recursion — deeper faces through
+    the source boundary's type; lower cells promote to iterated
+    identities; `Hom(?d)`/meta endpoints stuck → stored);
+    `infer_comp_axis` k=3 (gate moved to ≥4; deep-axis law corrected
+    to `tgt_k ≡ src_k` via `cell_face_at` — previously compared top
+    faces); `infer_id` id_3 checked, id_4 stored.
+  - *Interchange*: `Hom(3, LHS, RHS)` *checks* — both sides infer to
+    convertible `Hom(2)` boundaries, so `=>|`/`=>>` interchange is
+    verified as a well-formed coherence cell (boundary law by conv).
+    The strict `cell.comp`-tree equality is **stated, not
+    definitional** — a comp-tree normalizer for interchange is a
+    follow-up, not landed.
+  - Verify: dependent_structure 24/24, parity 46/46, lib 285 —
+    all green.
+
 - *(spec drafted — no work landed yet)*
 
 - **WS-C wave-1 (implicit index binders + surface sugar) — landed.**
