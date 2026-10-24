@@ -759,3 +759,38 @@ unify failures render internal encodings, not source-level types.
     binds the name; pre-existing, not a P1 regression);
     `export f{…} : T = body` in module-prep yields name
     `f{…}` (unbindable).
+
+- **`hnl lsp` first cut landed** (`host-lsp` + `kit-prelude` +
+  `kit-data-prelude` + `engine-transform` + `engine-typecheck-nbe`):
+  `hnl lsp` now boots the language server on stdio via a new
+  `hnl-ext-lsp` cdylib (ADR-0149 packaging — `libhnl_ext_lsp.so`
+  discovered next to the `hnl` binary, running the same
+  `serve_stdio()` loop as `handl-host-lsp`, which split into lib +
+  thin bin to share it).
+  - *Diagnostics*: `textDocument/publishDiagnostics` runs the full
+    checker pipeline — the bootstrap scope pass
+    (`check_module_with_prelude`, all its spanned diagnostics:
+    `unbound-wire`, `duplicate-binding`, …) plus the NBE checker's
+    spanned errors (`cannot unify — expected Bool, got Number`) mapped
+    to LSP ranges. `x : Bool := 3` squiggles 0:0–0:13 severity 1.
+  - *Hover*: identifiers get the checker's per-node synthesized types
+    — new `Kit::inspect_with_prelude` returns `node_types` keyed by
+    spans in caller-source coordinates (the `do {}` wrapper stripped),
+    rendered via `display_type_unzonked` (new `pub` ctx-free export).
+    Hover on `x` in `y := x` shows `x : Bool`.
+  - *Goto-definition*: new generic `kind: binding` LSP provider —
+    a scope index walked off `AstShapeDef` roles (target+value →
+    module bindings; pattern/params+body → scoped binders), innermost
+    scope wins; `lsp.def.var` runs first in `textDocument/definition`
+    so a `var` reference resolves to its binder before the export
+    rules' enclosing-declaration fallback. Def on `x` in `y := x`
+    jumps to the `x` in `x : Bool := true` (0:0).
+  - *Smoke*: 20/20 `lsp_conformance` tests pass incl. new
+    type-error/hover-type/def-binding cases; scripted stdio client
+    verified `hnl lsp` end-to-end.
+  - *Next-version scope*: completion/references/rename beyond the
+    existing token-level implementations; richer hover (literals,
+    keywords — currently identifiers only, `?m` for unsolved metas);
+    `data` ctor bindings + sequential-`do`-block scope edges in the
+    binding index; multi-diagnostic NBE errors (first span only
+    today); per-workspace kits via the dormant `KitResolver`.
