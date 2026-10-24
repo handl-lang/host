@@ -1253,6 +1253,19 @@ pub struct TableImportResolver {
     resolver: Arc<dyn ModuleResolver>,
 }
 
+/// Shared same-thread self-import guard (keyed by `(thread, name)`): a spec
+/// whose source basename-normalizes to its own name
+/// (`icu-uc-c-linux-x86_64/uchar.hnl` imports `../icu-uc/uchar`) recurses
+/// through eval → import → resolve → bindings → eval forever, and the loop
+/// crosses *instances* — every `build_module` wires a fresh
+/// `TableImportResolver`, so a per-instance set never sees the re-entry.
+/// A static is shared by every resolver; a different thread resolving the
+/// same name is a concurrent build, not a cycle (same rule as
+/// `TableModuleLookup::in_progress`).
+static TABLE_IMPORT_IN_PROGRESS: std::sync::LazyLock<
+    Mutex<HashSet<(std::thread::ThreadId, String)>>,
+> = std::sync::LazyLock::new(|| Mutex::new(HashSet::new()));
+
 impl TableImportResolver {
     /// Create an empty resolver with a fresh module-binding cache,
     /// using the default table resolver.
@@ -1289,17 +1302,34 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
                 "import: module `{name}` (path `{path}`) is not in the package table"
             ))
         })?;
-        let module = build_module(spec, Arc::clone(&self.resolver));
-        // ADR-0155 Phase 1: the record fields are wrapper arrows (callable
-        // values), encoded through the `Value` boundary as `{"__arrow__":…}`
-        // and decoded back by `TaggedValue::from` on the tagged fast path.
-        let value = Arc::new(handl_value::tagged_to_value(
-            &handl_plugin_lib_handl::module_bindings_tagged(&module),
-        ));
-        if let Ok(mut cache) = self.cache.lock() {
-            cache.insert(name, Arc::clone(&value));
+        let key = (std::thread::current().id(), name.clone());
+        {
+            let mut in_progress = TABLE_IMPORT_IN_PROGRESS.lock().map_err(|_| {
+                handl_language::LangError::engine("import: resolver lock poisoned")
+            })?;
+            if !in_progress.insert(key.clone()) {
+                return Err(handl_language::LangError::engine(format!(
+                    "import: module `{name}` cannot import itself (self-import cycle at `{path}`)"
+                )));
+            }
         }
-        Ok((*value).clone())
+        let result = (|spec| {
+            let module = build_module(spec, Arc::clone(&self.resolver));
+            // ADR-0155 Phase 1: the record fields are wrapper arrows (callable
+            // values), encoded through the `Value` boundary as `{"__arrow__":…}`
+            // and decoded back by `TaggedValue::from` on the tagged fast path.
+            let value = Arc::new(handl_value::tagged_to_value(
+                &handl_plugin_lib_handl::module_bindings_tagged(&module),
+            ));
+            if let Ok(mut cache) = self.cache.lock() {
+                cache.insert(name, Arc::clone(&value));
+            }
+            Ok((*value).clone())
+        })(spec);
+        if let Ok(mut in_progress) = TABLE_IMPORT_IN_PROGRESS.lock() {
+            in_progress.remove(&key);
+        }
+        result
     }
 }
 
