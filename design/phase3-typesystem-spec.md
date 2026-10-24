@@ -841,3 +841,58 @@ unify failures render internal encodings, not source-level types.
     `data` ctor bindings + sequential-`do`-block scope edges in the
     binding index; multi-diagnostic NBE errors (first span only
     today); per-workspace kits via the dormant `KitResolver`.
+
+- **WS-H perf pass (session 4)** — measurement-driven; bytecode/cranelift
+  parity gap found and closed.
+  - *Parity fix (real gap)*: `tag_patterns_on_compiled_engines` in
+    `handl-runtime::match_arrow_lower` failed with `unknown v2 native
+    op: ctor_name` — `compile_pattern`'s ctor-object discriminant/binder
+    ops (engine `term_interpreter`, session-2) were never added to the
+    shared `native_ops` table, so every lowered ctor `match` crashed on
+    bytecode + cranelift. `ctor_name`/`ctor_fields` now live in
+    `engine-exec`'s `apply_native_op` (TaggedValue twin of the
+    term-interpreter ops: `__ctor__` sym → its name, else `null` —
+    total probe; sorted non-`__ctor__`/`type` fields — errors on
+    non-object). Verified: `match_arrow_lower` 24/24 (both compiled
+    engines), full `handl-runtime` suite green, including
+    `ctor_object_match_dispatches_on_sym` on all three engines.
+    Bytecode/cranelift already run `handle`/IO via `handle_dyn`
+    (WS-E); this closes the `__ctor__` half of the parity question —
+    verdict is now *real*, not documented.
+  - *Instrumentation (kept, env-gated)*: `HNL_TC_STATS` /
+    `HNL_CONV_STATS` counters — `stats.rs` in
+    `engine-typecheck-nbe` (dup-pair + node-revisit probes + inclusive
+    timers, one relaxed atomic read when off), `conv_stats()` in
+    `handl-value::nbe`. `dependent_structure`'s `zzz_tc_stats_dump`
+    prints the report.
+  - *Measured* (`dependent_structure`, 48 tests, ~0.8 s): `dep_unify`
+    205 calls/55.6 % structural dup pairs, `unify` 127/48.0 %,
+    `unify_index` 364/28.3 %, `dep_synth_type` 1767/5.7 % node
+    revisits, `instantiate_ctor` 379/99.7 % re-instantiation (by
+    design — fresh metas per site), `nbe::conv` 22/4.5 %.
+  - *Landed — `TermData` borrow views + scheme cache*
+    (`engine` + `engine-typecheck-nbe`): `TermData` is now
+    `repr(transparent)` with `TermData::view`/`get_term_view`/
+    `get_term_view_list` — `eval_type_scheme_td` recursion borrows
+    sub-schemes instead of deep-cloning a `serde_json::Value` per
+    step (`get_term`/`get_term_list` cloned every level); `Op`
+    judgment args pass `&[&TermData]` views. `TypecheckContext::
+    scheme_td` caches `Term::from_term` per lang-owned `&Term`
+    pointer (synth/check rule schemes convert once per kind, not
+    once per node). Wall time on `dependent_structure` is
+    parse/setup-bound (~0.8 s both ways; check-side
+    `eval_type_scheme_td` inclusive ≈ 236 ms) — the win is
+    structural, showing on larger type-rule-heavy inputs.
+  - *Not landed (measured, upside too small)*: `conv`/`dep_unify`
+    memoization — hit rates clear the >5 % bar, but the functions
+    total ≤6 ms of ~800 ms suite time (≈1 % bound) and caching is
+    unsafe around meta-solving side effects and the `results`
+    environment; `instantiate_ctor` re-elaboration — the 99.7 % dup
+    is *required* fresh-meta minting (the `ctx.results.clone()`
+    snapshot is ~part of 10.6 ms total). Documented, not built.
+  - *Microbenches*: `conv_bench_repeat_pairs`/`conv_bench_ptr_shared`
+    extend `conv_bench_*` in `handl-value::nbe` — 500 iters of a
+    64-deep pair: 3.60 ms structural vs 1.97 µs ptr-eq floor — the
+    ceiling a `(a,b)`-keyed memo could recover.
+  - *Suites*: 302 lib + 48 dependent + 46 parity +
+    `handl-runtime` all green (`--test-threads=1`). Commits per repo.
