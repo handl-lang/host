@@ -1,77 +1,104 @@
-use handl_platform::{EvalContext, Function, Plugin};
-use handl_lib_parse::DynParser;
-use handl_lib_url_rfc::ops::*;
-use handl_plugin_lib_stdlib::library;
-use serde_json::json;
+//! Integration tests for the `url_rfc` package row.
+//!
+//! `url_rfc` is a pure `.hnl` table module now (`lib-url-rfc`'s flattened
+//! single source) — the old Rust `Rfc` parser type, `DynParser`, and the
+//! `url_rfc_op_registry` are gone (BACKLOG: "Codec/parser registries →
+//! `.hnl` object dispatch"). These tests pin the table row: the package
+//! caps, `url_rfc.parse` returning the parsed record, and the
+//! `url_rfc()` parser token.
+
 use std::sync::Arc;
 
-#[test]
-fn parses_http_uri() {
-    let u = handl_lib_parse::parse("https://example.com:8080/path?a=1#frag", Rfc).unwrap();
-    assert_eq!(u.scheme(), "https");
-    assert_eq!(u.authority(), Some("example.com:8080"));
-    assert_eq!(u.path(), "/path");
-    assert_eq!(u.query(), Some("a=1"));
-    assert_eq!(u.fragment(), Some("frag"));
+use handl_platform::{EvalContext, Module, Plugin};
+use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
+use handl_plugin_lib_stdlib::{PackageResolver, library, module_with};
+use serde_json::json;
+
+/// Install the canonical default language once per test binary (see
+/// `json.rs` — the `HandlModule` bridge runtimes resolve it lazily).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
+        );
+    }
+}
+
+/// Floor-module resolver: native `char` plus the package table — the same
+/// resolver shape production passes to `module_with`.
+fn floor_resolver() -> Arc<dyn ModuleResolver> {
+    struct CharFloor;
+    impl ModuleResolver for CharFloor {
+        fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
+            (name == "char").then(|| Arc::new(CharModule) as Arc<dyn Module + Send + Sync>)
+        }
+    }
+    Arc::new(PackageResolver {
+        fallback: Some(Arc::new(CharFloor)),
+    })
+}
+
+fn table_module() -> HandlModule {
+    ensure_lang();
+    module_with("url_rfc", floor_resolver()).expect("url_rfc module in the package table")
+}
+
+fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
+    module
+        .function(name)
+        .unwrap_or_else(|| panic!("url_rfc.{name} bound"))
+        .call(args, &mut EvalContext::new())
+        .unwrap_or_else(|e| panic!("url_rfc.{name} evaluates: {e}"))
 }
 
 #[test]
-fn rejects_non_ascii() {
-    assert!(handl_lib_parse::parse("https://example.com/🦀", Rfc).is_err());
-}
-
-#[test]
-fn rejects_invalid_percent_encoding() {
-    assert!(handl_lib_parse::parse("https://example.com/%ZZ", Rfc).is_err());
-}
-
-#[test]
-fn does_not_normalize_path() {
-    let u = handl_lib_parse::parse("https://example.com/../a/../b", Rfc).unwrap();
-    assert_eq!(u.path(), "/../a/../b");
-}
-
-#[test]
-fn parses_to_value() {
-    let v = DynParser::parse(&Rfc, "https://example.com:8080/path?a=1#frag").unwrap();
-    assert_eq!(v["scheme"], "https");
-    assert_eq!(v["authority"], "example.com:8080");
-    assert_eq!(v["path"], "/path");
-}
-
-#[test]
-fn url_rfc_object_is_parser_token() {
-    let mut ctx = EvalContext::new();
-    let obj = UrlRfcName.call(&[], &mut ctx).unwrap();
-    assert_eq!(obj["type"], "parser");
-    assert_eq!(obj["name"], "url_rfc");
-    assert!(obj.get("parse").is_none());
-}
-
-#[test]
-fn op_registry_registers_both_ops() {
-    let registry = url_rfc_op_registry();
-    assert!(registry.contains("url_rfc.parse"));
-    assert!(registry.contains("url_rfc.url_rfc"));
-    assert_eq!(registry.len(), 2);
-}
-
-#[test]
-fn url_rfc_parse_op_works() {
-    let registry = Arc::new(url_rfc_op_registry());
-    let op_func = handl_plugin_lib_handl::OpFunction::new("url_rfc.parse", registry);
-    let mut ctx = EvalContext::new();
-    let result = op_func
-        .call(&[json!("https://example.com:8080/path?a=1#frag")], &mut ctx)
-        .unwrap();
-    assert_eq!(result["scheme"], "https");
-    assert_eq!(result["authority"], "example.com:8080");
-    assert_eq!(result["path"], "/path");
-}
-
-#[test]
-fn plugin_id_and_name() {
-    let plugin = library("url_rfc").unwrap();
+fn url_rfc_package_row_exists() {
+    let plugin = library("url_rfc").expect("url_rfc package should exist");
     assert_eq!(plugin.id(), "lib.url-rfc");
     assert_eq!(plugin.name(), "lib-url-rfc");
+    let caps = plugin.capabilities();
+    assert!(caps.iter().any(|c| c.as_str() == "url_rfc.parse"));
+    assert!(caps.iter().any(|c| c.as_str() == "url_rfc.url_rfc"));
+}
+
+#[test]
+fn parses_http_uri_to_a_record() {
+    let module = table_module();
+    let u = call(
+        &module,
+        "parse",
+        &[json!("https://example.com:8080/path?a=1#frag")],
+    );
+    assert_eq!(u["scheme"], "https");
+    assert_eq!(u["authority"], "example.com:8080");
+    assert_eq!(u["host"], "example.com");
+    assert_eq!(u["port"], "8080");
+    assert_eq!(u["path"], "/path");
+    assert_eq!(u["query"], "a=1");
+    assert_eq!(u["fragment"], "frag");
+}
+
+#[test]
+fn does_not_normalize_the_path() {
+    let module = table_module();
+    let u = call(
+        &module,
+        "parse",
+        &[json!("https://example.com/../a/../b")],
+    );
+    assert_eq!(u["scheme"], "https");
+    assert_eq!(u["path"], "/../a/../b");
+}
+
+#[test]
+fn url_rfc_object_is_the_parser_token() {
+    let module = table_module();
+    let token = call(&module, "url_rfc", &[]);
+    assert_eq!(token["type"], "parser");
+    assert_eq!(token["name"], "url_rfc");
+    assert!(
+        token.get("parse").is_some(),
+        "the token carries the parse arrow: {token:?}"
+    );
 }

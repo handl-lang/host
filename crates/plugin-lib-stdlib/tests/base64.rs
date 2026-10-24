@@ -1,10 +1,43 @@
 use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
-use handl_plugin_lib_handl::{OpRegistry, RuntimePredicateChecker};
+use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::{ModuleResolver, OpRegistry, RuntimePredicateChecker};
 use handl_lib_base64::ops::*;
-use handl_plugin_lib_stdlib::{library, module};
+use handl_plugin_lib_stdlib::{PackageResolver, library, module, module_with};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};
 use std::sync::Arc;
+
+/// Install the canonical default language once per test binary (see
+/// `json.rs` — the `HandlModule` bridge runtimes resolve it lazily).
+fn ensure_lang() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
+        );
+    }
+}
+
+/// Floor-module resolver: native `char` plus the package table — the same
+/// resolver shape production passes to `module_with` (the flat `.hnl`
+/// calls `char.*`; `char` has no table row by design, see `json.rs`).
+fn floor_resolver() -> Arc<dyn ModuleResolver> {
+    struct CharFloor;
+    impl ModuleResolver for CharFloor {
+        fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
+            (name == "char").then(|| Arc::new(CharModule) as Arc<dyn Module + Send + Sync>)
+        }
+    }
+    Arc::new(PackageResolver {
+        fallback: Some(Arc::new(CharFloor)),
+    })
+}
+
+/// The table module with the `char` floor wired, like production's
+/// `module_with(name, StdlibResolver)` path.
+fn table_module() -> handl_plugin_lib_handl::HandlModule {
+    ensure_lang();
+    module_with("base64", floor_resolver()).expect("base64 module in the package table")
+}
 
 #[test]
 fn encode_works() {
@@ -47,7 +80,7 @@ fn op_registry_registers_both_ops() {
 
 #[test]
 fn base64_module_exposes_functions() {
-    let module = module("base64").unwrap();
+    let module = table_module();
     assert_eq!(module.name(), "base64");
 
     let mut ctx = EvalContext::new();
@@ -60,13 +93,18 @@ fn base64_module_exposes_functions() {
     assert_eq!(result, json!("test"));
 }
 
+/// The codec token (the successor of the old `base64` legacy name
+/// function): `codec()` returns the self-describing carrier record.
 #[test]
-fn base64_module_legacy_name_function() {
-    let module = module("base64").unwrap();
+fn base64_module_codec_token() {
+    let module = table_module();
     let mut ctx = EvalContext::new();
-    let name_func = module.function("base64").expect("base64 should exist");
-    let result = name_func.call(&[], &mut ctx).unwrap();
-    assert_eq!(result, json!({"type": "encoding", "name": "base64"}));
+    let codec = module.function("codec").expect("codec should exist");
+    let result = codec.call(&[], &mut ctx).unwrap();
+    assert_eq!(result["type"], "codec");
+    assert_eq!(result["name"], "base64");
+    assert!(result.get("encode").is_some());
+    assert!(result.get("decode").is_some());
 }
 
 #[test]
@@ -85,7 +123,7 @@ fn handl_plugin_id_and_name() {
 
 #[test]
 fn base64_module_works_in_module_registry() {
-    let module = module("base64").unwrap();
+    let module = table_module();
     let registry = ModuleRegistry::new().with(module);
     let lookup: &dyn ModuleLookup = &registry;
 
@@ -191,16 +229,18 @@ fn base64_decode_op_has_no_checker_trusted() {
 fn base64_plugin_exposes_declared_capabilities() {
     let plugin = library("base64").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
-    assert_eq!(caps[0].as_str(), "base64.encode");
-    assert_eq!(caps[1].as_str(), "base64.decode");
+    assert_eq!(caps.len(), 3);
+    assert!(caps.iter().any(|c| c.as_str() == "base64.encode"));
+    assert!(caps.iter().any(|c| c.as_str() == "base64.decode"));
+    assert!(caps.iter().any(|c| c.as_str() == "base64.codec"));
 }
 
 #[test]
 fn base64_handl_plugin_exposes_declared_capabilities() {
     let plugin = library("base64").unwrap();
     let caps = plugin.capabilities();
-    assert_eq!(caps.len(), 2);
-    assert_eq!(caps[0].as_str(), "base64.encode");
-    assert_eq!(caps[1].as_str(), "base64.decode");
+    assert_eq!(caps.len(), 3);
+    assert!(caps.iter().any(|c| c.as_str() == "base64.encode"));
+    assert!(caps.iter().any(|c| c.as_str() == "base64.decode"));
+    assert!(caps.iter().any(|c| c.as_str() == "base64.codec"));
 }
