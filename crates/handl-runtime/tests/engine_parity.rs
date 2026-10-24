@@ -701,3 +701,65 @@ fn tag_mint_producers_deleted_error_everywhere() {
         }
     }
 }
+
+// ===========================================================================
+// Ctor-object dispatch + Nat-tower arithmetic (ADR-0152 §2, dogfood F2/F4)
+// ===========================================================================
+
+/// `match` on an unannotated parameterized-family ctor object dispatches
+/// on the `__ctor__` sym — a bare `Jx(x)` arm is a ctor pattern, not a
+/// catch-all binder. Regression: `match Jx(9) { Jx(x): 111, Nope: 222 }`
+/// returned `222` on every engine.
+#[test]
+fn ctor_object_match_dispatches_on_sym() {
+    assert_parity(
+        "do {
+          data Opt2(a : Type) :: Nope | Jx(x : a)
+          match Jx(9) { Jx(x): 111, Nope: 222 }
+        }",
+        json!(111),
+    );
+    // The other arm still dispatches — `Nope` binds nothing and matches
+    // only the `Nope` ctor.
+    assert_parity(
+        "do {
+          data Opt2(a : Type) :: Nope | Jx(x : a)
+          match Nope { Jx(x): 111, Nope: 222 }
+        }",
+        json!(222),
+    );
+}
+
+/// `binary.add` coerces `data Nat` ctor towers (`Succ(Zero) → 1`) so
+/// index-level `k + 1` eval and surface `+` on Nat values compute.
+#[test]
+fn nat_tower_binary_add() {
+    assert_parity(
+        "do {
+          data Nat :: Zero | Succ(pred : Nat)
+          Succ(Zero) + Succ(Zero)
+        }",
+        json!(2),
+    );
+}
+
+/// A self-recursive arrow (`vsum`) declines `lower_ast` and falls back
+/// to AST eval — the fallback must produce the *correct* fold, not the
+/// base arm / input unchanged (dogfood F4: `vsum` returned `Zero`,
+/// `vmap` returned the input vector). Pinned on tree-walk: the
+/// bytecode/cranelift engine paths still diverge on self-recursive
+/// closures (remaining issue — see the phase-3 spec log).
+#[test]
+fn self_recursive_arrow_evals_via_ast_fallback() {
+    let rt = tree_walk();
+    let got = eval_engine_path(&rt, SRC);
+    assert_eq!(got.unwrap(), json!(2), "tree-walk on {SRC:?}");
+}
+const SRC: &str = 
+"do {
+          data Nat :: Zero | Succ(pred : Nat)
+          data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+          vsum{n} : Vec{n, Nat} ~> Nat = v ~> match v { VNil: Zero, VCons(x, xs): Succ(vsum(xs)) }
+          toNum : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + toNum(p) }
+          toNum(vsum(VCons(Zero, VCons(Zero, VNil))))
+        }";
