@@ -748,10 +748,9 @@ unify failures render internal encodings, not source-level types.
     correctly — **tree-walk only: bytecode/cranelift still diverge
     on self-recursive closures** — recorded, not fixed).
     `unannotated_ctor_result_index_is_decided_mismatch` pins F1.
-  - *Still open*: `VCons(x, xs)` *reconstruction* inside an annotated
-    `match` arm hits a var-shadowing wrinkle (ctor instantiation
-    binds the family param names in `results`, rewriting the outer
-    rigids — `Vec(n+1, ?k+1)` vs `Vec(?k+1, a)`); the `zipWith`
+  - *Still open*: ~~`VCons(x, xs)` *reconstruction* inside an annotated
+    `match` arm hits a var-shadowing wrinkle~~ **fixed** (session 5
+    below — `__fam_<name>` telescope bindings); the `zipWith`
     catch-22 (F6); coverage-vs-reachability; existential index
     former (F7); dict member projection (F8); `hnl run` on
     `export f : T = …` files fails (`call_host: function 'f' not
@@ -950,6 +949,33 @@ unify failures render internal encodings, not source-level types.
     ceiling a `(a,b)`-keyed memo could recover.
   - *Suites*: 302 lib + 48 dependent + 46 parity +
     `handl-runtime` all green (`--test-threads=1`). Commits per repo.
+
+- **Annotated-arm `VCons` reconstruction fixed (session 5)** — the
+  session-3 still-open wrinkle. Two shadowings inside
+  `instantiate_ctor_full`'s telescope elaboration, same fix shape:
+  - *Family params*: `data Vec(n : Nat, a : Type)` bound `n`/`a`
+    directly in Γ + `results` while the telescope elaborated, so an
+    arm's own same-named rigids (`f{n, a}`) rewrote to the fresh
+    metas. Params now bind under `__fam_<name>` internals and a new
+    `ctx.fam_scope` rename map redirects the telescope's own
+    `var{n}`/`var{a}` occurrences to them (`dep_synth_var_type`,
+    `dep_synth_call_type` callees, `node_to_index_term` leaves/callees,
+    `node_index_or_type` ctor probes); restored on every exit.
+  - *Arg names* (the actual `Vec(Number, …)` mismatch): ctor arg
+    names only self-bound in `results`, so a pattern-bound field
+    (`VCons(k, x, xs)`'s `k : Nat` in Γ) shadowed the telescope's
+    `var{k}` atom and `xs : Vec(k, a)` elaborated `Vec(Number, ?a)`.
+    Args now self-bind `var{name}` in Γ *and* `results`, keeping the
+    `var{aname}` atoms `param_name` substitution keys on.
+  - Verified: `push{n, a} : a ~> Vec{n, a} ~> Vec{n+1, a}` with a
+    `VCons(k+1, x, v)` arm typechecks; `hnl run` evaluates
+    `f{1,Bool}(true)(VCons(0,true,VNil))` →
+    `VCons{1, true, VCons{0, true, VNil}}`; regression tests
+    `annotated_arm_family_params_dont_shadow_rigids` +
+    `annotated_arm_elem_param_scopes_cleanly`; 302 lib + 51 dependent
+    + 46 parity green; `lib-collections` typechecks. Commit
+    `582d4e9` (engine-typecheck-nbe — folded into the auto-discharge
+    commit).
 
 ### 2025 — Dogfood round 2: `lib-json-handl` (JSON parser/serializer in `.hnl`) + `State`/`IO`
 
