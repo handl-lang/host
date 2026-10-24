@@ -41,6 +41,11 @@ struct EnvEntry {
     arrow_value: bool,
     slot: bool,
     quote: Option<Term>,
+    /// The bound value's declared parameter names when it is a
+    /// `function` literal — `try_ctor_object_pattern`'s `declared`
+    /// field-order source (`scope_value → Arrow.params`). `None` for
+    /// non-function bindings, where the sorted-field fallback applies.
+    param_names: Option<Vec<String>>,
 }
 
 /// `elem`/`id` op shorthands for the input-stack encoding.
@@ -114,7 +119,8 @@ fn push_slot(env: &mut HashMap<String, EnvEntry>, params: &mut Vec<String>, name
                 arity: 1,
                 arrow_value: false,
                 slot: true,
-                quote: None,
+                param_names: None,
+                    quote: None,
             },
         );
     }
@@ -126,7 +132,8 @@ fn push_slot(env: &mut HashMap<String, EnvEntry>, params: &mut Vec<String>, name
             arity: 1,
             arrow_value: false,
             slot: true,
-            quote: None,
+            param_names: None,
+                    quote: None,
         },
     );
 }
@@ -1394,6 +1401,7 @@ fn bind_stmt(
             arity: 1,
             arrow_value: false,
             slot: false,
+            param_names: None,
             quote: Some(bound.clone()),
         };
         env.insert(name.clone(), entry);
@@ -1508,14 +1516,13 @@ fn env_entry(ast: &Ast, lang: &Language, value_idx: usize, term: Term) -> EnvEnt
     let node = ast.get(AstRef::new(value_idx));
     match node {
         Some(n) if n.kind == "function" => {
-            let arity = function_params(ast, lang, n)
-                .map(|p| p.len().max(1))
-                .unwrap_or(1);
+            let params = function_params(ast, lang, n).unwrap_or_default();
             EnvEntry {
                 term,
-                arity,
+                arity: params.len().max(1),
                 arrow_value: true,
                 slot: false,
+                param_names: Some(params),
                 quote: None,
             }
         }
@@ -1526,6 +1533,7 @@ fn env_entry(ast: &Ast, lang: &Language, value_idx: usize, term: Term) -> EnvEnt
             let arity = rec_produced_arity(ast, lang, n);
             EnvEntry {
                 slot: false,
+                param_names: None,
                 quote: if arity.is_none() {
                     Some(term.clone())
                 } else {
@@ -1538,6 +1546,7 @@ fn env_entry(ast: &Ast, lang: &Language, value_idx: usize, term: Term) -> EnvEnt
         }
         _ => EnvEntry {
             slot: false,
+            param_names: None,
             quote: Some(term.clone()),
             term,
             arity: 1,
@@ -2468,7 +2477,8 @@ fn lower_match(
                 arity: 1,
                 arrow_value: false,
                 slot: true,
-                quote: None,
+                param_names: None,
+                    quote: None,
             },
         );
     }
@@ -2530,6 +2540,7 @@ fn lower_match(
                     arity: 1,
                     arrow_value: false,
                     slot: true,
+                    param_names: None,
                     quote: None,
                 },
             );
@@ -2753,9 +2764,34 @@ fn compile_pattern(
                 if let Some(global) = lang.globals.get(name) {
                     return Ok(compiled(eq_lit(global.clone()), vec![]));
                 }
-                // Bare `var` binds the whole scrutinee; an env-bound name
-                // still binds (binders shadow — `try_pattern` checks only
-                // `ctx.global_value`).
+                // Constructor value pattern (ADR-0152 §2): a `var`
+                // naming an env-bound value that is a ctor object
+                // (`{"__ctor__": sym, …}`) matches by equality —
+                // `try_pattern`'s `scope_value` arm — instead of
+                // binding. A name bound to a non-ctor value still
+                // binds unconditionally (binder shadowing); the
+                // `ctor_name` probe is total so the choice is made at
+                // match time.
+                if let Some(entry) = pat_env.get(name) {
+                    let bound = entry.term.clone();
+                    let pred = or_short(
+                        Term::op_native(
+                            "eq",
+                            vec![
+                                Term::seq(
+                                    bound.clone(),
+                                    Term::op_native("ctor_name", vec![]),
+                                ),
+                                Term::const_value(Value::Null),
+                            ],
+                        ),
+                        Term::op_native("eq", vec![pv(), bound]),
+                    );
+                    return Ok(compiled(pred, vec![(name.to_string(), pv())]));
+                }
+                // Bare `var` binds the whole scrutinee; an unbound name
+                // still binds (binders shadow — `try_pattern` checks
+                // only `ctx.global_value`/`ctx.scope_value`).
                 Ok(compiled(true_t(), vec![(name.to_string(), pv())]))
             }
             // A leaf without a string payload (e.g. `arr`) is a literal
@@ -3069,13 +3105,37 @@ fn compile_pattern(
         })?;
         // `has_field "__tag__"` covers both the non-object and the
         // untagged-object miss — `try_tag_pattern`'s `Ok(false)`.
-        let pred = and_short(
+        let tag_pred = and_short(
             has_field("__tag__"),
             Term::op_native(
                 "eq",
                 vec![field("__tag__"), Term::const_value(Value::from(tag_name))],
             ),
         );
+        // Canonical constructor objects (ADR-0152 §2,
+        // `try_ctor_object_pattern`): a scrutinee with no matching
+        // `__tag__` can still be a `{"__ctor__": sym, …}` value —
+        // dispatch is the ctor sym's *name* (`Sym::seeded` mints the
+        // source name). `ctor_name` yields it (or `null`), keeping the
+        // `eq` total. A `__tag__` hit takes the tag path first, exactly
+        // like `try_tag_pattern` falling through to the ctor check only
+        // on a tag miss.
+        let ctor_pred = Term::op_native(
+            "eq",
+            vec![
+                on_v(Term::op_native("ctor_name", vec![id.clone()])),
+                Term::const_value(Value::from(tag_name)),
+            ],
+        );
+        let pred = or_short(tag_pred.clone(), ctor_pred);
+        // Ctor-path field order — `try_ctor_object_pattern`'s
+        // `declared`: the callee's `Arrow.params` when it resolves to
+        // an arrow (an env-bound `function` literal here), else the
+        // sorted-fields fallback (`ctor_fields`, minus `__ctor__`/
+        // `type`).
+        let declared: Option<Vec<String>> = pat_env
+            .get(tag_name)
+            .and_then(|e| e.param_names.clone());
         // Binder positions start at the `args` role (index 1 on
         // canonical `call`); every position advances the payload index,
         // while non-`var` and wildcard args bind nothing — mirroring
@@ -3102,11 +3162,40 @@ fn compile_pattern(
             if is_wildcard_name(name) {
                 continue;
             }
+            // Tag path binds the sorted non-`__tag__` payload position;
+            // ctor path binds the declared field name (or the sorted
+            // non-`__ctor__`/`type` fallback) — chosen at match time by
+            // re-running the tag discriminant, mirroring
+            // `try_tag_pattern`'s dispatch order.
+            let tag_bind = Term::seq(
+                on_v(Term::op_native("tag_fields", vec![id.clone()])),
+                Term::op_native_lit("field_access", vec![id.clone()], Value::from(i as i64)),
+            );
+            let ctor_bind = match &declared {
+                Some(params) => match params.get(i) {
+                    Some(f) => field(f),
+                    // A binder past the ctor's declared arity binds
+                    // nothing — `try_ctor_object_pattern`'s
+                    // `fields.get(i)` miss.
+                    None => continue,
+                },
+                None => Term::seq(
+                    on_v(Term::op_native("ctor_fields", vec![id.clone()])),
+                    Term::op_native_lit(
+                        "field_access",
+                        vec![id.clone()],
+                        Value::from(i as i64),
+                    ),
+                ),
+            };
             binds.push((
                 name.to_string(),
                 Term::seq(
-                    on_v(Term::op_native("tag_fields", vec![id.clone()])),
-                    Term::op_native_lit("field_access", vec![id.clone()], Value::from(i as i64)),
+                    Term::op_native("product", vec![tag_pred.clone(), id.clone()]),
+                    Term::seq(
+                        Term::op_native("pair_tag", vec![]),
+                        Term::choice(tag_bind, ctor_bind),
+                    ),
                 ),
             ));
         }
@@ -3311,6 +3400,20 @@ fn and_short(a: Term, b: Term) -> Term {
         Term::seq(
             Term::op_native("pair_tag", vec![]),
             Term::choice(b, Term::const_value(Value::from(false))),
+        ),
+    )
+}
+
+/// `a || b` as a *short-circuit* on the same input — `b` runs only when
+/// `a` is falsy (`pair_tag` hands the `Choice` arms the input, so `b`
+/// sees it too). The ctor-object discriminant runs only when the
+/// `__tag__` check missed, mirroring `try_tag_pattern`'s fallthrough.
+fn or_short(a: Term, b: Term) -> Term {
+    Term::seq(
+        Term::op_native("product", vec![a, Term::op_native("id", vec![])]),
+        Term::seq(
+            Term::op_native("pair_tag", vec![]),
+            Term::choice(Term::const_value(Value::from(true)), b),
         ),
     )
 }
