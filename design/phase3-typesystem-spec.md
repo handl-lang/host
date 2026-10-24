@@ -842,6 +842,60 @@ unify failures render internal encodings, not source-level types.
     binding index; multi-diagnostic NBE errors (first span only
     today); per-workspace kits via the dormant `KitResolver`.
 
+- **`hnl lsp` v2 landed** (`host-lsp` + `host-tooling` +
+  `kit-prelude` + `kit-data-prelude` + `engine-typecheck-nbe`): the
+  useful, data-driven language server — every feature still dispatched
+  through `lsp.yaml` rule kinds, checker semantics untouched.
+  - *Meta-zonked hover*: `NbeTypecheckEngine::typecheck` now zonks
+    every *reported* type before `TypecheckResult` leaves the engine —
+    `typ`, `node_types`, and each `Sig_m` field — via a new
+    `dependent::zonk_reported`: tagged `{"__meta__"}` leaves resolve
+    through the tagged store (`zonk_index`) and each domain-encoded
+    subtree round-trips lift→quote so `Val::Flex` metas solved after
+    quoting force through `ctx.vcheck`. Solved metas render their
+    solution (hover shows `{n: Number, s: Str}`), unsolved keep `?m`.
+  - *Non-identifier hover*: `type_hover_at` no longer gates on
+    identifier tokens — any non-trivia token takes the tightest
+    `node_types` span, so `+` shows `1 + 2 : Number`, `match`/`data`
+    keywords and formers (`Vec`/`Succ`) show the enclosing node's
+    type; comment tokens still take the classification hover.
+  - *Completion*: `lsp.completion.scope_name` (new `scope_name`
+    provider kind) reads the binding index in reverse — Γ at the
+    cursor: module bindings, imports, `data` ctors, pattern/lambda
+    binders, sequential block binds — deduped by label in
+    `lsp.yaml` rule order. After `r.` the host asks the checker:
+    the tightest node ending at the dot's `type.record`/`Sig_m`
+    `fields` map becomes Field items with type details.
+  - *References + rename*: `textDocument/references` and
+    `textDocument/rename` entries in `lsp.yaml` map to the `binding`
+    provider, which now resolves *every* `var` node's def back to its
+    binder (innermost-scope wins) — scope-aware, so shadowed names
+    don't conflate. `ReferencesPlugin`/`RenamePlugin` extend the
+    `ToolingHost` seam; handlers fall back to the token-level
+    implementations when no binder resolves.
+  - *Scope index edges*: sequential `do`-block binds (each binding
+    scopes `(end, block.end)`), `x = v in body` optional-body scope,
+    `stmt.import` bound names, `stmt.export` signature names, `data`
+    family name + ctor names at module scope + family params scoped
+    over the constructors, and `field`/`callee`/`source` target
+    resolution (`type.Score := …` binds `Score`). The node kinds are
+    declared under a new `scope:` config on `lsp.def.var` — the
+    vocabulary stays data, the walk stays role-driven.
+  - *Multi-diagnostic NBE errors*: new `Kit::diagnose_with_prelude`
+    keeps the engine's diagnostics in-band on `TypeInspection` instead
+    of aggregating to `typecheck errors:` with the first span —
+    `publishDiagnostics` maps every structured diagnostic to its own
+    LSP range (`cannot unify — expected Number, got Str` squiggles the
+    failing node, not the document).
+  - *Smoke*: 26/26 `lsp_conformance` tests pass (the 20 v1 cases plus
+    new scripted stdio cases for scope-aware references/rename,
+    operator hover, scope-name + record-field completion, and
+    node-spanned type diagnostics); `libhnl_ext_lsp.so` rebuilt and
+    `hnl lsp` verified end-to-end over stdio.
+  - *v3 scope*: per-workspace kits via the dormant `KitResolver`;
+    UTF-16-exact positions (current column math is byte/character
+    approximation); richer record-hover/keyword docs.
+
 - **WS-H perf pass (session 4)** — measurement-driven; bytecode/cranelift
   parity gap found and closed.
   - *Parity fix (real gap)*: `tag_patterns_on_compiled_engines` in
@@ -896,3 +950,47 @@ unify failures render internal encodings, not source-level types.
     ceiling a `(a,b)`-keyed memo could recover.
   - *Suites*: 302 lib + 48 dependent + 46 parity +
     `handl-runtime` all green (`--test-threads=1`). Commits per repo.
+
+### 2025 — Dogfood round 2: `lib-json-handl` (JSON parser/serializer in `.hnl`) + `State`/`IO`
+
+Second gap-finding pass (report: `/tmp/dogfood2-report.md`). Wrote
+`lib-json-handl/src/json.hnl` — `data Json`/`PErr`/`Result(e,a)`
+families, checked `jfirst_scalar : Json ~> Json` (match-homogeneous
+self-recursion), `toStr` worklist serializer, `parse` explicit-stack
+descent producing `Result` ctor objects, `mk_*` manual `__ctor__`
+mints (import-safe lib-option idiom), and **two `runState`s**:
+a `.hnl` fold over the produced `IO` former's sig record (option A
+literal) and a free-monad chain of single-op IO objects
+(`IO({get:k})`/`IO({put:[s',k]})`/`IO({ret:a})`). File typechecks
+clean; `hnl run` evaluates all 21 smoke assertions green, including
+`runState_c` folding `get→put(s+1)→get→ret` to `(6,6)` — get returns
+s, put replaces it, and the put's payload is computed inside the fold.
+
+- **State verdict**: option A's record-fold is sound only as an
+  op-*summary* (`get`→s0, `put`→final s, ≤1 entry/op, record order);
+  real sequencing needs the chained encoding. `handle`/
+  `interpret_io_former` dispatches each sig entry independently —
+  there is no carrier for the state thread, so `handle` cannot
+  express `runState`. The `.hnl` fold over `io.indices[0]` works
+  because the ops ARE value-level `{opname:arg}` fields.
+- **Ranked gaps** (new this round): `type.unknown` doesn't unify
+  (poisons `+`/`if`/`&&`/`>=`/`==` on every host call — parser lives
+  in `while` bodies); `while` bodies are a checking black hole (the
+  escape hatch that makes everything writable); `IO(sig)` can't be
+  *produced* in checked code (record mint synthesizes a plain record
+  — `Former{type.io}` needs a declared stub or a real `perform`
+  surface); `data` ctors are file-local — `__splice__` binds don't
+  reach imported-arrow envs (ADR-0155) and `hnl test` can't desugar
+  `data`; `:=` arrows are monomorphic across call sites (shared param
+  metas — `{get}` vs `{put}` record calls collide); `Unknown` in an
+  annotation → `LamVal` uncallable; `export` dead inside modules;
+  `()`/`J`-keyword/`kv[1]`-tuple/record-in-arg DX.
+- **Phase-4 candidates**: `type.unknown` consistent-equality (or
+  declared `Sig`s for the ambient floor); typed `while` protocol;
+  `IO`/`perform` value surface + reconcile `handle`'s impl contract
+  with `interpret_io_former`; module-scope `data` envs +
+  `desugar.data` overlay parity; let-generalization/`rec`;
+  `export`-binds-locally (or drop for module-record); Unit `()`,
+  tuple-index, reserved-keyword diagnostics, `hnl run --unchecked`.
+- Carried: F6 (`zipWith`), F7 (`?m`), F8 (dict member). F1–F5
+  verified fixed/adequate this session.
