@@ -760,6 +760,53 @@ unify failures render internal encodings, not source-level types.
     `export f{…} : T = body` in module-prep yields name
     `f{…}` (unbindable).
 
+- **Stdlib nominal migration — the rest of lib-\*** (WS-F continuation;
+  per-repo commits on `main`, no push). Survey: `grep '__tag__'` +
+  `tag.*`-consumer census over `lib-*/**/*.hnl`. Findings: the only
+  remaining `.hnl`-side `__tag__` *mints* were lib-test's
+  `hash_map.set(..., "__tag__", "ok"/"err")` workaround; every other hit
+  was a *consumer* of ok/err results — and since lib-result moved to
+  `__ctor__` while `tag.tag_of`/`tag.untag` read only `__tag__`, those
+  consumers were silently broken (tag_of → null, untag → null). The
+  consumer fix is `match`-based ctor-sym dispatch: the lowered
+  `Name(args)` pattern's `tag_pred ∨ eq(ctor_name(v), name)`
+  discriminant covers **both** the canonical `__ctor__` mint and the
+  host-minted `{"__tag__": ...}` envelope (`ffi.load`/`ffi.sym`/
+  `error.try`), so `match r { err(e): …, ok(v): …, _: … }` is safe
+  regardless of producer; `tag.untag(r).value` reads became `r.value`
+  (both shapes carry the payload under `.value`). Migration table:
+
+  | Lib | Verdict | Test status |
+  |---|---|---|
+  | `lib-test` | **migrated**: assert/snapshot/benchmark/fuzz/property mint `{__ctor__: sym.seeded("data.Result.{ok,err}"), value, type:{__former__:"data.Result"}}` (manual mint — these are `HandlModule`s whose binds carry only declared imports; `sym` is a floor native); test/benchmark/fuzz/property consumers → `match` | compiles into engine-test; lib unit suite green except 7 pre-existing `pred.*` failures (unrelated: `char.chars`/`serialize` return `{"children":[…]}` term nodes on this box — fails identically with the migration stashed) |
+  | `lib-cli` | **migrated**: cli-c `argv`/`run` → `match` ctor dispatch + exported `is_err`; `argv_head` law → `.value[0]`; cli-c.test.hnl → `res_tag`/`is_err` + `.value` (~40 sites) | `hnl test` 32/50 (baseline pre-migration 0/50 — the `tag.*` reads were dead on `__ctor__` records); residual fails are the same `{"children"}` env bug + stale-`hnl` match lowering |
+  | `lib-cli-gen` | **migrated**: 5 test files → `.value`/`res_tag`; generated adapters' `json-capable` doc comment → `parse(r.value.stdout)` | test files need cli-c backend (the same env caveats) |
+  | `sdkgen-cli` | **migrated**: `emit_hnl.rs` doc-comment template + `emit_hnl_test.rs` expectation updated so regenerated adapters don't reintroduce `tag.untag` | `cargo test -p` not run (env-time limit); one-line string change |
+  | `lib-compress-gzip-c`, `lib-compress-zlib-c` | **migrated**: `unwrap` → `match r { err(_): error.raise(…), _: r.value }` | `hnl test` probe file compiles; natives absent on this box (gate tolerates `call_host` fails) |
+  | `lib-concurrent-epoll` | **migrated**: `is_err`/`err_of`/`val_of` → match/`.value` | natives absent; no local suite |
+  | `lib-fetch-c`, `lib-fetch-js` | **migrated**: same helpers + 4 fetch-js sites | fetch-c.test.hnl → helpers migrated; natives absent |
+  | `lib-gh` | **migrated**: test file → `.value` | needs `gh` binary |
+  | `lib-intl-c`, `lib-unicode-c` | **migrated**: `is_ok`/`is_err`/`res_tag` now `match`-based (covers host `__tag__` ffi envelopes *and* `__ctor__`); `payload`/`or_raise`/`statused` + ~130 test sites → `match`/`.value`; conformance `generate.mjs` template updated | kit-prelude `intl_c` suite can't run here (ICU absent — pre-existing, WS-G noted) |
+  | `lib-serve-epoll` | **migrated**: `tag.tag_of(d) == "None"` → `match d { Some(v): …, _: read-more }` | natives absent |
+  | `lib-ws-c` | **migrated**: `val_of` → `.value`; test → helpers | natives absent |
+  | `lib-ws-frame` | **migrated**: `tag.tag_of(decode h) == "None"` → `match … { Some(_): false, _: true }` | contract file (sig-only) |
+  | `lib-ws-whatwg-c` | **migrated**: http.test.hnl → `res_tag` | natives absent |
+  | `lib-tag`, `lib-loader`, `lib-desugar` | **left alone**: bootstrap/overlay internals; `tag.*` ops are the intentional inspection surface over host `__tag__` model records (ADR-0152 §Migration) | — |
+  | `lib-type`, `lib-type-handl` | **left alone**: already nominal; `dependent.hnl`'s `{"__tag__":"type.sigma"}` mint is the documented `.hnl`-expressible bridge `synth_object_record` reads — stays until `__tag__` deletion lands | — |
+  | `lib-ffi` | **left alone**: `__tag__` mentions are doc comments describing the host `ffi.load`/`ffi.sym` envelope — accurate | — |
+  | `lib-json`, `lib-url-rfc`, `lib-url-whatwg`, `lib-base64`, `lib-hex`, `lib-serialize` | **left alone**: `{"type":"codec"/"parser"/"serializer"}` records are duck-typed module descriptors — dispatch is field-call/`typeof.is`, the string is *data*, not a type tag | — |
+  | `lib-pred`, `lib-cli` flag `kind`, `lib-concurrent*` `{name: op}` step vocab | **left alone**: tag-is-data (case-record fields, scheduler op selectors) | — |
+  | host `__tag__` mints (`error.try`, `ffi.load`/`ffi.sym`, `TestAssertHandler`, Cell/Arrow/Handler/law model records, engine's `{"__tag__":"type.*"}` term values, `docs/`+fixtures `*_model.hnl`) | **left alone**: the carried FFI-boundary/host-internal convention (open items: "`sym` seeds for unexported formers; FFI boundary convention — carried ×2") — consumers now read them through `match`, which accepts both shapes | — |
+  | `lib-fs`, `lib-event`, `lib-serve`, `lib-kv*`, `lib-fetch`, contract `export X := A ~[1]~> B` | **NOT migrated — phase-4 flag**: `IO(sig)` doesn't fit yet. `op "x" : Sig` tails are inert text (verified: `op "demo.op" : String -> GARBAGE(((` typechecks clean — the loader strips decl lines before any type pass). And `IO(sig)` models a *suspended* computation (`interpret_io_former` dispatches the sig record as data), while these ops are eager FFI calls — writing `~> IO({…})` codomains would misrepresent the contract and is unverifiable anyway (all these files are arrow-dialect → `hnl-gate`'s `is_canonical` skips them). This is lib-collections' own KNOWN-GAPS item: "no `extern` effect-op decl form — a `builtin`/`extern` surface for op declarations is a phase-4 item". Contract `~[n]~>` stays — post-ADR-0153 it is the *dimension* index, already correct | — |
+
+  Verified: `match r { ok(v): …, err(e): … }` dispatches `__ctor__` and
+  host `__tag__` mints identically; `.value` projects both; bare
+  nullary-ctor names (`None:`) are catch-all binders unless scope-resolved
+  — consumers use `Some(_)`/`_` splits instead. `dependent_structure`/
+  `parity`/`handl-runtime` untouched by these `.hnl`-only edits
+  (compile-time `include_str!`s — no Rust diff); `engine-test` lib suite:
+  31 pass / 7 pre-existing `pred.*` fails (identical stashed vs migrated).
+
 - **`hnl lsp` first cut landed** (`host-lsp` + `kit-prelude` +
   `kit-data-prelude` + `engine-transform` + `engine-typecheck-nbe`):
   `hnl lsp` now boots the language server on stdio via a new
