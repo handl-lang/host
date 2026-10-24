@@ -84,36 +84,41 @@ constraint former-app. Resolution = search, not unification.
   *runs* with the resolved instance (not erased); dependent_structure/
   parity stay green.
 
-## B — Higher coherence (bounded slice: n=4 + comp-tree normalization)
+## B — Higher coherence (generic `Hom(n)` + comp-tree normalization)
 
 Honest framing stays: this is research-shaped; the tractable slice is
-one more dimension of the *existing* boundary law plus definitional
+the *existing* boundary law made dimension-generic plus definitional
 equality for cell composition — not the full globular structure.
+(User direction superseded decision 6's n=4-then-stop scoping: the
+checking went *generic*, not "4 then stop".)
 
-- **`Hom(4)` checking**: `infer_hom` (checker.rs ~L578) +
-  `cell_faces_at` (~L642) already recurse on dimension — move the
-  stored/checked gate 4→5. `infer_comp_axis`/`infer_comp_axis_tys`
-  (~L758/~L771) and `infer_id` (~L924) same; `judgments.rs`
-  `cell_comp_axis`/`cell_id` arms (~L883/~L916) axis-4; kernel
-  `cell_comp_axis` (`handl-value/src/lib.rs` ~L2505) runtime
-  composition at n=4. n≥5 stays stored-unchecked — the honest bound
-  moves, doesn't disappear.
-- **Comp-tree normalizer for `conv`**: `cell.comp(k,·,·)`/`cell.id`
-  trees currently compare structurally — a `comp`-tree normal form
-  inside `conv` (the WS-D pattern: normal-first, solver-second):
-  - associativity — reassociate nested `comp(k, comp(k,f,g),h)` to a
-    canonical side;
-  - units — `comp(k, id_k(x), f) → f`, `comp(k, f, id_k(y)) → f`;
-  - interchange — `(a ∘₂ b) ∘₀ (c ∘₂ d) ≡ (a ∘₀ c) ∘₂ (b ∘₀ d)` as a
-    grid/exchange normal form (the research edge — if no terminating
-    normal form lands, interchange stays *stated* and the spec records
-    why; boundary-law checking already verifies well-formedness).
-  Bounded fuel; non-normalizing shapes → stuck (stored), consistent
-  with the decided-vs-stuck contract.
-- Effect: `e >>>[2] eInv ~[3]~> id(f)` and `dependent.hnl`'s
-  `comp_assoc`/`id_left`/`id_right` move from boundary-law-checked to
-  *definitionally* convertible where the normalizer discharges them;
-  `interchange` depends on the grid normal form landing.
+- **`Hom(n)` checking — generic**: `infer_hom` (checker.rs) checks
+  every literal `n ≥ 1`: `cell_faces_at`'s boundary walk was already
+  level-generic, so the `n ≤ 3` gate was the only artificial cap —
+  `Hom(n, c₁, c₂)` checks `infer(c₁)`/`infer(c₂)`'s `(n-2)`-faces by
+  `conv` at any `n`. `>>>[k]` (`infer_comp_axis`/
+  `infer_comp_axis_tys`) and `id_k` (`infer_id`) got the same
+  treatment — the vertical/horizontal laws are level-uniform —
+  `k > dim` keeps its `Dim` error at any level; `k ≤ 0`, open
+  dimension indices, and open endpoint types stay stored (the
+  open-dimension bound, unchanged).
+- **Comp-tree normalizer for `conv`** (landed in kernel `nbe.rs`):
+  `cell.comp(k,·,·)`/`cell.id` applications normalize to a canonical
+  `CellNf` form — flatten same-axis chains into ordered `Axis(k,·)`
+  nodes (associativity), drop `∘ₖ` units (`id_j(x)` absorbs at
+  `j ≤ k+1` or recursively through its payload; objects are
+  degenerate `id` towers and absorb at every axis), and transpose
+  uniform `j`-grids at `j < k` (interchange — smaller axes sort
+  outward, a terminating canonicalization: each transpose strictly
+  decreases the preorder axis sequence). Bounded fuel; non-uniform
+  grids, open axes, and non-unit leaves stay stuck — structural
+  compare, never wrong-equal.
+- Effect: `e >>>[2] eInv ~[3]~> id(f)` (and its dim-4+ counterparts)
+  checks under the generic boundary law; `dependent.hnl`'s
+  `comp_assoc`/`id_left`/`id_right`/`interchange` are *definitionally*
+  convertible where the normalizer discharges them; the tagged-side
+  `Hom(m ≥ 3)` unification escape stays as the proof-relevance
+  stuck-contract.
 - **HIT/quotient evaluation — document, don't implement**: can a
   `data` ctor target `Hom(k≥1,·,·)`/`Path(a,b)` (a higher-inductive
   constructor)? The former machinery admits the *declaration*, but
@@ -123,9 +128,11 @@ equality for cell composition — not the full globular structure.
   `design/` note or parked ADR (probably: needs a new eliminator
   clause + a story for whether quotient equations are definitional or
   propositional) — not a workstream.
-- Exit: `Hom(4)` boundary law enforced by `conv`; comp assoc + unit
-  laws convertible; interchange verdict recorded; HIT note filed;
-  n≥5 stored bound restated in `dependent.hnl` comments.
+- Exit: `Hom(n)` boundary law enforced by `conv` at every literal `n`;
+  comp assoc + unit laws convertible; interchange convertible on
+  uniform grids (verdict recorded); HIT note filed; the stored
+  fragments restated in `dependent.hnl` comments (open dims, open
+  endpoint types, non-literal axes — no dimension cap).
 
 ## C — Dependent pattern unification (split-tree coverage)
 
@@ -305,7 +312,7 @@ unify failures render internal encodings, not source-level types.
 | 3 | `Succ`-arithmetic mechanism | (a) builtin rewrite w/ ctor table as `Language` data; (b) `data`-declared per-ctor index projection (recommended); (c) keep stuck, users write `n+1` | WS-D — (b) preserves engine-genericity and lets any inductive opt in |
 | 4 | Coverage strictness | (a) full split-tree exhaustiveness — uncovered possible ctor is an error; (b) bounded split + "coverage unknown" warning class | WS-C — (b) matches the decided-vs-stuck contract |
 | 5 | Arrow-body `{…}` disambiguation | (a) grammar lookahead — entry-shaped `{` after `~>` is an object (same shape test `synth_block` applies); (b) keep the parens requirement, document it | WS-F — (a) reparses existing code |
-| 6 | `Hom(4)` scope | (a) extend the checked gate to n=4 (mechanical `cell_faces_at` recursion); (b) leave n≥4 stored, spend the budget on the comp-tree normalizer | WS-B — (b) is the honest cut: the normalizer is the semantic win, n=4 checking is more-of-the-same |
+| 6 | `Hom(4)` scope | (a) extend the checked gate to n=4 (mechanical `cell_faces_at` recursion); (b) leave n≥4 stored, spend the budget on the comp-tree normalizer | WS-B — superseded by user direction: **generic `Hom(n)`** — the recursion was already level-generic, so the cap lifted entirely (all literal `n`, all `>>>[k]` axes, all `id_k` levels) AND the normalizer landed |
 
 ## Open items (tracked, not blocking)
 
@@ -503,3 +510,106 @@ unify failures render internal encodings, not source-level types.
     the `from "../../../lib-intl-c/src" import *` module resolves to
     `null` on this box: `field_access` on null; environment/ICU,
     not the parity path).
+
+- **WS-C landed** (`engine-typecheck-nbe`): Kőszegi-style split-tree
+  coverage for indexed `match` — the "what do we do about
+  exhaustiveness" carry pinned to decision 4b.
+  - *Mechanism*: `synth_match_with_motive` now runs a coverage pass
+    after the arm loop. At each split-tree leaf every ctor of the
+    scrutinee's family is probed as `Possible`/`Impossible`/`Undecided`
+    against the leaf-refined scrutinee indices (`ctor_leaf_status`,
+    full-ctx snapshot — probes never leak). An undecided-uncovered ctor
+    case-splits a splittable index `var` and recurses: `Nat` sorts go
+    `v ↦ 0` / `v ↦ m + 1`; a `data`-declared index family goes
+    `v ↦ App{K, f⃗}` per ctor (`eval_index` projects `App{Succ,m}` to
+    `m + 1`, so both spellings coincide). Fresh split vars get their
+    own index sorts for deeper splits. Decided-reachable + uncovered ⇒
+    `non-exhaustive` error naming the ctor and the leaf substitution
+    (`under n ↦ 0, m ↦ 0`); still-undecided at a final leaf ⇒
+    `coverage unknown` warning. Bounds: `SPLIT_MAX_DEPTH = 3`,
+    `SPLIT_MAX_NODES = 64` — over-budget degrades to the warning, never
+    a silent accept.
+  - *Supporting solver work*: the census lives in the ctx
+    (`family_ctors`, `ctor_family`, `family_param_nat` from `data`
+    decls; `nonneg_index_vars`, `nonneg_metas` for Nat-sorted rigids).
+    `solve_index` gained the nonnegativity-gap rule — `c + Σ` with all
+    atoms known-nonneg and monotone coefficients decides `m + 1 ≡ 0`
+    where the linear fragment stayed stuck — and `Nat`-sorted metas
+    reject negative solutions (`?k + 1 ≡ 0` decides `VCons` impossible
+    on `Vec(0)`). `unify_index` decides declared-ctor disjointness:
+    two different `data` ctor heads, or a ctor `App` vs a numeral, are
+    decided-impossible; unknown heads stay stuck. `absurd` contract
+    unchanged — decided-impossible leaves still need it.
+  - *Scope*: single-scrutinee matches on `data`-declared families.
+    Nested/multi-scrutinee splitting is out of scope (the bound is the
+    honest cut). The canonical `match_on_succ_indexed_scrutinee_refines`
+    test — `VCons`-only on `Vec(Succ n)`, no catchall — is the payoff;
+    `Vec(n + m)` decides through `n ↦ 0`/`n ↦ Succ m` splits.
+  - *Verified*: `dependent_structure` 43 tests — the 5 new coverage
+    tests pass; the 5 failures are the in-flight WS-A `instance_*`
+    tests (parse-level, `instance` syntax not yet landed — sibling
+    workstream). `parity` 46/46. `cargo test --lib`: 301 pass, 1 fail —
+    `checker::tests::hom_dim_index_n_le_2` is the WS-B sibling's
+    in-flight test. `hnl typecheck` green on a split-tree file
+    (`VCons`-only on `Vec(Succ n)` + `{VNil, VCons}` on `Vec(n + m)`).
+    Note: the commit sits atop uncommitted WS-A/WS-B sibling edits in
+    this working tree — reconcile at their landings.
+
+- **WS-B landed** (`engine-typecheck-nbe` + `kernel/handl-value` +
+  `lib-type`): **generic `Hom(n)` checking + a comp-tree normalizer in
+  `conv`** — decision 6 superseded by user direction ("generic, not 4
+  then stop"; both halves landed).
+  - *Genericity verdict*: `cell_faces_at` was already a level-agnostic
+    boundary walk (`j+1 = m` reads the faces, `j+1 < m` recurses
+    through the source boundary, `j+1 > m` is the degenerate
+    self-face) — the `n ≤ 3` cap was artificial. `infer_hom` now
+    checks every literal `n ≥ 2` via the same face law
+    (`Hom(4, Int, Int)` checks as iterated refl, `Hom(4, Int, Nat)`
+    rejects; `x ~[4]~> y` on 2-cells requires `x ≡ y`);
+    `comp_axis_of` dropped the `k ≥ 4 || d ≥ 4` stored gate —
+    top-boundary and deep-axis (`tgt_k ≡ src_k`) composition decide at
+    any literal axis/dimension, `k > dim` keeps `Dim` at any level
+    (`>>>[k≥2]` on objects is now a decided error, not stored);
+    `infer_id` dropped the `lvl ≤ 3` gate (`id_7` on a 4-cell →
+    `Hom(7, w, w)`; `id_k` of a k-cell is `Dim` at any level).
+  - *Normalizer* (`handl-value/src/nbe.rs`): `Former{cell.comp}`/
+    `cell.id` applications compare via `CellNf` — assoc flattens
+    same-axis chains to ordered `Axis(k,·)` nodes; `id_j(x)` absorbs
+    under `∘ₖ` when `j ≤ k+1` or recursively through its payload
+    (objects — `Nominal`/`Const`/`Universe`/non-cell formers — are
+    degenerate `id` towers and absorb at every axis, the
+    `cell_boundaries` reading); uniform `j`-grids (`j < k`, same
+    inner axis + arity) transpose — interchange is *definitional*:
+    `(a ∘₀ c) ∘₂ (b ∘₀ d) ≡ (a ∘₂ b) ∘₀ (c ∘₂ d)` and the n-ary
+    generalization. Canonical order is smaller-axis-outward; each
+    transpose strictly decreases the preorder axis sequence
+    (terminating), plus a 4096-step fuel bound. Stuck shapes
+    (non-uniform grids, open axes, non-unit leaves, `id_?` levels)
+    compare structurally — never wrong-equal. `conv` fires the
+    normalizer whenever either side is cell-headed, so `comp` trees
+    nested under `Hom` args or in spines convert too.
+  - *Verifier shapes*: `x >>>[3] xInv ~[4]~> id(p)` checks; deep-axis
+    `∘₂` on 4-cells pastes `(d-1)`-faces pointwise; assoc/unit trees
+    nested under `Hom(4,·,·)` endpoints convert.
+  - *Still stored-vs-checked*: `n ≤ 0`, non-literal dims/axes, open
+    `Hom(?m,·,·)` endpoints, `id` with unresolvable payload level —
+    and the *tagged* `Hom(m ≥ 3)` unification escape
+    (`beyond_checked_dim`, a conv-failure → stuck contract, kept).
+    Stretch not landed: suspension/globular unit coherences — the
+    unit rule is the flat `Hom(j,x,x)` encoding's `id`-tower
+    absorption; a separate suspension former isn't part of the
+    former set.
+  - *Tests*: checker +5 (generic `Hom(4)`/`Hom(5)` laws, `>>>[4]`/
+    `>>>[3]`/`∘₂` at dim 4, `id_4`–`id_7`, object `Dim` at any axis),
+    the two stale assertions updated (`Hom(4,Int,Nat)` now rejects;
+    interchange composites now conv); nbe +4 (assoc, unit absorb
+    incl. `id`-towers and objects, 2×2 + 3×2 interchange grids +
+    non-uniform stuck, `Hom`-nested trees). engine-typecheck-nbe lib
+    302/302, dependent_structure 43/43, parity 46/46, handl-value
+    37/37 — all `--test-threads=1`.
+  - *Note for the sibling WS-A/WS-C in flight*: `dependent.rs`'s
+    instance-coherence scan needed `ctx.instances.get(&head).cloned()`
+    (borrow overlap with `unify_index`/`store_restore`) — one-line fix
+    left in the working tree; `src/dependent.rs`/`src/lib.rs` carry
+    their uncommitted work, so only `src/checker.rs` lands in this
+    commit.
