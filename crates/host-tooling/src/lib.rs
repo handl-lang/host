@@ -58,6 +58,8 @@ pub struct ToolingHost {
     hover: Option<Box<dyn HoverPlugin>>,
     signature_help: Option<Box<dyn SignatureHelpPlugin>>,
     folding_range: Option<Box<dyn FoldingRangePlugin>>,
+    references: Option<Box<dyn ReferencesPlugin>>,
+    rename: Option<Box<dyn RenamePlugin>>,
     /// The injected lint bundle [`diagnose`](Self::diagnose) lints through —
     /// the language plus the `.hnl`-rule resolver (ADR-0128 §"The 0.8 seam").
     lint: Option<LintContext>,
@@ -75,6 +77,8 @@ impl ToolingHost {
             hover: None,
             signature_help: None,
             folding_range: None,
+            references: None,
+            rename: None,
             lint: None,
         }
     }
@@ -131,6 +135,18 @@ impl ToolingHost {
     /// Registers a folding-range plugin.
     pub fn with_folding_range_plugin(mut self, plugin: Box<dyn FoldingRangePlugin>) -> Self {
         self.folding_range = Some(plugin);
+        self
+    }
+
+    /// Registers a references plugin.
+    pub fn with_references_plugin(mut self, plugin: Box<dyn ReferencesPlugin>) -> Self {
+        self.references = Some(plugin);
+        self
+    }
+
+    /// Registers a rename plugin.
+    pub fn with_rename_plugin(mut self, plugin: Box<dyn RenamePlugin>) -> Self {
+        self.rename = Some(plugin);
         self
     }
 
@@ -286,6 +302,31 @@ impl ToolingHost {
         match &self.signature_help {
             Some(plugin) => plugin.run(request),
             None => Ok(SignatureHelpResponse::empty()),
+        }
+    }
+
+    /// Returns the locations referencing the symbol at `request.pos`.
+    pub fn references(
+        &self,
+        request: &ReferencesRequest,
+    ) -> Result<Vec<Location>, PlatformError> {
+        match &self.references {
+            Some(plugin) => {
+                let resp = plugin.run(request)?;
+                Ok(resp.0)
+            }
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// Returns the edits renaming the symbol at `request.pos`.
+    pub fn rename(&self, request: &RenameRequest) -> Result<Vec<TextEdit>, PlatformError> {
+        match &self.rename {
+            Some(plugin) => {
+                let resp = plugin.run(request)?;
+                Ok(resp.0)
+            }
+            None => Ok(Vec::new()),
         }
     }
 

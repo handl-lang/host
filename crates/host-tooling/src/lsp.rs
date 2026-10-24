@@ -151,6 +151,54 @@ pub struct GotoDefRequest {
 #[derive(Debug, Clone)]
 pub struct GotoDefResponse(pub Option<Location>);
 
+/// Request for `textDocument/references`.
+#[derive(Debug, Clone)]
+pub struct ReferencesRequest {
+    /// Source text of the document.
+    pub source: String,
+    /// Cursor byte offset.
+    pub pos: usize,
+    /// Filesystem path of the current document (without the `file://` URI prefix).
+    pub path: String,
+    /// Whether the declaration site itself counts as a reference
+    /// (`ReferenceContext.includeDeclaration`).
+    pub include_declaration: bool,
+}
+
+/// Response for `textDocument/references` — byte-span locations.
+#[derive(Debug, Clone)]
+pub struct ReferencesResponse(pub Vec<Location>);
+
+/// Plugin contract for `textDocument/references`.
+pub trait ReferencesPlugin: Send + Sync {
+    /// Return every location referencing the symbol at `request.pos`.
+    fn run(&self, request: &ReferencesRequest) -> Result<ReferencesResponse, PlatformError>;
+}
+
+/// Request for `textDocument/rename`.
+#[derive(Debug, Clone)]
+pub struct RenameRequest {
+    /// Source text of the document.
+    pub source: String,
+    /// Cursor byte offset.
+    pub pos: usize,
+    /// Filesystem path of the current document (without the `file://` URI prefix).
+    pub path: String,
+    /// The new name to substitute at every reference site.
+    pub new_name: String,
+}
+
+/// Response for `textDocument/rename` — byte-span edits, one per
+/// reference site (declaration included).
+#[derive(Debug, Clone)]
+pub struct RenameResponse(pub Vec<TextEdit>);
+
+/// Plugin contract for `textDocument/rename`.
+pub trait RenamePlugin: Send + Sync {
+    /// Return the edits renaming the symbol at `request.pos`.
+    fn run(&self, request: &RenameRequest) -> Result<RenameResponse, PlatformError>;
+}
+
 #[derive(Debug, Clone)]
 pub struct DocumentSymbolsRequest(pub String);
 
