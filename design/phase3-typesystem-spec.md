@@ -340,6 +340,58 @@ unify failures render internal encodings, not source-level types.
 
 ## Progress log
 
+- **Dogfood: real `.hnl` collections lib** (`lib-collections/
+  src/collections.hnl` — full repros in `/tmp/dogfood-report.md`).
+  Writing `Maybe`/`Nat`/`Vec`/`List`, implicit-binder `vmap`/`vhead`/
+  `filter`/`zipWith`/`append`, `IO(sig)` ops, `instance` evidence
+  exposed every surface friction point:
+  - *Clean*: `data` families (sorted + unsorted params), implicit
+    `{…}` index binders + call-site inference, `Vec{Succ n}` bridge,
+    single-arm dependent `match` (provably total on `Vec{Succ n}`),
+    `absurd` discharge + unreachable-arm rejection, `IO({puts})` sig
+    records + `handle` coverage rules, `instance` search discharging
+    `{ev : Eq(a)}` at `eqv(Zero)`, `Forall(K, x ~> B)`, `export` on
+    implicit-binder fns and `data`, `Sigma(Nat, m ~> Vec(m,a))` as the
+    existential encoding.
+  - *Broken* (silent-wrong or unwritable): **runtime `match` on a
+    parameterized family** misdispatches without an inline
+    `(v : Fam(i⃗))` annotation + all-ctor arms — bare `Nope:` patterns
+    act as binders (`match Jx(9) { Nope: Nope }` → `Jx(9)`), and the
+    annotation can't be written inside a `{…}`-bound body (binders
+    appear as unsolved metas in the domain: `expected [?m1,?m0], got
+    [n,a]`; bare index names in paren annotations read as SORTS —
+    `Vec(n,a)` ≡ `Vec(Nat,Type_0)`, only `n + 0` keeps `var`). A
+    `Vec{n,a}`-polymorphic fn can be checked OR run, not both.
+    **Self-recursion typechecks but runs wrong**: `lower_ast` rejects
+    self-calls, the AST-eval fallback returns the base arm / input
+    unchanged (`vmap`, `vsum`, `len` all produce wrong values, all
+    three engines). **`T.rec` is invisible to the checker**
+    (`record_field_type` on the family) — `F.rec` folds unwritable in
+    checked code. **`append` fails**: `?k+1+m ≡ m+?k+1` doesn't
+    canonicalize through metas/rigids (and the error renders both
+    sides identically — meta-name collision in zonk display).
+    **`zipWith` catch-22**: inner `VNil` is "unreachable arm" to the
+    arm checker (n≡?k+1 propagates) but "can occur" to the coverage
+    pass — `absurd`/catchall/real-arm all fail differently.
+    **Un-annotated ctor results are unsound**: `VCons(k : Nat, x : a,
+    xs : Vec(k,a))` (no `: Vec(…)` result) synthesizes `Vec(?m,a)` —
+    `VCons(Zero,true,VNil) : Vec(5,Bool)` checks. **No existential
+    index syntax** (`?m` fails to lex); `Sigma` works as a return type
+    but a computing `filter` can't rebuild it (bare-name→sort again).
+    **Dict member projection missing** (`ev.eq` errors on the
+    former-app type; `match ev { mkEq(f): … }` is the idiom).
+    DX: `J` is a reserved keyword (ctor named `J` gives a bare
+    "expected comma" error), no `forall a.` sugar, no `extern`
+    effect-op decl form, `IO(sig)` can't be minted in term position,
+    `data Nat` values aren't `Number`-arithmetic-able.
+  - Phase-4 candidates (ranked): runtime parameterized-match fix or
+    loud decline; `F.rec` as a checked elimination form; letrec/`fix`
+    surface or honest self-call lowering; implicit binders as rigid
+    vars in bodies (fix bare-name→sort for bound names); commuted-sum
+    canonicalization through metas; reconcile coverage vs
+    arm-reachability judgments; decl-time error for unrecoverable
+    ctor result indices; existential index former; `extern` op decls.
+
 - **WS-D landed** (`engine-typecheck-nbe`): `data`-declared ctor index
   projections — decision 3 resolved to **(b)**. `synth_data` recognizes
   the Nat-former shape: a unary ctor `S(arg : F)` building `F` registers
@@ -613,3 +665,47 @@ unify failures render internal encodings, not source-level types.
     left in the working tree; `src/dependent.rs`/`src/lib.rs` carry
     their uncommitted work, so only `src/checker.rs` lands in this
     commit.
+
+- **Dogfood soundness fixes (session 2)** — three of the ranked
+  phase-4 candidates landed:
+  - *Runtime parameterized-match misdispatch (F2)*: `match Jx(9)
+    { Jx(x): 111, Nope: 222 }` returned `222` because
+    `handl-kit-arrow-lower`'s `compile_pattern` discriminated on
+    `__tag__` only — canonical ctor objects (`{"__ctor__": sym, …}`,
+    parameterized families mint no `__tag__`) fell through to the
+    bare-var arm's unconditional bind. `compile_pattern` now emits
+    `tag_pred ∨ eq(ctor_name(v), name)` with binds chosen at match
+    time (`Choice` re-runs the tag discriminant; ctor path uses the
+    callee's declared param order via `EnvEntry.param_names`, else
+    sorted `ctor_fields`); bare `var` patterns bound to ctor objects
+    check `eq(ctor_name(binding), null)` to decide bind-vs-eq at
+    match time. New term ops `ctor_name`/`ctor_fields` in
+    `hnl-engine`'s `term_interpreter`. Commits `8e03b40` (engine),
+    `29491416` (host).
+  - *Arrow `binds` capture gap (nested-arm case)*: a nullary-ctor
+    `var` pattern inside an arrow body matched unconditionally —
+    `Ast::instantiate` bakes only term-position `var`s, so `subst`-
+    routed ctor objects left pattern `var`s unbound and
+    `scope_value` missed → catch-all. `native_ops` capture now
+    routes `is_ctor_object` values to residual `binds`.
+    `vsum(v1) = Succ(Zero)` end-to-end on the AST-eval path.
+    Commit `8af864a` (engine-exec), plus `as_num`'s Nat-tower
+    coercion (`Succ(Zero) → 1`) so `ie2ast`'s `k+1` index eval and
+    `binary.add` on `data Nat` values compute instead of erroring.
+  - *Un-annotated ctor result unsoundness (F1)*:
+    `VCons(k,x,xs)` (no `: Vec(i⃗)`) synthesized `Vec(?m, ?a)` and
+    `?m` unified with any expected index — `VCons(0,true,VNil) :
+    Vec(5,Bool)` checked. Now: `type.function` application performs
+    the model's `subst_term_` dependent-app (param_name arg index
+    into the codomain — declared `Vec(k+1,a)` computes), and a
+    `nat` index parameter no argument domain mentions mints
+    `lit null` (the desugar's unrecoverable-index convention)
+    instead of a solvable meta — `Vec(null,a) ≢ Vec(5,Bool)`.
+    Commit `81a184e` (engine-typecheck-nbe).
+  - *Still open* (ranked, next pass): `?k+1+m ≡ m+?k+1` atom
+    ordering (F5), `F.rec` visibility to the checker (F6-adjacent),
+    implicit-binder name scoping into body annotations (F3),
+    coverage-vs-reachability disagreement (F6), existential index
+    former (F7), dict member projection (F8). `lower_ast` self-call
+    decline + AST-eval recursion now works for `vsum`; `zipWith`
+    catch-22 untested post-fix.
