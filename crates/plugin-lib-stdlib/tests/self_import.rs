@@ -1,7 +1,10 @@
-//! Regression: a spec whose source basename-normalizes to its own name
-//! must fail loudly, not stack-overflow (the `uchar` self-import class).
-//! `icu-uc-c-linux-x86_64/uchar.hnl` contains `from "../icu-uc/uchar" import`
-//! — basename `uchar` resolves back to the `uchar` spec row.
+//! Regression: the sdkgen port/adapter `_c` split — the adapter spec
+//! `uchar_c` (`icu-uc-c-linux-x86_64/uchar_c.hnl`) contains
+//! `from "../icu-uc/uchar" import { UCharType78, … }`, which
+//! basename-normalizes to `uchar` — now the *port* spec row, not the
+//! adapter itself. Resolution must succeed; only the `ffi.call` leaf may
+//! still fail (no `ffi` module under the default table resolver, and no
+//! `libicuuc.so` on machines without ICU).
 
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_stdlib::module;
@@ -15,27 +18,85 @@ fn ensure_lang() {
     }
 }
 
-/// Calling a `uchar` function evaluates its source, whose
-/// `from "../icu-uc/uchar" import` resolves `uchar` → the same spec →
-/// previously recursed forever. It must now terminate with a loud eval
-/// error (currently: the self-resolved module lacks the requested
-/// `UHasBinaryProperty78` export; a `TABLE_IMPORT_IN_PROGRESS` guard
-/// additionally rejects any re-entrant same-name resolution).
+/// The port row carries the bare name `uchar`; the C adapter is `uchar_c`.
 #[test]
-fn uchar_self_import_errors_instead_of_recursing() {
+fn uchar_port_and_adapter_rows_both_resolve() {
     ensure_lang();
-    let module = module("uchar").expect("uchar spec");
-    let f = module.function("u_charType_78").expect("uchar fn");
+    assert!(module("uchar").is_some(), "port spec `uchar` in table");
+    assert!(module("uchar_c").is_some(), "adapter spec `uchar_c` in table");
+}
+
+/// Evaluating a `uchar_c` function resolves its imports — `result` plus
+/// `from "../icu-uc/uchar" import { UCharType78 }` onto the port row —
+/// instead of self-importing. Any remaining error must come from the
+/// `ffi.call` leaf, not from import resolution.
+#[test]
+fn uchar_c_resolves_port_imports_instead_of_self_importing() {
+    ensure_lang();
+    let module = module("uchar_c").expect("uchar_c spec");
+    let f = module
+        .function("u_charType_78")
+        .expect("uchar_c exports u_charType_78");
+    let mut ctx = EvalContext::new();
+    match f.call(&[serde_json::json!("a")], &mut ctx) {
+        Ok(v) => {
+            // Only reachable when `ffi` resolves and `libicuuc.so`
+            // answers: the call itself succeeded.
+            let _ = v;
+        }
+        Err(e) => {
+            let err = e.to_string();
+            assert!(
+                !err.contains("cannot import itself"),
+                "uchar_c must not self-import: {err}"
+            );
+            assert!(
+                !err.contains("not in the package table"),
+                "uchar_c imports must resolve through the table: {err}"
+            );
+            assert!(
+                !err.contains("has no export"),
+                "port `uchar` must project the imported signature names: {err}"
+            );
+        }
+    }
+}
+
+/// `Module::value` on the adapter's const exports evaluates the module
+/// record — the port import must resolve for that projection too, and
+/// `UCHAR_XID_START` binds the adapter's concrete constant (33).
+#[test]
+fn uchar_c_value_exports_evaluate() {
+    ensure_lang();
+    let module = module("uchar_c").expect("uchar_c spec");
+    let v = module
+        .value("UCHAR_XID_START")
+        .expect("UCHAR_XID_START projects");
+    assert_eq!(v, serde_json::json!(33));
+}
+
+/// The port row's `funcs` entries are binding placeholders: calling one
+/// evaluates the port source, whose `from "ffi" import { Errno }` has no
+/// table answer — the failure is about `ffi`, never a missing export of
+/// `uchar` itself.
+#[test]
+fn uchar_port_exports_bind_but_port_eval_reaches_ffi() {
+    ensure_lang();
+    let module = module("uchar").expect("uchar port spec");
+    let f = module
+        .function("UCharType78")
+        .expect("port exports UCharType78");
     let mut ctx = EvalContext::new();
     let err = f
-        .call(&[serde_json::json!("a")], &mut ctx)
-        .expect_err("self-import is an eval error, not a hang")
+        .call(&[serde_json::json!(0)], &mut ctx)
+        .expect_err("port signature is not callable; eval reaches its ffi import")
         .to_string();
     assert!(
-        err.contains("uchar") || err.contains("import"),
-        "expected a loud eval error about the self-importing module, got: {err}"
+        err.contains("ffi") || err.contains("import"),
+        "expected the port's `from \"ffi\" import` to be the failing leaf, got: {err}"
     );
-
-    // The `Module::value` path recursed historically — it must terminate too.
-    let _ = module.value("UCHAR_XID_START");
+    assert!(
+        !err.contains("has no export") && !err.contains("cannot import itself"),
+        "port `uchar` must resolve and export its names: {err}"
+    );
 }

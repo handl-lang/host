@@ -663,12 +663,14 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     // ── icu_c_* — sdkgen-generated ICU4C adapter modules (i18n) ────────
     // Table-only modules: `intl_c` reaches them via
-    // `from "../generated/icu-c-linux-x86_64/<mod>" import * as <mod>`,
-    // which basename-normalizes to these names in the module table. Not
-    // contributed by any package — they are intl_c's internal FFI surface.
+    // `from "../generated/icu-c-linux-x86_64/<mod>_c" import * as <mod>`,
+    // which basename-normalizes to these `*_c` names in the module table.
+    // Not contributed by any package — they are intl_c's internal FFI
+    // surface. Each adapter's own `from "../icu/<mod>" import` resolves
+    // the bare-named port spec row below.
     ModuleSpec {
-        name: "ucol",
-        hnl: handl_lib_intl_c::ICU_UCOL_HNL,
+        name: "ucol_c",
+        hnl: handl_lib_intl_c::ICU_UCOL_C_HNL,
         funcs: &[
             "ucol_close_78",
             "ucol_countAvailable_78",
@@ -693,8 +695,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "unum",
-        hnl: handl_lib_intl_c::ICU_UNUM_HNL,
+        name: "unum_c",
+        hnl: handl_lib_intl_c::ICU_UNUM_C_HNL,
         funcs: &[
             "unum_close_78",
             "unum_format_78",
@@ -716,8 +718,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "upluralrules",
-        hnl: handl_lib_intl_c::ICU_UPLURALRULES_HNL,
+        name: "upluralrules_c",
+        hnl: handl_lib_intl_c::ICU_UPLURALRULES_C_HNL,
         funcs: &[
             "uplrules_close_78",
             "uplrules_open_78",
@@ -729,8 +731,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "ureldatefmt",
-        hnl: handl_lib_intl_c::ICU_URELDATEFMT_HNL,
+        name: "ureldatefmt_c",
+        hnl: handl_lib_intl_c::ICU_URELDATEFMT_C_HNL,
         funcs: &[
             "ureldatefmt_close_78",
             "ureldatefmt_format_78",
@@ -742,8 +744,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "udat",
-        hnl: handl_lib_intl_c::ICU_UDAT_HNL,
+        name: "udat_c",
+        hnl: handl_lib_intl_c::ICU_UDAT_C_HNL,
         funcs: &[
             "udat_close_78",
             "udat_format_78",
@@ -756,8 +758,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "ufieldpositer",
-        hnl: handl_lib_intl_c::ICU_UFIELDPOSITER_HNL,
+        name: "ufieldpositer_c",
+        hnl: handl_lib_intl_c::ICU_UFIELDPOSITER_C_HNL,
         funcs: &[
             "ufieldpositer_close_78",
             "ufieldpositer_next_78",
@@ -768,8 +770,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "unumberformatter",
-        hnl: handl_lib_intl_c::ICU_UNUMBERFORMATTER_HNL,
+        name: "unumberformatter_c",
+        hnl: handl_lib_intl_c::ICU_UNUMBERFORMATTER_C_HNL,
         funcs: &[
             "unumf_close_78",
             "unumf_formatDouble_78",
@@ -780,8 +782,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "uformattednumber",
-        hnl: handl_lib_intl_c::ICU_UFORMATTEDNUMBER_HNL,
+        name: "uformattednumber_c",
+        hnl: handl_lib_intl_c::ICU_UFORMATTEDNUMBER_C_HNL,
         funcs: &[
             "unumf_closeResult_78",
             "unumf_openResult_78",
@@ -791,10 +793,10 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
-    // ── icu_uc_* — sdkgen-generated ICU4C adapter modules (common) ─────
+    // ── icu_uc_*_c — sdkgen-generated ICU4C adapter modules (common) ──
     ModuleSpec {
-        name: "ubrk",
-        hnl: handl_lib_intl_c::ICU_UC_UBRK_HNL,
+        name: "ubrk_c",
+        hnl: handl_lib_intl_c::ICU_UC_UBRK_C_HNL,
         funcs: &[
             "ubrk_close_78",
             "ubrk_countAvailable_78",
@@ -812,8 +814,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "uloc",
-        hnl: handl_lib_intl_c::ICU_UC_ULOC_HNL,
+        name: "uloc_c",
+        hnl: handl_lib_intl_c::ICU_UC_ULOC_C_HNL,
         funcs: &[
             "uloc_countAvailable_78",
             "uloc_forLanguageTag_78",
@@ -830,8 +832,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "uldnames",
-        hnl: handl_lib_intl_c::ICU_UC_ULDNAMES_HNL,
+        name: "uldnames_c",
+        hnl: handl_lib_intl_c::ICU_UC_ULDNAMES_C_HNL,
         funcs: &[
             "uldn_close_78",
             "uldn_keyDisplayName_78",
@@ -847,8 +849,8 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "ures",
-        hnl: handl_lib_intl_c::ICU_UC_URES_HNL,
+        name: "ures_c",
+        hnl: handl_lib_intl_c::ICU_UC_URES_C_HNL,
         funcs: &[
             "ures_close_78",
             "ures_getByKey_78",
@@ -859,10 +861,10 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
-    // ── icu_uc_* — Unicode-data adapters used by `unicode_c` ───────────
+    // ── icu_uc_*_c — Unicode-data adapters used by `unicode_c` ────────
     ModuleSpec {
-        name: "unorm2",
-        hnl: handl_lib_intl_c::ICU_UC_UNORM2_HNL,
+        name: "unorm2_c",
+        hnl: handl_lib_intl_c::ICU_UC_UNORM2_C_HNL,
         funcs: &[
             "unorm2_getNFCInstance_78",
             "unorm2_getNFDInstance_78",
@@ -873,16 +875,16 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     ModuleSpec {
-        name: "ustring",
-        hnl: handl_lib_intl_c::ICU_UC_USTRING_HNL,
+        name: "ustring_c",
+        hnl: handl_lib_intl_c::ICU_UC_USTRING_C_HNL,
         funcs: &["u_strFoldCase_78"],
         ops: &[],
         values: &[],
         registry: None,
     },
     ModuleSpec {
-        name: "uchar",
-        hnl: handl_lib_intl_c::ICU_UC_UCHAR_HNL,
+        name: "uchar_c",
+        hnl: handl_lib_intl_c::ICU_UC_UCHAR_C_HNL,
         funcs: &[
             "u_charType_78",
             "u_getIntPropertyValue_78",
@@ -902,6 +904,324 @@ pub static MODULES: &[ModuleSpec] = &[
             "U_NON_SPACING_MARK",
             "U_PARAGRAPH_SEPARATOR",
         ],
+        registry: None,
+    },
+    // ── icu_* — sdkgen-generated ICU4C port specs (contract) ──────────
+    // The `*_c` adapters' `from "../<lib>/<mod>" import { <Sig>*78 }`
+    // lines basename-resolve to these rows (the port keeps the bare
+    // name, the impl the `_c` suffix — the `uchar` self-import split).
+    //
+    // Export names ride in `funcs`, not `values`: the port's exports are
+    // contract-level names — `export Sig78: (…) ~[1]~> Result<…, Errno>`
+    // signature declarations (which erase to `null` under Agda-style
+    // signature erasure) and `{Port}Result` record shapes — bound only
+    // to satisfy `export_field` projection at the adapter's import line;
+    // the adapter references them solely in type-annotation position,
+    // which `transform_export_to_object` strips before eval, so the
+    // wrapper-arrow binding is never applied. `values:` would instead
+    // evaluate the port source per name — which fails on
+    // `from "ffi" import { Errno }` (`ffi` resolves through the host
+    // module chain, not the package table) — leaving the export missing
+    // and the adapter import erroring.
+    ModuleSpec {
+        name: "ubrk",
+        hnl: handl_lib_intl_c::ICU_UC_UBRK_HNL,
+        funcs: &[
+            "UbrkOpen78Result",
+            "UbrkOpen78",
+            "UbrkClose78",
+            "UbrkCurrent78",
+            "UbrkNext78",
+            "UbrkPrevious78",
+            "UbrkFirst78",
+            "UbrkLast78",
+            "UbrkGetAvailable78",
+            "UbrkCountAvailable78",
+            "UbrkGetRuleStatus78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uchar",
+        hnl: handl_lib_intl_c::ICU_UC_UCHAR_HNL,
+        funcs: &[
+            "UCHAR_XID_CONTINUE",
+            "UCHAR_XID_START",
+            "UCHAR_EAST_ASIAN_WIDTH",
+            "U_NON_SPACING_MARK",
+            "U_ENCLOSING_MARK",
+            "U_LINE_SEPARATOR",
+            "U_PARAGRAPH_SEPARATOR",
+            "U_CONTROL_CHAR",
+            "U_FORMAT_CHAR",
+            "U_EA_FULLWIDTH",
+            "U_EA_WIDE",
+            "UHasBinaryProperty78",
+            "UGetIntPropertyValue78",
+            "UCharType78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uldnames",
+        hnl: handl_lib_intl_c::ICU_UC_ULDNAMES_HNL,
+        funcs: &[
+            "UldnOpen78Result",
+            "UldnOpen78",
+            "UldnClose78",
+            "UldnLocaleDisplayName78Result",
+            "UldnLocaleDisplayName78",
+            "UldnLanguageDisplayName78Result",
+            "UldnLanguageDisplayName78",
+            "UldnScriptDisplayName78Result",
+            "UldnScriptDisplayName78",
+            "UldnRegionDisplayName78Result",
+            "UldnRegionDisplayName78",
+            "UldnKeyDisplayName78Result",
+            "UldnKeyDisplayName78",
+            "UldnKeyValueDisplayName78Result",
+            "UldnKeyValueDisplayName78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uloc",
+        hnl: handl_lib_intl_c::ICU_UC_ULOC_HNL,
+        funcs: &[
+            "UlocGetLanguage78Result",
+            "UlocGetLanguage78",
+            "UlocGetScript78Result",
+            "UlocGetScript78",
+            "UlocGetCountry78Result",
+            "UlocGetCountry78",
+            "UlocGetVariant78Result",
+            "UlocGetVariant78",
+            "UlocGetName78Result",
+            "UlocGetName78",
+            "UlocCanonicalize78Result",
+            "UlocCanonicalize78",
+            "UlocGetAvailable78",
+            "UlocCountAvailable78",
+            "UlocGetParent78Result",
+            "UlocGetParent78",
+            "UlocForLanguageTag78Result",
+            "UlocForLanguageTag78",
+            "UlocToLanguageTag78Result",
+            "UlocToLanguageTag78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "unorm2",
+        hnl: handl_lib_intl_c::ICU_UC_UNORM2_HNL,
+        funcs: &[
+            "Unorm2GetNfcInstance78Result",
+            "Unorm2GetNfcInstance78",
+            "Unorm2GetNfdInstance78Result",
+            "Unorm2GetNfdInstance78",
+            "Unorm2Normalize78Result",
+            "Unorm2Normalize78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ures",
+        hnl: handl_lib_intl_c::ICU_UC_URES_HNL,
+        funcs: &[
+            "UresOpen78Result",
+            "UresOpen78",
+            "UresOpenDirect78Result",
+            "UresOpenDirect78",
+            "UresClose78",
+            "UresGetLocaleByType78Result",
+            "UresGetLocaleByType78",
+            "UresGetUtf8String78Result",
+            "UresGetUtf8String78",
+            "UresGetByKey78Result",
+            "UresGetByKey78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ustring",
+        hnl: handl_lib_intl_c::ICU_UC_USTRING_HNL,
+        funcs: &["UStrFoldCase78Result", "UStrFoldCase78"],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ucol",
+        hnl: handl_lib_intl_c::ICU_UCOL_HNL,
+        funcs: &[
+            "UcolOpen78Result",
+            "UcolOpen78",
+            "UcolOpenRules78Result",
+            "UcolOpenRules78",
+            "UcolClose78",
+            "UcolStrcoll78",
+            "UcolStrcollUtf878Result",
+            "UcolStrcollUtf878",
+            "UcolGreater78",
+            "UcolGreaterOrEqual78",
+            "UcolEqual78",
+            "UcolGetStrength78",
+            "UcolSetStrength78",
+            "UcolGetDisplayName78Result",
+            "UcolGetDisplayName78",
+            "UcolGetAvailable78",
+            "UcolCountAvailable78",
+            "UcolGetSortKey78Result",
+            "UcolGetSortKey78",
+            "UcolSetAttribute78Result",
+            "UcolSetAttribute78",
+            "UcolGetAttribute78Result",
+            "UcolGetAttribute78",
+            "UcolGetLocaleByType78Result",
+            "UcolGetLocaleByType78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "udat",
+        hnl: handl_lib_intl_c::ICU_UDAT_HNL,
+        funcs: &[
+            "UdatOpen78Result",
+            "UdatOpen78",
+            "UdatClose78",
+            "UdatFormat78Result",
+            "UdatFormat78",
+            "UdatFormatForFields78Result",
+            "UdatFormatForFields78",
+            "UdatParse78Result",
+            "UdatParse78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ufieldpositer",
+        hnl: handl_lib_intl_c::ICU_UFIELDPOSITER_HNL,
+        funcs: &[
+            "UfieldpositerOpen78Result",
+            "UfieldpositerOpen78",
+            "UfieldpositerClose78",
+            "UfieldpositerNext78Result",
+            "UfieldpositerNext78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "uformattednumber",
+        hnl: handl_lib_intl_c::ICU_UFORMATTEDNUMBER_HNL,
+        funcs: &[
+            "UnumfOpenResult78Result",
+            "UnumfOpenResult78",
+            "UnumfResultToString78Result",
+            "UnumfResultToString78",
+            "UnumfCloseResult78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "unumberformatter",
+        hnl: handl_lib_intl_c::ICU_UNUMBERFORMATTER_HNL,
+        funcs: &[
+            "UnumfOpenForSkeletonAndLocale78Result",
+            "UnumfOpenForSkeletonAndLocale78",
+            "UnumfFormatDouble78Result",
+            "UnumfFormatDouble78",
+            "UnumfClose78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "unum",
+        hnl: handl_lib_intl_c::ICU_UNUM_HNL,
+        funcs: &[
+            "UnumOpen78Result",
+            "UnumOpen78",
+            "UnumClose78",
+            "UnumFormat78Result",
+            "UnumFormat78",
+            "UnumFormatInt6478Result",
+            "UnumFormatInt6478",
+            "UnumFormatDouble78Result",
+            "UnumFormatDouble78",
+            "UnumFormatDoubleForFields78Result",
+            "UnumFormatDoubleForFields78",
+            "UnumFormatDecimal78Result",
+            "UnumFormatDecimal78",
+            "UnumGetAttribute78Result",
+            "UnumGetAttribute78",
+            "UnumSetAttribute78Result",
+            "UnumSetAttribute78",
+            "UnumSetTextAttribute78Result",
+            "UnumSetTextAttribute78",
+            "UnumToPattern78Result",
+            "UnumToPattern78",
+            "UnumGetSymbol78Result",
+            "UnumGetSymbol78",
+            "UnumSetSymbol78Result",
+            "UnumSetSymbol78",
+            "UnumGetLocaleByType78Result",
+            "UnumGetLocaleByType78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "upluralrules",
+        hnl: handl_lib_intl_c::ICU_UPLURALRULES_HNL,
+        funcs: &[
+            "UplrulesOpen78Result",
+            "UplrulesOpen78",
+            "UplrulesOpenForType78Result",
+            "UplrulesOpenForType78",
+            "UplrulesClose78",
+            "UplrulesSelect78Result",
+            "UplrulesSelect78",
+        ],
+        ops: &[],
+        values: &[],
+        registry: None,
+    },
+    ModuleSpec {
+        name: "ureldatefmt",
+        hnl: handl_lib_intl_c::ICU_URELDATEFMT_HNL,
+        funcs: &[
+            "UreldatefmtOpen78Result",
+            "UreldatefmtOpen78",
+            "UreldatefmtClose78",
+            "UreldatefmtFormatNumeric78Result",
+            "UreldatefmtFormatNumeric78",
+            "UreldatefmtFormat78Result",
+            "UreldatefmtFormat78",
+        ],
+        ops: &[],
+        values: &[],
         registry: None,
     },
 ];
@@ -1254,11 +1574,15 @@ pub struct TableImportResolver {
 }
 
 /// Shared same-thread self-import guard (keyed by `(thread, name)`): a spec
-/// whose source basename-normalizes to its own name
-/// (`icu-uc-c-linux-x86_64/uchar.hnl` imports `../icu-uc/uchar`) recurses
-/// through eval → import → resolve → bindings → eval forever, and the loop
+/// whose source basename-normalizes to its own name recurses through
+/// eval → import → resolve → bindings → eval forever, and the loop
 /// crosses *instances* — every `build_module` wires a fresh
 /// `TableImportResolver`, so a per-instance set never sees the re-entry.
+/// (The historical case: `icu-uc-c-linux-x86_64/uchar.hnl` imported
+/// `../icu-uc/uchar` — basename `uchar` resolving back to itself. The
+/// port/adapter `_c` split renamed the adapter to `uchar_c`, so its
+/// import now lands on the `uchar` *port* row; the guard still covers
+/// any future same-basename spec.)
 /// A static is shared by every resolver; a different thread resolving the
 /// same name is a concurrent build, not a cycle (same rule as
 /// `TableModuleLookup::in_progress`).
@@ -1466,10 +1790,9 @@ fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
 /// ([`spec_arrow_record`]) — no module construction, no evaluation, no
 /// resolver. Value exports (`spec.values`, e.g. `bool`'s `true`/`false`)
 /// are deliberately *not* projected: projecting them would evaluate the
-/// module's `.hnl` record during env materialization, and some table
-/// rows' sources self-import through the table's basename normalization
-/// (`icu-uc-c-linux-x86_64/uchar.hnl` imports `../icu-uc/uchar` — both
-/// normalize to `uchar`), so evaluation can recurse. Ambient
+/// module's `.hnl` record during env materialization — an import cycle
+/// in any row's source would recurse (as `uchar`'s self-import did
+/// before the `*_c` port/adapter split). Ambient
 /// `mod.value` reads were never usable anyway — an unbound `bool.true`
 /// evaluated to the *string* `"bool.true"`, not `true`; via the env
 /// record it now reads `Null`. `from "bool" import true` remains the
