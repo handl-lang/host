@@ -709,3 +709,53 @@ unify failures render internal encodings, not source-level types.
     former (F7), dict member projection (F8). `lower_ast` self-call
     decline + AST-eval recursion now works for `vsum`; `zipWith`
     catch-22 untested post-fix.
+
+- **Dogfood gap fixes (session 3)** — the three open P2s from the
+  session-2 log landed in `engine-typecheck-nbe`, plus regression
+  tests for the P1 runtime fixes:
+  - *Commuted-sum canonicalization (F5)*: `append{n,m,a}` typechecks.
+    Root cause was narrower than "atom ordering" — `poly_of` bailed on
+    a bare `{"__meta__": id}` atom (`tag_of(t)?` → `None`), so any
+    `Bin` containing an unsolved meta stayed unnormalized:
+    `(m + ?k) + 1` vs `m + (?k + 1)` never canonicalized. Metas are
+    now honest ring atoms (keyed `m:{id}` like `index_atom_key`
+    already promised). Regression:
+    `commuted_sum_index_unifies_through_metas`.
+  - *`F.rec` checker visibility*: `synth_data` registers a `<F>.rec`
+    Γ binding minted from the ctor telescopes — a nested
+    `type.function` `?mm ~> c0.. ~> i0.. ~> F(?u) ~> ?mo` where each
+    case is the ctor's instantiated domain chain plus one `?mo`
+    hypothesis per recursive arg, and `?mo` is shared across cases
+    and the result (the non-dependent fold contract; `null` motive
+    stays legal). `record_field_type`'s new `type.family` arm
+    resolves `F.rec` through that scope binding, and `check_node`
+    accepts type expressions for `type.universe` (`Bool` as a
+    second-round index arg). `Vec.rec(null, 0, step)(2, Bool, v)`
+    typechecks. Regression: `family_rec_resolves_eliminator_type`.
+  - *Implicit binders in body annotations (F3)*: `dep_intro_implicit`
+    bound `Γ[binder] := param` (the binder's *sort* — an unsolved meta
+    for `{n, a}`), which shadowed `results[binder] = var{b}` for the
+    Γ-first `dep_synth_var_type` lookup — `(v : Vec(n, a))` read
+    `Vec(?m1, ?m0)`. Non-evidence binders now bind `var{b}` in Γ
+    (the `synth_assign` convention); evidence binders
+    (`{ev : Eq(a)}`, `evidence: true`) keep their former-app type.
+    Regression: `implicit_binder_names_scope_into_body_annotation`.
+  - *Runtime regression tests* (`host/crates/handl-runtime/tests/
+    engine_parity.rs`): `ctor_object_match_dispatches_on_sym`
+    (`match Jx(9) { Jx: 111, Nope: 222 }` → `111`, all three
+    engines), `nat_tower_binary_add` (`Succ(Zero) + Succ(Zero)` → 2),
+    `self_recursive_arrow_evals_via_ast_fallback` (`vsum` folds
+    correctly — **tree-walk only: bytecode/cranelift still diverge
+    on self-recursive closures** — recorded, not fixed).
+    `unannotated_ctor_result_index_is_decided_mismatch` pins F1.
+  - *Still open*: `VCons(x, xs)` *reconstruction* inside an annotated
+    `match` arm hits a var-shadowing wrinkle (ctor instantiation
+    binds the family param names in `results`, rewriting the outer
+    rigids — `Vec(n+1, ?k+1)` vs `Vec(?k+1, a)`); the `zipWith`
+    catch-22 (F6); coverage-vs-reachability; existential index
+    former (F7); dict member projection (F8); `hnl run` on
+    `export f : T = …` files fails (`call_host: function 'f' not
+    found` — the `export` op is a no-op and the do-wrap path never
+    binds the name; pre-existing, not a P1 regression);
+    `export f{…} : T = body` in module-prep yields name
+    `f{…}` (unbindable).
