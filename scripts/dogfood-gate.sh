@@ -8,13 +8,25 @@ set -euo pipefail
 # sibling `host-cli` repo; build it there. Its git deps resolve via that repo's
 # `[patch]` tables back into this checkout, so the build exercises the
 # same platform sources.
-if [ ! -d ../host-cli/crates/host-cli ]; then
-  echo "error: sibling checkout ../host-cli not found — clone handl-lang/host-cli next to this repo" >&2
+#
+# HOST_CLI_DIR overrides the sibling path — the bupha shell runner
+# (scripts/ci.sh) uses it to point at a scratch host-cli worktree whose
+# `../host` resolves to the sha under test instead of the dev checkout.
+CLI_DIR="${HOST_CLI_DIR:-../host-cli}"
+if [ ! -d "$CLI_DIR/crates/host-cli" ]; then
+  echo "error: sibling checkout $CLI_DIR not found — clone handl-lang/host-cli next to this repo" >&2
   exit 1
 fi
-(cd ../host-cli && cargo build --release --bin hnl)
-HNL=../host-cli/target/release/hnl
+(cd "$CLI_DIR" && cargo build --release --bin hnl)
+if [ -n "${CARGO_TARGET_DIR:-}" ]; then
+  HNL="$CARGO_TARGET_DIR/release/hnl"
+else
+  HNL="$(cd "$CLI_DIR" && pwd)/target/release/hnl"
+fi
 
+# ADR-0149: the tools are libhnl_ext_* cdylibs discovered at runtime.
+# CI sets HANDL_EXT_DIR to the just-built libs; log what was found.
+"$HNL" ext doctor || true
 
 status=0
 

@@ -1,5 +1,13 @@
 """CI pipeline for handl-lang/host — thin orchestration over bupha.
 
+DEPRECATED — CI migrated to the bupha *shell* runner (bupha.toml +
+scripts/ci.sh, no containers). This module stays on disk for reference
+but is no longer the entry point: `bupha run` / `bupha watch` /
+scripts/ci-watch.sh all drive scripts/ci.sh directly. Removal is a
+separate call. Known breakage left unfixed here: `dogfood` still mounts
+the cli source as `name="cli"` while scripts/dogfood-gate.sh looks for
+`../host-cli` — stale since the cli → host-cli repo rename (ADR-0149).
+
 All container plumbing (toolchain image, workspace mount, dev-link +
 self-patch, cargo/sccache caches, token auth) lives in the shared
 bupha module (github.com/9aia/bupha — see dagger.json deps).

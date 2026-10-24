@@ -1,0 +1,62 @@
+# bupha.toml — shell-runner CI for handl-lang/host.
+#
+# Replaces the Dagger runner (`dagger call ci`): no containers, no docker
+# — the runner is `bash scripts/ci.sh` executed natively inside a
+# detached worktree of the pushed sha. This box is memory- and
+# disk-constrained; the shell runner skips the engine round-trip and the
+# pipeline keeps the module's -j 2 memory guards.
+#
+# Live topology on luis's box: merge the [[repo]] entry below into the
+# shared watcher config ~/.config/bupha/bupha.toml (one systemd
+# `bupha-watch.service`, one cloudflared tunnel `handl-ci` -> :9000, one
+# latest-wins queue/worker — builds serialize with the docs watches).
+# This file is the committed manifest of that watch; it is also a valid
+# standalone config — run a dedicated instance with
+# `bupha watch --config bupha.toml` after moving `trigger.listen` to a
+# free port.
+#
+# Secrets resolve env var -> OS keyring -> ~/.config/bupha/env; never
+# this file. Schema: github.com/9aia/bupha examples/bupha.toml.example.
+#
+# Manual run (whole gate in this checkout, no worktree):
+#   bupha run                      # = bash scripts/ci.sh
+#   bash scripts/ci.sh test        # single stage
+
+[[repos]]
+name = "handl-lang/host"
+dir = "/home/luis/GitHub/handl-lang/host"
+branch = "refs/heads/main"
+  [repos.runner]
+  kind = "script"
+  cmd = "bash scripts/ci.sh"
+  cancel_running = true
+
+[trigger]
+kind = "github"
+listen = "127.0.0.1:9000"
+secret_env = "BUPHA_WEBHOOK_SECRET"
+
+# global runner — same shell cmd; a merged watcher overrides it per repo
+# anyway ([repo.runner] is a full replacement).
+[runner]
+kind = "script"
+cmd = "bash scripts/ci.sh"
+token_env = "BUPHA_TOKEN"
+
+[status]
+kind = "github"
+context = "ci/bupha"
+
+[tunnel]
+provider = "cloudflared"
+name = "handl-ci"
+local_url = "http://127.0.0.1:9000"
+public_url = "https://ci.luisfuturist.com"   # hooks land at <url>/hook
+
+[worktree]
+# Runs land at <base>-handl-lang-host-<sha12>. The base MUST stay outside
+# the handl-lang workspace root: Cargo.toml's [patch] tables self-patch
+# `../host` to the checkout under test, and scripts/ci.sh rebuilds the
+# sibling layout as symlinks in the worktree's parent. Same base the
+# shared watcher uses, so history.jsonl stays in one place.
+base = "/home/luis/dagger/worktrees/bupha"

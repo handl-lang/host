@@ -101,40 +101,49 @@ Latest full run: **4,287 tests run, 4,287 passed, 0 failed, 182 skipped**
 (12 flagged slow). Note nextest does not run doctests — `cargo test --doc
 --workspace` is the separate check for those.
 
-## CI — Dagger, not GHA
+## CI — bupha shell runner, not GHA
 
-CI is a Dagger module (`dagger/src/ci/main.py`, Python SDK — Go has no
-SDK advantage here and Python needs no toolchain beyond uv, which the
-module brings itself). One definition runs locally and on any box with
-docker + the dagger CLI; there is no GitHub Actions config.
+CI is the bupha shell runner (`bupha.toml` + `scripts/ci.sh`) — no
+containers, no docker, no GHA. `bupha watch` (or `scripts/ci-watch.sh`
+for polling) runs `bash scripts/ci.sh` in a detached worktree of each new
+sha and posts `ci/bupha` commit statuses; `bupha run` runs the same gate
+in this checkout. The old Dagger module (`dagger/src/ci/main.py`) is
+deprecated but kept on disk for reference.
 
 ```bash
-dagger functions               # list pipeline functions
-dagger call doctor             # smoke-test image + dev-link, no compile
-dagger call test               # nextest + doctests (default 1 shard, -j 2)
-dagger call test --shards 8    # scale out: 8 parallel nextest partitions
-dagger call coverage-report export --path=coverage
-dagger call coverage-gate      # blocking: 100% lines on tooling crates
-dagger call dogfood --cli-source ../host-cli        # local sibling checkout
-dagger call dogfood --token env://HANDL_TOKEN  # cloud: fetches host-cli@main
-dagger call ci --token env://HANDL_TOKEN       # the whole gate
+bupha run                     # the whole gate, in this checkout
+bash scripts/ci.sh            # same, without bupha
+bash scripts/ci.sh doctor     # toolchain + layout smoke, no compile
+bash scripts/ci.sh test       # nextest + doctests (-j 2)
+bash scripts/ci.sh coverage-report   # coverage/ html + lcov
+bash scripts/ci.sh coverage-gate     # blocking: tooling-crates line floor
+bash scripts/ci.sh dogfood    # build hnl from ../host-cli, run the corpus
 ```
 
-- **Auth**: all handl-lang dep repos are private → pass a GitHub token as
-  `--token` for anything that compiles. The token mounts as a secret; the
-  `insteadOf` rewrite runs inside the same exec, so it never lands in an
-  image layer.
-- **dev-link in the container**: `_workspace` mounts the source at
-  `/work/platform` and runs `scripts/dev-link.sh`, which rewrites the
-  `[patch]` block to only the siblings present — everything else resolves
-  from `main` (the float policy; same thing GHA did by "stripping").
-- **Sharding, not sizing**: `-j` stays low (memory-bound suites — see
-  above); scale out with `--shards N`.
-- **Trigger**: `scripts/ci-watch.sh` polls `origin/main`, runs `dagger
-  call ci` in a detached worktree per new sha, appends to
-  `ci-watch.log`, and optionally posts commit statuses
-  (`CI_POST_STATUS=1`, needs `gh` auth). Deploy = run that script on a
-  box; a systemd unit or tmux is enough.
+- **No containers**: the pipeline needs the local toolchain (rustup +
+  cargo-nextest + cargo-llvm-cov + optional sccache) and the sibling
+  checkouts — the committed `[patch]` tables already point `../<repo>` at
+  them. In a detached worktree, `ci.sh` rebuilds that layout as symlinks
+  in the worktree's parent (`../host` → the sha under test, the rest →
+  real checkouts), which is why CI worktrees must live **outside** the
+  workspace root.
+- **Auth**: locally optional — every handl-lang dep is `[patch]`'d to a
+  sibling checkout so cargo never fetches them. If `HANDL_TOKEN` /
+  `BUPHA_TOKEN` is set, ci.sh adds an env-scoped `insteadOf` rewrite
+  (`GIT_CONFIG_*`, never written to `~/.gitconfig`).
+- **Memory, not sizing**: `-j` stays 2 (`CI_JOBS`, `CI_DOGFOOD_JOBS`) —
+  the suite is memory-bound (see above); `-j 8` OOMs this box.
+  `CI_SHARDS` runs partitions serially, not in parallel — scale out needs
+  more boxes.
+- **Shared target**: worktree runs share `$WORKSPACE/.ci-target/host`
+  (`CI_TARGET_DIR`) so each push isn't a cold build; dogfood's `hnl`
+  builds under `.ci-target/host-cli`. Prune if disk gets tight.
+- **Trigger**: `scripts/ci-watch.sh` polls `origin/main`, runs
+  `bupha run` (generated per-worktree config) in a detached worktree per
+  new sha, appends to `ci-watch.log`, and optionally posts commit
+  statuses (`CI_POST_STATUS=1`, needs `gh` auth). The webhook path is
+  `bupha watch` against the shared `~/.config/bupha/bupha.toml` — merge
+  this file's `[[repo]]` entry there.
 
 The retired `.github/workflows/` (test / coverage / dogfood-gate) were
 removed in the same change that added the module.
