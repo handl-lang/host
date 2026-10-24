@@ -264,7 +264,7 @@ stage="ci"
 if [ $# -gt 0 ]; then stage="$1"; shift; fi
 
 setup_auth
-ensure_siblings
+ensure_siblings || exit 1   # wrong layout = wrong sha under test; refuse
 setup_sccache
 
 case "$stage" in
