@@ -1020,3 +1020,38 @@ s, put replaces it, and the put's payload is computed inside the fold.
   tuple-index, reserved-keyword diagnostics, `hnl run --unchecked`.
 - Carried: F6 (`zipWith`), F7 (`?m`), F8 (dict member). F1–F5
   verified fixed/adequate this session.
+
+### 2026 — CI migrated from Dagger to the bupha shell runner
+
+- `bupha` (github.com/9aia/bupha — headless CI: webhook → queue →
+  detached-worktree → runner → status) now drives host CI via
+  `runner.kind = "script"` → `bash scripts/ci.sh`. The Dagger module
+  (`dagger/src/ci/main.py`) is deprecated on disk; the container engine,
+  image pulls, and engine round-trip are gone from the gate.
+- `scripts/ci.sh` carries the stage surface 1:1 — `doctor`, `test`
+  (serial nextest partitions + doctests), `test-shard`,
+  `coverage-report`, `coverage-gate` (tooling ≥99% lines), `dogfood`,
+  `ci` — with the module's env block (`CARGO_INCREMENTAL=0`, `debug=0`)
+  and the `-j 2` memory guards (`CI_JOBS`/`CI_DOGFOOD_JOBS`).
+- Worktree plumbing replaces container mounts: `[patch]` tables resolve
+  through a symlink farm in the worktree's parent; the `../host`
+  self-patch is rewritten to the worktree's absolute path (a symlinked
+  `../host` spells each self-patched crate twice and collides in the
+  lockfile — the module's absolute `/work/host` self-patch avoided the
+  same trap); `HANDL_TOKEN`/`BUPHA_TOKEN` become an env-scoped
+  `insteadOf` rewrite (`GIT_CONFIG_*`, nothing lands in `~/.gitconfig`);
+  cargo/sccache caches become shared `.ci-target/{host,dogfood}` dirs.
+- Post-ADR-0149 dogfood: `hnl` is a dumb host — `fmt`/`lint`/`typecheck`/
+  `test` are `libhnl_ext_*` cdylibs from the ext-* repos, discovered via
+  `HANDL_EXT_DIR`. `ci.sh dogfood` builds the four exts + `hnl` into
+  `.ci-target/dogfood` — on a detached worktree, from scratch-parent git
+  worktrees whose `../host` is the sha under test (the dagger module
+  mounted a cli source and dev-linked it; same effect, no containers).
+- `scripts/ci-watch.sh` generates a one-repo bupha.toml per run and calls
+  `bupha --config … run`; statuses post as `ci/bupha`. `host/bupha.toml`
+  is the committed standalone manifest for the shared watcher merge.
+- Pre-existing breakage surfaced, left on the dagger side: `dogfood`
+  still mounts the cli source as `name="cli"` while the gate looks for
+  `../host-cli` (stale since the cli → host-cli rename, ADR-0149), and
+  dev-link on a marker-less Cargo.toml duplicates existing `[patch]`
+  tables.
