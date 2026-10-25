@@ -2905,11 +2905,11 @@ do {
   ---     *stuck* — no full arithmetic solver — and the arm proceeds
   ---     unrefined without a diagnostic.
   ---
-  --- `arm_absurd` marks the arm's body as the `absurd` keyword: a
-  --- decided-impossible arm is then *discharged* — the unreachable-
-  --- branch diagnostics are suppressed, since the absurd marker is the
-  --- explicit dismissal. A reachable arm marked `absurd` is rejected
-  --- by the caller (`synth_match_arms`).
+  --- A decided-impossible arm is *auto-discharged* — the caller skips
+  --- its body with no diagnostic: coverage never requires the arm and
+  --- `absurd` is not needed. `absurd` stays legal as explicit
+  --- documentation; a reachable arm marked `absurd` is rejected by the
+  --- caller (`synth_match_arms`).
   ---
   --- Returns `{state, impossible, idx_args}` — `idx_args` are the
   --- evaluated constructor result indices, for `apply_motive_`.
@@ -2945,7 +2945,7 @@ do {
                       u :: unify(funcs, ea.val, eb.val, eb["state"].metas)
                       s1 :: set(eb["state"], "metas", u.metas)
                       decided :: if u.ok { false } else { (type_of(ea.val) == "num" && type_of(eb.val) == "num") || get_or(u, "decided", false) == true }
-                      { state: { state: if decided { if arm_absurd { s1 } else { tc_add_diagnostic(s1, "error", "match arm: constructor cannot produce the scrutinee's index — unreachable branch") } } else { s1 }, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
+                      { state: { state: s1, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
                     }
                   }
                 }
@@ -4035,12 +4035,12 @@ do {
                     arm_children :: node_children(arm_node)
                     pattern_idx :: first_value(arm_children)
                     body_idx :: at(arm_children, 1)
-                    --- `Ctor: absurd` — the explicit dismissal of an
-                    --- impossible arm (ADR-0120). The arm checks iff
-                    --- `refine_scrutinee_` *decides* its index equations
-                    --- unsatisfiable: `impossible` discharges it
-                    --- silently, anything else — reachable OR stuck —
-                    --- is rejected below ("absurd arm is reachable").
+                    --- `impossible` auto-discharges the arm — its body
+                    --- is skipped with no diagnostic (coverage never
+                    --- required it). `absurd` remains legal
+                    --- documentation of the dead branch; `absurd` on a
+                    --- reachable OR merely-stuck arm is rejected below
+                    --- ("absurd arm is reachable").
                     body_node :: ast_node(st["state"].ast, body_idx)
                     is_absurd :: node_kind(body_node) == "absurd"
                     mark :: tc_mark(st["state"])
@@ -4053,7 +4053,7 @@ do {
                     --- rigid `var{n}` index binds `n` to the
                     --- constructor's index in `results` (witnessed by
                     --- a `Path` under `eq_n`). A decided index
-                    --- mismatch marks the arm unreachable: its body
+                    --- mismatch auto-discharges the arm: its body
                     --- is skipped and it contributes nothing to the
                     --- join.
                     scrut_ids :: concat(meta_ids_in_(meta_ids_in_, scrutinee_type, []), meta_ids_in_(meta_ids_in_, zonk(zonk, scrutinee_type, metas_mark), []))
