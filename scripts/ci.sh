@@ -7,7 +7,7 @@
 # a detached worktree of the pushed sha; `bupha run` runs it in the main
 # checkout. It also works standalone.
 #
-#   scripts/ci.sh                  # the whole gate: test + coverage-gate + dogfood
+#   scripts/ci.sh                  # the whole gate: test + coverage-gate + dogfood + smoke
 #   scripts/ci.sh doctor           # toolchain + layout smoke, no compile
 #   scripts/ci.sh test             # nextest partitions (serial) + doctests
 #   scripts/ci.sh test-shard I N   # one nextest partition count:I/N
@@ -15,6 +15,7 @@
 #   scripts/ci.sh coverage-report  # coverage/ html + lcov + summary
 #   scripts/ci.sh coverage-gate    # blocking: tooling-crates line floor
 #   scripts/ci.sh dogfood          # build hnl from host-cli, run the corpus
+#   scripts/ci.sh smoke            # hnl test/run/typecheck over tests/smoke/
 #
 # Env:
 #   CI_JOBS          nextest -j / libtest threads (default 2 — the suite is
@@ -28,6 +29,7 @@
 #                    (default <workspace>/.ci-target/host — without it a
 #                    detached worktree cold-builds every sha)
 #   CI_SKIP_DOGFOOD  1 = never run the dogfood stage in `ci`
+#   CI_SKIP_SMOKE    1 = never run the smoke stage in `ci`
 #   HANDL_TOKEN / BUPHA_TOKEN  GitHub token for private git deps. Optional
 #                    locally: every handl-lang dep is [patch]'d to a
 #                    sibling checkout, so cargo never hits github for them.
@@ -182,58 +184,134 @@ stage_coverage_gate() {
 # libs too, and — on a detached worktree — against the sha under test.
 DOGFOOD_EXTS=(ext-fmt ext-lint ext-typecheck ext-test)
 
+# `smoke` needs the checker/eval/test cdylibs (`run`, `typecheck`,
+# `test`); `fmt`/`lint` are dogfood-only.
+SMOKE_EXTS=(ext-typecheck ext-eval ext-test)
+
+# Shared hnl-toolchain plumbing for `dogfood` and `smoke`. In a detached
+# worktree the sibling repos being built must resolve `../host` to THIS
+# sha — a plain symlink won't do (cargo canonicalizes through it to the
+# dev checkout's parent). Give them a scratch parent: real git worktrees
+# for the repos we build, the sha as `host`, symlinks for the rest (the
+# dagger module did this with a mounted cli source + dev-link).
+#
+#   setup_hnl_toolchain <ext-repo>…
+# sets globals: TOOL_CLI_DIR TOOL_EXT_DIRS TOOL_SCRATCH TOOL_BUILT_WTS
+# and is always paired with cleanup_hnl_toolchain.
+setup_hnl_toolchain() {
+  TOOL_CLI_DIR="$WORKSPACE_ROOT/host-cli"
+  TOOL_EXT_DIRS=()
+  TOOL_SCRATCH=""
+  TOOL_BUILT_WTS=()
+  local e d name
+  for e in "$@"; do
+    [ -d "$WORKSPACE_ROOT/$e" ] && TOOL_EXT_DIRS+=("$WORKSPACE_ROOT/$e")
+  done
+  if [ "$IN_WORKTREE" = 1 ]; then
+    TOOL_SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/hnl-ci-toolchain.XXXXXX")"
+    ln -sfn "$PWD" "$TOOL_SCRATCH/host"
+    for e in host-cli "$@"; do
+      [ -d "$WORKSPACE_ROOT/$e" ] || continue
+      git -C "$WORKSPACE_ROOT/$e" worktree add --detach "$TOOL_SCRATCH/$e" >/dev/null \
+        && TOOL_BUILT_WTS+=("$e")
+    done
+    for d in "$WORKSPACE_ROOT"/*/; do
+      name="$(basename "$d")"
+      [ -e "$TOOL_SCRATCH/$name" ] || ln -s "$d" "$TOOL_SCRATCH/$name"
+    done
+    TOOL_CLI_DIR="$TOOL_SCRATCH/host-cli"
+    TOOL_EXT_DIRS=()
+    for e in "${TOOL_BUILT_WTS[@]}"; do
+      [ "$e" != host-cli ] && TOOL_EXT_DIRS+=("$TOOL_SCRATCH/$e")
+    done
+  fi
+}
+
+cleanup_hnl_toolchain() {
+  local e
+  if [ -n "$TOOL_SCRATCH" ]; then
+    for e in "${TOOL_BUILT_WTS[@]}"; do
+      git -C "$WORKSPACE_ROOT/$e" worktree remove --force "$TOOL_SCRATCH/$e" 2>/dev/null
+    done
+    rm -rf "$TOOL_SCRATCH"
+  fi
+}
+
+# Build the ext cdylibs into the shared .ci-target/dogfood dir.
+build_toolchain_exts() {
+  local tgt="$1" d
+  for d in "${TOOL_EXT_DIRS[@]}"; do
+    echo "== build $(basename "$d") (libhnl_ext_*.so)"
+    (cd "$d" && CARGO_TARGET_DIR="$tgt" cargo build --release) || {
+      echo "ci.sh: ext build failed in $d"; return 1; }
+  done
+}
+
 stage_dogfood() {
-  local cli_real="$WORKSPACE_ROOT/host-cli" scratch="" rc=0
+  local cli_real="$WORKSPACE_ROOT/host-cli" rc=0
   if [ ! -d "$cli_real/crates/host-cli" ]; then
     echo "dogfood: sibling checkout $cli_real not found — skipping"
     return 0
   fi
-  local cli_dir="$cli_real" e d name
-  local ext_dirs=() built_wts=()
-  for e in "${DOGFOOD_EXTS[@]}"; do
-    [ -d "$WORKSPACE_ROOT/$e" ] && ext_dirs+=("$WORKSPACE_ROOT/$e")
-  done
-  if [ "$IN_WORKTREE" = 1 ]; then
-    # The repos being built must resolve `../host` to THIS sha — a plain
-    # symlink won't do (cargo canonicalizes through it to the dev
-    # checkout's parent). Give them a scratch parent: real git worktrees
-    # for the repos we build, the sha as `host`, symlinks for the rest
-    # (the dagger module did this with a mounted cli source + dev-link).
-    scratch="$(mktemp -d "${TMPDIR:-/tmp}/hnl-ci-dogfood.XXXXXX")"
-    ln -sfn "$PWD" "$scratch/host"
-    for e in host-cli "${DOGFOOD_EXTS[@]}"; do
-      [ -d "$WORKSPACE_ROOT/$e" ] || continue
-      git -C "$WORKSPACE_ROOT/$e" worktree add --detach "$scratch/$e" >/dev/null \
-        && built_wts+=("$e")
-    done
-    for d in "$WORKSPACE_ROOT"/*/; do
-      name="$(basename "$d")"
-      [ -e "$scratch/$name" ] || ln -s "$d" "$scratch/$name"
-    done
-    cli_dir="$scratch/host-cli"
-    ext_dirs=()
-    for e in "${built_wts[@]}"; do
-      [ "$e" != host-cli ] && ext_dirs+=("$scratch/$e")
-    done
-  fi
+  setup_hnl_toolchain "${DOGFOOD_EXTS[@]}"
   local tgt="$WORKSPACE_ROOT/.ci-target/dogfood"
   # Ext cdylibs first (into the shared dogfood target), then the gate
   # script builds hnl into the same dir and runs the corpus.
-  for d in "${ext_dirs[@]}"; do
-    echo "== build $(basename "$d") (libhnl_ext_*.so)"
-    (cd "$d" && CARGO_TARGET_DIR="$tgt" cargo build --release) || {
-      echo "dogfood: ext build failed in $d"; rc=1; break; }
-  done
+  build_toolchain_exts "$tgt" || rc=1
   if [ "$rc" -eq 0 ]; then
-    HANDL_EXT_DIR="$tgt/release" HOST_CLI_DIR="$cli_dir" CARGO_TARGET_DIR="$tgt" \
+    HANDL_EXT_DIR="$tgt/release" HOST_CLI_DIR="$TOOL_CLI_DIR" CARGO_TARGET_DIR="$tgt" \
       HNL_DOGFOOD_JOBS="$DOGFOOD_JOBS" bash scripts/dogfood-gate.sh || rc=$?
   fi
-  if [ -n "$scratch" ]; then
-    for e in "${built_wts[@]}"; do
-      git -C "$WORKSPACE_ROOT/$e" worktree remove --force "$scratch/$e" 2>/dev/null
-    done
-    rm -rf "$scratch"
+  cleanup_hnl_toolchain
+  return "$rc"
+}
+
+# The hnl-level smoke suite: tests/smoke/*.hnl through the real `hnl`
+# binary + ext cdylibs — end-to-end feature coverage (data/match/F.rec,
+# Path/J/transport, IO(sig) + handle, instance + implicit evidence,
+# type.* aliases, forall, `~[n]~>` cells, eval.checked/sym.seeded mints)
+# that no Rust suite exercises. Shares the dogfood toolchain target dir
+# so a `ci` run after `dogfood` is incremental.
+stage_smoke() {
+  local cli_real="$WORKSPACE_ROOT/host-cli" rc=0
+  if [ ! -d "$cli_real/crates/host-cli" ]; then
+    echo "smoke: sibling checkout $cli_real not found — skipping"
+    return 0
   fi
+  setup_hnl_toolchain "${SMOKE_EXTS[@]}"
+  local tgt="$WORKSPACE_ROOT/.ci-target/dogfood"
+  local hnl="$tgt/release/hnl"
+  build_toolchain_exts "$tgt" || rc=1
+  if [ "$rc" -eq 0 ]; then
+    echo "== build hnl (host-cli)"
+    (cd "$TOOL_CLI_DIR" && CARGO_TARGET_DIR="$tgt" cargo build --release --bin hnl) || rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    local dir="tests/smoke" f
+    export HANDL_EXT_DIR="$tgt/release"
+    # Positive files: `hnl typecheck` must exit 0.
+    for f in types.hnl effects.hnl instance.hnl alias_forall.hnl; do
+      echo "-- hnl typecheck $dir/$f"
+      "$hnl" typecheck "$dir/$f" || rc=1
+    done
+    # eval.hnl exercises the runtime surface: `hnl run` evaluates its
+    # smoke block, `hnl test` runs the test_* bindings (data-free on
+    # purpose — `hnl test` cannot desugar `data` yet).
+    echo "-- hnl run $dir/eval.hnl"
+    "$hnl" run "$dir/eval.hnl" || rc=1
+    echo "-- hnl test $dir/eval.hnl"
+    "$hnl" test "$dir/eval.hnl" || rc=1
+    # Expected-failure files: `hnl typecheck` MUST exit nonzero.
+    for f in types_err.hnl effects_err.hnl; do
+      echo "-- hnl typecheck $dir/$f (expect failure)"
+      if "$hnl" typecheck "$dir/$f"; then
+        echo "smoke: $dir/$f typechecked clean but must ERROR"
+        rc=1
+      fi
+    done
+    [ "$rc" -eq 0 ] && echo "smoke: suite green"
+  fi
+  cleanup_hnl_toolchain
   return "$rc"
 }
 
@@ -243,8 +321,11 @@ stage_dogfood() {
 # covers everything, same as the python version.
 stage_ci() {
   local failures=() s
-  for s in test coverage-gate dogfood; do
+  for s in test coverage-gate dogfood smoke; do
     if [ "$s" = dogfood ] && [ "${CI_SKIP_DOGFOOD:-0}" = 1 ]; then
+      continue
+    fi
+    if [ "$s" = smoke ] && [ "${CI_SKIP_SMOKE:-0}" = 1 ]; then
       continue
     fi
     echo
@@ -255,7 +336,7 @@ stage_ci() {
     echo "ci failed: ${failures[*]}" >&2
     return 1
   fi
-  echo "ci passed: test, coverage-gate, dogfood"
+  echo "ci passed: test, coverage-gate, dogfood, smoke"
 }
 
 # ---------------------------------------------------------------------------
@@ -275,6 +356,7 @@ case "$stage" in
   coverage-report) stage_coverage_report ;;
   coverage-gate)   stage_coverage_gate ;;
   dogfood)         stage_dogfood ;;
+  smoke)           stage_smoke ;;
   ci)              stage_ci ;;
   -h|--help|help)  sed -n '2,31p' "$0" ;;
   *) echo "unknown stage: $stage" >&2; exit 2 ;;

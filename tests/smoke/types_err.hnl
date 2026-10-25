@@ -1,0 +1,6 @@
+--- tests/smoke/types_err.hnl — expected-failure smoke: `hnl typecheck`
+--- MUST exit nonzero on this file (`ci.sh smoke` asserts it).
+--- A Bool binding checked against a Number literal is a decided
+--- mismatch: `cannot unify — expected Bool, got Number`.
+
+x : Bool := 3

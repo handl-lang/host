@@ -1,0 +1,9 @@
+--- tests/smoke/effects_err.hnl — expected-failure smoke: the opposite
+--- effect-subtyping direction MUST error (`ci.sh smoke` asserts a
+--- nonzero exit). A computation typed `IO<{ puts, fs }>` does not
+--- discharge a signature that claims only `puts`:
+--- `cannot unify — expected io({puts: …}), got io({fs: …, puts: …})`.
+
+export both : Str ~> IO<{ puts, fs }> = s ~> both(s)
+
+widen_reject : Str ~> IO<{ puts }> = s ~> both(s)

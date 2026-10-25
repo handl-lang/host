@@ -1,0 +1,33 @@
+--- tests/smoke/effects.hnl — `IO<sig>` effect signatures and `handle`.
+--- Driven by `hnl typecheck` (see `ci.sh smoke`).
+---
+--- `IO<sig>` is an indexed former: `sig` is the op-signature record
+--- (`IO<{ puts }>` — braces stay inside the `<>` bracket where a sig
+--- index needs them). A covered op's sig entry is *replaced* by the
+--- handler impl's return type; an uncovered op stays a bare name.
+
+--- Signature-only ops still need a body (no `extern`/`declare` surface
+--- yet), so these are self-referencing stubs — they typecheck; applying
+--- them diverges. Check-side only.
+export printLn : Str ~> IO<{ puts }> = s ~> printLn(s)
+export readFile : Str ~> IO<{ fs }> = p ~> readFile(p)
+export both : Str ~> IO<{ puts, fs }> = s ~> both(s)
+
+puts_handler : (Str ~> Unit) ~> Unit = req ~> req("handled")
+fs_handler : (Str ~> Str) ~> Str = req ~> req("contents")
+
+--- Covered: `handle` discharges `puts` — the sig entry becomes the
+--- impl's return type (`puts: Unit`); nothing residual.
+handled_print : Str ~> IO<{ puts: Unit }> = handle printLn with {puts: puts_handler}
+
+--- Uncovered: handling `puts` out of `{puts, fs}` leaves `fs` as a
+--- residual bare op — the covered entry still records `puts: Unit`.
+handled_partial : Str ~> IO<{ puts: Unit, fs }> = handle both with {puts: puts_handler}
+
+--- Both ops covered.
+handled_full : Str ~> IO<{ puts: Unit, fs: Str }> = handle both with {puts: puts_handler, fs: fs_handler}
+
+--- Effect widening accepts: a computation performing only `puts` is a
+--- `Str ~> IO<{ puts, fs }>` (the wider sig supplies at least the
+--- narrower one's ops).
+widen_ok : Str ~> IO<{ puts, fs }> = s ~> printLn(s)

@@ -1,0 +1,43 @@
+--- tests/smoke/alias_forall.hnl — transparent `type.` aliases, `forall`
+--- (explicit-Pi surface sugar), and `~[n]~>` dimension arrows. Driven by
+--- `hnl typecheck` (see `ci.sh smoke`).
+
+data Nat :: Zero | Succ(pred : Nat)
+
+data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+
+-- ---------------------------------------------------------------------
+-- `type.Name(p…) := T` — a transparent alias (ADR-0154 §3): binds a
+-- `type.alias` expansion record; `Name`/`Name(args)` in type position
+-- substitute at use sites — no former mint.
+-- ---------------------------------------------------------------------
+
+type.NatAlias := Nat
+type.BoolVec := Vec(1, Bool)
+type.Hom2(a) := a ~[2]~> a
+
+z2 : NatAlias = Succ(Zero)
+one_bool : BoolVec = VCons(true, VNil)
+export endo2<a> : Hom2(a) ~> Hom2(a) = e ~> e
+
+-- ---------------------------------------------------------------------
+-- `forall n : Nat, T` — parse-level `Pi` shorthand: the binder's first
+-- argument is the index. Application instantiates it (`idn(Succ(Zero))`
+-- — a bare `2` is a `Number` literal, not a `Nat` index term).
+-- ---------------------------------------------------------------------
+
+idn : forall n : Nat, Nat = n ~> n
+polyv : forall n : Nat, Vec(n, Bool) ~> Vec(n, Bool) = n ~> v ~> v
+two : Nat = idn(Succ(Succ(Zero)))
+v2 : Vec<1, Bool> = polyv(Succ(Zero))(VCons(true, VNil))
+
+-- ---------------------------------------------------------------------
+-- `~[n]~>` — the dimension-indexed hom `Hom(n, s, t)` (a dimension
+-- index, never a coeffect grade). Laws are higher-cell terms: vertical
+-- `>>>[k]` composition, the `id` identity cell, stated at `~[3]~>`.
+-- ---------------------------------------------------------------------
+
+export comp_assoc := (a, b, c) ~> ((a >>>[2] b) >>>[2] c) ~[3]~> (a >>>[2] (b >>>[2] c))
+export id_left := (f, e) ~> (id(f) >>>[2] e) ~[3]~> e
+export id_right := (g, e) ~> (e >>>[2] id(g)) ~[3]~> e
+export swap_id := (a ~[2]~> a) ~[3]~> (a ~[2]~> a)

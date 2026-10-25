@@ -1,0 +1,57 @@
+--- tests/smoke/types.hnl — indexed `data` families, dependent `match`,
+--- `F.rec`, and paths. Driven by `hnl typecheck` (see `ci.sh smoke`).
+---
+--- Syntax note: implicit index binders / index application are spelled
+--- `<…>` (`vhead<n, a>`, `Vec<1, Bool>`) — the `{…}` surface migrated to
+--- `<>` (a dimension IS an index; phase-2 WS-C). `Vec<Succ n, a>` folds
+--- whitespace into `call` inside the bracket.
+
+data Nat :: Zero | Succ(pred : Nat)
+
+data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+
+v1 : Vec<2, Bool> = VCons(true, VCons(false, VNil))
+
+-- ---------------------------------------------------------------------
+-- match — dependent elimination: each ctor pattern refines the
+-- scrutinee's family index for the duration of the arm.
+-- ---------------------------------------------------------------------
+
+--- `Vec<Succ n, a>` is definitionally `Vec<n + 1, a>` (WS-D bridge), so a
+--- VCons-only match is *provably* exhaustive — no catchall, and a stray
+--- VNil arm is decided-impossible (auto-discharged, or `VNil: absurd`).
+export vhead<n, a> : Vec<Succ n, a> ~> a = v ~> match v { VCons(x, xs): x }
+
+export vtail<n, a> : Vec<n + 1, a> ~> Vec<n, a> = v ~> match v { VCons(x, xs): xs }
+
+--- Two-arm match: under VNil the index refines `n ≡ 0`; under VCons,
+--- `n ≡ ?k + 1` with `xs : Vec<?k, a>`.
+export is_nil<n, a> : Vec<n, a> ~> Bool =
+  v ~> match v { VNil: true, VCons(x, xs): false }
+
+-- ---------------------------------------------------------------------
+-- `F.rec` — the family eliminator is visible to the checker:
+-- `Vec.rec(motive, vnil_case, vcons_case)(indices…, scrutinee)`.
+-- ---------------------------------------------------------------------
+
+step : Bool ~> Vec<1, Bool> ~> Nat ~> Nat = x ~> xs ~> ih ~> Succ(ih)
+len_via_rec : Nat = Vec.rec(null, Zero, step)(2, Bool, v1)
+
+-- ---------------------------------------------------------------------
+-- Path / refl / transport / J — equality is paths (proof-relevant).
+-- ---------------------------------------------------------------------
+
+p : Path(1, 1) = refl
+
+--- `p # v` transports `v` along `p`; a `Path` bound in the environment
+--- justifies the rewrite.
+moved : Nat = p # Zero
+
+--- `match … return (i, w) ~> T with {…}` binds the branch-local `eq_*`
+--- witnesses: the VNil arm eliminates `eq_n` through `J`, the VCons arm
+--- transports `v` along it.
+id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) =
+  n ~> v ~> match v return (i, w) ~> Vec(i, Bool) with {
+    VNil: J eq_n, (i2, w2) ~> Vec(i2, Bool), v,
+    VCons(x, xs): eq_n # v
+  }

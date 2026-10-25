@@ -118,6 +118,7 @@ bash scripts/ci.sh test       # nextest + doctests (-j 2)
 bash scripts/ci.sh coverage-report   # coverage/ html + lcov
 bash scripts/ci.sh coverage-gate     # blocking: tooling-crates line floor
 bash scripts/ci.sh dogfood    # build hnl from ../host-cli, run the corpus
+bash scripts/ci.sh smoke      # hnl typecheck/run/test over tests/smoke/
 ```
 
 - **No containers**: the pipeline needs the local toolchain (rustup +
@@ -138,6 +139,13 @@ bash scripts/ci.sh dogfood    # build hnl from ../host-cli, run the corpus
 - **Shared target**: worktree runs share `$WORKSPACE/.ci-target/host`
   (`CI_TARGET_DIR`) so each push isn't a cold build; dogfood's `hnl`
   builds under `.ci-target/host-cli`. Prune if disk gets tight.
+- **Smoke suite**: `tests/smoke/*.hnl` runs through the real `hnl`
+  binary + `libhnl_ext_{typecheck,eval,test}` cdylibs (the dogfood
+  toolchain, shared `.ci-target/dogfood` target dir) — end-to-end
+  `data`/`match`/`<>`-index-binder/`IO<>`/`handle`/`instance`/`forall`/
+  `~[n]~>`/`eval.checked` coverage that no Rust test exercises.
+  `*_err.hnl` files are expected-failure checks (nonzero exit
+  required). `CI_SKIP_SMOKE=1` drops it from `ci`.
 - **Trigger**: `scripts/ci-watch.sh` polls `origin/main`, runs
   `bupha run` (generated per-worktree config) in a detached worktree per
   new sha, appends to `ci-watch.log`, and optionally posts commit

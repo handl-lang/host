@@ -1,0 +1,40 @@
+--- tests/smoke/eval.hnl — the runtime meta surface: `eval.checked`,
+--- `sym.seeded`/`__ctor__` minting, `type.instanceof`. Driven by BOTH
+--- `hnl run` and `hnl test` (see `ci.sh smoke`) — deliberately free of
+--- `data` declarations, which `hnl test`'s desugar pipeline cannot yet
+--- lower (documented phase-3 gap); the manual `__ctor__` mints exercise
+--- the same dispatch path.
+
+--- `eval.checked(self, src)` — the checked eval path: lex -> parse_raw
+--- -> typecheck -> desugar -> eval, returning `{value, type}`. A
+--- typecheck error in `src` is an EvalError — the checked path never
+--- evaluates an unchecked term.
+checked_add := eval.checked(self, "1 + 2")
+
+--- `sym.seeded` mints deterministic nominals — two mints of the same
+--- seed are the *same* symbol, so hand-minted `__ctor__` objects take
+--- the canonical ctor-object dispatch in `match` (the lib-option
+--- idiom).
+mk_pair := (x, y) ~> {"__ctor__": sym.seeded("data.Pair.Mk"), x: x, y: y,
+                    "type": {"__former__": sym.seeded("data.Pair"), "indices": []}}
+p := mk_pair(1, 2)
+
+--- `hnl test` discovers the `test_*` bindings; `assert` is ambient in
+--- the test env.
+test_checked_value := assert match checked_add.value { 3: true, _: false }
+test_seeded_idem := assert type.instanceof(p, {"__former__": sym.seeded("data.Pair"), "indices": []})
+test_ctor_match := assert match p { Mk: true, _: false }
+test_ctor_payload := assert match p { Mk: match p.x { 1: true, _: false }, _: false }
+
+--- `==` against a `type.unknown` host-call result is a *checker*
+--- failure, so the `hnl run`-side assertions ride a `while` body (the
+--- checker's typed black hole) and raise loudly on mismatch.
+smoke_all := while { d: null } { (d) ~> { out: do {
+  chk := (g, w) ~> if g == w { true } else { error.raise("smoke mismatch") }
+  [
+    chk(checked_add.value, 3),
+    chk(type.instanceof(p, {"__former__": sym.seeded("data.Pair"), "indices": []}), true),
+    chk(match p { Mk: true, _: false }, true),
+    chk(match p { Mk: p.y, _: 0 }, 2)
+  ]
+} } }
