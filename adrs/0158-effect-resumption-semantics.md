@@ -51,15 +51,21 @@ interpretations. Handler *laws* are cell equations, checkable with
 law_state : (put(v) >>> get()) ~[2]~> pure(v)
 ```
 
-## `effect` decl + the `data` unification
+## Effect signatures are records — `E := { op : A ~> B }`
 
-Effect signatures get a generator-decl form mirroring `data`:
+Effect signatures are **just records** — no new decl form:
 
 ```hnl
-effect State :: get : Unit ~> s | put : s ~> Unit
---  =  the sig former (IO<{get, put}>) + op generators
---     (get/put invocable via perform or bare names) + `handle` as eliminator
+State := { get : Unit ~> Nat, put : Nat ~> Unit }
+counter : Unit ~> IO<State>
 ```
+
+`State := {…}` is already a valid record bind; `IO<State>` is the
+former indexed by it. The `data`-flavored `effect S :: op : A ~> B`
+form was rejected: `::`/`|` implies ctors-returning-the-former, which
+ops don't do — the record literal *is* the sig, so `:=` is the honest
+spelling. (`effect` could survive as an optional marker alias for the
+same record bind, but adds no semantics.)
 
 The `data`/`effect` decls are **one mechanism** — "these are the
 generators"; the only difference is what a generator produces:
