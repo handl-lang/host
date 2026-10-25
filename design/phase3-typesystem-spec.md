@@ -1021,6 +1021,43 @@ s, put replaces it, and the put's payload is computed inside the fold.
 - Carried: F6 (`zipWith`), F7 (`?m`), F8 (dict member). F1–F5
   verified fixed/adequate this session.
 
+### 2026 — Three design decisions landed
+
+- **Explicit `Sigma`, no `exists` sugar.** `filter{n,a} : (a ~> Bool)
+  ~> Vec{n,a} ~> Sigma(Nat, m ~> Vec(m,a))` written in
+  `lib-collections/src/collections.hnl` — `hnl typecheck` clean,
+  `hnl run` end-to-end. Sigma intro is the `[witness, value]` pair.
+  Friction recorded: a Sigma-destructured `m` reads as the `Nat` sort
+  inside `Vec(m, a)` (bare names resolve through gamma to their sort;
+  only `m + 0`-shaped compounds stay `var`), so the recursive repack
+  `Vec(m+1,a)` never unifies with `Vec(Nat, ?m)` — the computing
+  filter stays unwritable. `exists m. T` sugar →
+  `host/project/BACKLOG.md`.
+- **Auto-discharge for decided-impossible match arms.** In
+  `synth_match_with_motive` (engine-typecheck-nbe): an arm whose ctor
+  index unification is DECIDED-unsatisfiable is auto-discharged —
+  skipped silently, body unchecked-but-allowed, no arm-type
+  contribution; coverage never required it anyway. `absurd` stays
+  legal as documentation; `absurd` on a reachable arm still errors. A
+  ctor building a *different* family remains an error (nominal
+  impossibility ≠ index decision — almost always a typo). Fixes the
+  `zipWith` catch-22 (inner `VNil` under `n ≡ ?k+1`). Tests:
+  `match_auto_discharges_decided_impossible_arm`,
+  `match_auto_discharge_zipwith_shape`; dependent_structure 51, lib
+  302, parity 46 all green. `typecheck_model.hnl` (fixture + design
+  copy) updated to the same contract.
+- **`export` binds + `hnl run --name`.** The shared `export` op
+  (engine-exec `native_ops`) `env_assign`s the declared name —
+  `export x := v` binds `x` via the child's `target` role, self-ref
+  exports get `with_self_ref_bind`; engines without Env keep the
+  pass-through. `hnl run` on an export file evaluates to the block
+  tail; `--name f` splices `f` as the tail (a `do`-leading source gets
+  it before the leading block's matching close). Verified:
+  `export x := 41; export y := x+1; y` → 42, `--name y` → 42,
+  collections.hnl `hnl run` → `smoke_tail` evaluates. Remaining gap:
+  `export` inside a `do {…}` block is still an unbound wire at
+  typecheck (scope pass doesn't bind it) — pre-existing.
+
 ### 2026 — CI migrated from Dagger to the bupha shell runner
 
 - `bupha` (github.com/9aia/bupha — headless CI: webhook → queue →
@@ -1055,3 +1092,49 @@ s, put replaces it, and the put's payload is computed inside the fold.
   `../host-cli` (stale since the cli → host-cli rename, ADR-0149), and
   dev-link on a marker-less Cargo.toml duplicates existing `[patch]`
   tables.
+
+### 2026 — Index-position syntax `{…}` → `<…>` (dimension IS an index)
+
+- Parser: the `<` special production (`dimension_applies`/`parse_dimension`,
+  engine-parse-pratt) now carries the former `{…}` index-application and
+  implicit-binder surface — `Vec<n, a>`, `f<a, ev : Eq(a)>`, `IO<{ puts: T }>`
+  all mint `dimension` `[target, args…]`. `parse_dimension` gained the
+  whitespace-application fold (`Vec<Succ n, a>` ⇒ `call(Succ, n)`) and a
+  post-arg `:` wrap for sorted binders (the `type-annot` kind is read from
+  the `:` infix row's child shape — engine-generic). The `{` index-app
+  production (`index_app_applies`/`parse_index_app`) is deleted; `{…}`
+  everywhere else stays records/blocks/match arms. Old `{` forms now fail
+  to bind (verified: `/tmp/hnl-verify/instances*.hnl` in `{…}` spelling
+  error out; the `<>` spellings typecheck).
+- Typecheck (nbe): `dimension` joins the `"call" | "index_app"` arms —
+  `parse_family_head`, `dep_synth_type`, ctor-telescope index terms,
+  `node_to_index_term`, `node_to_ann_term`; `synth_call`'s implicit-pi
+  index fill covers it (`is_index_app` → `index_app | dimension`).
+  `implicit_binder_head` already accepted `dimension`. Bootstrap scope
+  pass: `implicit_binder_names` accepts `dimension` targets.
+- Data: `type.dimension` (synth_call + check, mirrors `type.index_app`)
+  added in kit-prelude-lang/types.yaml — fragment count 86→87 (88 with the
+  parked `instance` WIP in-tree). kit-data-prelude assembly asserts bumped
+  to the merged counts (tokens 107, lexer 105, grammar 87, eval 91, ast 97).
+- Semantics notes (approved): `Vec<n,a>` in eval position now applies via
+  `transform.desugar.dimension` → `call` (vs `{…}` erasure) — no `.hnl`
+  source puts a former application in eval position. Unannotated
+  `f<n,a> := body` binds runtime params (`f := n ~> a ~> body`,
+  ADR-0106 §12) — annotated `f<n,a> : T = body` keeps implicit-erasure.
+  `index_app` node kind remains for pre-desugar/hand-built trees.
+- Sources: `lib-collections` collections.hnl fully migrated
+  (`vsingleton<a>`, `Vec<Succ n, a>`, `eqv<a, ev : Eq(a)>`,
+  `IO<{ puts: Unit }>`, `handle printLn with { puts: h }` — record braces
+  stay `{ }` spaced). lib-json-handl/lib-type doc spelling updated.
+  Tutorial: `IO<sig>`/`handle <arrow> with <h>` (deep-carry idiomatic)/
+  implicit `<…>` binders.
+- Verified: engine-parse-pratt 62+conformance, dependent_structure 51/51
+  (incl. the parked `instance` WIP's tests — `synth_instance` is committed),
+  lang_merge 7/7, kit_assembly 5/5, `hnl typecheck` clean on
+  collections.hnl + json.hnl + `/tmp/hnl-verify/*_angles.hnl`,
+  `hnl run` collections.hnl evaluates, `1 < 2` still parses as comparison.
+- Parked: kit-prelude-lang carries an unrelated uncommitted `instance`
+  WIP (WS-A fragments: token/lexer/grammar/ast/eval/types + count bump) —
+  its committed `synth_instance` + tests need those fragments; left in
+  tree, flagged for its owner.
+
