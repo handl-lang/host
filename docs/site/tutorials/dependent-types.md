@@ -191,48 +191,51 @@ id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) =
 > `hnl typecheck` verifies them; `hnl run` does not give them a
 > computational meaning (transported values evaluate to their payload).
 
-## Step 6: `IO(sig)` and `handle … with`
+## Step 6: `IO<sig>` and `handle … with`
 
 `IO` is a former indexed by an **operation signature** — a record
 naming the ops a computation may perform:
 
 ```hnl
-print : String ~> IO({puts: String ~> Unit}) = s ~> print(s)
+print : String ~> IO<{ puts: String ~> Unit }> = s ~> print(s)
 ```
 
 `print` returns an `IO` whose sig declares one op, `puts`, taking a
 `String` and returning `Unit`. Signature subtyping is record-width: an
-`IO({puts})` value checks wherever a wider `IO({puts, gets})` is
+`IO<{ puts }>` value checks wherever a wider `IO<{ puts, gets }>` is
 expected — a caller is only *allowed* more ops than the callee uses.
 
-`handle <expr> with { op: impl, … }` discharges ops. A covered op's
-sig entry is replaced by the impl's return type:
+`handle <arrow> with <h>` discharges ops — the idiomatic form carries
+the handler *inside* the arrow (a deep handler): `handle f with h`
+produces `A ~> IO(S')`. A covered op's sig entry is replaced by the
+impl's return type:
 
 ```hnl
 puts_impl : (String ~> Unit) ~> Unit = req ~> req("x")
-x : IO({puts: Unit}) = handle print("x") with {puts: puts_impl}
+handled_print : String ~> IO<{ puts: Unit }> = handle print with { puts: puts_impl }
+x : IO<{ puts: Unit }> = handled_print("x")
 ```
 
 Coverage is checked both ways — a handler naming ops the body never
 uses, or covering none of them, is an error; uncovered ops pass through
-to the residual `IO` for an outer handler. `handle f with h` also works
-on an arrow itself (deep handler), producing `A ~> IO(S')`.
+to the residual `IO` for an outer handler. `handle <expr> with <h>`
+also works on a produced `IO` value directly (shallow form).
 
 > **Type-level note.** The annotations and coverage rules above are
 > enforced by `hnl typecheck`. Running a `handle` expression interprets
 > the declared ops at runtime — it needs real op implementations, so
 > toy handlers like the one above are check-time illustrations.
 
-## Step 7: Implicit `{…}` binders
+## Step 7: Implicit `<…>` binders
 
-Prefix a name's binders with `{name}` (optionally `{name : Sort}`) to
+Prefix a name's binders with `<name>` (optionally `<name : Sort>`) to
 make it an **implicit index/type parameter**: callers never pass it;
 the checker inserts a fresh metavariable at each application and
 unification solves it.
 
 ```hnl
-id_io{s} : (String ~> IO(s)) ~> String ~> IO(s) = f ~> x ~> f(x)
-y : IO({puts: String ~> Unit}) = id_io(print)("x")
+id_io<s> : (String ~> IO(s)) ~> String ~> IO(s) = f ~> x ~> f(x)
+y : IO<{ puts: String ~> Unit }> = id_io(print)("x")
 ```
 
 ```text
@@ -241,7 +244,7 @@ $ hnl typecheck vec.hnl   # ok
 
 `id_io` never mentions `s` in the body — it is the effect row of
 whatever function you pass. Applying it to `print` solves
-`s := {puts: String ~> Unit}` automatically. `{s : Sig}` declares the
+`s := { puts: String ~> Unit }` automatically. `<s : Sig>` declares the
 sort explicitly when inference needs a hint.
 
 ## What runs vs. what is type-level
@@ -252,8 +255,8 @@ sort explicitly when inference needs a hint.
 | Index arithmetic (`Vec(1+1)`) | computed during checking | n/a |
 | `match` refinement / unreachable arms | checked per branch | evaluates the matched arm |
 | `Path`, `refl`, `p # v`, `J` | checked (proof objects) | type-level only |
-| `IO(sig)`, `handle … with` | sig + coverage checked | interprets via real op impls |
-| Implicit `{…}` binders | meta inserted + solved | erased |
+| `IO<sig>`, `handle … with` | sig + coverage checked | interprets via real op impls |
+| Implicit `<…>` binders | meta inserted + solved | erased |
 
 ## Next steps
 
