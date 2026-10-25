@@ -249,7 +249,46 @@ All nine items block a workstream — pick before implementation:
   binders can't serve as term-level `Nat` witnesses (partially covered by
   the `exists` entry — keep both).
 
-## Dogfood round 3 — lib-json-handl findings (full report: `design/dogfood-json-report.md`)
+## Cargo `[patch]` tables & `--locked` lockfiles
+
+Sweep over the 148 sibling repos with a root `Cargo.toml`: 61 had a lockfile
+that `cargo … --locked` refused forever (`cannot update the lock file …
+because --locked was passed`) — even immediately after a *successful*
+`cargo update`.
+
+- **Root cause** — cargo serializes `[[patch.unused]]` in HashMap iteration
+  order. With one source contributing unused entries (the global
+  `~/.cargo/config.toml` sepia patches) the order is stable in practice; as
+  soon as a manifest `[patch]` entry is also unused, two sources contribute and
+  every re-resolution writes a byte-different lockfile, so `--locked` can never
+  converge. Proof: repeated `cargo metadata` on one repo produced different
+  lockfile md5s over an identical unused *set*.
+- **Fix** — unused patch entries are resolution-neutral, so delete them from
+  the manifest: `host/scripts/dev-link-prune.py <repo>` reads
+  `[[patch.unused]]` from the lockfile, drops those members, drops emptied
+  tables, and keeps comments (including the `# dev-link:` markers); then one
+  `cargo metadata` re-resolves. Result: byte-stable lockfile, `--locked` green,
+  same dependency graph and versions.
+- **State** — 147/147 repos that have a lockfile are `--locked`-clean
+  (`lib-json-handl` has no lockfile: zero deps). 55 repos took a
+  `chore: refresh stale Cargo.lock` commit touching only `Cargo.lock` +
+  `Cargo.toml`; nothing was pushed.
+- **Run the pruner after editing any `[patch]` table.** `removed=0
+  remaining-unused=<n>` means the table set is already minimal (the remaining
+  unused entries come from global config and are harmless on their own).
+- **`dev-link.sh` cannot be re-run on `host` as-is** — that manifest mixes
+  hand-written `[patch]` tables with the generated `# dev-link:` region, so a
+  re-run appends a second set and emits duplicate `[patch."…/<repo>"]` headers
+  (`error: duplicate key`); it also generates 86 tables where 92 are committed.
+  Treat the committed tables as authoritative until the generator is
+  reconciled with the hand-maintained ones.
+- **Pruner marker bug (fixed in the same session)** — the first version
+  dropped a region's trailing `# dev-link: end` marker when its last table was
+  pruned, which makes the next `dev-link.sh` run append a whole second region.
+  It hit `sdkgen-cli` (repaired inside its lock commit); all 148 manifests now
+  have matching begin/end markers.
+
+
 
 Working deliverable: `lib-json-handl/src/json.hnl` (~880 ln) — pure-handl JSON
 parse/toStr/pretty, `data` recursion, `runState_c` free-monad State chain;
