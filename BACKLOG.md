@@ -347,3 +347,28 @@ per-entry dispatch discards ordering + result-feedback, so real State needs the
 explicit free-monad chain (`runState_c`). Options: (a) sequencing/bind
 primitive in the `IO` former, or (b) `handle` feeding op results back into the
 running computation. Without one, every real effect is hand-rolled chains.
+
+## Docs sweep — state and leftovers
+
+Every public repo publishes a Diátaxis site at
+<https://handl-lang.github.io/docs/>: 27 products with the four quadrants
+(`index`, `reference`, `how-to`, `explanation`) plus `docs/site.yaml`. The hub
+(`docs` repo) owns one allowlist (`scripts/public_repos.py`, imported by all
+three generators), generates per-product sidebars from what was vendored, and
+ships `.nojekyll` — without it Pages ran a legacy Jekyll build and deploys
+silently never took effect.
+
+Remaining:
+
+- **`research-dts` is archived, so its docs commit is local-only.** The site is
+  published (vendored from the checkout) but the commit cannot be pushed while
+  the repo is read-only; unarchive to land it.
+- **`host`, `graphopt`, `eqsat`, `gamekit` got README pointers only.** Their
+  `docs/site/` trees predate this sweep and were not re-read for accuracy; the
+  other 23 repos were authored from source. Refresh when someone owns them.
+- **38 sibling repos are `--locked`-clean but not compile-verified.**
+  `engine-exec-bytecode/src/vm.rs:1842` fails `E0308` (`replace` wants `usize`,
+  gets `Option<usize>`) in an in-flight edit, and everything downstream cannot
+  build. Re-run the verify pass (`cargo test --workspace --lib --locked` under
+  the global flock) once it compiles. The same blocker holds the `hnl` extension
+  build, and with it the `lib-json-handl` re-verify against `e094277`.
