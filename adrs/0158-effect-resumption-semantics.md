@@ -51,6 +51,32 @@ interpretations. Handler *laws* are cell equations, checkable with
 law_state : (put(v) >>> get()) ~[2]~> pure(v)
 ```
 
+## `effect` decl + the `data` unification
+
+Effect signatures get a generator-decl form mirroring `data`:
+
+```hnl
+effect State :: get : Unit ~> s | put : s ~> Unit
+--  =  the sig former (IO<{get, put}>) + op generators
+--     (get/put invocable via perform or bare names) + `handle` as eliminator
+```
+
+The `data`/`effect` decls are **one mechanism** — "these are the
+generators"; the only difference is what a generator produces:
+
+- `data X :: C : args ~> X` — generators produce *value* nodes
+  (`{__ctor__}`); `match`/`F.rec` fold a finished spine.
+- `effect E :: op : A ~> B` — generators produce *suspension* nodes
+  (`{op, arg, next}` where `next` is the paused arrow); `handle` folds
+  the spine in-flight.
+
+`IO<{…}>` stays the type-level spelling — an effect former's index is
+the sig record; `effect` is the declaration surface. `match` on a
+finished value and `handle` on a live spine are the same eliminator
+read at different moments; the full collapse (`handle` literally *is*
+`F.rec` on the op-spine) completes when `next`/resumption is a first-class
+value — the multi-shot `resume` workstream.
+
 ## Correspondence (Sanada → handl)
 
 | Sanada | handl |
