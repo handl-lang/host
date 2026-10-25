@@ -1196,7 +1196,82 @@ s, put replaces it, and the put's payload is computed inside the fold.
   `match`); `hnl run` typechecks first, so a file carrying Path/J-only
   bindings can't run — `types.hnl` is typecheck-only for that reason.
 
+### 2026 — `perform` op emission (`io` module + `synth_perform`/`check_call`)
+
+- *Where it landed*: `perform` is a **host function on the new `io`
+  module** — `hnl_engine_exec::io::{IoModule, PerformFn}` in
+  `engine-exec` (new `src/io.rs`, next to `interpret_io_former`'s
+  semantics). No AST node, no grammar/eval-scheme change: the surface
+  form is an ordinary `call` whose callee resolves the `sym.seeded` way
+  — unbound `var` → name string → `call_host` → `ModuleRegistry` —
+  so tree-walk/bytecode/cranelift all reach it identically. Both the
+  flat `perform(puts, "hi")` and qualified `io.perform(puts, "hi")`
+  spellings resolve. Registered in `kit-prelude`'s `PRELUDE_MODULES`
+  (native row) + `io` in `kit-data-prelude`'s `prelude.yaml`
+  `base_modules` (which also seeds `io`/`perform` as checker wires via
+  `prelude_wire_names`).
+- *Runtime mint*: `perform(op, arg)` returns the existing IO former
+  shape — `{"__former__": <Sym seeded "type.io">, "indices": [{op:
+  arg}]}` — exactly what `interpret_io_former` dispatches under
+  `handle`. `op` accepts a string, or a `__sym__` value (its display
+  name is the op name); `arg` defaults to `null` (`perform(op)` →
+  `{op: null}`).
+- *Type rule* (`type.perform` isn't a rule — the typing lives on the
+  generic `type.call`): `synth_call_judgment` intercepts a
+  `perform`/`io.perform` callee (unbound-in-Γ — source bindings shadow)
+  → `synth_perform` mints `Former{type.io, [sig{op: T}]}` where `op` is
+  read as a *name* (`var` → its name, `value`/`lit` → string payload,
+  `sym("n")`/`sym.seeded("n")` → seed) and `T` is the arg's synthesized
+  type (`type.unit` if omitted). The new `check_call` judgment
+  (`type.call`'s `check:`) defers `perform` calls to synth+`dep_unify`
+  (record-width sig subtyping: `IO{puts:Str}` checks against
+  `IO{puts,fs}`); every other call reproduces the old YAML check scheme
+  verbatim (synth callee → check arg vs `param` → yield `body`).
+- *Scope walk* (`engine-typecheck/src/bootstrap.rs` `check_expr`): a
+  `perform`/`io.perform` call's bare-`var` op operand is a name
+  position (like an object `key:` or `field-access` field), not an
+  unbound wire — exempted; callee/args still walk.
+- *Op-name representation*: strings — `perform(puts, …)`'s bare `puts`
+  arrives as `"puts"` via the unbound-var→name rule, and handler
+  records dispatch on string field names. `sym("puts")` operands map to
+  the same `"puts"` name.
+- *Merge semantics (v1, decided)*: each `perform` mints a fresh
+  single-entry sig — `do { perform(puts,"a"); perform(puts,"b") }`
+  produces two `IO` values (the first is discarded as a statement
+  value; there is no ambient sig accumulation). No merge protocol —
+  `interpret_io_former` interprets whatever sig record arrives.
+- *Verified*: `hnl run` `x := perform(puts,"hello"); handle x with
+  {puts: s ~> s}` → IO object `{puts:"hello"}` (former handle
+  `16969724874574109231`, the `type.io` seeded nominal). `hnl
+  typecheck` `y : IO<{puts: Str}> = perform(puts,"hi")` → ok.
+  `engine_parity.rs` `io_perform_mints_io_former` +
+  `io_perform_through_handle` green on all 3 engines;
+  `dependent_structure.rs` 5 `perform` tests (mint/both spellings,
+  wrong-sig rejection, handle coverage + spurious/empty diagnostics,
+  computed-op rejection, shadowing) green; `effects.hnl` smoke extended
+  with `perform` bindings; `effects_err.hnl` still fails as required.
+- *Open issues*: (1) the `hnl-wire-prelude.json` cache is keyed on the
+  `hnl` binary's identity — a `.so`-only rebuild (ext cdylib change,
+  `hnl` untouched) serves a stale wire set; observed during this work
+  (delete `~/.cargo/shared-target/hnl-wire-prelude.json` to bust).
+  (2) Handler coverage `check_subtype` does not solve metas — an
+  anonymous `s ~> s` impl against a `Str` sig entry leaves `?m`
+  unsolved (`IO{puts:?m}` ≠ `IO{puts:Str}`); declared impls work, smoke
+  uses `puts_payload_impl : Str ~> Str`. (3) `perform`'s sig entry is
+  the *payload* type (`Str`), not the op's declared arrow type — the
+  two sig shapes coexist intentionally (declaration stubs vs minted
+  requests) but a shared op-type discipline is a follow-up.
+  (4) `puts` bound to a different value passes that value through —
+  documented; users should bind op names to their own names or spell
+  them as strings.
+
 ### 2026 — typed `while` bodies (engine-typecheck-nbe `73673c9`, kit-prelude-lang `38c76ed`)
 - `type.while` → `synth_while` judgment (was `type.unknown` — 100% unchecked): statement-form checks cond→Bool + body under `ctx.mark()/restore` (binds don't escape, rebinding shadows locally); state-form reads `{state}` head per `build_loop_step_args`, body checked against internal `type.__loose_top__` sentinel so `{state}`/`{out}` records never join but internals report.
 - `loose_synth_node` dispatches by `AstShapeDef` roles only; `ctx.loose` yields fresh metas for record/array access on unsolved metas.
 - 7 new `tests/while_typing.rs` tests; lib 302/302. Fallout noted: `lib-desugar/src/index.hnl:2584` `+`-on-`Str` bug inside a while body (pre-existing, now detected); `if cond` on `type.unknown` in while bodies still fails (pending `type.unknown`-top workstream).
+
+### 2026 — `perform` primitive (engine-exec `1f7976d`, nbe `7e36925`, kit `a06f992`/`ec09d43`, host `7ebe493e`)
+- `perform(op, arg)` / `io.perform(...)` — host fn on new `io` prelude module (no AST/grammar change; resolves via `call_host` like `sym.seeded`): mints `{"__former__": type.io, "indices":[{op:arg}]}` — dispatchable through `handle`/`interpret_io_former` on all 3 engines.
+- Checker: `synth_perform` — `perform(op,arg)` synthesizes `Former{type.io,[{op:typeof(arg)}]}`; bare-`var` op operand exempt from unbound-wire (engine-typecheck `4b3f579`).
+- v1 merge semantics: each `perform` mints a fresh single-entry sig — no ambient accumulation; `do { perform(a); perform(b) }` yields two IO values.
+- Open: `check_subtype` doesn't solve metas in anonymous handler impls (use declared impls); sig entry = payload type not op arrow type (both sig shapes coexist intentionally); `hnl-wire-prelude.json` cache is binary-keyed — `rm` after `.so` rebuilds.
