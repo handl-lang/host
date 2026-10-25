@@ -27,7 +27,6 @@ members = [
   "crates/plugin-loader-native/tests/fixtures/native-echo",
   "crates/plugin-lib-handl",
 
-
   "crates/plugin-lib-scheduler",
   "crates/plugin-lib-tag",
     "crates/plugin-lib-stdlib",
@@ -258,9 +257,6 @@ handl-kit-lang = { path = "../kit-lang/crates/kit-lang" }
 handl-kit-ffi = { path = "../kit-ffi/crates/kit-ffi" }
 handl-plugin-ffi = { path = "../kit-ffi/modules/ffi" }
 
-[patch."https://github.com/handl-lang/kit-pkg"]
-handl-kit-pkg = { path = "../kit-pkg/crates/kit-pkg" }
-
 [patch."https://github.com/handl-lang/host"]
 handl-plugin-lib-stdlib = { path = "../host/crates/plugin-lib-stdlib" }
 # dev-link: end
@@ -275,8 +271,6 @@ handl-host-tooling = { path = "../host/crates/host-tooling" }
 handl-platform = { path = "../host/crates/platform" }
 handl-platform-tests = { path = "../host/crates/platform-tests" }
 handl-plugin-applier = { path = "../host/crates/plugin-applier" }
-handl-plugin-applier-bootstrap = { path = "../host/crates/plugin-applier-bootstrap" }
-handl-plugin-applier-default = { path = "../host/crates/plugin-applier-default" }
 handl-plugin-compile = { path = "../host/crates/plugin-compile" }
 handl-plugin-exec-cache = { path = "../host/crates/plugin-exec-cache" }
 handl-plugin-ext-compile = { path = "../host/crates/plugin-ext-compile" }
@@ -303,7 +297,6 @@ handl-lib-bytes = { path = "../kernel/crates/bytes" }
 handl-lib-cmp = { path = "../kernel/crates/cmp" }
 handl-lib-combinators = { path = "../kernel/crates/combinators" }
 handl-lib-error = { path = "../kernel/crates/error" }
-handl-ext = { path = "../kernel/crates/handl-ext" }
 handl-language = { path = "../kernel/crates/handl-language" }
 handl-value = { path = "../kernel/crates/handl-value" }
 handl-lib-mood = { path = "../kernel/crates/mood" }
@@ -444,9 +437,6 @@ handl-lib-ffi = { path = "../lib-ffi" }
 
 [patch."https://github.com/handl-lang/lib-comb"]
 handl-lib-comb = { path = "../lib-comb" }
-
-[patch."https://github.com/handl-lang/lib-dedent"]
-handl-lib-dedent = { path = "../lib-dedent" }
 
 [patch."https://github.com/handl-lang/lib-kv-map"]
 handl-lib-kv-map = { path = "../lib-kv-map" }
