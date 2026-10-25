@@ -276,12 +276,22 @@ because --locked was passed`) — even immediately after a *successful*
 - **Run the pruner after editing any `[patch]` table.** `removed=0
   remaining-unused=<n>` means the table set is already minimal (the remaining
   unused entries come from global config and are harmless on their own).
-- **`dev-link.sh` cannot be re-run on `host` as-is** — that manifest mixes
-  hand-written `[patch]` tables with the generated `# dev-link:` region, so a
-  re-run appends a second set and emits duplicate `[patch."…/<repo>"]` headers
-  (`error: duplicate key`); it also generates 86 tables where 92 are committed.
-  Treat the committed tables as authoritative until the generator is
-  reconciled with the hand-maintained ones.
+- **`dev-link.sh` reconciled** — three changes: the referenced-repo set is now
+  a transitive closure (it stopped at two hops and so silently dropped tables
+  for `lib-ffi`, `lib-perlin`, `lib-rand-stub`, `lib-simplex`, `lib-test`,
+  `lib-type-handl`, which the host manifest carries by hand);
+  a re-run that would emit a second table for an already-present
+  `[patch."…/R"]` URL now **aborts with a report** instead of writing the
+  manifest into cargo's `error: duplicate key`; and it prunes + re-resolves at
+  the end. `DEV_LINK_FORCE=1` folds every table (hand-written and generated)
+  into the managed region — verified equivalent on `host` (137 members,
+  identical lockfile md5), `DEV_LINK_NO_PRUNE=1` skips the prune.
+- **Duplicate names across patch sources are left alone** — a lockfile's
+  `[[patch.unused]]` records only `name` + `version`, no source URL, so when
+  one crate name is patched from two `[patch."…"]` sources the pruner cannot
+  tell which copy cargo meant. It skips those instead of risking an unpatch of
+  the used copy (`skipped-ambiguous=<n>`); consolidating such duplicates stays
+  manual.
 - **Pruner marker bug (fixed in the same session)** — the first version
   dropped a region's trailing `# dev-link: end` marker when its last table was
   pruned, which makes the next `dev-link.sh` run append a whole second region.
