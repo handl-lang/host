@@ -225,3 +225,27 @@ All nine items block a workstream — pick before implementation:
 7. **`op`/`cap` decl disposition** — inert+documented vs checked `stmt.op` into `Sig_m` vs delete. This is the real `extern` question; `extern` itself is rejected. (WS-F)
 8. **`handle … acc`** — build design B (handler-accumulator) vs bless the runState free-monad fold. Dogfood `lib-json-handl` informs this. (WS-E)
 9. **LSP workspace index scope** — `.handl.toml` dep graph vs workspace-root scan. (WS-G)
+
+## Flagged leftovers (session-found, not yet in a workstream)
+
+- **`hnl test` discovery bug** — a top-level `x := if … else …` binding
+  zeroes out all `test_*` discovery for the file (nested `if` is fine).
+  Worked around in `host/tests/smoke/export_run.hnl`; real fix needed in
+  the test-discovery pass.
+- **`VCons` reconstruction in annotated match arms** — ctor instantiation
+  leaks family param names (`n`,`a`) into user scope and collides with
+  user vars. Fix = rename ctor-internal params `__fam_*` on bind.
+  **Owned by user's other session — do not duplicate.**
+- **Self-recursive `handle` SOF under `hnl run`** — related to compiled
+  self-recursion (phase-4 WS-C / decision 6); repro documented in
+  progress logs.
+- **`compile-handl` residual emitter drift** — 2 test fails, pre-existing,
+  flagged not-fixed.
+- **LSP v2 remainder** — v1 shipped (diagnostics/hover/goto-def). The v2
+  batch (meta-zonked hovers, completion, references/rename, multi-diag,
+  UTF-16 cols, sequential `do`-scope) partially overlaps phase-4 WS-G —
+  keep the itemized list here: zonked hover types, hover on non-identifier
+  nodes, ctor/data bindings in defs, references+rename, completion.
+- **Sigma ergonomics** — no eliminator surface beyond match; `<n>` index
+  binders can't serve as term-level `Nat` witnesses (partially covered by
+  the `exists` entry — keep both).
