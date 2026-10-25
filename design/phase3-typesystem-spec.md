@@ -1195,3 +1195,8 @@ s, put replaces it, and the put's payload is computed inside the fold.
   `hnl test` but not under `hnl run`'s checker (use nested literal
   `match`); `hnl run` typechecks first, so a file carrying Path/J-only
   bindings can't run — `types.hnl` is typecheck-only for that reason.
+
+### 2026 — typed `while` bodies (engine-typecheck-nbe `73673c9`, kit-prelude-lang `38c76ed`)
+- `type.while` → `synth_while` judgment (was `type.unknown` — 100% unchecked): statement-form checks cond→Bool + body under `ctx.mark()/restore` (binds don't escape, rebinding shadows locally); state-form reads `{state}` head per `build_loop_step_args`, body checked against internal `type.__loose_top__` sentinel so `{state}`/`{out}` records never join but internals report.
+- `loose_synth_node` dispatches by `AstShapeDef` roles only; `ctx.loose` yields fresh metas for record/array access on unsolved metas.
+- 7 new `tests/while_typing.rs` tests; lib 302/302. Fallout noted: `lib-desugar/src/index.hnl:2584` `+`-on-`Str` bug inside a while body (pre-existing, now detected); `if cond` on `type.unknown` in while bodies still fails (pending `type.unknown`-top workstream).
