@@ -2,7 +2,9 @@
 
 Normative design: ADR-0106 (kernel, as amended) + 0152 (`data`) +
 0153 (`~[n]~>` dimension index) + 0154 (identity/equality/universes/
-literals/erasure) — same as phases 1–2. This spec orders what remains:
+literals/erasure) — same as phases 1–2. `design/semantics.md` reads the
+same design denotationally (`Val` as the domain, `[[·]]` per construct).
+This spec orders what remains:
 the genuinely-hard items plus the polish that makes the dependent
 surface a real language. Waves of ≤4 parallel workstreams. New
 semantics that settle here get their own ADRs; several items are
