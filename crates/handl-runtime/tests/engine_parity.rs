@@ -770,11 +770,82 @@ fn io_perform_through_handle() {
         let got = eval_engine_path(&rt, src)
             .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
         assert_eq!(got, expected, "{name} engine-path on {src:?}");
-        // The qualified spelling reaches the same fn.
+        // The qualified spelling reaches the same fn — and ADR-0158
+        // makes `perform` under the handler dispatch *in-flight*: the
+        // impl's return IS the `perform` result (no `IO` wrapper).
         let src = r#"handle io.perform(puts, "hi") with { puts: s ~> "handled:" + s }"#;
         let got = eval_engine_path(&rt, src)
             .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
-        assert_eq!(got, expected, "{name} engine-path on {src:?}");
+        assert_eq!(got, json!("handled:hi"), "{name} engine-path on {src:?}");
+    }
+}
+
+/// ADR-0158 in-flight dispatch: a `perform` inside the handled body
+/// calls `h[op]` and resumes with its result; an *uncovered* op still
+/// mints the residual `IO<{op: arg}>` that `interpret_io_former`
+/// dispatches post-hoc.
+#[test]
+fn perform_in_flight_dispatch() {
+    for (name, rt) in [
+        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+    ] {
+        // Covered op — `perform` resumes with the impl's result.
+        let src = r#"handle do { s := perform(get, "x"); s + "!" }
+            with { get: u ~> "got" }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, json!("got!"), "{name} engine-path on {src:?}");
+
+        // Uncovered op — residual `IO` mint, interpreted post-hoc.
+        let src = r#"handle do { s := perform(other, "x"); s }
+            with { get: u ~> "got" }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got["indices"][0]["other"], json!("x"), "{name}");
+    }
+}
+
+/// ADR-0158 `acc` clause: `handle f with h acc s0` threads `(payload,
+/// s) ~> (result, s')` across successive dispatches — the runState
+/// shape — and yields the `(result, s_final)` pair.
+#[test]
+fn perform_acc_state_threading() {
+    for (name, rt) in [
+        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+    ] {
+        let src = r#"handle do {
+            s := perform(get, ())
+            perform(put, s + 1)
+            s + 1
+        } with { get: (u, s) ~> [s, s], put: (v, s) ~> [(), v] } acc 0"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        // (result, final_state) = (1, 1) as a `__pair__` value.
+        assert_eq!(got["__pair__"][0], json!(1), "{name} result");
+        assert_eq!(got["__pair__"][1], json!(1), "{name} final state");
+    }
+}
+
+/// ADR-0158 `return` clause: `h["return"](r)` applies to the arrow's
+/// pure result after the ops are handled.
+#[test]
+fn perform_return_clause() {
+    for (name, rt) in [
+        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+    ] {
+        let src = r#"handle perform(get, "x") with {
+            get: u ~> "g",
+            "return": r ~> "done:" + r
+        }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, json!("done:g"), "{name} engine-path on {src:?}");
     }
 }
 
