@@ -248,3 +248,53 @@ All nine items block a workstream — pick before implementation:
 - **Sigma ergonomics** — no eliminator surface beyond match; `<n>` index
   binders can't serve as term-level `Nat` witnesses (partially covered by
   the `exists` entry — keep both).
+
+## Dogfood round 3 — lib-json-handl findings (full report: `design/dogfood-json-report.md`)
+
+Working deliverable: `lib-json-handl/src/json.hnl` (~880 ln) — pure-handl JSON
+parse/toStr/pretty, `data` recursion, `runState_c` free-monad State chain;
+39-item verified smoke. Gaps found:
+
+**S1 — blockers**
+- `type.unknown` untouchable (no `==`/`<`/`+`/`if` on host/while results) —
+  **likely fixed by engine-typecheck-nbe `e094277` ("type.unknown is the
+  dynamic top") landed mid-session — re-verify before scheduling.**
+- Closed-record unification rejects heterogeneous ctor payloads in shared slots.
+- Record/array literals crash in `type.unknown`-expected positions
+  (`check_object_record: no 'fields' object`).
+- `check_json_value` internal crash on meta/unknown/mismatched-record expected
+  types — should be a unification diagnostic, not an internal error.
+- `hnl run` integrated checker is stricter than `hnl typecheck` — same file
+  passes one, fails the other; no `run --unchecked` escape hatch.
+- **`str.replace` broken** — pattern never matches, `\` inserted before last
+  char (engine bug, arg order matches no documented permutation).
+- **Char-pattern `match` emits escapes one position late** — engine-level
+  match-bind/`char.chars` off-by-one (repro `/tmp/hnl-dogfood3/pe2.hnl`).
+- Postfix `f(x)[i]` binds the index to the arrow *name*, not the call result
+  (parse/scope bug — `r := f(x); r[0]` works).
+- `data` ctors are file-local at runtime; `import` of `data` modules fails
+  desugaring + `call_host` misses; `hnl test` can't import `data` files at all
+  (lib ships `mk_*` mints as workaround).
+- `IO<sig>` can't be constructed in checked code (only the runtime
+  `{"__former__":…}` spelling; `lib-type`'s `export IO` doesn't materialize).
+
+**S2 — friction**
+- `:=` arrow params monomorphic across call sites (one wrapper per arg type).
+- `while` bodies no longer unchecked islands — unknown rules apply inside.
+- `+` is Number-only (`str.concat` for strings).
+- `export` in-module: only `import *` / `import * as j` work; no visibility.
+- Recursion needs `: T =`; no mutual recursion.
+- Tuple `kv[1]` indexing fails (`array_element_type`); `match` destructure works.
+- Stray `}` silently re-nests file → `unbound wire` far from the real error.
+- Numbers print as floats (`3.0`).
+
+**S3 — cosmetic**: `()` not a Unit literal; `J` reserved (blocks `data J ::`);
+`Unknown` annotation degrades arrow to LamVal; `hnl test` 0-tests + can't
+import `data`; `ci.sh` hardcodes `../host-cli/target/debug/hnl`;
+match-on-unknown is a working escape valve worth documenting.
+
+**New NEEDS-USER decision (adds to the 9)**: **IO sequencing** — `handle`'s
+per-entry dispatch discards ordering + result-feedback, so real State needs the
+explicit free-monad chain (`runState_c`). Options: (a) sequencing/bind
+primitive in the `IO` former, or (b) `handle` feeding op results back into the
+running computation. Without one, every real effect is hand-rolled chains.
