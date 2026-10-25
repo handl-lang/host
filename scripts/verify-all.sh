@@ -13,7 +13,9 @@
 #      (serial inside each repo; repos themselves are swept serially —
 #      the box is memory-bound, see AGENTS.md). `--locked` whenever the
 #      repo commits a Cargo.lock so resolved sibling shas are honored.
-#      `cargo update` runs ONLY under --update-locks.
+#      `cargo update` runs ONLY under --update-locks. A Cargo.lock that
+#      has drifted from its manifest (--locked refuses) is a `stale-lock`
+#      row — listed like the pins, not failed.
 #
 # Plus hnl-level checks first: `hnl version`, `hnl ext list` sanity, and
 # the full tests/smoke suite via scripts/smoke.sh.
@@ -89,7 +91,8 @@ trap 'rm -rf "$LOGDIR"' EXIT
 ROWS=()
 PINNED=()
 FAILURES=()
-C_PASS=0; C_FAIL=0; C_SKIP=0; C_NOTESTS=0; C_TIMEOUT=0; C_BUILDFAIL=0; C_HNL=0; C_HNL_FAIL=0
+C_PASS=0; C_FAIL=0; C_SKIP=0; C_NOTESTS=0; C_TIMEOUT=0; C_BUILDFAIL=0; C_HNL=0; C_HNL_FAIL=0; C_STALELOCK=0
+STALELOCK=()
 
 row() { # repo status tests secs note
   ROWS+=("$(printf '%-28s %-11s %7s %7s  %s' "$1" "$2" "$3" "$4" "$5")")
@@ -182,6 +185,12 @@ for d in "$ROOT"/*/; do
 
   if [ $rc -eq 0 ]; then
     C_PASS=$((C_PASS + 1)); row "$name" pass "$ntests" "${secs}s" "$note"
+  elif grep -q 'cannot update the lock file.*--locked' "$LOGDIR/$name.log"; then
+    # Manifest drifted from Cargo.lock — --locked refuses before any
+    # compile. Same reporting class as stale pins: listed, not failed
+    # (--update-locks is the fix, run deliberately).
+    C_STALELOCK=$((C_STALELOCK + 1)); STALELOCK+=("$name")
+    row "$name" stale-lock "-" "${secs}s" "$note"
   elif [ $rc -eq 124 ]; then
     C_TIMEOUT=$((C_TIMEOUT + 1)); FAILURES+=("$name")
     row "$name" timeout "$ntests" "${secs}s" ">$TIMEOUT s $note"
@@ -204,8 +213,13 @@ emit() {
   ((${#ROWS[@]})) && printf '%s\n' "${ROWS[@]}"
   echo
   echo "repos:  $C_PASS passed, $C_FAIL test-fail, $C_BUILDFAIL build-fail," \
-       "$C_TIMEOUT timeout, $C_NOTESTS no-tests"
+       "$C_TIMEOUT timeout, $C_STALELOCK stale-lock, $C_NOTESTS no-tests"
   echo "hnl:    $C_HNL passed, $C_HNL_FAIL failed"
+  if ((${#STALELOCK[@]})); then
+    echo "stale-lock repos (Cargo.lock drifted from Cargo.toml — listed," \
+         "not failed; fix with --update-locks):"
+    printf '  %s\n' "${STALELOCK[@]}"
+  fi
   if ((${#PINNED[@]})); then
     echo "stale-pin repos (rev-pinned git deps — listed, not failed):"
     printf '  %s\n' "${PINNED[@]}"
