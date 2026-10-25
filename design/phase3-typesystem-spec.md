@@ -1138,3 +1138,60 @@ s, put replaces it, and the put's payload is computed inside the fold.
   its committed `synth_instance` + tests need those fragments; left in
   tree, flagged for its owner.
 
+
+### 2026 — hnl-level smoke suite wired into bupha CI (`tests/smoke/` + `ci.sh smoke`)
+
+- New `host/tests/smoke/` suite — one `.hnl` file per phase-3 surface
+  area, driven by the real `hnl` binary + `libhnl_ext_{typecheck,eval,
+  test}` cdylibs (no Rust changes):
+  - `types.hnl` (`hnl typecheck`): `data Nat`, `data Vec(n,a)` indexed
+    family, dependent `match` refinement (`vhead`/`vtail` VCons-only
+    exhaustive; two-arm `is_nil`), `Vec.rec` eliminator call, `Path`/
+    `refl`, `p # v` transport, and `J` inside a `match … return (i,w) ~>
+    T with` motive arm.
+  - `types_err.hnl` (expect failure): `x : Bool := 3` →
+    `cannot unify — expected Bool, got Number`.
+  - `effects.hnl` (`hnl typecheck`): `IO<{ puts }>`/`IO<{ fs }>` sig
+    annotations, `handle` covered (`puts: Unit` replaces the op entry)
+    and partial (`{puts: Unit, fs}` residual), widening accepted
+    (`IO<{puts}>` where `IO<{puts, fs}>` required).
+  - `effects_err.hnl` (expect failure): `IO<{puts, fs}>` used where
+    `IO<{puts}>` required → `cannot unify` (effect narrowing rejected).
+  - `instance.hnl` (`hnl typecheck`): `instance Eq(Nat) := dict` +
+    `<a, ev : Eq(a)>` sorted implicit binder; `eqv(Zero)(Zero)`
+    discharges by dictionary search.
+  - `alias_forall.hnl` (`hnl typecheck`): `type.NatAlias`/`type.BoolVec`/
+    `type.Hom2(a)` transparent aliases, `forall n : Nat, T` (explicit-Pi
+    sugar — the forall's first arg IS the index; `idn(Succ(Zero))`
+    instantiates, a bare `2` is `Number` not `Nat`), `~[2]~>`/`~[3]~>`
+    cell terms (`>>>[2]`/`id` laws).
+  - `eval.hnl` (`hnl run` + `hnl test`): `eval.checked(self, "1 + 2")`
+    → `{value,type}`; `sym.seeded`/`__ctor__` manual mints (lib-option
+    idiom), `type.instanceof`, `match` on minted ctors; `test_*` +
+    `assert` for the test driver, a `while`-body `chk` block for the
+    run driver (`==` on `type.unknown` host results is a checker error
+    — the while body is the typed black hole).
+- All files are spelled in the new `<>` index surface (`Vec<n, a>`,
+  `f<a, ev : Eq(a)>`, `IO<{ puts }>`) — the `{…}` `index_app` spelling
+  is gone in-tree (see the `{…}` → `<…>` entry above).
+- `scripts/ci.sh`: new `smoke` stage; the worktree scratch-parent +
+  ext-build plumbing is factored into `setup_hnl_toolchain`/
+  `cleanup_hnl_toolchain`/`build_toolchain_exts` shared with `dogfood`.
+  `SMOKE_EXTS=(ext-typecheck ext-eval ext-test)` — everything lands in
+  the shared `.ci-target/dogfood` target dir, so `smoke` after
+  `dogfood` is incremental. `smoke` is appended to the `ci` stage list
+  (per-push) with a `CI_SKIP_SMOKE` guard; `ci-watch.sh`/`bupha run`
+  pick it up free.
+- Verified: `bash scripts/ci.sh smoke` green end-to-end on a cold
+  `.ci-target/dogfood` (release exts + `hnl` built from siblings,
+  ~5 min) — 4 typecheck files `ok`, `hnl run eval.hnl` → `[true×4]`,
+  `hnl test eval.hnl` → 4/4 passed, both `*_err.hnl` files fail with
+  the expected diagnostics.
+- Notes / gaps surfaced while writing the suite: `hnl test` cannot
+  desugar `data` (known — eval.hnl is data-free on purpose);
+  `match ev { mkEq(f): … }` on an implicit-evidence binder typechecks
+  but can't run (`ev` has no runtime dict — erasure class), so
+  `instance.hnl` stays check-side; `assert X = n` parses under
+  `hnl test` but not under `hnl run`'s checker (use nested literal
+  `match`); `hnl run` typechecks first, so a file carrying Path/J-only
+  bindings can't run — `types.hnl` is typecheck-only for that reason.
