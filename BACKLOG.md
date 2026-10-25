@@ -207,10 +207,9 @@ verifies 45/45 differentially under `hnl-run`.
   the `Sigma(Nat, m ~> T)` encoding (explicit `Sigma` is the decision;
   sugar deferred). Covers `filter`-style return types
   (`Vec{?m, a}` — `?m` index holes don't lex today) and Sigma
-  destructure ergonomics (pair pattern on the intro `[m, v]`; the
-  destructured length var currently reads as the `Nat` sort inside
-  `Vec(m, a)` — bare index names resolve through gamma to their sort,
-  only compound terms like `m + 0` stay `var`).
+  destructure ergonomics (pair pattern on the intro `[m, v]` binds the
+  witness rigidly — `var{m}` — since the phase-3 Sigma-destructure
+  fix; the remaining friction is surface-only).
 
 ## Phase-4 user decisions (from `design/phase4-typesystem-spec.md`, NEEDS-USER table)
 

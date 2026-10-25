@@ -1027,12 +1027,13 @@ s, put replaces it, and the put's payload is computed inside the fold.
   ~> Vec{n,a} ~> Sigma(Nat, m ~> Vec(m,a))` written in
   `lib-collections/src/collections.hnl` — `hnl typecheck` clean,
   `hnl run` end-to-end. Sigma intro is the `[witness, value]` pair.
-  Friction recorded: a Sigma-destructured `m` reads as the `Nat` sort
+  Friction recorded: a Sigma-destructured `m` read as the `Nat` sort
   inside `Vec(m, a)` (bare names resolve through gamma to their sort;
   only `m + 0`-shaped compounds stay `var`), so the recursive repack
-  `Vec(m+1,a)` never unifies with `Vec(Nat, ?m)` — the computing
-  filter stays unwritable. `exists m. T` sugar →
-  `host/project/BACKLOG.md`.
+  `Vec(m+1,a)` never unified with `Vec(Nat, ?m)` — **since resolved**
+  (rigid witness binding + `unify_index` `Bin` congruence; see the
+  Sigma-destructure entry below — `filter` now computes).
+  `exists m. T` sugar → `host/project/BACKLOG.md`.
 - **Auto-discharge for decided-impossible match arms.** In
   `synth_match_with_motive` (engine-typecheck-nbe): an arm whose ctor
   index unification is DECIDED-unsatisfiable is auto-discharged —
@@ -1288,3 +1289,14 @@ s, put replaces it, and the put's payload is computed inside the fold.
 - Warning decision: explicit `x : type.unknown = v` annotations push a `warning` diagnostic ("annotated `type.unknown` — the dynamic top accepts any value and erases the binding's static type"); inferred `unknown` (host calls, `resolve`, `while` results) stays silent — flagging every dynamic value would be noise. `TypecheckDiagnostic` channel; `hnl typecheck` currently renders only errors (CLI surface gap — warnings exist in `result.diagnostics`, visible to LSP/tests).
 - Verified: `tests/unknown_top.rs` 9/9 — `x + 1`, `x == 1`, `if x`, `x.f`, `x[0]`, `f(x)`, `x(1)`, unknown-into-`Str`/`Number` annotations, mixed unknown/concrete match-arm join, `while`-inferred unknown flow; negative controls (`x : Bool = 3`, `if 3`) still fail. `hnl typecheck` repro: `x : type.unknown = serialize.to_string({"a":1})` then `x == 3` → ok. `tests/smoke/eval.hnl` typechecks clean — the `chk`/while island no longer required.
 - Notes: `unify_index`/`solve_meta` untouched — index metas keep solving (an `unknown` bound to a meta is just its solution). `x : Unknown` (the wire-name spelling, report G3) still mints the `LamVal` placeholder — separate bug, not this workstream.
+
+### 2026 — Sigma destructure: rigid witness binding + `unify_index` `Bin` congruence (engine-typecheck-nbe `e094277`, engine-typecheck `4b3f579`, lib-collections `4db4e7f`)
+- `bind_sigma_destructure` (dependent.rs): the `[witness, payload]` Sigma pair pattern binds the witness *rigidly* — `var{m}` in `results` (index positions) + the `param` sort in Γ (term positions, so `Succ(m)` still checks `m : Nat`) — then applies the `body_closure` at that atom. `ys` lands at `Vec(var{m}, a)`; the repack's `Vec(m + 1, a)` sees the same term.
+- `dep_closure_apply_term` occurs-guard: when the closure's `var_name` occurs inside its own binding term (`Sigma(Nat, m ~> Vec(m,a))` applied at `var{m} + 1` — user `m` and closure `m` collide), the results key alpha-renames through `fam_scope` (`m ↦ __bound_m`): the body's `var{m}` resolves `__bound_m → var{m} + 1` while the outer `var{m}` atom (e.g. `ys`'s index) stays untouched. `eval_index_fuel` got the matching opaque-shadow guard — a `var{n} ↦ t` rewrite where `var{n}` occurs in `t` resolves the inner atom opaquely (`__bound_n`) instead of re-applying the rewrite (`var{n} + 64` at the fuel bound).
+- `dep_synth_var_type` resolves `results` before Γ (a results-bound name is the nearest scope — that's what lets a destructured `m` read as `var{m}` instead of the `Nat` sort) **but** a Γ *type declaration* (`type.alias`/`type.ctor_sig`/`type.family` — the tags `dep_bound_var_type` interprets) still wins: every `assign` records the bound *term* in `results` (`type.Score := Nat` leaves `Score ↦ var{Nat}`, ADR-0103's bound-value env), and that term is value-position only. Without the decl carve-out `type_alias_expands_transparently` regressed (`s : Score = 3` → `expected Nat, got Number`).
+- `unify_index` same-op `Bin` congruence: `?k + 1 ≡ var{m} + 1` — the Sigma repack equation (`VCons(x, ys)` at `Vec(var{m} + 1, a)` vs `Vec(?k + 1, a)`) — solves pointwise (`?k := var{m}`, `1 ≡ 1`) as a *speculative* attempt under `store_mark`/`store_restore`: a successful operand-wise unify is a valid unifier; a failed pair rolls back and falls through to `solve_index`/the structural path (pointwise is not most-general — `?x + 1 ≡ var{n} + 2` stays stuck rather than wrongly rejecting).
+- `bootstrap.rs`: `stmt.export` in block scope — `export x := e` inside `do {}` binds `x` into the sibling scope like a plain assign (the runtime `export` op env-assigns the name); bare `export x` of an unbound name reports `unbound-export`.
+- Tests: `dependent_structure.rs` +6 — `nested_absurd_inner_match_checks`, `export_implicit_binders_abstract_index`, `export_zipwith_recursive_body_checks` (+no-fn shape), `export_zipwith_wrong_result_errors`, `sigma_destructure_repack_index` (+`if`-repack variant), `sigma_destructure_wrong_payload_errors`. The `tests/zz_debug.rs` scratch harness was converted and deleted.
+- `lib-collections`: `filter` is the real recursive repack — `VCons(x, xs): match filter(f)(xs) { [m, ys]: if f(x) { [Succ(m), VCons(x, ys)] } else { [m, ys] } }`. `hnl typecheck` clean; `hnl run` gives witness `Succ(Succ(Zero))` for `filter ispos [0,1,2]`. `exists m. T` sugar stays BACKLOG'd (`?m` index holes still don't lex).
+- Verified: lib 302/302, dependent_structure 62/62, parity 46/46, import_sig 10/10, unknown_top 9/9, while_typing 7/7; `/tmp/hnl-repro/zipwith-*` + `absurd*` all `hnl typecheck` ok; `do { export inc := x ~> x + 1; inc(41) }` → `42`.
+- Note: between `73673c9` and `e094277` HEAD was unbuildable — `lib.rs`'s committed `bind_pattern_vars` sigma dispatch called `bind_sigma_destructure`, whose definition was still uncommitted; both halves landed in `e094277`.
