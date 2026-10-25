@@ -55,11 +55,29 @@ def unused_patch_names(lock_text):
 
 
 def prune(toml_text, unused):
-    """Drop member lines naming an unused patch; drop emptied tables."""
+    """Drop member lines naming an unused patch; drop emptied tables.
+
+    A name that appears in more than one `[patch."…"]` table is *skipped*:
+    `[[patch.unused]]` records only `name` + `version` (no source URL), so
+    cargo cannot tell us which of the duplicates it meant, and dropping the
+    used one would silently unpatch a real dependency.
+    """
     lines = toml_text.splitlines(keepends=True)
     section = re.compile(r"^\s*\[")
     patch_header = re.compile(r"^\s*\[patch\.")
     member = re.compile(r"^\s*([A-Za-z0-9_-]+)\s*=")
+
+    seen = {}
+    in_patch = False
+    for line in lines:
+        if section.match(line):
+            in_patch = bool(patch_header.match(line))
+            continue
+        m = member.match(line)
+        if in_patch and m and not line.lstrip().startswith("#"):
+            seen[m.group(1)] = seen.get(m.group(1), 0) + 1
+    ambiguous = {name for name, n in seen.items() if n > 1}
+    removable = unused - ambiguous
 
     out = []
     removed = tables = 0
@@ -81,7 +99,7 @@ def prune(toml_text, unused):
             m = member.match(b)
             if m and not b.lstrip().startswith("#"):
                 members += 1
-                if m.group(1) in unused:
+                if m.group(1) in removable:
                     removed += 1
                     continue
             kept.append(b)
@@ -101,7 +119,7 @@ def prune(toml_text, unused):
         i = j
 
     text = re.sub(r"\n{3,}", "\n\n", "".join(out))
-    return text, removed, tables
+    return text, removed, tables, len(ambiguous & unused)
 
 
 def main(argv):
@@ -119,10 +137,13 @@ def main(argv):
         return 1
 
     unused = unused_patch_names(lock_p.read_text())
-    text, removed, tables = prune(toml_p.read_text(), unused)
+    text, removed, tables, skipped = prune(toml_p.read_text(), unused)
     if not dry_run and removed:
         toml_p.write_text(text)
-    print(f"removed={removed} tables={tables} remaining-unused={len(unused)}")
+    print(
+        f"removed={removed} tables={tables} "
+        f"remaining-unused={len(unused)} skipped-ambiguous={skipped}"
+    )
     return 0
 
 
