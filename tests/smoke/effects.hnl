@@ -31,3 +31,22 @@ handled_full : Str ~> IO<{ puts: Unit, fs: Str }> = handle both with {puts: puts
 --- `Str ~> IO<{ puts, fs }>` (the wider sig supplies at least the
 --- narrower one's ops).
 widen_ok : Str ~> IO<{ puts, fs }> = s ~> printLn(s)
+
+--- `perform(op, arg)` — the `IO<sig>` op-emission builtin (the `io`
+--- module's `perform` host fn, reached through the same `call` →
+--- `call_host` → module-registry path as `sym.seeded`): it mints
+--- `IO<{op: T}>` — `op` is an op *name* (a bare identifier is not a
+--- wire), `T` the arg's type. Both spellings check.
+perf_sig : IO<{ puts: Str }> = perform(puts, "hi")
+perf_qualified : IO<{ puts: Str }> = io.perform(puts, "hi")
+perf_string_op : IO<{ fs: Str }> = perform("fs", "path")
+
+--- A `perform`ed op dispatches through `handle` with the same coverage
+--- rules as a declared effect: the covered entry takes the impl's
+--- declared return type, widening still applies. (A `perform` sig entry
+--- is the *payload* type — `Str` for `perform(puts, "hi")` — so the
+--- covering impl's domain takes `Str`, unlike the `(Str ~> Unit)`
+--- op-type impls the declaration stubs use above.)
+puts_payload_impl : Str ~> Str = s ~> s
+perf_handled : IO<{ puts: Str }> = handle perform(puts, "hi") with {puts: puts_payload_impl}
+perf_widen : IO<{ puts: Str, fs }> = perform(puts, "hi")

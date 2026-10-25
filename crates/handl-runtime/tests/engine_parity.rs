@@ -703,6 +703,82 @@ fn tag_mint_producers_deleted_error_everywhere() {
 }
 
 // ===========================================================================
+// `IO<sig>` — `perform` op emission + `handle` (ADR-0153 §4)
+// ===========================================================================
+//
+// `perform(op, arg)` mints the runtime `IO` former
+// `{"__former__": <type.io sym>, "indices": [{op: arg}]}` — a host
+// function on the `io` module (`hnl_engine_exec::io::IoModule`), reached
+// through `call_host` → the module registry on every engine. Under
+// `handle … with <h>` the `handle_dyn`/`Handle` interpretation
+// (`interpret_io_former`) reads the sig record's op names and replaces
+// each covered entry with the handler's result.
+
+fn runtime_with_io(engine: Box<dyn EvalEngine>) -> Runtime {
+    let modules: std::rc::Rc<dyn handl_platform::ModuleLookup> = std::rc::Rc::new(
+        handl_plugin_module::ModuleRegistry::new().with(hnl_engine_exec::io::IoModule::new()),
+    );
+    let engine = engine.with_modules(modules);
+    Runtime::new(canonical_lang())
+        .with_lex_engine(Box::new(DataLexerEngine::new()))
+        .with_parse_engine(PrattEngine::new())
+        .with_eval_engine(engine)
+}
+
+/// `perform` mints the `IO` former identically on every engine: the sig
+/// record lands in `indices[0]` and `__former__` decodes to the seeded
+/// `type.io` nominal.
+#[test]
+fn io_perform_mints_io_former() {
+    for (name, rt) in [
+        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+    ] {
+        let got = eval_engine_path(&rt, r#"perform(puts, "hi")"#)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed: {e}"));
+        assert_eq!(got["indices"][0]["puts"], json!("hi"), "{name}");
+        // `__former__` decodes to the `type.io` nominal — a `__sym__`
+        // encoding whose handle is `type.io`'s seeded handle.
+        let expected_former = handl_value::tagged_to_value(&handl_value::TaggedValue::Sym(
+            handl_value::Sym::seeded("type.io"),
+        ));
+        assert_eq!(got["__former__"], expected_former, "{name}");
+    }
+}
+
+/// `handle <io> with <h>` interprets a `perform`ed op: the sig entry's
+/// value feeds `h.puts` and is replaced by the result — parity across
+//  all three engines.
+#[test]
+fn io_perform_through_handle() {
+    let expected = json!({
+        "__former__": handl_value::tagged_to_value(&handl_value::TaggedValue::Sym(
+            handl_value::Sym::seeded("type.io"),
+        )),
+        "indices": [{ "puts": "handled:hi" }],
+    });
+    for (name, rt) in [
+        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+    ] {
+        let src = r#"do {
+          x := perform(puts, "hi")
+          handle x with { puts: s ~> "handled:" + s }
+        }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, expected, "{name} engine-path on {src:?}");
+        // The qualified spelling reaches the same fn.
+        let src = r#"handle io.perform(puts, "hi") with { puts: s ~> "handled:" + s }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, expected, "{name} engine-path on {src:?}");
+    }
+}
+
+// ===========================================================================
 // Ctor-object dispatch + Nat-tower arithmetic (ADR-0152 §2, dogfood F2/F4)
 // ===========================================================================
 
