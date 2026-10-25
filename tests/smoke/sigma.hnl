@@ -1,0 +1,41 @@
+--- tests/smoke/sigma.hnl — the `Sigma` dependent-pair former.
+--- Driven by `hnl typecheck` (see `scripts/smoke.sh` / `ci.sh smoke`).
+---
+--- `Sigma(A, x ~> B)` is a surface former in type-expression position —
+--- a `type.sigma` object, not a `data` family. Introduction is the
+--- `[witness, value]` pair literal: the first component's term binds the
+--- closure variable, so `B` is checked at the *actual* witness. There is
+--- no Σ-elimination surface yet (the lib-collections gap log notes the
+--- destructure reads `m` as the `Nat` sort, losing index-var status), so
+--- this file stays check-side — `hnl run` would print the pair but the
+--- ctor-object rendering is not part of the asserted surface.
+
+data Nat :: Zero | Succ(pred : Nat)
+
+data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+
+-- ---------------------------------------------------------------------
+-- Existential length: "some `m` with a `Vec(m, a)`". The witness refines
+-- the expected family index — `[Succ(Zero), VCons(true, VNil)]` checks
+-- because `Vec(1, Bool)` is `Vec(Succ(Zero) ≡ 0 + 1, Bool)`.
+-- ---------------------------------------------------------------------
+
+one_vec : Sigma(Nat, m ~> Vec(m, Bool)) = [Succ(Zero), VCons(true, VNil)]
+empty_vec : Sigma(Nat, m ~> Vec(m, Bool)) = [Zero, VNil]
+
+--- A function whose return type is a Σ — the `filter`/`zip` shape from
+--- lib-collections where the output length can't be named.
+export single_vec<a> : a ~> Sigma(Nat, m ~> Vec(m, a)) =
+  x ~> [Succ(Zero), VCons(x, VNil)]
+
+--- Note: an index `<n>` binder is a different *sort* from a `Nat` term —
+--- `[n, …]` does not check (`expected Nat, got n`); the witness must be
+--- a term-level `Nat`, not an index variable.
+
+-- ---------------------------------------------------------------------
+-- Iterated Σ via right-nested pairs `[a, [b, p]]` — as long as each
+-- inner family only mentions its own binder.
+-- ---------------------------------------------------------------------
+
+two_sigs : Sigma(Nat, m ~> Sigma(Nat, k ~> Vec(k, Bool))) =
+  [Zero, [Succ(Zero), VCons(false, VNil)]]

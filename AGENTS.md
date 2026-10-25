@@ -139,13 +139,23 @@ bash scripts/ci.sh smoke      # hnl typecheck/run/test over tests/smoke/
 - **Shared target**: worktree runs share `$WORKSPACE/.ci-target/host`
   (`CI_TARGET_DIR`) so each push isn't a cold build; dogfood's `hnl`
   builds under `.ci-target/host-cli`. Prune if disk gets tight.
-- **Smoke suite**: `tests/smoke/*.hnl` runs through the real `hnl`
+- **Smoke suite**: `tests/smoke/*` runs through the real `hnl`
   binary + `libhnl_ext_{typecheck,eval,test}` cdylibs (the dogfood
   toolchain, shared `.ci-target/dogfood` target dir) — end-to-end
   `data`/`match`/`<>`-index-binder/`IO<>`/`handle`/`instance`/`forall`/
-  `~[n]~>`/`eval.checked` coverage that no Rust test exercises.
-  `*_err.hnl` files are expected-failure checks (nonzero exit
-  required). `CI_SKIP_SMOKE=1` drops it from `ci`.
+  `~[n]~>`/`Sigma`/`export`+`run`/`eval.checked` coverage that no Rust
+  test exercises. The check matrix is convention-driven in
+  `scripts/smoke.sh` (runnable standalone against
+  `~/.cargo/shared-target/debug/hnl`): `*_err.hnl` files are
+  expected-failure checks (nonzero exit + the `.err` sidecar's error
+  substring required), `.out`/`.run` sidecars assert `hnl run` /
+  `hnl run --name` stdout, `.test` markers gate `hnl test`.
+  `CI_SKIP_SMOKE=1` drops it from `ci`.
+- **Workspace verification**: `scripts/verify-all.sh` sweeps every
+  sibling repo (`cargo test --workspace --lib`, `--test-threads=1`,
+  `--locked` where a Cargo.lock exists), audits stale `rev =` pins
+  (listed, not failed), and runs the smoke suite — serial, manual/cron
+  (`scripts/ci.sh verify-all`), not part of the push gate.
 - **Trigger**: `scripts/ci-watch.sh` polls `origin/main`, runs
   `bupha run` (generated per-worktree config) in a detached worktree per
   new sha, appends to `ci-watch.log`, and optionally posts commit

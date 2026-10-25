@@ -1,0 +1,29 @@
+--- tests/smoke/export_run.hnl — `export` surface under `hnl run`:
+--- exported arrows are ordinary bindings reachable from `--name` exprs,
+--- and the file tail's value is the run's printed result. Driven by
+--- `hnl typecheck`, `hnl run` (golden: export_run.out), `hnl run --name`
+--- (export_run.run), and `hnl test` (export_run.test marker) — see
+--- `scripts/smoke.sh`. Deliberately `data`-free: `hnl test`'s desugar
+--- pipeline cannot lower `data` declarations yet (phase-3 gap, same as
+--- eval.hnl). Second discovery quirk worked around here: a top-level
+--- `x := if … else …` binding makes `hnl test` report zero cases for
+--- the whole file — so the conditional lives inside `result`'s record
+--- (parenthesized; bare `assert (if …) == s` also misjudges the `if`
+--- scrutinee type today — documented limitations, not avoided surface).
+
+export double : Number ~> Number = n ~> n * 2
+export add : Number ~> Number ~> Number = a ~> b ~> a + b
+export point := { x: 1, y: 2 }
+
+--- Composed application of two exports — the `--name` exprs in
+--- export_run.run resolve these in module scope after `export`s bind.
+sum := add(double(2))(3)
+result := { sum: sum, tag: (if sum == 7 { "seven" } else { "other" }), fst: add(1)(1) }
+
+test_double := assert double(21) == 42
+test_add := assert add(19)(23) == 42
+test_point := assert point.x + point.y == 3
+test_if := assert result.tag == "seven"
+
+--- Tail expression: `hnl run` prints this value (export_run.out).
+result

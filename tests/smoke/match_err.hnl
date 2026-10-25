@@ -1,0 +1,16 @@
+--- tests/smoke/match_err.hnl — expected-failure smoke: `hnl typecheck`
+--- MUST exit nonzero (`scripts/smoke.sh` asserts it, and that stderr
+--- carries the substring in match_err.err).
+--- On an indexed family the checker tracks which constructors can
+--- occur: `Vec<n, a>` admits both, so a VNil-only match is decided
+--- non-exhaustive — `match: non-exhaustive — constructor `VCons` can
+--- occur but no arm covers it`. (Plain non-indexed `data` still admits
+--- partial matches today — totality is enforced where index
+--- refinement makes coverage decidable.)
+
+data Nat :: Zero | Succ(pred : Nat)
+
+data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+
+export is_nil_broken<n, a> : Vec<n, a> ~> Bool =
+  v ~> match v { VNil: true }

@@ -16,6 +16,9 @@
 #   scripts/ci.sh coverage-gate    # blocking: tooling-crates line floor
 #   scripts/ci.sh dogfood          # build hnl from host-cli, run the corpus
 #   scripts/ci.sh smoke            # hnl test/run/typecheck over tests/smoke/
+#   scripts/ci.sh verify-all [args]# workspace sweep — sibling-repo lib
+#                                  # tests + hnl checks (scripts/verify-all.sh);
+#                                  # manual/cron, not part of the push gate
 #
 # Env:
 #   CI_JOBS          nextest -j / libtest threads (default 2 — the suite is
@@ -266,12 +269,15 @@ stage_dogfood() {
   return "$rc"
 }
 
-# The hnl-level smoke suite: tests/smoke/*.hnl through the real `hnl`
-# binary + ext cdylibs — end-to-end feature coverage (data/match/F.rec,
-# Path/J/transport, IO(sig) + handle, instance + implicit evidence,
-# type.* aliases, forall, `~[n]~>` cells, eval.checked/sym.seeded mints)
-# that no Rust suite exercises. Shares the dogfood toolchain target dir
-# so a `ci` run after `dogfood` is incremental.
+# The hnl-level smoke suite: tests/smoke/* through the real `hnl` binary +
+# ext cdylibs — end-to-end feature coverage (data/match/F.rec,
+# Path/J/transport, IO(sig) + handle, instance + implicit evidence, Sigma
+# pair-intro, type.* aliases, forall, `~[n]~>` cells, eval.checked/
+# sym.seeded mints, export + `hnl run`/`--name`) that no Rust suite
+# exercises. The check matrix is convention-driven and lives in
+# scripts/smoke.sh — this stage only builds the toolchain and invokes it.
+# Shares the dogfood toolchain target dir so a `ci` run after `dogfood`
+# is incremental.
 stage_smoke() {
   local cli_real="$WORKSPACE_ROOT/host-cli" rc=0
   if [ ! -d "$cli_real/crates/host-cli" ]; then
@@ -287,32 +293,20 @@ stage_smoke() {
     (cd "$TOOL_CLI_DIR" && CARGO_TARGET_DIR="$tgt" cargo build --release --bin hnl) || rc=1
   fi
   if [ "$rc" -eq 0 ]; then
-    local dir="tests/smoke" f
     export HANDL_EXT_DIR="$tgt/release"
-    # Positive files: `hnl typecheck` must exit 0.
-    for f in types.hnl effects.hnl instance.hnl alias_forall.hnl; do
-      echo "-- hnl typecheck $dir/$f"
-      "$hnl" typecheck "$dir/$f" || rc=1
-    done
-    # eval.hnl exercises the runtime surface: `hnl run` evaluates its
-    # smoke block, `hnl test` runs the test_* bindings (data-free on
-    # purpose — `hnl test` cannot desugar `data` yet).
-    echo "-- hnl run $dir/eval.hnl"
-    "$hnl" run "$dir/eval.hnl" || rc=1
-    echo "-- hnl test $dir/eval.hnl"
-    "$hnl" test "$dir/eval.hnl" || rc=1
-    # Expected-failure files: `hnl typecheck` MUST exit nonzero.
-    for f in types_err.hnl effects_err.hnl; do
-      echo "-- hnl typecheck $dir/$f (expect failure)"
-      if "$hnl" typecheck "$dir/$f"; then
-        echo "smoke: $dir/$f typechecked clean but must ERROR"
-        rc=1
-      fi
-    done
-    [ "$rc" -eq 0 ] && echo "smoke: suite green"
+    bash scripts/smoke.sh --hnl "$hnl" -v || rc=1
   fi
   cleanup_hnl_toolchain
   return "$rc"
+}
+
+# Workspace-level sweep — every sibling repo's lib tests plus the hnl
+# smoke suite (scripts/verify-all.sh). Deliberately NOT in the `ci` gate:
+# it's a serial ~148-repo job meant for cron/manual runs. In a detached
+# worktree it must point --root at the real workspace (the worktree
+# parent's sibling layout is symlinks, not checkouts).
+stage_verify_all() {
+  bash scripts/verify-all.sh "$@"
 }
 
 # The whole gate — serial. The dagger module could fan stages out across
@@ -357,6 +351,7 @@ case "$stage" in
   coverage-gate)   stage_coverage_gate ;;
   dogfood)         stage_dogfood ;;
   smoke)           stage_smoke ;;
+  verify-all)      stage_verify_all "$@" ;;
   ci)              stage_ci ;;
   -h|--help|help)  sed -n '2,31p' "$0" ;;
   *) echo "unknown stage: $stage" >&2; exit 2 ;;

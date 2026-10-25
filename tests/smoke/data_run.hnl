@@ -1,0 +1,24 @@
+--- tests/smoke/data_run.hnl — `data` + `match` under `hnl run`:
+--- constructor minting, ctor dispatch in `match`, and payload access,
+--- with output kept deterministic (ctors are matched down to Numbers —
+--- never printed: a ctor object's rendering embeds sym handles).
+--- Driven by `hnl typecheck` and `hnl run` (golden: data_run.out) —
+--- see `scripts/smoke.sh`. Not a `hnl test` file (`data` doesn't
+--- lower in the test desugar pipeline).
+---
+--- `to_num` recurses — the arrow calculus has no recursion, so the
+--- compiler lowers what it can and the evaluator falls back to AST
+--- eval with a stderr note (`lower_ast unsupported … falling back`);
+--- exit code and stdout stay clean, the note is expected.
+
+data Nat :: Zero | Succ(pred : Nat)
+
+to_num : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + to_num(p) }
+
+data Opt(a : Type) :: None | Some(x : a)
+
+get_or : Opt(Number) ~> Number ~> Number =
+  o ~> d ~> match o { None: d, Some(x): x }
+
+two : Nat = Succ(Succ(Zero))
+result := [to_num(two), get_or(Some(41))(0), get_or(None)(7)]
