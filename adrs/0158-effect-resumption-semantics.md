@@ -51,37 +51,58 @@ interpretations. Handler *laws* are cell equations, checkable with
 law_state : (put(v) >>> get()) ~[2]~> pure(v)
 ```
 
-## Effect signatures are records — `E := { op : A ~> B }`
+## One decl: `X := { gen : … ~> result }` — `data ::` removed, `IO` internal
 
-Effect signatures are **just records** — no new decl form:
+**Generator tables are records.** A `X := { field : type }` record where
+fields' types reference the bound name is a former declaration; the
+field's codomain shape decides the reading:
+
+| field codomain | the field IS | fold |
+|---|---|---|
+| `X<…>` (the former) | a `data` ctor | `match`/`X.rec` |
+| own `B` (doesn't return `X`) | an `IO` op (suspends) | `handle` |
 
 ```hnl
+-- data (was: data Nat :: Zero | Succ(pred : Nat)):
+Nat := { Zero : Nat, Succ : Nat ~> Nat }
+
+-- indexed (was: data Vec(n : Nat, a : Type) :: VNil | VCons(...)):
+Vec<n, a> := {
+  VNil  : Vec<0, a>,
+  VCons : (k : Nat, x : a, xs : Vec<k, a>) ~> Vec<Succ k, a>
+}
+-- <n,a> on the LHS = family telescope (the existing implicit-binder pos)
+
+-- effects — the record IS the sig:
 State := { get : Unit ~> Nat, put : Nat ~> Unit }
-counter : Unit ~> IO<State>
+counter : Unit ~> IO<State>        -- or ~> State if the marker drops
 ```
 
-`State := {…}` is already a valid record bind; `IO<State>` is the
-former indexed by it. The `data`-flavored `effect S :: op : A ~> B`
-form was rejected: `::`/`|` implies ctors-returning-the-former, which
-ops don't do — the record literal *is* the sig, so `:=` is the honest
-spelling. (`effect` could survive as an optional marker alias for the
-same record bind, but adds no semantics.)
+**`data X :: C | D` is removed** — the record form covers it including
+dependent ctors (field names live in the arrow domain). The `::`/`|`
+list form was `data`-flavored sugar that implied ctors-returning-the-
+former — the record literal *is* the generator table, so `:=` is the
+honest spelling. Migration: `.hnl` sources rewrite `data X :: C(args)`
+→ `X := { C : (args) ~> X }` — mechanical, `types.yaml`/`desugar` reads
+the same telescope.
+
+**`IO` becomes an internal marker** — `IO<S>` marks "read `S`'s fields
+as suspensions" at the type level (vs `~> S` reading the record). May
+shrink to implementation detail if `handle`-position carries the
+interpretation; the user-facing decl is just `S := {…}`.
 
 The `data`/`effect` decls are **one mechanism** — "these are the
 generators"; the only difference is what a generator produces:
 
-- `data X :: C : args ~> X` — generators produce *value* nodes
-  (`{__ctor__}`); `match`/`F.rec` fold a finished spine.
-- `effect E :: op : A ~> B` — generators produce *suspension* nodes
-  (`{op, arg, next}` where `next` is the paused arrow); `handle` folds
-  the spine in-flight.
+- codomain `X<…>` → a *value* node (`{__ctor__}`); `match`/`X.rec`
+  folds a finished spine.
+- codomain `B` (not `X`) → a *suspension* node (`{op, arg, next}`);
+  `handle` folds the spine in-flight.
 
-`IO<{…}>` stays the type-level spelling — an effect former's index is
-the sig record; `effect` is the declaration surface. `match` on a
-finished value and `handle` on a live spine are the same eliminator
-read at different moments; the full collapse (`handle` literally *is*
-`F.rec` on the op-spine) completes when `next`/resumption is a first-class
-value — the multi-shot `resume` workstream.
+`match` on a finished value and `handle` on a live spine are the same
+eliminator read at different moments; the full collapse (`handle`
+literally *is* `F.rec` on the op-spine) completes when `next`/resumption
+is a first-class value — the multi-shot `resume` workstream.
 
 ## Correspondence (Sanada → handl)
 
