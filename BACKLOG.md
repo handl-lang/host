@@ -200,3 +200,28 @@ verifies 45/45 differentially under `hnl-run`.
   `null`. Real autodiff on `.hnl` functions needs engine machinery
   (source-to-source transform or a tape in eval) — an engine slice,
   not a host-tensor one.
+
+## Type-system surface sugar
+
+- **`exists m. T` existential sugar** — surface spelling that lowers to
+  the `Sigma(Nat, m ~> T)` encoding (explicit `Sigma` is the decision;
+  sugar deferred). Covers `filter`-style return types
+  (`Vec{?m, a}` — `?m` index holes don't lex today) and Sigma
+  destructure ergonomics (pair pattern on the intro `[m, v]`; the
+  destructured length var currently reads as the `Nat` sort inside
+  `Vec(m, a)` — bare index names resolve through gamma to their sort,
+  only compound terms like `m + 0` stay `var`).
+
+## Phase-4 user decisions (from `design/phase4-typesystem-spec.md`, NEEDS-USER table)
+
+All nine items block a workstream — pick before implementation:
+
+1. **`exists` binder sort** — `exists m. T` (m implicitly `Nat`) vs `exists m : S. T` (explicit sort). (WS-A)
+2. **Sigma destructure** — `[m, v]` pair pattern vs `.1`/`.2` projections vs both. (WS-A)
+3. **Open-row tail spelling** — `IO<{puts | r}>` vs `IO<{puts, ..r}>` vs `IO<Row<puts, r>>`. (WS-D)
+4. **Row-binder introduction** — `f<r : Sig>` explicit vs implicit free row vars. (WS-D)
+5. **SMT driver** — z3 vs cvc5, env-gated via `HNL_INDEX_SOLVER`/`HNL_SMT_BIN`; or defer. (WS-B)
+6. **Self-recursion mechanism (compiled backends)** — reuse `with_self_ref_bind` vs port `eval_rec` vs surface `rec`/`fix`. (WS-C)
+7. **`op`/`cap` decl disposition** — inert+documented vs checked `stmt.op` into `Sig_m` vs delete. This is the real `extern` question; `extern` itself is rejected. (WS-F)
+8. **`handle … acc`** — build design B (handler-accumulator) vs bless the runState free-monad fold. Dogfood `lib-json-handl` informs this. (WS-E)
+9. **LSP workspace index scope** — `.handl.toml` dep graph vs workspace-root scan. (WS-G)
