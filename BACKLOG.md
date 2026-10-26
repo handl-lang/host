@@ -360,9 +360,8 @@ silently never took effect.
 
 Remaining:
 
-- **`research-dts` is archived, so its docs commit is local-only.** The site is
-  published (vendored from the checkout) but the commit cannot be pushed while
-  the repo is read-only; unarchive to land it.
+- **`research-dts` — DONE.** Unarchived, its docs commit pushed (`6be8055`),
+  re-archived. Site is published and current.
 - **`host`, `graphopt`, `eqsat`, `gamekit` got README pointers only.** Their
   `docs/site/` trees predate this sweep and were not re-read for accuracy; the
   other 23 repos were authored from source. Refresh when someone owns them.
