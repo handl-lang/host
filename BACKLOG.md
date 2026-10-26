@@ -371,3 +371,30 @@ Remaining:
   build. Re-run the verify pass (`cargo test --workspace --lib --locked` under
   the global flock) once it compiles. The same blocker holds the `hnl` extension
   build, and with it the `lib-json-handl` re-verify against `e094277`.
+  _Fixed 2026-10-26 (`1e0d2d0`-era change to `std::mem::replace`); the rest of
+  the verify pass is still owed._
+
+## Effects / engines (2026-10-26, after multi-shot `resume`)
+
+Context: `design/multishot-resume.md`, `notes/multishot-resume-cranelift.md`.
+`engine_parity` is 43/44; the last red is below.
+
+- **Bytecode: nullary-ctor pattern in a closure loses its capture.** A
+  `match p { VNil: …, VCons(a, b): … }` inside an arrow body takes the
+  *first* arm for every value on the bytecode VM (tree-walk and cranelift
+  are correct; root-position matches are correct; families without index
+  parameters are correct). Instrumented cause: the arrow's captured map
+  holds only `["VCons"]`, so `pattern_match`'s `scope_value("VNil")`
+  returns `None` and the pattern degrades to a catch-all binder. The
+  capture set is filtered by `subtree_name_candidates`; the minting path
+  for this arrow is not the bytecode `Instr::Closure` fast path nor the
+  shared `closure` op (both were tried and reverted). Next step:
+  instrument the mint and print the candidate set. Repro:
+  `w : Vec ~> Number = p ~> match p { VNil: 0, VCons(a, b): 1 }` applied to
+  `VCons(Zero, VNil)`.
+- **`perform` inside a `rec`/loop fixpoint region** is unsupported by
+  design: the fixpoint re-evaluates its statements once per pass, so the
+  same `perform` would consume a new journal entry each pass and replay
+  can never converge. Supporting it needs journal memoization keyed by
+  (pass, op index).
+
