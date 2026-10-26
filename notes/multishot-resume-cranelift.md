@@ -133,6 +133,15 @@ Remaining reds and what the probes show:
   all three, so the defect is specific to matching an **indexed-family**
   ctor from inside an arrow body, not to ctors, binders, or recursion.
 
+  Narrowed further: the signature is irrelevant —
+  `w : Number ~> Number = p ~> match p { VNil: 0, VCons(a, b): 1 }`
+  applied to `VCons(Zero, VNil)` also returns `0` on bytecode (`1` on
+  tree-walk), while the same body returning a constant works on both, and
+  a **non-indexed** family (`data P2 :: Mk(a : Nat, b : Nat) | PNil`)
+  matched on a parameter works on both. So the trigger is: an
+  **index-parameterized family ctor bound to an arrow parameter** matched
+  inside an arrow body.
+
   Ruled out by probe (all three engines agree on each): `Zero == Zero`,
   `Zero == Succ(Zero)`, `Succ(Zero) == Succ(Zero)`, and
   `Zero.__ctor__ == Succ(Zero).__ctor__`; ctor arm binders
@@ -152,27 +161,12 @@ what differs is only the indexed-family case inside an arrow body. Not the impli
   for the ADR-0158 `acc` clause; unrelated to `resume` and to the lowering
   (it failed identically before this pass).
 
-Also observed while probing (pre-existing, cranelift-only): any ctor match
-after a **multi-constructor `data`** declaration fails at *root* position —
-`data Nat :: Zero | Succ(pred : Nat)` + `match Succ(Zero) { Zero: 0, Succ(p): 1 }`,
-and equally `data P2 :: Mk(a : Nat, b : Nat) | PNil` +
-`match Mk(Zero, Zero) { PNil: 0, Mk(x, y): 1 }` — with
-`field_access: array index must be a non-negative integer` (`binary.eq` ←
-`field-access`, inside the emitted predicate/fold chain), while tree-walk
-and bytecode return `1`. The error now reports the offending access
-(`engine-exec 3c9acd6`):
-
-```
-field_access: array index must be a non-negative integer
-  (array of len 1, field string Str("__ctor__"))
-```
-
-so the compiled fold chain in cranelift hands `__wh.v` as a **one-element
-array** where the ctor object is expected — i.e. an extra array layer on
-the value threaded through the fold, in cranelift's own evaluation of the
-shared `data` code (tree-walk, running the same AST, sees the object). It does **not** reproduce when the same match sits
-inside an arrow body, i.e. it is eager evaluation of the `data` group's
-index-checking code at block scope, not pattern matching.
+**Fixed (cranelift, `engine-exec-cranelift`):** the compiled `{__term__,
+__bound__}` arm appended the *packed* call args to `__bound__`, so
+`Type.rec(m, c0..)(v)` built `[motive, c0.., [v]]` and the fold asked an
+array for `.__ctor__`. It now unpacks a single `Arr` argument (guarded by
+`unpack_arr`, so `flow`/direct `__term__` callers are untouched) — the
+match on `data Nat` works on cranelift again.
 
 Note also that `lower_family_record_decls` only lowers **multi-constructor**
 records, so a one-constructor family (`data P2 :: Mk(a : Nat, b : Nat)`
