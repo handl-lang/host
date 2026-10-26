@@ -1,0 +1,152 @@
+# Multi-shot `resume` on the cranelift engine — landing note
+
+## Status
+
+Landed. `resume` (ADR-0158 replay-journal model) runs on all three eval
+engines: tree-walk (reference), bytecode (native replay) and cranelift
+(journal through the shared `handle_dyn` hook + the tree-walk arrow
+interpreter). Design: `design/multishot-resume.md`.
+
+This note is the changeset manifest — the working tree is not a git
+checkout, so the file inventory below is the hand-off record.
+
+## Summary
+
+A handler clause may take a second parameter — the resumption:
+
+```hnl
+handle perform(choose, [1, 2]) + 100 with {
+  choose: (opts, resume) ~> [resume(opts[0]), resume(opts[1])]
+}
+-- → [101, 102]
+```
+
+`resume(x)` re-runs the handled body from the `handle` boundary under a
+replay journal seeded with `entries[..i] ++ [(op, x)]`; the body's
+completed value (through the `return` clause) is `resume`'s result. No
+continuation capture: the journal is data, so `resume` is copyable.
+
+### Cranelift specifics
+
+- `NativeOpCtx::run_delimited` override installs the journal when the
+  frame has no `__acc__` slot and the handler has a ≥2-ary clause, drives
+  the body, then runs the `IO`-former + carried-handler postlude.
+- `perform` is intercepted at every dispatch seam (`call`, `flow`,
+  `call_host`, and `arr <op>`) before one-shot `perform_dispatch`.
+- `__resume__` values are intercepted in `apply_closure_value_opts`,
+  including the single-`Arr` unpack a `call` performs on positional args.
+- Cranelift arrow values run in the tree-walk interpreter
+  (`apply_value_treewalk`), so a `resume` inside a clause body is applied
+  by the *tree-walk*. `native_ops` hosts an engine-neutral driver table
+  (`register_resumption_driver` / `drive_shared_resumption`) that bridges
+  the two; `ACTIVE_EVAL_CTX` (installed for the duration of a clause
+  application) recovers `&mut EvalCtx` on the cranelift side.
+- Compiled-codegen unwinding: `helper_v2_error_is_suspended` makes
+  `compile_args_v2` and `Seq` stop evaluating after a suspension, so the
+  journal cursor stays at the suspending op. `EvalCtx::set_error` never
+  overwrites a `Suspended`, and the journal latches its first suspension
+  as a second guard.
+- Lifecycle: `native_ops::ResumeTableScope` clears the shared driver
+  table plus each engine's journal/suspension tables when the outermost
+  eval on the thread returns (nested evals only bump a depth counter).
+
+## Files changed
+
+| File | Change |
+|---|---|
+| `engine-exec/src/native_ops.rs` | `ResumptionDriver` + shared driver table, `ResumeTableScope` (+ eval depth), rec-region fixpoint propagates `Suspended` instead of swallowing it, style cleanups |
+| `engine-exec/src/{io,lib,pattern_match}.rs` | clippy cleanups (no behaviour change) |
+| `engine-exec-cranelift/src/lib.rs` | journal driver (`ResumeJournal`/`ResumeSuspension`/`drive_journal`/`resume_from`/`resume_suspension`), `run_delimited` override, perform/`arr` seams, `__resume__` seam, `ACTIVE_EVAL_CTX`, `set_error` guard, `helper_v2_error_is_suspended`, table scope, node-accurate diagnostics, 5 tests |
+| `engine-exec-cranelift/src/compile.rs` | declare/register the new helper, suspension short-circuits in `compile_args_v2` and `Seq{axis:0}`, item allows |
+| `engine-exec-cranelift/src/standalone.rs` | treat a staticlib older than the crate's newest source as missing (rebuild) — a new `helper_v2_*` otherwise fails at `cc` link time |
+| `engine-exec-cranelift/tests/standalone_bootstrap.rs` | skip the `multishot_resume` corpus case (standalone has no `Language` for arrow application) |
+| `engine-exec-cranelift/tests/{object_compilation.rs,conformance/harness.rs}` | clippy cleanups |
+| `engine-exec-tree-walk/src/lib.rs` | `__resume__` seam consults the shared driver table; table scope in `eval_ast_rc_tagged`; cleanups |
+| `engine-exec-bytecode/src/lib.rs` | table scope in `eval_ast_rc_with_args` |
+| `engine-exec-bytecode/src/vm.rs` | 3 resume tests (both continuations, nested cartesian, one-shot regression) |
+| `engine-exec-bytecode/src/compile.rs` | clippy cleanups |
+| `host/crates/handl-test-utils/src/conformance/corpus.rs` | `multishot_resume` eval-corpus case — the cross-engine gate |
+| `host/crates/handl-runtime/tests/engine_parity.rs` | `perform_multishot_resume` (both continuations / nested / escape, all three engines); fixed the `vsum<n>` self-recursion case (`{n}` → `<n>`, the pre-existing failure was a test-source syntax bug) and extended it to tree-walk + cranelift with bytecode's known divergence pinned |
+| `host/project/adrs/0158-*.md`, `host/project/design/multishot-resume.md` | status, deltas, limits |
+| `engine-parse-pratt/src/{lib,former_decl}.rs`, `host/crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs` | incidental clippy fixes (crate test suites re-run green) |
+
+## Verification
+
+```
+cargo test                 # engine-exec           13 passed
+cargo test                 # engine-exec-cranelift 104 passed
+cargo test                 # engine-exec-bytecode   94 passed
+cargo test                 # engine-exec-tree-walk 142 passed
+cargo test --test engine_parity   # host/crates/handl-runtime  44 passed
+cargo clippy --all-targets # engine-exec / -cranelift / -tree-walk / -bytecode
+                           # → no warnings (was ~250 across the four crates)
+```
+
+The clippy pass was mechanical (machine-applicable fixes + `cargo fmt` on the
+touched files) plus item-level `#[allow]`s for design lints
+(`too_many_arguments`, `large_enum_variant`, `result_large_err`,
+`type_complexity`) and `# Safety` sections on the cranelift `helper_v2_*`
+ABI functions.
+
+### Pre-existing failures (not from this changeset)
+
+`engine-parse-pratt` is **being edited concurrently** — its `HEAD` advanced
+mid-session (`3fb1a4e feat(pratt): lower every family-record decl, not only
+the chunk root`, committed 19\:16 local) as part of an in-progress
+`{…}`→`<…>` / family-record lowering workstream. While that lands, the
+`data`-declaration desugar is transiently broken, so these fail for reasons
+unrelated to `resume`:
+
+- `handl-runtime` `engine_parity`: `ctor_object_match_dispatches_on_sym`,
+  `nat_tower_binary_add`, `perform_acc_state_threading`,
+  `self_recursive_arrow_evals_via_ast_fallback` — all tree-walk paths that
+  report `call_host: no module registry` at a constructor call
+  (`Jx(9)`, `Succ(Zero)`), i.e. the `data` desugar did not bind the ctor.
+- `indexed_family_data` / `indexed_family_fin` / `indexed_family_match`:
+  `handl:desugar.data` errors with `unexpected token: token.keyword.acc`.
+
+Every `perform`/`resume` case in the parity suite is green, including
+`perform_multishot_resume`; `engine-parse-pratt`'s own 62 unit tests pass.
+
+Also fixed here (was a genuine test bug, not an engine bug):
+`engine_parity`'s self-recursion source spelled implicit parameters
+`vsum{n}` / `Vec{n, …}`, but the language uses `<n>` — the parser silently
+produced a degenerate AST, so `vsum` was never bound. Corrected to `<n>`;
+tree-walk and cranelift yield `2`, bytecode's `Zero` is pinned as a known
+divergence.
+
+`host/crates/plugin-ext-typecheck/tests/` (untracked) was touched by a stray
+`cargo clippy --fix` run (formatting only) and re-checks green.
+
+
+## Known limits
+
+See `design/multishot-resume.md` §"Known limits": deterministic bodies
+only; `resume` escapes are supported while the eval is live, not across
+evals (the tables are reclaimed at the eval boundary); `perform` inside a
+`rec`/loop fixpoint region now propagates instead of being dropped but is
+still not a supported position; bytecode remains divergent on
+self-recursive closures (`vsum` → `Zero`, pinned in `engine_parity`).
+
+## Landing
+
+Landed per repository (the workspace is a set of sibling git repos; the
+root is not itself a checkout). Exact paths were staged — never `-A`,
+since several repos carry unrelated in-flight work.
+
+| repo | commit |
+|---|---|
+| `engine-exec` | `3e9d705` native_ops: shared resume-driver table + eval-scope cleanup; clippy clean |
+| `engine-exec-cranelift` | `34aa147` cranelift: multi-shot resume (ADR-0158 replay journals) + suspension-aware codegen |
+| `engine-exec-tree-walk` | `18a006d` tree-walk: consult the shared resume-driver table; eval-scope cleanup |
+| `engine-exec-bytecode` | `202ffea` bytecode: multi-shot resume tests + eval-scope cleanup; clippy clean |
+| `host` | `c4d85a25` tests: multishot resume parity + eval-corpus case |
+| `host/project` | this note + ADR-0158 + the design doc |
+| `automation` | `scripts/check-engines.sh` (fmt + `clippy -D warnings` + tests for the four engine crates) |
+
+Run the gate with:
+
+```
+./automation/scripts/check-engines.sh          # fmt + clippy + tests
+./automation/scripts/check-engines.sh --quick  # fmt + clippy only
+```

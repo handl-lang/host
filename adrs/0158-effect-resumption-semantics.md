@@ -1,6 +1,6 @@
 # ADR-0158: Effect resumption semantics — `perform`/`handle` as algebra homomorphisms on free arrow-algebras
 
-**Status**: Proposed
+**Status**: Proposed — one-shot in-flight dispatch landed; multi-shot `resume` landed via replay journals on all three engines (`design/multishot-resume.md`)
 **Refs**: ADR-0153 (dimensions/`~[n]~>`), ADR-0154 (typecheck semantics), Sanada — *Algebraic effects and handlers for arrows* (ICFP/JFP 2024); `design/semantics.md` — the language-wide denotational reading this ADR's correspondence table anchors
 
 ## Context
@@ -119,12 +119,19 @@ is a first-class value — the multi-shot `resume` workstream.
 
 ## Deltas from Sanada (honest)
 
-- **One-shot resumption.** The handler clause returns once — `resume` is
-  the call stack. Multi-shot effects (nondeterminism/`choose`,
-  generators/`yield` — handler calls `resume` twice) need real
-  continuation capture: feasible in tree-walk (closure over remaining
-  eval), costly on bytecode/cranelift (stack capture). **Deferred —
-  phase-4 workstream with its own design doc.**
+- **Multi-shot resumption by replay, not stack capture.** A clause may
+  take a second parameter — the resumption `(payload, resume) ~> …` —
+  and `resume` is a first-class, copyable value: nondeterminism
+  (`choose`), generators (`yield`). Rather than capturing the
+  continuation (costly on bytecode/cranelift), `resume(x)` **re-runs the
+  handled body** from the `handle` boundary under a replay journal seeded
+  with `entries[..i] ++ [(op, x)]`. See `design/multishot-resume.md`.
+  Consequence: handled bodies must be deterministic in their perform
+  sequence (a mismatch names the op/index); non-op side effects in the
+  prefix re-execute per `resume`.
+- **One-shot stays the default.** A 1-ary clause `op: x ~> e` keeps the
+  direct-style reading (`resume` = the call returning); no journal is
+  installed, so the cost is unchanged.
 - **Operational, not denotational.** The paper's promonad-in-Prof is a
   proof artifact; handl's semantics is the operational interpreter. Same
   laws, different witness.
@@ -145,6 +152,7 @@ is a first-class value — the multi-shot `resume` workstream.
 
 ## Non-goals
 
-- Multi-shot continuations (see above).
+- One-shot continuations only (see above; multi-shot is delivered by
+  replay, not continuation capture).
 - Shallow handlers (deep-carry covers; shallow adds no expressiveness).
 - `extern` FFI-op decl form — separate phase-4 item.
