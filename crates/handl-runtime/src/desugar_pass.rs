@@ -260,3 +260,138 @@ fn splice_decl_blocks(lang: &Language, ast: &mut Ast) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use handl_language::AstNode;
+    use serde_json::json;
+
+    fn push(ast: &mut Ast, kind: &str, payload: Value) -> u64 {
+        ast.push(AstNode::new(kind).with_payload(payload)).index() as u64
+    }
+
+    /// `A(a : Type) := c0 | c1` as the parser emits it: a stray `data` token
+    /// (optional), then `alt[assign(type, c0), c1]`.
+    fn record_ast(with_keyword: bool) -> Ast {
+        let mut ast = Ast::new();
+        let a = push(&mut ast, "var", json!("a"));
+        let ty = push(&mut ast, "var", json!("Type"));
+        let annot = push(
+            &mut ast,
+            "type-annot",
+            json!({"children": [a, ty], "name": "a"}),
+        );
+        let head = push(&mut ast, "var", json!("A"));
+        let type_expr = push(&mut ast, "call", json!({"children": [head, annot]}));
+        let c0 = push(&mut ast, "var", json!("C0"));
+        let arm = push(&mut ast, "assign", json!({"children": [type_expr, c0]}));
+        let p = push(&mut ast, "var", json!("x"));
+        let pty = push(&mut ast, "var", json!("Type"));
+        let pannot = push(
+            &mut ast,
+            "type-annot",
+            json!({"children": [p, pty], "name": "x"}),
+        );
+        let c1name = push(&mut ast, "var", json!("C1"));
+        let c1 = push(&mut ast, "call", json!({"children": [c1name, pannot]}));
+        let alt = push(&mut ast, "alt", json!({"children": [arm, c1]}));
+        let mut stmts = Vec::new();
+        if with_keyword {
+            stmts.push(push(&mut ast, "var", json!("data")));
+        }
+        stmts.push(alt);
+        push(&mut ast, "block", json!({"children": stmts}));
+        ast
+    }
+
+    fn last(ast: &Ast) -> usize {
+        ast.len() - 1
+    }
+
+    fn only_child(ast: &Ast, block: usize) -> serde_json::Value {
+        ast.get(AstRef::new(block))
+            .unwrap()
+            .payload
+            .get("children")
+            .unwrap()
+            .clone()
+    }
+
+    #[test]
+    fn lowers_multi_ctor_record_with_data_keyword() {
+        let mut ast = record_ast(true);
+        let block = ast.len() - 1;
+        lower_family_record_decls(&mut ast);
+        // The stray `data` token is dropped; one `data` node remains.
+        let children = only_child(&ast, block);
+        assert_eq!(children.as_array().unwrap().len(), 1, "{children}");
+        let data_idx = children[0].as_u64().unwrap() as usize;
+        let node = ast.get(AstRef::new(data_idx)).unwrap();
+        assert_eq!(node.kind, "data");
+        let kids = node.payload.get("children").unwrap().as_array().unwrap();
+        assert_eq!(kids.len(), 2, "[type, ctors]");
+        // The ctor list node carries both constructors.
+        let cons_idx = kids[1].as_u64().unwrap() as usize;
+        let cons = ast.get(AstRef::new(cons_idx)).unwrap();
+        assert_eq!(cons.kind, "alt");
+        assert_eq!(
+            cons.payload
+                .get("children")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn lowers_multi_ctor_record_without_data_keyword() {
+        let mut ast = record_ast(false);
+        let block = ast.len() - 1;
+        lower_family_record_decls(&mut ast);
+        let children = only_child(&ast, block);
+        let data_idx = children[0].as_u64().unwrap() as usize;
+        assert_eq!(ast.get(AstRef::new(data_idx)).unwrap().kind, "data");
+    }
+
+    #[test]
+    fn leaves_plain_bindings_alone() {
+        let mut ast = Ast::new();
+        let x = push(&mut ast, "var", json!("x"));
+        let five = push(&mut ast, "value", json!(5));
+        let b1 = push(&mut ast, "assign", json!({"children": [x, five]}));
+        let y = push(&mut ast, "var", json!("y"));
+        let z = push(&mut ast, "var", json!("z"));
+        let b2 = push(&mut ast, "assign", json!({"children": [y, z]}));
+        let block = push(&mut ast, "block", json!({"children": [b1, b2]})) as usize;
+        lower_family_record_decls(&mut ast);
+        let children = only_child(&ast, block);
+        assert_eq!(children, json!([b1, b2]));
+        assert_eq!(ast.get(AstRef::new(b1 as usize)).unwrap().kind, "assign");
+    }
+
+    /// Pinned limitation: a **one-constructor** family is indistinguishable
+    /// from `x := y` here, so it is left to the parser-side lowering.
+    #[test]
+    fn leaves_one_ctor_record_to_the_parser() {
+        let mut ast = Ast::new();
+        let a = push(&mut ast, "var", json!("a"));
+        let ty = push(&mut ast, "var", json!("Type"));
+        let annot = push(
+            &mut ast,
+            "type-annot",
+            json!({"children": [a, ty], "name": "a"}),
+        );
+        let head = push(&mut ast, "var", json!("A"));
+        let type_expr = push(&mut ast, "call", json!({"children": [head, annot]}));
+        let c0 = push(&mut ast, "var", json!("C0"));
+        let only = push(&mut ast, "assign", json!({"children": [type_expr, c0]}));
+        let block = push(&mut ast, "block", json!({"children": [only]})) as usize;
+        lower_family_record_decls(&mut ast);
+        let children = only_child(&ast, block);
+        assert_eq!(children, json!([only]));
+        assert_eq!(ast.get(AstRef::new(only as usize)).unwrap().kind, "assign");
+    }
+}
