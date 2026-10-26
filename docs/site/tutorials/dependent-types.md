@@ -2,8 +2,9 @@
 
 In this tutorial you will write a **length-indexed vector** in handl —
 the canonical dependent-types example — and use the features that make
-it work: `data` families, index arithmetic, `match` refinement,
-`Path`/`transport`/`J`, `IO(sig)` handlers, and implicit `{…}` binders.
+it work: generator-record family declarations, index arithmetic, `match`
+refinement, `Path`/`transport`/`J`, `IO<...>` handlers, and implicit `…`
+binders written `<...>`.
 
 Every step is a small `.hnl` file you can check with `hnl typecheck`
 and (where noted) run with `hnl run`. Along the way you will
@@ -11,7 +12,7 @@ intentionally break one file to see what a real type error looks like.
 
 ## What you will learn
 
-- How to declare an indexed `data` family and its constructors.
+- How to declare an indexed family and its constructors.
 - How annotations like `Vec(1 + 1, Bool)` are *computed* at check time.
 - How `match` refines the scrutinee's index per branch — and rejects
   unreachable arms.
@@ -19,7 +20,7 @@ intentionally break one file to see what a real type error looks like.
   equality layer.
 - How `IO(sig)` types effectful functions and how `handle … with`
   discharges them.
-- How `{…}` binders declare implicit type-level parameters.
+- How `<...>` binders declare implicit type-level parameters.
 
 ## Prerequisites
 
@@ -27,21 +28,26 @@ intentionally break one file to see what a real type error looks like.
 - Familiarity with the arrow surface: `x ~> body` is a function,
   `name : Type = value` is an annotated binding.
 
-## Step 1: Declare a `data` family
+## Step 1: Declare a family
 
 Create `vec.hnl`:
 
 ```hnl
-data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+Vec<n : Nat, a : Type> := {
+  VNil  : Vec(0, a),
+  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+}
 ```
 
 Read it as: `Vec` is a family of types indexed by a natural number
-`n` and a payload type `a`. It has two constructors:
+`n` and a payload type `a`. The record is the **generator table**: a
+field whose codomain is `Vec<...>` is a constructor.
 
 - `VNil` — the empty vector, at index `Vec(0, a)`.
 - `VCons(x, xs)` — pushes an `a` onto a `Vec(n, a)`, producing a
   `Vec(n + 1, a)`. The result index is an *index term*, not just a
-  variable — `n + 1` is evaluated by the checker.
+  variable — `n + 1` is evaluated by the checker, and it is written
+  explicitly (an omitted index leaves a free metavariable).
 
 Check it:
 
@@ -50,7 +56,7 @@ $ hnl typecheck vec.hnl
 vec.hnl: ok: {"__registry__":"handl.canonical","__tag__":"type.unit"}
 ```
 
-A `data` declaration produces no value, so the module checks to
+A family declaration produces no value, so the module checks to
 `type.unit`.
 
 ## Step 2: Construct and annotate values
@@ -58,8 +64,8 @@ A `data` declaration produces no value, so the module checks to
 Append to `vec.hnl`:
 
 ```hnl
-v : Vec(2, Bool) = VCons(true, VCons(false, VNil))
-w : Vec(1 + 1, Bool) = v
+v : Vec<2, Bool> = VCons(true, VCons(false, VNil))
+w : Vec<1 + 1, Bool> = v
 ```
 
 ```text
@@ -162,7 +168,7 @@ $ hnl typecheck vec.hnl   # ok
 when the endpoints decide equal:
 
 ```hnl
-v : Vec(2, Bool) = VCons(true, VCons(false, VNil))
+v : Vec<2, Bool> = VCons(true, VCons(false, VNil))
 p : Path(2, 2) = refl
 w : Vec(2, Bool) = p # v      -- transport along p
 w2 : Vec(2, Bool) = refl # v  -- refl is the identity transport
@@ -251,7 +257,7 @@ sort explicitly when inference needs a hint.
 
 | Surface | `hnl typecheck` | `hnl run` |
 | ------- | --------------- | --------- |
-| `data` families + constructors | checked | constructors are values; `match` on them evaluates |
+| family declarations + constructors | checked | generators are values; `match` on them evaluates |
 | Index arithmetic (`Vec(1+1)`) | computed during checking | n/a |
 | `match` refinement / unreachable arms | checked per branch | evaluates the matched arm |
 | `Path`, `refl`, `p # v`, `J` | checked (proof objects) | type-level only |
