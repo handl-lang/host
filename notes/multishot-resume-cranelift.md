@@ -105,11 +105,16 @@ unrelated to `resume`:
 - `indexed_family_data` / `indexed_family_fin` / `indexed_family_match`:
   `handl:desugar.data` errors with `unexpected token: token.keyword.acc`.
 
-Diagnosis for whoever lands that work: the `data` pass runs
-`run_pass(lang, ast, root, "desugar")` and, in the current tree, emits no
-former/ctor `assign`s at all for a plain `data Opt2(a : Type) :: Nope |
-Jx(x : a)`, so `Jx` stays an unbound name and `Jx(9)` falls through to
-`call_host`. The `acc` in the other error is the ADR-0158 `acc` keyword
+Diagnosis for whoever lands that work. Dumping the AST for
+`do { data Opt2(a : Type) :: Nope | Jx(x : a)  match Jx(9) { … } }` shows
+the parser now emits `var "data"` as a stray statement plus a family-record
+`alt` of `assign`s — `Opt2(a : Type) := Nope | Jx(x : a)` — and nothing
+lowers that record into a `data` node with former/ctor `assign`s, so `Jx`
+stays an unbound name and `Jx(9)` falls through to `call_host`. The same
+shape appears with the post-ADR-0158 spelling (no `data` keyword), so the
+missing piece is the record→`data` lowering, not the desugar rule: the
+`.hnl` rule (`lib-desugar/src/index.hnl::data_rewrite`) only ever sees a
+`data` node, which is what the lowering is supposed to produce. The `acc` in the other error is the ADR-0158 `acc` keyword
 colliding with identifiers in a desugar rule source — `lib-desugar/src/
 index.hnl` uses `acc` as a record field / binder (89 lines), which the
 lexer now classifies as `token.keyword.acc`; renaming those binders (or
