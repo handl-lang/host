@@ -11,6 +11,9 @@ surface last.
   publication boundary.
 - [The arrow calculus kernel](./arrow-calculus-kernel) — why the
   six-combinator set is closed.
+- [The type system](./type-system) — types as values, unification as a
+  three-way judgment, generator-record families, `exists`, split-tree
+  coverage, effect rows, and what the checker deliberately leaves open.
 - [Graded algebraic theory](./graded-algebraic-theory) — the theoretical
   frame behind the platform.
 - [Graded Modal Sanada Arrow Calculus](./graded-modal-sanada-arrow-calculus)
