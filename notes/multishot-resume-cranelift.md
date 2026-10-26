@@ -105,6 +105,38 @@ unrelated to `resume`:
 - `indexed_family_data` / `indexed_family_fin` / `indexed_family_match`:
   `handl:desugar.data` errors with `unexpected token: token.keyword.acc`.
 
+**Status update:** the record→`data` lowering now exists as a runtime
+pre-pass — `handl_runtime::desugar_pass::lower_family_record_decls`
+(`host d7287de8`) rewrites `alt[assign(type, c0), c1, …]` in place into the
+internal `data { children: [type, ctors] }` shape (and drops the retired
+`data` keyword token), before `run_pass(…, "desugar")`. That fixed
+`ctor_object_match_dispatches_on_sym` and `nat_tower_binary_add`:
+`engine_parity` is **43/44**. It is additive — a parser that emits a `data`
+node already makes it a no-op — so it can converge with (or be replaced by)
+the in-flight `engine-parse-pratt` work. It only lowers *multi-constructor*
+records; a one-constructor family still needs the parser-side path.
+
+Remaining reds and what the probes show:
+
+- `self_recursive_arrow_evals_via_ast_fallback` — bytecode returns `0`
+  where tree-walk/cranelift return `2`. Not the implicit `<n>` parameter
+  (identical with and without it), not ctor construction (all three build
+  the same `VCons` object), not arm binders (all three bind `x`/`xs`
+  identically), not plain ctor match (`match VCons(Zero, VNil) { … }` = 1
+  everywhere), and not recursion in an arm (`toNum` over `Succ(Succ(Zero))`
+  = 2 everywhere). The divergence is confined to a recursive arrow whose
+  *result* is itself a constructor (`Succ(vsum(xs))`) applied at the top
+  level — the returned Nat-tower terminator suggests `vsum` yields a
+  non-Nat value there and `toNum` falls to its base arm.
+- `perform_acc_state_threading` — tree-walk returns `Null` instead of `1`
+  for the ADR-0158 `acc` clause; unrelated to `resume` and to the lowering
+  (it failed identically before this pass).
+
+Also observed while probing (pre-existing, cranelift-only):
+`data Nat :: Zero | Succ(pred : Nat)` + `match Succ(Zero) { Zero: 0, Succ(p): 1 }`
+fails on cranelift with `field_access: array index must be a non-negative
+integer` inside the recursor path, while tree-walk and bytecode return `1`.
+
 Diagnosis for whoever lands that work. Dumping the AST for
 `do { data Opt2(a : Type) :: Nope | Jx(x : a)  match Jx(9) { … } }` shows
 the parser now emits `var "data"` as a stray statement plus a family-record
