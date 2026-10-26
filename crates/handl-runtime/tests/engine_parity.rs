@@ -946,10 +946,8 @@ fn nat_tower_binary_add() {
 ///
 /// Tree-walk is the reference and cranelift inherits it (arrow
 /// application delegates to this interpreter), so both must yield `2`.
-/// The bytecode VM is still divergent on self-recursive closures — it
-/// returns `Zero` because the recursive self-reference does not resolve
-/// (remaining issue, see `collections.hnl`'s check-vs-run notes); its
-/// value is pinned so a fix shows up here.
+/// All three engines must agree: self-recursion is engine-independent (a
+/// self-ref binder in the arrow's `binds`, resolved at application).
 #[test]
 fn self_recursive_arrow_evals_via_ast_fallback() {
     for (name, rt) in [
@@ -959,13 +957,33 @@ fn self_recursive_arrow_evals_via_ast_fallback() {
         let got = eval_engine_path(&rt, SRC);
         assert_eq!(got.unwrap(), json!(2), "{name} on {SRC:?}");
     }
+    // Bytecode must agree too — self-recursion is engine-independent (see
+    // `self_recursive_arrow_without_data_types`). It currently cannot run
+    // this case because the `data` lowering it depends on is in flight.
     let got = eval_engine_path(&bytecode(), SRC);
-    assert_eq!(
-        got.unwrap(),
-        json!(0),
-        "bytecode known divergence on {SRC:?}"
-    );
+    assert_eq!(got.unwrap(), json!(2), "bytecode on {SRC:?}");
 }
+/// Self-recursive arrow with **no** `data` declaration — `letrec` is an
+/// arrow-level feature (the `self_ref` binder in `binds`), not something
+/// the family/ctor lowering provides. Guards that all three engines agree
+/// independently of the `data` desugar.
+#[test]
+fn self_recursive_arrow_without_data_types() {
+    let src = "do {
+  fac := (n) ~> if n == 0 { 1 } else { n * fac(n - 1) }
+  fac(4)
+}";
+    for (name, rt) in [
+        ("tree-walk", tree_walk()),
+        ("bytecode", bytecode()),
+        ("cranelift", cranelift()),
+    ] {
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, json!(24), "{name} engine-path on {src:?}");
+    }
+}
+
 const SRC: &str = 
 "do {
           data Nat :: Zero | Succ(pred : Nat)
