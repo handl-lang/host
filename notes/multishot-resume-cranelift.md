@@ -105,6 +105,17 @@ unrelated to `resume`:
 - `indexed_family_data` / `indexed_family_fin` / `indexed_family_match`:
   `handl:desugar.data` errors with `unexpected token: token.keyword.acc`.
 
+Diagnosis for whoever lands that work: the `data` pass runs
+`run_pass(lang, ast, root, "desugar")` and, in the current tree, emits no
+former/ctor `assign`s at all for a plain `data Opt2(a : Type) :: Nope |
+Jx(x : a)`, so `Jx` stays an unbound name and `Jx(9)` falls through to
+`call_host`. The `acc` in the other error is the ADR-0158 `acc` keyword
+colliding with identifiers in a desugar rule source — `lib-desugar/src/
+index.hnl` uses `acc` as a record field / binder (89 lines), which the
+lexer now classifies as `token.keyword.acc`; renaming those binders (or
+teaching the grammar to accept the keyword there) is a prerequisite. That
+file has no tests, so the rename was left out of this changeset.
+
 Every `perform`/`resume` case in the parity suite is green, including
 `perform_multishot_resume`; `engine-parse-pratt`'s own 62 unit tests pass.
 
