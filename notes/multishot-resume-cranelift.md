@@ -159,7 +159,18 @@ and equally `data P2 :: Mk(a : Nat, b : Nat) | PNil` +
 `match Mk(Zero, Zero) { PNil: 0, Mk(x, y): 1 }` — with
 `field_access: array index must be a non-negative integer` (`binary.eq` ←
 `field-access`, inside the emitted predicate/fold chain), while tree-walk
-and bytecode return `1`. It does **not** reproduce when the same match sits
+and bytecode return `1`. The error now reports the offending access
+(`engine-exec 3c9acd6`):
+
+```
+field_access: array index must be a non-negative integer
+  (array of len 1, field string Str("__ctor__"))
+```
+
+so the compiled fold chain in cranelift hands `__wh.v` as a **one-element
+array** where the ctor object is expected — i.e. an extra array layer on
+the value threaded through the fold, in cranelift's own evaluation of the
+shared `data` code (tree-walk, running the same AST, sees the object). It does **not** reproduce when the same match sits
 inside an arrow body, i.e. it is eager evaluation of the `data` group's
 index-checking code at block scope, not pattern matching.
 
