@@ -131,8 +131,15 @@ Remaining reds and what the probes show:
   *same* match at root position
   (`match VCons(Zero, VNil) { VNil: 0, VCons(x, xs): 1 }`) returns `1` on
   all three, so the defect is specific to matching an **indexed-family**
-  ctor from inside an arrow body (the `Vec` arm's index guard/subtask),
-  not to ctors, binders, or recursion in general. Not the implicit `<n>` parameter
+  ctor from inside an arrow body, not to ctors, binders, or recursion.
+
+  Ruled out by probe (all three engines agree on each): `Zero == Zero`,
+  `Zero == Succ(Zero)`, `Succ(Zero) == Succ(Zero)`, and
+  `Zero.__ctor__ == Succ(Zero).__ctor__`; ctor arm binders
+  (`match VCons(Zero, VNil) { VNil: 0, VCons(x, xs): [x, xs] }`); and
+  **two-argument** ctor patterns both at root and inside an arrow body
+  (`data P2 :: Mk(a : Nat, b : Nat) | PNil`). So arm *selection* is sound;
+what differs is only the indexed-family case inside an arrow body. Not the implicit `<n>` parameter
   (identical with and without it), not ctor construction (all three build
   the same `VCons` object), not arm binders (all three bind `x`/`xs`
   identically), not plain ctor match (`match VCons(Zero, VNil) { … }` = 1
@@ -145,10 +152,20 @@ Remaining reds and what the probes show:
   for the ADR-0158 `acc` clause; unrelated to `resume` and to the lowering
   (it failed identically before this pass).
 
-Also observed while probing (pre-existing, cranelift-only):
-`data Nat :: Zero | Succ(pred : Nat)` + `match Succ(Zero) { Zero: 0, Succ(p): 1 }`
-fails on cranelift with `field_access: array index must be a non-negative
-integer` inside the recursor path, while tree-walk and bytecode return `1`.
+Also observed while probing (pre-existing, cranelift-only): any ctor match
+after a **multi-constructor `data`** declaration fails at *root* position —
+`data Nat :: Zero | Succ(pred : Nat)` + `match Succ(Zero) { Zero: 0, Succ(p): 1 }`,
+and equally `data P2 :: Mk(a : Nat, b : Nat) | PNil` +
+`match Mk(Zero, Zero) { PNil: 0, Mk(x, y): 1 }` — with
+`field_access: array index must be a non-negative integer` (`binary.eq` ←
+`field-access`, inside the emitted predicate/fold chain), while tree-walk
+and bytecode return `1`. It does **not** reproduce when the same match sits
+inside an arrow body, i.e. it is eager evaluation of the `data` group's
+index-checking code at block scope, not pattern matching.
+
+Note also that `lower_family_record_decls` only lowers **multi-constructor**
+records, so a one-constructor family (`data P2 :: Mk(a : Nat, b : Nat)`
+with no second ctor) is still unbound; that needs the parser-side path.
 
 Diagnosis for whoever lands that work. Dumping the AST for
 `do { data Opt2(a : Type) :: Nope | Jx(x : a)  match Jx(9) { … } }` shows
