@@ -849,6 +849,55 @@ fn perform_return_clause() {
     }
 }
 
+/// Multi-shot `resume` (ADR-0158 workstream — replay journals): a ≥2-ary
+/// clause `(payload, resume) ~> …` suspends the `perform`; each
+/// `resume(x)` re-runs the body from the `handle` boundary with `x` fed
+/// back at the perform site, so one `perform` yields one continuation per
+/// `resume` call. All three engines must agree.
+#[test]
+fn perform_multishot_resume() {
+    for (name, rt) in [
+        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+    ] {
+        // Two `resume` calls → both continuations, each running through
+        // the rest of the body (`+ 100`).
+        let src = r#"handle perform(choose, [1, 2]) + 100 with {
+            choose: (opts, resume) ~> [resume(opts[0]), resume(opts[1])]
+        }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, json!([101, 102]), "{name} engine-path on {src:?}");
+
+        // A second suspension inside a re-run: the clause re-runs per
+        // nested suspension → the cartesian product.
+        let src = r#"handle perform(choose, [1, 2]) + perform(choose, [10, 20]) with {
+            choose: (opts, resume) ~> [resume(opts[0]), resume(opts[1])]
+        }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(
+            got,
+            json!([[11, 21], [12, 22]]),
+            "{name} engine-path on {src:?}"
+        );
+
+        // Escape: the clause returns the resumption value, which the
+        // caller applies — the delimited continuation is a first-class,
+        // copyable value.
+        let src = r#"do {
+            k := handle perform(choose, [1, 2]) + 100 with {
+                choose: (opts, resume) ~> resume
+            }
+            k(2)
+        }"#;
+        let got = eval_engine_path(&rt, src)
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on {src:?}: {e}"));
+        assert_eq!(got, json!(102), "{name} engine-path on {src:?}");
+    }
+}
+
 // ===========================================================================
 // Ctor-object dispatch + Nat-tower arithmetic (ADR-0152 §2, dogfood F2/F4)
 // ===========================================================================
@@ -893,20 +942,35 @@ fn nat_tower_binary_add() {
 /// A self-recursive arrow (`vsum`) declines `lower_ast` and falls back
 /// to AST eval — the fallback must produce the *correct* fold, not the
 /// base arm / input unchanged (dogfood F4: `vsum` returned `Zero`,
-/// `vmap` returned the input vector). Pinned on tree-walk: the
-/// bytecode/cranelift engine paths still diverge on self-recursive
-/// closures (remaining issue — see the phase-3 spec log).
+/// `vmap` returned the input vector).
+///
+/// Tree-walk is the reference and cranelift inherits it (arrow
+/// application delegates to this interpreter), so both must yield `2`.
+/// The bytecode VM is still divergent on self-recursive closures — it
+/// returns `Zero` because the recursive self-reference does not resolve
+/// (remaining issue, see `collections.hnl`'s check-vs-run notes); its
+/// value is pinned so a fix shows up here.
 #[test]
 fn self_recursive_arrow_evals_via_ast_fallback() {
-    let rt = tree_walk();
-    let got = eval_engine_path(&rt, SRC);
-    assert_eq!(got.unwrap(), json!(2), "tree-walk on {SRC:?}");
+    for (name, rt) in [
+        ("tree-walk", tree_walk()),
+        ("cranelift", cranelift()),
+    ] {
+        let got = eval_engine_path(&rt, SRC);
+        assert_eq!(got.unwrap(), json!(2), "{name} on {SRC:?}");
+    }
+    let got = eval_engine_path(&bytecode(), SRC);
+    assert_eq!(
+        got.unwrap(),
+        json!(0),
+        "bytecode known divergence on {SRC:?}"
+    );
 }
 const SRC: &str = 
 "do {
           data Nat :: Zero | Succ(pred : Nat)
-          data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
-          vsum{n} : Vec{n, Nat} ~> Nat = v ~> match v { VNil: Zero, VCons(x, xs): Succ(vsum(xs)) }
+          data Vec(n : Nat, a : Type) :: VNil : Vec<0, a> | VCons(x : a, xs : Vec<n, a>) : Vec<n + 1, a>
+          vsum<n> : Vec<n, Nat> ~> Nat = v ~> match v { VNil: Zero, VCons(x, xs): Succ(vsum(xs)) }
           toNum : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + toNum(p) }
           toNum(vsum(VCons(Zero, VCons(Zero, VNil))))
         }";

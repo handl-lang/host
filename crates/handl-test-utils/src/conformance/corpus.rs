@@ -243,6 +243,116 @@ pub fn eval_corpus() -> Vec<EvalCase> {
                 expected: Value::from(7),
             }
         },
+        // Multi-shot `resume` (ADR-0158 workstream — replay journals):
+        // `handle (perform(choose, [1,2]) + 100) with {choose: (opts,
+        // resume) ~> [resume(opts[0]), resume(opts[1])]}`. The ≥2-ary
+        // clause suspends the `perform` and each `resume` re-runs the body
+        // with its argument fed back, so both continuations are collected.
+        //
+        // This is the cross-engine gate for the journal driver: tree-walk
+        // (reference), bytecode (native replay) and cranelift (journal
+        // via `handle_dyn` + the tree-walk arrow interpreter) must all
+        // produce `[101, 102]`.
+        {
+            let child = |n: u64| Term::arr_native_lit("proj_child", vec![], Value::from(n));
+            let prim = |op: &str, args: Vec<Term>| Term::arr_native(op, args);
+            let mut lang = Language::new();
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.var",
+                    "var",
+                    Term::arr_native_lit("proj_env", vec![], Value::String("$payload".into())),
+                ))
+                .unwrap();
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.add",
+                    "binary.add",
+                    prim("add", vec![child(0), child(1)]),
+                ))
+                .unwrap();
+            lang.eval
+                .merge(EvalSchemeDef::new("e.array", "array", prim("array", vec![])))
+                .unwrap();
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.index",
+                    "idx",
+                    prim("index", vec![child(0), child(1)]),
+                ))
+                .unwrap();
+            // `call`: route the evaluated callee by type — string →
+            // `call_host` (host fn, incl. `perform`), value → `App`
+            // (arrows and `resume` objects).
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.call",
+                    "call",
+                    Term::seq(
+                        Term::seq(
+                            child(0),
+                            Term::arr_native_lit("route_on_type", vec![], Value::String("string".into())),
+                        ),
+                        Term::choice(
+                            prim("call_host", vec![prim("proj_rest", vec![])]),
+                            Term::app(prim("id", vec![]), vec![prim("proj_rest", vec![])]),
+                        ),
+                    ),
+                ))
+                .unwrap();
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.function",
+                    "function",
+                    prim("closure", vec![]),
+                ))
+                .unwrap();
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.object",
+                    "object",
+                    prim("object", vec![]),
+                ))
+                .unwrap();
+            lang.eval
+                .merge(EvalSchemeDef::new(
+                    "e.handle",
+                    "handle",
+                    Term::handle(child(0), "", child(1)),
+                ))
+                .unwrap();
+            EvalCase {
+                name: "multishot_resume",
+                lang,
+                ast: {
+                    let mut a = Ast::new();
+                    a.push(AstNode::new("var").with_payload(Value::from("perform"))); // 0
+                    a.push(AstNode::new("var").with_payload(Value::from("choose"))); // 1
+                    a.push(AstNode::new("value").with_payload(Value::from(1))); // 2
+                    a.push(AstNode::new("value").with_payload(Value::from(2))); // 3
+                    a.push(AstNode::new("array").with_payload(serde_json::json!({"children": [2, 3]}))); // 4
+                    a.push(AstNode::new("call").with_payload(serde_json::json!({"children": [0, 1, 4]}))); // 5
+                    a.push(AstNode::new("value").with_payload(Value::from(100))); // 6
+                    a.push(AstNode::new("binary.add").with_payload(serde_json::json!({"children": [5, 6]}))); // 7 body
+                    a.push(AstNode::new("var").with_payload(Value::from("resume"))); // 8
+                    a.push(AstNode::new("var").with_payload(Value::from("opts"))); // 9
+                    a.push(AstNode::new("value").with_payload(Value::from(0))); // 10
+                    a.push(AstNode::new("idx").with_payload(serde_json::json!({"children": [9, 10]}))); // 11
+                    a.push(AstNode::new("call").with_payload(serde_json::json!({"children": [8, 11]}))); // 12
+                    a.push(AstNode::new("value").with_payload(Value::from(1))); // 13
+                    a.push(AstNode::new("idx").with_payload(serde_json::json!({"children": [9, 13]}))); // 14
+                    a.push(AstNode::new("call").with_payload(serde_json::json!({"children": [8, 14]}))); // 15
+                    a.push(AstNode::new("array").with_payload(serde_json::json!({"children": [12, 15]}))); // 16
+                    a.push(AstNode::new("function").with_payload(serde_json::json!({"params": ["opts", "resume"], "body": 16}))); // 17
+                    a.push(AstNode::new("key").with_payload(Value::from("choose"))); // 18
+                    a.push(AstNode::new("entry").with_payload(serde_json::json!({"children": [18, 17]}))); // 19
+                    a.push(AstNode::new("object").with_payload(serde_json::json!({"children": [19]}))); // 20
+                    a.push(AstNode::new("handle").with_payload(serde_json::json!({"children": [7, 20]}))); // 21
+                    a
+                },
+                expected: serde_json::json!([101, 102]),
+            }
+        },
     ]
 }
 
