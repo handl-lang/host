@@ -119,7 +119,20 @@ records; a one-constructor family still needs the parser-side path.
 Remaining reds and what the probes show:
 
 - `self_recursive_arrow_evals_via_ast_fallback` — bytecode returns `0`
-  where tree-walk/cranelift return `2`. Not the implicit `<n>` parameter
+  where tree-walk/cranelift return `2`.
+
+  **Minimal repro (no recursion, no `toNum`)**: with
+  `data Nat :: Zero | Succ(pred : Nat)` and
+  `data Vec(n : Nat, a : Type) :: VNil : Vec<0, a> | VCons(x : a, xs :
+  Vec<n, a>) : Vec<n + 1, a>`,
+  `w : Vec ~> Nat = v ~> match v { VNil: Zero, VCons(x, xs): Succ(Zero) }`
+  then `w(VCons(Zero, VNil))` gives `Succ(Zero)` on tree-walk and
+  cranelift but **`Zero`** on bytecode — it selected the `VNil` arm. The
+  *same* match at root position
+  (`match VCons(Zero, VNil) { VNil: 0, VCons(x, xs): 1 }`) returns `1` on
+  all three, so the defect is specific to matching an **indexed-family**
+  ctor from inside an arrow body (the `Vec` arm's index guard/subtask),
+  not to ctors, binders, or recursion in general. Not the implicit `<n>` parameter
   (identical with and without it), not ctor construction (all three build
   the same `VCons` object), not arm binders (all three bind `x`/`xs`
   identically), not plain ctor match (`match VCons(Zero, VNil) { … }` = 1
