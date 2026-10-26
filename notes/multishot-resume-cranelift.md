@@ -66,7 +66,7 @@ continuation capture: the journal is data, so `resume` is copyable.
 | `engine-exec-bytecode/src/vm.rs` | 3 resume tests (both continuations, nested cartesian, one-shot regression) |
 | `engine-exec-bytecode/src/compile.rs` | clippy cleanups |
 | `host/crates/handl-test-utils/src/conformance/corpus.rs` | `multishot_resume` eval-corpus case — the cross-engine gate |
-| `host/crates/handl-runtime/tests/engine_parity.rs` | `perform_multishot_resume` (both continuations / nested / escape, all three engines); fixed the `vsum<n>` self-recursion case (`{n}` → `<n>`, the pre-existing failure was a test-source syntax bug) and extended it to tree-walk + cranelift with bytecode's known divergence pinned |
+| `host/crates/handl-runtime/tests/engine_parity.rs` | `perform_multishot_resume` (both continuations / nested / escape, all three engines); fixed the `vsum<n>` self-recursion case (`{n}` → `<n>`, the pre-existing failure was a test-source syntax bug) and extended it to all three engines; added `self_recursive_arrow_without_data_types` (fac(4) = 24 on every engine), which shows self-recursion is *not* an engine divergence |
 | `host/project/adrs/0158-*.md`, `host/project/design/multishot-resume.md` | status, deltas, limits |
 | `engine-parse-pratt/src/{lib,former_decl}.rs`, `host/crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs` | incidental clippy fixes (crate test suites re-run green) |
 
@@ -141,8 +141,13 @@ See `design/multishot-resume.md` §"Known limits": deterministic bodies
 only; `resume` escapes are supported while the eval is live, not across
 evals (the tables are reclaimed at the eval boundary); `perform` inside a
 `rec`/loop fixpoint region now propagates instead of being dropped but is
-still not a supported position; bytecode remains divergent on
-self-recursive closures (`vsum` → `Zero`, pinned in `engine_parity`).
+still not a supported position.
+
+Self-recursion itself is engine-independent: a `letrec` arrow
+(`fac := (n) ~> … fac(n - 1)`), with no `data` declaration involved,
+returns `24` on tree-walk, bytecode *and* cranelift. The `vsum → Zero`
+result seen earlier was the broken `data`/ctor lowering (unresolved
+patterns fall through to the base arm), not a bytecode bug.
 
 ## Landing
 
