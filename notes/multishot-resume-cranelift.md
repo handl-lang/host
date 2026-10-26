@@ -142,6 +142,21 @@ Remaining reds and what the probes show:
   **index-parameterized family ctor bound to an arrow parameter** matched
   inside an arrow body.
 
+  **Mechanism (instrumented):** at the match, the arrow's captured map is
+  just `["VCons"]` — the nullary ctor's name is missing. So
+  `PatternMatchCtx::scope_value("VNil")` returns `None`, `pattern_match`
+  degrades the pattern to a *catch-all binder*, and the first arm fires
+  for every value. The capture set is filtered by
+  `subtree_name_candidates`; whatever mints this arrow drops the
+  pattern-position name (the ctor binding itself is identical on all
+  engines, and the closure *does* capture `VNil` when the body merely
+  mentions it). Next step: instrument the arrow mint (which `closure`
+  path runs and what the candidate set holds) rather than the match.
+  Two candidate fixes were tried and reverted: a `capture = None`
+  bail-out in bytecode's `Instr::Closure` fast path, and the same guard in
+  the shared `closure` op — neither moved the result, so the minting path
+  is a third one still to be located.
+
   Ruled out by probe (all three engines agree on each): `Zero == Zero`,
   `Zero == Succ(Zero)`, `Succ(Zero) == Succ(Zero)`, and
   `Zero.__ctor__ == Succ(Zero).__ctor__`; ctor arm binders
