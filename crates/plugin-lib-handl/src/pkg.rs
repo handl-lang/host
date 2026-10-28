@@ -113,47 +113,105 @@ pub fn discover_funcs(src: &str) -> Vec<String> {
 
 /// Keys at depth 1 of the record that closes the source.
 ///
-/// The exported record is the **last** balanced `{ … }` in the file, so the scan
-/// runs backwards from the final `}` to its matching `{` — robust against
-/// nested records, `do { … }` blocks and brackets, which a forward "last opener"
-/// scan gets wrong (it latches onto the innermost brace).
+/// A byte scan, not a regex: it walks the source once, skipping string literals
+/// (`"…"`, with `\` escapes) and line comments (`-- …`), and records the span of
+/// every top-level `{ … }` block. The **last** such span is the exported record.
+/// Ignoring literals matters: `pred` matches `"*"`/`"?"`, and a value like
+/// `"{"` would otherwise desync the depth counter and hand back the keys of a
+/// nested record.
 fn record_keys(src: &str) -> Vec<String> {
-    let src: String = src
-        .lines()
-        .map(|l| match l.find("--") {
-            Some(i) => &l[..i],
-            None => l,
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+    let mut blocks: Vec<(usize, usize)> = Vec::new();
     let mut depth = 0usize;
-    let mut end = None;
-    let mut start = None;
-    for (i, c) in src.char_indices().rev() {
+    let mut open = 0usize;
+    let mut in_str = false;
+    let mut escaped = false;
+    let mut in_comment = false;
+    let bytes = src.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if in_comment {
+            if c == '\n' {
+                in_comment = false;
+            }
+            i += 1;
+            continue;
+        }
+        if in_str {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            i += 1;
+            continue;
+        }
         match c {
-            '}' => {
+            '-' if bytes.get(i + 1) == Some(&b'-') => {
+                in_comment = true;
+                i += 2;
+                continue;
+            }
+            '"' => in_str = true,
+            '{' => {
                 depth += 1;
                 if depth == 1 {
-                    end = Some(i);
+                    open = i;
                 }
             }
-            '{' => {
-                depth = depth.saturating_sub(1);
-                if depth == 0 && end.is_some() {
-                    start = Some(i);
-                    break;
+            '}' => {
+                if depth == 1 {
+                    blocks.push((open, i));
                 }
+                depth = depth.saturating_sub(1);
             }
             _ => {}
         }
+        i += 1;
     }
-    let (Some(start), Some(end)) = (start, end) else {
+    let Some((start, end)) = blocks.last().copied() else {
         return Vec::new();
     };
     let mut keys = Vec::new();
     let (mut depth, mut current) = (0i32, String::new());
-    for c in src[start + 1..end].chars() {
+    let mut in_str = false;
+    let mut escaped = false;
+    let mut in_comment = false;
+    let body: Vec<char> = src[start + 1..end].chars().collect();
+    let mut idx = 0;
+    while idx < body.len() {
+        let c = body[idx];
+        idx += 1;
+        if in_comment {
+            if c == '\n' {
+                in_comment = false;
+                current.push(' ');
+            }
+            continue;
+        }
+        if !in_str && c == '-' && body.get(idx) == Some(&'-') {
+            in_comment = true;
+            idx += 1;
+            continue;
+        }
+        if in_str {
+            current.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
         match c {
+            '"' => {
+                in_str = true;
+                current.push(c);
+            }
             '{' | '(' | '[' => {
                 depth += 1;
                 current.push(c);
@@ -345,6 +403,17 @@ op \"b.go\" : Unit -> Unit
             vec!["a", "b"]
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn ignores_braces_inside_string_literals() {
+        // The shape that broke the first scan: a matcher arm carrying a brace literal.
+        let src = r#"{
+  glob: (p) ~> if p == "{" { true } else { false },
+  exact: (v) ~> v == v,
+}
+"#;
+        assert_eq!(discover_funcs(src), vec!["glob", "exact"]);
     }
 
     #[test]
