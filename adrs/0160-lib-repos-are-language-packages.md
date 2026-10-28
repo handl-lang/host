@@ -116,7 +116,20 @@ field discovery) as unit tests; one integration test that resolves a real repo a
 with the sibling checkout renamed away; `HANDL_PKG_OFFLINE=1` must fail loudly, never
 silently fall back to a sibling.
 
-**P1 status (2026-10-28): the bridge landed.** `handl_plugin_lib_handl::pkg` now provides
+**P1 status (2026-10-28, second slice).** Multi-module packages now work: a package's
+modules are ordered by their intra-package imports (`order_by_imports`) and each sibling is
+wired with `with_dependency_arc`, so `src/<name>/index.hnl` packages bridge like
+`str-handl` does. `import_specs` is shared (`pub`) between the hand-written builder and the
+bridge, and `PackageResolver::from_manifest_dir(dir)` runs `fetch_dependencies` +
+`resolve_pkg_dependencies` and loads whatever the cache holds (fetch failures still degrade
+to "unresolved module", never a panic).
+
+**Blocking P2:** `discover_funcs` is a scan, not a parser — braces inside string literals
+desync the record walk, and the real `pred` package trips it. The fix is a parser-grade
+field scan (the `.hnl` lexer already exists in the kernel); until then P2 cannot rely on
+derived fields, so the `lib-pred` shell stays.
+
+**P1 status (2026-10-28, first slice): the bridge landed.** `handl_plugin_lib_handl::pkg` now provides
 `package_modules(dir)` (read `pkg.hnl` → `src/…`, one `PackageModuleDef` per module),
 `discover_funcs(src)` (field names from `export <name> :=` or the record's top-level keys
 — no hand-written `funcs` const), and `PackageResolver` (a `ModuleResolver` over the
