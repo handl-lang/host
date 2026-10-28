@@ -206,3 +206,4 @@ ADR), listed here so a number is never reused across repos.
 |---|---|---|---|
 | 0145 | LSP-only Neovim integration | `extension-neovim` | `adrs/0145-handl-lsp-integration.md` |
 | 0146 | Generic Arrow Calculus for Any Dimension | `lang` | `adrs/0146-generic-arrow-calculus-any-dimension.md` |
+| 0160 | `lib-*` repos are language packages, not crates | `lib-*` / `host` | `adrs/0160-lib-repos-are-language-packages.md` |
