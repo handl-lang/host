@@ -142,7 +142,12 @@ pub fn lint_source_with_prelude(
     src: &str,
     prelude: &HashSet<String>,
 ) -> Result<Vec<Diagnostic>, LintError> {
-    let diags = lint_engine(ctx.resolver.clone()).lint_source(ctx.lang(), src)?;
+    let diags = lint_engine(ctx.resolver.clone()).lint_source(
+        ctx.lang(),
+        src,
+        &hnl_engine_lex_pattern::DataLexerEngine,
+        &hnl_engine_parse_pratt::PrattEngine::new(),
+    )?;
     let mut out: Vec<Diagnostic> = diags
         .iter()
         .map(|d| convert(src, d))
