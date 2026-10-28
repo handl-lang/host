@@ -166,6 +166,22 @@ single-consumer edges: `kit-prelude` (2), `kit-stdlib` (8 extra), `kit-test` (2)
 `plugin-ext-refinement` (2), `plugin-lib-tag` (1), `handl-runtime` (1), `engine-test` (1),
 and five `lib-*`→`lib-*` edges.
 
+**P3 mechanism (decision, 2026-10-28).** Two ways a Rust consumer can read a package
+once the shell is gone, and they differ in *when* the package must exist:
+
+| | runtime load (`pkg::module_from_dir`) | build-time vendor (`build.rs` → `OUT_DIR`) |
+|---|---|---|
+| when the package must exist | at **runtime** (sibling checkout or `~/.handl/pkg`) | at **build time** only |
+| hermetic CI | no — needs a fetch step | yes — sources are baked into the build |
+| cost | one call per module | a small `build.rs` per consumer |
+
+**Decision:** use **build-time vendoring** for the kit/stdlib consumers
+(`plugin-lib-stdlib`'s 36 shells, the `kit-*` edges), because they are built and tested
+hermetically and must not depend on a populated package cache at runtime; keep the
+**runtime load** for consumers that already resolve packages dynamically (`engine-test`'s
+`pred`, and hosts that take a `pkg.hnl` manifest). Either way the *lib* repo ships no
+`Cargo.toml` — which is the ADR's actual goal.
+
 ## Consequences
 
 - **Good:** a package is `pkg.hnl` + `.hnl`; adding a port needs no Rust; the
