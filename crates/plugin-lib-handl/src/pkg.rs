@@ -14,6 +14,12 @@
 //!   const (`PRED_FUNCS`); a package has none, so [`discover_funcs`] reads them
 //!   back from the source — the `export <name> :=` form (one arrow per file) or
 //!   the keys of the record the file evaluates to.
+//! **Known limitation.** `discover_funcs` is a scan, not a parser: braces inside
+//! string literals can desync the record walk, so a file with `"{"`/`"}"` in a
+//! value (or a comment that survives stripping) can yield the wrong key set. The
+//! shapes in the unit tests (record-of-arrows, one-arrow-per-file) are safe; the
+//! `pred` package needs a parser-grade scan before P2 can rely on it.
+//!
 //! - **One module per package for now.** A single-module package
 //!   (`pkg.hnl` → `src/index.hnl`) is bridged; multi-module packages
 //!   (`src/<name>/index.hnl` + intra-package imports, e.g. `str-handl`) need the
@@ -105,22 +111,38 @@ pub fn discover_funcs(src: &str) -> Vec<String> {
     record_keys(src)
 }
 
-/// Keys at depth 1 of the last balanced `{ … }` in `src`.
+/// Keys at depth 1 of the record that closes the source.
+///
+/// The exported record is the **last** balanced `{ … }` in the file, so the scan
+/// runs backwards from the final `}` to its matching `{` — robust against
+/// nested records, `do { … }` blocks and brackets, which a forward "last opener"
+/// scan gets wrong (it latches onto the innermost brace).
 fn record_keys(src: &str) -> Vec<String> {
-    let (mut depth, mut start, mut end) = (0usize, None, None);
-    for (i, c) in src.char_indices() {
+    let src: String = src
+        .lines()
+        .map(|l| match l.find("--") {
+            Some(i) => &l[..i],
+            None => l,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut depth = 0usize;
+    let mut end = None;
+    let mut start = None;
+    for (i, c) in src.char_indices().rev() {
         match c {
-            '{' => {
-                depth += 1;
-                if depth == 1 {
-                    start = Some(i);
-                }
-            }
             '}' => {
+                depth += 1;
                 if depth == 1 {
                     end = Some(i);
                 }
+            }
+            '{' => {
                 depth = depth.saturating_sub(1);
+                if depth == 0 && end.is_some() {
+                    start = Some(i);
+                    break;
+                }
             }
             _ => {}
         }
@@ -166,6 +188,12 @@ fn push_key(keys: &mut Vec<String>, entry: &str) {
     }
 }
 
+/// The module name an import path names: its first path segment
+/// (`"libc/socket"` -> `libc`).
+fn normalize_module_path(spec: &str) -> &str {
+    spec.split('/').next().unwrap_or(spec)
+}
+
 /// A [`ModuleResolver`] over a set of fetched package directories.
 ///
 /// Build it from the name→dir map the platform already produces
@@ -183,18 +211,39 @@ impl PackageResolver {
     /// failing the set: the platform's map includes cache slots a failed or
     /// disabled fetch never populated.
     pub fn from_dirs(dirs: &HashMap<String, PathBuf>) -> Self {
-        let mut modules = HashMap::new();
+        let mut modules: HashMap<String, Arc<dyn Module + Send + Sync>> = HashMap::new();
         for dir in dirs.values() {
             let Ok(defs) = package_modules(dir) else {
                 continue;
             };
-            for def in defs {
+            for def in order_by_imports(&defs) {
                 let funcs: Vec<&str> = def.funcs.iter().map(String::as_str).collect();
-                let module = HandlModule::new(def.name.clone(), &def.source, &funcs);
+                let mut module = HandlModule::new(def.name.clone(), &def.source, &funcs);
+                for spec in crate::import_specs(&def.source) {
+                    let dep_name = normalize_module_path(&spec);
+                    if let Some(dep) = modules.get(dep_name) {
+                        module = module.with_dependency_arc(Arc::clone(dep));
+                    }
+                }
                 modules.insert(def.name, Arc::new(module) as Arc<dyn Module + Send + Sync>);
             }
         }
         Self { modules }
+    }
+
+    /// Build a resolver for the package in `dir`: fetch its declared deps (the
+    /// platform does the `git clone` + cache), resolve the name→dir map, then
+    /// load every package that map names.
+    ///
+    /// Fetching is best-effort: `HANDL_PKG_FETCH=off` (or no network) leaves the
+    /// cache slots empty, `from_dirs` skips them, and the caller sees the same
+    /// "unresolved module" error it would have seen before the hook existed.
+    pub fn from_manifest_dir(dir: &Path) -> Self {
+        let _ = handl_platform::fetch_dependencies(dir);
+        match handl_platform::resolve_pkg_dependencies(dir) {
+            Ok(dirs) => Self::from_dirs(&dirs),
+            Err(_) => Self::default(),
+        }
     }
 
     /// The number of modules this resolver answers for.
@@ -224,7 +273,11 @@ mod tests {
         std::fs::create_dir_all(dir.join("src")).unwrap();
         std::fs::write(dir.join("pkg.hnl"), format!("{{ modules: [{modules}] }}\n")).unwrap();
         for (rel, src) in files {
-            std::fs::write(dir.join(rel), src).unwrap();
+            let path = dir.join(rel);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(path, src).unwrap();
         }
         dir
     }
@@ -271,6 +324,30 @@ mod tests {
     }
 
     #[test]
+    fn orders_modules_by_intra_package_imports() {
+        // `b` imports `a`, declared in reverse order: the resolver must emit `a`
+        // first so `b` can wire it as a dependency.
+        let dir = pkg(
+            "multi",
+            "\"b\", \"a\"",
+            &[
+                ("src/b/index.hnl", "from \"a\" import *
+op \"b.go\" : Unit -> Unit
+"),
+                ("src/a/index.hnl", "{ a: c ~> true }
+"),
+            ],
+        );
+        let defs = package_modules(&dir).unwrap();
+        let ordered = order_by_imports(&defs);
+        assert_eq!(
+            ordered.iter().map(|d| d.name.as_str()).collect::<Vec<_>>(),
+            vec!["a", "b"]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn resolver_skips_non_packages() {
         let good = pkg("good", "\"pred\"", &[("src/index.hnl", "{ always: c ~> true }\n")]);
         let bad = std::env::temp_dir().join(format!("hnl-pkg-bad-{}", std::process::id()));
@@ -285,4 +362,38 @@ mod tests {
         let _ = std::fs::remove_dir_all(&good);
         let _ = std::fs::remove_dir_all(&bad);
     }
+}
+
+/// Order `defs` so a module comes after every sibling it imports.
+///
+/// A cycle — or an import of something outside the package — cannot be ordered;
+/// such modules stay in declaration order and their unresolved imports are left
+/// unwired (an import error at use time, never a build-time panic).
+fn order_by_imports(defs: &[PackageModuleDef]) -> Vec<PackageModuleDef> {
+    let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
+    let mut emitted: Vec<usize> = Vec::with_capacity(defs.len());
+    while emitted.len() < defs.len() {
+        let before = emitted.len();
+        for (i, def) in defs.iter().enumerate() {
+            if emitted.contains(&i) {
+                continue;
+            }
+            let ready = crate::import_specs(&def.source).iter().all(|spec| {
+                let dep = normalize_module_path(spec);
+                !names.contains(&dep) || defs.iter().position(|d| d.name == dep).is_some_and(|j| emitted.contains(&j))
+            });
+            if ready {
+                emitted.push(i);
+            }
+        }
+        if emitted.len() == before {
+            // Cycle or mutual import: keep the rest in declaration order.
+            for i in 0..defs.len() {
+                if !emitted.contains(&i) {
+                    emitted.push(i);
+                }
+            }
+        }
+    }
+    emitted.into_iter().map(|i| defs[i].clone()).collect()
 }

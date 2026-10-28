@@ -3200,6 +3200,15 @@ const STR_HANDL_CALLBACK_SCOPE: &[&str] = &[
 /// the Rust table above can never drift from the `.hnl` imports. Statement
 /// segmentation mirrors the export transform, so an import sharing a line
 /// with a sibling statement is still wired.
+/// The module paths a `.hnl` source imports (`from "x" import …` /
+/// `import "x"`), in source order.
+///
+/// Shared by the hand-written `str-handl` builder and the package bridge
+/// (`pkg`), which needs the same edges to order and wire a package's modules.
+pub fn import_specs(src: &str) -> Vec<String> {
+    str_handl_import_specs(src)
+}
+
 fn str_handl_import_specs(src: &str) -> Vec<String> {
     let mut specs = Vec::new();
     for seg in bootstrap::top_level_segments(src) {
