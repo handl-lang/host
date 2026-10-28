@@ -85,6 +85,29 @@ name. Nothing is deleted; every repo stays buildable.
 - one integration test with no sibling checkout on disk;
 - keep the sibling path as the dev fast path.
 
+**P1 design (what is missing, precisely).** The seam already exists: a package env is
+`HandlModule::from_pkg_hnl(src, resolver)` and every declared dep is answered by
+`ModuleResolver::resolve(name)` (`host/crates/plugin-lib-handl/src/lib.rs`). Today every
+resolver is a static kit table, so an unknown name is a hard error. P1 therefore needs a
+resolver that, on a miss:
+
+1. maps `name` → repo `handl-lang/lib-<name>` (then `-handl` / `-c` / `-native` in that
+   order) and `spec` → ref (`branch:main`, later `rev:`/`tag:`);
+2. fetches into a content-addressed cache (`~/.cache/handl/pkg/<repo>@<sha>`) with the
+   `git` CLI — no new crates, no libgit2;
+3. reads the fetched `pkg.hnl` → `{ modules, entry? }`, and maps each module to
+   `src/<name>/index.hnl` (N modules) or `src/index.hnl` (one);
+4. builds each file as a `HandlModule` and wires its imports — `str_handl_modules()` is the
+   working template: per-file module, `from "…" import` parsed for edges, siblings first;
+   the missing piece there is **field discovery** (the `funcs` list `HandlModule::new`
+   needs is a hand-written const today; a package must derive it from the exported record);
+5. recurses through the package's own `deps`, with a depth cap + cycle set.
+
+Test plan: pure parts (spec parsing, repo/cache-path derivation, module→path mapping,
+field discovery) as unit tests; one integration test that resolves a real repo at a ref
+with the sibling checkout renamed away; `HANDL_PKG_OFFLINE=1` must fail loudly, never
+silently fall back to a sibling.
+
 **P2 — pilot.** `lib-pred`: delete `Cargo.toml` + `src/lib.rs`; `engine-test`
 loads `pred` via the loader. Zero `include_str!` in the chain; its suite green.
 
