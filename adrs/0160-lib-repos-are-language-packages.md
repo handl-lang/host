@@ -144,6 +144,18 @@ loads `pred` via the loader. Zero `include_str!` in the chain; its suite green.
 **P3 — sweep.** Remove the remaining 87 shells, one repo per commit, each with
 its consumer moved. Gate: `hnl-gate.sh` + `verify-all.sh` green throughout.
 
+**P2/P3 status (2026-10-28).** P2 landed: `lib-pred` dropped its `Cargo.toml` +
+`src/lib.rs`, and `engine-test` now loads the `pred` module through the bridge
+(`package_modules` + derived fields) — 79/79 tests green, `ci: ok`. That fixed the field
+discovery properly: brace-stack scan, string/comment aware, counting only single-`:`
+record fields (so `name :: …` helpers are skipped) and preferring the last block with
+≥2 fields.
+
+P3 is **33 of 88 shells down**: every shell whose crate has no consumer outside its own
+repo (32 repos + `lib-pred`) is gone. The remaining **55** each have a Rust consumer, so
+each is a two-part change (“strip the shell + move the consumer onto the loader”) and is
+being landed one repo at a time.
+
 ## Consequences
 
 - **Good:** a package is `pkg.hnl` + `.hnl`; adding a port needs no Rust; the
