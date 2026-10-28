@@ -162,7 +162,13 @@ fn scope_diagnostics_with_language(
     src: &str,
     prelude: &HashSet<String>,
 ) -> Vec<Diagnostic> {
-    match hnl_engine_typecheck::check_module_with_prelude(lang, src, prelude) {
+    match hnl_engine_typecheck::check_module_with_prelude(
+        lang,
+        src,
+        prelude,
+        &hnl_engine_lex_pattern::DataLexerEngine,
+        &hnl_engine_parse_pratt::PrattEngine::new(),
+    ) {
         Ok(report) => report
             .diagnostics
             .into_iter()

@@ -22,7 +22,12 @@ fn bench_typecheck(c: &mut Criterion) {
     let lang = canonical_lang();
     c.bench_function("typecheck/check_module", |b| {
         b.iter(|| {
-            hnl_engine_typecheck::check_module(&lang, black_box(SAMPLE))
+            hnl_engine_typecheck::check_module(
+                &lang,
+                black_box(SAMPLE),
+                &hnl_engine_lex_pattern::DataLexerEngine,
+                &hnl_engine_parse_pratt::PrattEngine::new(),
+            )
                 .expect("sample typechecks")
         });
     });
