@@ -1,8 +1,9 @@
 # ADR-0159: Optimizer domains dissolve into `ext` tools, on a trigger
 
-**Status:** Proposed
-**Date:** 2026-10-27
-**Owners:** `opt-graph` (was `graphopt`), `opt-kernel` (was `kernelopt`)
+## Status
+
+Proposed — 2026-10-27. Owners: `opt-graph` (was `graphopt`),
+`opt-kernel` (was `kernelopt`).
 
 ## Context
 
