@@ -51,7 +51,28 @@ date.**
    are domain-free; domains are rules + cost model + adapters. A new
    domain reuses the core rather than forking it.
 
-## Consequences
+## Visibility (ADR-0150)
+
+ADR-0150 puts the tooling tier — `ext-*`, `host-cli`, `host-lsp`, `kit-*`,
+the remaining `lib-*` ports — **private until done**. Dissolving a domain
+into an `ext` therefore moves it into that tier. The consequence, stated so
+it is not discovered later:
+
+| artefact | tier | visible |
+|---|---|---|
+| `lib-kernel-ir` (ops, grades, costs, denotations) | vocabulary | **public** |
+| `compile-triton` (Term → Triton) | tooling (like `compile-js`, `compile-llvm`) | **private** until done |
+| `lib-triton` (runtime binding) | tooling | **private** |
+| `ext-opt-*` (the command) | tooling | **private** |
+| `opt-graph`, `opt-kernel` | labs | **private** (today: `graphopt` public, `kernelopt` private) |
+
+So the public artefact of this whole line is the **vocabulary and its
+denotations** — the thing that lets anyone state "this kernel means that
+computation" — while the delivery stays private until it is done. That is
+consistent with the platform's own split: public substrate, private
+tooling.
+
+
 
 - **Positive:** productization becomes packaging, not research; the
   freeze protects the research until the surface is stable; a second
