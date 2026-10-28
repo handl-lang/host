@@ -8,6 +8,7 @@ repository.workspace = true
 
 [workspace]
 members = [
+  "crates/pkg-vendor",
   "crates/bench",
   "crates/ext-tests",
   "crates/platform-tests",
