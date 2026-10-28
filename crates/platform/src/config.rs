@@ -907,6 +907,100 @@ fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
     }
 }
 
+/// The `modules` list of a `pkg.hnl` source, in declaration order.
+///
+/// Empty when the table is absent or malformed — the same leniency
+/// [`pkg_dep_specs`] applies (a bad manifest must not break an unrelated build).
+pub fn pkg_modules(src: &str) -> Vec<String> {
+    let Some(body) = pkg_list_body(src, "modules") else {
+        return Vec::new();
+    };
+    body.split(',')
+        .map(|s| s.trim().trim_matches('"').trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// The `entry` override of a `pkg.hnl` source, when declared.
+pub fn pkg_entry(src: &str) -> Option<String> {
+    let clean: String = src
+        .lines()
+        .map(|l| match l.find("--") {
+            Some(i) => &l[..i],
+            None => l,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let at = clean.find("entry")?;
+    let tail = &clean[at + "entry".len()..];
+    let colon = tail.find(':')?;
+    let value = tail[colon + 1..].trim_start();
+    if !value.starts_with('"') {
+        return None;
+    }
+    let end = value[1..].find('"')? + 1;
+    Some(value[1..end].to_string())
+}
+
+/// Where a module lives inside a package (ADR-0160).
+///
+/// One module resolves to `src/index.hnl`; N modules resolve to
+/// `src/<name>/index.hnl` each; `entry` overrides the one-module case.
+pub fn pkg_module_path(modules: &[String], entry: Option<&str>, module: &str) -> Option<String> {
+    if modules.len() == 1 && modules[0] == module {
+        return Some(entry.unwrap_or("src/index.hnl").to_string());
+    }
+    if modules.iter().any(|m| m == module) {
+        return Some(format!("src/{module}/index.hnl"));
+    }
+    None
+}
+
+/// Split a `pkg.hnl` dep spec (`branch:main`, `rev:abc`, `tag:v1`) into
+/// `(kind, value)`. Unknown or empty specs fall back to `("branch", "main")`.
+pub fn dep_spec_ref(spec: &str) -> (&'static str, String) {
+    match spec.split_once(':') {
+        Some((kind, value)) if !value.trim().is_empty() => match kind.trim() {
+            "rev" => ("rev", value.trim().to_string()),
+            "tag" => ("tag", value.trim().to_string()),
+            _ => ("branch", {
+                let v = value.trim();
+                if v.is_empty() { "main".to_string() } else { v.to_string() }
+            }),
+        },
+        _ => ("branch", "main".to_string()),
+    }
+}
+
+/// Repo candidates for a dep `name`, most specific first: the package repo,
+/// then the pure-Handl impl, then the backends (`-c`, `-native`).
+pub fn dep_repo_candidates(name: &str) -> Vec<String> {
+    vec![
+        format!("lib-{name}"),
+        format!("lib-{name}-handl"),
+        format!("lib-{name}-c"),
+        format!("lib-{name}-native"),
+    ]
+}
+
+
+/// The text between the brackets of a top-level `key: [ … ]` list.
+fn pkg_list_body(src: &str, key: &str) -> Option<String> {
+    let clean: String = src
+        .lines()
+        .map(|l| match l.find("--") {
+            Some(i) => &l[..i],
+            None => l,
+        })
+        .collect::<Vec<_>>()
+        .join("
+");
+    let at = clean.find(key)?;
+    let open = clean[at..].find('[')? + at;
+    let close = clean[open..].find(']')? + open;
+    Some(clean[open + 1..close].to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1683,4 +1777,56 @@ vendored = { path = "../lib-vendored" }
         assert_eq!(git_selector(&spec), Some("t"));
         assert_eq!(git_selector(&DependencySpec::default()), None);
     }
+    #[test]
+    fn pkg_modules_reads_the_list() {
+        let src = "-- pkg\n{ deps: { }, modules: [\"vec\", \"list\"] }\n";
+        assert_eq!(pkg_modules(src), vec!["vec".to_string(), "list".to_string()]);
+        assert!(pkg_modules("{ modules: [] }").is_empty());
+        assert!(pkg_modules("no manifest here").is_empty());
+    }
+
+    #[test]
+    fn pkg_entry_override() {
+        assert_eq!(
+            pkg_entry("{ modules: [\"a\"], entry: \"src/a.hnl\" }"),
+            Some("src/a.hnl".into())
+        );
+        assert_eq!(pkg_entry("{ modules: [\"a\"] }"), None);
+    }
+
+    #[test]
+    fn pkg_module_path_rules() {
+        let one = vec!["pred".to_string()];
+        assert_eq!(
+            pkg_module_path(&one, None, "pred").as_deref(),
+            Some("src/index.hnl")
+        );
+        assert_eq!(
+            pkg_module_path(&one, Some("src/pred.hnl"), "pred").as_deref(),
+            Some("src/pred.hnl")
+        );
+        let many = vec!["vec".to_string(), "list".to_string()];
+        assert_eq!(
+            pkg_module_path(&many, None, "list").as_deref(),
+            Some("src/list/index.hnl")
+        );
+        assert_eq!(pkg_module_path(&many, None, "nope"), None);
+    }
+
+    #[test]
+    fn dep_spec_ref_parses_kinds() {
+        assert_eq!(dep_spec_ref("branch:main"), ("branch", "main".to_string()));
+        assert_eq!(dep_spec_ref("rev:abc123"), ("rev", "abc123".to_string()));
+        assert_eq!(dep_spec_ref("tag:v1"), ("tag", "v1".to_string()));
+        assert_eq!(dep_spec_ref(""), ("branch", "main".to_string()));
+    }
+
+    #[test]
+    fn dep_repo_candidates_are_ordered() {
+        assert_eq!(
+            dep_repo_candidates("pred"),
+            vec!["lib-pred", "lib-pred-handl", "lib-pred-c", "lib-pred-native"]
+        );
+    }
+
 }
