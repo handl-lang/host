@@ -85,6 +85,14 @@ name. Nothing is deleted; every repo stays buildable.
 - one integration test with no sibling checkout on disk;
 - keep the sibling path as the dev fast path.
 
+**P1 finding (2026-10-28): most of the plumbing already exists.**
+`handl_platform` already has `package_cache_dir()` (`$HANDL_PKG_DIR` else
+`~/.handl/pkg`), `fetch_dependencies()` (`git clone` + checkout of declared deps into
+that cache, `HANDL_PKG_FETCH=off` for hermetic runs) and `resolve_pkg_dependencies()`
+(`pkg.hnl` `deps` → name→dir map). What is missing is only the **dir→module bridge**: a
+`ModuleResolver` that, given a fetched package dir, reads its `pkg.hnl` and builds the
+`HandlModule`(s). That is much smaller than "implement a package manager".
+
 **P1 design (what is missing, precisely).** The seam already exists: a package env is
 `HandlModule::from_pkg_hnl(src, resolver)` and every declared dep is answered by
 `ModuleResolver::resolve(name)` (`host/crates/plugin-lib-handl/src/lib.rs`). Today every
