@@ -43,6 +43,7 @@ def read_adr(path: Path) -> dict:
     if not status:
         m = re.search(r"^\*?\*?Status\*?\*?\s*[:—]\s*(.+)$", text, re.MULTILINE)
         status = m.group(1).strip() if m else ""
+    status = status.strip("* ").strip()
     status = re.sub(r"\s+", " ", status).split(".")[0]
     if len(status) > 48:
         status = status[:45].rstrip() + "…"
@@ -73,6 +74,23 @@ def main() -> int:
                 }
                 num = (NUM.match(name).group(1) if NUM.match(name) else "—")
                 rows.append((num, name, repo, sub, info))
+
+    # Union with a directory scan. `docs-split.yaml` is hand-maintained, so
+    # a newly written ADR was simply invisible in the registry (0158 and
+    # 0159 were both missing while their files were present and committed).
+    # Anything on disk that the manifest does not list is added, labelled
+    # with this repo — the manifest still owns ordering and split metadata.
+    listed = {row[1] for row in rows}
+    for sub in ("adrs", "adrs/archived"):
+        for path in sorted((PROJECT / sub).glob("*.md")):
+            if path.name in listed:
+                continue
+            match = NUM.match(path.name)
+            if not match:
+                continue  # INDEX.md and friends
+            rows.append(
+                (match.group(1), path.name, ROOT.name, sub, read_adr(path))
+            )
 
     rows.sort(key=lambda r: (r[0].rjust(5, "0"), r[1]))
 
