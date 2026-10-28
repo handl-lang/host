@@ -508,7 +508,7 @@ return value (where feasible). Tests cover both.
 
 ### Phase 4 — Native libs migrated to handl interfaces
 
-**Superseded by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
+**This phase is replaced by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
 
 This phase proposed keeping Rust `Function` bodies as the `handl`
 implementations for native libs (`handl "fs.read" = rust_fs_read`). ADR-0083

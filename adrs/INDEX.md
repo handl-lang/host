@@ -206,4 +206,7 @@ ADR), listed here so a number is never reused across repos.
 |---|---|---|---|
 | 0145 | LSP-only Neovim integration | `extension-neovim` | `adrs/0145-handl-lsp-integration.md` |
 | 0146 | Generic Arrow Calculus for Any Dimension | `lang` | `adrs/0146-generic-arrow-calculus-any-dimension.md` |
+| 0159 | Optimizer domains dissolve into `ext` tools, on a trigger | `opt-graph`, `opt-kernel` | `adrs/0159-opt-domains-dissolve-into-ext-tools.md` |
 | 0160 | `lib-*` repos are language packages, not crates | `lib-*` / `host` | `adrs/0160-lib-repos-are-language-packages.md` |
+| 0161 | An ADR is a one-page decision record | `host` | `adrs/0161-adr-is-a-one-page-decision.md` |
+| 0162 | `project/` holds process artifacts; published docs live in the org `docs/` | all repos | `adrs/0162-project-folder-taxonomy.md` |

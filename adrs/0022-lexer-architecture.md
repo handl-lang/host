@@ -1,5 +1,12 @@
 # Lexer Architecture: Self-Hosted Streaming with Runtime Config
 
+## Status
+
+Proposed — no status was recorded when this was written, and nothing indicates
+it was accepted. The lexer that shipped is the data-driven
+`engine-lex-pattern` (ADR-0044); the trait-based `handl-lexer` family below
+was never built.
+
 ## Context
 
 The `handl-lexer` trait and `handl-lexer-canonical` implementation need to support:

@@ -407,7 +407,7 @@ change at all** — `handl-value`/`handl-language` gain nothing.
   non-value, non-serializable-as-callable, registry-dispatched construct
   in an otherwise explicit-calculus language, and keeps ADR-0049's
   "environments as values" unimplemented on the dep side.
-- **`Module` as a first-class value type** (ADR-0048): superseded by
+- **`Module` as a first-class value type** (ADR-0048): replaced by
   ADR-0049; this ADR completes 0049 §1 for dependencies rather than
   reviving a parallel module value system.
 

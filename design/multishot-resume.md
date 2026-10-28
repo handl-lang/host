@@ -1,4 +1,6 @@
 # Multi-shot `resume` for `handle` effects — design + tree-walk prototype
+- Refs: ADR-0158, ADR-0106
+
 
 **Status**: Proposed (tree-walk prototype landed; cranelift replay driver landed)
 **Refs**: ADR-0158 (resumption semantics — `perform` dispatches in-flight),

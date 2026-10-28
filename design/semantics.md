@@ -1,4 +1,6 @@
 # Denotational semantics — `Val` as the domain, `[[·]]` as the evaluator
+- Refs: ADR-0106, ADR-0154, ADR-0158
+
 
 Naming what the evaluator already computes. The semantic domain is not a
 model built alongside the implementation — it *is* the implementation's

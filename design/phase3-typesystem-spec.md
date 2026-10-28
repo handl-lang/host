@@ -1,4 +1,6 @@
 # Phase-3 implementation spec — unified type system
+- Refs: ADR-0106, ADR-0149
+
 
 Normative design: ADR-0106 (kernel, as amended) + 0152 (`data`) +
 0153 (`~[n]~>` dimension index) + 0154 (identity/equality/universes/
