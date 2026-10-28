@@ -156,6 +156,16 @@ repo (32 repos + `lib-pred`) is gone. The remaining **55** each have a Rust cons
 each is a two-part change (“strip the shell + move the consumer onto the loader”) and is
 being landed one repo at a time.
 
+**P3 target map (2026-10-28).** The 55 remaining shells are not 55 independent jobs:
+`host/crates/plugin-lib-stdlib` **alone** consumes 36 of them through a data table
+(`packages.rs`: `ModuleSpec { name, hnl: &'static str, funcs, ops, deps }`). Migrating that
+table from `include_str!` to package-backed specs
+(`pkg::module_from_dir(dir, name)`) retires 36 shells in one change. The rest are small,
+single-consumer edges: `kit-prelude` (2), `kit-stdlib` (8 extra), `kit-test` (2),
+`kit-core`/`kit-ffi`/`kit-server`/`kit-lang` (1–6 each), `plugin-lib-handl` (4),
+`plugin-ext-refinement` (2), `plugin-lib-tag` (1), `handl-runtime` (1), `engine-test` (1),
+and five `lib-*`→`lib-*` edges.
+
 ## Consequences
 
 - **Good:** a package is `pkg.hnl` + `.hnl`; adding a port needs no Rust; the
