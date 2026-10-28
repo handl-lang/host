@@ -112,6 +112,8 @@ use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 ///
 /// Used to map a module name to its [`Module`] impl when building and
 /// resolving stdlib packages (see `plugin-lib-stdlib`'s table resolver).
+pub mod pkg;
+
 pub trait ModuleResolver: Send + Sync {
     /// Resolve a module name to a shared [`Module`] impl, or `None` if unknown.
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>>;
