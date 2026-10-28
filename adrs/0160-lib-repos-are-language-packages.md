@@ -182,6 +182,14 @@ hermetically and must not depend on a populated package cache at runtime; keep t
 `pred`, and hosts that take a `pkg.hnl` manifest). Either way the *lib* repo ships no
 `Cargo.toml` — which is the ADR's actual goal.
 
+**P3 mechanism implemented (2026-10-28).** `handl-pkg-vendor` (new crate in `host`) does the
+build-time half: `vendor("../lib-x")` copies `pkg.hnl` + `src/**/*.hnl` into
+`OUT_DIR/lib-x` and emits `cargo:rerun-if-changed`; `module_file(vendored, module)` maps a
+module name to its file. Three unit tests. **Pilot:** `kit-test` vendors `lib-rand-stub`
+via `build.rs` and embeds it with `include_str!(concat!(env!("OUT_DIR"), …))` — the
+`lib-rand-stub` shell is deleted and `handl-kit-test` builds/tests green. The remaining 54
+shells follow the same two-line pattern per consumer.
+
 ## Consequences
 
 - **Good:** a package is `pkg.hnl` + `.hnl`; adding a port needs no Rust; the
