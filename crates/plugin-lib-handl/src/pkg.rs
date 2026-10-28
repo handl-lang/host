@@ -111,18 +111,40 @@ pub fn discover_funcs(src: &str) -> Vec<String> {
     record_keys(src)
 }
 
-/// Keys at depth 1 of the record that closes the source.
+/// The callable record a `.hnl` source exports: keys of the **last** brace block
+/// that declares at least two `name : value` fields.
 ///
-/// A byte scan, not a regex: it walks the source once, skipping string literals
-/// (`"…"`, with `\` escapes) and line comments (`-- …`), and records the span of
-/// every top-level `{ … }` block. The **last** such span is the exported record.
-/// Ignoring literals matters: `pred` matches `"*"`/`"?"`, and a value like
-/// `"{"` would otherwise desync the depth counter and hand back the keys of a
-/// nested record.
+/// Why not simply "the last block": a package file declares internal helpers
+/// before the exported record (`rev :: …`, `prefix_match :: …`), and those
+/// helpers live at the *outer* block's top level while the exported record is a
+/// nested literal at the end. Two filters together pick it out:
+///
+/// - only entries with a **single** `:` count (`name :: …` is a definition, not
+///   a record field), and
+/// - blocks are considered from the end of the file backwards, taking the first
+///   with at least two such fields.
 fn record_keys(src: &str) -> Vec<String> {
-    let mut blocks: Vec<(usize, usize)> = Vec::new();
-    let mut depth = 0usize;
-    let mut open = 0usize;
+    let spans = brace_spans(src);
+    let mut single = None;
+    for (start, end) in spans.iter().rev() {
+        let keys = field_keys(&src[start + 1..*end]);
+        if keys.len() >= 2 {
+            return keys;
+        }
+        if keys.len() == 1 && single.is_none() {
+            single = Some(keys);
+        }
+    }
+    single.unwrap_or_default()
+}
+
+/// Byte spans of every balanced `{ … }` block in `src`, in source order.
+///
+/// String literals (`"…"`, with `\` escapes) and line comments (`-- …`) are
+/// skipped so a brace inside either cannot desync the stack.
+fn brace_spans(src: &str) -> Vec<(usize, usize)> {
+    let mut spans = Vec::new();
+    let mut stack: Vec<usize> = Vec::new();
     let mut in_str = false;
     let mut escaped = false;
     let mut in_comment = false;
@@ -155,43 +177,39 @@ fn record_keys(src: &str) -> Vec<String> {
                 continue;
             }
             '"' => in_str = true,
-            '{' => {
-                depth += 1;
-                if depth == 1 {
-                    open = i;
-                }
-            }
+            '{' => stack.push(i),
             '}' => {
-                if depth == 1 {
-                    blocks.push((open, i));
+                if let Some(open) = stack.pop() {
+                    spans.push((open, i));
                 }
-                depth = depth.saturating_sub(1);
             }
             _ => {}
         }
         i += 1;
     }
-    let Some((start, end)) = blocks.last().copied() else {
-        return Vec::new();
-    };
+    spans
+}
+
+/// `name` keys of the fields a block body declares with a single `:`.
+fn field_keys(body: &str) -> Vec<String> {
     let mut keys = Vec::new();
-    let (mut depth, mut current) = (0i32, String::new());
+    let mut depth = 0i32;
+    let mut current = String::new();
     let mut in_str = false;
     let mut escaped = false;
     let mut in_comment = false;
-    let body: Vec<char> = src[start + 1..end].chars().collect();
+    let chars: Vec<char> = body.chars().collect();
     let mut idx = 0;
-    while idx < body.len() {
-        let c = body[idx];
+    while idx < chars.len() {
+        let c = chars[idx];
         idx += 1;
         if in_comment {
             if c == '\n' {
                 in_comment = false;
-                current.push(' ');
             }
             continue;
         }
-        if !in_str && c == '-' && body.get(idx) == Some(&'-') {
+        if !in_str && c == '-' && chars.get(idx) == Some(&'-') {
             in_comment = true;
             idx += 1;
             continue;
@@ -236,6 +254,10 @@ fn push_key(keys: &mut Vec<String>, entry: &str) {
     let Some((head, _)) = entry.split_once(':') else {
         return;
     };
+    // `name :: …` is a definition (an internal helper), not a record field.
+    if head.trim_end().ends_with(':') {
+        return;
+    }
     let key: String = head
         .trim()
         .chars()
@@ -250,6 +272,27 @@ fn push_key(keys: &mut Vec<String>, entry: &str) {
 /// (`"libc/socket"` -> `libc`).
 fn normalize_module_path(spec: &str) -> &str {
     spec.split('/').next().unwrap_or(spec)
+}
+
+/// Build one module of a package as a [`HandlModule`].
+///
+/// The one-call form a consumer uses after dropping its `include_str!` shell:
+/// the source and its field names both come from the package.
+///
+/// # Errors
+///
+/// Returns [`LangError::engine`] when the directory is not a package or does not
+/// declare `name`.
+pub fn module_from_dir(pkg_dir: &Path, name: &str) -> Result<HandlModule, LangError> {
+    let defs = package_modules(pkg_dir)?;
+    let def = defs.iter().find(|d| d.name == name).ok_or_else(|| {
+        LangError::engine(format!(
+            "module_from_dir: {} declares no module `{name}`",
+            pkg_dir.display()
+        ))
+    })?;
+    let funcs: Vec<&str> = def.funcs.iter().map(String::as_str).collect();
+    Ok(HandlModule::new(def.name.clone(), &def.source, &funcs))
 }
 
 /// A [`ModuleResolver`] over a set of fetched package directories.
@@ -414,6 +457,18 @@ op \"b.go\" : Unit -> Unit
 }
 "#;
         assert_eq!(discover_funcs(src), vec!["glob", "exact"]);
+    }
+
+    /// Opt-in (`cargo test -- --ignored`): bridges the real sibling checkout.
+    #[test]
+    #[ignore = "needs the ../../../lib-pred sibling checkout"]
+    fn bridges_the_real_lib_pred_package() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../lib-pred");
+        let defs = package_modules(&dir).expect("lib-pred is a package");
+        assert_eq!(defs[0].name, "pred");
+        for f in ["always", "never", "and", "field", "exact", "glob", "build", "matches"] {
+            assert!(defs[0].funcs.iter().any(|x| x == f), "missing {f}: {:?}", defs[0].funcs);
+        }
     }
 
     #[test]
