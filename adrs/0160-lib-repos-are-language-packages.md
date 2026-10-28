@@ -116,6 +116,15 @@ field discovery) as unit tests; one integration test that resolves a real repo a
 with the sibling checkout renamed away; `HANDL_PKG_OFFLINE=1` must fail loudly, never
 silently fall back to a sibling.
 
+**P1 status (2026-10-28): the bridge landed.** `handl_plugin_lib_handl::pkg` now provides
+`package_modules(dir)` (read `pkg.hnl` → `src/…`, one `PackageModuleDef` per module),
+`discover_funcs(src)` (field names from `export <name> :=` or the record's top-level keys
+— no hand-written `funcs` const), and `PackageResolver` (a `ModuleResolver` over the
+platform's name→dir map, skipping cache slots that were never fetched). Seven unit tests
+cover discovery, path mapping and resolver behaviour. **Still missing for P2:** multi-module
+packages (`src/<name>/index.hnl` + intra-package imports) and wiring
+`fetch_dependencies` + `resolve_pkg_dependencies` into the resolver constructor.
+
 **P2 — pilot.** `lib-pred`: delete `Cargo.toml` + `src/lib.rs`; `engine-test`
 loads `pred` via the loader. Zero `include_str!` in the chain; its suite green.
 
