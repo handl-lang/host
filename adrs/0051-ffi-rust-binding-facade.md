@@ -4,8 +4,6 @@ type: adr
 date: 2026-09-02
 status: superseded
 status_note: |-
-  **Superseded by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
-
   This ADR proposed a Rust closure binding façade (`plugin-ffi-rust`) to
   collapse `Module`/`Function`/`Plugin` boilerplate. It was never built.
   ADR-0083 eliminates the Rust closure layer entirely — native libs bind

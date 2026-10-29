@@ -3,12 +3,7 @@ title: VM is an Operation, Not a Subsystem
 type: adr
 date: 2026-09-02
 status: accepted
-status_note: |-
-  Accepted
-
-  Supersedes [ADR 0027 — VM Crate Restructure](./0027-vm-crate-restructure.md).
-
-  Proposed
+supersedes: [ADR-0027]
 ---
 
 # VM is an Operation, Not a Subsystem

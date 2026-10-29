@@ -4,9 +4,6 @@ type: adr
 date: 2026-08-24
 status: superseded
 status_note: |-
-  Superseded by [ADR-0047 — Meta Functions as `plugin-lib-*`
-  Crates](./0047-meta-functions-as-plugin-lib-crates.md).
-
   This ADR proposed a monolithic `ac-lib-lang` façade over a trait-based AST
   and Rust emitters. None of that survives ADR-0044 (Language as Data and
   Runtime Split), which replaced the trait-based AST with a serializable,

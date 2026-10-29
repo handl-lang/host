@@ -3,7 +3,6 @@ title: VM Crate Restructure
 type: adr
 date: 2026-08-24
 status: superseded
-status_note: Superseded by [ADR 0040 — VM is an Operation, Not a Subsystem](./0040-vm-is-an-operation-not-a-subsystem.md).
 superseded_by: [ADR-0040]
 ---
 

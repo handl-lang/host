@@ -3,12 +3,8 @@ title: Kits Are Curated Plugin Lists, Not Implementations
 type: adr
 date: 2026-09-02
 status: proposed
-status_note: |-
-  Proposed
-
-  Supersedes the "zero-cost static dispatch" clause of ADR-0034.
-
-  Proposed. Implementation deferred until this ADR is accepted.
+status_note: Proposed. Implementation deferred until this ADR is accepted.
+supersedes: [ADR-0034]
 ---
 
 # ADR-0039: Kits Are Curated Plugin Lists, Not Implementations

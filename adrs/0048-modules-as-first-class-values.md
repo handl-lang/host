@@ -4,8 +4,6 @@ type: adr
 date: 2026-09-02
 status: superseded
 status_note: |-
-  Superseded by [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md).
-
   This ADR over-engineered the problem by re-inventing environment
   semantics as a separate subsystem (`Module` value type,
   `CLOSURE_REGISTRY`, `ValueModule`/`HandlModuleLookup` adapters,

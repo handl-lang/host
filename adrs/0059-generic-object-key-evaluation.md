@@ -4,14 +4,10 @@ type: adr
 date: 2026-09-02
 status: proposed
 status_note: |-
-  Proposed
-
-  Supersedes the per-engine hardcoded key handling introduced by
-  [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md) and
-  extended by [ADR-0057 — Computed Object Keys via Bracket
-  Syntax](./0057-computed-object-keys.md). Depends on the data-driven desugar
+  Depends on the data-driven desugar
   pass from [ADR-0053 — Generic Pratt Parser](./0053-generic-pratt-parser.md)
   §7 (`AstDesugarRule`).
+supersedes: [ADR-0052]
 ---
 
 # ADR-0059: Generic Object Key Evaluation

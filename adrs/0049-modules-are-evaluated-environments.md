@@ -4,13 +4,10 @@ type: adr
 date: 2026-09-02
 status: proposed
 status_note: |-
-  Proposed
-
-  Supersedes [ADR-0048 — Modules as First-Class Values](./0048-modules-as-first-class-values.md),
-  which over-engineered the problem by re-inventing environment semantics as
-  a separate subsystem. Builds on [ADR-0013 — Standard Library](./0013-standard-library.md),
+  Builds on [ADR-0013 — Standard Library](./0013-standard-library.md),
   [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md),
   and [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md).
+supersedes: [ADR-0048]
 ---
 
 # ADR-0049: Modules are Evaluated Environments

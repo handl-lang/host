@@ -63,7 +63,7 @@ refs: [ADR-0161, ADR-0163]          # ADRs this document elaborates
 | `type` | all | the taxonomy entry above (`index`/`template` excepted) |
 | `date` | all but `index`/`template` | ISO-8601 creation / decision / measurement date |
 | `status` | ADRs, RFCs | ADR: `proposed accepted implemented landed superseded absorbed rejected unrecorded`; RFC: `draft accepted landed withdrawn` |
-| `status_note` | no | the status text: the note behind the enum for ADRs/RFCs, the status itself (verbatim) for a plan, task, design, note, report or retro |
+| `status_note` | no | the status text: the note behind the enum for ADRs/RFCs, the status itself (verbatim) for a plan, task, design, note, report or retro — never the `Superseded by ADR-N` sentence |
 | `supersedes` / `superseded_by` / `absorbed_into` | no | `[ADR-NNNN]` links, required by the matching status |
 | `refs` | no | `[ADR-NNNN]` this document elaborates |
 | `applies_to` | no | one prose line when a decision binds beyond this repo |
@@ -86,6 +86,8 @@ line in the body — legacy ones were moved into `status_note` by the migration.
   a name renames the file and breaks links (ADR-0163).
 - **One metadata home.** No `- Status:` / `- Date:` bullets, no `## Status`
   section, no `Status:` line in the body header — the header carries them.
+- **Supersession is a link, not a sentence.** `supersedes`, `superseded_by` and
+  `absorbed_into` carry it; `status_note` keeps only the rationale.
 - **A note is not a decision.** Rejecting a design produces an ADR, so the
   rejection is remembered.
 

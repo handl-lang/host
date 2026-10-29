@@ -25,10 +25,12 @@ applies_to: all repos with a `project` branch; `host` (`project/adrs/TEMPLATE.md
 4. ADRs carry `status` from the closed vocabulary `proposed | accepted |
    implemented | landed | superseded | absorbed | rejected | unrecorded`.
    A legacy record with no stated status is `unrecorded` — never guessed.
-5. A supersession is structured, not prose: `status: superseded` plus
+5. A supersession is structured, never prose: `status: superseded` plus
    `superseded_by: [ADR-NNNN]`; absorption uses `absorbed_into`. The record
-   being replaced lists `supersedes: [ADR-NNNN]`. When the original wording
-   says more than the enum, `status_note` preserves it verbatim.
+   being replaced lists `supersedes: [ADR-NNNN]`. A `Superseded by` /
+   `Supersedes` / `Absorbed into` sentence is promoted to the field and
+   deleted; only rationale that does not name the relation stays in
+   `status_note`.
 6. **Status lives only in the header.** ADRs and RFCs use `status` (the enum in
    rule 4) plus an optional `status_note`; every other type (`plan`, `task`,
    `design`, `note`, `report`, `retro`) uses `status_note` verbatim, because it
@@ -40,9 +42,10 @@ applies_to: all repos with a `project` branch; `host` (`project/adrs/TEMPLATE.md
 8. The body never carries status. Template bullets (`- Status:`, `- Date:`,
    `- Repos:`, `- Supersedes:`) are migrated into frontmatter and removed; a
    legacy `## Status` section (every occurrence) and a header `Status:` /
-   `**Status**:` line are moved wholesale into `status_note` and deleted.
-   Compound metadata lines (`**Date**: … . **ADR**: …`) keep their non-date
-   fields — migrate, do not rewrite.
+   `**Status**:` line are moved wholesale into `status_note` and deleted —
+   except a supersession sentence, which goes to the relation fields. Compound
+   metadata lines (`**Date**: … . **ADR**: …`) keep their non-date fields —
+   migrate, do not rewrite.
 9. `title` is the H1 without its identifier prefix (`ADR-NNNN: `,
    `RFC-NNNN: `, `Task: `); the H1 itself is unchanged, so existing anchors
    and links keep working.
@@ -73,6 +76,8 @@ and the generated indexes honest.
 - **YAML for everything** — eleven keys, closed; anything else is body prose.
 - **Keeping a `## Status` section beside the header** — two homes, and the
   header is what tooling reads; the section is moved, not mirrored.
+- **Keeping the `Superseded by ADR-N` sentence in `status_note`** — the
+  relation is a link, not a sentence; prose duplicates drift from the field.
 
 ## Consequences
 
@@ -87,6 +92,11 @@ and the generated indexes honest.
   this ADR`) and 36 header status fields leave the bodies: their prose becomes
   `status_note` (217 files). No body carries status any more, so the header is
   the only place to look — or to change it.
+- 20 status notes named a supersession. 16 were promoted to `superseded_by` /
+  `supersedes` (or `absorbed_into`) and the sentence deleted; a note that was
+  pure relation is gone, and only rationale survives. The remaining four are a
+  partial supersession, a rewrite note, or a reference — no single field can
+  represent them, so their prose stays.
 - `adrs/TEMPLATE.md` grows a header, and `write-adr` points at it, so new
   records start compliant.
 - Both generated indexes gain status + date columns, which is the first
