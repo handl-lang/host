@@ -24,6 +24,8 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent.parent          # the repo (e.g. host/)
 PROJECT = ROOT / "project"
 NUM = re.compile(r"^(\d+[a-z]?)-")
@@ -32,6 +34,7 @@ STATUS_LINE = re.compile(r"^[-*]?\s*\**Status\**\s*[:—]\s*(.+)$", re.M)
 SUPERSEDED_BY = re.compile(r"Superseded by\s*\[?ADR[-\s]?(\d{3,4})", re.I)
 DECISION = re.compile(r"^##\s+Decision\b(.*?)(?=^##\s|\Z)", re.M | re.S)
 ITEM = re.compile(r"^\s*(?:\d+\.|[-*])\s+", re.M)
+FRONT = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", re.S)
 
 # Headings accepted as the "why" — legacy files use Context/Rationale.
 WHY = re.compile(r"^##\s+(Why|Context|Rationale|Motivation)\b", re.M | re.I)
@@ -53,8 +56,26 @@ def adr_files(proj: Path) -> list[Path]:
     return out
 
 
+def frontmatter(text: str) -> dict:
+    """The ADR-0163 header, or {} for a legacy record."""
+    m = FRONT.match(text)
+    if not m:
+        return {}
+    try:
+        data = yaml.safe_load(m.group(1)) or {}
+    except yaml.YAMLError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def status_of(text: str) -> str:
-    """`- Status: X` (newer ADRs) or the first line under `## Status`."""
+    """`status` from frontmatter (ADR-0163), else `- Status: X` / `## Status`."""
+    fm = frontmatter(text)
+    if fm.get("status"):
+        status = str(fm["status"])
+        if fm.get("status_note"):
+            status = f"{status} — {fm['status_note']}"
+        return status
     m = STATUS_LINE.search(text)
     if m:
         return m.group(1).strip()
@@ -106,10 +127,12 @@ def main(argv: list[str] | None = None) -> int:
         numbers[n].append(rel)
         st = status_of(text)
         low = st.lower()
+        fm = frontmatter(text)
+        superseded = bool(SUPERSEDED_BY.search(text)) or bool(fm.get("superseded_by"))
 
         if not st:
             warns.append(f"{rel}: no Status")
-        if SUPERSEDED_BY.search(text) and "superseded by" not in low:
+        if superseded and "superseded" not in low:
             warns.append(f"{rel}: says 'Superseded by' but the status does not")
 
         dec = DECISION.search(text)

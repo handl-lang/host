@@ -19,6 +19,8 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = {"adrs", "design", "rfcs", "tasks", "notes", "reports", "retros"}
@@ -35,10 +37,22 @@ DRIFT = {
 }
 DATED = {"reports", "retros", "notes"}
 NUM = re.compile(r"^(\d+[a-z]?)-")
-DATE = re.compile(r"^\d{4}-\d{2}")
 REFS = re.compile(r"^[-*]?\s*Refs\s*:", re.M)
 LOCAL_HDR = re.compile(r"^##\s+Local entries\s*$(.*?)(?=^##\s|\Z)", re.M | re.S)
 SKIP = {".git", ".gitignore", ".keep"}
+FRONT = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", re.S)
+
+
+def frontmatter(path: Path) -> dict:
+    """ADR-0163 header of a `project/` file ({} when absent or malformed)."""
+    m = FRONT.match(path.read_text(encoding="utf-8", errors="replace"))
+    if not m:
+        return {}
+    try:
+        data = yaml.safe_load(m.group(1)) or {}
+    except yaml.YAMLError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def local_entries(proj: Path) -> dict[str, str]:
@@ -102,15 +116,18 @@ def main(argv: list[str] | None = None) -> int:
                 for f in sorted(entry.glob("*.md")):
                     m = NUM.match(f.name)
                     body = f.read_text(encoding="utf-8", errors="replace")[:2000]
-                    has_refs = bool(REFS.search(body))
+                    has_refs = bool(REFS.search(body)) or bool(
+                        frontmatter(f).get("refs"))
                     if not m and not has_refs:
-                        warns.append(f"design/{f.name} — prefix the ADR number, or add `Refs: ADR-NNNN`")
+                        warns.append(f"design/{f.name} — prefix the ADR number, "
+                                     "or add `refs:` to the frontmatter (ADR-0163)")
                     elif m and m.group(1) not in adr_numbers:
                         warns.append(f"design/{f.name} — no ADR-{m.group(1)} in adrs/")
             if name in DATED:
                 for f in sorted(entry.glob("*.md")):
-                    if not DATE.match(f.name):
-                        warns.append(f"{name}/{f.name} — dated dir: prefix YYYY-MM-DD")
+                    if not frontmatter(f).get("date"):
+                        warns.append(f"{name}/{f.name} — dated artifact: "
+                                     "frontmatter needs `date:` (ADR-0163)")
         else:
             if name not in FILES and name not in local:
                 hint = DRIFT.get(name, "not one of the closed set (ADR-0162)")
