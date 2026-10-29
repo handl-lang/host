@@ -237,7 +237,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "otlp",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-otlp/src/index.hnl")),
-        funcs: handl_lib_otlp::OTLP_FUNCS,
+        funcs: &["configure","start_span","end_span","set_attribute","add_event", "record_log","record_metric","flush","shutdown",],
         ops: &[],
         values: &[],
         registry: None,
@@ -253,7 +253,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "kv_map",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-kv-map/src/index.hnl")),
-        funcs: handl_lib_kv_map::KV_MAP_FUNCS,
+        funcs: &["new", "set", "get", "has", "remove", "clear", "size", "keys"],
         ops: &[],
         values: &[],
         registry: None,
@@ -261,7 +261,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "json",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-json/src/index.hnl")),
-        funcs: handl_lib_json::JSON_FUNCS,
+        funcs: &["stringify", "parse", "json"],
         ops: &[],
         values: &[],
         registry: None,
@@ -269,7 +269,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "ip",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index.hnl")),
-        funcs: handl_lib_ip::IP_FUNCS,
+        funcs: &["parse","format","is_loopback","is_multicast","is_private","is_link_local","is_unspecified", "cidr.parse","cidr.format","cidr.contains","cidr.network","cidr.broadcast", "socket.parse","socket.format",],
         ops: &[],
         values: &[],
         registry: None,
@@ -277,7 +277,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "serialize",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize/src/index.hnl")),
-        funcs: handl_lib_serialize::SERIALIZE_FUNCS,
+        funcs: &["serialize","deserialize","toml","yaml"],
         ops: &[],
         values: &[],
         registry: None,
@@ -286,7 +286,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "base64",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index.hnl")),
-        funcs: handl_lib_base64::BASE64_FUNCS,
+        funcs: &["encode","decode","codec"],
         ops: &[],
         values: &[],
         registry: None,
@@ -294,7 +294,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "hex",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index.hnl")),
-        funcs: handl_lib_hex::HEX_FUNCS,
+        funcs: &["encode","decode","codec"],
         ops: &[],
         values: &[],
         registry: None,
@@ -324,7 +324,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "url_rfc",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl")),
-        funcs: handl_lib_url_rfc::URL_RFC_FUNCS,
+        funcs: &["parse","url_rfc"],
         ops: &[],
         values: &[],
         registry: None,
@@ -332,7 +332,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "url_whatwg",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-whatwg/src/index.hnl")),
-        funcs: handl_lib_url_whatwg::URL_WHATWG_FUNCS,
+        funcs: &["parse","url_whatwg"],
         ops: &[],
         values: &[],
         registry: None,
@@ -388,7 +388,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_is_empty",
-        hnl: handl_lib_collections::LIST_IS_EMPTY_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/is_empty.hnl")),
         funcs: &["is_empty"],
         ops: &[],
         values: &[],
@@ -601,7 +601,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "tar",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-tar/src/index.hnl")),
-        funcs: handl_lib_tar::TAR_FUNCS,
+        funcs: &["pack", "unpack"],
         ops: &[],
         values: &[],
         registry: None,
