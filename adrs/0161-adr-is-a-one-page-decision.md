@@ -2,7 +2,8 @@
 title: An ADR is a one-page decision record
 type: adr
 date: 2026-10-28
-status: proposed
+updated: 2026-10-29
+status: accepted
 applies_to: '`host` (`project/adrs`, `scripts/check-adrs.py`), all repos with `project/adrs`'
 ---
 
@@ -19,9 +20,10 @@ applies_to: '`host` (`project/adrs`, `scripts/check-adrs.py`), all repos with `p
    cost. This is what stops a rejected design being re-proposed.
 4. `## Enforcement` is mandatory: the file or test where the decision is true
    in code, or `none — proposed`.
-5. The status vocabulary is closed: `Proposed`, `Accepted`, `Implemented`,
-   `Landed`, `Superseded by ADR-N`, `Absorbed into ADR-N`, `Rejected`.
-   "Partially superseded" is not a state — split the ADR instead.
+5. The status vocabulary is closed and lives in the frontmatter (ADR-0163):
+   `proposed`, `accepted`, `implemented`, `landed`, `superseded`, `absorbed`,
+   `rejected`, `unrecorded`. A successor is named by `superseded_by`; "partially
+   superseded" is not a state — split the ADR instead.
 6. A dead ADR keeps its **number** as a tombstone row (successor + one-line
    reason); its body is deleted. Numbers are never reused: code cites them.
 7. Authority is single. When a decision replaces another, the replacement
@@ -35,9 +37,9 @@ applies_to: '`host` (`project/adrs`, `scripts/check-adrs.py`), all repos with `p
 
 ## Why
 
-The corpus is 173 ADRs / 1.8 MB and mostly unread: 53 of 108 `host` ADRs are
-over 8 KB, 36 carry more than ten decisions, 101 record no rejected
-alternative, and none name where they are enforced. The result is not a
+The corpus is 189 ADRs / 1.9 MB and mostly unread: within `host`'s 112, 56
+are over 8 KB, 36 carry more than ten rules, 101 record no rejected
+alternative, and 109 do not name where they are enforced. The result is not a
 shortage of records but a failure to *re-read* them — the same kernel was
 specified five times with no supersession links (`0052` Implemented, `0103`
 "the evaluator, not the calculus", `0106` "design of record"), and `0090`
@@ -71,7 +73,6 @@ re-litigation costs a design session; each stale plan costs a reader an hour.
   supersession link, duplicate numbers).
 - `automation/skills/write-adr/SKILL.md` — the authoring path points here.
 - `host/project/adrs/TEMPLATE.md` — the skeleton.
-- `none — proposed` until this ADR is accepted.
 
 ## Revisit if
 

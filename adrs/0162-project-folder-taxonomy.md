@@ -2,7 +2,8 @@
 title: '`project/` holds process artifacts; published docs live in the org `docs/`'
 type: adr
 date: 2026-10-28
-status: proposed
+updated: 2026-10-29
+status: accepted
 applies_to: all repos with a `project` branch; `docs` (the published hub)
 ---
 
@@ -100,8 +101,8 @@ the tree the docs site sweeps.
 ## Enforcement
 
 - `host/scripts/check-project-layout.py` (closed set, copies, per-domain trees).
+- `host/scripts/project-frontmatter.py` (ADR-0163 metadata, in every tree).
 - `host/project/README.md` — the one-screen map.
-- `none — proposed` until accepted.
 
 ## Revisit if
 

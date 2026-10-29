@@ -1,0 +1,4 @@
+# Pre-registry ADR number collisions kept as-is (ADR-0129 §3).
+# Never add a number here for a *new* collision — allocate the next free
+# number from INDEX.md instead.
+32

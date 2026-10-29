@@ -2,7 +2,8 @@
 title: Every `project/` artifact declares its metadata in YAML frontmatter
 type: adr
 date: 2026-10-28
-status: proposed
+updated: 2026-10-29
+status: accepted
 refs: [ADR-0161, ADR-0162]
 applies_to: all repos with a `project` branch; `host` (`project/adrs/TEMPLATE.md`, `scripts/project-frontmatter.py`, `scripts/gen-adr-index.py`)
 ---
@@ -109,7 +110,6 @@ and the generated indexes honest.
 - `host/scripts/check-adrs.py` — reads `status` / `superseded_by` from the header.
 - `host/scripts/gen-adr-index.py`, `docs/scripts/gen-docs-index.py` — the
   rendered registry.
-- `none — proposed` until accepted.
 
 ## Revisit if
 
