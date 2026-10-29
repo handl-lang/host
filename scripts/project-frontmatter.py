@@ -16,7 +16,8 @@ The schema is closed (eleven keys):
     status          adr, rfc   ADR: proposed accepted implemented landed superseded
                                absorbed rejected unrecorded
                                RFC: draft accepted landed withdrawn
-    status_note     optional   the original wording when it says more than the enum
+    status_note     optional   the status text: the note behind the enum for ADRs/
+                               RFCs; the status itself (verbatim) for other types
     supersedes      optional   [ADR-NNNN] this record replaces
     superseded_by   optional   [ADR-NNNN] the successor (status: superseded)
     absorbed_into   optional   [ADR-NNNN] the absorbing record (status: absorbed)
@@ -69,10 +70,12 @@ H1 = re.compile(r"^#\s+(.+?)\s*$", re.M)
 IDENT = re.compile(r"^(?:ADR[- ]?\d+[a-z]?|RFC[- ]?\d+[a-z]?|Task)\s*[:—–-]\s*", re.I)
 DATE_PREFIX = re.compile(r"^(\d{4}-\d{2}(?:-\d{2})?)-")
 DATE = re.compile(r"\b(\d{4}-\d{2}(?:-\d{2})?)\b")
-STATUS_LINE = re.compile(r"^[-*]?\s*\**Status\**\s*[:\u2014]\s*(.+)$", re.M)
+STATUS_LINE = re.compile(
+    r"^[-*]?\s*(?:\*\*Status\*\*\s*[:—]?|\*\*Status:?\*\*|Status\s*[:—])\s*(.+)$",
+    re.M)
 DATE_LINE = re.compile(r"^[-*]?\s*\**Date\**\s*[:\u2014]\s*(.+)$", re.M)
 REPOS_LINE = re.compile(r"^[-*]\s+Repos\s*:\s*(.+)$", re.M)
-HOME = re.compile(r"^##\s+Status\s*$(.*?)(?=^##\s|\Z)", re.M | re.S)
+HOME = re.compile(r"^##\s+Status\b[^\n]*$(.*?)(?=^##\s|\Z)", re.M | re.S)
 ADR_ID = re.compile(r"ADR[-\s]?(\d{3,4})([a-z]?)", re.I)
 # Template bullets / pure bold lines — metadata that now lives in frontmatter.
 BULLET = re.compile(r"^[-*]\s+(?:Status|Date|Repos|Supersedes)\s*:.*$")
@@ -127,13 +130,10 @@ def adr_id(text: str) -> list[str]:
 def raw_status(body: str) -> tuple[str, bool]:
     """(status as written, came from a one-line field?).
 
-    A `- Status:` / `**Status**:` field is metadata and moves to frontmatter; a
-    legacy `## Status` section stays in the body, so its prose is not copied
-    into `status_note` (the section already carries it).
+    A `## Status` section wins over a field: it is the record's own statement.
+    Either way the prose is moved into `status_note` and deleted from the body
+    (ADR-0163) — the body never carries status.
     """
-    m = STATUS_LINE.search(body[:6000])
-    if m:
-        return m.group(1).strip(" *"), True
     m = HOME.search(body)
     if m:
         para: list[str] = []
@@ -144,6 +144,9 @@ def raw_status(body: str) -> tuple[str, bool]:
                 continue
             para.append(line.strip())
         return re.sub(r"\s+", " ", " ".join(para)).strip(), False
+    m = STATUS_LINE.search(body[:6000])
+    if m:
+        return m.group(1).strip(" *"), True
     return "", False
 
 
@@ -176,12 +179,10 @@ def normalize_status(raw: str, kind: str) -> tuple[str, str | None]:
 
 def body_metadata(body: str, kind: str) -> dict:
     meta: dict = {}
-    raw, field = raw_status(body) if kind in ("adr", "rfc") else ("", False)
+    raw, _ = raw_status(body) if kind in ("adr", "rfc") else ("", False)
     if raw:
-        status, note = normalize_status(raw, kind)
+        status, _note = normalize_status(raw, kind)
         meta["status"] = status
-        if note and field:                  # a `## Status` section keeps its prose
-            meta["status_note"] = note
     head = body[:6000]
     m = DATE_LINE.search(head)
     if m and (d := DATE.search(m.group(1))):
@@ -207,6 +208,94 @@ def body_metadata(body: str, kind: str) -> dict:
     if m and (ids := adr_id(m.group(1))):
         meta["supersedes"] = ids
     return meta
+
+
+def merge_notes(a: str | None, b: str | None) -> str | None:
+    """Keep one copy of the status prose, preferring the fuller statement."""
+    a = (a or "").strip()
+    b = (b or "").strip()
+    if not a:
+        return b or None
+    if not b or b in a:
+        return a
+    if a in b:
+        return b
+    return a + "\n\n" + b
+
+
+def take_status_prose(body: str) -> tuple[str | None, str, bool]:
+    """Move every document-level status statement out of the body.
+
+    Two shapes are status prose, for **every** artifact type:
+      * a `## Status` section (heading + content), and
+      * a status field in the header block (before the first `##` heading) plus
+        its wrapped continuation lines.
+
+    Per-step statuses inside a task's `###` sections are progress, not the
+    document's status, and stay. Returns `(note, body, from_section)` — a
+    section statement is authoritative over an earlier field note.
+    """
+    lines = body.splitlines()
+    notes: list[str] = []
+    from_section = False
+
+    # 1. `## Status` sections — content is the note, every heading goes away.
+    while True:
+        i = next((k for k, line in enumerate(lines)
+                  if re.fullmatch(r"##\s+Status\b[^\n]*", line)), None)
+        if i is None:
+            break
+        from_section = True
+        j = i + 1
+        content: list[str] = []
+        while j < len(lines) and not re.match(r"^##\s", lines[j]):
+            content.append(lines[j])
+            j += 1
+        note = "\n".join(content).strip()
+        if note:
+            notes.append(note)
+        start, end = i, j
+        while start > 0 and not lines[start - 1].strip():
+            start -= 1
+        while end < len(lines) and not lines[end].strip():
+            end += 1
+        del lines[start:end]
+        if 0 < start < len(lines) and lines[start - 1].strip() and lines[start].strip():
+            lines.insert(start, "")
+
+    # 2. Header status field (before the first `##`), with wrapped lines.
+    cut = next((k for k, ln in enumerate(lines) if re.match(r"^##\s", ln)), len(lines))
+    for i in range(cut):
+        if not STATUS_LINE.match(lines[i]):
+            continue
+        take = [i]
+        k = i + 1
+        while k < cut:
+            s = lines[k].strip()
+            if (not s or s.startswith("#") or re.match(r"^[-*]\s", s)
+                    or re.match(r"^\*\*[^*]+\*\*\s*:", s)
+                    or re.match(r"^\*\*[^*]*:\s*\*\*", s)):
+                break
+            take.append(k)
+            k += 1
+        first = STATUS_LINE.match(lines[i]).group(1).strip()
+        note = "\n".join([first] + [lines[t] for t in take[1:]]).strip()
+        if note:
+            notes.append(note)
+        start, end = take[0], take[-1] + 1
+        while start > 0 and not lines[start - 1].strip():
+            start -= 1
+        while end < len(lines) and not lines[end].strip():
+            end += 1
+        del lines[start:end]
+        if 0 < start < len(lines) and lines[start - 1].strip() and lines[start].strip():
+            lines.insert(start, "")
+        break
+
+    note = None
+    for part in notes:
+        note = merge_notes(note, part)
+    return note, "\n".join(lines) + "\n", from_section
 
 
 def git_created(proj: Path, path: Path) -> str | None:
@@ -285,9 +374,19 @@ def scalar(value) -> str:
 
 def render(meta: dict) -> str:
     lines = ["---"]
-    for key in ORDER:
-        if key in meta and meta[key] not in (None, "", []):
-            lines.append(f"{key}: {scalar(meta[key])}")
+    keys = [k for k in ORDER if k in meta]
+    keys += sorted(k for k in meta if k not in ORDER)
+    for key in keys:
+        value = meta[key]
+        if value in (None, "", []):
+            continue
+        if (key == "status_note" and isinstance(value, str)
+                and ("\n" in value or len(value) > 120)):
+            lines.append("status_note: |-")
+            for ln in value.splitlines():
+                lines.append(("  " + ln).rstrip() if ln.strip() else "")
+        else:
+            lines.append(f"{key}: {scalar(value)}")
     lines.append("---")
     return "\n".join(lines) + "\n"
 
@@ -296,17 +395,18 @@ def build(meta: dict, body: str, path: Path, kind: str, proj: Path) -> tuple[str
     date, source = infer_date(meta, body, path, proj)
     found = body_metadata(body, kind)
     found.pop("date", None)                     # provenance stays with infer_date
+    note, body, from_section = take_status_prose(body)
     merged = {**found, **{k: v for k, v in meta.items()
                           if v not in (None, "", [])}}
+    if from_section and note:
+        merged["status_note"] = note          # the section is the record
+    else:
+        merged["status_note"] = merge_notes(merged.get("status_note"), note)
     merged.setdefault("type", kind)
     if head := H1.search(body):
         merged.setdefault("title", normalize_title(head.group(1)))
     if kind in ("adr", "rfc") and not merged.get("status"):
-        raw, field = raw_status(body)
-        status, note = normalize_status(raw, kind)
-        merged["status"] = status
-        if note and field:
-            merged.setdefault("status_note", note)
+        merged["status"] = "unrecorded"
     merged["date"] = date
     body = strip_metadata_lines(body, kind).lstrip("\n")
     return render(merged) + "\n" + body, source
@@ -333,6 +433,18 @@ def check(proj: Path) -> tuple[list[str], list[str], dict]:
             errors.append(f"{rel}: no frontmatter")
             stats["missing"] += 1
             continue
+        if re.search(r"^##\s+Status\b", body, re.M):
+            errors.append(f"{rel}: status section — status lives only in "
+                          "frontmatter (ADR-0163)")
+        cut = body.find("\n## ")
+        header = body if cut < 0 else body[:cut]
+        if STATUS_LINE.search(header):
+            errors.append(f"{rel}: status line in the body header — status lives "
+                          "only in frontmatter (ADR-0163)")
+        if kind not in ("adr", "rfc") and meta.get("status"):
+            errors.append(f"{rel}: `status` is ADR/RFC-only; use `status_note`")
+        if "status_note" in meta and not isinstance(meta["status_note"], str):
+            errors.append(f"{rel}: `status_note` must be a string")
         for key in ("title", "type", "date"):
             if key not in meta or str(meta[key]).strip() == "":
                 if key == "date" and kind in NO_DATE_TYPES:
@@ -385,8 +497,6 @@ def migrate(proj: Path, dry_run: bool = False) -> tuple[int, dict]:
             continue
         text = path.read_text(encoding="utf-8", errors="replace")
         meta, body, _ = split(text)
-        if meta and all(meta.get(k) for k in ("title", "type", "date")):
-            continue
         new, source = build(meta, body, path, kind, proj)
         if new != text:
             sources[source] = sources.get(source, 0) + 1

@@ -126,14 +126,16 @@ def main(argv: list[str] | None = None) -> int:
         rel = str(p.relative_to(proj))
         numbers[n].append(rel)
         st = status_of(text)
-        low = st.lower()
         fm = frontmatter(text)
-        superseded = bool(SUPERSEDED_BY.search(text)) or bool(fm.get("superseded_by"))
+        state = str(fm.get("status") or "").lower()
+        superseded = bool(fm.get("superseded_by"))
+        if not state and SUPERSEDED_BY.search(text):
+            state, superseded = "superseded", True
 
         if not st:
             warns.append(f"{rel}: no Status")
-        if superseded and "superseded" not in low:
-            warns.append(f"{rel}: says 'Superseded by' but the status does not")
+        if superseded and state != "superseded":
+            warns.append(f"{rel}: has `superseded_by` but the status is not superseded")
 
         dec = DECISION.search(text)
         if not dec:
@@ -151,8 +153,8 @@ def main(argv: list[str] | None = None) -> int:
             missing["not-doing"] += 1
         if not ENFORCEMENT.search(text):
             missing["enforcement"] += 1
-        if "superseded by" in low and not SUPERSEDED_BY.search(text):
-            errors.append(f"{rel}: superseded but no 'Superseded by ADR-NNNN' link")
+        if state == "superseded" and not superseded:
+            errors.append(f"{rel}: superseded but no `superseded_by: [ADR-NNNN]`")
 
     for n, paths in numbers.items():
         if len(paths) < 2:

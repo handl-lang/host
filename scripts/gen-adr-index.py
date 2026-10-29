@@ -50,8 +50,11 @@ def read_adr(path: Path) -> dict:
         (TITLE.match(ln).group(1) for ln in lines if TITLE.match(ln)), path.stem)
 
     status = str(fm.get("status") or "").strip()
-    if status and fm.get("status_note"):
-        status = f"{status} — {fm['status_note']}"
+    note = str(fm.get("status_note") or "").strip()
+    if status and note:
+        status = note if note.lower().startswith(status.lower()) else f"{status} — {note}"
+    elif note:
+        status = note
     for i, ln in enumerate(lines):
         if status:
             break
