@@ -51,7 +51,7 @@ def local_entries(proj: Path) -> dict[str, str]:
         return {}
     out: dict[str, str] = {}
     for line in m.group(1).splitlines():
-        hit = re.match(r"^\s*[-*]\s*`?([\w.\-/]+?)`?\s*[—-]\s*(.+)$", line)
+        hit = re.match(r"^\s*[-*]\s*`?([\w.\-/]+?)`?\s+[—–-]\s+(.+)$", line)
         if hit:
             out[hit.group(1).rstrip("/")] = hit.group(2).strip()
     return out
