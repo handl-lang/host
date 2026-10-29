@@ -2,7 +2,8 @@
 title: Bootstrap Test Runner (`plugin-engine-test`)
 type: adr
 date: 2026-10-15
-status: unrecorded
+updated: 2026-10-29
+status: implemented
 status_note: |-
   **Rewritten.** Part of the bootstrap tooling strategy
   ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Depends on
