@@ -9,7 +9,9 @@ short record would otherwise lose:
     Not doing    the alternatives rejected, one line each, so nobody re-proposes them
 
 Report-only by default so the historical corpus can migrate incrementally;
-`--strict` turns warnings into a failure for CI.
+`--strict` turns warnings into a failure for CI, and `--strict-budget` also
+fails on legacy size/decision budgets (ADR-0161 grandfathers those until the
+record is next edited).
 
 Usage:
     python3 scripts/check-adrs.py
@@ -89,6 +91,8 @@ def status_of(text: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--strict", action="store_true", help="exit 1 on any violation")
+    ap.add_argument("--strict-budget", action="store_true",
+                    help="also fail on legacy size/decision budgets (ADR-0161 grandfathers them)")
     ap.add_argument("--max-kb", type=int, default=8, help="soft budget per ADR (default 8)")
     ap.add_argument("--max-items", type=int, default=10, help="soft budget per Decision list")
     ap.add_argument("--repo", type=Path, default=ROOT, help="repo root (default: this repo)")
@@ -114,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
 
     errors: list[str] = []
     warns: list[str] = []
+    historical: list[str] = []
     numbers: dict[str, list[str]] = defaultdict(list)
     oversized: list[tuple[int, str]] = []
     heavy: list[tuple[int, int, str]] = []
@@ -161,7 +166,8 @@ def main(argv: list[str] | None = None) -> int:
             continue
         archived = all("/archived/" in f for f in paths)
         if archived or n in allowed:
-            warns.append(f"ADR-{n} shared by {len(paths)} files (historical, ADR-0129 §3)")
+            # Grandfathered (ADR-0129 §3 / .duplicates): recorded, never a gate.
+            historical.append(f"ADR-{n} shared by {len(paths)} files (historical)")
         else:
             errors.append(f"ADR-{n} used by {len(paths)} files: {', '.join(paths)}")
 
@@ -189,6 +195,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Not doing / rejected   absent in {missing['not-doing']}")
     print(f"  Enforcement            absent in {missing['enforcement']}\n")
 
+    if historical:
+        print(f"Historical duplicate numbers ({len(historical)}):")
+        for h in historical:
+            print(f"  {h}")
+        print()
+
     if warns:
         print(f"Warnings ({len(warns)}):")
         for w in warns[:10]:
@@ -203,7 +215,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {e}")
         print()
 
-    bad = bool(errors) or (args.strict and bool(warns or oversized or heavy))
+    bad = bool(errors) or (args.strict and bool(warns))
+    bad = bad or (args.strict_budget and bool(oversized or heavy))
     print("FAIL" if bad else "OK")
     return 1 if bad else 0
 

@@ -8,7 +8,7 @@
 # checkout. It also works standalone.
 #
 #   scripts/ci.sh                  # the whole gate: test + coverage-gate + dogfood + smoke
-#   scripts/ci.sh doctor           # toolchain + layout smoke, no compile
+#   scripts/ci.sh doctor           # toolchain + layout + project-doc smoke, no compile
 #   scripts/ci.sh test             # nextest partitions (serial) + doctests
 #   scripts/ci.sh test-shard I N   # one nextest partition count:I/N
 #   scripts/ci.sh doctests         # cargo test --doc --workspace
@@ -146,6 +146,13 @@ stage_doctor() {
   echo "worktree:  $IN_WORKTREE (main checkout: $MAIN_CHECKOUT)"
   echo "target:    $CARGO_TARGET_DIR"
   echo "siblings:  ../host-cli $( [ -d ../host-cli/crates/host-cli ] && echo present || echo missing )"
+  if [ -d project ]; then
+    echo "project docs:"
+    python3 scripts/project-frontmatter.py        # ADR-0163 metadata
+    python3 scripts/check-project-layout.py       # ADR-0162 layout
+  else
+    echo "project/: not mounted (detached worktree) — skipping project doc gates"
+  fi
 }
 
 stage_test_shard() { # shard shards
