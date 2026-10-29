@@ -44,11 +44,10 @@
    one-cycle scratchpad: promote to `design/`/`adrs/` or delete.
 7. **No copies across repos.** Cross-repo references are ids + URLs
    (ADR-0129 §7). A `project/` tree contains only its own repo's artifacts.
-8. **One `project/` per repo, on its `project` branch.** No per-domain trees
-   such as `project/<area>/adrs/` — except in the org `project` repo, which
-   holds **staging** trees (`c/`, `web/`) for repos that do not exist yet;
-   those are declared under `## Local entries` and must move out when the
-   repo is created.
+8. **One `project/` per repo, on its `project` branch** (ADR-0129 §1), mounted
+   as a gitignored worktree. The org `project` repo holds **org-wide artifacts
+   only** — cross-repo plans, org policy, the docs manifest — never a repo's
+   own ADRs and never a staging copy of them.
 9. `scripts/check-project-layout.py` enforces 1, 2, 7 and 8;
    `scripts/check-adrs.py` enforces the ADR side (ADR-0161).
 10. `project/README.md` states this map in one screen and links this ADR.
@@ -83,9 +82,11 @@ the tree the docs site sweeps.
 - `graphopt` declares `plans/` and `GOALS.md` as local entries (a research
   repo's workstream records and goal ledger), moves its lab notebook into
   `notes/`, and keeps `retros/` as-is.
-- The org `project` repo keeps `c/` and `web/` as declared staging trees until
-  those repos exist, and loses `project/docs/` (published docs belong to the
-  `docs` hub) and the duplicated `plans/adrs/0150`, `0151`.
+- The org `project` repo holds only org-wide artifacts: the `c/` and `web/`
+  trees moved to their own repos (`handl-lang/c`, `handl-lang/web`), each with
+  a `project` branch and `plans/` staying behind as the cross-repo record.
+- `project/docs/` is gone (published docs belong to the `docs` hub), as are the
+  duplicated `plans/adrs/0150`, `0151`.
 - Contributors get a single question to answer — "what kind of artifact is
   this?" — instead of a per-repo guess, and a declared escape hatch when the
   answer is genuinely new.
