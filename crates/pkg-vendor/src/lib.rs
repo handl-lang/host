@@ -29,8 +29,8 @@ pub fn vendor(pkg_dir: impl AsRef<Path>) -> Result<PathBuf, String> {
 /// [`vendor`] against an explicit output root — the test seam.
 pub fn vendor_into(pkg_dir: &Path, out_root: &Path) -> Result<PathBuf, String> {
     let manifest = pkg_dir.join("pkg.hnl");
-    if !manifest.is_file() {
-        return Err(format!("vendor: {} is not a package", pkg_dir.display()));
+    if !pkg_dir.is_dir() {
+        return Err(format!("vendor: {} is not a directory", pkg_dir.display()));
     }
     let name = pkg_dir
         .file_name()
@@ -40,9 +40,13 @@ pub fn vendor_into(pkg_dir: &Path, out_root: &Path) -> Result<PathBuf, String> {
     let dest = out_root.join(&name);
     let _ = std::fs::remove_dir_all(&dest);
     std::fs::create_dir_all(&dest).map_err(|e| format!("vendor: {}: {e}", dest.display()))?;
-    std::fs::copy(&manifest, dest.join("pkg.hnl"))
-        .map_err(|e| format!("vendor: {}: {e}", manifest.display()))?;
-    println!("cargo:rerun-if-changed={}", manifest.display());
+    // The manifest is optional: 21 of the 113 repos predate it. Their `.hnl`
+    // sources still vendor, which is all a consumer of a legacy row needs.
+    if manifest.is_file() {
+        std::fs::copy(&manifest, dest.join("pkg.hnl"))
+            .map_err(|e| format!("vendor: {}: {e}", manifest.display()))?;
+        println!("cargo:rerun-if-changed={}", manifest.display());
+    }
     copy_hnl(&pkg_dir.join("src"), &dest.join("src"))?;
     normalize_single_module(&dest);
     Ok(dest)
@@ -175,11 +179,19 @@ mod tests {
     }
 
     #[test]
-    fn non_package_is_an_error() {
+    fn missing_directory_is_an_error_but_a_manifest_is_optional() {
         let root = temp("three");
         let out = root.join("out");
         std::fs::create_dir_all(&out).unwrap();
-        assert!(vendor_into(&root, &out).is_err());
+        assert!(vendor_into(&root.join("nope"), &out).is_err());
+        // 21 of the 113 repos predate `pkg.hnl`; their sources still vendor.
+        let legacy = root.join("lib-legacy");
+        std::fs::create_dir_all(legacy.join("src")).unwrap();
+        std::fs::write(legacy.join("src/index.hnl"), "{ a: c ~> true }
+").unwrap();
+        let dest = vendor_into(&legacy, &out).unwrap();
+        assert!(dest.join("src/index.hnl").is_file());
+        assert!(!dest.join("pkg.hnl").exists());
         let _ = std::fs::remove_dir_all(&root);
     }
 }

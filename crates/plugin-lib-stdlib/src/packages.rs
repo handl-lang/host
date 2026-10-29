@@ -74,7 +74,7 @@ pub struct PackageSpec {
 
 const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     name: "clock_gettime",
-    hnl: handl_lib_time_c::CLOCK_GETTIME_HNL,
+    hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-time-c/src/clock_gettime.hnl")),
     funcs: &["read_ns"],
     ops: &[],
     values: &[],
@@ -83,7 +83,7 @@ const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
 
 const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
     name: "entropy",
-    hnl: handl_lib_rand_c::ENTROPY_HNL,
+    hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-rand-c/src/entropy.hnl")),
     funcs: &["next_u32"],
     ops: &[],
     values: &[],
@@ -119,7 +119,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── utils (former plugin-lib-utils) ────────────────────────────────
     ModuleSpec {
         name: "bool",
-        hnl: handl_lib_utils::BOOL_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/bool.hnl")),
         funcs: &["and", "or", "not", "xor", "nand", "nor", "implies", "eq"],
         ops: &[],
         values: &["true", "false"],
@@ -127,7 +127,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "math",
-        hnl: handl_lib_utils::MATH_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/math.hnl")),
         funcs: &[],
         ops: ops::math::MATH_OPS,
         values: &[],
@@ -135,7 +135,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "str",
-        hnl: handl_lib_utils::STR_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/str.hnl")),
         funcs: &[],
         ops: ops::strs::STR_OPS,
         values: &[],
@@ -151,7 +151,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "transform",
-        hnl: handl_lib_transform::TRANSFORM_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-transform/src/index.hnl")),
         funcs: &[],
         ops: handl_lib_combinators::TRANSFORM_OPS,
         values: &[],
@@ -159,7 +159,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "typeof",
-        hnl: handl_lib_type::TYPEOF_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-type/src/index.hnl")),
         funcs: &[],
         ops: handl_lib_type::TYPE_OPS,
         values: &[],
@@ -167,7 +167,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "option",
-        hnl: handl_lib_option::OPTION_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-option/src/index.hnl")),
         // `Some`/`None` are exported under their ctor names too (phase-3
         // WS-F `__ctor__` mint): `Some` aliases the `some` arrow and
         // `None` binds the nullary ctor object `match` discriminates on.
@@ -186,7 +186,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "encoding",
-        hnl: handl_lib_encoding::ENCODING_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-encoding/src/index.hnl")),
         funcs: &["encode", "decode"],
         ops: handl_lib_encoding::ENCODING_OPS,
         values: &[],
@@ -211,7 +211,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // include_str! below + any dep modules the handl source imports.
     ModuleSpec {
         name: "datetime",
-        hnl: handl_lib_datetime::DATETIME_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-datetime/src/index.hnl")),
         funcs: &[],
         ops: &[],
         values: &[],
@@ -219,7 +219,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "parse",
-        hnl: handl_lib_parse::PARSE_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-parse/src/index.hnl")),
         funcs: &[],
         ops: handl_lib_parse::PARSE_OPS,
         values: &[],
@@ -236,7 +236,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "otlp",
-        hnl: handl_lib_otlp::OTLP_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-otlp/src/index.hnl")),
         funcs: handl_lib_otlp::OTLP_FUNCS,
         ops: &[],
         values: &[],
@@ -252,7 +252,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "kv_map",
-        hnl: handl_lib_kv_map::KV_MAP_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-kv-map/src/index.hnl")),
         funcs: handl_lib_kv_map::KV_MAP_FUNCS,
         ops: &[],
         values: &[],
@@ -260,7 +260,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "json",
-        hnl: handl_lib_json::JSON_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-json/src/index.hnl")),
         funcs: handl_lib_json::JSON_FUNCS,
         ops: &[],
         values: &[],
@@ -268,7 +268,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ip",
-        hnl: handl_lib_ip::IP_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index.hnl")),
         funcs: handl_lib_ip::IP_FUNCS,
         ops: &[],
         values: &[],
@@ -276,7 +276,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "serialize",
-        hnl: handl_lib_serialize::SERIALIZE_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize/src/index.hnl")),
         funcs: handl_lib_serialize::SERIALIZE_FUNCS,
         ops: &[],
         values: &[],
@@ -285,7 +285,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
         name: "base64",
-        hnl: handl_lib_base64::BASE64_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index.hnl")),
         funcs: handl_lib_base64::BASE64_FUNCS,
         ops: &[],
         values: &[],
@@ -293,7 +293,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "hex",
-        hnl: handl_lib_hex::HEX_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index.hnl")),
         funcs: handl_lib_hex::HEX_FUNCS,
         ops: &[],
         values: &[],
@@ -306,7 +306,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // records whose arrow fields call these ops.
     ModuleSpec {
         name: "toml_c",
-        hnl: handl_plugin_lib_serialize_toml_c::TOML_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize-toml-c/src/index.hnl")),
         funcs: &[],
         ops: handl_plugin_lib_serialize_toml_c::TOML_C_OPS,
         values: &[],
@@ -314,7 +314,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "yaml_c",
-        hnl: handl_plugin_lib_serialize_yaml_c::YAML_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize-yaml-c/src/index.hnl")),
         funcs: &[],
         ops: handl_plugin_lib_serialize_yaml_c::YAML_C_OPS,
         values: &[],
@@ -323,7 +323,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
-        hnl: handl_lib_url_rfc::URL_RFC_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl")),
         funcs: handl_lib_url_rfc::URL_RFC_FUNCS,
         ops: &[],
         values: &[],
@@ -331,7 +331,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "url_whatwg",
-        hnl: handl_lib_url_whatwg::URL_WHATWG_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-whatwg/src/index.hnl")),
         funcs: handl_lib_url_whatwg::URL_WHATWG_FUNCS,
         ops: &[],
         values: &[],
@@ -354,7 +354,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `error.raise` — the `error` dep resolves through the table.
     ModuleSpec {
         name: "vec",
-        hnl: handl_lib_collections::VEC_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/vec.hnl")),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::VEC_OPS,
         values: &[],
@@ -362,7 +362,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list",
-        hnl: handl_lib_collections::LIST_INDEX_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/index.hnl")),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         values: &[],
@@ -380,7 +380,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `len: list_len.len`, and so on.
     ModuleSpec {
         name: "list_len",
-        hnl: handl_lib_collections::LIST_LEN_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/len.hnl")),
         funcs: &["len"],
         ops: &[],
         values: &[],
@@ -396,7 +396,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_push",
-        hnl: handl_lib_collections::LIST_PUSH_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/push.hnl")),
         funcs: &["push"],
         ops: &[],
         values: &[],
@@ -404,7 +404,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_peek",
-        hnl: handl_lib_collections::LIST_PEEK_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/peek.hnl")),
         funcs: &["peek"],
         ops: &[],
         values: &[],
@@ -412,7 +412,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_pop",
-        hnl: handl_lib_collections::LIST_POP_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/pop.hnl")),
         funcs: &["pop"],
         ops: &[],
         values: &[],
@@ -420,7 +420,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "queue",
-        hnl: handl_lib_collections::QUEUE_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/queue.hnl")),
         funcs: &["len", "is_empty", "enqueue", "dequeue", "peek"],
         ops: ops::collections::QUEUE_OPS,
         values: &[],
@@ -428,7 +428,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "stack",
-        hnl: handl_lib_collections::STACK_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/stack.hnl")),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::STACK_OPS,
         values: &[],
@@ -436,7 +436,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "deque",
-        hnl: handl_lib_collections::DEQUE_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/deque.hnl")),
         funcs: &[
             "len",
             "is_empty",
@@ -456,7 +456,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // pure handl over the `obj` introspection primitives.
     ModuleSpec {
         name: "hash_map",
-        hnl: handl_lib_collections::HASH_MAP_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/hash_map.hnl")),
         funcs: &[
             "keys",
             "values",
@@ -473,7 +473,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "hash_set",
-        hnl: handl_lib_collections::HASH_SET_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/hash_set.hnl")),
         funcs: &[],
         ops: ops::collections::HASH_SET_OPS,
         values: &[],
@@ -484,7 +484,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // `hash_map` still depends on the leaf `len` and `contains` submodules.
     ModuleSpec {
         name: "len",
-        hnl: handl_lib_collections::ARRAY_LEN_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/array/len.hnl")),
         funcs: &["len"],
         ops: &[],
         values: &[],
@@ -492,7 +492,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "contains",
-        hnl: handl_lib_collections::ARRAY_CONTAINS_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/array/contains.hnl")),
         funcs: &["contains"],
         ops: &[],
         values: &[],
@@ -515,7 +515,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // declaration lines are stripped by the loader).
     ModuleSpec {
         name: "hello",
-        hnl: handl_lib_hello::HELLO_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hello/src/index.hnl")),
         funcs: &["greet"],
         ops: &[],
         values: &[],
@@ -530,7 +530,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // (e.g. kit-canonical's `StdlibResolver`).
     ModuleSpec {
         name: "result",
-        hnl: handl_lib_result::RESULT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-result/src/index.hnl")),
         funcs: &["Result", "ok", "err"],
         ops: &[],
         values: &[],
@@ -569,7 +569,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // by the v2 engine, so the module exposes no functions or ops.
     ModuleSpec {
         name: "arrow_iter",
-        hnl: handl_lib_arrow_iter::ARROW_ITER_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-arrow-iter/src/index.hnl")),
         funcs: &[],
         ops: &[],
         values: &[],
@@ -592,7 +592,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // the consolidated Rust `Function` impls in `ops::tar`.
     ModuleSpec {
         name: "archive",
-        hnl: handl_lib_archive::ARCHIVE_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-archive/src/index.hnl")),
         funcs: &[],
         ops: &[],
         values: &[],
@@ -600,7 +600,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "tar",
-        hnl: handl_lib_tar::TAR_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-tar/src/index.hnl")),
         funcs: handl_lib_tar::TAR_FUNCS,
         ops: &[],
         values: &[],
@@ -611,7 +611,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // probe results so callers can gate on host ICU presence.
     ModuleSpec {
         name: "intl_c",
-        hnl: handl_lib_intl_c::INTL_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "compare_strings",
             "format_number",
@@ -640,7 +640,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // report probe results so callers can gate on host ICU presence.
     ModuleSpec {
         name: "unicode_c",
-        hnl: handl_lib_unicode_c::UNICODE_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-unicode-c/src/index.hnl")),
         funcs: &[
             "code_points",
             "from_code_points",
@@ -670,7 +670,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // the bare-named port spec row below.
     ModuleSpec {
         name: "ucol_c",
-        hnl: handl_lib_intl_c::ICU_UCOL_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "ucol_close_78",
             "ucol_countAvailable_78",
@@ -696,7 +696,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unum_c",
-        hnl: handl_lib_intl_c::ICU_UNUM_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "unum_close_78",
             "unum_format_78",
@@ -719,7 +719,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "upluralrules_c",
-        hnl: handl_lib_intl_c::ICU_UPLURALRULES_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "uplrules_close_78",
             "uplrules_open_78",
@@ -732,7 +732,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ureldatefmt_c",
-        hnl: handl_lib_intl_c::ICU_URELDATEFMT_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "ureldatefmt_close_78",
             "ureldatefmt_format_78",
@@ -745,7 +745,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "udat_c",
-        hnl: handl_lib_intl_c::ICU_UDAT_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "udat_close_78",
             "udat_format_78",
@@ -759,7 +759,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ufieldpositer_c",
-        hnl: handl_lib_intl_c::ICU_UFIELDPOSITER_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "ufieldpositer_close_78",
             "ufieldpositer_next_78",
@@ -771,7 +771,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unumberformatter_c",
-        hnl: handl_lib_intl_c::ICU_UNUMBERFORMATTER_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "unumf_close_78",
             "unumf_formatDouble_78",
@@ -783,7 +783,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uformattednumber_c",
-        hnl: handl_lib_intl_c::ICU_UFORMATTEDNUMBER_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "unumf_closeResult_78",
             "unumf_openResult_78",
@@ -796,7 +796,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── icu_uc_*_c — sdkgen-generated ICU4C adapter modules (common) ──
     ModuleSpec {
         name: "ubrk_c",
-        hnl: handl_lib_intl_c::ICU_UC_UBRK_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "ubrk_close_78",
             "ubrk_countAvailable_78",
@@ -815,7 +815,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uloc_c",
-        hnl: handl_lib_intl_c::ICU_UC_ULOC_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "uloc_countAvailable_78",
             "uloc_forLanguageTag_78",
@@ -833,7 +833,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uldnames_c",
-        hnl: handl_lib_intl_c::ICU_UC_ULDNAMES_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "uldn_close_78",
             "uldn_keyDisplayName_78",
@@ -850,7 +850,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ures_c",
-        hnl: handl_lib_intl_c::ICU_UC_URES_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "ures_close_78",
             "ures_getByKey_78",
@@ -864,7 +864,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── icu_uc_*_c — Unicode-data adapters used by `unicode_c` ────────
     ModuleSpec {
         name: "unorm2_c",
-        hnl: handl_lib_intl_c::ICU_UC_UNORM2_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "unorm2_getNFCInstance_78",
             "unorm2_getNFDInstance_78",
@@ -876,7 +876,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ustring_c",
-        hnl: handl_lib_intl_c::ICU_UC_USTRING_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &["u_strFoldCase_78"],
         ops: &[],
         values: &[],
@@ -884,7 +884,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uchar_c",
-        hnl: handl_lib_intl_c::ICU_UC_UCHAR_C_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "u_charType_78",
             "u_getIntPropertyValue_78",
@@ -925,7 +925,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // and the adapter import erroring.
     ModuleSpec {
         name: "ubrk",
-        hnl: handl_lib_intl_c::ICU_UC_UBRK_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UbrkOpen78Result",
             "UbrkOpen78",
@@ -945,7 +945,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uchar",
-        hnl: handl_lib_intl_c::ICU_UC_UCHAR_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UCHAR_XID_CONTINUE",
             "UCHAR_XID_START",
@@ -968,7 +968,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uldnames",
-        hnl: handl_lib_intl_c::ICU_UC_ULDNAMES_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UldnOpen78Result",
             "UldnOpen78",
@@ -992,7 +992,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uloc",
-        hnl: handl_lib_intl_c::ICU_UC_ULOC_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UlocGetLanguage78Result",
             "UlocGetLanguage78",
@@ -1021,7 +1021,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unorm2",
-        hnl: handl_lib_intl_c::ICU_UC_UNORM2_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "Unorm2GetNfcInstance78Result",
             "Unorm2GetNfcInstance78",
@@ -1036,7 +1036,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ures",
-        hnl: handl_lib_intl_c::ICU_UC_URES_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UresOpen78Result",
             "UresOpen78",
@@ -1056,7 +1056,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ustring",
-        hnl: handl_lib_intl_c::ICU_UC_USTRING_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &["UStrFoldCase78Result", "UStrFoldCase78"],
         ops: &[],
         values: &[],
@@ -1064,7 +1064,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ucol",
-        hnl: handl_lib_intl_c::ICU_UCOL_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UcolOpen78Result",
             "UcolOpen78",
@@ -1098,7 +1098,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "udat",
-        hnl: handl_lib_intl_c::ICU_UDAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UdatOpen78Result",
             "UdatOpen78",
@@ -1116,7 +1116,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ufieldpositer",
-        hnl: handl_lib_intl_c::ICU_UFIELDPOSITER_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UfieldpositerOpen78Result",
             "UfieldpositerOpen78",
@@ -1130,7 +1130,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "uformattednumber",
-        hnl: handl_lib_intl_c::ICU_UFORMATTEDNUMBER_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UnumfOpenResult78Result",
             "UnumfOpenResult78",
@@ -1144,7 +1144,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unumberformatter",
-        hnl: handl_lib_intl_c::ICU_UNUMBERFORMATTER_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UnumfOpenForSkeletonAndLocale78Result",
             "UnumfOpenForSkeletonAndLocale78",
@@ -1158,7 +1158,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "unum",
-        hnl: handl_lib_intl_c::ICU_UNUM_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UnumOpen78Result",
             "UnumOpen78",
@@ -1194,7 +1194,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "upluralrules",
-        hnl: handl_lib_intl_c::ICU_UPLURALRULES_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UplrulesOpen78Result",
             "UplrulesOpen78",
@@ -1210,7 +1210,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ureldatefmt",
-        hnl: handl_lib_intl_c::ICU_URELDATEFMT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl-c/src/index.hnl")),
         funcs: &[
             "UreldatefmtOpen78Result",
             "UreldatefmtOpen78",
@@ -1267,7 +1267,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "utils",
         plugin_id: "lib.utils",
         plugin_name: "lib-utils",
-        hnl: handl_lib_utils::UTILS_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/utils.hnl")),
         modules: &[], // resolved via UTILS_MODULES (see package_modules)
     },
     PackageSpec {
@@ -1281,7 +1281,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "collections",
         plugin_id: "lib.collections",
         plugin_name: "lib-collections",
-        hnl: handl_lib_collections::COLLECTIONS_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/collections.hnl")),
         modules: &[], // resolved via COLLECTIONS_MODULES (see package_module_names)
     },
     PackageSpec {
@@ -1304,35 +1304,35 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "json",
         plugin_id: "lib.json",
         plugin_name: "lib-json",
-        hnl: handl_lib_json::JSON_FLAT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-json/src/index.hnl")),
         modules: &[],
     },
     PackageSpec {
         lib_name: "base64",
         plugin_id: "lib.base64",
         plugin_name: "lib-base64",
-        hnl: handl_lib_base64::BASE64_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index.hnl")),
         modules: &[],
     },
     PackageSpec {
         lib_name: "hex",
         plugin_id: "lib.hex",
         plugin_name: "lib-hex",
-        hnl: handl_lib_hex::HEX_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index.hnl")),
         modules: &[],
     },
     PackageSpec {
         lib_name: "url_rfc",
         plugin_id: "lib.url-rfc",
         plugin_name: "lib-url-rfc",
-        hnl: handl_lib_url_rfc::URL_RFC_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl")),
         modules: &[],
     },
     PackageSpec {
         lib_name: "url_whatwg",
         plugin_id: "lib.url-whatwg",
         plugin_name: "lib-url-whatwg",
-        hnl: handl_lib_url_whatwg::URL_WHATWG_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-whatwg/src/index.hnl")),
         modules: &[],
     },
     // ── hello / result / arrow_iter (former plugin-lib-{hello,result,
@@ -1341,7 +1341,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "hello",
         plugin_id: "lib.hello",
         plugin_name: "lib-hello",
-        hnl: handl_lib_hello::GREET_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hello/src/index.hnl")),
         modules: &[],
     },
     // NOTE: the `result` module's `tag` dep is not in the table — a kit
@@ -1351,7 +1351,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "result",
         plugin_id: "lib.result",
         plugin_name: "lib-result",
-        hnl: handl_lib_result::RESULT_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-result/src/index.hnl")),
         modules: &[],
     },
     PackageSpec {
@@ -1379,7 +1379,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "arrow_iter",
         plugin_id: "lib.arrow-iter",
         plugin_name: "lib-arrow-iter",
-        hnl: handl_lib_arrow_iter::ARROW_ITER_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-arrow-iter/src/index.hnl")),
         modules: &[],
     },
     PackageSpec {
@@ -1394,7 +1394,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "archive-tar",
         plugin_id: "lib.archive-tar",
         plugin_name: "lib-archive-tar",
-        hnl: handl_lib_tar::TAR_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-tar/src/index.hnl")),
         modules: &[], // resolved via ARCHIVE_TAR_MODULES (see package_module_names)
     },
     // ── datetime (former plugin-lib-datetime) — pure handl ─────────────
@@ -1404,7 +1404,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "datetime",
         plugin_id: "lib.datetime",
         plugin_name: "lib-datetime",
-        hnl: handl_lib_datetime::DATETIME_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-datetime/src/index.hnl")),
         modules: &[],
     },
     // ── intl_c — `intl` contract backend over system ICU4C via `ffi` ────
@@ -1415,7 +1415,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "intl_c",
         plugin_id: "lib.intl-c",
         plugin_name: "lib-intl-c",
-        hnl: handl_lib_intl::INTL_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-intl/src/index.hnl")),
         modules: &[],
     },
     // ── unicode_c — `unicode` contract backend over system ICU4C via `ffi` ─
@@ -1426,7 +1426,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "unicode_c",
         plugin_id: "lib.unicode-c",
         plugin_name: "lib-unicode-c",
-        hnl: handl_lib_unicode::UNICODE_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-unicode/src/index.hnl")),
         modules: &[],
     },
     // ── ip (former plugin-lib-ip) — native ops in `lib-ip` ───────────────
@@ -1438,7 +1438,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "ip",
         plugin_id: "lib.ip",
         plugin_name: "lib-ip",
-        hnl: handl_lib_ip::IP_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index.hnl")),
         modules: &[],
     },
     // ── char (former plugin-lib-char) — contract only ────────────────────
@@ -1449,7 +1449,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "char",
         plugin_id: "lib.char",
         plugin_name: "lib-char",
-        hnl: handl_lib_char::CHAR_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-char/src/index.hnl")),
         modules: &[],
     },
 ];
