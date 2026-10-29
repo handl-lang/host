@@ -332,6 +332,53 @@ pub fn module_in_dir(pkg_dir: &Path, module: &str) -> Result<PackageModuleDef, L
     )))
 }
 
+/// Every `.hnl` file of a package as `(module name, source, fields)`.
+///
+/// This is the runtime equivalent of the hand-maintained `*_SOURCES` tables the
+/// old `lib-*` shells exported (`[(name, src, funcs); …]`): a consumer that builds
+/// a module per file can reconstruct the table from the package itself instead of
+/// depending on a crate. Test files (`*.test.hnl`) are skipped, and a single-module
+/// package collapses to one row named after its module.
+///
+/// # Errors
+///
+/// Returns [`LangError::engine`] when `src/` cannot be read.
+pub fn module_sources_in_dir(pkg_dir: &Path) -> Result<Vec<(String, String, Vec<String>)>, LangError> {
+    let src_dir = pkg_dir.join("src");
+    let mut paths = Vec::new();
+    collect_hnl(&src_dir, &mut paths)?;
+    paths.sort();
+    let mut out = Vec::with_capacity(paths.len());
+    for path in paths {
+        let source = std::fs::read_to_string(&path)
+            .map_err(|e| LangError::engine(format!("module_sources_in_dir: {}: {e}", path.display())))?;
+        let name = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        out.push((name, source.clone(), discover_funcs(&source)));
+    }
+    Ok(out)
+}
+
+/// Recursively collect `.hnl` files under `dir`, skipping `*.test.hnl`.
+fn collect_hnl(dir: &Path, out: &mut Vec<PathBuf>) -> Result<(), LangError> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Ok(());
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_hnl(&path, out)?;
+        } else if path.extension().is_some_and(|e| e == "hnl")
+            && !path.to_string_lossy().ends_with(".test.hnl")
+        {
+            out.push(path);
+        }
+    }
+    Ok(())
+}
+
 /// A [`ModuleResolver`] over a set of fetched package directories.
 ///
 /// Build it from the name→dir map the platform already produces
@@ -558,6 +605,25 @@ op \"b.go\" : Unit -> Unit
                 defs[0].funcs
             );
         }
+    }
+
+    #[test]
+    fn module_sources_walk_the_package_and_skip_tests() {
+        let dir = pkg(
+            "sources",
+            "\"json\"",
+            &[
+                ("src/index.hnl", "{ stringify: v ~> v }\n"),
+                ("src/internal/helpers.hnl", "{ ws: c ~> c }\n"),
+                ("src/index.test.hnl", "test_x := assert true = true\n"),
+            ],
+        );
+        let rows = module_sources_in_dir(&dir).unwrap();
+        let names: Vec<&str> = rows.iter().map(|r| r.0.as_str()).collect();
+        assert_eq!(names, vec!["index", "helpers"], "test files are skipped");
+        let index = rows.iter().find(|r| r.0 == "index").unwrap();
+        assert_eq!(index.2, vec!["stringify"]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
