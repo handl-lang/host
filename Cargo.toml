@@ -418,8 +418,6 @@ handl-plugin-sdkgen-emitter-python = { path = "../sdkgen-python" }
 [patch."https://github.com/handl-lang/sdkgen-webidl"]
 handl-plugin-sdkgen-backend-webidl = { path = "../sdkgen-webidl" }
 
-[patch."https://github.com/handl-lang/lib-type-handl"]
-handl-lib-type-handl = { path = "../lib-type-handl" }
 
 [patch."https://github.com/handl-lang/lib-perlin"]
 handl-lib-perlin = { path = "../lib-perlin" }
@@ -430,8 +428,6 @@ handl-lib-simplex = { path = "../lib-simplex" }
 [patch."https://github.com/handl-lang/lib-test"]
 handl-lib-test = { path = "../lib-test" }
 
-[patch."https://github.com/handl-lang/lib-rand-stub"]
-handl-lib-rand-stub = { path = "../lib-rand-stub" }
 
 [patch."https://github.com/handl-lang/lib-ffi"]
 handl-lib-ffi = { path = "../lib-ffi" }

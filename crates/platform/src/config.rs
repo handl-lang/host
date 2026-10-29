@@ -948,12 +948,39 @@ pub fn pkg_entry(src: &str) -> Option<String> {
 /// `src/<name>/index.hnl` each; `entry` overrides the one-module case.
 pub fn pkg_module_path(modules: &[String], entry: Option<&str>, module: &str) -> Option<String> {
     if modules.len() == 1 && modules[0] == module {
+        // Legacy packages predate the `src/index.hnl` rule and name the file
+        // after the module (`src/type-handl.hnl`); the caller resolves the
+        // fallback by trying the candidates in order.
         return Some(entry.unwrap_or("src/index.hnl").to_string());
     }
     if modules.iter().any(|m| m == module) {
         return Some(format!("src/{module}/index.hnl"));
     }
     None
+}
+
+/// Candidate files for a module, most canonical first.
+///
+/// `src/index.hnl` is the rule (ADR-0160); `src/<module>.hnl` is the legacy
+/// 1-module shape most of the 113 repos still use, and
+/// `src/<module>/index.hnl` the multi-module one.
+pub fn pkg_module_candidates(
+    modules: &[String],
+    entry: Option<&str>,
+    module: &str,
+) -> Vec<String> {
+    let mut out = Vec::new();
+    if let Some(path) = pkg_module_path(modules, entry, module) {
+        out.push(path);
+    }
+    if modules.iter().any(|m| m == module) {
+        for candidate in [format!("src/{module}.hnl"), format!("src/{module}/index.hnl")] {
+            if !out.contains(&candidate) {
+                out.push(candidate);
+            }
+        }
+    }
+    out
 }
 
 /// Split a `pkg.hnl` dep spec (`branch:main`, `rev:abc`, `tag:v1`) into

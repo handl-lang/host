@@ -44,7 +44,32 @@ pub fn vendor_into(pkg_dir: &Path, out_root: &Path) -> Result<PathBuf, String> {
         .map_err(|e| format!("vendor: {}: {e}", manifest.display()))?;
     println!("cargo:rerun-if-changed={}", manifest.display());
     copy_hnl(&pkg_dir.join("src"), &dest.join("src"))?;
+    normalize_single_module(&dest);
     Ok(dest)
+}
+
+/// Give a single-module package the canonical `src/index.hnl` entry.
+///
+/// Most of the 113 repos predate ADR-0160's `src/index.hnl` rule and name the
+/// file after the module (`src/type-handl.hnl`). Vendoring normalises that, so a
+/// consumer always writes `include_str!(concat!(env!("OUT_DIR"),
+/// "/lib-x/src/index.hnl"))` regardless of the repo's historical layout.
+fn normalize_single_module(dest: &Path) {
+    let Ok(manifest) = std::fs::read_to_string(dest.join("pkg.hnl")) else {
+        return;
+    };
+    let modules = handl_platform::pkg_modules(&manifest);
+    if modules.len() != 1 {
+        return;
+    }
+    let index = dest.join("src/index.hnl");
+    if index.is_file() {
+        return;
+    }
+    let legacy = dest.join(format!("src/{}.hnl", modules[0]));
+    if legacy.is_file() {
+        let _ = std::fs::copy(&legacy, &index);
+    }
 }
 
 /// Recursively copy every `.hnl` file from `src` into `dst`.
@@ -79,9 +104,16 @@ pub fn module_file(vendored: &Path, module: &str) -> Result<PathBuf, String> {
         .map_err(|e| format!("vendor: {}: {e}", vendored.display()))?;
     let modules = handl_platform::pkg_modules(&manifest);
     let entry = handl_platform::pkg_entry(&manifest);
-    handl_platform::pkg_module_path(&modules, entry.as_deref(), module)
-        .map(|rel| vendored.join(rel))
-        .ok_or_else(|| format!("vendor: {} declares no module `{module}`", vendored.display()))
+    for rel in handl_platform::pkg_module_candidates(&modules, entry.as_deref(), module) {
+        let path = vendored.join(&rel);
+        if path.is_file() {
+            return Ok(path);
+        }
+    }
+    Err(format!(
+        "vendor: {} declares no module `{module}`",
+        vendored.display()
+    ))
 }
 
 #[cfg(test)]
