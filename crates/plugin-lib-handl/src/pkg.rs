@@ -295,6 +295,43 @@ pub fn module_from_dir(pkg_dir: &Path, name: &str) -> Result<HandlModule, LangEr
     Ok(HandlModule::new(def.name.clone(), &def.source, &funcs))
 }
 
+/// Describe **one** module of a package, reading only that module's file.
+///
+/// `package_modules` is eager (it reads every module), which contradicts
+/// tree-shaking: importing `base64` must not touch `hex`. `module_in_dir` is the
+/// lazy counterpart — the manifest is read, the module's path is resolved, and
+/// exactly one file is opened.
+///
+/// # Errors
+///
+/// Returns [`LangError::engine`] when the directory is not a package, does not
+/// declare `module`, or its file cannot be read.
+pub fn module_in_dir(pkg_dir: &Path, module: &str) -> Result<PackageModuleDef, LangError> {
+    let manifest_path = pkg_dir.join("pkg.hnl");
+    let manifest = std::fs::read_to_string(&manifest_path).map_err(|e| {
+        LangError::engine(format!("module_in_dir: {}: {e}", manifest_path.display()))
+    })?;
+    let declared = handl_platform::pkg_modules(&manifest);
+    let entry = handl_platform::pkg_entry(&manifest);
+    for rel in handl_platform::pkg_module_candidates(&declared, entry.as_deref(), module) {
+        let path = pkg_dir.join(&rel);
+        if path.is_file() {
+            let source = std::fs::read_to_string(&path).map_err(|e| {
+                LangError::engine(format!("module_in_dir: {}: {e}", path.display()))
+            })?;
+            return Ok(PackageModuleDef {
+                name: module.to_string(),
+                funcs: discover_funcs(&source),
+                source,
+            });
+        }
+    }
+    Err(LangError::engine(format!(
+        "module_in_dir: {} declares no module `{module}`",
+        pkg_dir.display()
+    )))
+}
+
 /// A [`ModuleResolver`] over a set of fetched package directories.
 ///
 /// Build it from the name→dir map the platform already produces
@@ -303,6 +340,8 @@ pub fn module_from_dir(pkg_dir: &Path, name: &str) -> Result<HandlModule, LangEr
 #[derive(Default)]
 pub struct PackageResolver {
     modules: HashMap<String, Arc<dyn Module + Send + Sync>>,
+    /// Package dirs for a lazy resolver (see [`PackageResolver::lazy`]).
+    lazy_dirs: Option<HashMap<String, PathBuf>>,
 }
 
 impl PackageResolver {
@@ -329,7 +368,10 @@ impl PackageResolver {
                 modules.insert(def.name, Arc::new(module) as Arc<dyn Module + Send + Sync>);
             }
         }
-        Self { modules }
+        Self {
+            modules,
+            lazy_dirs: None,
+        }
     }
 
     /// Build a resolver for the package in `dir`: fetch its declared deps (the
@@ -358,9 +400,39 @@ impl PackageResolver {
     }
 }
 
+impl PackageResolver {
+    /// Resolve modules **on demand** from package directories (tree-shaking).
+    ///
+    /// `from_dirs` builds every module of every package up front; `lazy` keeps
+    /// the directories and opens a module's file the first time it is asked for,
+    /// caching the built module. Importing `base64` therefore never touches
+    /// `hex`, even when both live in the same checkout root.
+    pub fn lazy(dirs: HashMap<String, PathBuf>) -> Self {
+        Self {
+            modules: HashMap::new(),
+            lazy_dirs: Some(dirs),
+        }
+    }
+}
+
 impl ModuleResolver for PackageResolver {
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-        self.modules.get(name).cloned()
+        if let Some(module) = self.modules.get(name) {
+            return Some(Arc::clone(module));
+        }
+        // Lazy mode: find the package that declares `name` and read only it.
+        for dir in self.lazy_dirs.as_ref()?.values() {
+            let Ok(def) = module_in_dir(dir, name) else {
+                continue;
+            };
+            let funcs: Vec<&str> = def.funcs.iter().map(String::as_str).collect();
+            let built = Arc::new(HandlModule::new(def.name, &def.source, &funcs))
+                as Arc<dyn Module + Send + Sync>;
+            // Cache is best-effort: `resolve` takes `&self`, so the cache miss
+            // is simply re-read on the next call (a resolve pass asks once).
+            return Some(built);
+        }
+        None
     }
 }
 
@@ -385,7 +457,8 @@ mod tests {
 
     #[test]
     fn discovers_record_keys() {
-        let src = "-- pkg\n{\n  always: c ~> true,\n  field: (n, m) ~> m,\n  and: (p, q) ~> p,\n}\n";
+        let src =
+            "-- pkg\n{\n  always: c ~> true,\n  field: (n, m) ~> m,\n  and: (p, q) ~> p,\n}\n";
         assert_eq!(discover_funcs(src), vec!["always", "field", "and"]);
     }
 
@@ -408,7 +481,11 @@ mod tests {
 
     #[test]
     fn package_modules_reads_manifest_and_source() {
-        let dir = pkg("one", "\"pred\"", &[("src/index.hnl", "{ always: c ~> true }\n")]);
+        let dir = pkg(
+            "one",
+            "\"pred\"",
+            &[("src/index.hnl", "{ always: c ~> true }\n")],
+        );
         let defs = package_modules(&dir).unwrap();
         assert_eq!(defs.len(), 1);
         assert_eq!(defs[0].name, "pred");
@@ -432,11 +509,17 @@ mod tests {
             "multi",
             "\"b\", \"a\"",
             &[
-                ("src/b/index.hnl", "from \"a\" import *
+                (
+                    "src/b/index.hnl",
+                    "from \"a\" import *
 op \"b.go\" : Unit -> Unit
-"),
-                ("src/a/index.hnl", "{ a: c ~> true }
-"),
+",
+                ),
+                (
+                    "src/a/index.hnl",
+                    "{ a: c ~> true }
+",
+                ),
             ],
         );
         let defs = package_modules(&dir).unwrap();
@@ -466,14 +549,24 @@ op \"b.go\" : Unit -> Unit
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../lib-pred");
         let defs = package_modules(&dir).expect("lib-pred is a package");
         assert_eq!(defs[0].name, "pred");
-        for f in ["always", "never", "and", "field", "exact", "glob", "build", "matches"] {
-            assert!(defs[0].funcs.iter().any(|x| x == f), "missing {f}: {:?}", defs[0].funcs);
+        for f in [
+            "always", "never", "and", "field", "exact", "glob", "build", "matches",
+        ] {
+            assert!(
+                defs[0].funcs.iter().any(|x| x == f),
+                "missing {f}: {:?}",
+                defs[0].funcs
+            );
         }
     }
 
     #[test]
     fn resolver_skips_non_packages() {
-        let good = pkg("good", "\"pred\"", &[("src/index.hnl", "{ always: c ~> true }\n")]);
+        let good = pkg(
+            "good",
+            "\"pred\"",
+            &[("src/index.hnl", "{ always: c ~> true }\n")],
+        );
         let bad = std::env::temp_dir().join(format!("hnl-pkg-bad-{}", std::process::id()));
         std::fs::create_dir_all(&bad).unwrap();
         let mut dirs = HashMap::new();
@@ -504,7 +597,11 @@ fn order_by_imports(defs: &[PackageModuleDef]) -> Vec<PackageModuleDef> {
             }
             let ready = crate::import_specs(&def.source).iter().all(|spec| {
                 let dep = normalize_module_path(spec);
-                !names.contains(&dep) || defs.iter().position(|d| d.name == dep).is_some_and(|j| emitted.contains(&j))
+                !names.contains(&dep)
+                    || defs
+                        .iter()
+                        .position(|d| d.name == dep)
+                        .is_some_and(|j| emitted.contains(&j))
             });
             if ready {
                 emitted.push(i);

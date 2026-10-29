@@ -5,6 +5,7 @@
 //! use one `include_str!` shape per row.
 fn main() {
     for pkg in [
+        "lib-stats",
         "lib-archive",
         "lib-arrow-iter",
         "lib-base64",
