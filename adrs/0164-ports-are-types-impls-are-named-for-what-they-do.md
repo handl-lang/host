@@ -6,7 +6,7 @@ status: proposed
 status_note: 'Proposed — 2026-10-28. Owner: every `lib-*` repo with a Rust shell.'
 ---
 
-# ADR-0161: Ports are types; implementations are named for what they do
+# ADR-0164: Ports are types; implementations are named for what they do
 
 ## Context
 
