@@ -501,7 +501,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── stats (former plugin-lib-stats) — pure handl ───────────────────
     ModuleSpec {
         name: "stats",
-        hnl: handl_lib_stats::STATS_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-stats/src/index.hnl")),
         funcs: &["sum", "avg", "product", "min", "max", "median", "stddev"],
         ops: &[],
         values: &[],
@@ -1288,7 +1288,7 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "stats",
         plugin_id: "lib.stats",
         plugin_name: "lib-stats",
-        hnl: handl_lib_stats::STATS_HNL,
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-stats/src/index.hnl")),
         modules: &[],
     },
     // Single-module packages also usable standalone (idempotent with the
