@@ -3,13 +3,10 @@ title: One Language, Multiple Interpreters
 type: adr
 date: 2026-09-08
 status: proposed
+status_note: Proposed.
 ---
 
 # ADR-0098: One Language, Multiple Interpreters
-
-## Status
-
-Proposed.
 
 ## Implementation status
 

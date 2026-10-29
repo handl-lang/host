@@ -3,16 +3,14 @@ title: Strategy C — Runtime Module Loading as Handler Interpreted Ops
 type: adr
 date: 2026-10-16
 status: proposed
+status_note: |-
+  Proposed
+
+  Builds on [ADR-0069 — Files Are Arrows](./0069-arrow-native-modules.md) (§5 Strategy C).
+  References [ADR-0008 — Pluggable LSP](./0008-pluggable-lsp-language-agnostic-server.md).
 ---
 
 # ADR-0009: Strategy C — Runtime Module Loading as Handler Interpreted Ops
-
-## Status
-
-Proposed
-
-Builds on [ADR-0069 — Files Are Arrows](./0069-arrow-native-modules.md) (§5 Strategy C).
-References [ADR-0008 — Pluggable LSP](./0008-pluggable-lsp-language-agnostic-server.md).
 
 ## Context
 

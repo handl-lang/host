@@ -3,18 +3,16 @@ title: Bootstrap Formatter (`plugin-ext-fmt`)
 type: adr
 date: 2026-10-15
 status: implemented
+status_note: |-
+  Implemented (merged to main). Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md); refines the generic
+  design in [ADR-0014](../0014-formatter.md) — which stays valid — into a
+  concrete implementation). Temporary: will be replaced by
+  the self-hosted formatter described in
+  [RFC-0002](../rfcs/0002-formatter-in-handl.md).
 ---
 
 # ADR-0086: Bootstrap Formatter (`plugin-ext-fmt`)
-
-## Status
-
-Implemented (merged to main). Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md); refines the generic
-design in [ADR-0014](../0014-formatter.md) — which stays valid — into a
-concrete implementation). Temporary: will be replaced by
-the self-hosted formatter described in
-[RFC-0002](../rfcs/0002-formatter-in-handl.md).
 
 ## Context
 
@@ -70,7 +68,3 @@ comment reflow, plugin-contributed rules (all RFC-0002).
   `plugin-engine-parse` version and CI fails loudly on drift. The formatter
   consumes and produces the shared diagnostics types from `plugin-ext-diag`
   (ADR-0091).
-
-## Status
-
-Implemented (merged to main).

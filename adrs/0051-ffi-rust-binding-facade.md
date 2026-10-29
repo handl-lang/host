@@ -3,25 +3,23 @@ title: '`ffi-rust` — Generic Rust Binding Façade'
 type: adr
 date: 2026-09-02
 status: superseded
+status_note: |-
+  **Superseded by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
+
+  This ADR proposed a Rust closure binding façade (`plugin-ffi-rust`) to
+  collapse `Module`/`Function`/`Plugin` boilerplate. It was never built.
+  ADR-0083 eliminates the Rust closure layer entirely — native libs bind
+  directly to C/POSIX via `ffi(...)` data declarations, not Rust closures.
+  The per-library authoring problem this ADR solved is solved more
+  completely by making bindings data, not Rust.
+
+  Originally proposed as build step 1 of [ADR-0050 — Plugin System in handl
+  Itself](./0050-plugin-system-in-handl.md). ADR-0083 fulfills that role
+  instead.
 superseded_by: [ADR-0083]
 ---
 
 # ADR-0051: `ffi-rust` — Generic Rust Binding Façade
-
-## Status
-
-**Superseded by [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md).**
-
-This ADR proposed a Rust closure binding façade (`plugin-ffi-rust`) to
-collapse `Module`/`Function`/`Plugin` boilerplate. It was never built.
-ADR-0083 eliminates the Rust closure layer entirely — native libs bind
-directly to C/POSIX via `ffi(...)` data declarations, not Rust closures.
-The per-library authoring problem this ADR solved is solved more
-completely by making bindings data, not Rust.
-
-Originally proposed as build step 1 of [ADR-0050 — Plugin System in handl
-Itself](./0050-plugin-system-in-handl.md). ADR-0083 fulfills that role
-instead.
 
 ## Context
 

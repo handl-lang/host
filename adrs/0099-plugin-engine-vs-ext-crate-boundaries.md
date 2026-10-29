@@ -3,13 +3,10 @@ title: Principled Boundaries Between `plugin-engine-*` and `plugin-ext-*` Crates
 type: adr
 date: 2026-09-08
 status: proposed
+status_note: Proposed.
 ---
 
 # ADR-0099: Principled Boundaries Between `plugin-engine-*` and `plugin-ext-*` Crates
-
-## Status
-
-Proposed.
 
 ## Context
 

@@ -3,14 +3,12 @@ title: Lower the `while` state fold to `Loop` + explicit protocol ops
 type: adr
 date: 2026-10-17
 status: accepted
+status_note: |-
+  Accepted — implemented; pilot for retiring the "non-input position"
+  decline class.
 ---
 
 # ADR-0147: Lower the `while` state fold to `Loop` + explicit protocol ops
-
-## Status
-
-Accepted — implemented; pilot for retiring the "non-input position"
-decline class.
 
 ## Context
 

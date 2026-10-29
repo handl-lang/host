@@ -3,14 +3,12 @@ title: Shared Diagnostics Crate (`plugin-ext-diag`)
 type: adr
 date: 2026-10-15
 status: implemented
+status_note: |-
+  Implemented (merged to main). Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md)).
 ---
 
 # ADR-0091: Shared Diagnostics Crate (`plugin-ext-diag`)
-
-## Status
-
-Implemented (merged to main). Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md)).
 
 ## Context
 
@@ -56,7 +54,3 @@ using them) → switch `host-cli` rendering to the shared renderer.
 - One more crate in the dependency graph, but it sits at the bottom of the
   tooling stack (depends only on `platform` contracts) and has no plugin
   logic of its own.
-
-## Status
-
-Implemented (merged to main).

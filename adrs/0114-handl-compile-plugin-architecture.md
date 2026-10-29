@@ -3,13 +3,10 @@ title: Handl Compile Plugin Architecture
 type: adr
 date: 2026-09-14
 status: proposed
+status_note: Proposed.
 ---
 
 # ADR-0114: Handl Compile Plugin Architecture
-
-## Status
-
-Proposed.
 
 ## Context
 

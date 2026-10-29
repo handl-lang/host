@@ -3,14 +3,12 @@ title: String / Char / Unicode Layering
 type: adr
 date: 2026-09-07
 status: accepted
+status_note: |-
+  Accepted — retroactively documented after the implementation already landed on
+  main. The code described here predates this ADR.
 ---
 
 # ADR-0093: String / Char / Unicode Layering
-
-## Status
-
-Accepted — retroactively documented after the implementation already landed on
-main. The code described here predates this ADR.
 
 ## Context
 

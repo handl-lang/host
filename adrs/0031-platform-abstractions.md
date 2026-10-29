@@ -3,13 +3,10 @@ title: Platform abstractions and plugin system
 type: adr
 date: 2026-08-25
 status: proposed
+status_note: Proposed
 ---
 
 # ADR 0031: Platform abstractions and plugin system
-
-## Status
-
-Proposed
 
 ## Context
 

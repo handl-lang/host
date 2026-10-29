@@ -3,15 +3,13 @@ title: Proofs as First-Class Values
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Builds on [ADR-0042 — Transformations as First-Class Values](./0042-transformations-as-first-class-values.md).
 ---
 
 # ADR-0043: Proofs as First-Class Values
-
-## Status
-
-Proposed
-
-Builds on [ADR-0042 — Transformations as First-Class Values](./0042-transformations-as-first-class-values.md).
 
 ## Context
 

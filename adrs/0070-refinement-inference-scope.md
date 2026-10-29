@@ -3,17 +3,15 @@ title: Refinement Inference Scope — Deterministic Dataflow
 type: adr
 date: 2026-09-01
 status: accepted
+status_note: |-
+  Accepted
+
+  Builds on [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md),
+  [ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md),
+  and the refinement inference engine in `crates/plugin-ext-refinement/`.
 ---
 
 # ADR-0070: Refinement Inference Scope — Deterministic Dataflow
-
-## Status
-
-Accepted
-
-Builds on [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md),
-[ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md),
-and the refinement inference engine in `crates/plugin-ext-refinement/`.
 
 ## Context
 

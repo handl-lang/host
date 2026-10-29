@@ -3,16 +3,14 @@ title: 'Lexer Architecture: Self-Hosted Streaming with Runtime Config'
 type: adr
 date: 2026-08-24
 status: proposed
+status_note: |-
+  Proposed — no status was recorded when this was written, and nothing indicates
+  it was accepted. The lexer that shipped is the data-driven
+  `engine-lex-pattern` (ADR-0044); the trait-based `handl-lexer` family below
+  was never built.
 ---
 
 # Lexer Architecture: Self-Hosted Streaming with Runtime Config
-
-## Status
-
-Proposed — no status was recorded when this was written, and nothing indicates
-it was accepted. The lexer that shipped is the data-driven
-`engine-lex-pattern` (ADR-0044); the trait-based `handl-lexer` family below
-was never built.
 
 ## Context
 

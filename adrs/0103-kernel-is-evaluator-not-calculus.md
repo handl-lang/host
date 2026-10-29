@@ -3,63 +3,61 @@ title: 'ADR-0103 Phase 2: The Kernel is the Evaluator, Not the Calculus'
 type: adr
 date: 2026-09-10
 status: accepted
+status_note: |-
+  Accepted — phases 1–9 authored; Phase 4/6 migration in progress;
+  ADR-0105 (typechecker in Handl) accepted and in progress.
+
+  - Phase 1 (VM design): `vm_design.md` with target 19-instruction ISA.
+  - Phase 2 (exec model): `exec_model.hnl` authored and loadable; structural
+    data ops tested; VM-primitive-dependent ops (`proj_child`, `eval_block`,
+    `closure`, `pattern_match`, `push_handler`, `apply`, `call_op`, `import`,
+    `export`, `eval`) defined but not yet executable (require VM primitives
+    not yet wired into the runtime).
+  - Phase 3 (arrow model): `arrow_model.hnl` handles all 28 `Term` tags.
+  - Phase 4 (composite model infrastructure): `CompositeModel<M1,M2>`,
+    `CompositeDataModel<M1,M2>`, `is_hott_tag(&Term)`,
+    `TermData::is_hott_tag()`, `HandlModelAdapter` with `run`/`run_data`,
+    `ModelDataAdapter` bridge. Tree-walk `ValueModel` has opt-in
+    `with_arrow_model_delegate` that routes HoTT tags to `arrow_model.hnl`
+    instead of Rust `NotImplemented` arms. Full enum removal pending.
+  - Phase 5 (type model): `type_model.hnl` extended from 459 to 817 lines
+    with 26 new HoTT judgment ops (unification, metavariables, transport,
+    and `Src`/`Tgt`/`CellId`/`CellCompV`/`Whisker`/`Univalence`/`Glue`/
+    `Fibrant`/`JElim`/`RecordProj`/`RecordWith` tag arms). 23 parity tests
+    pass against the Handl type model adapter. Three new companion models
+    authored for ADR-0105: `typecheck_model.hnl` (1,305 lines, the driver),
+    `scope_model.hnl` (801 lines, module-level scope checks), and
+    `totality_model.hnl` (718 lines, termination checking). See ADR-0105.
+  - Phase 6 (TermData foundation): `TermData` newtype over
+    `serde_json::Value` with all 28 constructors, `from_term`/`to_term`,
+    `as_value`/`into_value`, `tag`/`is_hott_tag`. `ModelData` trait and
+    `CompositeDataModel` provide a parallel data-driven path. Migration
+    in progress: `Term::` references down from ~4,311 to ~3,086 (1,225
+    migrated). Migrated crates: bytecode compiler, tree-walk engine,
+    Cranelift compiler, refinement engine (partial), `handl-language`
+    (partial), NBE typechecker (`lib.rs`), `handl-runtime` (tests),
+    `plugin-engine`. Full enum removal remains as future work.
+  - Phase 7 (meta model): `meta_model.hnl` authored; `load_model` tested
+    via mock `fs`/`parse` FFI; all exports covered.
+  - Phase 8 (parity tests): arrow, value, composite, type, exec, meta,
+    factorial, infrastructure, TermData — all pass.
+  - Phase 9 (comprehensive test coverage): 280+ tests across all model
+    suites. The bytecode engine has `Arith`/`Ffi` hardware-boundary
+    instructions toward the target ISA.
+
+  The migration of `Term::` references to `TermData` is in progress
+  (~4,311 → ~3,086, 1,225 migrated). The NBE typechecker
+  (`plugin-engine-typecheck-nbe`) has had its `lib.rs` migrated; the
+  remaining ~1,282 references in its test suite and deeper modules will
+  require their own pass. ADR-0105 tracks the plan to delete the Rust
+  typecheck crates entirely and replace them with the Handl-authored
+  models; a thin `HandlTypecheckEngine` adapter
+  (`plugin-engine-typecheck-handl`) is wired into `kit-canonical` and
+  passes 23 tests, but the models are not yet production-ready (see
+  ADR-0105 for the known gaps).
 ---
 
 # ADR-0103 Phase 2: The Kernel is the Evaluator, Not the Calculus
-
-## Status
-
-Accepted — phases 1–9 authored; Phase 4/6 migration in progress;
-ADR-0105 (typechecker in Handl) accepted and in progress.
-
-- Phase 1 (VM design): `vm_design.md` with target 19-instruction ISA.
-- Phase 2 (exec model): `exec_model.hnl` authored and loadable; structural
-  data ops tested; VM-primitive-dependent ops (`proj_child`, `eval_block`,
-  `closure`, `pattern_match`, `push_handler`, `apply`, `call_op`, `import`,
-  `export`, `eval`) defined but not yet executable (require VM primitives
-  not yet wired into the runtime).
-- Phase 3 (arrow model): `arrow_model.hnl` handles all 28 `Term` tags.
-- Phase 4 (composite model infrastructure): `CompositeModel<M1,M2>`,
-  `CompositeDataModel<M1,M2>`, `is_hott_tag(&Term)`,
-  `TermData::is_hott_tag()`, `HandlModelAdapter` with `run`/`run_data`,
-  `ModelDataAdapter` bridge. Tree-walk `ValueModel` has opt-in
-  `with_arrow_model_delegate` that routes HoTT tags to `arrow_model.hnl`
-  instead of Rust `NotImplemented` arms. Full enum removal pending.
-- Phase 5 (type model): `type_model.hnl` extended from 459 to 817 lines
-  with 26 new HoTT judgment ops (unification, metavariables, transport,
-  and `Src`/`Tgt`/`CellId`/`CellCompV`/`Whisker`/`Univalence`/`Glue`/
-  `Fibrant`/`JElim`/`RecordProj`/`RecordWith` tag arms). 23 parity tests
-  pass against the Handl type model adapter. Three new companion models
-  authored for ADR-0105: `typecheck_model.hnl` (1,305 lines, the driver),
-  `scope_model.hnl` (801 lines, module-level scope checks), and
-  `totality_model.hnl` (718 lines, termination checking). See ADR-0105.
-- Phase 6 (TermData foundation): `TermData` newtype over
-  `serde_json::Value` with all 28 constructors, `from_term`/`to_term`,
-  `as_value`/`into_value`, `tag`/`is_hott_tag`. `ModelData` trait and
-  `CompositeDataModel` provide a parallel data-driven path. Migration
-  in progress: `Term::` references down from ~4,311 to ~3,086 (1,225
-  migrated). Migrated crates: bytecode compiler, tree-walk engine,
-  Cranelift compiler, refinement engine (partial), `handl-language`
-  (partial), NBE typechecker (`lib.rs`), `handl-runtime` (tests),
-  `plugin-engine`. Full enum removal remains as future work.
-- Phase 7 (meta model): `meta_model.hnl` authored; `load_model` tested
-  via mock `fs`/`parse` FFI; all exports covered.
-- Phase 8 (parity tests): arrow, value, composite, type, exec, meta,
-  factorial, infrastructure, TermData — all pass.
-- Phase 9 (comprehensive test coverage): 280+ tests across all model
-  suites. The bytecode engine has `Arith`/`Ffi` hardware-boundary
-  instructions toward the target ISA.
-
-The migration of `Term::` references to `TermData` is in progress
-(~4,311 → ~3,086, 1,225 migrated). The NBE typechecker
-(`plugin-engine-typecheck-nbe`) has had its `lib.rs` migrated; the
-remaining ~1,282 references in its test suite and deeper modules will
-require their own pass. ADR-0105 tracks the plan to delete the Rust
-typecheck crates entirely and replace them with the Handl-authored
-models; a thin `HandlTypecheckEngine` adapter
-(`plugin-engine-typecheck-handl`) is wired into `kit-canonical` and
-passes 23 tests, but the models are not yet production-ready (see
-ADR-0105 for the known gaps).
 
 ## Implementation Summary
 

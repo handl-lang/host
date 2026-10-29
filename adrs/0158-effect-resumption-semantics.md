@@ -3,7 +3,8 @@ title: Effect resumption semantics — `perform`/`handle` as algebra homomorphis
 type: adr
 date: 2026-10-25
 status: proposed
-status_note: Proposed — one-shot in-flight dispatch landed; multi-shot `resume` landed via replay journals on all three engines (`design/multishot-resume.md`)
+status_note: |-
+  Proposed — one-shot in-flight dispatch landed; multi-shot `resume` landed via replay journals on all three engines (`design/multishot-resume.md`)
 refs: [ADR-0153, ADR-0154]
 ---
 

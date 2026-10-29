@@ -3,6 +3,32 @@ title: AST shape faces — closing the last kind-dispatch sites
 type: adr
 date: 2026-10-10
 status: accepted
+status_note: |-
+  **Accepted and implemented for the `handl-kit-arrow-lower` binding sites**
+  (the reference case). `AstShapeDef::faces` + `Language::shape_has_face` /
+  `declares_faces` exist; `assign`/`bind` declare `binding`, and
+  `function`/`rec`/`call`/`dim_arrow` declare `lambda`/`call`/`arrow` for the
+  remaining migrations. `lower_block_child` dispatches on the face and
+  distinguishes layouts by the declared child roles, with a canonical-kind
+  fallback for face-less shapes. The acceptance test
+  (`handl-kit-arrow-lower/tests/lower.rs::a_renamed_binder_kind_lowers_unchanged`)
+  lowers a language whose binder kind is `set` and passes.
+
+  Still open: the `host-cli/transform_categorical.rs` and
+  `totality_check.rs` call-pattern sites, and the layout nuance below.
+
+  The site-by-site analysis and migration inventory live in
+  [`project/tasks/0081-remaining-kind-dispatch.md`](../tasks/0081-remaining-kind-dispatch.md).
+
+  ### Implementation finding
+
+  The first attempt (single `binding` face, no layout awareness) failed and was
+  reverted — see §"Finding" above. The shipped version keeps the face as a
+  *family* and derives the *layout* from `child_role_index(&kind, "target")`,
+  with `kind == "assign"` as the fallback for role-less shapes. That fallback
+  was itself added after a test failure: a hand-built test language declaring
+  `assign` with no child roles fell through to the `bind` branch and produced
+  "bind at N missing payload.name".
 ---
 
 # ADR-0123: AST shape faces — closing the last kind-dispatch sites
@@ -158,31 +184,3 @@ exhaust the vocabulary in a match.
 **Rejected alternative: leave the sites and document them.** Defensible for
 `transform_categorical` (a `dim_arrow` analysis pass) and the `call` pattern
 check, but not for `handl-kit-arrow-lower`, which is a generic component.
-
-## Status
-
-**Accepted and implemented for the `handl-kit-arrow-lower` binding sites**
-(the reference case). `AstShapeDef::faces` + `Language::shape_has_face` /
-`declares_faces` exist; `assign`/`bind` declare `binding`, and
-`function`/`rec`/`call`/`dim_arrow` declare `lambda`/`call`/`arrow` for the
-remaining migrations. `lower_block_child` dispatches on the face and
-distinguishes layouts by the declared child roles, with a canonical-kind
-fallback for face-less shapes. The acceptance test
-(`handl-kit-arrow-lower/tests/lower.rs::a_renamed_binder_kind_lowers_unchanged`)
-lowers a language whose binder kind is `set` and passes.
-
-Still open: the `host-cli/transform_categorical.rs` and
-`totality_check.rs` call-pattern sites, and the layout nuance below.
-
-The site-by-site analysis and migration inventory live in
-[`project/tasks/0081-remaining-kind-dispatch.md`](../tasks/0081-remaining-kind-dispatch.md).
-
-### Implementation finding
-
-The first attempt (single `binding` face, no layout awareness) failed and was
-reverted — see §"Finding" above. The shipped version keeps the face as a
-*family* and derives the *layout* from `child_role_index(&kind, "target")`,
-with `kind == "assign"` as the fallback for role-less shapes. That fallback
-was itself added after a test failure: a hand-built test language declaring
-`assign` with no child roles fell through to the `bind` branch and produced
-"bind at N missing payload.name".

@@ -3,6 +3,7 @@ title: handl Formatter
 type: adr
 date: 2026-08-24
 status: proposed
+status_note: Proposed
 ---
 
 # handl Formatter
@@ -126,7 +127,3 @@ monolithic formatter.
   every tool, for free."
 - Adding a new language or frontend is a plugin contribution, not a core
   change.
-
-## Status
-
-Proposed

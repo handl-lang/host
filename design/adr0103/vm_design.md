@@ -2,13 +2,10 @@
 title: 'ADR-0103 Phase 1: VM Instruction Set + Hardware Boundary Design'
 type: design
 date: 2026-09-10
+status_note: Design specification — Phase 1 of the ADR-0103 migration plan.
 ---
 
 # ADR-0103 Phase 1: VM Instruction Set + Hardware Boundary Design
-
-## Status
-
-Design specification — Phase 1 of the ADR-0103 migration plan.
 
 ## References
 

@@ -3,24 +3,22 @@ title: Generic Call Dispatch
 type: adr
 date: 2026-09-01
 status: proposed
+status_note: |-
+  Proposed
+
+  Migrates the `call` prim's hardcoded dispatch logic to data, per the
+  direction established by [ADR-0058 — Generic Data-Driven
+  Engines](./0058-generic-data-driven-engines.md) §"Existing hardcoded
+  logic is debt". Follows the template of [ADR-0059 — Generic Object Key
+  Evaluation](./0059-generic-object-key-evaluation.md), which migrated
+  object-key resolution from three Rust engines into one desugar rule.
+  Depends on the arrow-calculus `Scheme` kernel from [ADR-0052 — Arrow
+  Calculus Kernel](./0052-arrow-calculus-kernel.md) and the desugar pass
+  from [ADR-0053 — Generic Pratt Parser](./0053-generic-pratt-parser.md)
+  §7.
 ---
 
 # ADR-0060: Generic Call Dispatch
-
-## Status
-
-Proposed
-
-Migrates the `call` prim's hardcoded dispatch logic to data, per the
-direction established by [ADR-0058 — Generic Data-Driven
-Engines](./0058-generic-data-driven-engines.md) §"Existing hardcoded
-logic is debt". Follows the template of [ADR-0059 — Generic Object Key
-Evaluation](./0059-generic-object-key-evaluation.md), which migrated
-object-key resolution from three Rust engines into one desugar rule.
-Depends on the arrow-calculus `Scheme` kernel from [ADR-0052 — Arrow
-Calculus Kernel](./0052-arrow-calculus-kernel.md) and the desugar pass
-from [ADR-0053 — Generic Pratt Parser](./0053-generic-pratt-parser.md)
-§7.
 
 ## Context
 

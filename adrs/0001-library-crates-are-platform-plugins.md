@@ -3,6 +3,7 @@ title: Library crates are exposed as Platform plugins
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: accepted
 ---
 
 # Library crates are exposed as Platform plugins
@@ -33,7 +34,3 @@ Every standard-library crate is a Platform plugin:
 - The refactor touches the workspace `Cargo.toml`, all `lib-*` crate directories, and every crate that depends on them.
 - The `lib-` prefix is removed from crate names, so references in docs and kits must be updated.
 - `plugin-lib-type` remains a regular library crate because the circular dependency with `handl-platform` cannot be broken without splitting out the core type definitions.
-
-## Status
-
-accepted

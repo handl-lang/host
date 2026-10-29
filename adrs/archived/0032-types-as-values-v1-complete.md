@@ -3,13 +3,10 @@ title: 'ADR-0032 (Archived v1): Types are Values — Universe Levels and Core Ty
 type: adr
 date: 2026-09-02
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0032 (Archived v1): Types are Values — Universe Levels and Core Type System
-
-## Status
-
-Accepted
 
 ## Context
 

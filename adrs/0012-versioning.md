@@ -3,6 +3,12 @@ title: Versioning for Language Artifacts
 type: adr
 date: 2026-08-24
 status: superseded
+status_note: |-
+  Superseded by [ADR-0010 — Package Manager: Content-Addressed, Diff-Based,
+  Composable Stores](./0010-package-manager.md). The semver `version` field
+  is no longer package identity; content hashes are. The `@v1.2.0`
+  specifier syntax is retained as a tag lookup, and `version` may still
+  appear on documents as metadata only.
 superseded_by: [ADR-0010]
 ---
 
@@ -92,11 +98,3 @@ packages into version control.
 - The module resolver must be able to load a module from a versioned install
   path.
 - Documents gain a `version` field — a minimal addition to the data model.
-
-## Status
-
-Superseded by [ADR-0010 — Package Manager: Content-Addressed, Diff-Based,
-Composable Stores](./0010-package-manager.md). The semver `version` field
-is no longer package identity; content hashes are. The `@v1.2.0`
-specifier syntax is retained as a tag lookup, and `version` may still
-appear on documents as metadata only.

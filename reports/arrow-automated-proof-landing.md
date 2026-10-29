@@ -2,13 +2,13 @@
 title: 'Landing Report: Automated Proof for Arrow Programs — Dω Generalization + Decidable Loop-Free Fragment'
 type: report
 date: 2026-09-07
+status_note: Landed — `lake build` clean (24 jobs), zero `sorry`, axiom-checked.
 ---
 
 # Landing Report: Automated Proof for Arrow Programs — Dω Generalization + Decidable Loop-Free Fragment
 
 **Date:** 2026-09-07
 **Scope:** `research/arrow-calculus-kernel-poc/lean/ArrowMinimalityLib/`
-**Status:** Landed — `lake build` clean (24 jobs), zero `sorry`, axiom-checked.
 
 ---
 

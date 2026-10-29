@@ -2,13 +2,10 @@
 title: AST-based inlining for `substitute_param`
 type: note
 date: 2026-08-24
+status_note: Backlog — deferred architectural improvement. Current implementation is correct for all tested cases.
 ---
 
 # AST-based inlining for `substitute_param`
-
-## Status
-
-Backlog — deferred architectural improvement. Current implementation is correct for all tested cases.
 
 ## Summary
 

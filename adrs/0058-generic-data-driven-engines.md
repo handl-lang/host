@@ -3,21 +3,19 @@ title: Generic Data-Driven Engines
 type: adr
 date: 2026-09-01
 status: accepted
+status_note: |-
+  Accepted
+
+  Generalizes the design principle established by
+  [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md) (eval is
+  a fixed interpreter of scheme data) and [ADR-0053 — Generic Pratt
+  Parser](./0053-generic-pratt-parser.md) (parse is a fixed interpreter of
+  grammar data). Motivated by the implementation experience of
+  [ADR-0057 — Computed Object Keys](./0057-computed-object-keys.md), which
+  exposed the gap between the principle and the current implementation.
 ---
 
 # ADR-0058: Generic Data-Driven Engines
-
-## Status
-
-Accepted
-
-Generalizes the design principle established by
-[ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md) (eval is
-a fixed interpreter of scheme data) and [ADR-0053 — Generic Pratt
-Parser](./0053-generic-pratt-parser.md) (parse is a fixed interpreter of
-grammar data). Motivated by the implementation experience of
-[ADR-0057 — Computed Object Keys](./0057-computed-object-keys.md), which
-exposed the gap between the principle and the current implementation.
 
 ## Context
 

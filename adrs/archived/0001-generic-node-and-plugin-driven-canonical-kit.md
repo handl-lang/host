@@ -3,13 +3,10 @@ title: Generic Node, Trait-Based Capabilities, and Plugin-Driven Canonical Kit
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0001: Generic Node, Trait-Based Capabilities, and Plugin-Driven Canonical Kit
-
-## Status
-
-Accepted
 
 ## Context
 

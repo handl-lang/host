@@ -3,18 +3,16 @@ title: Plugin System in handl Itself
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Refines [ADR-0047 — Meta Functions as `plugin-lib-*` Crates](./0047-meta-functions-as-plugin-lib-crates.md)
+  (hands the meta functions to handl as callable modules, which this ADR then _uses_ from handl).
+  Related: [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md),
+  [ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md).
 ---
 
 # ADR-0050: Plugin System in handl Itself
-
-## Status
-
-Proposed
-
-Refines [ADR-0047 — Meta Functions as `plugin-lib-*` Crates](./0047-meta-functions-as-plugin-lib-crates.md)
-(hands the meta functions to handl as callable modules, which this ADR then _uses_ from handl).
-Related: [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md),
-[ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md).
 
 ## Context
 

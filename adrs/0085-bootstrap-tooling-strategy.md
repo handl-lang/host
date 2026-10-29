@@ -3,23 +3,23 @@ title: Bootstrap Tooling Strategy — Rust Tooling on the Generic Substrate
 type: adr
 date: 2026-10-15
 status: implemented
+status_note: |-
+  Implemented. Amends [ADR-0014](../0014-formatter.md),
+  [ADR-0015](../0015-linter.md), and
+  [ADR-0029](../0029-cli-as-capability-orchestrator.md): their generic,
+  plugin-driven designs are **retained in Rust**; what changes is that the
+  canonical tooling is now concrete, arrow-surface-focused, and shipped by
+  improving the existing plugin crates. Depends on
+  [ADR-0074 — Arrow Surface Syntax v0.1](./0074-arrow-syntax-v0_1-surface-redesign.md)
+  and [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md).
+  Amended by decision 2026-09: the Rust substrate (plugin system,
+  `plugin-ext-*`, `plugin-engine-*`) is **kept and improved, not deleted** —
+  the move to handl is a future port, not a rewrite.
+
+  Implemented (merged to main).
 ---
 
 # ADR-0085: Bootstrap Tooling Strategy — Rust Tooling on the Generic Substrate
-
-## Status
-
-Implemented. Amends [ADR-0014](../0014-formatter.md),
-[ADR-0015](../0015-linter.md), and
-[ADR-0029](../0029-cli-as-capability-orchestrator.md): their generic,
-plugin-driven designs are **retained in Rust**; what changes is that the
-canonical tooling is now concrete, arrow-surface-focused, and shipped by
-improving the existing plugin crates. Depends on
-[ADR-0074 — Arrow Surface Syntax v0.1](./0074-arrow-syntax-v0_1-surface-redesign.md)
-and [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md).
-Amended by decision 2026-09: the Rust substrate (plugin system,
-`plugin-ext-*`, `plugin-engine-*`) is **kept and improved, not deleted** —
-the move to handl is a future port, not a rewrite.
 
 ## Context
 
@@ -94,7 +94,3 @@ Rules of engagement:
   modules.
 - The future handl port is lower-risk: the RFCs port _generic, tested_
   Rust designs whose contracts are already exercised.
-
-## Status
-
-Implemented (merged to main).

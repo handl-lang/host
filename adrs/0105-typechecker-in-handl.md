@@ -3,18 +3,16 @@ title: The Typechecker is Handl, Not Rust
 type: adr
 date: 2026-09-10
 status: accepted
+status_note: |-
+  Accepted — Phases 1–2 complete, Phase 3 in progress, Phase 4 pending,
+  Phase 5 in progress (this update). The Handl typecheck models are
+  authored and parse; the `HandlTypecheckEngine` adapter compiles and
+  passes 23 tests; the adapter is wired into `kit-canonical`. The models
+  are skeletons — full typechecking is not yet working end-to-end. The
+  Rust typecheck crates are NOT deleted (pending production-ready models).
 ---
 
 # ADR-0105: The Typechecker is Handl, Not Rust
-
-## Status
-
-Accepted — Phases 1–2 complete, Phase 3 in progress, Phase 4 pending,
-Phase 5 in progress (this update). The Handl typecheck models are
-authored and parse; the `HandlTypecheckEngine` adapter compiles and
-passes 23 tests; the adapter is wired into `kit-canonical`. The models
-are skeletons — full typechecking is not yet working end-to-end. The
-Rust typecheck crates are NOT deleted (pending production-ready models).
 
 ## Context
 

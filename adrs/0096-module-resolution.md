@@ -3,6 +3,7 @@ title: Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencie
 type: adr
 date: 2026-09-08
 status: accepted
+status_note: 'Accepted (amended: unified import model)'
 ---
 
 # ADR-0096: Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencies
@@ -173,7 +174,3 @@ strips them.
   (module-name fallback in `resolve_import`) is future work.
 - The `loading` cycle-detector and the nested-import directory stack are
   cleaned up on error paths.
-
-## Status
-
-Accepted (amended: unified import model)

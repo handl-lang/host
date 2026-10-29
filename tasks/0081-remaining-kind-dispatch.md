@@ -2,12 +2,12 @@
 title: 'ADR-0081 follow-up: the remaining kind-dispatch sites'
 type: task
 date: 2026-10-10
+status_note: |-
+  **proposal** (analysis complete; no code changed for these sites).
+  Companion to [ADR-0081](../adrs/0081-data-driven-ast-child-roles.md).
 ---
 
 # ADR-0081 follow-up: the remaining kind-dispatch sites
-
-Status: **proposal** (analysis complete; no code changed for these sites).
-Companion to [ADR-0081](../adrs/0081-data-driven-ast-child-roles.md).
 
 ## What this closes, and what it doesn't
 

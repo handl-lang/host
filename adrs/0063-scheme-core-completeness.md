@@ -3,22 +3,20 @@ title: Scheme-Core Completeness for Self-Hosting
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Gates [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
+  Phase 8 (self-hosting) and every downstream ADR that assumes handl can describe
+  itself as a `Language` value ([0064](./0064-computational-language-authoring.md),
+  [0065](./0065-derived-artifact-cache-and-compression.md),
+  [0066](./0066-dependency-graph-chunking.md),
+  [0067](./0067-chunk-certificates.md)). Refines
+  [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md) and
+  [ADR-0058 — Generic Data-Driven Engines](./0058-generic-data-driven-engines.md).
 ---
 
 # ADR-0063: Scheme-Core Completeness for Self-Hosting
-
-## Status
-
-Proposed
-
-Gates [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
-Phase 8 (self-hosting) and every downstream ADR that assumes handl can describe
-itself as a `Language` value ([0064](./0064-computational-language-authoring.md),
-[0065](./0065-derived-artifact-cache-and-compression.md),
-[0066](./0066-dependency-graph-chunking.md),
-[0067](./0067-chunk-certificates.md)). Refines
-[ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md) and
-[ADR-0058 — Generic Data-Driven Engines](./0058-generic-data-driven-engines.md).
 
 ## Context
 

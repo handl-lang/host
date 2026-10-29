@@ -3,21 +3,37 @@ title: Generic Pratt Parser
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Refines [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
+  §3 "Grammar rows as data, engines as interpreters": completes the data-driven
+  promise for the parse operation by removing the five hardcoded special-case
+  branches in `plugin-engine-parse-pratt` and the substring-heuristic literal
+  dispatch in `atom_payload`. After this ADR, adding a Pratt-expressible
+  construct to handl requires only new grammar/token/AST/eval data rows — no
+  parser source changes.
+
+  Proposed — awaiting implementation. Migration order (lowest risk first):
+
+  1. `DelimitedShape.rest_token` + `open_is_operator_token` + `flatten` —
+     unblocks `array`/`object`/`paren`/`call`; delete those four branches.
+  2. `AstShapeRef.child_separators` — unblocks `if` and `=`; delete
+     `parse_if` and `parse_binding`.
+  3. `TokenKindDef.literal` — unblocks `atom_payload` rewrite; delete
+     substring dispatch.
+  4. `AstShapeDef.desugar` + desugar pass in `handl-runtime` — relocate
+     `if → match` from parser to data.
+  5. `json` semantic change (`call(json, args)`) — add eval scheme for
+     applied `json`; update `data/eval.yaml`.
+
+  Verification gate: `cargo test --workspace`. The self-hosting corpus
+  (`crates/handl-defining-handl/tests/v2_parity.rs`, 42 cases × 6 engines) is
+  the real test — if all pass, the generic parser produces equivalent ASTs
+  and the desugar pass preserves eval results.
 ---
 
 # ADR-0053: Generic Pratt Parser
-
-## Status
-
-Proposed
-
-Refines [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
-§3 "Grammar rows as data, engines as interpreters": completes the data-driven
-promise for the parse operation by removing the five hardcoded special-case
-branches in `plugin-engine-parse-pratt` and the substring-heuristic literal
-dispatch in `atom_payload`. After this ADR, adding a Pratt-expressible
-construct to handl requires only new grammar/token/AST/eval data rows — no
-parser source changes.
 
 ## Context
 
@@ -357,26 +373,6 @@ separated operands and at most one trailing delimited block, no parser code
 change is needed.** That covers handl's current constructs and the obvious
 extensions (ternary, `try/catch`, `switch/case/default`, postfix
 operators, new literal forms).
-
-## Status
-
-Proposed — awaiting implementation. Migration order (lowest risk first):
-
-1. `DelimitedShape.rest_token` + `open_is_operator_token` + `flatten` —
-   unblocks `array`/`object`/`paren`/`call`; delete those four branches.
-2. `AstShapeRef.child_separators` — unblocks `if` and `=`; delete
-   `parse_if` and `parse_binding`.
-3. `TokenKindDef.literal` — unblocks `atom_payload` rewrite; delete
-   substring dispatch.
-4. `AstShapeDef.desugar` + desugar pass in `handl-runtime` — relocate
-   `if → match` from parser to data.
-5. `json` semantic change (`call(json, args)`) — add eval scheme for
-   applied `json`; update `data/eval.yaml`.
-
-Verification gate: `cargo test --workspace`. The self-hosting corpus
-(`crates/handl-defining-handl/tests/v2_parity.rs`, 42 cases × 6 engines) is
-the real test — if all pass, the generic parser produces equivalent ASTs
-and the desugar pass preserves eval results.
 
 ## Amendment — contextual clause vocabulary (`match`/`data` closed)
 

@@ -3,13 +3,10 @@ title: Ignored Test Inventory and Triage
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0038: Ignored Test Inventory and Triage
-
-## Status
-
-Accepted
 
 ## Context
 

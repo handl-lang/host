@@ -3,13 +3,10 @@ title: Repo visibility is derived from the dep closure, not chosen per-repo
 type: adr
 date: 2026-10-21
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0150: Repo visibility is derived from the dep closure, not chosen per-repo
-
-## Status
-
-Accepted
 
 ## Context
 

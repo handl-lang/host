@@ -2,13 +2,13 @@
 title: dead-code cleanup and the kernel boundary (ADR-0126)
 type: task
 date: 2026-10-13
+status_note: |-
+  **A (part 1), C, E done; B and D measured.** Remaining: A part 2 (needs a
+  maintainer call — see below), B (a migration, deserves its own ADR), D (mechanical
+  re-enable). Plan agreed with the maintainer.
 ---
 
 # Task: dead-code cleanup and the kernel boundary (ADR-0126)
-
-Status: **A (part 1), C, E done; B and D measured.** Remaining: A part 2 (needs a
-maintainer call — see below), B (a migration, deserves its own ADR), D (mechanical
-re-enable). Plan agreed with the maintainer.
 
 ## The principle
 

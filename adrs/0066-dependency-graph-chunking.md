@@ -3,20 +3,18 @@ title: Dependency-Graph Chunking
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed — deferred until a concrete driver exists.
+
+  Depends on [ADR-0063 — Scheme-Core Completeness](./0063-scheme-core-completeness.md),
+  [ADR-0064 — Computational Language Authoring](./0064-computational-language-authoring.md),
+  and [ADR-0065 — Derived-Artifact Cache and Compression](./0065-derived-artifact-cache-and-compression.md).
+  Refines [ADR-0044 — Language as Data and Runtime
+  Split](./0044-language-as-data-and-runtime-split.md) and
+  [ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md).
 ---
 
 # ADR-0066: Dependency-Graph Chunking
-
-## Status
-
-Proposed — deferred until a concrete driver exists.
-
-Depends on [ADR-0063 — Scheme-Core Completeness](./0063-scheme-core-completeness.md),
-[ADR-0064 — Computational Language Authoring](./0064-computational-language-authoring.md),
-and [ADR-0065 — Derived-Artifact Cache and Compression](./0065-derived-artifact-cache-and-compression.md).
-Refines [ADR-0044 — Language as Data and Runtime
-Split](./0044-language-as-data-and-runtime-split.md) and
-[ADR-0052 — Arrow Calculus Kernel](./0052-arrow-calculus-kernel.md).
 
 ## Context
 

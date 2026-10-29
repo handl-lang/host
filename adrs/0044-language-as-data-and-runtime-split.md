@@ -3,34 +3,32 @@ title: Language as Data and Runtime Split
 type: adr
 date: 2026-09-02
 status: accepted
+status_note: |-
+  Accepted
+
+  Implementation complete: 37 `handl-emitter-*` crates emit token, AST, grammar,
+  and eval fragments assembled by `handl-kit-data-canonical`; 84 old
+  `plugin-token-*`/`plugin-lexer-*`/`plugin-ast-*`/`plugin-grammar-*`/`plugin-eval-*`
+  crates deleted; `host-tooling` semantic tokens migrated to string-based kind
+  classification; `plugin-engine-lex-pattern` provides data-driven lexing;
+  `plugin-engine-exec-{tree-walk,bytecode,cranelift}` interpret eval schemes.
+  All 2900 workspace tests pass.
+
+  The lingering `handl-plugin-ast` crate (the trait-based `Node<K, V, M>` AST
+  from ADR-0023, later renamed from `handl-ast-common`) has been deleted. It
+  had no source-level consumers after the data-driven migration: the parser
+  and eval engines depend on `handl-language`'s `Ast` arena, not the trait
+  graph. Its only remaining footprint was stale cargo deps and doc references.
+  See "Supersession of the trait-based AST" below.
+
+  Refines [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md):
+  makes its `Language` value **pure data**, corrects its `eval` signature to
+  operate on an `Ast` rather than `Source`, and specifies the crate structure
+  that implements both. Builds on [ADR-0039](./0039-kits-are-curated-plugin-lists.md)
+  and [ADR-0040](./0040-vm-is-an-operation-not-a-subsystem.md).
 ---
 
 # ADR-0044: Language as Data and Runtime Split
-
-## Status
-
-Accepted
-
-Implementation complete: 37 `handl-emitter-*` crates emit token, AST, grammar,
-and eval fragments assembled by `handl-kit-data-canonical`; 84 old
-`plugin-token-*`/`plugin-lexer-*`/`plugin-ast-*`/`plugin-grammar-*`/`plugin-eval-*`
-crates deleted; `host-tooling` semantic tokens migrated to string-based kind
-classification; `plugin-engine-lex-pattern` provides data-driven lexing;
-`plugin-engine-exec-{tree-walk,bytecode,cranelift}` interpret eval schemes.
-All 2900 workspace tests pass.
-
-The lingering `handl-plugin-ast` crate (the trait-based `Node<K, V, M>` AST
-from ADR-0023, later renamed from `handl-ast-common`) has been deleted. It
-had no source-level consumers after the data-driven migration: the parser
-and eval engines depend on `handl-language`'s `Ast` arena, not the trait
-graph. Its only remaining footprint was stale cargo deps and doc references.
-See "Supersession of the trait-based AST" below.
-
-Refines [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md):
-makes its `Language` value **pure data**, corrects its `eval` signature to
-operate on an `Ast` rather than `Source`, and specifies the crate structure
-that implements both. Builds on [ADR-0039](./0039-kits-are-curated-plugin-lists.md)
-and [ADR-0040](./0040-vm-is-an-operation-not-a-subsystem.md).
 
 ## Context
 

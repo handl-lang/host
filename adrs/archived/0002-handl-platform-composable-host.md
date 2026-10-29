@@ -3,13 +3,10 @@ title: Single `Plugin` Model for Host, Operations, Libraries, Targets, and Optio
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0002: Single `Plugin` Model for Host, Operations, Libraries, Targets, and Options
-
-## Status
-
-Accepted
 
 ## Context
 

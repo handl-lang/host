@@ -3,29 +3,27 @@ title: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-
 type: adr
 date: 2026-09-06
 status: accepted
+status_note: |-
+  Accepted — implemented on `adr0094-transform-engine` (phases 1–5; see
+  "Migration sequence", all steps landed).
+
+  An instance of the data-driven engine program
+  ([ADR-0044](./0044-language-as-data-and-runtime-split.md) "language as
+  data") and the abstraction/impl crate split used by `plugin-engine-exec` →
+  `plugin-engine-exec-{tree-walk,bytecode,cranelift}`. Subsumes the
+  declarative desugar machinery of
+  [ADR-0053](./0053-generic-pratt-parser.md) §7, the `when` conditions of
+  ADR-0058, `KeepRest` of ADR-0060, and the child-role resolution of
+  [ADR-0081](./0081-data-driven-ast-child-roles.md).
+
+  > **Terminology.** A **transform** is a pure `Ast → Ast` rewrite: it never
+  > evaluates, typechecks, or emits. A **pass** is a named, ordered set of
+  > transform rules plus a traversal strategy (e.g. `desugar`, `lower`,
+  > `optimize`). A **rule** (`TransformDef`) maps a node kind to a rewrite
+  > within a pass.
 ---
 
 # ADR-0094: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)
-
-## Status
-
-Accepted — implemented on `adr0094-transform-engine` (phases 1–5; see
-"Migration sequence", all steps landed).
-
-An instance of the data-driven engine program
-([ADR-0044](./0044-language-as-data-and-runtime-split.md) "language as
-data") and the abstraction/impl crate split used by `plugin-engine-exec` →
-`plugin-engine-exec-{tree-walk,bytecode,cranelift}`. Subsumes the
-declarative desugar machinery of
-[ADR-0053](./0053-generic-pratt-parser.md) §7, the `when` conditions of
-ADR-0058, `KeepRest` of ADR-0060, and the child-role resolution of
-[ADR-0081](./0081-data-driven-ast-child-roles.md).
-
-> **Terminology.** A **transform** is a pure `Ast → Ast` rewrite: it never
-> evaluates, typechecks, or emits. A **pass** is a named, ordered set of
-> transform rules plus a traversal strategy (e.g. `desugar`, `lower`,
-> `optimize`). A **rule** (`TransformDef`) maps a node kind to a rewrite
-> within a pass.
 
 ## Context
 

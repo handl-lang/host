@@ -3,29 +3,27 @@ title: Arrow Calculus Kernel
 type: adr
 date: 2026-08-31
 status: accepted
+status_note: |-
+  Accepted — Implemented (ADR-0052 big-bang cutover complete: v1 `Scheme`
+  removed, v2 arrow-calculus kernel is the sole default, `eval.yaml` rewritten
+  to v2 schemes, all engines and tests migrated; workspace builds and all
+  tests pass).
+
+  Refines [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md)
+  (§6 "Structured by default, vau as typed escape") and [ADR-0044 — Language as Data
+  and Runtime Split](./0044-language-as-data-and-runtime-split.md) (§4 "Evaluation
+  schemes as data, engines as interpreters"). **Supersedes [ADR-0045 — Vau as a
+  Typed Escape](./0045-vau-as-a-typed-escape.md)**: `vau` is removed from the
+  kernel — it addresses control over evaluation of unevaluated expressions and is
+  not required by the Arrow model. The kernel becomes purely arrow calculus
+  (`arr`/`>>>`/`first`/`choice`/`loop`/`app`); the semantic foundation for
+  interpreting effectful arrows is Sanada's _Algebraic Effects and Handlers for
+  Arrows_ — execution is one possible handler interpretation, rather than a
+  primitive property of arrows. Supersedes the lambda-flavored `Scheme`
+  combinator set defined in ADR-0044 §4.
 ---
 
 # ADR-0052: Arrow Calculus Kernel
-
-## Status
-
-Accepted — Implemented (ADR-0052 big-bang cutover complete: v1 `Scheme`
-removed, v2 arrow-calculus kernel is the sole default, `eval.yaml` rewritten
-to v2 schemes, all engines and tests migrated; workspace builds and all
-tests pass).
-
-Refines [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md)
-(§6 "Structured by default, vau as typed escape") and [ADR-0044 — Language as Data
-and Runtime Split](./0044-language-as-data-and-runtime-split.md) (§4 "Evaluation
-schemes as data, engines as interpreters"). **Supersedes [ADR-0045 — Vau as a
-Typed Escape](./0045-vau-as-a-typed-escape.md)**: `vau` is removed from the
-kernel — it addresses control over evaluation of unevaluated expressions and is
-not required by the Arrow model. The kernel becomes purely arrow calculus
-(`arr`/`>>>`/`first`/`choice`/`loop`/`app`); the semantic foundation for
-interpreting effectful arrows is Sanada's _Algebraic Effects and Handlers for
-Arrows_ — execution is one possible handler interpretation, rather than a
-primitive property of arrows. Supersedes the lambda-flavored `Scheme`
-combinator set defined in ADR-0044 §4.
 
 ## Context
 

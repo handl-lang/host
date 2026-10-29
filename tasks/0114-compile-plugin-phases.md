@@ -2,13 +2,12 @@
 title: 'Task plan: ADR-0114 — Handl Compile Plugin Architecture'
 type: task
 date: 2026-09-14
+status_note: Ready for implementation, one subagent per phase.
 ---
 
 # Task plan: ADR-0114 — Handl Compile Plugin Architecture
 
 Refs: `project/adrs/0114-handl-compile-plugin-architecture.md`
-
-Status: Ready for implementation, one subagent per phase.
 
 ## Scope boundary
 

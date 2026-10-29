@@ -3,14 +3,12 @@ title: '`lib-*` repos are language packages, not crates'
 type: adr
 date: 2026-10-28
 status: proposed
+status_note: |-
+  Proposed — 2026-10-28. Owners: every `lib-*` repo, `host` (loader),
+  `automation` (gates).
 ---
 
 # ADR-0160: `lib-*` repos are language packages, not crates
-
-## Status
-
-Proposed — 2026-10-28. Owners: every `lib-*` repo, `host` (loader),
-`automation` (gates).
 
 ## Context
 

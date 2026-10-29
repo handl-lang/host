@@ -29,15 +29,20 @@ applies_to: all repos with a `project` branch; `host` (`project/adrs/TEMPLATE.md
    `superseded_by: [ADR-NNNN]`; absorption uses `absorbed_into`. The record
    being replaced lists `supersedes: [ADR-NNNN]`. When the original wording
    says more than the enum, `status_note` preserves it verbatim.
-6. RFCs carry `status`: `draft | accepted | landed | withdrawn`. Tasks keep
-   their progress in the body's checkboxes; a `status` is optional there.
+6. **Status lives only in the header.** ADRs and RFCs use `status` (the enum in
+   rule 4) plus an optional `status_note`; every other type (`plan`, `task`,
+   `design`, `note`, `report`, `retro`) uses `status_note` verbatim, because it
+   has no enum. A task's per-step statuses inside its own sections are progress,
+   not the document's status.
 7. `refs` is a list of ADR ids the document elaborates or relies on.
    `applies_to` is one prose line naming where a decision binds, when that is
-   wider than the repo. These are the only free-form-ish fields.
-8. The body does not repeat the header. Template bullets (`- Status:`,
-   `- Date:`, `- Repos:`, `- Supersedes:`) are migrated into frontmatter and
-   removed. Legacy prose sections (`## Status`, compound `**Date**: … .
-   **ADR**: …` lines) stay untouched — migrate, do not rewrite.
+   wider than the repo. `status_note` is the only other free-text field.
+8. The body never carries status. Template bullets (`- Status:`, `- Date:`,
+   `- Repos:`, `- Supersedes:`) are migrated into frontmatter and removed; a
+   legacy `## Status` section (every occurrence) and a header `Status:` /
+   `**Status**:` line are moved wholesale into `status_note` and deleted.
+   Compound metadata lines (`**Date**: … . **ADR**: …`) keep their non-date
+   fields — migrate, do not rewrite.
 9. `title` is the H1 without its identifier prefix (`ADR-NNNN: `,
    `RFC-NNNN: `, `Task: `); the H1 itself is unchanged, so existing anchors
    and links keep working.
@@ -52,10 +57,10 @@ which makes every artifact rename on import — and the renames already broke
 `vendor-docs.py`'s exclusion for a graphopt note that must not be published.
 The metadata itself has four shapes: 28 ADRs use a `- Status:` / `**Status**:`
 field, **159 carry status only as a `## Status` section**, and 2 say nothing
-resolvable at all; 365 of 469 artifacts have no date outside git history. A
-registry that cannot name a record's status or date is a file list, not a
-registry. One header makes the corpus queryable, the checks mechanical, and
-the generated indexes honest.
+resolvable at all; 365 of 469 artifacts have no date outside git history. All of
+it is prose, none of it queryable — and a status can disagree with the body two
+sections below. One header makes the corpus queryable, the checks mechanical,
+and the generated indexes honest.
 
 ## Not doing
 
@@ -66,8 +71,8 @@ the generated indexes honest.
 - **A per-repo metadata registry** — drifts by construction (the hand-kept
   `docs-split.yaml` already lost ADR-0158 and ADR-0159).
 - **YAML for everything** — eleven keys, closed; anything else is body prose.
-- **Rewriting legacy bodies to remove their prose** — churn without a reader
-  benefit; git already records the migration.
+- **Keeping a `## Status` section beside the header** — two homes, and the
+  header is what tooling reads; the section is moved, not mirrored.
 
 ## Consequences
 
@@ -78,6 +83,10 @@ the generated indexes honest.
   reads them.
 - The 13 renames made for the filename rule are reverted; the graphopt
   vendoring exclusion (`notes/repo-split-plan.md`) works again.
+- 200 `## Status` sections (including qualified headings such as `## Status of
+  this ADR`) and 36 header status fields leave the bodies: their prose becomes
+  `status_note` (217 files). No body carries status any more, so the header is
+  the only place to look — or to change it.
 - `adrs/TEMPLATE.md` grows a header, and `write-adr` points at it, so new
   records start compliant.
 - Both generated indexes gain status + date columns, which is the first

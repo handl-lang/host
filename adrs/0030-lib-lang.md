@@ -3,26 +3,24 @@ title: lib-lang — Expose the Handl language as a reusable library
 type: adr
 date: 2026-08-24
 status: superseded
+status_note: |-
+  Superseded by [ADR-0047 — Meta Functions as `plugin-lib-*`
+  Crates](./0047-meta-functions-as-plugin-lib-crates.md).
+
+  This ADR proposed a monolithic `ac-lib-lang` façade over a trait-based AST
+  and Rust emitters. None of that survives ADR-0044 (Language as Data and
+  Runtime Split), which replaced the trait-based AST with a serializable,
+  string-keyed `Ast` arena in `handl-language` and split the runtime into
+  registry-based engine selection. ADR-0047 is the honest replacement: the
+  `lib-lang` surface is now a set of granular `plugin-lib-lang-*` leaf
+  crates (`lex`/`parse`/`eval`/`compile`/`run_compiled`), each depending on
+  `handl-runtime`'s `RuntimeFactory`/`RuntimeHandle` traits — not a single
+  façade crate. See ADR-0047's "ADR-0030 superseded" note for the full
+  rationale.
 superseded_by: [ADR-0047]
 ---
 
 # ADR 0030: lib-lang — Expose the Handl language as a reusable library
-
-## Status
-
-Superseded by [ADR-0047 — Meta Functions as `plugin-lib-*`
-Crates](./0047-meta-functions-as-plugin-lib-crates.md).
-
-This ADR proposed a monolithic `ac-lib-lang` façade over a trait-based AST
-and Rust emitters. None of that survives ADR-0044 (Language as Data and
-Runtime Split), which replaced the trait-based AST with a serializable,
-string-keyed `Ast` arena in `handl-language` and split the runtime into
-registry-based engine selection. ADR-0047 is the honest replacement: the
-`lib-lang` surface is now a set of granular `plugin-lib-lang-*` leaf
-crates (`lex`/`parse`/`eval`/`compile`/`run_compiled`), each depending on
-`handl-runtime`'s `RuntimeFactory`/`RuntimeHandle` traits — not a single
-façade crate. See ADR-0047's "ADR-0030 superseded" note for the full
-rationale.
 
 ## Context
 

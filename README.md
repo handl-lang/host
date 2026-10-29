@@ -63,14 +63,16 @@ refs: [ADR-0161, ADR-0163]          # ADRs this document elaborates
 | `type` | all | the taxonomy entry above (`index`/`template` excepted) |
 | `date` | all but `index`/`template` | ISO-8601 creation / decision / measurement date |
 | `status` | ADRs, RFCs | ADR: `proposed accepted implemented landed superseded absorbed rejected unrecorded`; RFC: `draft accepted landed withdrawn` |
-| `status_note` | no | the original wording when it says more than the enum |
+| `status_note` | no | the status text: the note behind the enum for ADRs/RFCs, the status itself (verbatim) for a plan, task, design, note, report or retro |
 | `supersedes` / `superseded_by` / `absorbed_into` | no | `[ADR-NNNN]` links, required by the matching status |
 | `refs` | no | `[ADR-NNNN]` this document elaborates |
 | `applies_to` | no | one prose line when a decision binds beyond this repo |
 | `updated` | no | ISO-8601 last substantive edit, living docs only |
 
-A legacy `## Status` section stays in the body as prose — migrate, do not
-rewrite. `unrecorded` is the honest status for a record that never stated one.
+Status lives **only** in the header: `status` + `status_note` for an ADR or RFC,
+`status_note` alone for every other type. No `## Status` section, no `Status:`
+line in the body — legacy ones were moved into `status_note` by the migration.
+`unrecorded` is the honest status for a record that never stated one.
 
 ## Rules that are easy to get wrong
 
@@ -82,8 +84,8 @@ rewrite. `unrecorded` is the honest status for a record that never stated one.
   fact — write a second one. Its date is in the frontmatter, not the name.
 - **Filenames are labels, not metadata.** No `2026-08-24-` prefixes; a date in
   a name renames the file and breaks links (ADR-0163).
-- **One metadata home.** No `- Status:` / `- Date:` bullets in the body — the
-  header carries them; legacy `## Status` prose stays as prose.
+- **One metadata home.** No `- Status:` / `- Date:` bullets, no `## Status`
+  section, no `Status:` line in the body header — the header carries them.
 - **A note is not a decision.** Rejecting a design produces an ADR, so the
   rejection is remembered.
 

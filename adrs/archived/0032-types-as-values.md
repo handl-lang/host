@@ -3,6 +3,7 @@ title: Types are values, runtime and typechecker share one value space
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: accepted
 ---
 
 # Types are values, runtime and typechecker share one value space
@@ -42,10 +43,6 @@ Current state:
 - `handl-plugin-vm-values-json` will be replaced or become a thin serialization view of `handl-plugin-vm-type::Value`.
 - The `mood` module becomes redundant. Its runtime behavior can move into the `type` module or become ordinary handl functions.
 - The parser/AST needs to support `:` typed bindings, `is` as membership, and `===` as a type.
-
-## Status
-
-accepted
 
 ## Implementation
 

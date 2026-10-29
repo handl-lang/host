@@ -3,6 +3,7 @@ title: 'Package Manager: Content-Addressed, Diff-Based, Composable Stores'
 type: adr
 date: 2026-08-24
 status: proposed
+status_note: Proposed
 ---
 
 # Package Manager: Content-Addressed, Diff-Based, Composable Stores
@@ -213,7 +214,3 @@ handl install --check        # report tag drift vs lockfile
   `handl-pkg-diff` (graph diff/apply), `handl-pkg-registry-*` (per-source
   adapters). The original `handl-pkg-install` directory-copy design is
   replaced.
-
-## Status
-
-Proposed

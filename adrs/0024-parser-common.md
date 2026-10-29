@@ -3,6 +3,7 @@ title: 'Agnostic parser engine: `handl-parser-common` and `handl-parser-canonica
 type: adr
 date: 2026-08-24
 status: accepted
+status_note: Accepted
 ---
 
 # Agnostic parser engine: `handl-parser-common` and `handl-parser-canonical` on top
@@ -97,7 +98,3 @@ pub trait Grammar<K, N> {
 
 3. **Should `handl-parser-common` live at the Peregrin level?**
    Long term, yes — just like `handl-ast-common` is a candidate for promotion. The first step is `packages/handl/crates/parser-common` so the existing Cargo workspace can consume it.
-
-## Status
-
-Accepted

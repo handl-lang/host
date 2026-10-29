@@ -3,28 +3,32 @@ title: Bootstrap Test Runner (`plugin-engine-test`)
 type: adr
 date: 2026-10-15
 status: unrecorded
+status_note: |-
+  **Rewritten.** Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Depends on
+  [ADR-0074 — Arrow Surface Syntax v0.1](./0074-arrow-syntax-v0_1-surface-redesign.md),
+  [ADR-0044 — Language as Data](./0044-language-as-data-and-runtime-split.md)
+  (test-language fragment), [ADR-0081 — Data-driven AST child roles](./0081-data-driven-ast-child-roles.md),
+  and the eval engine (`plugin-engine-exec`). The test **framework library**
+  (`assert`/`property`/`benchmark`/`fuzz`/`snapshot`) moves to handl under
+  [ADR-0092](./0092-test-framework-in-handl.md); the future handl port of
+  this runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).
+
+  > **Scope.** This ADR governs the **test runner** — the Rust machinery that
+  > discovers, plans, schedules, executes, and reports tests. It does **not**
+  > govern the test **framework library** (the `assert`/`property`/… primitives
+  > that handl test code calls); that is
+  > [ADR-0092](./0092-test-framework-in-handl.md), which migrates the framework
+  > to handl and deletes `plugin-lib-test`.
+
+  Rewritten. The original minimal-runner text is superseded by this
+  production-architecture specification for the new `plugin-engine-test`
+  crate. The framework-library migration is
+  [ADR-0092](./0092-test-framework-in-handl.md); the future handl port of
+  this runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).
 ---
 
 # ADR-0089: Bootstrap Test Runner (`plugin-engine-test`)
-
-## Status
-
-**Rewritten.** Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Depends on
-[ADR-0074 — Arrow Surface Syntax v0.1](./0074-arrow-syntax-v0_1-surface-redesign.md),
-[ADR-0044 — Language as Data](./0044-language-as-data-and-runtime-split.md)
-(test-language fragment), [ADR-0081 — Data-driven AST child roles](./0081-data-driven-ast-child-roles.md),
-and the eval engine (`plugin-engine-exec`). The test **framework library**
-(`assert`/`property`/`benchmark`/`fuzz`/`snapshot`) moves to handl under
-[ADR-0092](./0092-test-framework-in-handl.md); the future handl port of
-this runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).
-
-> **Scope.** This ADR governs the **test runner** — the Rust machinery that
-> discovers, plans, schedules, executes, and reports tests. It does **not**
-> govern the test **framework library** (the `assert`/`property`/… primitives
-> that handl test code calls); that is
-> [ADR-0092](./0092-test-framework-in-handl.md), which migrates the framework
-> to handl and deletes `plugin-lib-test`.
 
 ## Context
 
@@ -422,11 +426,3 @@ fragment; the stdlib's test suites are integration fixtures.
    bounded-job scheduler and `plugin-lib-predicate` for predicate
    combinators.
 5. ADR-0074 grammar is **not** amended.
-
-## Status
-
-Rewritten. The original minimal-runner text is superseded by this
-production-architecture specification for the new `plugin-engine-test`
-crate. The framework-library migration is
-[ADR-0092](./0092-test-framework-in-handl.md); the future handl port of
-this runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).

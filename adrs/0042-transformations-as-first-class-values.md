@@ -3,15 +3,13 @@ title: Transformations as First-Class Values
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Builds on [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md).
 ---
 
 # ADR-0042: Transformations as First-Class Values
-
-## Status
-
-Proposed
-
-Builds on [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md).
 
 ## Context
 

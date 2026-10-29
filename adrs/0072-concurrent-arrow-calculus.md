@@ -3,15 +3,19 @@ title: Concurrent Arrow Calculus
 type: adr
 date: 2026-09-01
 status: accepted
+status_note: |-
+  Accepted
+
+  Builds on [ADR-0070 — Refinement Inference Scope](./0070-refinement-inference-scope.md).
+
+  Accepted. Concurrency is in scope, modeled as dataflow over event
+  streams. The scheduler is part of the input, not part of the graph.
+  The fixpoint discovers invariants that hold for all event orderings,
+  using the same mechanism as state machines (ADR-0073). Liveness
+  properties and global multi-loop properties remain out of scope.
 ---
 
 # ADR-0072: Concurrent Arrow Calculus
-
-## Status
-
-Accepted
-
-Builds on [ADR-0070 — Refinement Inference Scope](./0070-refinement-inference-scope.md).
 
 ## Context
 
@@ -137,14 +141,6 @@ that all branches preserve.
 - The model requires the user to externalize the scheduler as an event
   stream, which is a different programming style than direct
   concurrency primitives
-
-## Status
-
-Accepted. Concurrency is in scope, modeled as dataflow over event
-streams. The scheduler is part of the input, not part of the graph.
-The fixpoint discovers invariants that hold for all event orderings,
-using the same mechanism as state machines (ADR-0073). Liveness
-properties and global multi-loop properties remain out of scope.
 
 ## Related ADRs
 

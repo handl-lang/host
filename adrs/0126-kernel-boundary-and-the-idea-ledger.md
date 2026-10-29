@@ -3,6 +3,7 @@ title: Kernel boundary, and the idea ledger for retired reifications
 type: adr
 date: 2026-10-12
 status: accepted
+status_note: accepted
 ---
 
 # ADR-0126: Kernel boundary, and the idea ledger for retired reifications
@@ -96,7 +97,3 @@ nobody could tell the difference between "aspirational", "superseded", and
   four near-clone `plugin-compile-*/config.rs`+`output.rs` pairs, and two
   implemented-but-never-dispatched lowerers in
   `plugin-compile-js/src/lower/proof.rs` (`Path`/`Equiv`).
-
-## Status
-
-accepted

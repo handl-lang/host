@@ -3,6 +3,7 @@ title: Pluggable Module Composition
 type: adr
 date: 2026-08-24
 status: proposed
+status_note: Proposed
 ---
 
 # Pluggable Module Composition
@@ -100,7 +101,3 @@ The existing `handl-dialect` `Dialect` trait and canonical dialect crate are dep
 - `module-resolver-*` crates must be updated to read `module.toml` and pass `ModuleConfig`.
 - Tests will move from “this syntax” vs “that syntax” to “this kit/plugins combination” vs “that kit/plugins combination”.
 - Nested modules can mix syntaxes, e.g. a root project in `handl-kit-canonical` importing a JSON-config sub-module.
-
-## Status
-
-Proposed

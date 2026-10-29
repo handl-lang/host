@@ -3,29 +3,27 @@ title: Modules as First-Class Values
 type: adr
 date: 2026-09-02
 status: superseded
+status_note: |-
+  Superseded by [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md).
+
+  This ADR over-engineered the problem by re-inventing environment
+  semantics as a separate subsystem (`Module` value type,
+  `CLOSURE_REGISTRY`, `ValueModule`/`HandlModuleLookup` adapters,
+  `plugin-lib-module` leaf). The reduction in ADR-0049 — a module is a
+  named bag of bindings produced by evaluating code; `import`/`export` are
+  sugar over evaluate-and-bind; `module.field` is field access on an
+  environment value — dissolves most of this ADR's machinery. Kept as a
+  historical record of the design path considered and rejected.
+
+  Builds on [ADR-0013 — Standard Library](./0013-standard-library.md),
+  [ADR-0040 — VM is an Operation, Not a Subsystem](./0040-vm-is-an-operation-not-a-subsystem.md),
+  [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md),
+  [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md),
+  and [ADR-0047 — Meta Functions as `plugin-lib-*` Crates](./0047-meta-functions-as-plugin-lib-crates.md).
 superseded_by: [ADR-0049]
 ---
 
 # ADR-0048: Modules as First-Class Values
-
-## Status
-
-Superseded by [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md).
-
-This ADR over-engineered the problem by re-inventing environment
-semantics as a separate subsystem (`Module` value type,
-`CLOSURE_REGISTRY`, `ValueModule`/`HandlModuleLookup` adapters,
-`plugin-lib-module` leaf). The reduction in ADR-0049 — a module is a
-named bag of bindings produced by evaluating code; `import`/`export` are
-sugar over evaluate-and-bind; `module.field` is field access on an
-environment value — dissolves most of this ADR's machinery. Kept as a
-historical record of the design path considered and rejected.
-
-Builds on [ADR-0013 — Standard Library](./0013-standard-library.md),
-[ADR-0040 — VM is an Operation, Not a Subsystem](./0040-vm-is-an-operation-not-a-subsystem.md),
-[ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md),
-[ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md),
-and [ADR-0047 — Meta Functions as `plugin-lib-*` Crates](./0047-meta-functions-as-plugin-lib-crates.md).
 
 ## Context
 

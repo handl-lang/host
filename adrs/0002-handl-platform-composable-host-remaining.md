@@ -3,13 +3,10 @@ title: 'ADR-0002 (Remaining): Plugin Library Conversion and Module Abstraction'
 type: adr
 date: 2026-08-29
 status: proposed
+status_note: Proposed
 ---
 
 # ADR-0002 (Remaining): Plugin Library Conversion and Module Abstraction
-
-## Status
-
-Proposed
 
 ## Context
 

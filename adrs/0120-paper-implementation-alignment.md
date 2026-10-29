@@ -3,17 +3,15 @@ title: Paper–Implementation Alignment Plan
 type: adr
 date: 2026-09-18
 status: accepted
+status_note: |-
+  Accepted — direction decided in review; execution is phased below.
+
+  Refines [ADR-0119 N-Dimensional Arrow Calculus](./0119-n-dimensional-arrow-calculus.md)
+  and `research/PAPER.md`. Supersedes the lambda-flavoured "arrows as closures"
+  proposal considered and rejected in the same review.
 ---
 
 # ADR-0120: Paper–Implementation Alignment Plan
-
-## Status
-
-Accepted — direction decided in review; execution is phased below.
-
-Refines [ADR-0119 N-Dimensional Arrow Calculus](./0119-n-dimensional-arrow-calculus.md)
-and `research/PAPER.md`. Supersedes the lambda-flavoured "arrows as closures"
-proposal considered and rejected in the same review.
 
 ## Context
 

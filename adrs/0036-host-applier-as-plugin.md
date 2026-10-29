@@ -3,13 +3,10 @@ title: Host Applier as a Plugin
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0036: Host Applier as a Plugin
-
-## Status
-
-Accepted
 
 ## Context
 

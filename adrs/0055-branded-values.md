@@ -3,18 +3,21 @@ title: Tagged Values
 type: adr
 date: 2026-09-01
 status: accepted
+status_note: |-
+  Accepted
+
+  Refines [ADR-0054 — Generic Typecheck Engine](./0054-generic-typecheck-engine.md)
+  (consumes tagged values for type representation) and [ADR-0052 — Arrow
+  Calculus Kernel](./0052-arrow-calculus-kernel.md) (`Value` is
+  `serde_json::Value`). A general host primitive, external to the typechecker.
+
+  Proposed — the type tag set and payload field layout are pinned in the
+  ADR-0054 value-encoding spike. This ADR establishes the primitive (tag
+  registries + `tag`/`match_tag`/`tag_registry`); ADR-0054 consumes it for
+  types via the host type registry.
 ---
 
 # ADR-0055: Tagged Values
-
-## Status
-
-Accepted
-
-Refines [ADR-0054 — Generic Typecheck Engine](./0054-generic-typecheck-engine.md)
-(consumes tagged values for type representation) and [ADR-0052 — Arrow
-Calculus Kernel](./0052-arrow-calculus-kernel.md) (`Value` is
-`serde_json::Value`). A general host primitive, external to the typechecker.
 
 ## Context
 
@@ -256,10 +259,3 @@ they call `match_tag`.
 - It does **not** change the runtime value representation — tagging is a
   convention on `serde_json::Value`, secured by host capability and
   disambiguated by registry identity.
-
-## Status
-
-Proposed — the type tag set and payload field layout are pinned in the
-ADR-0054 value-encoding spike. This ADR establishes the primitive (tag
-registries + `tag`/`match_tag`/`tag_registry`); ADR-0054 consumes it for
-types via the host type registry.

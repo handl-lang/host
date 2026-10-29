@@ -3,37 +3,35 @@ title: The Object/Arrow Kernel — `sym()`, `Obj`, and Native Arrow Calculus
 type: adr
 date: 2026-09-11
 status: accepted
+status_note: |-
+  Accepted. The kernel design (one object world, `sym()`/`sym(A)` nominal
+  identity, native arrow calculus, products, `>>>`, `~[R]~>`, `f<...>`) is the
+  normative design. Implementation status is tracked in the conformance notes
+  below, and is **partial** — each note states precisely what holds and what
+  remains:
+
+  - `sym()`/`sym(A)` and `instanceof`: implemented, with nominal `<:` decided by
+    the parent chain (Phase 4); the legacy `__tag__` bridge remains until
+    `type.hnl` finishes migrating.
+  - Serializable arrows: implemented. `TaggedValue::Arrow` is now
+    `{params, rest, array_pattern, body_def, binds, handlers}` — `body`,
+    `env`, and `home` are gone from the value. All three engines mint and
+    apply the self-contained form, and a JSON-round-tripped arrow remains
+    applicable. See the "Current truth" note in the representation section.
+  - Per-call argument binding (env-removal for the `HandlFunction::call` seam):
+    implemented — `Runtime::eval_shared_with_call_args` binds `__arg_N` directly
+    on the call frame's `ScopeStack` globals (excluded from `capture()`), instead
+    of injecting per-call engine globals via `with_global` cloning (zero engine
+    clones per call).
+  - Graded arrows `A ~[R]~> B`: implemented (canonical spelling; legacy
+    `~R~>` accepted).
+  - Dimensions `f<...>`: syntax implemented; specialization semantics remain.
+
+  Accepted as the design of record; the open TODOs are implementation work, not
+  unresolved design questions.
 ---
 
 # ADR-0106: The Object/Arrow Kernel — `sym()`, `Obj`, and Native Arrow Calculus
-
-## Status
-
-Accepted. The kernel design (one object world, `sym()`/`sym(A)` nominal
-identity, native arrow calculus, products, `>>>`, `~[R]~>`, `f<...>`) is the
-normative design. Implementation status is tracked in the conformance notes
-below, and is **partial** — each note states precisely what holds and what
-remains:
-
-- `sym()`/`sym(A)` and `instanceof`: implemented, with nominal `<:` decided by
-  the parent chain (Phase 4); the legacy `__tag__` bridge remains until
-  `type.hnl` finishes migrating.
-- Serializable arrows: implemented. `TaggedValue::Arrow` is now
-  `{params, rest, array_pattern, body_def, binds, handlers}` — `body`,
-  `env`, and `home` are gone from the value. All three engines mint and
-  apply the self-contained form, and a JSON-round-tripped arrow remains
-  applicable. See the "Current truth" note in the representation section.
-- Per-call argument binding (env-removal for the `HandlFunction::call` seam):
-  implemented — `Runtime::eval_shared_with_call_args` binds `__arg_N` directly
-  on the call frame's `ScopeStack` globals (excluded from `capture()`), instead
-  of injecting per-call engine globals via `with_global` cloning (zero engine
-  clones per call).
-- Graded arrows `A ~[R]~> B`: implemented (canonical spelling; legacy
-  `~R~>` accepted).
-- Dimensions `f<...>`: syntax implemented; specialization semantics remain.
-
-Accepted as the design of record; the open TODOs are implementation work, not
-unresolved design questions.
 
 ## Context
 

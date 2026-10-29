@@ -3,15 +3,15 @@ title: VM is an Operation, Not a Subsystem
 type: adr
 date: 2026-09-02
 status: accepted
+status_note: |-
+  Accepted
+
+  Supersedes [ADR 0027 — VM Crate Restructure](./0027-vm-crate-restructure.md).
+
+  Proposed
 ---
 
 # VM is an Operation, Not a Subsystem
-
-## Status
-
-Accepted
-
-Supersedes [ADR 0027 — VM Crate Restructure](./0027-vm-crate-restructure.md).
 
 ## Context
 
@@ -322,7 +322,3 @@ Executed sequentially, one subagent per step, multiple commits, no branch change
 13. **Delete `plugin-runtime`, `plugin-runtime-apply`, `plugin-runtime-arithmetic`, `plugin-runtime-array`, `plugin-runtime-boolean`, `plugin-runtime-object`** + the `Runtime` operation in `platform`.
 14. **Update `Cargo.toml`** workspace members and dependency table.
 15. **Mark ADR 0027 as superseded** by this ADR (already done in 0027's status).
-
-## Status
-
-Proposed

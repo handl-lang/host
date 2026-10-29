@@ -3,24 +3,22 @@ title: 'Modular AST: `ast-common` and `handl-ast`'
 type: adr
 date: 2026-08-24
 status: superseded
+status_note: |-
+  Superseded by [ADR-0044 — Language as Data and Runtime
+  Split](./0044-language-as-data-and-runtime-split.md).
+
+  The trait-based `Node<K, V, M>` AST this ADR introduced (later renamed
+  `handl-plugin-ast`) has been deleted. ADR-0044 replaces it with a
+  serializable, string-keyed `Ast` arena (`AstNode { kind: String, span:
+  Option<Span>, payload: Value }` + `AstRef` indices) in `handl-language`.
+  The trait design could not satisfy ADR-0044's hard requirements:
+  serde-serializable end to end, host-agnostic (crosses the wasm boundary),
+  and data-driven (no `Box<dyn Behavior>`). See ADR-0044's "Supersession of
+  the trait-based AST" note for the full rationale.
 superseded_by: [ADR-0044]
 ---
 
 # Modular AST: `ast-common` and `handl-ast`
-
-## Status
-
-Superseded by [ADR-0044 — Language as Data and Runtime
-Split](./0044-language-as-data-and-runtime-split.md).
-
-The trait-based `Node<K, V, M>` AST this ADR introduced (later renamed
-`handl-plugin-ast`) has been deleted. ADR-0044 replaces it with a
-serializable, string-keyed `Ast` arena (`AstNode { kind: String, span:
-Option<Span>, payload: Value }` + `AstRef` indices) in `handl-language`.
-The trait design could not satisfy ADR-0044's hard requirements:
-serde-serializable end to end, host-agnostic (crosses the wasm boundary),
-and data-driven (no `Box<dyn Behavior>`). See ADR-0044's "Supersession of
-the trait-based AST" note for the full rationale.
 
 ## Context
 

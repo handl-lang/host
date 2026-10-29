@@ -3,6 +3,7 @@ title: handl Linter
 type: adr
 date: 2026-08-24
 status: proposed
+status_note: Proposed
 ---
 
 # handl Linter
@@ -106,7 +107,3 @@ avoid collisions with language-level rules.
 - `validate` and `lint` remain separate: `validate` is a fast load-only
   check; `lint` is a slower, more thorough quality gate.
 - Hosts get a standard extension point for their own lint rules.
-
-## Status
-
-Proposed

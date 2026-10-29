@@ -3,18 +3,16 @@ title: Bootstrap Linter (`plugin-ext-lint`)
 type: adr
 date: 2026-10-15
 status: implemented
+status_note: |-
+  Implemented (merged to main). Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md); refines the generic
+  design in [ADR-0015](../0015-linter.md) — which stays valid — into a
+  concrete implementation). Temporary: will be replaced by the
+  self-hosted linter described in
+  [RFC-0003](../rfcs/0003-linter-in-handl.md).
 ---
 
 # ADR-0087: Bootstrap Linter (`plugin-ext-lint`)
-
-## Status
-
-Implemented (merged to main). Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md); refines the generic
-design in [ADR-0015](../0015-linter.md) — which stays valid — into a
-concrete implementation). Temporary: will be replaced by the
-self-hosted linter described in
-[RFC-0003](../rfcs/0003-linter-in-handl.md).
 
 ## Context
 
@@ -78,7 +76,3 @@ existing `plugin-ext-lint` registry.
 - `unbound-wire` deliberately duplicates a subset of typechecker work in
   v0.1; when the bootstrap typechecker (ADR-0088) matures, the rule delegates to
   it instead of re-implementing scope resolution.
-
-## Status
-
-Implemented (merged to main).

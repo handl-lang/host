@@ -3,20 +3,18 @@ title: Generic Pattern Match
 type: adr
 date: 2026-09-01
 status: accepted
+status_note: |-
+  Accepted
+
+  Pays the last remaining ADR-0058 debt: pattern matching (`try_pattern`
+  in `match`/`handle`). Follows the direction established by
+  [ADR-0058 — Generic Data-Driven Engines](./0058-generic-data-driven-engines.md)
+  §"Existing hardcoded logic is debt", and the template of
+  [ADR-0059 — Generic Object Key Evaluation](./0059-generic-object-key-evaluation.md)
+  and [ADR-0060 — Generic Call Dispatch](./0060-generic-call-dispatch.md).
 ---
 
 # ADR-0061: Generic Pattern Match
-
-## Status
-
-Accepted
-
-Pays the last remaining ADR-0058 debt: pattern matching (`try_pattern`
-in `match`/`handle`). Follows the direction established by
-[ADR-0058 — Generic Data-Driven Engines](./0058-generic-data-driven-engines.md)
-§"Existing hardcoded logic is debt", and the template of
-[ADR-0059 — Generic Object Key Evaluation](./0059-generic-object-key-evaluation.md)
-and [ADR-0060 — Generic Call Dispatch](./0060-generic-call-dispatch.md).
 
 ## Context
 

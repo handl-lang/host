@@ -3,16 +3,14 @@ title: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Eliminat
 type: adr
 date: 2026-09-03
 status: accepted
+status_note: |-
+  Accepted. Builds on [ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md),
+  [ADR-0052 — Scheme IR Contracts](./0052-scheme-ir-contracts.md),
+  [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md),
+  and [ADR-0051 — FFI Rust Binding Facade](./0051-ffi-rust-binding-facade.md).
 ---
 
 # ADR-0077: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Elimination of Per-Library Rust
-
-## Status
-
-Accepted. Builds on [ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md),
-[ADR-0052 — Scheme IR Contracts](./0052-scheme-ir-contracts.md),
-[ADR-0068 — Predicates as Types](./0068-predicates-as-types.md),
-and [ADR-0051 — FFI Rust Binding Facade](./0051-ffi-rust-binding-facade.md).
 
 ## Context
 

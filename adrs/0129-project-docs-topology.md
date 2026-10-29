@@ -3,6 +3,7 @@ title: Project-docs topology for the target-repo split
 type: adr
 date: 2026-10-15
 status: accepted
+status_note: Accepted.
 ---
 
 # ADR-0129: Project-docs topology for the target-repo split
@@ -100,7 +101,3 @@ docs are checked out alongside the code in each repo.
   live `host` checkout, and its output is fetched into each target repo.
 - The `split/*` scratch branches become redundant once the `project`
   branches exist; they are deleted after the seeding is verified.
-
-## Status
-
-Accepted.

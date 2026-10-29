@@ -3,6 +3,7 @@ title: Platform is agnostic of language-specific plugins
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: accepted
 ---
 
 # Platform is agnostic of language-specific plugins
@@ -46,7 +47,3 @@ The platform may keep shared, minimal types such as `Value`, `Term`, `Env`, and 
 - `platform/src/lib.rs` must stop re-exporting `Vm` from `handl-plugin-vm`; the VM becomes a plugin that the host loads.
 - The existing `kit-*` and `plugin-*` crates become consumers of the platform instead of being compiled into it.
 - A new language can be supported by writing a different set of `plugin-*` crates and loading them into the same host.
-
-## Status
-
-accepted

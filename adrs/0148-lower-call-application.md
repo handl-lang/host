@@ -3,14 +3,12 @@ title: Lower `call`/`dimension` application to `App` terms
 type: adr
 date: 2026-10-17
 status: accepted
+status_note: |-
+  Accepted — implemented; extends the ADR-0147 decline-class retirement to
+  the application family.
 ---
 
 # ADR-0148: Lower `call`/`dimension` application to `App` terms
-
-## Status
-
-Accepted — implemented; extends the ADR-0147 decline-class retirement to
-the application family.
 
 ## Context
 

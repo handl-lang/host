@@ -3,6 +3,11 @@ title: Target repos — ports stay in `host`, modules live in ecosystem reposito
 type: adr
 date: 2026-10-15
 status: proposed
+status_note: |-
+  Proposed. Phase 11 executed — `lang/` + `kit-canonical/` extracted to
+  sibling repos (`git subtree split` history, git deps + workspace-root
+  `[patch]` for sibling-checkouts, `url.insteadOf` +
+  `CARGO_NET_GIT_FETCH_WITH_CLI` for pre-push local resolution).
 ---
 
 # ADR-0128: Target repos — ports stay in `host`, modules live in ecosystem repositories
@@ -282,10 +287,3 @@ imports) alongside `bare_module_import.rs` (module-chain lowering).
 A consuming repo declares the dep once in its `.handl.toml` — the
 repo boundary is a manifest dep, not a `../` path — and in-repo relative
 imports are unchanged.
-
-## Status
-
-Proposed. Phase 11 executed — `lang/` + `kit-canonical/` extracted to
-sibling repos (`git subtree split` history, git deps + workspace-root
-`[patch]` for sibling-checkouts, `url.insteadOf` +
-`CARGO_NET_GIT_FETCH_WITH_CLI` for pre-push local resolution).

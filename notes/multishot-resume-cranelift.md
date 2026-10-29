@@ -2,19 +2,17 @@
 title: Multi-shot `resume` on the cranelift engine — landing note
 type: note
 date: 2026-10-26
+status_note: |-
+  Landed. `resume` (ADR-0158 replay-journal model) runs on all three eval
+  engines: tree-walk (reference), bytecode (native replay) and cranelift
+  (journal through the shared `handle_dyn` hook + the tree-walk arrow
+  interpreter). Design: `design/multishot-resume.md`.
+
+  This note is the changeset manifest — the working tree is not a git
+  checkout, so the file inventory below is the hand-off record.
 ---
 
 # Multi-shot `resume` on the cranelift engine — landing note
-
-## Status
-
-Landed. `resume` (ADR-0158 replay-journal model) runs on all three eval
-engines: tree-walk (reference), bytecode (native replay) and cranelift
-(journal through the shared `handle_dyn` hook + the tree-walk arrow
-interpreter). Design: `design/multishot-resume.md`.
-
-This note is the changeset manifest — the working tree is not a git
-checkout, so the file inventory below is the hand-off record.
 
 ## Summary
 

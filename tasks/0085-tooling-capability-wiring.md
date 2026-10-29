@@ -2,13 +2,13 @@
 title: 'ADR-0085..0094 follow-up: routing the tooling through capability contracts'
 type: task
 date: 2026-10-10
+status_note: |-
+  **done for `fmt` / `lint` / `typecheck` / `test`.** Every step below
+  except the "third parties" part of step 1's motivation is implemented and
+  verified:
 ---
 
 # ADR-0085..0094 follow-up: routing the tooling through capability contracts
-
-Status: **done for `fmt` / `lint` / `typecheck` / `test`.** Every step below
-except the "third parties" part of step 1's motivation is implemented and
-verified:
 
 | Step | State |
 | --- | --- |

@@ -3,15 +3,15 @@ title: Kits Are Curated Plugin Lists, Not Implementations
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Supersedes the "zero-cost static dispatch" clause of ADR-0034.
+
+  Proposed. Implementation deferred until this ADR is accepted.
 ---
 
 # ADR-0039: Kits Are Curated Plugin Lists, Not Implementations
-
-## Status
-
-Proposed
-
-Supersedes the "zero-cost static dispatch" clause of ADR-0034.
 
 ## Context
 
@@ -303,10 +303,6 @@ traits. They live in `plugin-grammar-*` crates (handl-specific plugins), not in
 the framework. The framework's registries must be generic enough to accept
 plugins with arbitrary capability traits — the design of this genericism is
 deferred to implementation.
-
-## Status
-
-Proposed. Implementation deferred until this ADR is accepted.
 
 ## Related work
 

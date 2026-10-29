@@ -3,19 +3,17 @@ title: Derived-Artifact Cache and Compression
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Depends on [ADR-0063 — Scheme-Core Completeness](./0063-scheme-core-completeness.md)
+  and [ADR-0064 — Computational Language Authoring](./0064-computational-language-authoring.md).
+  Refines [ADR-0044 — Language as Data and Runtime
+  Split](./0044-language-as-data-and-runtime-split.md) §6 (fragment sources and
+  kit assembly).
 ---
 
 # ADR-0065: Derived-Artifact Cache and Compression
-
-## Status
-
-Proposed
-
-Depends on [ADR-0063 — Scheme-Core Completeness](./0063-scheme-core-completeness.md)
-and [ADR-0064 — Computational Language Authoring](./0064-computational-language-authoring.md).
-Refines [ADR-0044 — Language as Data and Runtime
-Split](./0044-language-as-data-and-runtime-split.md) §6 (fragment sources and
-kit assembly).
 
 ## Context
 

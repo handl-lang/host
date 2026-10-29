@@ -3,20 +3,18 @@ title: Computational Language Authoring
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Depends on [ADR-0063 — Scheme-Core Completeness](./0063-scheme-core-completeness.md)
+  (the core must be able to describe handl before handl is used to author
+  languages). Refines [ADR-0044 — Language as Data and Runtime
+  Split](./0044-language-as-data-and-runtime-split.md) Phase 8 and
+  [ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md)
+  §4 (language combinators as handl functions).
 ---
 
 # ADR-0064: Computational Language Authoring
-
-## Status
-
-Proposed
-
-Depends on [ADR-0063 — Scheme-Core Completeness](./0063-scheme-core-completeness.md)
-(the core must be able to describe handl before handl is used to author
-languages). Refines [ADR-0044 — Language as Data and Runtime
-Split](./0044-language-as-data-and-runtime-split.md) Phase 8 and
-[ADR-0041 — Languages as First-Class Values](./0041-languages-as-first-class-values.md)
-§4 (language combinators as handl functions).
 
 ## Context
 

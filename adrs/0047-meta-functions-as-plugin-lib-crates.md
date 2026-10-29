@@ -3,20 +3,18 @@ title: Meta Functions as `plugin-lib-*` Crates
 type: adr
 date: 2026-09-02
 status: accepted
+status_note: |-
+  Accepted
+
+  Supersedes [ADR-0030 — lib-lang](./0030-lib-lang.md) (stale: pre-0044
+  `ac-lib-lang` façade over a trait-based AST and Rust emitters, none of which
+  survive ADR-0044). Refines [ADR-0041 — Languages as First-Class
+  Values](./0041-languages-as-first-class-values.md) §"Meta host functions" and
+  [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
+  §3 (crate structure).
 ---
 
 # ADR-0047: Meta Functions as `plugin-lib-*` Crates
-
-## Status
-
-Accepted
-
-Supersedes [ADR-0030 — lib-lang](./0030-lib-lang.md) (stale: pre-0044
-`ac-lib-lang` façade over a trait-based AST and Rust emitters, none of which
-survive ADR-0044). Refines [ADR-0041 — Languages as First-Class
-Values](./0041-languages-as-first-class-values.md) §"Meta host functions" and
-[ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
-§3 (crate structure).
 
 ## Context
 

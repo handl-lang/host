@@ -3,6 +3,15 @@ title: Handing a `Language` to capability plugins
 type: adr
 date: 2026-10-10
 status: proposed
+status_note: |-
+  **Proposed, revised.** Not implemented. The first revision was wrong about
+  `Language` being non-serializable (see §Correction) and therefore proposed
+  more machinery than the problem needs; the revision above is the corrected
+  version and needs **no `platform` change**.
+
+  Open question for review: whether per-call deserialization of ~180 KiB is
+  acceptable for the LSP, or whether the side-channel should be built up front.
+  Recommendation: ship the payload path, measure, then decide.
 ---
 
 # ADR-0124: Handing a `Language` to capability plugins
@@ -196,14 +205,3 @@ out-of-process callers:
    equivalent" is untested — the same gap ADR-0123's acceptance test closed.
 5. Benchmark the LSP path. Add the side-channel only if the deserialize cost
    shows up.
-
-## Status
-
-**Proposed, revised.** Not implemented. The first revision was wrong about
-`Language` being non-serializable (see §Correction) and therefore proposed
-more machinery than the problem needs; the revision above is the corrected
-version and needs **no `platform` change**.
-
-Open question for review: whether per-call deserialization of ~180 KiB is
-acceptable for the LSP, or whether the side-channel should be built up front.
-Recommendation: ship the payload path, measure, then decide.

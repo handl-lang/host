@@ -3,13 +3,11 @@ title: Data-Driven AST Child Roles — Closing the Last Engine Hardcoding
 type: adr
 date: 2026-09-04
 status: accepted
+status_note: |-
+  Accepted. Phases 1–4 are implemented and the Phase 4 cross-language acceptance test passes (renamed kinds `set`/`block2`/`ret`/`params2`/`func2` with identical roles run through unchanged tree-walk and bytecode engines). Phase 5 (v1 deletion) remains coordinated with the [ADR-0052](./0052-arrow-calculus-kernel.md) cutover and is not blocking acceptance — the v2 engines are role-aware and the v1 path is no longer extended.
 ---
 
 # ADR-0081: Data-Driven AST Child Roles — Closing the Last Engine Hardcoding
-
-## Status
-
-Accepted. Phases 1–4 are implemented and the Phase 4 cross-language acceptance test passes (renamed kinds `set`/`block2`/`ret`/`params2`/`func2` with identical roles run through unchanged tree-walk and bytecode engines). Phase 5 (v1 deletion) remains coordinated with the [ADR-0052](./0052-arrow-calculus-kernel.md) cutover and is not blocking acceptance — the v2 engines are role-aware and the v1 path is no longer extended.
 
 ## Context
 

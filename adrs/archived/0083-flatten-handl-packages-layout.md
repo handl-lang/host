@@ -3,16 +3,14 @@ title: Flatten `handl-packages/` Layout
 type: adr
 date: 2026-09-04
 status: accepted
+status_note: |-
+  Accepted and implemented. Supersedes the directory structure implied by
+  [ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md) §Phase 7
+  and [ADR-0077 — Stdlib Migration to Handl](./0077-stdlib-migration-to-handl.md)
+  (which referenced the old `kit-stdlib/data/arrows/` path).
 ---
 
 # ADR-0083: Flatten `handl-packages/` Layout
-
-## Status
-
-Accepted and implemented. Supersedes the directory structure implied by
-[ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md) §Phase 7
-and [ADR-0077 — Stdlib Migration to Handl](./0077-stdlib-migration-to-handl.md)
-(which referenced the old `kit-stdlib/data/arrows/` path).
 
 ## Context
 

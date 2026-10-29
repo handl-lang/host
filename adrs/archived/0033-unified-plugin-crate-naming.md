@@ -3,13 +3,10 @@ title: Unified Plugin Crate Naming
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0033: Unified Plugin Crate Naming
-
-## Status
-
-Accepted
 
 ## Context
 

@@ -3,16 +3,14 @@ title: Languages as First-Class Values
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Builds on [ADR-0039 — Kits Are Curated Plugin Lists](./0039-kits-are-curated-plugin-lists.md)
+  and [ADR-0040 — VM is an Operation, Not a Subsystem](./0040-vm-is-an-operation-not-a-subsystem.md).
 ---
 
 # ADR-0041: Languages as First-Class Values
-
-## Status
-
-Proposed
-
-Builds on [ADR-0039 — Kits Are Curated Plugin Lists](./0039-kits-are-curated-plugin-lists.md)
-and [ADR-0040 — VM is an Operation, Not a Subsystem](./0040-vm-is-an-operation-not-a-subsystem.md).
 
 ## Context
 

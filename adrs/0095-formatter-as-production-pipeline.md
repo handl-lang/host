@@ -3,25 +3,26 @@ title: Formatter as a Production Pipeline (`FormatEngine` stage contracts)
 type: adr
 date: 2026-09-08
 status: proposed
+status_note: |-
+  Proposed. Refines [ADR-0086](./0086-bootstrap-formatter.md) and the generic
+  design in [ADR-0014](./0014-formatter.md) (both stay valid) by applying the
+  production-pipeline discipline [ADR-0089](./0089-bootstrap-test-runner.md)
+  brought to the test runner. An instance of rule 2 of
+  [ADR-0085](./0085-bootstrap-tooling-strategy.md) ("best practices in Rust,
+  now") and of the 2026-09 amendment ("the Rust substrate is kept and improved,
+  not deleted"). The future handl port remains
+  [RFC-0002](../rfcs/0002-formatter-in-handl.md).
+
+  > **Scope.** This ADR governs the **format engine** — the Rust machinery that
+  > turns source text into canonical source text (parse → layout → render →
+  > post-process). It does **not** change the canonical v0.1 style
+  > (ADR-0074/ADR-0086) nor the CLI contract (`hnl fmt [--check] [--write]`).
+
+  Proposed. Companion to the test-runner rewrite (ADR-0089) applying the same
+  pipeline discipline to the formatter; the handl port is RFC-0002.
 ---
 
 # ADR-0095: Formatter as a Production Pipeline (`FormatEngine` stage contracts)
-
-## Status
-
-Proposed. Refines [ADR-0086](./0086-bootstrap-formatter.md) and the generic
-design in [ADR-0014](./0014-formatter.md) (both stay valid) by applying the
-production-pipeline discipline [ADR-0089](./0089-bootstrap-test-runner.md)
-brought to the test runner. An instance of rule 2 of
-[ADR-0085](./0085-bootstrap-tooling-strategy.md) ("best practices in Rust,
-now") and of the 2026-09 amendment ("the Rust substrate is kept and improved,
-not deleted"). The future handl port remains
-[RFC-0002](../rfcs/0002-formatter-in-handl.md).
-
-> **Scope.** This ADR governs the **format engine** — the Rust machinery that
-> turns source text into canonical source text (parse → layout → render →
-> post-process). It does **not** change the canonical v0.1 style
-> (ADR-0074/ADR-0086) nor the CLI contract (`hnl fmt [--check] [--write]`).
 
 ## Context
 
@@ -219,8 +220,3 @@ serial output).
 4. Keep 100% coverage and the golden + idempotence suites green through each
    step.
 5. No change to ADR-0086's canonical style or the `hnl fmt` CLI contract.
-
-## Status
-
-Proposed. Companion to the test-runner rewrite (ADR-0089) applying the same
-pipeline discipline to the formatter; the handl port is RFC-0002.

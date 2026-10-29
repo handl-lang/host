@@ -3,24 +3,22 @@ title: FFI-Native Stdlib — Handl over Direct C/POSIX Bindings
 type: adr
 date: 2026-09-04
 status: accepted
+status_note: |-
+  Accepted. Supersedes [ADR-0051 — `ffi-rust` Rust Binding
+  Façade](./0051-ffi-rust-binding-facade.md) (Proposed, never built — the Rust
+  closure binding layer is eliminated in favor of direct FFI data bindings).
+  Refines [ADR-0077 — Stdlib Migration to
+  Handl](./0077-stdlib-migration-to-handl.md) Phase 4: native libs migrate to
+  handl over **direct FFI bindings**, not Rust `Function` bodies in `OpRegistry`.
+  ADR-0077 Phases 1–3, 5–6 remain valid (pure-logic libs, axioms, capabilities,
+  imports). Depends on [ADR-0078 — Value Types as
+  Data](./0078-value-types-as-data.md) Phase 2 (`TaggedValue` + `Bytes` type)
+  for buffer FFI ops. Builds on [ADR-0044 — Language as
+  Data](./0044-language-as-data-and-runtime-split.md) and [ADR-0052 — Arrow
+  Calculus Kernel](./0052-arrow-calculus-kernel.md).
 ---
 
 # ADR-0083: FFI-Native Stdlib — Handl over Direct C/POSIX Bindings
-
-## Status
-
-Accepted. Supersedes [ADR-0051 — `ffi-rust` Rust Binding
-Façade](./0051-ffi-rust-binding-facade.md) (Proposed, never built — the Rust
-closure binding layer is eliminated in favor of direct FFI data bindings).
-Refines [ADR-0077 — Stdlib Migration to
-Handl](./0077-stdlib-migration-to-handl.md) Phase 4: native libs migrate to
-handl over **direct FFI bindings**, not Rust `Function` bodies in `OpRegistry`.
-ADR-0077 Phases 1–3, 5–6 remain valid (pure-logic libs, axioms, capabilities,
-imports). Depends on [ADR-0078 — Value Types as
-Data](./0078-value-types-as-data.md) Phase 2 (`TaggedValue` + `Bytes` type)
-for buffer FFI ops. Builds on [ADR-0044 — Language as
-Data](./0044-language-as-data-and-runtime-split.md) and [ADR-0052 — Arrow
-Calculus Kernel](./0052-arrow-calculus-kernel.md).
 
 ## Context
 

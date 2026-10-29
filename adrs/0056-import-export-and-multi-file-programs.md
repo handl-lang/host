@@ -3,19 +3,17 @@ title: Import / Export and Multi-File Programs as Evaluated Environments
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed
+
+  Builds on [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md),
+  [ADR-0028 — Pluggable Module Composition](./0028-pluggable-module-composition.md),
+  [ADR-0035 — Loaders as Plugins](./0035-loaders-as-plugins.md),
+  [ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md),
+  and [ADR-0013 — Standard Library](./0013-standard-library.md).
 ---
 
 # ADR-0056: Import / Export and Multi-File Programs as Evaluated Environments
-
-## Status
-
-Proposed
-
-Builds on [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md),
-[ADR-0028 — Pluggable Module Composition](./0028-pluggable-module-composition.md),
-[ADR-0035 — Loaders as Plugins](./0035-loaders-as-plugins.md),
-[ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md),
-and [ADR-0013 — Standard Library](./0013-standard-library.md).
 
 ## Context
 

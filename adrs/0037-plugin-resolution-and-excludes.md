@@ -3,13 +3,10 @@ title: Plugin Resolution and Excludes
 type: adr
 date: 2026-08-29
 status: proposed
+status_note: Proposed
 ---
 
 # ADR-0037: Plugin Resolution and Excludes
-
-## Status
-
-Proposed
 
 ## Context
 

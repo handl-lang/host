@@ -3,7 +3,7 @@ title: Host Bundles
 type: adr
 date: 2026-08-24
 status: accepted
-status_note: 'Partially implemented. `SandboxHost` exists with `max_depth` and `max_calls`. Missing: memory budget, time budget, virtual-module opt-out.'
+status_note: Proposed
 ---
 
 # Host Bundles
@@ -101,7 +101,3 @@ Minimal, constrained. For microcontrollers / embedded targets. Stripped module s
 - **Cross-target portability is real but constrained.** Programs using only pure functions port everywhere. Programs using platform-specific modules port only to hosts that provide those modules.
 - **New hosts are cheap to build.** Implement `Host`, compose modules, done. No kernel changes, no language changes, no fork required.
 - **Host proliferation is a risk.** Too many hosts with overlapping capability surfaces could fragment the ecosystem. Conventions for standard module sets per target should emerge.
-
-## Status
-
-Proposed

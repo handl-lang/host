@@ -3,18 +3,16 @@ title: Files Are Arrows — Arrow-Native Modules
 type: adr
 date: 2026-09-01
 status: accepted
+status_note: |-
+  Accepted
+
+  Supersedes the module model in [ADR-0056 — Import / Export and Multi-File Programs as Evaluated Environments](./0056-import-export-and-multi-file-programs.md)
+  for arrow-native programs. Builds on [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md),
+  [ADR-0052 — Scheme IR Contracts](./0052-scheme-ir-contracts.md),
+  and [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md).
 ---
 
 # ADR-0069: Files Are Arrows — Arrow-Native Modules
-
-## Status
-
-Accepted
-
-Supersedes the module model in [ADR-0056 — Import / Export and Multi-File Programs as Evaluated Environments](./0056-import-export-and-multi-file-programs.md)
-for arrow-native programs. Builds on [ADR-0049 — Modules are Evaluated Environments](./0049-modules-are-evaluated-environments.md),
-[ADR-0052 — Scheme IR Contracts](./0052-scheme-ir-contracts.md),
-and [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md).
 
 ## Context
 

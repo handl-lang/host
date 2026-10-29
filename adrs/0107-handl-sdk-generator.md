@@ -3,20 +3,18 @@ title: Handl SDK Generator — Port-Adapter Foreign SDK Generation
 type: adr
 date: 2026-09-13
 status: accepted
+status_note: |-
+  Accepted. Phases 1 and 2 are implemented and tested. Phase 3 (Windows / macOS
+  support) has been moved to [ADR-0110](./0110-handl-sdkgen-windows-macos.md).
+  Phase 4 remains future work.
+
+  Depends on the runtime-injected `ffi` package (`call`/`bind`/`errno`),
+  [ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md),
+  [ADR-0090 — Bootstrap CLI](./0090-bootstrap-cli.md), and the `export` /
+  `export ... :=` port-adapter pattern used by `handl-packages/time`.
 ---
 
 # ADR-0107: Handl SDK Generator — Port-Adapter Foreign SDK Generation
-
-## Status
-
-Accepted. Phases 1 and 2 are implemented and tested. Phase 3 (Windows / macOS
-support) has been moved to [ADR-0110](./0110-handl-sdkgen-windows-macos.md).
-Phase 4 remains future work.
-
-Depends on the runtime-injected `ffi` package (`call`/`bind`/`errno`),
-[ADR-0083 — FFI-Native Stdlib](./0083-ffi-native-stdlib.md),
-[ADR-0090 — Bootstrap CLI](./0090-bootstrap-cli.md), and the `export` /
-`export ... :=` port-adapter pattern used by `handl-packages/time`.
 
 ## Context
 

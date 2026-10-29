@@ -2,13 +2,13 @@
 title: Formatter as a Production Pipeline — Implementation Report
 type: report
 date: 2026-09-08
+status_note: |-
+  Implemented (committed at `8fb2616b`). Formatter logic proven correct;
+  `plugin-ext-fmt` golden/idempotence tests blocked by a **pre-existing kit-data
+  collision** unrelated to this work (see _Blocker_).
 ---
 
 # ADR-0095: Formatter as a Production Pipeline — Implementation Report
-
-**Status:** Implemented (committed at `8fb2616b`). Formatter logic proven correct;
-`plugin-ext-fmt` golden/idempotence tests blocked by a **pre-existing kit-data
-collision** unrelated to this work (see _Blocker_).
 
 ## Context
 

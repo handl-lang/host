@@ -3,17 +3,15 @@ title: Bootstrap CLI (`host-cli`)
 type: adr
 date: 2026-10-15
 status: implemented
+status_note: |-
+  Implemented (merged to main). Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Deliberately narrows
+  [ADR-0029 — CLI as Capability Orchestrator](../0029-cli-as-capability-orchestrator.md)
+  for the bootstrap phase; the full plugin-driven, generic CLI returns as
+  [RFC-0007](../rfcs/0007-cli-in-handl.md).
 ---
 
 # ADR-0090: Bootstrap CLI (`host-cli`)
-
-## Status
-
-Implemented (merged to main). Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Deliberately narrows
-[ADR-0029 — CLI as Capability Orchestrator](../0029-cli-as-capability-orchestrator.md)
-for the bootstrap phase; the full plugin-driven, generic CLI returns as
-[RFC-0007](../rfcs/0007-cli-in-handl.md).
 
 ## Context
 
@@ -82,7 +80,3 @@ config discovery, `handl lang` namespaces (RFC-0007).
 - The existing `host-cli` gains the `hnl` subcommands by consuming the new
   tooling crates through the capability contracts; replacing its embedded
   pipeline logic is a refactor, not a deletion (ADR-0085 rule 1).
-
-## Status
-
-Implemented (merged to main).

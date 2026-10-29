@@ -3,42 +3,62 @@ title: Test Framework in Handl (`handl-packages/test`), Delete `plugin-lib-test`
 type: adr
 date: 2026-09-05
 status: implemented
+status_note: |-
+  Implemented. `plugin-lib-test` is **deleted**. The framework contract
+  remains in `handl-packages/test/test.hnl` (`op`/`handl` declarations), and
+  all 12 temporary Rust handls have been replaced by pure-handl modules under
+  `handl-packages/test/`:
+
+  - `assert.hnl` — `assert.equal`, `assert.not_equal`, `assert.true`,
+    `assert.false`, `assert.contains`
+  - `snapshot.hnl` — `snapshot.format`, `snapshot.match`
+  - `property.hnl` — `property.for_all`
+  - `fuzz.hnl` — `fuzz.run`
+  - `benchmark.hnl` — `benchmark.run`
+  - `test.hnl` — `test.run` (suite executor)
+
+  No Rust handls remain in the framework. `plugin-engine-test::framework`
+  retains only a thread-local assert-failure side-channel so the runner can
+  capture structured `expected`/`actual`/`diff` detail from the tree-walk
+  `assert` keyword handler.
+
+  Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md)) and an instance of the
+  stdlib-migration program ([ADR-0077](./0077-stdlib-migration-to-handl.md)).
+  Companion to [ADR-0089](./0089-bootstrap-test-runner.md), which extracts
+  the test _runner_ into a new `plugin-engine-test` crate. The future handl
+  port of the runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).
+
+  > **Terminology.** This ADR is about the test **framework library** — the
+  > `assert`/`property`/`benchmark`/`fuzz`/`snapshot`/`test` primitives that
+  > handl test code _calls_. It is **not** about the test _runner_ (discovery,
+  > planning, scheduling, reporting), which is ADR-0089 and stays Rust for
+  > now.
+
+  Implemented (see top). ADR-0089 landed first; the runner lives in
+  `plugin-engine-test`. The pure-handl framework lives in
+  `handl-packages/test/` and is registered by `handl-kit-canonical` through the
+  generic `HandlModule` seam.
+
+  ### Implementation addendum (migration pass 2)
+
+  - `plugin-lib-test` is deleted. The remaining temporary Rust handls in
+    `crates/plugin-engine-test/src/framework/` were removed.
+  - All `op`/`handl` declarations in `handl-packages/test/test.hnl` now
+    resolve to pure-handl implementations in `handl-packages/test/`
+    (`assert.hnl`, `property.hnl`, `benchmark.hnl`, `fuzz.hnl`,
+    `snapshot.hnl`, `test.hnl`).
+  - The framework uses only the result pattern for failures; `assert.*`
+    helpers return `err`-tagged values directly. The runner converts those
+    back into `TestOutcome::Failed` and, via the `assert` keyword handler,
+    reads the thread-local assert-failure side-channel for structured
+    `expected`/`actual`/`diff` detail.
+  - `benchmark.run` uses `time.instant_ns`; `property.for_all` and `fuzz.run`
+    use `rand.seeded_float`. No `error.raise`/`error.try` is used by the
+    framework.
 ---
 
 # ADR-0092: Test Framework in Handl (`handl-packages/test`), Delete `plugin-lib-test`
-
-## Status
-
-Implemented. `plugin-lib-test` is **deleted**. The framework contract
-remains in `handl-packages/test/test.hnl` (`op`/`handl` declarations), and
-all 12 temporary Rust handls have been replaced by pure-handl modules under
-`handl-packages/test/`:
-
-- `assert.hnl` — `assert.equal`, `assert.not_equal`, `assert.true`,
-  `assert.false`, `assert.contains`
-- `snapshot.hnl` — `snapshot.format`, `snapshot.match`
-- `property.hnl` — `property.for_all`
-- `fuzz.hnl` — `fuzz.run`
-- `benchmark.hnl` — `benchmark.run`
-- `test.hnl` — `test.run` (suite executor)
-
-No Rust handls remain in the framework. `plugin-engine-test::framework`
-retains only a thread-local assert-failure side-channel so the runner can
-capture structured `expected`/`actual`/`diff` detail from the tree-walk
-`assert` keyword handler.
-
-Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md)) and an instance of the
-stdlib-migration program ([ADR-0077](./0077-stdlib-migration-to-handl.md)).
-Companion to [ADR-0089](./0089-bootstrap-test-runner.md), which extracts
-the test _runner_ into a new `plugin-engine-test` crate. The future handl
-port of the runner is [RFC-0005](../rfcs/0005-test-runner-in-handl.md).
-
-> **Terminology.** This ADR is about the test **framework library** — the
-> `assert`/`property`/`benchmark`/`fuzz`/`snapshot`/`test` primitives that
-> handl test code _calls_. It is **not** about the test _runner_ (discovery,
-> planning, scheduling, reporting), which is ADR-0089 and stays Rust for
-> now.
 
 ## Context
 
@@ -195,27 +215,3 @@ Items 3 and 4 are now satisfied: `rand.seeded_*` RNG ops and
 `error.raise`/`error.try` primitives were not needed for the framework; the
 pure-handl implementation uses the **result pattern** only
 (`{"__tag__":"ok",...}` / `{"__tag__":"err",...}`).
-
-## Status
-
-Implemented (see top). ADR-0089 landed first; the runner lives in
-`plugin-engine-test`. The pure-handl framework lives in
-`handl-packages/test/` and is registered by `handl-kit-canonical` through the
-generic `HandlModule` seam.
-
-### Implementation addendum (migration pass 2)
-
-- `plugin-lib-test` is deleted. The remaining temporary Rust handls in
-  `crates/plugin-engine-test/src/framework/` were removed.
-- All `op`/`handl` declarations in `handl-packages/test/test.hnl` now
-  resolve to pure-handl implementations in `handl-packages/test/`
-  (`assert.hnl`, `property.hnl`, `benchmark.hnl`, `fuzz.hnl`,
-  `snapshot.hnl`, `test.hnl`).
-- The framework uses only the result pattern for failures; `assert.*`
-  helpers return `err`-tagged values directly. The runner converts those
-  back into `TestOutcome::Failed` and, via the `assert` keyword handler,
-  reads the thread-local assert-failure side-channel for structured
-  `expected`/`actual`/`diff` detail.
-- `benchmark.run` uses `time.instant_ns`; `property.for_all` and `fuzz.run`
-  use `rand.seeded_float`. No `error.raise`/`error.try` is used by the
-  framework.

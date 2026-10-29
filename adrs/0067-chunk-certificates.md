@@ -3,22 +3,20 @@ title: Chunk Certificates
 type: adr
 date: 2026-09-02
 status: proposed
+status_note: |-
+  Proposed — deferred until untrusted chunk sources are a real concern.
+
+  Depends on [ADR-0066 — Dependency-Graph Chunking](./0066-dependency-graph-chunking.md)
+  (chunks are the unit being certified) and
+  [ADR-0065 — Derived-Artifact Cache and Compression](./0065-derived-artifact-cache-and-compression.md)
+  (cached artifacts are the trust targets). Refines
+  [ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md)
+  (static capability verification) and
+  [ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
+  (`Language` as serializable data).
 ---
 
 # ADR-0067: Chunk Certificates
-
-## Status
-
-Proposed — deferred until untrusted chunk sources are a real concern.
-
-Depends on [ADR-0066 — Dependency-Graph Chunking](./0066-dependency-graph-chunking.md)
-(chunks are the unit being certified) and
-[ADR-0065 — Derived-Artifact Cache and Compression](./0065-derived-artifact-cache-and-compression.md)
-(cached artifacts are the trust targets). Refines
-[ADR-0046 — Capability Discipline at the Language Level](./0046-capability-discipline-at-the-language-level.md)
-(static capability verification) and
-[ADR-0044 — Language as Data and Runtime Split](./0044-language-as-data-and-runtime-split.md)
-(`Language` as serializable data).
 
 ## Context
 

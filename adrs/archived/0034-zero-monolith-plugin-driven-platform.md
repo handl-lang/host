@@ -3,13 +3,10 @@ title: Zero-Monolith, Plugin-Driven Platform
 type: adr
 date: 2026-08-29
 status: accepted
+status_note: Accepted
 ---
 
 # ADR-0034: Zero-Monolith, Plugin-Driven Platform
-
-## Status
-
-Accepted
 
 ## Context
 

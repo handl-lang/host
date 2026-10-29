@@ -2,6 +2,7 @@
 title: 'ADR-0032 Item 6: Proof Erasure at Runtime'
 type: task
 date: 2026-09-05
+status_note: in progress
 ---
 
 # ADR-0032 Item 6: Proof Erasure at Runtime
@@ -13,10 +14,6 @@ typechecker can tell the runtime which AST nodes are proofs, and the runtime
 replaces those nodes with a cheap `erased`/`null` node before evaluation.
 This removes the runtime cost of carrying proof terms while keeping the
 static type-safety guarantees intact.
-
-## Status
-
-in progress
 
 ## Subtasks
 

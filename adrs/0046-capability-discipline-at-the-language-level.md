@@ -3,6 +3,7 @@ title: Capability Discipline at the Language Level (ADR-0041 Phase 5)
 type: adr
 date: 2026-08-30
 status: proposed
+status_note: Proposed
 ---
 
 # Capability Discipline at the Language Level (ADR-0041 Phase 5)
@@ -193,10 +194,6 @@ about other `Language` values before evaluating them.
   static, so the check is static. If a language passes the check, it runs
   without instrumentation. This is the opposite of a capability-based
   OS where every operation is checked at runtime.
-
-## Status
-
-Proposed
 
 ## References
 

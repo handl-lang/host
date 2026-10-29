@@ -3,6 +3,7 @@ title: '`TransformRule::Replace` — a rule form for root-eliminating rewrites'
 type: adr
 date: 2026-10-15
 status: accepted
+status_note: accepted
 ---
 
 # ADR-0127: `TransformRule::Replace` — a rule form for root-eliminating rewrites
@@ -112,7 +113,3 @@ matched node, remapped into the output arena.** No node is created.
 - Cost: one enum variant, one engine arm, one validation arm, one shared
   navigation helper. No new runtime dependency, no schema version bump (the
   vocabulary is additive and the enum was already open-ended by design).
-
-## Status
-
-accepted

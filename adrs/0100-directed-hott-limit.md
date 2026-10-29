@@ -3,13 +3,10 @@ title: Directed Homotopy Type Theory as the Theoretical Limit
 type: adr
 date: 2026-09-08
 status: proposed
+status_note: Proposed.
 ---
 
 # ADR-0100: Directed Homotopy Type Theory as the Theoretical Limit
-
-## Status
-
-Proposed.
 
 ## Implementation status
 
@@ -304,7 +301,3 @@ This ADR does not replace ADR-0098. It sits on top of it. The 1-categorical impl
 - HoTT is not trivial; the `TypeModel` becomes more complex.
 - The `CompilerModel` must prove it respects 2-cells, or at least trust them.
 - Directed HoTT is still research; no off-the-shelf implementation exists.
-
-## Status
-
-Proposed.

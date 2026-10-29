@@ -3,6 +3,7 @@ title: Lint Rules as Language Data
 type: adr
 date: 2026-09-08
 status: accepted
+status_note: accepted
 ---
 
 # ADR-0097: Lint Rules as Language Data
@@ -129,7 +130,3 @@ Lint rules are first-class `Language` data.
   `unreachable-code`, `shadowed-binding`, `unused-binding`) are now declared
   as `!Native "builtin.*"` rules in `crates/handl-kit-data-canonical/data/lints.yaml`
   and implemented in the canonical lint native registry.
-
-## Status
-
-accepted

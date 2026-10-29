@@ -3,19 +3,17 @@ title: Bootstrap Typechecker (`plugin-engine-typecheck`)
 type: adr
 date: 2026-10-15
 status: implemented
+status_note: |-
+  Implemented (merged to main). Part of the bootstrap tooling strategy
+  ([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Builds on
+  [ADR-0054 — Generic Typecheck Engine](./0054-generic-typecheck-engine.md),
+  [ADR-0052](./0052-arrow-calculus-kernel.md), and
+  [ADR-0074](./0074-arrow-syntax-v0_1-surface-redesign.md). Temporary: will be
+  replaced by the self-hosted typechecker described in
+  [RFC-0004](../rfcs/0004-typechecker-in-handl.md).
 ---
 
 # ADR-0088: Bootstrap Typechecker (`plugin-engine-typecheck`)
-
-## Status
-
-Implemented (merged to main). Part of the bootstrap tooling strategy
-([ADR-0085](./0085-bootstrap-tooling-strategy.md)). Builds on
-[ADR-0054 — Generic Typecheck Engine](./0054-generic-typecheck-engine.md),
-[ADR-0052](./0052-arrow-calculus-kernel.md), and
-[ADR-0074](./0074-arrow-syntax-v0_1-surface-redesign.md). Temporary: will be
-replaced by the self-hosted typechecker described in
-[RFC-0004](../rfcs/0004-typechecker-in-handl.md).
 
 ## Context
 
@@ -79,7 +77,3 @@ that say "not yet checked" rather than silently passing.
   (parsing/unification infrastructure) rather than forking it; what is new
   here is the surface-AST-level pass and its diagnostics. Keeping the
   engine generic preserves replaceability per ADR-0085.
-
-## Status
-
-Implemented (merged to main).
