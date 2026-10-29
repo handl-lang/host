@@ -298,6 +298,95 @@ def take_status_prose(body: str) -> tuple[str | None, str, bool]:
     return note, "\n".join(lines) + "\n", from_section
 
 
+RELATION = re.compile(r"\b(?:superseded\s+by|supersedes|absorbed\s+into)\b", re.I)
+
+
+def _sentence_bounds(text: str, start: int) -> tuple[int, int]:
+    """(start, end) of the sentence containing `start`, ignoring `.md`/`(…)`."""
+    left = max(text.rfind(". ", 0, start), text.rfind("\n\n", 0, start))
+    begin = 0 if left < 0 else left + (2 if text[left:left + 2] == "\n\n" else 2)
+    depth, code, i = 0, False, start
+    while i < len(text):
+        c = text[i]
+        if c == "`":
+            code = not code
+        elif not code:
+            if c == "(":
+                depth += 1
+            elif c == ")" and depth:
+                depth -= 1
+            elif c == "." and depth == 0 and (i + 1 == len(text)
+                                              or text[i + 1].isspace()
+                                              or text[i + 1] == "*"):
+                return begin, i + 1
+        i += 1
+    return begin, len(text)
+
+
+def strip_supersession_prose(note: str | None, meta: dict) -> str | None:
+    """Drop a `Superseded by ADR-N` sentence — the link is in the header.
+
+    Only when the relation is already structured (`supersedes`,
+    `superseded_by`, `absorbed_into`); an unstructured note keeps its prose.
+    Rationale that does not name an ADR survives.
+    """
+    note = (note or "").strip()
+    if not note or not any(meta.get(k) for k in
+                           ("supersedes", "superseded_by", "absorbed_into")):
+        return note or None
+    spans: list[tuple[int, int]] = []
+    for m in RELATION.finditer(note):
+        begin, end = _sentence_bounds(note, m.start())
+        sentence = note[begin:end]
+        if re.search(r"\bADR\b", sentence):          # only structured references
+            spans.append((begin, end))
+    if spans:
+        out, cursor = [], 0
+        for begin, end in sorted(spans):
+            if begin < cursor:
+                begin = cursor
+            out.append(note[cursor:begin])
+            cursor = max(cursor, end)
+        out.append(note[cursor:])
+        note = "".join(out)
+    note = re.sub(r"(?m)^\s*\*\*\s*$", "", note)
+    while True:                                   # the enum is in `status` already
+        m = re.match(r"^\s*(?:proposed|accepted|implemented|landed|rejected|"
+                     r"unrecorded|draft)\b[.!]?\s*(?:\n+|$)", note, re.I)
+        if not m:
+            break
+        note = note[m.end():]
+    note = re.sub(r"[ \t]+\n", "\n", note)
+    note = re.sub(r"\n{3,}", "\n\n", note).strip()
+    if not note:
+        return None
+    status = str(meta.get("status") or "").strip().lower()
+    if status and note.lower().strip(" .*") == status:
+        return None
+    return note
+
+
+def derive_relations(note: str | None, status: str | None) -> dict:
+    """Promote `Supersedes / Superseded by ADR-N` prose into structured links."""
+    out: dict[str, list[str]] = {}
+    for m in RELATION.finditer(note or ""):
+        begin, end = _sentence_bounds(note, m.start())
+        sentence = note[begin:end]
+        if re.search(r"partially", sentence, re.I):
+            continue                              # not representable as one state
+        ids = adr_id(sentence)[:1]                # the relation target, not refs
+        if not ids:
+            continue
+        verb = m.group(0).lower()
+        if "superseded" in verb and status == "superseded":
+            out.setdefault("superseded_by", ids)
+        elif "supersedes" in verb:
+            out.setdefault("supersedes", ids)
+        elif "absorbed" in verb:
+            out.setdefault("absorbed_into", ids)
+    return out
+
+
 def git_created(proj: Path, path: Path) -> str | None:
     try:
         out = subprocess.run(
@@ -402,6 +491,11 @@ def build(meta: dict, body: str, path: Path, kind: str, proj: Path) -> tuple[str
         merged["status_note"] = note          # the section is the record
     else:
         merged["status_note"] = merge_notes(merged.get("status_note"), note)
+    for key, ids in derive_relations(merged.get("status_note"),
+                                     merged.get("status")).items():
+        merged.setdefault(key, ids)
+    merged["status_note"] = strip_supersession_prose(
+        merged.get("status_note"), merged)
     merged.setdefault("type", kind)
     if head := H1.search(body):
         merged.setdefault("title", normalize_title(head.group(1)))
