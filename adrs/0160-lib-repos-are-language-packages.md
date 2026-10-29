@@ -190,6 +190,23 @@ via `build.rs` and embeds it with `include_str!(concat!(env!("OUT_DIR"), …))` 
 `lib-rand-stub` shell is deleted and `handl-kit-test` builds/tests green. The remaining 54
 shells follow the same two-line pattern per consumer.
 
+**P3 refined split (2026-10-28 audit of the 55 remaining shells).** Inspecting each
+`src/lib.rs` shows two classes, and only one is transport:
+
+- **37 pure transport shells** — `include_str!` and nothing else
+  (`lib-char`, `lib-collections`, `lib-json`, `lib-str-handl`, `lib-test`, `lib-tag`,
+  `lib-url-*`, `lib-unicode*`, …). These vanish exactly like `lib-rand-stub`: the consumer
+  vendors at build time.
+- **17 hybrid shells** — a real Rust op table or logic inside
+  (`lib-kv-hashmap` 468 lines/35 fns, `lib-lang-{compile,eval,lex,parse,run-compiled,typecheck}`
+  ~200–300 lines each, `lib-kv`, `lib-otlp-c`, and `lib-base64`/`lib-encoding`/`lib-hex`
+  which carry `_OPS`). **These are backends, not transport** — per this ADR they keep a
+  crate; only their embedded `.hnl` source should move to the consumer's vendored copy.
+
+So the remaining work is **37 vendoring swaps** (two lines per consumer, proven by the
+`kit-test`/`lib-rand-stub` pilot) plus **17 backend decisions** (keep the crate, drop only
+its `include_str!`). `plugin-lib-stdlib` is the consumer for most of the 37.
+
 ## Consequences
 
 - **Good:** a package is `pkg.hnl` + `.hnl`; adding a port needs no Rust; the
