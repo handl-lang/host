@@ -313,8 +313,6 @@ handl-plugin-ffi = { path = "../kit-ffi/modules/ffi" }
 handl-kit-data-prelude = { path = "../kit-data-prelude/crates/handl-kit-data-prelude" }
 [patch."https://github.com/handl-lang/kit-prelude-lang"]
 handl-kit-prelude-lang = { path = "../kit-prelude-lang/crates/handl-kit-prelude-lang" }
-[patch."https://github.com/handl-lang/lib-base64"]
-handl-lib-base64 = { path = "../lib-base64" }
 [patch."https://github.com/handl-lang/lib-char-native"]
 handl-plugin-lib-char-native = { path = "../lib-char-native" }
 [patch."https://github.com/handl-lang/lib-collections"]
@@ -327,12 +325,8 @@ handl-lib-desugar = { path = "../lib-desugar" }
 handl-lib-encoding = { path = "../lib-encoding" }
 [patch."https://github.com/handl-lang/lib-hello"]
 handl-lib-hello = { path = "../lib-hello" }
-[patch."https://github.com/handl-lang/lib-hex"]
-handl-lib-hex = { path = "../lib-hex" }
 [patch."https://github.com/handl-lang/lib-ip"]
 handl-lib-ip = { path = "../lib-ip" }
-[patch."https://github.com/handl-lang/lib-json"]
-handl-lib-json = { path = "../lib-json" }
 [patch."https://github.com/handl-lang/lib-kv"]
 handl-plugin-lib-kv = { path = "../lib-kv" }
 [patch."https://github.com/handl-lang/lib-kv-hashmap"]
@@ -352,8 +346,6 @@ handl-plugin-lib-lang-typecheck = { path = "../lib-lang-typecheck" }
 
 [patch."https://github.com/handl-lang/lib-loader"]
 handl-lib-loader = { path = "../lib-loader" }
-[patch."https://github.com/handl-lang/lib-otlp"]
-handl-lib-otlp = { path = "../lib-otlp" }
 [patch."https://github.com/handl-lang/lib-otlp-c"]
 handl-plugin-lib-otlp-c = { path = "../lib-otlp-c" }
 [patch."https://github.com/handl-lang/lib-otlp-std"]
@@ -371,14 +363,8 @@ handl-lib-str-handl = { path = "../lib-str-handl" }
 
 [patch."https://github.com/handl-lang/lib-tag"]
 handl-lib-tag = { path = "../lib-tag" }
-[patch."https://github.com/handl-lang/lib-tar"]
-handl-lib-tar = { path = "../lib-tar" }
 [patch."https://github.com/handl-lang/lib-transform"]
 handl-lib-transform = { path = "../lib-transform" }
-[patch."https://github.com/handl-lang/lib-url-rfc"]
-handl-lib-url-rfc = { path = "../lib-url-rfc" }
-[patch."https://github.com/handl-lang/lib-url-whatwg"]
-handl-lib-url-whatwg = { path = "../lib-url-whatwg" }
 [patch."https://github.com/handl-lang/sdkgen-c"]
 handl-plugin-sdkgen-backend-c = { path = "../sdkgen-c" }
 [patch."https://github.com/handl-lang/sdkgen-cli"]
@@ -407,5 +393,3 @@ handl-lib-ffi = { path = "../lib-ffi" }
 [patch."https://github.com/handl-lang/lib-comb"]
 handl-lib-comb = { path = "../lib-comb" }
 
-[patch."https://github.com/handl-lang/lib-kv-map"]
-handl-lib-kv-map = { path = "../lib-kv-map" }
