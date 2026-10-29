@@ -61,11 +61,8 @@ impl ModuleResolver for StubBackendResolver {
 /// `module_with("otlp", …)` with the stub `otlp_c` backend.
 fn otlp_with_stub(state: Arc<StubOtlpState>) -> handl_plugin_lib_handl::HandlModule {
     ensure_lang();
-    module_with(
-        "otlp",
-        Arc::new(StubBackendResolver { state }),
-    )
-    .expect("otlp is in the package table")
+    module_with("otlp", Arc::new(StubBackendResolver { state }))
+        .expect("otlp is in the package table")
 }
 
 fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_json::Value {
@@ -149,7 +146,11 @@ fn otlp_start_span_calls_through_and_returns_span_id() {
     assert!(!id.is_empty(), "span id is non-empty");
 
     let events = state.events();
-    assert_eq!(events.len(), 2, "configure + start_span reached the backend");
+    assert_eq!(
+        events.len(),
+        2,
+        "configure + start_span reached the backend"
+    );
     assert!(matches!(&events[0], OtlpEvent::Configured(_)));
     assert!(
         matches!(&events[1], OtlpEvent::SpanStarted(s) if s.name == "test.op"),

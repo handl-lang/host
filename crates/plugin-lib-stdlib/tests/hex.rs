@@ -1,6 +1,6 @@
+use handl_lib_hex::ops::*;
 use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
 use handl_plugin_lib_handl::{OpRegistry, RuntimePredicateChecker};
-use handl_lib_hex::ops::*;
 use handl_plugin_lib_stdlib::{library, module};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};
@@ -12,8 +12,7 @@ use std::sync::Arc;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -80,14 +79,8 @@ fn hex_module_codec_function() {
     let mut ctx = EvalContext::new();
     let codec_func = module.function("codec").expect("codec should exist");
     let result = codec_func.call(&[], &mut ctx).unwrap();
-    assert_eq!(
-        result.get("type").and_then(Value::as_str),
-        Some("codec")
-    );
-    assert_eq!(
-        result.get("name").and_then(Value::as_str),
-        Some("hex")
-    );
+    assert_eq!(result.get("type").and_then(Value::as_str), Some("codec"));
+    assert_eq!(result.get("name").and_then(Value::as_str), Some("hex"));
     assert!(result.get("encode").is_some(), "codec.encode field");
     assert!(result.get("decode").is_some(), "codec.decode field");
 }

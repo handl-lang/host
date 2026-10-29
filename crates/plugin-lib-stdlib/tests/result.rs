@@ -32,8 +32,7 @@ impl ModuleResolver for TagResolver {
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }

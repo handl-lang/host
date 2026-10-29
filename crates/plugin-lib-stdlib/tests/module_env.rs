@@ -13,7 +13,9 @@ use std::sync::Arc;
 
 use handl_platform::{EvalContext, Function, Module};
 use handl_plugin_lib_handl::ModuleEnv;
-use handl_plugin_lib_stdlib::{load_hnl_file, load_hnl_file_with_env, module_ref, module_ref_with_env};
+use handl_plugin_lib_stdlib::{
+    load_hnl_file, load_hnl_file_with_env, module_ref, module_ref_with_env,
+};
 use serde_json::json;
 
 /// Install the canonical default language once per test binary (ADR-0128
@@ -21,8 +23,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -112,7 +113,10 @@ fn module_ref_with_env_serves_one_instance_per_env() {
 
     // A clone is the same env → the same cached instance.
     let nums_again = module_ref_with_env("stats", &env_num.clone()).expect("clone instance");
-    assert!(Arc::ptr_eq(&nums, &nums_again), "env clones share the instance");
+    assert!(
+        Arc::ptr_eq(&nums, &nums_again),
+        "env clones share the instance"
+    );
 
     // Re-dispatch after the other env ran: distinct module_ids keep the
     // per-thread runtime caches apart.
@@ -158,7 +162,8 @@ impl Module for DepStub {
     }
 }
 
-const MAIN_HNL: &str = "from \"./dep.hnl\" import * as dep\nexport ask := (x) ~> dep.who() + \":\" + x\n";
+const MAIN_HNL: &str =
+    "from \"./dep.hnl\" import * as dep\nexport ask := (x) ~> dep.who() + \":\" + x\n";
 const DEP_HNL: &str = "export who := () ~> \"real\"\n";
 
 /// One on-disk file, several envs: `load_hnl_file_with_env` instantiates
@@ -179,8 +184,11 @@ fn load_hnl_file_with_env_binds_each_env_independently() {
 
     let env_a = ModuleEnv::new().with_dependency(DepStub::new("alpha"));
     let a = load_hnl_file_with_env(&main, &env_a).expect("env a instance");
-    let b = load_hnl_file_with_env(&main, &ModuleEnv::new().with_dependency(DepStub::new("beta")))
-        .expect("env b instance");
+    let b = load_hnl_file_with_env(
+        &main,
+        &ModuleEnv::new().with_dependency(DepStub::new("beta")),
+    )
+    .expect("env b instance");
 
     assert_ne!(a.module_id(), b.module_id());
     assert_ne!(a.module_id(), base.module_id());

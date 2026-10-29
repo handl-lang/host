@@ -12,8 +12,7 @@ use handl_plugin_lib_stdlib::module;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -23,7 +22,10 @@ fn ensure_lang() {
 fn uchar_port_and_adapter_rows_both_resolve() {
     ensure_lang();
     assert!(module("uchar").is_some(), "port spec `uchar` in table");
-    assert!(module("uchar_c").is_some(), "adapter spec `uchar_c` in table");
+    assert!(
+        module("uchar_c").is_some(),
+        "adapter spec `uchar_c` in table"
+    );
 }
 
 /// Evaluating a `uchar_c` function resolves its imports — `result` plus

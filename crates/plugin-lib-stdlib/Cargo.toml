@@ -12,7 +12,6 @@ handl-value = { workspace = true }
 handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
-handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
 handl-plugin-lib-otlp-c = { git = "https://github.com/handl-lang/lib-otlp-c", branch = "main" }
 handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
 # Shared op helpers (throwaway — see the lib-ops README).
@@ -20,7 +19,6 @@ handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" 
 # ADR-0128: port packages live in their own repos.
 handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
 handl-lib-transform = { git = "https://github.com/handl-lang/lib-transform", branch = "main" }
-handl-lib-parse = { git = "https://github.com/handl-lang/lib-parse", branch = "main" }
 
 handl-lib-prim = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-lib-prim-handl = { git = "https://github.com/handl-lang/kernel", branch = "main" }

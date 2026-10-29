@@ -1,7 +1,7 @@
+use handl_lib_base64::ops::*;
 use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::{ModuleResolver, OpRegistry, RuntimePredicateChecker};
-use handl_lib_base64::ops::*;
 use handl_plugin_lib_stdlib::{PackageResolver, library, module, module_with};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};

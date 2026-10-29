@@ -82,11 +82,7 @@ fn parses_http_uri_to_a_record() {
 #[test]
 fn does_not_normalize_the_path() {
     let module = table_module();
-    let u = call(
-        &module,
-        "parse",
-        &[json!("https://example.com/../a/../b")],
-    );
+    let u = call(&module, "parse", &[json!("https://example.com/../a/../b")]);
     assert_eq!(u["scheme"], "https");
     assert_eq!(u["path"], "/../a/../b");
 }

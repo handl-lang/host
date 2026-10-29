@@ -159,10 +159,7 @@ fn residual_ambient_without_default_env() {
 fn table_modules_and_provider_records() {
     ensure_lang();
     let m = module_with("bool", resolver()).expect("bool in the table");
-    assert_eq!(
-        call(&m, "eq", &[json!(true), json!(true)]),
-        json!(true)
-    );
+    assert_eq!(call(&m, "eq", &[json!(true), json!(true)]), json!(true));
     let provider = std_default_env();
     let globals = provider();
     let bool_record = globals.get("bool").expect("bool bound by default env");

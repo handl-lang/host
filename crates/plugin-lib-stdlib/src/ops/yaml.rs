@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use handl_lib_serialize::{Decoder, Encoder, SerializeError, Serializer};
 use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_handl::OpRegistry;
-use handl_lib_serialize::{Decoder, Encoder, SerializeError, Serializer};
 use serde_json::Value;
 use serde_yaml::Value as YamlValue;
 

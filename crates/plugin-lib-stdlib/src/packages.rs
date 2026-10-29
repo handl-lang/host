@@ -74,7 +74,10 @@ pub struct PackageSpec {
 
 const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     name: "clock_gettime",
-    hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-time-c/src/clock_gettime.hnl")),
+    hnl: include_str!(concat!(
+        env!("OUT_DIR"),
+        "/lib-time-c/src/clock_gettime.hnl"
+    )),
     funcs: &["read_ns"],
     ops: &[],
     values: &[],
@@ -188,7 +191,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "encoding",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-encoding/src/index.hnl")),
         funcs: &["encode", "decode"],
-        ops: handl_lib_encoding::ENCODING_OPS,
+        ops: &["encoding.encode", "encoding.decode"],
         values: &[],
         registry: None,
     },
@@ -221,7 +224,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "parse",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-parse/src/index.hnl")),
         funcs: &[],
-        ops: handl_lib_parse::PARSE_OPS,
+        ops: &["parse.parse"],
         values: &[],
         registry: None,
     },
@@ -237,7 +240,17 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "otlp",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-otlp/src/index.hnl")),
-        funcs: &["configure","start_span","end_span","set_attribute","add_event", "record_log","record_metric","flush","shutdown",],
+        funcs: &[
+            "configure",
+            "start_span",
+            "end_span",
+            "set_attribute",
+            "add_event",
+            "record_log",
+            "record_metric",
+            "flush",
+            "shutdown",
+        ],
         ops: &[],
         values: &[],
         registry: None,
@@ -253,7 +266,9 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "kv_map",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-kv-map/src/index.hnl")),
-        funcs: &["new", "set", "get", "has", "remove", "clear", "size", "keys"],
+        funcs: &[
+            "new", "set", "get", "has", "remove", "clear", "size", "keys",
+        ],
         ops: &[],
         values: &[],
         registry: None,
@@ -269,7 +284,22 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "ip",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index.hnl")),
-        funcs: &["parse","format","is_loopback","is_multicast","is_private","is_link_local","is_unspecified", "cidr.parse","cidr.format","cidr.contains","cidr.network","cidr.broadcast", "socket.parse","socket.format",],
+        funcs: &[
+            "parse",
+            "format",
+            "is_loopback",
+            "is_multicast",
+            "is_private",
+            "is_link_local",
+            "is_unspecified",
+            "cidr.parse",
+            "cidr.format",
+            "cidr.contains",
+            "cidr.network",
+            "cidr.broadcast",
+            "socket.parse",
+            "socket.format",
+        ],
         ops: &[],
         values: &[],
         registry: None,
@@ -277,7 +307,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "serialize",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize/src/index.hnl")),
-        funcs: &["serialize","deserialize","toml","yaml"],
+        funcs: &["serialize", "deserialize", "toml", "yaml"],
         ops: &[],
         values: &[],
         registry: None,
@@ -286,7 +316,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "base64",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index.hnl")),
-        funcs: &["encode","decode","codec"],
+        funcs: &["encode", "decode", "codec"],
         ops: &[],
         values: &[],
         registry: None,
@@ -294,7 +324,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "hex",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index.hnl")),
-        funcs: &["encode","decode","codec"],
+        funcs: &["encode", "decode", "codec"],
         ops: &[],
         values: &[],
         registry: None,
@@ -306,7 +336,10 @@ pub static MODULES: &[ModuleSpec] = &[
     // records whose arrow fields call these ops.
     ModuleSpec {
         name: "toml_c",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize-toml-c/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-serialize-toml-c/src/index.hnl"
+        )),
         funcs: &[],
         ops: handl_plugin_lib_serialize_toml_c::TOML_C_OPS,
         values: &[],
@@ -314,7 +347,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "yaml_c",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize-yaml-c/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-serialize-yaml-c/src/index.hnl"
+        )),
         funcs: &[],
         ops: handl_plugin_lib_serialize_yaml_c::YAML_C_OPS,
         values: &[],
@@ -324,7 +360,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "url_rfc",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl")),
-        funcs: &["parse","url_rfc"],
+        funcs: &["parse", "url_rfc"],
         ops: &[],
         values: &[],
         registry: None,
@@ -332,7 +368,7 @@ pub static MODULES: &[ModuleSpec] = &[
     ModuleSpec {
         name: "url_whatwg",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-whatwg/src/index.hnl")),
-        funcs: &["parse","url_whatwg"],
+        funcs: &["parse", "url_whatwg"],
         ops: &[],
         values: &[],
         registry: None,
@@ -362,7 +398,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/list/index.hnl"
+        )),
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         values: &[],
@@ -380,7 +419,10 @@ pub static MODULES: &[ModuleSpec] = &[
     // `len: list_len.len`, and so on.
     ModuleSpec {
         name: "list_len",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/len.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/list/len.hnl"
+        )),
         funcs: &["len"],
         ops: &[],
         values: &[],
@@ -388,7 +430,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_is_empty",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/is_empty.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/list/is_empty.hnl"
+        )),
         funcs: &["is_empty"],
         ops: &[],
         values: &[],
@@ -396,7 +441,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_push",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/push.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/list/push.hnl"
+        )),
         funcs: &["push"],
         ops: &[],
         values: &[],
@@ -404,7 +452,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_peek",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/peek.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/list/peek.hnl"
+        )),
         funcs: &["peek"],
         ops: &[],
         values: &[],
@@ -412,7 +463,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "list_pop",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/list/pop.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/list/pop.hnl"
+        )),
         funcs: &["pop"],
         ops: &[],
         values: &[],
@@ -456,7 +510,10 @@ pub static MODULES: &[ModuleSpec] = &[
     // pure handl over the `obj` introspection primitives.
     ModuleSpec {
         name: "hash_map",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/hash_map.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/hash_map.hnl"
+        )),
         funcs: &[
             "keys",
             "values",
@@ -473,7 +530,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "hash_set",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/hash_set.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/hash_set.hnl"
+        )),
         funcs: &[],
         ops: ops::collections::HASH_SET_OPS,
         values: &[],
@@ -484,7 +544,10 @@ pub static MODULES: &[ModuleSpec] = &[
     // `hash_map` still depends on the leaf `len` and `contains` submodules.
     ModuleSpec {
         name: "len",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/array/len.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/array/len.hnl"
+        )),
         funcs: &["len"],
         ops: &[],
         values: &[],
@@ -492,7 +555,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "contains",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/array/contains.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/array/contains.hnl"
+        )),
         funcs: &["contains"],
         ops: &[],
         values: &[],
@@ -1281,7 +1347,10 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "collections",
         plugin_id: "lib.collections",
         plugin_name: "lib-collections",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/src/collections.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-collections/src/collections.hnl"
+        )),
         modules: &[], // resolved via COLLECTIONS_MODULES (see package_module_names)
     },
     PackageSpec {
@@ -1628,9 +1697,9 @@ impl handl_plugin_lib_handl::ImportResolver for TableImportResolver {
         })?;
         let key = (std::thread::current().id(), name.clone());
         {
-            let mut in_progress = TABLE_IMPORT_IN_PROGRESS.lock().map_err(|_| {
-                handl_language::LangError::engine("import: resolver lock poisoned")
-            })?;
+            let mut in_progress = TABLE_IMPORT_IN_PROGRESS
+                .lock()
+                .map_err(|_| handl_language::LangError::engine("import: resolver lock poisoned"))?;
             if !in_progress.insert(key.clone()) {
                 return Err(handl_language::LangError::engine(format!(
                     "import: module `{name}` cannot import itself (self-import cycle at `{path}`)"
