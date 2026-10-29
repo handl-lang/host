@@ -1,3 +1,11 @@
+---
+title: Modules as First-Class Values
+type: adr
+date: 2026-09-02
+status: superseded
+superseded_by: [ADR-0049]
+---
+
 # ADR-0048: Modules as First-Class Values
 
 ## Status

@@ -1,3 +1,9 @@
+---
+title: 'ADR-0032 Item 6: Proof Erasure at Runtime'
+type: task
+date: 2026-09-05
+---
+
 # ADR-0032 Item 6: Proof Erasure at Runtime
 
 ## Goal

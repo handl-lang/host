@@ -1,3 +1,10 @@
+---
+title: Refinement Inference Scope — Deterministic Dataflow
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0070: Refinement Inference Scope — Deterministic Dataflow
 
 ## Status

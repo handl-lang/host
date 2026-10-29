@@ -1,3 +1,10 @@
+---
+title: FFI-Native Stdlib — Handl over Direct C/POSIX Bindings
+type: adr
+date: 2026-09-04
+status: accepted
+---
+
 # ADR-0083: FFI-Native Stdlib — Handl over Direct C/POSIX Bindings
 
 ## Status

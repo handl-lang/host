@@ -1,3 +1,10 @@
+---
+title: Generic Pattern Match
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0061: Generic Pattern Match
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: AST shape faces — closing the last kind-dispatch sites
+type: adr
+date: 2026-10-10
+status: accepted
+---
+
 # ADR-0123: AST shape faces — closing the last kind-dispatch sites
 
 ## Context

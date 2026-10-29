@@ -1,3 +1,10 @@
+---
+title: Canonical surface as the arrow calculus
+type: adr
+date: 2026-09-14
+status: proposed
+---
+
 # Canonical surface as the arrow calculus
 
 ## Status

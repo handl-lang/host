@@ -1,3 +1,9 @@
+---
+title: 'Report: `TaggedValue::Tensor` — the opaque-tensor kernel variant'
+type: report
+date: 2026-10-17
+---
+
 # Report: `TaggedValue::Tensor` — the opaque-tensor kernel variant
 
 Date: this session. Commits: kernel `b57e922`, platform `224813ca`.

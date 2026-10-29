@@ -1,8 +1,13 @@
+---
+title: mlopt on the fragment tower — domain vocabularies as `Language` fragments
+type: adr
+date: 2026-10-24
+status: proposed
+applies_to: '`graphopt`, `kernelopt`, `eqsat`, `gamekit`, `kernel`'
+---
+
 # ADR-0157: mlopt on the fragment tower — domain vocabularies as `Language` fragments
 
-- Status: Proposed
-- Date: 2026-10-24
-- Repos: `graphopt`, `kernelopt`, `eqsat`, `gamekit`, `kernel`
   (`handl-language`, `hnl-engine`), `egraph`, `host` (`host-tensor`),
   `engine-transform-rewrite`, `engine-typecheck-nbe`
 

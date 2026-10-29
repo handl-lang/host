@@ -1,3 +1,10 @@
+---
+title: 'ADR-0032 (Archived v1): Types are Values — Universe Levels and Core Type System'
+type: adr
+date: 2026-09-02
+status: accepted
+---
+
 # ADR-0032 (Archived v1): Types are Values — Universe Levels and Core Type System
 
 ## Status

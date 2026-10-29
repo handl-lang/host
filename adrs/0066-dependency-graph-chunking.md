@@ -1,3 +1,10 @@
+---
+title: Dependency-Graph Chunking
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0066: Dependency-Graph Chunking
 
 ## Status

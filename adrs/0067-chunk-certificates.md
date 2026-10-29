@@ -1,3 +1,10 @@
+---
+title: Chunk Certificates
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0067: Chunk Certificates
 
 ## Status

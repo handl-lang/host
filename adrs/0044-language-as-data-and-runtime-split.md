@@ -1,3 +1,10 @@
+---
+title: Language as Data and Runtime Split
+type: adr
+date: 2026-09-02
+status: accepted
+---
+
 # ADR-0044: Language as Data and Runtime Split
 
 ## Status

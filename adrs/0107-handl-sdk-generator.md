@@ -1,3 +1,10 @@
+---
+title: Handl SDK Generator — Port-Adapter Foreign SDK Generation
+type: adr
+date: 2026-09-13
+status: accepted
+---
+
 # ADR-0107: Handl SDK Generator — Port-Adapter Foreign SDK Generation
 
 ## Status

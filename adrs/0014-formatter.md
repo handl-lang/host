@@ -1,3 +1,10 @@
+---
+title: handl Formatter
+type: adr
+date: 2026-08-24
+status: proposed
+---
+
 # handl Formatter
 
 ## Context

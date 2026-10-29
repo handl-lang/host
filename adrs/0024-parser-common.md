@@ -1,3 +1,10 @@
+---
+title: 'Agnostic parser engine: `handl-parser-common` and `handl-parser-canonical` on top'
+type: adr
+date: 2026-08-24
+status: accepted
+---
+
 # Agnostic parser engine: `handl-parser-common` and `handl-parser-canonical` on top
 
 ## Context

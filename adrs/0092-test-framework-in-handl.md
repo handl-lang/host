@@ -1,3 +1,10 @@
+---
+title: Test Framework in Handl (`handl-packages/test`), Delete `plugin-lib-test`
+type: adr
+date: 2026-09-05
+status: implemented
+---
+
 # ADR-0092: Test Framework in Handl (`handl-packages/test`), Delete `plugin-lib-test`
 
 ## Status

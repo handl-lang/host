@@ -1,3 +1,10 @@
+---
+title: Minimal `Term` Core with Generic Combinators
+type: adr
+date: 2026-09-09
+status: proposed
+---
+
 # ADR-0104b: Minimal `Term` Core with Generic Combinators
 
 ## Status

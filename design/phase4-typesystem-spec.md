@@ -1,5 +1,11 @@
+---
+title: Phase-4 implementation spec — unified type system
+type: design
+date: 2026-10-25
+refs: [ADR-0095, ADR-0106, ADR-0074]
+---
+
 # Phase-4 implementation spec — unified type system
-- Refs: ADR-0095, ADR-0106, ADR-0074
 
 
 Normative design: ADR-0106 (kernel, as amended) + 0152 (`data`) +

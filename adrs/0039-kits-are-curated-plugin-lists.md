@@ -1,3 +1,10 @@
+---
+title: Kits Are Curated Plugin Lists, Not Implementations
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0039: Kits Are Curated Plugin Lists, Not Implementations
 
 ## Status

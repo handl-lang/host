@@ -1,8 +1,12 @@
-# ADR-0149: `host-cli` is a dumb host; `ext-*` extensions load dynamically
+---
+title: '`host-cli` is a dumb host; `ext-*` extensions load dynamically'
+type: adr
+date: 2026-10-17
+status: accepted
+applies_to: '`host-cli` (renamed from `cli`), `host-lsp` (renamed from `lsp`), `ext-*` (new), `host`, `kernel`'
+---
 
-- Status: Accepted
-- Date: 2026-10-17
-- Repos: `host-cli` (renamed from `cli`), `host-lsp` (renamed from `lsp`), `ext-*` (new), `host`, `kernel`
+# ADR-0149: `host-cli` is a dumb host; `ext-*` extensions load dynamically
 
 ## Context
 

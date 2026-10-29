@@ -1,3 +1,10 @@
+---
+title: The Object/Arrow Kernel — `sym()`, `Obj`, and Native Arrow Calculus
+type: adr
+date: 2026-09-11
+status: accepted
+---
+
 # ADR-0106: The Object/Arrow Kernel — `sym()`, `Obj`, and Native Arrow Calculus
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: '`TransformRule::Replace` — a rule form for root-eliminating rewrites'
+type: adr
+date: 2026-10-15
+status: accepted
+---
+
 # ADR-0127: `TransformRule::Replace` — a rule form for root-eliminating rewrites
 
 ## Context

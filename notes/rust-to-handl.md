@@ -1,3 +1,9 @@
+---
+title: Rust → Handl cheat-sheet
+type: note
+date: 2026-09-19
+---
+
 # Rust → Handl cheat-sheet
 
 Reference for porting Rust code to idiomatic handl. Lookup tables first,

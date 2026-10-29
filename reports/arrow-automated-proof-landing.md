@@ -1,3 +1,9 @@
+---
+title: 'Landing Report: Automated Proof for Arrow Programs — Dω Generalization + Decidable Loop-Free Fragment'
+type: report
+date: 2026-09-07
+---
+
 # Landing Report: Automated Proof for Arrow Programs — Dω Generalization + Decidable Loop-Free Fragment
 
 **Date:** 2026-09-07

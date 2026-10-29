@@ -1,3 +1,11 @@
+---
+title: lib-lang — Expose the Handl language as a reusable library
+type: adr
+date: 2026-08-24
+status: superseded
+superseded_by: [ADR-0047]
+---
+
 # ADR 0030: lib-lang — Expose the Handl language as a reusable library
 
 ## Status

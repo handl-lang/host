@@ -1,8 +1,13 @@
+---
+title: Typecheck semantics — identity, equality, universes, literals, erasure
+type: adr
+date: 2026-10-22
+status: accepted
+applies_to: '`kernel` (`handl-value`, `handl-language`), `kit-prelude-lang`,'
+---
+
 # ADR-0154: Typecheck semantics — identity, equality, universes, literals, erasure
 
-- Status: Accepted
-- Date: 2026-10-22
-- Repos: `kernel` (`handl-value`, `handl-language`), `kit-prelude-lang`,
   `engine-typecheck-nbe`, `lib-type`
 
 ## Context

@@ -1,3 +1,10 @@
+---
+title: Handing a `Language` to capability plugins
+type: adr
+date: 2026-10-10
+status: proposed
+---
+
 # ADR-0124: Handing a `Language` to capability plugins
 
 ## Context

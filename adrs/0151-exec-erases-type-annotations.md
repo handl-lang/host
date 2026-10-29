@@ -1,8 +1,12 @@
-# ADR-0151: Exec erases type annotations — signatures are typecheck-owned metadata
+---
+title: Exec erases type annotations — signatures are typecheck-owned metadata
+type: adr
+date: 2026-10-21
+status: accepted
+applies_to: '`host` (`handl-runtime`, `plugin-lib-handl`, `plugin-lib-stdlib`), `kit-prelude-lang`, `lib-loader`'
+---
 
-- Status: Accepted
-- Date: 2026-10-21
-- Repos: `host` (`handl-runtime`, `plugin-lib-handl`, `plugin-lib-stdlib`), `kit-prelude-lang`, `lib-loader`
+# ADR-0151: Exec erases type annotations — signatures are typecheck-owned metadata
 
 ## Context
 

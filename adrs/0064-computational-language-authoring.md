@@ -1,3 +1,10 @@
+---
+title: Computational Language Authoring
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0064: Computational Language Authoring
 
 ## Status

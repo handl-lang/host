@@ -1,3 +1,10 @@
+---
+title: 'ADR-0002 (Archived v1): Single Plugin Model — Core Architecture'
+type: adr
+date: 2026-09-02
+status: accepted
+---
+
 # ADR-0002 (Archived v1): Single Plugin Model — Core Architecture
 
 ## Status

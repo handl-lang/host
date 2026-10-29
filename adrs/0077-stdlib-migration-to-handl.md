@@ -1,3 +1,10 @@
+---
+title: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Elimination of Per-Library Rust
+type: adr
+date: 2026-09-03
+status: accepted
+---
+
 # ADR-0077: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Elimination of Per-Library Rust
 
 ## Status

@@ -1,3 +1,9 @@
+---
+title: Misc tasks — ADR-0068 / 0082 / 0083 follow-ups
+type: task
+date: 2026-09-04
+---
+
 # Misc tasks — ADR-0068 / 0082 / 0083 follow-ups
 
 > **Status: all items from the 2026-09-04 snapshot are now complete or superseded.**

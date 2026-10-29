@@ -1,3 +1,10 @@
+---
+title: Project-docs topology for the target-repo split
+type: adr
+date: 2026-10-15
+status: accepted
+---
+
 # ADR-0129: Project-docs topology for the target-repo split
 
 ## Context

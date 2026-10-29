@@ -1,6 +1,14 @@
+---
+title: Effect resumption semantics — `perform`/`handle` as algebra homomorphisms on free arrow-algebras
+type: adr
+date: 2026-10-25
+status: proposed
+status_note: Proposed — one-shot in-flight dispatch landed; multi-shot `resume` landed via replay journals on all three engines (`design/multishot-resume.md`)
+refs: [ADR-0153, ADR-0154]
+---
+
 # ADR-0158: Effect resumption semantics — `perform`/`handle` as algebra homomorphisms on free arrow-algebras
 
-**Status**: Proposed — one-shot in-flight dispatch landed; multi-shot `resume` landed via replay journals on all three engines (`design/multishot-resume.md`)
 **Refs**: ADR-0153 (dimensions/`~[n]~>`), ADR-0154 (typecheck semantics), Sanada — *Algebraic effects and handlers for arrows* (ICFP/JFP 2024); `design/semantics.md` — the language-wide denotational reading this ADR's correspondence table anchors
 
 ## Context

@@ -1,3 +1,9 @@
+---
+title: 'ADR-0081 follow-up: the remaining kind-dispatch sites'
+type: task
+date: 2026-10-10
+---
+
 # ADR-0081 follow-up: the remaining kind-dispatch sites
 
 Status: **proposal** (analysis complete; no code changed for these sites).

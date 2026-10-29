@@ -1,3 +1,9 @@
+---
+title: Multi-shot `resume` on the cranelift engine — landing note
+type: note
+date: 2026-10-26
+---
+
 # Multi-shot `resume` on the cranelift engine — landing note
 
 ## Status

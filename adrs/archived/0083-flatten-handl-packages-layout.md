@@ -1,3 +1,10 @@
+---
+title: Flatten `handl-packages/` Layout
+type: adr
+date: 2026-09-04
+status: accepted
+---
+
 # ADR-0083: Flatten `handl-packages/` Layout
 
 ## Status

@@ -1,3 +1,11 @@
+---
+title: Host Bundles
+type: adr
+date: 2026-08-24
+status: accepted
+status_note: 'Partially implemented. `SandboxHost` exists with `max_depth` and `max_calls`. Missing: memory budget, time budget, virtual-module opt-out.'
+---
+
 # Host Bundles
 
 ## Context
@@ -26,8 +34,6 @@ Hosts are categorized by **what they provide** (module set) and **where they run
 #### `handl-host-sandbox`
 
 Pure functions only. No I/O, no side effects, no `import()` at runtime (but opt-out from virtual-module system). Deliberately limited for untrusted code. Resource limits (depth, memory, time budget) enforced by the host. A host that provides only pure functions is automatically sandboxed — this is a policy decision, not a language feature.
-
-**Status**: Partially implemented. `SandboxHost` exists with `max_depth` and `max_calls`. Missing: memory budget, time budget, virtual-module opt-out.
 
 #### `handl-host-native`
 

@@ -1,3 +1,9 @@
+---
+title: dead-code cleanup and the kernel boundary (ADR-0126)
+type: task
+date: 2026-10-13
+---
+
 # Task: dead-code cleanup and the kernel boundary (ADR-0126)
 
 Status: **A (part 1), C, E done; B and D measured.** Remaining: A part 2 (needs a

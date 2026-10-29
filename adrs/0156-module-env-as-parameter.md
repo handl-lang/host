@@ -1,8 +1,13 @@
+---
+title: Module environments are parameters, not construction state
+type: adr
+date: 2026-10-21
+status: proposed
+applies_to: '`host` (`handl-plugin-lib-handl`), `kernel` (`handl-platform` —'
+---
+
 # ADR-0156: Module environments are parameters, not construction state
 
-- Status: Proposed
-- Date: 2026-10-21
-- Repos: `host` (`handl-plugin-lib-handl`), `kernel` (`handl-platform` —
   trait surfaces only if needed)
 
 ## Context

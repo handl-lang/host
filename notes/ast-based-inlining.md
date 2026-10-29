@@ -1,3 +1,9 @@
+---
+title: AST-based inlining for `substitute_param`
+type: note
+date: 2026-08-24
+---
+
 # AST-based inlining for `substitute_param`
 
 ## Status

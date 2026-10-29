@@ -1,3 +1,10 @@
+---
+title: 'Package Manager: Content-Addressed, Diff-Based, Composable Stores'
+type: adr
+date: 2026-08-24
+status: proposed
+---
+
 # Package Manager: Content-Addressed, Diff-Based, Composable Stores
 
 ## Context

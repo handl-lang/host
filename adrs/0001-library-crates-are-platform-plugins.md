@@ -1,3 +1,10 @@
+---
+title: Library crates are exposed as Platform plugins
+type: adr
+date: 2026-08-29
+status: accepted
+---
+
 # Library crates are exposed as Platform plugins
 
 ## Context

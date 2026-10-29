@@ -1,3 +1,10 @@
+---
+title: Bootstrap CLI (`host-cli`)
+type: adr
+date: 2026-10-15
+status: implemented
+---
+
 # ADR-0090: Bootstrap CLI (`host-cli`)
 
 ## Status

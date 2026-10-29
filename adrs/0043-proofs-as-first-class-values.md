@@ -1,3 +1,10 @@
+---
+title: Proofs as First-Class Values
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0043: Proofs as First-Class Values
 
 ## Status

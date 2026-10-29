@@ -1,3 +1,10 @@
+---
+title: The Typechecker is Handl, Not Rust
+type: adr
+date: 2026-09-10
+status: accepted
+---
+
 # ADR-0105: The Typechecker is Handl, Not Rust
 
 ## Status

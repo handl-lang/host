@@ -1,3 +1,10 @@
+---
+title: Lint Rules as Language Data
+type: adr
+date: 2026-09-08
+status: accepted
+---
+
 # ADR-0097: Lint Rules as Language Data
 
 ## Context

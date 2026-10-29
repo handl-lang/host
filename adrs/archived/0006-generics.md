@@ -1,3 +1,10 @@
+---
+title: Parametric Polymorphism (Generics) for handl Type System
+type: adr
+date: 2026-08-29
+status: implemented
+---
+
 # Parametric Polymorphism (Generics) for handl Type System
 
 ## Context

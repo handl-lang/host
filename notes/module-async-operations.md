@@ -1,3 +1,9 @@
+---
+title: 'Module System: Async + Operation Dispatch'
+type: note
+date: 2026-08-24
+---
+
 # Module System: Async + Operation Dispatch
 
 ## Problem

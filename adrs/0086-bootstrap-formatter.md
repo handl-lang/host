@@ -1,3 +1,10 @@
+---
+title: Bootstrap Formatter (`plugin-ext-fmt`)
+type: adr
+date: 2026-10-15
+status: implemented
+---
+
 # ADR-0086: Bootstrap Formatter (`plugin-ext-fmt`)
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: Wiring `.hnl` modules into `HandlNativeLint` and `HandlNativeRewrite`
+type: adr
+date: 2026-09-14
+status: proposed
+---
+
 # Wiring `.hnl` modules into `HandlNativeLint` and `HandlNativeRewrite`
 
 ## Status

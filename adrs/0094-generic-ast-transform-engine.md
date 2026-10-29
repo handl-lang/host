@@ -1,3 +1,10 @@
+---
+title: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)
+type: adr
+date: 2026-09-06
+status: accepted
+---
+
 # ADR-0094: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)
 
 ## Status

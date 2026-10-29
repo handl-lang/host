@@ -1,3 +1,10 @@
+---
+title: Scheme-Core Completeness for Self-Hosting
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0063: Scheme-Core Completeness for Self-Hosting
 
 ## Status

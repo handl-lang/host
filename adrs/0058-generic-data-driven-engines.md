@@ -1,3 +1,10 @@
+---
+title: Generic Data-Driven Engines
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0058: Generic Data-Driven Engines
 
 ## Status

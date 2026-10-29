@@ -1,3 +1,10 @@
+---
+title: Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencies
+type: adr
+date: 2026-09-08
+status: accepted
+---
+
 # ADR-0096: Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencies
 
 ## Context

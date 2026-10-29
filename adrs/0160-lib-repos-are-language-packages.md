@@ -1,3 +1,10 @@
+---
+title: '`lib-*` repos are language packages, not crates'
+type: adr
+date: 2026-10-28
+status: proposed
+---
+
 # ADR-0160: `lib-*` repos are language packages, not crates
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: Bootstrap Test Runner (`plugin-engine-test`)
+type: adr
+date: 2026-10-15
+status: unrecorded
+---
+
 # ADR-0089: Bootstrap Test Runner (`plugin-engine-test`)
 
 ## Status

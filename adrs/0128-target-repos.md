@@ -1,3 +1,10 @@
+---
+title: Target repos — ports stay in `host`, modules live in ecosystem repositories
+type: adr
+date: 2026-10-15
+status: proposed
+---
+
 # ADR-0128: Target repos — ports stay in `host`, modules live in ecosystem repositories
 
 ## Context

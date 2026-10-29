@@ -1,3 +1,10 @@
+---
+title: VM is an Operation, Not a Subsystem
+type: adr
+date: 2026-09-02
+status: accepted
+---
+
 # VM is an Operation, Not a Subsystem
 
 ## Status

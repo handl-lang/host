@@ -1,3 +1,10 @@
+---
+title: String / Char / Unicode Layering
+type: adr
+date: 2026-09-07
+status: accepted
+---
+
 # ADR-0093: String / Char / Unicode Layering
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: Import / Export and Multi-File Programs as Evaluated Environments
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0056: Import / Export and Multi-File Programs as Evaluated Environments
 
 ## Status

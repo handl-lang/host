@@ -1,3 +1,9 @@
+---
+title: Tree-shaking in handl
+type: note
+date: 2026-08-24
+---
+
 # Tree-shaking in handl
 
 ## Two levels of tree-shaking

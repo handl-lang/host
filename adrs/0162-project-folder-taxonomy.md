@@ -1,8 +1,12 @@
-# ADR-0162: `project/` holds process artifacts; published docs live in the org `docs/`
+---
+title: '`project/` holds process artifacts; published docs live in the org `docs/`'
+type: adr
+date: 2026-10-28
+status: proposed
+applies_to: all repos with a `project` branch; `docs` (the published hub)
+---
 
-- Status: Proposed
-- Date: 2026-10-28
-- Repos: all repos with a `project` branch; `docs` (the published hub)
+# ADR-0162: `project/` holds process artifacts; published docs live in the org `docs/`
 
 ## Decision
 
@@ -32,10 +36,11 @@
    documented extension, not a free-for-all.
 3. **One artifact answers one question.** A document that answers two is
    split; a document that answers none is deleted.
-4. **Dated vs living.** `notes/`, `reports/`, `retros/` carry a date in the
-   filename and are never edited afterwards. `adrs/`, `design/`,
-   `references.md` are current-truth and carry no dates in the body beyond
-   `Status`/`Date`. Files that predate this rule are renamed, not rewritten.
+4. **Dated vs living.** `notes/`, `reports/`, `retros/` are dated artifacts and
+   are never edited afterwards; the date lives in the frontmatter (`date:`),
+   never in the filename (ADR-0163). `adrs/`, `design/`, `references.md` are
+   current-truth and carry their creation/decision date in frontmatter only.
+   Filenames are stable labels — a file is never renamed to carry a date.
 5. **`design/`** is either named after the ADR it elaborates (`NNNN-slug.md`)
    or carries a `- Refs: ADR-NNNN, …` line under its title. Once the ADR's
    `## Enforcement` names the code that makes it true, the design doc may be
@@ -49,6 +54,7 @@
    only** — cross-repo plans, org policy, the docs manifest — never a repo's
    own ADRs and never a staging copy of them.
 9. `scripts/check-project-layout.py` enforces 1, 2, 7 and 8;
+   `scripts/project-frontmatter.py` enforces the metadata schema (ADR-0163);
    `scripts/check-adrs.py` enforces the ADR side (ADR-0161).
 10. `project/README.md` states this map in one screen and links this ADR.
 
@@ -77,8 +83,8 @@ the tree the docs site sweeps.
 ## Consequences
 
 - `host/project` lands clean: `assets/` folded into `notes/`, undated
-  `notes/`/`reports/` renamed from their git creation dates, `design/` files
-  given `Refs:` lines.
+  `notes/`/`reports/` take their git creation date in frontmatter (never in
+  the filename), `design/` files given `Refs:` lines.
 - `graphopt` declares `plans/` and `GOALS.md` as local entries (a research
   repo's workstream records and goal ledger), moves its lab notebook into
   `notes/`, and keeps `retros/` as-is.

@@ -1,3 +1,10 @@
+---
+title: Directed Homotopy Type Theory as the Theoretical Limit
+type: adr
+date: 2026-09-08
+status: proposed
+---
+
 # ADR-0100: Directed Homotopy Type Theory as the Theoretical Limit
 
 ## Status

@@ -1,3 +1,9 @@
+---
+title: Backlog
+type: backlog
+date: 2026-08-24
+---
+
 # Backlog
 
 ## Tooling (deferred — self-hosting, see `project/rfcs/`)

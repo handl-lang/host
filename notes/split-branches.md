@@ -1,3 +1,9 @@
+---
+title: '`split/*` scratch branches — retired (ADR-0129 4.3)'
+type: note
+date: 2026-10-15
+---
+
 # `split/*` scratch branches — retired (ADR-0129 4.3)
 
 The 18 `split/*` branches were orphan scratch branches (no merge-base with

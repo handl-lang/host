@@ -1,3 +1,9 @@
+---
+title: lib-json-handl dogfood report (round 3)
+type: report
+date: 2026-10-25
+---
+
 # lib-json-handl dogfood report (round 3)
 
 **Deliverable**: `/home/luis/GitHub/handl-lang/lib-json-handl/src/json.hnl` — a pure-handl

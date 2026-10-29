@@ -1,3 +1,10 @@
+---
+title: Bootstrap Linter (`plugin-ext-lint`)
+type: adr
+date: 2026-10-15
+status: implemented
+---
+
 # ADR-0087: Bootstrap Linter (`plugin-ext-lint`)
 
 ## Status

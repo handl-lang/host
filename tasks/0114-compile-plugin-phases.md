@@ -1,3 +1,9 @@
+---
+title: 'Task plan: ADR-0114 — Handl Compile Plugin Architecture'
+type: task
+date: 2026-09-14
+---
+
 # Task plan: ADR-0114 — Handl Compile Plugin Architecture
 
 Refs: `project/adrs/0114-handl-compile-plugin-architecture.md`

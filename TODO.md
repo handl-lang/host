@@ -1,3 +1,9 @@
+---
+title: TODO
+type: task
+date: 2026-09-02
+---
+
 # TODO
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)

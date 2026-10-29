@@ -1,3 +1,9 @@
+---
+title: Formatter as a Production Pipeline — Implementation Report
+type: report
+date: 2026-09-08
+---
+
 # ADR-0095: Formatter as a Production Pipeline — Implementation Report
 
 **Status:** Implemented (committed at `8fb2616b`). Formatter logic proven correct;

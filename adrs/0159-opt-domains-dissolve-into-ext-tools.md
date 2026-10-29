@@ -1,3 +1,10 @@
+---
+title: Optimizer domains dissolve into `ext` tools, on a trigger
+type: adr
+date: 2026-10-27
+status: proposed
+---
+
 # ADR-0159: Optimizer domains dissolve into `ext` tools, on a trigger
 
 ## Status

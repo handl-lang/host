@@ -1,3 +1,11 @@
+---
+title: 'Modular AST: `ast-common` and `handl-ast`'
+type: adr
+date: 2026-08-24
+status: superseded
+superseded_by: [ADR-0044]
+---
+
 # Modular AST: `ast-common` and `handl-ast`
 
 ## Status

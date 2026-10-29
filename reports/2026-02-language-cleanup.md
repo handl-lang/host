@@ -1,3 +1,9 @@
+---
+title: 'Report: Language cleanup, transform engine, and engine-parity push'
+type: report
+date: 2026-02
+---
+
 # Report: Language cleanup, transform engine, and engine-parity push
 
 Date: 2026-02 (this session). Merge heads: `c0ba7dbf`, `efa6cf7e`, `77c61969`.

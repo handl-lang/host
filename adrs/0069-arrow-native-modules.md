@@ -1,3 +1,10 @@
+---
+title: Files Are Arrows — Arrow-Native Modules
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0069: Files Are Arrows — Arrow-Native Modules
 
 ## Status

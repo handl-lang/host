@@ -1,3 +1,9 @@
+---
+title: Task 0128 — Target-repo split (ADR-0128)
+type: task
+date: 2026-10-15
+---
+
 # Task 0128 — Target-repo split (ADR-0128)
 
 Split `platform` into the reference platform plus target/ecosystem repos.

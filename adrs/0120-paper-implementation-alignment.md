@@ -1,3 +1,10 @@
+---
+title: Paper–Implementation Alignment Plan
+type: adr
+date: 2026-09-18
+status: accepted
+---
+
 # ADR-0120: Paper–Implementation Alignment Plan
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: Transformations as First-Class Values
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0042: Transformations as First-Class Values
 
 ## Status

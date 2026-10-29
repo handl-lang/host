@@ -1,3 +1,10 @@
+---
+title: Data-Driven AST Child Roles — Closing the Last Engine Hardcoding
+type: adr
+date: 2026-09-04
+status: accepted
+---
+
 # ADR-0081: Data-Driven AST Child Roles — Closing the Last Engine Hardcoding
 
 ## Status

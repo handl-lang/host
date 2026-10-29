@@ -1,3 +1,10 @@
+---
+title: Tagged Values
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0055: Tagged Values
 
 ## Status

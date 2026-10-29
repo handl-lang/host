@@ -1,9 +1,13 @@
-# ADR-NNNN: <the decision, stated as a fact — "X is Y", not "About X">
+---
+title: <the decision, stated as a fact — "X is Y", not "About X">
+type: adr
+date: YYYY-MM-DD
+status: proposed          # proposed accepted implemented landed superseded absorbed rejected unrecorded
+applies_to: <repos / crates this binds — omit if this repo only>
+refs: []                  # [ADR-NNNN] records this one elaborates
+---
 
-- Status: Proposed | Accepted | Implemented | Landed | Superseded by ADR-NNNN | Absorbed into ADR-NNNN | Rejected
-- Date: YYYY-MM-DD
-- Repos: `host` (`crate-name`), `engine-*`, …
-- Supersedes: ADR-NNNN (omit if none)
+# ADR-NNNN: <the decision, stated as a fact — "X is Y", not "About X">
 
 ## Decision
 

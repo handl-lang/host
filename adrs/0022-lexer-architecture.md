@@ -1,3 +1,10 @@
+---
+title: 'Lexer Architecture: Self-Hosted Streaming with Runtime Config'
+type: adr
+date: 2026-08-24
+status: proposed
+---
+
 # Lexer Architecture: Self-Hosted Streaming with Runtime Config
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: Meta Functions as `plugin-lib-*` Crates
+type: adr
+date: 2026-09-02
+status: accepted
+---
+
 # ADR-0047: Meta Functions as `plugin-lib-*` Crates
 
 ## Status

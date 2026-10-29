@@ -1,3 +1,10 @@
+---
+title: Arrow Calculus Kernel
+type: adr
+date: 2026-08-31
+status: accepted
+---
+
 # ADR-0052: Arrow Calculus Kernel
 
 ## Status

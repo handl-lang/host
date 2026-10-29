@@ -1,3 +1,10 @@
+---
+title: Modules are Evaluated Environments
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0049: Modules are Evaluated Environments
 
 ## Status

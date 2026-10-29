@@ -1,3 +1,10 @@
+---
+title: Lower `call`/`dimension` application to `App` terms
+type: adr
+date: 2026-10-17
+status: accepted
+---
+
 # ADR-0148: Lower `call`/`dimension` application to `App` terms
 
 ## Status

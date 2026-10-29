@@ -1,3 +1,10 @@
+---
+title: Lower the `while` state fold to `Loop` + explicit protocol ops
+type: adr
+date: 2026-10-17
+status: accepted
+---
+
 # ADR-0147: Lower the `while` state fold to `Loop` + explicit protocol ops
 
 ## Status

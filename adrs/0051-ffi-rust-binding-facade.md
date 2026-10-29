@@ -1,3 +1,11 @@
+---
+title: '`ffi-rust` — Generic Rust Binding Façade'
+type: adr
+date: 2026-09-02
+status: superseded
+superseded_by: [ADR-0083]
+---
+
 # ADR-0051: `ffi-rust` — Generic Rust Binding Façade
 
 ## Status

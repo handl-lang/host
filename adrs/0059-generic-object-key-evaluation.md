@@ -1,3 +1,10 @@
+---
+title: Generic Object Key Evaluation
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0059: Generic Object Key Evaluation
 
 ## Status

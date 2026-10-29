@@ -1,3 +1,10 @@
+---
+title: 'ADR-0001 (Remaining): Canonical Token/Grammar/Value Plugin Cleanup'
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0001 (Remaining): Canonical Token/Grammar/Value Plugin Cleanup
 
 ## Status

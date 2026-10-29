@@ -1,3 +1,10 @@
+---
+title: Generic Call Dispatch
+type: adr
+date: 2026-09-01
+status: proposed
+---
+
 # ADR-0060: Generic Call Dispatch
 
 ## Status

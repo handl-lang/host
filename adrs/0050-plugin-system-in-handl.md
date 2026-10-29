@@ -1,3 +1,10 @@
+---
+title: Plugin System in handl Itself
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0050: Plugin System in handl Itself
 
 ## Status

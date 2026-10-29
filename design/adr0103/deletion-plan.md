@@ -1,3 +1,9 @@
+---
+title: 'Plan: Delete the Rust NBE typechecker after `hnl typecheck --handl` is production-ready'
+type: design
+date: 2026-09-11
+---
+
 # Plan: Delete the Rust NBE typechecker after `hnl typecheck --handl` is production-ready
 
 This document is a branch-ready execution plan. It does **not** delete any

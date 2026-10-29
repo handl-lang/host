@@ -1,9 +1,14 @@
+---
+title: '`~[n]~>` is a dimension index — n-cells as one indexed former'
+type: adr
+date: 2026-10-22
+status: accepted
+applies_to: '`kernel` (`handl-value`, `handl-language`), `kit-prelude-lang`,'
+---
+
 # ADR-0153: `~[n]~>` is a dimension index — n-cells as one indexed former
 
-- Status: Accepted
-- Date: 2026-10-22 (corrects the first draft, which conflated
   dimensions with coeffect grades)
-- Repos: `kernel` (`handl-value`, `handl-language`), `kit-prelude-lang`,
   `engine-typecheck-nbe`, `lib-type`
 
 ## Context

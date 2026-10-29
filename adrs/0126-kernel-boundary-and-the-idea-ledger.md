@@ -1,3 +1,10 @@
+---
+title: Kernel boundary, and the idea ledger for retired reifications
+type: adr
+date: 2026-10-12
+status: accepted
+---
+
 # ADR-0126: Kernel boundary, and the idea ledger for retired reifications
 
 ## Context

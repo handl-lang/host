@@ -1,8 +1,13 @@
+---
+title: Multi-shot `resume` for `handle` effects — design + tree-walk prototype
+type: design
+date: 2026-10-26
+refs: [ADR-0158, ADR-0106]
+---
+
 # Multi-shot `resume` for `handle` effects — design + tree-walk prototype
-- Refs: ADR-0158, ADR-0106
 
 
-**Status**: Proposed (tree-walk prototype landed; cranelift replay driver landed)
 **Refs**: ADR-0158 (resumption semantics — `perform` dispatches in-flight),
 ADR-0106 (self-contained arrow values), ADR-0076 (`handle` dynamic extent),
 Sanada — *Algebraic effects and handlers for arrows*.

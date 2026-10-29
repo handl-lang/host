@@ -1,3 +1,9 @@
+---
+title: Task 0129 — Project-docs split (ADR-0129)
+type: task
+date: 2026-10-15
+---
+
 # Task 0129 — Project-docs split (ADR-0129)
 
 Distribute `host/project/` across the target repos' `project` branches

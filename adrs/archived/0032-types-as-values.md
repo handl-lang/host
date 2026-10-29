@@ -1,3 +1,10 @@
+---
+title: Types are values, runtime and typechecker share one value space
+type: adr
+date: 2026-08-29
+status: accepted
+---
+
 # Types are values, runtime and typechecker share one value space
 
 ## Context

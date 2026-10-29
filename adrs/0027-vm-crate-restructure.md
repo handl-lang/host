@@ -1,3 +1,11 @@
+---
+title: VM Crate Restructure
+type: adr
+date: 2026-08-24
+status: superseded
+superseded_by: [ADR-0040]
+---
+
 # VM Crate Restructure
 
 ## Status

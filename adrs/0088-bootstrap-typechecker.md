@@ -1,3 +1,10 @@
+---
+title: Bootstrap Typechecker (`plugin-engine-typecheck`)
+type: adr
+date: 2026-10-15
+status: implemented
+---
+
 # ADR-0088: Bootstrap Typechecker (`plugin-engine-typecheck`)
 
 ## Status

@@ -1,3 +1,10 @@
+---
+title: Loaders as Abstract Plugins
+type: adr
+date: 2026-08-29
+status: proposed
+---
+
 # ADR-0035: Loaders as Abstract Plugins
 
 ## Status

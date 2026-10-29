@@ -1,3 +1,10 @@
+---
+title: Concurrent Arrow Calculus
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0072: Concurrent Arrow Calculus
 
 ## Status

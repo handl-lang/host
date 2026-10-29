@@ -1,3 +1,10 @@
+---
+title: Platform is agnostic of language-specific plugins
+type: adr
+date: 2026-08-29
+status: accepted
+---
+
 # Platform is agnostic of language-specific plugins
 
 ## Context

@@ -1,3 +1,9 @@
+---
+title: 'ADR-0085..0094 follow-up: routing the tooling through capability contracts'
+type: task
+date: 2026-10-10
+---
+
 # ADR-0085..0094 follow-up: routing the tooling through capability contracts
 
 Status: **done for `fmt` / `lint` / `typecheck` / `test`.** Every step below

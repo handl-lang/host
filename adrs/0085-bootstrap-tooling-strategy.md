@@ -1,3 +1,10 @@
+---
+title: Bootstrap Tooling Strategy — Rust Tooling on the Generic Substrate
+type: adr
+date: 2026-10-15
+status: implemented
+---
+
 # ADR-0085: Bootstrap Tooling Strategy — Rust Tooling on the Generic Substrate
 
 ## Status

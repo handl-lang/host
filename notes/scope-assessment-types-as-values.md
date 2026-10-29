@@ -1,3 +1,9 @@
+---
+title: 'Scope Assessment: Types as handl Values'
+type: note
+date: 2026-10-15
+---
+
 # Scope Assessment: Types as handl Values
 
 ## Current Architecture

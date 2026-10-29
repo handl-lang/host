@@ -1,3 +1,9 @@
+---
+title: ADR Review and Archive Summary
+type: report
+date: 2026-09-01
+---
+
 # ADR Review and Archive Summary
 
 **Date:** 2026-09-01  

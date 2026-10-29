@@ -1,3 +1,10 @@
+---
+title: Shared Diagnostics Crate (`plugin-ext-diag`)
+type: adr
+date: 2026-10-15
+status: implemented
+---
+
 # ADR-0091: Shared Diagnostics Crate (`plugin-ext-diag`)
 
 ## Status

@@ -1,5 +1,11 @@
+---
+title: Denotational semantics — `Val` as the domain, `[[·]]` as the evaluator
+type: design
+date: 2026-10-25
+refs: [ADR-0106, ADR-0154, ADR-0158]
+---
+
 # Denotational semantics — `Val` as the domain, `[[·]]` as the evaluator
-- Refs: ADR-0106, ADR-0154, ADR-0158
 
 
 Naming what the evaluator already computes. The semantic domain is not a

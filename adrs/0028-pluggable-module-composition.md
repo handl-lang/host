@@ -1,3 +1,10 @@
+---
+title: Pluggable Module Composition
+type: adr
+date: 2026-08-24
+status: proposed
+---
+
 # Pluggable Module Composition
 
 ## Context

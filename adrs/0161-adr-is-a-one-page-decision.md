@@ -1,8 +1,12 @@
-# ADR-0161: An ADR is a one-page decision record
+---
+title: An ADR is a one-page decision record
+type: adr
+date: 2026-10-28
+status: proposed
+applies_to: '`host` (`project/adrs`, `scripts/check-adrs.py`), all repos with `project/adrs`'
+---
 
-- Status: Proposed
-- Date: 2026-10-28
-- Repos: `host` (`project/adrs`, `scripts/check-adrs.py`), all repos with `project/adrs`
+# ADR-0161: An ADR is a one-page decision record
 
 ## Decision
 

@@ -1,3 +1,11 @@
+---
+title: Versioning for Language Artifacts
+type: adr
+date: 2026-08-24
+status: superseded
+superseded_by: [ADR-0010]
+---
+
 # Versioning for Language Artifacts
 
 ## Context

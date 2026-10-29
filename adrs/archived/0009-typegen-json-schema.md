@@ -1,3 +1,10 @@
+---
+title: Type generation from handl field declarations
+type: adr
+date: 2026-08-29
+status: accepted
+---
+
 # ADR-0034: Type generation from handl field declarations
 
 ## Status

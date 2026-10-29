@@ -1,3 +1,10 @@
+---
+title: Generic Typecheck Engine
+type: adr
+date: 2026-09-01
+status: accepted
+---
+
 # ADR-0054: Generic Typecheck Engine
 
 ## Status

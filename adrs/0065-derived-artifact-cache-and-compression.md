@@ -1,3 +1,10 @@
+---
+title: Derived-Artifact Cache and Compression
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0065: Derived-Artifact Cache and Compression
 
 ## Status

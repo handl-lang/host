@@ -1,3 +1,10 @@
+---
+title: Formatter as a Production Pipeline (`FormatEngine` stage contracts)
+type: adr
+date: 2026-09-08
+status: proposed
+---
+
 # ADR-0095: Formatter as a Production Pipeline (`FormatEngine` stage contracts)
 
 ## Status

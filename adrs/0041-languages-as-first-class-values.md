@@ -1,3 +1,10 @@
+---
+title: Languages as First-Class Values
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0041: Languages as First-Class Values
 
 ## Status

@@ -1,8 +1,13 @@
+---
+title: '`data` is a nominal former + constructor arrows + dependent eliminator'
+type: adr
+date: 2026-10-21
+status: accepted
+applies_to: '`kernel` (`handl-value`), `kit-prelude-lang` (grammar, desugar'
+---
+
 # ADR-0152: `data` is a nominal former + constructor arrows + dependent eliminator
 
-- Status: Accepted
-- Date: 2026-10-21
-- Repos: `kernel` (`handl-value`), `kit-prelude-lang` (grammar, desugar
   rules), `engine-transform-rewrite` (`desugar.data` native),
   `engine-typecheck-nbe`, `lib-type`
 

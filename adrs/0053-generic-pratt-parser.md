@@ -1,3 +1,10 @@
+---
+title: Generic Pratt Parser
+type: adr
+date: 2026-09-02
+status: proposed
+---
+
 # ADR-0053: Generic Pratt Parser
 
 ## Status

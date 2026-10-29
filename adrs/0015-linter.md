@@ -1,3 +1,10 @@
+---
+title: handl Linter
+type: adr
+date: 2026-08-24
+status: proposed
+---
+
 # handl Linter
 
 ## Context
