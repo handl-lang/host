@@ -3,7 +3,7 @@ title: Generic Pratt Parser — Grammar Data Replaces Per-Construct Branches
 type: adr
 date: 2026-09-02
 status: proposed
-status_note: Accepted — the five parser special cases and the literal heuristic are grammar data.
+status_note: Proposed — the five parser special cases and the literal heuristic are grammar data.
 refs: [ADR-0044]
 ---
 

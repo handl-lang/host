@@ -3,7 +3,7 @@ title: Target Repos — Repo = Target, Module = One Port Implementation
 type: adr
 date: 2026-10-15
 status: proposed
-status_note: Accepted — repo = target/ecosystem, module = one port implementation; extraction landed per the design table.
+status_note: Proposed — repo = target/ecosystem, module = one port implementation; extraction landed per the design table.
 ---
 
 # ADR-0128: Target Repos — Repo = Target, Module = One Port Implementation
