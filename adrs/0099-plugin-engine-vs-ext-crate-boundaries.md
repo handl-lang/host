@@ -52,7 +52,11 @@ The workspace contains `plugin-engine-*` and `plugin-ext-*` crates, but the dist
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-engine-*` — where this is true.
+- `plugin-ext-*` — where this is true.
+- `plugin-ext-typecheck` — where this is true.
+- `plugin-engine-typecheck` — where this is true.
+- `plugin-engine-typecheck-nbe` — where this is true.
 
 ## Design
 

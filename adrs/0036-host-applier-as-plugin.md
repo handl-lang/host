@@ -51,7 +51,7 @@ With ADR-0035, physical plugin loaders became first-class plugins. The host now 
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `host-cli` — where this is true.
 
 ## Design
 

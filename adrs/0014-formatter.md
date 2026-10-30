@@ -112,7 +112,9 @@ handl documents can be written in multiple frontends (YAML, JSON, TOML, `.handl`
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-ext-fmt` — where this is true.
+- `plugin-fmt-expression` — where this is true.
+- `plugin-fmt-stmt` — where this is true.
 
 ## Design
 

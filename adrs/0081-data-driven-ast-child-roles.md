@@ -72,7 +72,11 @@ ADR-0058 (Accepted) migrated four primitives (`var`/`call`/`object`/pattern-matc
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-engine-exec-tree-walk` — where this is true.
+- `plugin-engine-typecheck-nbe` — where this is true.
+- `plugin-engine-exec-cranelift` — where this is true.
+- `plugin-engine-exec-bytecode` — where this is true.
+- `plugin-ext-refinement/arrow_parser.rs` — where this is true.
 
 ## Design
 

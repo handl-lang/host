@@ -125,7 +125,10 @@ ADR-0052 made the kernel arrow calculus: `arr`/`>>>`/`first`/`choice`/`loop`/`ap
 
 ## Not doing
 
-- none recorded — legacy record; the design doc lists what was deferred.
+- **Multiple large kits** are loaded in one process (each kit is a region;
+- **Embedded/constrained targets** with limited memory (load only what's
+- **Network-loaded languages** (stream chunks as needed, not the whole
+- **Large language definitions** (e.g., a `Language` with a rich standard
 
 ## Consequences
 

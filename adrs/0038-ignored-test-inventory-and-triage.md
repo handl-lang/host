@@ -73,7 +73,9 @@ The workspace currently has 34 ignored tests across 10 files in 7 distinct works
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `kit-canonical` — where this is true.
+- `plugin-vm-backend-rust-interpreter` — where this is true.
+- `plugin-ext-fmt` — where this is true.
 
 ## Design
 

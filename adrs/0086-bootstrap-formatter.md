@@ -68,7 +68,9 @@ The v0.1 arrow surface syntax (ADR-0074) is now being used to write the handl st
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-ext-fmt` — where this is true.
+- `plugin-engine-parse` — where this is true.
+- `plugin-ext-diag` — where this is true.
 
 ## Design
 

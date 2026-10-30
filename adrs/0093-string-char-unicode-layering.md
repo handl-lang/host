@@ -97,7 +97,11 @@ The `str`/`char`/`unicode` surface in handl has to work across runtimes whose st
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `kit-canonical` — where this is true.
+- `plugin-lib-stdlib` — where this is true.
+- `plugin-lib-char-native` — where this is true.
+- `plugin-lib-utils` — where this is true.
+- `plugin-engine-exec-tree-walk` — where this is true.
 
 ## Design
 

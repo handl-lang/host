@@ -73,7 +73,11 @@ The Handl platform has three physical plugin loading mechanisms today:
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-loader-*` — where this is true.
+- `plugin-load` — where this is true.
+- `plugin-loader-native` — where this is true.
+- `plugin-loader-wasm` — where this is true.
+- `plugin-loader-web` — where this is true.
 
 ## Design
 

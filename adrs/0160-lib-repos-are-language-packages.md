@@ -57,7 +57,11 @@ The `lib-*` split (ADR-0128) made each stdlib port a repo. The contract is a Han
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `lib-*` — where this is true.
+- `lib-lang-*` — where this is true.
+- `engine-test` — where this is true.
+- `plugin-lib-handl` — where this is true.
+- `lib-pred/src/lib.rs` — where this is true.
 
 ## Design
 

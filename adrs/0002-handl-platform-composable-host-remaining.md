@@ -46,7 +46,7 @@ ADR-0002 v1 (Single Plugin Model for Host, Operations, Libraries, Targets, and O
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-lib-*` — where this is true.
 
 ## Design
 

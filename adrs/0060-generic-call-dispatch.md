@@ -169,7 +169,9 @@ ADR-0058 established that eval engines should be fixed interpreters of `Language
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-engine-exec-tree-walk` — where this is true.
+- `plugin-engine-exec-bytecode` — where this is true.
+- `plugin-engine-exec-cranelift` — where this is true.
 
 ## Design
 

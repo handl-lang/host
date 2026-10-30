@@ -80,7 +80,10 @@ The stdlib will be the first large body of arrow-surface handl code (ADR-0077). 
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-ext-lint` — where this is true.
+- `plugin-engine-parse` — where this is true.
+- `plugin-ext-diag` — where this is true.
+- `plugin-ext-fmt` — where this is true.
 
 ## Design
 

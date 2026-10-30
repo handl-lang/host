@@ -72,7 +72,9 @@ The `import` op exists in all three eval engines and `handl-runtime` owns a `Mod
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-lib-handl/examples/loader_bench.rs` — where this is true.
+- `plugin-ext-refinement` — where this is true.
+- `kit-canonical/tests/import_export.rs` — where this is true.
 
 ## Design
 

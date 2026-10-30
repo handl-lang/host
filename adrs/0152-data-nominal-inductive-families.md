@@ -122,7 +122,9 @@ decreasing on `v`'s ctor spine by construction.
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `kit-prelude-lang` — where this is true.
+- `engine-transform-rewrite/src/native/desugar.rs` — where this is true.
+- `lib-type` — where this is true.
 
 ## Design
 

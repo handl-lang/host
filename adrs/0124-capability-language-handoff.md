@@ -126,7 +126,11 @@ The `plugin-ext-*` tooling plugins (`fmt`, `lint`, and the proposed `typecheck`/
 
 ## Enforcement
 
-- Code and tests are named in the design doc.
+- `plugin-ext-*` — where this is true.
+- `plugin-engine-typecheck-handl` — where this is true.
+- `host-lsp` — where this is true.
+- `kit-canonical` — where this is true.
+- `host-cli` — where this is true.
 
 ## Design
 
