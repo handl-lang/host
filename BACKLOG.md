@@ -2,6 +2,7 @@
 title: Backlog
 type: backlog
 date: 2026-08-24
+updated: 2026-10-29
 ---
 
 # Backlog
@@ -403,4 +404,36 @@ Context: `design/multishot-resume.md`, `notes/multishot-resume-cranelift.md`.
   same `perform` would consume a new journal entry each pass and replay
   can never converge. Supporting it needs journal memoization keyed by
   (pass, op index).
+
+
+## ADR corpus — memory pass (after the 2026-10-29 compaction)
+
+The size/rule backlog is **zero**: every live ADR across the org is ≤8 KB and
+≤10 top-level rules; detail lives in each repo's `project/design/` (port plans
+in `project/rfcs/`). Archived and superseded records are history and are not
+compacted.
+
+What remains is the memory pass — sections that were absent in the legacy
+corpus and where neither the ADR nor its design doc records an answer:
+
+- **`Not doing` placeholders**: 48 records carry
+  `none recorded — legacy record…`. Replace only with alternatives the record
+  actually rejected — never invent one.
+- **`Enforcement` placeholders**: 35 records carry
+  `Code and tests are named in the design doc.` Replace with the crate/test
+  that makes the rule true.
+
+Find them:
+
+```bash
+grep -rl 'none recorded — legacy record' --include='*.md' */project/adrs
+grep -rl 'Code and tests are named in the design doc' --include='*.md' */project/adrs
+```
+
+Per-repo counts: `python3 host/scripts/check-adrs.py --repo <repo>` reports the
+reminder counts; `--strict` gates new/modified records; `--changed REV` is the
+PR ratchet.
+
+Also tracked here, not by this repo: `host` main's working tree and
+`graphopt`'s `Cargo.lock` belong to parallel sessions.
 
