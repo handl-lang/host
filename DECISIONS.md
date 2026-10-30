@@ -53,23 +53,13 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - plugin-eval-* (eval rules) — [ADR-0002](adrs/0002-platform-is-agnostic.md)
 - plugin-fmt-*, plugin-lint-*, plugin-diag-* (formatting, linting, diagnostics) — [ADR-0002](adrs/0002-platform-is-agnostic.md)
 
-### Strategy C — Runtime Module Loading as Handler Interpreted Ops
+### Strategy C — Runtime Module Loading as Handler-Interpreted Ops
 
-- A -- @strategy runtime program directive → **removed.** The handler decides by having (or not having) clauses — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- A supports_runtime_loading handler capability → **removed.** That's just "does the operation table include module_ref?" — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- A separate "Strategy C" code path → **removed.** It's the same graph, interpreted by a handler that handles the ops — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- **Path allowlist:** the clause checks path against allowed_roots before resolving. Paths outside → error — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- **Depth limit:** the clause tracks the active load stack. Exceeds max_depth → error — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- **No network by default:** which resolvers are wired into the handler's loader is handler config. FileResolver only by… — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- **Cycle detection at runtime:** the loader tracks the active load stack. A cycle → LoadError::Cycle, not an infinite… — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- walk scheme, collect all module_ref(path) nodes — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- build import graph: path → set of paths it imports — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- detect cycles via DFS — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- Register module_ref and project in ContractRegistry with permissive contracts — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- For tighter contracts: load referenced modules' contracts (via ModuleLoader's contract cache), compose without inlining… — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- infer_refinement works on the whole graph without modification — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- A second handler needs to interpret them (one handler matching a string is fine; two duplicating the convention is the… — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
-- The stringly-typed matching causes real problems (bugs, missed cases) — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
+- **Strategy C is not a separate strategy.** module_ref and project are — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
+- **The handler's operation table is the opt-in.** A handler without the — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
+- **Governance is handler configuration**: path allowlist, load-depth limit, — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
+- **Two static passes work without executing**: cycle detection over the — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
+- **Graduate to real Scheme variants only** when a second handler needs — [ADR-0009](adrs/0009-strategy-c-runtime-module-loading.md)
 
 ### Package Manager: Content-Addressed, Diff-Based, Composable Stores
 
@@ -92,19 +82,13 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - --write overwrites the source file atomically — [ADR-0014](adrs/0014-formatter.md)
 - The formatter does not resolve imports or merge included files — it — [ADR-0014](adrs/0014-formatter.md)
 
-### handl Linter
+### Linter
 
-- error — the document violates a hard convention and must not pass CI — [ADR-0015](adrs/0015-linter.md)
-- warn — the document works but is missing a recommended practice — [ADR-0015](adrs/0015-linter.md)
-- info — a reminder or style suggestion — [ADR-0015](adrs/0015-linter.md)
-- naming-convention (error): field names do not follow the naming — [ADR-0015](adrs/0015-linter.md)
-- missing-annotations (warn): a library module is missing one of — [ADR-0015](adrs/0015-linter.md)
-- deprecated-keyword (warn): a schema uses a deprecated keyword — [ADR-0015](adrs/0015-linter.md)
-- unused-field (info): a field is declared but never referenced — [ADR-0015](adrs/0015-linter.md)
-- style (warn, auto-fixable): the file is not in canonical format — [ADR-0015](adrs/0015-linter.md)
-- missing-version (info): a library module has no version field — [ADR-0015](adrs/0015-linter.md)
-- Peregrin might add rules for event contract validation, resilience — [ADR-0015](adrs/0015-linter.md)
-- A custom host might add rules for capability declarations or security — [ADR-0015](adrs/0015-linter.md)
+- **handl lint checks documents against an extensible rule set**; paths may — [ADR-0015](adrs/0015-linter.md)
+- **A rule is a pure function** from the parsed document + file metadata to — [ADR-0015](adrs/0015-linter.md)
+- **Severity is error / warn / info**; exit 0 unless an error is — [ADR-0015](adrs/0015-linter.md)
+- **The initial rule set** is naming-convention, missing-annotations, — [ADR-0015](adrs/0015-linter.md)
+- **Rules are namespaced and extensible** — hosts register their own — [ADR-0015](adrs/0015-linter.md)
 
 ### Lexer Architecture: Self-Hosted Streaming with Runtime Config
 
@@ -138,40 +122,21 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 
 ### Pluggable Module Composition
 
-- Kits: handl-kit-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- Lexers: handl-lexer-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- Parsers: handl-parser-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- Typecheckers: handl-typecheck-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- Formatters: handl-format-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- Generic passes: handl-pass-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- Multi-pass plugins: handl-plugin-* — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- lexer — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- parser — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- resolve — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- typecheck — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- format — [ADR-0028](adrs/0028-pluggable-module-composition.md)
-- generate — [ADR-0028](adrs/0028-pluggable-module-composition.md)
+- **Replace the static frontend_for(format) and monolithic Dialect** with — [ADR-0028](adrs/0028-pluggable-module-composition.md)
+- **Every module folder may carry module.toml** (language kit + per-stage — [ADR-0028](adrs/0028-pluggable-module-composition.md)
+- **Naming is handl-*** for kits, lexers, parsers, typecheckers, formatters, — [ADR-0028](adrs/0028-pluggable-module-composition.md)
+- **A Composer assembles the pipeline** from the manifest plus each plugin's — [ADR-0028](adrs/0028-pluggable-module-composition.md)
+- **All passes are pluggable** — lexer, parser, resolve, typecheck, format, — [ADR-0028](adrs/0028-pluggable-module-composition.md)
+- **AST strategy**: plugins may produce different ASTs; a lower/canonicalize — [ADR-0028](adrs/0028-pluggable-module-composition.md)
 
-### Platform abstractions and plugin system
+### Platform Abstractions
 
-- capability — Capability, CapabilityId, CapabilityMetadata — [ADR-0031](adrs/0031-platform-abstractions.md)
-- plugin — Plugin, PluginManifest, PluginRegistry, InProcessPlugin, ProcessPlugin — [ADR-0031](adrs/0031-platform-abstractions.md)
-- extension — Extension, ExtensionMetadata — [ADR-0031](adrs/0031-platform-abstractions.md)
-- kit — Kit, KitManifest, KitRegistry — [ADR-0031](adrs/0031-platform-abstractions.md)
-- host — Host — [ADR-0031](adrs/0031-platform-abstractions.md)
-- boundary — Boundary, BoundaryKind — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-fmt — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-lint — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-typecheck — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-eval — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-compile — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-build — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-extension — manages extensions (add, remove, info) — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-kit — manages kits (add, remove, info) — [ADR-0031](adrs/0031-platform-abstractions.md)
-- handl-ext-plugin — manages plugins (add, remove, info) — [ADR-0031](adrs/0031-platform-abstractions.md)
-- crates/host-cli-plugin is emptied; its PluginRegistry and CliPlugin logic move into handl-platform::plugin and are… — [ADR-0031](adrs/0031-platform-abstractions.md)
-- crates/compiler-pass-* become pass hosts that use the platform Plugin/Capability traits to run a Vec<Box<dyn Pass>>… — [ADR-0031](adrs/0031-platform-abstractions.md)
-- crates/vm / crates/plugin-vm-host-eval align their Host with handl-platform::host — [ADR-0031](adrs/0031-platform-abstractions.md)
+- **One crate, handl-platform**, holds the core contracts as modules: — [ADR-0031](adrs/0031-platform-abstractions.md)
+- **CapabilityMetadata is opaque serde_json::Value**; the platform — [ADR-0031](adrs/0031-platform-abstractions.md)
+- **Default capabilities ship as handl-ext-* plugins** (fmt, lint, typecheck, — [ADR-0031](adrs/0031-platform-abstractions.md)
+- **Hosts generate their surface from capability metadata**; the CLI does not — [ADR-0031](adrs/0031-platform-abstractions.md)
+- **Existing crates migrate**: host-cli-plugin empties into — [ADR-0031](adrs/0031-platform-abstractions.md)
+- **Out of scope** until the layer is stable: Framework, Middleware, — [ADR-0031](adrs/0031-platform-abstractions.md)
 
 ### Loaders as Abstract Plugins
 
@@ -265,21 +230,15 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - **Authored data files are canonical.** Rust emitters are a temporary — [ADR-0044](adrs/0044-language-as-data-and-runtime-split.md)
 - **Five review properties are required**: composability (requires), — [ADR-0044](adrs/0044-language-as-data-and-runtime-split.md)
 
-### Capability Discipline at the Language Level (ADR-0041 Phase 5)
+### Capability Discipline at the Language Level
 
-- Scheme::Foreign { name, .. } → add name to host_fns — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- Scheme::Vau { .. } → set has_vau = true, can_eval = true — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- If host_fns contains "eval" or "run" → can_eval = true — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- If host_fns contains "compile" → can_compile = true — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- Look up (lang, config, policy) for handle — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- Check lang's capabilities against policy — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- If denied, return LangError::CapabilityDenied — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- If allowed, build the sub-runtime and evaluate — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- **CapabilitySet::from_language** — scan eval schemes, compute the set — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- **CapabilityPolicy on LanguageRegistry** — attach policies at — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- **Capability inheritance** — narrow sub-runtime policies — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- **capabilities(handle) host function** — expose to handl programs — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
-- **CapabilityDenied error type** — surface to the program — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **CapabilitySet summarizes a Language statically** — host function — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **It is computed by scanning eval schemes**: Foreign adds a name, Vau — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **CapabilityPolicy declares what a context allows** — host fns, vau, — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **A static check at the eval/run/compile boundary** denies before — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **LanguageRegistry carries policies**, attached at registration time by — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **Sub-runtimes inherit a narrowed policy** — a sandboxed language cannot — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
+- **capabilities(handle) is a read-only host function** for handl programs, — [ADR-0046](adrs/0046-capability-discipline-at-the-language-level.md)
 
 ### Meta Functions as `plugin-lib-*` Crates
 
@@ -422,21 +381,11 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 
 ### Chunk Certificates
 
-- The chunk's content hash (BLAKE3, per ADR-0065 §2) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- The chunk's dependencies (chunk ids + content hashes, per ADR-0066 §2) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- The chunk's declared capability set (per ADR-0046 §1 CapabilitySet) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- The chunk's replaces targets (per ADR-0044 §5, ADR-0066 §2) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- The chunk's scheme_version (per ADR-0044 §7) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Metadata: author id, timestamp, certificate version — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Reads the chunk and its certificate — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Recomputes the chunk's content hash; verifies it matches the certificate — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Verifies the signature against the author's public key — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Checks the author is in the host's trust store — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Checks the declared capability set against the host's policy (ADR-0046 §3) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- Recursively verifies each dependency chunk's certificate — [ADR-0067](adrs/0067-chunk-certificates.md)
-- always — every chunk must have a valid certificate (strictest) — [ADR-0067](adrs/0067-chunk-certificates.md)
-- untrusted-only — chunks from trusted sources (local, compile-time) skip — [ADR-0067](adrs/0067-chunk-certificates.md)
-- never — no verification (default today; equivalent to no certificate — [ADR-0067](adrs/0067-chunk-certificates.md)
+- **A certificate is an Ed25519 detached signature** over the canonical — [ADR-0067](adrs/0067-chunk-certificates.md)
+- **Verification happens before load**: recompute the hash, verify the — [ADR-0067](adrs/0067-chunk-certificates.md)
+- **Dependency certificates are required** and pin each dependency's content — [ADR-0067](adrs/0067-chunk-certificates.md)
+- **Author keys are distributed out of band** — key server, pinned host — [ADR-0067](adrs/0067-chunk-certificates.md)
+- **Certificates complement capability checks**: ADR-0046 inspects what the — [ADR-0067](adrs/0067-chunk-certificates.md)
 
 ### Arrow-Native Modules
 
@@ -663,24 +612,14 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - Add a composite (or pipeline) module in plugin-engine-typecheck that runs nbe then refinement on the appropriate… — [ADR-0099](adrs/0099-plugin-engine-vs-ext-crate-boundaries.md)
 - No plugin-ext-* crate may implement a generic algorithm. No plugin-engine-* crate may expose a bin target or a hnl… — [ADR-0099](adrs/0099-plugin-engine-vs-ext-crate-boundaries.md)
 
-### Canonical surface as the arrow calculus
+### Canonical Term Arrows
 
-- Arr — pure constant arrow / lifted pure operation (arr) — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Const — pure constant value (used as an argument) — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Op — named native/foreign operation — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Seq — composition (>>>) — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- First — act on first component — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Second — act on second component (derived from first + arr swap) — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Choice — branch on Either — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Loop — feedback — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- App — higher-order arrow application — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- Handle — capability handler — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- x ~> body → point-free Term sugar. The parser/lowerer eliminates the — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- f(x) / f y → App { callee: f, args: [x] } when f is dynamic, or — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- do { a = b; c } → Seq(b, ...) with the result threaded through the — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- { first: a, last: b } → an Op/Arr that constructs the record from the — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- a + b, a * b → Op { "math.add" / "math.mul", ... } — [ADR-0100](adrs/0100-canonical-term-arrows.md)
-- literals (10, 7) → Const — [ADR-0100](adrs/0100-canonical-term-arrows.md)
+- **The canonical internal form is the arrow-calculus Term** — no — [ADR-0100](adrs/0100-canonical-term-arrows.md)
+- **The constructor set is fixed**: Arr, Const, Op, Seq, First, — [ADR-0100](adrs/0100-canonical-term-arrows.md)
+- **x ~> body lowers point-free** using arr and the product combinators; — [ADR-0100](adrs/0100-canonical-term-arrows.md)
+- **Calls lower to App** when the callee is dynamic and to Seq when it is — [ADR-0100](adrs/0100-canonical-term-arrows.md)
+- **Records, operators and literals lower to Op/Arr/Const**; there are — [ADR-0100](adrs/0100-canonical-term-arrows.md)
+- **The engine interprets Term directly**; eval.yaml describes how each — [ADR-0100](adrs/0100-canonical-term-arrows.md)
 
 ### The Directed-HoTT Limit of the Term Calculus
 
@@ -752,43 +691,24 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 
 ### Handl Compile Plugin Architecture
 
-- plugin-compile defines a Compiler trait and the target-agnostic — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Per-target compiler crates implement Compiler: — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- plugin-compile-js — emits JavaScript for browser / Deno / Node — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- plugin-compile-llvm — emits native code and object files — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- The existing handl-emitters crate keeps its current role: emitting — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- host-cli gains a hnl compile <target> <file> subcommand that dispatches — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Compilers are selected by target name, not by file extension. The target — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- compile_to_string(input, config) -> Result<String, CompileError> — — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- emit_module(input, out_dir) -> Result<JsOutputManifest, CompileError> — — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- runtime_prelude(runtime) -> String — choose the browser, deno, — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Source maps generated by the compiler or by a separate debug crate? — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Bundled handl-runtime.js per target, or granular helper imports? — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- target() -> &str — returns "llvm" — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- compile(input) -> Result<CompilerOutput, CompileError> — build an — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- set_target_triple(triple) — override the default host triple — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Adds a system-LLVM build dependency and an inkwell version coupling — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Emits object files that must be linked with the Handl runtime helper — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Share the exact helper_v2_* ABI with cranelift, or define a slimmer — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
-- Where is cross-target validation enforced: CompilerInput, CLI, or — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **A plugin-compile crate defines Compiler and CompilerInput** (a parsed, — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **handl-emitters keeps its role** — emitting Language data fragments; it — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **hnl compile <target> <file> dispatches by target name**, not file — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **The JS target exposes** compile_to_string, emit_module and — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **Value lowering** maps Handl primitives to JS, Arr/Obj to arrays/objects, — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **Foreign calls lower to js.call(...)** and inline to the native call when — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
+- **v1 emits no source maps**; # sourceURL may be added in esm/inline — [ADR-0114](adrs/0114-handl-compile-plugin-architecture.md)
 
-### Paper–Implementation Alignment Plan
+### Paper/Implementation Alignment
 
-- A function used as a _value_ lowers to Arr { value: <Term> } (quote) — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- call(f, x) lowers to seq(pair(quote f, x), app) for env-bound f; — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- desugar.data's recursor is re-encoded as loop(step) feedback instead — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- No currying. Parameters are products; if partial application is ever — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Term::Seq gains an axis slot (default 0); f >>> g is >>>[0] — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- >>>[k] surface syntax is a YAML/grammar change only — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Types track globular source/target at every level ≤ n; the typing rule — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Merge ArrSource::Foreign(grade) into morphism dimension; the ~[n]~> — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Effects are re-read as cells: op is a cell, handle a cell interpreter — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Family<A>, Π, Σ enter via types.yaml + desugar — extending the — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Reindexing f* is composition (· >>> f); Σ_f ⊣ f* ⊣ Π_f is expressed — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- f ~[2]~> g parses to a Term and feeds law_inference — no separate — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- Path/Equiv/Refine/witness/cell_*/whisker_* are **derived — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- **Strict vs weak:** resolved — weak (proof-relevant). law_inference stays — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
-- **Globular vs cubical:** resolved — globular. Reopen only if univalence- — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 1 — arrows as values**: a function used as a value lowers to — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 1 — no self-application**: desugar.data's recursor becomes — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 2 — composition axes**: Term::Seq gains an axis slot (default — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 3 — dim unification**: ArrSource::Foreign(grade) merges into the — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 3 — effects as cells**: op is a cell and handle is a cell — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 4 — dependent structure**: Family<A>, Π, Σ enter via — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Phase 5 — laws as M[2] terms**: f ~[2]~> g parses to a Term and — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
+- **Ordering is load-bearing**: 1 → 2 → 3 → (4, 5 in parallel), with the — [ADR-0120](adrs/0120-paper-implementation-alignment.md)
 
 ### AST shape faces — closing the last kind-dispatch sites
 
