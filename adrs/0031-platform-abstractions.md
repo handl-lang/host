@@ -1,5 +1,5 @@
 ---
-title: Platform abstractions and plugin system
+title: Platform Abstractions
 type: adr
 date: 2026-08-25
 status: proposed

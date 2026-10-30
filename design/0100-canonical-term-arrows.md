@@ -1,5 +1,5 @@
 ---
-title: 'Canonical surface as the arrow calculus — design detail'
+title: Canonical surface as the arrow calculus — design detail
 type: design
 date: 2026-09-14
 updated: 2026-10-29

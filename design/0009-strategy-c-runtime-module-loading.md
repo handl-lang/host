@@ -1,5 +1,5 @@
 ---
-title: 'ADR-0009: Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail'
+title: Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail
 type: design
 date: 2026-10-16
 updated: 2026-10-29

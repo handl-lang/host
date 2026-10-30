@@ -1,5 +1,5 @@
 ---
-title: Paper–Implementation Alignment Plan
+title: Paper/Implementation Alignment
 type: adr
 date: 2026-09-18
 status: accepted

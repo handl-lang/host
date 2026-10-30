@@ -1,5 +1,5 @@
 ---
-title: 'Capability Discipline at the Language Level (ADR-0041 Phase 5) — design detail'
+title: Capability Discipline at the Language Level (ADR-0041 Phase 5) — design detail
 type: design
 date: 2026-08-30
 updated: 2026-10-29

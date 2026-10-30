@@ -1,5 +1,5 @@
 ---
-title: handl Linter
+title: Linter
 type: adr
 date: 2026-08-24
 status: proposed

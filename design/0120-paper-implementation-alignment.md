@@ -1,5 +1,5 @@
 ---
-title: 'ADR-0120: Paper–Implementation Alignment Plan — design detail'
+title: Paper–Implementation Alignment Plan — design detail
 type: design
 date: 2026-09-18
 updated: 2026-10-29

@@ -1,5 +1,5 @@
 ---
-title: 'ADR 0031: Platform abstractions and plugin system — design detail'
+title: Platform abstractions and plugin system — design detail
 type: design
 date: 2026-08-25
 updated: 2026-10-29

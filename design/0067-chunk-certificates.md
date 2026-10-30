@@ -1,5 +1,5 @@
 ---
-title: 'ADR-0067: Chunk Certificates — design detail'
+title: Chunk Certificates — design detail
 type: design
 date: 2026-09-02
 updated: 2026-10-29

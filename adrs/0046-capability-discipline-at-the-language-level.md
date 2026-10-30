@@ -1,5 +1,5 @@
 ---
-title: Capability Discipline at the Language Level (ADR-0041 Phase 5)
+title: Capability Discipline at the Language Level
 type: adr
 date: 2026-08-30
 status: proposed

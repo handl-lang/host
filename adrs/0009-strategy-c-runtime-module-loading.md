@@ -1,5 +1,5 @@
 ---
-title: Strategy C — Runtime Module Loading as Handler Interpreted Ops
+title: Strategy C — Runtime Module Loading as Handler-Interpreted Ops
 type: adr
 date: 2026-10-16
 status: proposed

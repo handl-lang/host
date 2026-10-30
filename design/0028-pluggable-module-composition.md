@@ -1,5 +1,5 @@
 ---
-title: 'Pluggable Module Composition — design detail'
+title: Pluggable Module Composition — design detail
 type: design
 date: 2026-08-24
 updated: 2026-10-29

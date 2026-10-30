@@ -1,5 +1,5 @@
 ---
-title: 'handl Linter — design detail'
+title: handl Linter — design detail
 type: design
 date: 2026-08-24
 updated: 2026-10-29

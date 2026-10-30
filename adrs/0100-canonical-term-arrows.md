@@ -1,5 +1,5 @@
 ---
-title: Canonical surface as the arrow calculus
+title: Canonical Term Arrows
 type: adr
 date: 2026-09-14
 status: proposed
