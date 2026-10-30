@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 DIRS = {"adrs", "design", "rfcs", "tasks", "notes", "reports", "retros"}
 FILES = {"TODO.md", "BACKLOG.md", "references.md", "parked.yaml",
-         "docs-split.yaml", "README.md"}
+         "docs-split.yaml", "README.md", "DECISIONS.md", "principles.md"}
 # Present in the wild today; each has a named home.
 DRIFT = {
     "docs": "published docs belong to the org `docs` repo (docs/site/…)",
