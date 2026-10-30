@@ -6,18 +6,11 @@ status: proposed
 status_note: Proposed.
 ---
 
+
 # ADR-0114: Handl Compile Plugin Architecture
 
-## Context
-
-Handl currently has three execution engines (tree-walk, bytecode, cranelift)
-that run Handl source at compile time and at runtime. It also has
-`handl-emitters` for emitting `Language` data fragments and
-`plugin-sdkgen-emitter-file` for writing generated SDK `.hnl` files. What it
-does **not** have is a generic plugin architecture for compiling Handl source to
-external target languages such as JavaScript, C, or WebAssembly.
-
 ## Decision
+
 
 Introduce a `plugin-compile` family of crates.
 
@@ -112,19 +105,26 @@ lifetime bookkeeping.
 - Where is cross-target validation enforced: `CompilerInput`, CLI, or
   `TargetMachine` creation?
 
+
+## Why
+
+Handl currently has three execution engines (tree-walk, bytecode, cranelift) that run Handl source at compile time and at runtime. It also has `handl-emitters` for emitting `Language` data fragments and `plugin-sdkgen-emitter-file` for writing generated SDK `.hnl` files. What it does **not** have is a generic plugin architecture for compiling Handl source to external target languages such as JavaScript, C, or WebAssembly.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - Compilers become first-class plugins alongside formatters, linters, and the
-  test runner.
 - The `Compiler` trait can be implemented without touching the Handl core, as
-  long as the input AST and type information are exposed.
 - The SDK generator (`plugin-sdkgen-*`) and the source-to-source compiler
-  (`plugin-compile-*`) remain separate concerns: the former turns foreign APIs
-  into Handl source; the latter turns Handl source into foreign code.
 - A new dependency appears: the compiler needs access to the type-checked AST
-  and a type/grade projection API from `plugin-engine-typecheck`.
 
-## References
+## Enforcement
 
-- [ADR-0107 — Handl SDK Generator](./0107-handl-sdk-generator.md)
-- [ADR-0090 — Bootstrap CLI](./0090-bootstrap-cli.md)
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0114-handl-compile-plugin-architecture.md`](../design/0114-handl-compile-plugin-architecture.md).

@@ -12,16 +12,11 @@ status_note: |-
   [RFC-0003](../rfcs/0003-linter-in-handl.md).
 ---
 
+
 # ADR-0087: Bootstrap Linter (`plugin-ext-lint`)
 
-## Context
-
-The stdlib will be the first large body of arrow-surface handl code
-(ADR-0077). Writing it without a linter means conventions get enforced by
-review instead of by tooling. The generic rule-registry linter of ADR-0015
-was never implemented against the arrow AST.
-
 ## Decision
+
 
 The linter work lands in `plugin-ext-lint`: a **canonical rule set** over
 the v0.1 surface AST (`handl-language` AST via `plugin-engine-parse`),
@@ -68,11 +63,25 @@ Out of scope: user-defined severity config, cross-module analysis (both
 RFC-0003). Host-contributed rules remain possible _now_ through the
 existing `plugin-ext-lint` registry.
 
+
+## Why
+
+The stdlib will be the first large body of arrow-surface handl code (ADR-0077). Writing it without a linter means conventions get enforced by review instead of by tooling. The generic rule-registry linter of ADR-0015 was never implemented against the arrow AST.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - The stdlib lands with enforced conventions from day one.
 - Rules live in Rust until RFC-0003; adding a rule is a code change plus
-  tests, reviewed like any language change.
 - `unbound-wire` deliberately duplicates a subset of typechecker work in
-  v0.1; when the bootstrap typechecker (ADR-0088) matures, the rule delegates to
-  it instead of re-implementing scope resolution.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0087-bootstrap-linter.md`](../design/0087-bootstrap-linter.md).

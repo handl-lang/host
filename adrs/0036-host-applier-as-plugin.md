@@ -6,19 +6,11 @@ status: accepted
 status_note: Accepted
 ---
 
+
 # ADR-0036: Host Applier as a Plugin
 
-## Context
-
-With ADR-0035, physical plugin loaders became first-class plugins. The host now loads external plugins through the `load` capability rather than a hard-coded `LoaderRegistry`. However, the CLI and `DefaultHost` still hard-code how a host configuration is applied:
-
-- `crates/host-cli/src/main.rs` instantiates `ConfigHostApplier` and `BasicKitLoader` directly.
-- `ConfigHostApplier::apply` is currently a no-op; it does not actually read `.handl.toml` or register anything.
-- `BasicKitLoader` is a standalone `KitLoader` that the CLI invokes by hand to load the kit named by `HANDL_KIT`.
-
-This is inconsistent with the single `Plugin` model. If plugins can load plugins, and plugins can provide operations, then the thing that applies `.handl.toml` should also be a plugin. The only remaining hard-coded concern should be the bootstrap: the CLI needs to know which applier plugin to start with and where the config file lives.
-
 ## Decision
+
 
 The `HostApplier` mechanism will be replaced by an applier plugin.
 
@@ -40,6 +32,15 @@ The `HostApplier` mechanism will be replaced by an applier plugin.
    - `HostConfig` and `KitReference`/`PluginReference` remain in `handl-platform` as the in-memory model.
    - The actual _act_ of applying the config moves from `handl-platform` to a plugin.
 
+
+## Why
+
+With ADR-0035, physical plugin loaders became first-class plugins. The host now loads external plugins through the `load` capability rather than a hard-coded `LoaderRegistry`. However, the CLI and `DefaultHost` still hard-code how a host configuration is applied:
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - The CLI no longer imports `ConfigHostApplier` or `BasicKitLoader` directly.
@@ -47,9 +48,11 @@ The `HostApplier` mechanism will be replaced by an applier plugin.
 - A kit can ship its own applier plugin and be selected with `--applier`.
 - Bootstrapping is explicit and minimal: the only hard-coded decisions are which applier to start with and where the config lives.
 - The `HostConfig` parsing code in `handl-platform` is still reused by the applier plugin.
-- Existing `ConfigHostApplier` and `BasicKitLoader` code is moved or refactored, not deleted from the design.
 
-## References
+## Enforcement
 
-- ADR-0002: Single `Plugin` Model for Host, Operations, Libraries, Targets, and Options
-- ADR-0035: Loaders as Abstract Plugins
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0036-host-applier-as-plugin.md`](../design/0036-host-applier-as-plugin.md).

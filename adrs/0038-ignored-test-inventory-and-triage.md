@@ -6,117 +6,11 @@ status: accepted
 status_note: Accepted
 ---
 
+
 # ADR-0038: Ignored Test Inventory and Triage
 
-## Context
-
-The workspace currently has 34 ignored tests across 10 files in 7 distinct workstreams. These tests were written ahead of their implementing code — they describe expected behavior for features that are stubbed, unwired, or require external infrastructure. The `#[ignore]` attribute keeps them out of the default `cargo test` run while preserving them as executable specifications.
-
-This ADR inventories every ignored test, classifies why it is ignored, and records the decision for each: keep as-is, remove, or un-ignore as part of a named workstream. This prevents ignored tests from becoming invisible dead code and makes the path to green explicit.
-
-## Inventory
-
-### 1. VM evaluation stubbed (11 tests)
-
-**Files:**
-
-- `crates/plugin-vm-common/src/middleware_vm.rs` (9 tests)
-- `crates/plugin-vm-common/src/host/host_tests.rs` (2 tests)
-
-**Reason:** `CanonicalVm::eval` and `CanonicalVm::eval_async` in `plugin-vm-backend-rust-interpreter` return `Error::PrimitiveError("not implemented")`. The tests exercise middleware tracing, async evaluation, and host-bound eval callbacks — all of which require a working tree-walking interpreter.
-
-**Tests:**
-
-- `middleware_records_sync_trace`
-- `middleware_records_async_trace`
-- `middleware_trace_summarizes_nested_calls`
-- `middleware_trace_distinguishes_sync_and_async`
-- `middleware_trace_records_handler_entry`
-- `middleware_trace_records_handler_match`
-- `middleware_trace_records_handler_fallthrough`
-- `middleware_trace_records_yield_and_resume`
-- `middleware_trace_summarizes_let_binding`
-- `host_eval_returns_value`
-- `host_eval_propagates_error`
-
-### 2. LSP plugins stubbed (6 tests)
-
-**File:** `crates/tooling/tests/lsp_plugins.rs`
-
-**Reason:** `ToolingHost` wires `BasicCompletion`, `BasicGotoDef`, and `BasicDocumentSymbols` as plugins, but the tooling layer does not yet route parsed AST or token spans into the LSP capability handlers. The LSP plugins exist but their `run` methods return `NotImplemented`.
-
-**Tests:**
-
-- `complete_includes_let_binding`
-- `complete_offers_keyword`
-- `goto_def_finds_let_binding`
-- `document_symbols_for_let_and_const`
-- `incremental_change_appends_text`
-- `format_still_works`
-
-### 3. Format and diagnostics not implemented (4 tests)
-
-**File:** `crates/tooling/tests/perf.rs`
-
-**Reason:** `ToolingHost::format` and `ToolingHost::diagnose` are stubbed. The formatter pipeline (`BasicFormatter` + `FormatBehavior` rules) exists in `plugin-ext-fmt` and `kit-canonical` registers it, but `ToolingHost` does not yet invoke the `format` capability. Similarly, the diagnostics/lint pipeline (`BasicLinter` + `LintBehavior`) is registered but not called by the tooling layer.
-
-**Tests:**
-
-- `format_long_pipe_100`
-- `format_long_pipe_1000`
-- `format_long_pipe_10000` (also notes a debug-build stack overflow for 10k nested pipes)
-- `lsp_diagnostics_long_500`
-
-### 4. Network/TLS integration (5 tests)
-
-**Files:**
-
-- `crates/plugin-lib-ws-rfc-native/src/module.rs` (3 tests)
-- `crates/plugin-lib-tls-native/src/tests.rs` (2 tests)
-
-**Reason:** These tests require either a live TLS handshake against a remote server or a configured `rustls` crypto provider. The workspace does not bundle a default crypto provider, and CI does not provision TLS certificates. These are integration tests that belong behind a feature flag or a CI-only runner, not in the default test suite.
-
-**Tests:**
-
-- WebSocket TLS connect, send, and close (3 tests in `module.rs`)
-- TLS connector tests (2 tests in `tests.rs`)
-
-### 5. Concurrent stress tests (5 tests)
-
-**Files:**
-
-- `crates/plugin-lib-concurrent/tests/stress.rs` (4 tests)
-- `crates/plugin-lib-concurrent/src/scheduler.rs` (1 test)
-
-**Reason:** High-contention stress tests that spawn many threads and assert scheduling fairness. They are flaky under load and one has a known race condition in the thread pool scheduler. These are not unit tests — they are performance/fairness regressions that require controlled environments.
-
-**Tests:**
-
-- 4 stress tests in `stress.rs` (no explicit reason string)
-- 1 scheduler test (`flaky race; see thread pool scheduler`)
-
-### 6. HTTP server function-value handlers not wired (2 tests)
-
-**File:** `crates/plugin-lib-http-server-std/tests/integration_tests.rs`
-
-**Reason:** `StdHttpServer::route_function` accepts a `FunctionValue` (with params, body, and patterns) but the server does not yet evaluate the function body through the VM. The handler stores the function but returns `NotImplemented` on request. Wiring requires the VM eval pipeline (workstream 1) to be functional.
-
-**Tests:**
-
-- `function_value_handler_returns_string`
-- `function_value_handler_uses_path_param`
-
-### 7. Loader/CLI wiring not implemented (1 test)
-
-**File:** `crates/tooling/tests/loader.rs`
-
-**Reason:** The test loads a native cdylib plugin through `NativeLoader` and dispatches an `echo` capability. The `NativeLoader` plugin exists and the test logic is correct, but `ToolingHost` does not yet expose a `load` capability entry point that the CLI can call. The test is a full integration test that requires a compiled cdylib in `target/debug`.
-
-**Test:**
-
-- `tooling_host_loads_native_plugin_and_dispatches_command`
-
 ## Decision
+
 
 ### Keep all 34 ignored tests
 
@@ -160,6 +54,15 @@ Workstreams 1, 2, 3, and 7 are core platform features. Their tests should run by
 
 Network/TLS integration tests and concurrent stress tests do not belong in the default `cargo test` run even when passing. They will be gated behind `tls` and `stress` feature flags respectively, and the `#[ignore]` attribute will be replaced by `#[cfg(feature = "...")]`.
 
+
+## Why
+
+The workspace currently has 34 ignored tests across 10 files in 7 distinct workstreams. These tests were written ahead of their implementing code — they describe expected behavior for features that are stubbed, unwired, or require external infrastructure. The `#[ignore]` attribute keeps them out of the default `cargo test` run while preserving them as executable specifications.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - All 34 ignored tests remain in the codebase as executable specifications.
@@ -168,11 +71,10 @@ Network/TLS integration tests and concurrent stress tests do not belong in the d
 - Workstreams 1, 2, 3, 6, and 7 will have `#[ignore]` removed when their unblock condition is met.
 - This ADR should be updated when a workstream is unblocked, recording the commit that un-ignored the tests.
 
-## References
+## Enforcement
 
-- ADR-0024: Parser Common (Pratt parser architecture — now migrated to `ParserBehavior`)
-- ADR-0027: VM Crate Restructure (CanonicalVm structure)
-- ADR-0029: CLI as Capability Orchestrator (loader/CLI wiring)
-- ADR-0031: Platform Abstractions (formatter, linter, LSP plugin model)
-- ADR-0036: Host Applier as Plugin (ToolingHost context)
-- ADR-0037: Plugin Resolution and Excludes
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0038-ignored-test-inventory-and-triage.md`](../design/0038-ignored-test-inventory-and-triage.md).

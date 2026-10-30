@@ -18,50 +18,11 @@ status_note: |-
   §7.
 ---
 
+
 # ADR-0060: Generic Call Dispatch
 
-## Context
-
-ADR-0058 established that eval engines should be fixed interpreters of
-`Language.eval` data. Dispatch is already data-driven: `eval.yaml`
-maps the `call` node kind to `Arr { op: "call", source: Native }`. But
-the **native op implementation** contains hardcoded language-specific
-logic in all three engines (`plugin-engine-exec-tree-walk`,
-`plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`).
-
-Each engine's `call` handler (`prim_call` / `prim_v2_call`) and its
-`apply_app` helper hardcode three concerns that should be separable:
-
-1. **`json{...}(args)` template substitution** — when the callee is a
-   `json` node, the engine substitutes `$0`, `$1`, … into the JSON
-   template string before parsing. This is sugar: it rewrites the AST
-   shape before evaluation. It is the direct analogue of ADR-0057's
-   bracket-key form — a surface construct implemented as an engine
-   branch instead of a desugar rule.
-
-2. **Callee dispatch** — the two-way decision on the callee's runtime
-   value, hardcoded inside `apply_app`:
-   - If the callee is a **string**, look it up in `ModuleLookup` and
-     call the host `Function`.
-   - If the callee is an **object with `__arrow__`**, extract
-     `params`/`body`/`env`, build a fresh `ScopeStack` from `env`, bind
-     `params`, and evaluate `body`.
-
-   This is language-specific: a different language might dispatch on a
-   different marker, support multiple callee shapes, or resolve string
-   callees through a different registry. Today this requires editing
-   all three engines.
-
-3. **Variable arity** — `call` is variable-arity (one child per
-   comma-separated argument). The fixed-arity `Scheme::App` combinator
-   cannot express this from a single per-node-kind scheme, which is
-   why `call` currently lowers to a native op that reads the node's
-   children directly.
-
-ADR-0058 named `call` as deferred debt; this ADR pays that debt by
-separating the concerns and moving each to its correct home.
-
 ## Decision
+
 
 Split `call` into three layers, each in its correct home.
 
@@ -189,44 +150,27 @@ hardcoded callee-dispatch `if let` chains (string → host, `__arrow__`
 → closure) and the `json{...}` template-substitution branch. They
 become simple closure-application helpers that `Scheme::App` calls.
 
+
+## Why
+
+ADR-0058 established that eval engines should be fixed interpreters of `Language.eval` data. Dispatch is already data-driven: `eval.yaml` maps the `call` node kind to `Arr { op: "call", source: Native }`. But the **native op implementation** contains hardcoded language-specific logic in all three engines (`plugin-engine-exec-tree-walk`, `plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`).
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - **One scheme, not three dispatch chains.** Callee dispatch becomes
-  one `Choice` in `eval.yaml`, not three Rust `if let` chains. Adding
-  a new callee shape (module-qualified, multi-method, etc.) is a data
-  change.
 - **`json{...}(args)` is sugar, not a special case.** It becomes a
-  desugar rule, like bracket keys before it. The engines never see it.
 - **No new closure primitive.** `Scheme::App` (ArrowApply) handles
-  closure application. The env-swap/param-bind/eval-body protocol
-  stays in the `App` interpreter, where it already lives. The ADR
-  does not invent a new concept for something the kernel already
-  expresses.
 - **`typeof` is general-purpose.** Unlike a narrow `is_string`
-  predicate, `typeof` returns a type tag usable by any scheme that
-  needs value-type discrimination — not just `call`.
 - **Capability boundary is preserved.** `ArrSource::DynamicForeign`
-  makes dynamic host dispatch visible to the capability system. The
-  current `call` op hides it behind `ArrSource::Native`; this ADR
-  makes it honest. The typechecker and load-time audit can match on
-  `DynamicForeign` and apply an appropriate policy.
-- **`Choice` gets real exercise.** The `Scheme::Choice` combinator
-  (ADR-0052) has existed in the kernel but had few real uses. `call`
-  dispatch is its first significant application — routing on callee
-  type at eval time, driven by data.
-- **Variable arity is handled by desugar.** The `call` node's
-  variable-arity argument list is packed into a single array child by
-  the desugar pass. The scheme uses fixed-arity `proj_child` — no
-  special-case variable-arity logic in the op.
-- **Tests are preserved.** The existing `call`/`foreign`/closure tests
-  (`app_calls_closure`, `foreign_dispatches_to_registered_host`,
-  `cross_engine_foreign_results_match`, etc.) become the conformance
-  baseline. The behavior they assert — string callee → host function,
-  closure callee → env-swap + param-bind + eval body — is preserved
-  exactly; only its location changes.
-- **ADR-0058's `call` debt is paid.** ADR-0058 §"Existing hardcoded
-  logic is debt" named `call` alongside `var` and `object`. Object
-  keys were paid by ADR-0059; `var` is already a generic `proj_env`
-  kernel op. This ADR pays the `call` debt. The remaining ADR-0058
-  debt is pattern matching (`try_pattern` in `match`/`handle`), which
-  is not addressed here and remains deferred.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0060-generic-call-dispatch.md`](../design/0060-generic-call-dispatch.md).

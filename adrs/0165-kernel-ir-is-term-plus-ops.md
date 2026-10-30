@@ -1,5 +1,5 @@
 ---
-title: The kernel IR is a Term plus kit-declared ops
+title: The kernel IR is a `Term` plus kit-declared ops
 type: adr
 date: 2026-10-29
 status: implemented

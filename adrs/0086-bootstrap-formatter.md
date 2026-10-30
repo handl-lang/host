@@ -12,17 +12,11 @@ status_note: |-
   [RFC-0002](../rfcs/0002-formatter-in-handl.md).
 ---
 
+
 # ADR-0086: Bootstrap Formatter (`plugin-ext-fmt`)
 
-## Context
-
-The v0.1 arrow surface syntax (ADR-0074) is now being used to write the
-handl stdlib and examples. There is no formatter for it. The generic,
-plugin-driven formatter of ADR-0014 was never implemented and presumes a
-pre-arrow document model. We need a real formatter now, coupled to the one
-syntax that exists.
-
 ## Decision
+
 
 `plugin-ext-fmt` is the canonical formatter: a Rust implementation, built
 on the generic format capability contracts, that formats `.handl` files
@@ -57,14 +51,25 @@ written in the v0.1 surface syntax.
 Explicitly out of scope: configuration files, formatting other dialects,
 comment reflow, plugin-contributed rules (all RFC-0002).
 
+
+## Why
+
+The v0.1 arrow surface syntax (ADR-0074) is now being used to write the handl stdlib and examples. There is no formatter for it. The generic, plugin-driven formatter of ADR-0014 was never implemented and presumes a pre-arrow document model. We need a real formatter now, coupled to the one syntax that exists.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - stdlib and example code get canonical formatting immediately; CI can gate
-  with `hnl fmt --check`.
 - Style changes require editing Rust and bumping goldens — acceptable until
-  RFC-0002.
 - The crate must track ADR-0074 grammar changes (`ARROW_GRAMMAR_V0_1.md`);
-  parser changes are a hard dependency, so `plugin-ext-fmt` pins the workspace
-  `plugin-engine-parse` version and CI fails loudly on drift. The formatter
-  consumes and produces the shared diagnostics types from `plugin-ext-diag`
-  (ADR-0091).
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0086-bootstrap-formatter.md`](../design/0086-bootstrap-formatter.md).

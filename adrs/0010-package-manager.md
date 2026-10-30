@@ -6,37 +6,11 @@ status: proposed
 status_note: Proposed
 ---
 
+
 # Package Manager: Content-Addressed, Diff-Based, Composable Stores
 
-## Context
-
-The original ADR-0010 proposed `handl install` with a pluggable registry
-protocol writing whole package trees into a project-local
-`.handl/packages/` directory, pinned by semver version (ADR-0012).
-Experience and the platform's direction toward graph-based, data-driven
-artifacts (ADR-0052, ADR-0058) expose several problems with that model:
-
-- **Copying is wasteful.** A handl package is a graph of arrows/documents
-  plus mapped artifacts (docs, source maps, typegen output). Reinstalling
-  or updating a package copies the entire tree, even when most nodes are
-  unchanged.
-- **Project-only scope forces duplication.** Every project re-installs the
-  same shared libraries into its own `.handl/packages/`. There is no
-  user-wide pool, so common kits are stored N times.
-- **Versioning as identity is brittle.** Semver `version` fields
-  (ADR-0012) name a release, not the content. Two builds of "1.2.0" can
-  differ; the resolver trusts a string instead of the bytes. Pinning by
-  tag without verifying content is unsafe.
-- **Layout is hardcoded.** The on-disk format (a directory tree under
-  `.handl/packages/`) is fixed, so hosts and power users cannot substitute
-  a faster or shared backend.
-
-handl packages are graphs, not file trees. The install mechanism should
-treat them as such: content-addressed, diff-applied, and composable across
-scopes. This is very close to git's model, but for packages of
-arrows/handl code.
-
 ## Decision
+
 
 `handl install` operates on **content-addressed package graphs** stored in
 **composable package stores**. Identity is a content hash; tags are
@@ -186,31 +160,27 @@ handl install --list
 handl install --check        # report tag drift vs lockfile
 ```
 
+
+## Why
+
+The original ADR-0010 proposed `handl install` with a pluggable registry protocol writing whole package trees into a project-local `.handl/packages/` directory, pinned by semver version (ADR-0012). Experience and the platform's direction toward graph-based, data-driven artifacts (ADR-0052, ADR-0058) expose several problems with that model:
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - **Packages are graphs, not trees.** Install, update, and materialization
-  operate on graph diffs; unchanged nodes and artifacts are never
-  re-copied.
 - **User-wide by default** eliminates redundant per-project copies of
-  shared kits; project-local installs are opt-out for when a project needs
-  to pin or isolate.
 - **Composable stores** let a project shadow specific packages while
-  inheriting the user pool, with content-addressed dedup saving space
-  across scopes.
 - **Content hashes are identity.** Integrity is verified on every fetch;
-  tag drift is detectable. This supersedes ADR-0012's semver-as-identity
-  model — `version` becomes metadata, not a pin.
 - **Layout is pluggable.** The SQLite default can be replaced by a
-  host-specific or shared/networked store via the `PackageStore` trait.
-- **Fully cacheable.** Content-addressed nodes and diffs make every
-  install idempotent and every update proportional to the change, not the
-  package size.
-- **No code execution on install** (retained from the original ADR-0010).
-  Install fetches and applies graph data only.
-- **ADR-0012 is superseded.** Its `version` field and `name@version`
-  semver matching are replaced by hash identity + tag pointers. The
-  `@v1.2.0` specifier syntax is retained as a tag lookup.
-- New crates: `handl-pkg-store` (trait + SQLite default),
-  `handl-pkg-diff` (graph diff/apply), `handl-pkg-registry-*` (per-source
-  adapters). The original `handl-pkg-install` directory-copy design is
-  replaced.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0010-package-manager.md`](../design/0010-package-manager.md).

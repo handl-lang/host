@@ -1,5 +1,5 @@
 ---
-title: The IR gains pipeline(depth), and the schedule programme stops there
+title: The IR gains `pipeline(depth)`, and the schedule programme stops there
 type: adr
 date: 2026-10-29
 status: implemented

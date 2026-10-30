@@ -14,69 +14,11 @@ status_note: |-
   and [ADR-0060 — Generic Call Dispatch](./0060-generic-call-dispatch.md).
 ---
 
+
 # ADR-0061: Generic Pattern Match
 
-## Context
-
-ADR-0058 established that eval engines should be fixed interpreters of
-`Language.eval` data. ADR-0059 migrated object-key resolution to a
-desugar rule. ADR-0060 migrated `call` dispatch to a scheme description.
-The remaining ADR-0058 debt is **pattern matching** — the `try_pattern`
-function and its helpers (`try_array_pattern`, `try_object_pattern`,
-`rest_binder_name`) are duplicated across all three engines with
-identical logic:
-
-- **Tree-walk**: `crates/plugin-engine-exec-tree-walk/src/lib.rs`
-- **Bytecode**: `crates/plugin-engine-exec-bytecode/src/vm.rs`
-- **Cranelift**: `crates/plugin-engine-exec-cranelift/src/lib.rs`
-
-Each engine's `match`/`handle` prim calls `try_pattern`, which
-interprets a pattern AST node structurally against a scrutinee value:
-
-1. **Wildcard** — `var` node named `_` or `_*` → always matches.
-2. **Binder** — `var` node with another name → binds name to scrutinee,
-   always matches.
-3. **Literal** — any other node → evaluate and compare by `==`.
-4. **Array destructuring** — `array` node with sub-pattern children +
-   optional `rest` node → positional match, `...rest` captures tail.
-5. **Object destructuring** — `object` node with `entry` children +
-   optional `rest` node → key match, `...rest` captures unmatched keys.
-
-The pattern forms are hardcoded: adding a new pattern form (e.g. `or`
-patterns, `is` type tests, range patterns) requires editing all three
-engines in lockstep — exactly the violation ADR-0058 names.
-
-### Why pattern matching is harder than `call` or `object`
-
-ADR-0060 migrated `call` by expressing its two-way callee dispatch as a
-`Choice` in `eval.yaml`. That worked because `call`'s dispatch is
-**flat**: one value, one type test, two branches. The `Choice`
-combinator is a natural fit.
-
-Pattern matching is **recursive with stateful bindings**:
-
-- An `array` pattern contains sub-patterns, each of which may itself be
-  an `array` or `object` pattern, recursively. Each sub-pattern may bind
-  variables into the environment.
-- The number of arms is variable (one per `match` clause), and each arm
-  must be tried in order until one matches — a sequential search, not a
-  two-way `Choice`.
-- A failed arm must discard its bindings (scope pop), while a successful
-  arm's bindings persist into the body evaluation (scope kept).
-- `...rest` captures are computed from the _remaining_ elements/keys
-  after positional/entry matching, requiring access to the scrutinee's
-  structure mid-recursion.
-
-The kernel combinators (`Arr`, `Seq`, `First`, `Choice`, `Loop`, `App`)
-can in principle express this — `Loop` for the arm-by-arm search,
-`Choice` for match/no-match, `First` for pair threading of
-bindings — but the resulting scheme would be deeply nested, require new
-native ops for pattern-node-kind dispatch and binding, and be harder to
-read than the Rust it replaces. The cost/benefit ratio is unfavorable
-today: the pattern forms are stable, and the duplication is the
-immediate problem.
-
 ## Decision
+
 
 ### De-duplicate: extract `try_pattern` into a shared module
 
@@ -149,34 +91,27 @@ de-duplication in this ADR is the prerequisite: it consolidates the
 pattern-form dispatch into one place, so the future migration changes
 one module, not three engines.
 
+
+## Why
+
+ADR-0058 established that eval engines should be fixed interpreters of `Language.eval` data. ADR-0059 migrated object-key resolution to a desugar rule. ADR-0060 migrated `call` dispatch to a scheme description. The remaining ADR-0058 debt is **pattern matching** — the `try_pattern` function and its helpers (`try_array_pattern`, `try_object_pattern`, `rest_binder_name`) are duplicated across all three engines with identical logic:
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - **One implementation, not three.** `try_pattern` and its helpers live
-  in `handl-plugin-engine-exec::pattern_match`. Adding a new pattern
-  form (or-patters, type tests, ranges) is a one-place change.
-
 - **Engines converge further.** Each engine's `prim_match`/`prim_handle`
-  is reduced to the arm-iteration loop + body evaluation. All pattern
-  interpretation is shared.
-
 - **`PatternMatchCtx` trait is minimal.** Two methods (`define_binding`,
-  `eval_pattern_node`) — the smallest interface that captures the
-  engine-specific operations pattern matching needs. No new kernel
-  combinators, no new `ArrSource` variants.
-
 - **Tests are preserved.** The existing pattern matching tests
-  (`match_wildcard_pattern`, `match_binder_pattern`,
-  `match_literal_pattern`, `match_array_destructuring`,
-  `match_array_rest`, `match_object_destructuring`,
-  `match_object_rest`, `handle_dispatches_to_matching_clause`,
-  `handle_no_clause_returns_body`) and integration tests in
-  `fp_integration.rs` become the conformance baseline. The behavior they
-  assert is preserved exactly; only the location of the implementation
-  changes.
-
 - **ADR-0058's pattern matching debt is paid.** ADR-0058 §"Existing
-  hardcoded logic is debt" named pattern matching as the last deferred
-  item. This ADR pays it by eliminating the 3x duplication and
-  consolidating pattern-form dispatch into one shared module. The full
-  data-driven migration (schemes in `eval.yaml`) is documented as future
-  work with a clear path.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0061-generic-pattern-match.md`](../design/0061-generic-pattern-match.md).

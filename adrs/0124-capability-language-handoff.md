@@ -14,57 +14,11 @@ status_note: |-
   Recommendation: ship the payload path, measure, then decide.
 ---
 
+
 # ADR-0124: Handing a `Language` to capability plugins
 
-## Context
-
-The `plugin-ext-*` tooling plugins (`fmt`, `lint`, and the proposed
-`typecheck`/`test`) split into two groups:
-
-- **language-free** — `format_source(src)`, `lint_source(src)`. They build the
-  canonical language internally. These already work through the capability
-  seam (`FmtPlugin`, `LintPlugin`).
-- **language-bound** — `format_source_with_language(lang, src)`,
-  `lint_source_with_prelude_and_language(lang, src)`,
-  `check_module(lang, src)`, and the test runner. They take the `Language`
-  from their **caller**.
-
-The second group cannot be expressed today, so `hnl fmt --language <name>`,
-`hnl typecheck`, and `hnl test` — the cases that matter most — have no path
-through the contract, and `host-lsp` (which works with workspace language
-variants, ADR-0003) cannot reuse the tooling at all. This is the blocker
-recorded in
-[`project/tasks/0085-tooling-capability-wiring.md`](../tasks/0085-tooling-capability-wiring.md).
-
-### Correction: a `Language` *is* serializable
-
-The first version of this ADR claimed a `Language` is "a large, non-`serde`
-Rust value" and reasoned from there. **That was wrong**, and the correction
-changes the decision. Verified:
-
-- `Language`'s own doc reads *"A language definition as pure serializable
-  data"*, and it derives `Serialize, Deserialize` with **no `serde(skip)`**
-  fields (`handl-language/src/language.rs`).
-- It is **already marshalled to JSON today**:
-  `plugin-engine-typecheck-handl::marshal_language` does
-  `serde_json::to_value(lang)` and hands the result to the handl-written
-  typechecker model.
-- Measured size of the canonical language: **180 KiB** compact JSON
-  (542 KiB pretty), across 105 token rows, 85 grammar, 87 eval, 82 types,
-  94 AST shapes, 102 lexer rules, 16 lints.
-
-So the payload *can* carry a language. What it cannot carry is an `Arc` to an
-already-built one — which is a cost question, not a representability one.
-
-### The constraint that still holds
-
-**`platform` deliberately does not depend on `handl-language`**, and its `Kit`
-is manifest-level (`KitManifest` + `Vec<PluginManifest>`) with no language
-payload. Any solution that puts a typed `Language` *field* on the request
-therefore requires `platform` to link the language layer — the same reason a
-plain `Arc<Language>` field was rejected.
-
 ## Decision
+
 
 **Primary: the payload carries the serialized language.** No `platform`
 change at all.
@@ -150,58 +104,30 @@ out-of-process callers:
 ```
 
 
-## Consequences
 
-**Positive (primary path: payload carries the serialized language).**
+## Why
+
+The `plugin-ext-*` tooling plugins (`fmt`, `lint`, and the proposed `typecheck`/`test`) split into two groups:
+
+## Not doing
+
+- **`platform` depends on `handl-language`; `CapabilityRequest.language:
+- **Payload carries the *fragments* (the kit recipe) and the plugin
+- **The plugin builds the canonical language itself.** Works for `fmt`/`lint`
+- **Keep language-bound operations out of the capability layer.** Leaves
+
+## Consequences
 
 - **No `platform` change.** The seam stays as it is; nothing new to learn.
 - **Portable** — works in-process, in WASM, and in a child process. The
-  side-channel could not do this.
 - A host serializes once and reuses, so the 180 KiB is a startup cost, not a
-  per-call one.
 - Precedent exists: `plugin-engine-typecheck-handl` already marshals a
-  `Language` to JSON for the handl typechecker, so this is not a novel burden
-  on the platform — it is the mechanism already in use for one consumer.
-
-**Negative / constraints.**
-
 - ~180 KiB compact JSON (542 KiB pretty) per distinct language, plus a
-  deserialize per plugin call. Per-call deserialization is the real risk; it
-  is why the side-channel is kept as an escape hatch rather than deleted.
-- A language with heavy FFI/module dependencies still is not *self-sufficient*
-  after deserialization: `fmt`/`lint`/`typecheck` need only the data, but
-  `eval` additionally needs the plugin-provided module registry. The handoff
-  solves the data problem, not the capability problem — say so plainly so
-  nobody expects a deserialized language to evaluate.
-- Malformed or version-skewed `language` payloads need a clear error
-  (`scheme_version`, ADR-0044 §7, exists to detect the latter).
 
-## Alternatives rejected
+## Enforcement
 
-- **`platform` depends on `handl-language`; `CapabilityRequest.language:
-  Option<Arc<Language>>`.** Simplest to write, but makes the generic plugin
-  host depend on the language layer — every host, including ones that never
-  touch handl syntax, would link it. Rejected on layering.
-- **Payload carries the *fragments* (the kit recipe) and the plugin
-  re-assembles.** Serializable and smaller than the assembled form, but it
-  re-runs kit assembly per call, and the recipe is not always available to a
-  plugin that was handed a built `Language` by its host.
-- **The plugin builds the canonical language itself.** Works for `fmt`/`lint`
-  defaults, fails the custom-kit and `host-lsp` cases that motivate the work,
-  and would force a *linter* to depend on `kit-canonical`.
-- **Keep language-bound operations out of the capability layer.** Leaves
-  `host-lsp` unable to reuse the tooling, i.e. fails the stated goal.
+- Code and tests are named in the design doc.
 
-## Migration
+## Design
 
-1. Define the `language` payload field; add a host helper that serializes the
-   language once and caches it for the run.
-2. Add `typecheck` and `test` plugins reading it; extend `fmt`/`lint` to accept
-   the optional language (absent = today's canonical default, unchanged).
-3. Reroute `host-cli`'s `--language` variants and `hnl typecheck`/`hnl test`
-   through the seam.
-4. **Test:** a *custom* kit driven through the capability path must produce
-   identical results to the direct call. Without that, "the seam is
-   equivalent" is untested — the same gap ADR-0123's acceptance test closed.
-5. Benchmark the LSP path. Add the side-channel only if the deserialize cost
-   shows up.
+The full record (context, tables, phases, trade-offs): [`design/0124-capability-language-handoff.md`](../design/0124-capability-language-handoff.md).

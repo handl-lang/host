@@ -6,20 +6,11 @@ status: accepted
 status_note: Accepted
 ---
 
+
 # Agnostic parser engine: `handl-parser-common` and `handl-parser-canonical` on top
 
-## Context
-
-`handl-ast-common` already gives us a generic, language-agnostic AST toolkit: `Node<K, V, M>`, pluggable `NodeMetadata`, and factory traits. `handl-lexer` gives us a generic token stream (`Token<K>` for any `TokenKind`). The parser side, however, has not been given the same treatment:
-
-- `handl-parser` defines the `Parser` trait but no reusable parsing engine.
-- `handl-parser-canonical` is a hand-rolled recursive-descent `ParserState` with the handl canonical grammar hard-coded in method calls.
-- There is no shared primitive for Pratt operator-precedence parsing or for composing recursive-descent rules.
-- Any new dialect or embedded expression grammar would end up copying the `ParserState` pattern.
-
-The goal is the same split `handl-ast` / `handl-ast-common` achieved: a language-agnostic `handl-parser-common` crate and an handl-specific `handl-parser-canonical` built on top of it.
-
 ## Decision
+
 
 Introduce a new crate `crates/parser-common` (package `handl-parser-common`) and refactor `crates/parser-canonical` (`handl-parser-canonical`) to sit on top of it.
 
@@ -72,9 +63,16 @@ pub trait Grammar<K, N> {
 - `handl-parser` keeps the `Parser` trait as the public boundary for now, but may eventually become a thin re-export over `handl-parser-common` or be removed.
 - `handl-ast` and `handl-runtime` are not touched; they stay downstream of the parser.
 
-## Consequences
 
-### Positive
+## Why
+
+`handl-ast-common` already gives us a generic, language-agnostic AST toolkit: `Node<K, V, M>`, pluggable `NodeMetadata`, and factory traits. `handl-lexer` gives us a generic token stream (`Token<K>` for any `TokenKind`). The parser side, however, has not been given the same treatment:
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
+## Consequences
 
 - **Composability.** New dialects assemble a `Grammar` from `Rule`s instead of copying `ParserState`.
 - **Configurability.** The factory (`SimpleGrammar`) lets callers plug in rules without changing the parser engine.
@@ -82,19 +80,10 @@ pub trait Grammar<K, N> {
 - **Decoupling.** `handl-parser-common` has no handl semantics. It is reusable for any token stream and node type.
 - **Pratt + recursive descent.** The same engine supports both: `expression` for operator precedence, `parse_root` + `match_kind`/`expect` for statements and calls.
 
-### Negative
+## Enforcement
 
-- **Refactor churn.** `handl-parser-canonical` needs a significant rewrite to become a `Grammar` definition.
-- **Trait-object overhead.** `Box<dyn Fn>` rules add an indirection per rule. For language-sized inputs this is negligible, but it needs benchmarking against the current hand-rolled parser.
-- **Closure ergonomics.** Rust `Box<dyn Fn>` rules are noisier to construct than `nud`/`led` methods in `ParserState`. A small builder API may be added later if it becomes painful.
+- Code and tests are named in the design doc.
 
-### Open questions
+## Design
 
-1. **Should `handl-parser-common` depend on `handl-ast-common`?**
-   No. `Parser` is generic over `N`. Dialects can use `Node` from `handl-ast-common`, but the engine does not require it. This preserves the same decoupling `handl-ast-common` has from the parser.
-
-2. **Should `handl-parser` be folded into `handl-parser-common`?**
-   Not yet. The `Parser` trait in `handl-parser` is the existing public API; `handl-parser-common` starts as the new engine. Once `handl-parser-canonical` is fully migrated, we can decide whether to deprecate `handl-parser` or make it a thin wrapper.
-
-3. **Should `handl-parser-common` live at the Peregrin level?**
-   Long term, yes — just like `handl-ast-common` is a candidate for promotion. The first step is `packages/handl/crates/parser-common` so the existing Cargo workspace can consume it.
+The full record (context, tables, phases, trade-offs): [`design/0024-parser-common.md`](../design/0024-parser-common.md).

@@ -6,29 +6,11 @@ status: proposed
 status_note: Proposed
 ---
 
+
 # handl Linter
 
-## Context
-
-`handl validate` checks that a document loads and that basic structural
-invariants hold: fields are well-formed, schemas are valid, expressions
-parse. As the language and standard library grow, there are more conventions
-that are not strictly load errors but do affect quality, maintainability,
-and safety:
-
-- Library modules should carry annotations (`title`, `description`, `author`,
-  `since`, `see`) per ADR-0011.
-- Documents using non-stdlib modules should declare their dependencies.
-- Field names should follow naming conventions.
-- Deprecated fields or schema keywords should be flagged.
-- Documents should be consistently formatted (ADR-0014).
-
-These checks are too opinionated for `validate`, which must stay focused on
-"can the VM load this document?". They are also too handl-specific for a
-generic linter. A dedicated `handl lint` command is the natural place for
-convention and best-practice checks.
-
 ## Decision
+
 
 handl provides an `handl lint` command that checks documents against an
 extensible rule set.
@@ -97,13 +79,27 @@ register additional rules:
 Host-specific rules are namespaced (e.g. `peregrin.event-contract`) to
 avoid collisions with language-level rules.
 
+
+## Why
+
+`handl validate` checks that a document loads and that basic structural invariants hold: fields are well-formed, schemas are valid, expressions parse. As the language and standard library grow, there are more conventions that are not strictly load errors but do affect quality, maintainability, and safety:
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - CI can enforce handl conventions without making `validate` opinionated.
 - Library authors get clear, rule-based feedback on naming, annotations, and
-  versioning.
 - The rule set grows incrementally as new ADRs add conventions.
 - Auto-fix reduces the friction of adopting style rules.
 - `validate` and `lint` remain separate: `validate` is a fast load-only
-  check; `lint` is a slower, more thorough quality gate.
-- Hosts get a standard extension point for their own lint rules.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0015-linter.md`](../design/0015-linter.md).

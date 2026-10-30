@@ -6,35 +6,11 @@ status: proposed
 status_note: Proposed
 ---
 
+
 # Capability Discipline at the Language Level (ADR-0041 Phase 5)
 
-## Context
-
-ADR-0041 made `Language` a first-class value and `eval`/`self`/`compile`
-handl-callable functions. ADR-0044 defined `Language` as pure serializable
-data — grammar, eval schemes, token kinds, all as data fragments. The
-canonical `Language` is assembled from YAML files.
-
-But `eval(lang, ast)` is dangerous by default: a `Language` value can
-contain `Foreign` schemes that dispatch to arbitrary host functions. If a
-handl program can construct or receive a `Language` value with `fs-write`
-or `net-send` capabilities, it can escape its sandbox by `eval`ing source
-under that language.
-
-ADR-0041 §7 specifies the design: "A `Language` value is constructed with
-limited authority — only the behaviors it was built with. Sandboxing is
-static: inspect the `Language` value's behaviors at load time and reject if
-they touch disallowed capabilities. No runtime sandbox required."
-
-The current implementation has no capability discipline. The
-`LanguageRegistry` registers languages by handle; `eval` looks up a handle
-and runs it. There is no check that the language's capabilities are a subset
-of what the caller is allowed to use. The `CapabilityDecl` type exists in
-`handl_language` but is not enforced.
-
-This ADR refines the design into a concrete implementation plan.
-
 ## Decision
+
 
 ### 1. `CapabilitySet` — a static capability summary of a `Language`
 
@@ -162,46 +138,27 @@ about other `Language` values before evaluating them.
 4. **`capabilities(handle)` host function** — expose to handl programs.
 5. **`CapabilityDenied` error type** — surface to the program.
 
+
+## Why
+
+ADR-0041 made `Language` a first-class value and `eval`/`self`/`compile` handl-callable functions. ADR-0044 defined `Language` as pure serializable data — grammar, eval schemes, token kinds, all as data fragments. The canonical `Language` is assembled from YAML files.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
-### Positive
-
 - **Static sandboxing.** No runtime overhead — the check happens once at
-  the eval boundary, not on every operation.
 - **Composable.** Policies narrow on sub-runtime creation, preventing
-  capability escalation.
 - **Inspectable.** `capabilities(lang)` lets handl programs make
-  access-control decisions, enabling user-level sandboxing.
 - **Data-driven.** The capability set is computed from `Language` data
-  (eval schemes), not from runtime behavior. It serializes and can be
-  checked offline.
-
-### Negative
-
 - **Over-approximation.** `CapabilitySet` lists all capabilities the
-  language _might_ use, not what a specific program _will_ use. A language
-  with `fs-write` in its host fns is flagged even if the specific program
-  never calls it. This is the arrow/monad tradeoff: static structure
-  over-approximates.
-- **`vau` is a blanket capability.** A `vau` behavior can call `eval` on
-  arbitrary ASTs, so it implies `can_eval = true` regardless of what the
-  vau body actually does. Refinement (proving a vau is structured-
-  compatible) is deferred to ADR-0045's optimization phase.
 
-### Neutral
+## Enforcement
 
-- **No runtime sandbox.** This is by design — the capability set is
-  static, so the check is static. If a language passes the check, it runs
-  without instrumentation. This is the opposite of a capability-based
-  OS where every operation is checked at runtime.
+- Code and tests are named in the design doc.
 
-## References
+## Design
 
-- [ADR-0041](./0041-languages-as-first-class-values.md) — Languages as
-  First-Class Values (Phase 5 specification)
-- [ADR-0044](./0044-language-as-data-and-runtime-split.md) — Language as
-  Data and Runtime Split (the data model this ADR polices)
-- [ADR-0045](./0045-vau-as-a-typed-escape.md) — Vau as a Typed Escape
-  (Phase 4 — vau implies eval capability)
-- [ADR-0001](./0001-generic-node-trait-based-capabilities.md) — Generic
-  Node, Trait-Based Capabilities (the original capability model)
+The full record (context, tables, phases, trade-offs): [`design/0046-capability-discipline-at-the-language-level.md`](../design/0046-capability-discipline-at-the-language-level.md).

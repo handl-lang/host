@@ -6,30 +6,11 @@ status: proposed
 status_note: Proposed
 ---
 
+
 # handl Formatter
 
-## Context
-
-handl documents can be written in multiple frontends (YAML, JSON, TOML,
-`.handl`). Within each frontend, the same logical document can be formatted in
-many different styles: extra blank lines, mixed indentation, keys in
-arbitrary order, trailing whitespace. This creates noisy diffs, harder
-reviews, and formatting arguments in pull requests.
-
-A language-aware formatter — like `gofmt`, `rustfmt`, or `prettier` —
-enforces a canonical style. Unlike generic formatters, an handl formatter
-understands the document model: field declarations, schemas, expressions,
-imports, annotations. It can enforce canonical key order that matches the
-language semantics, not just alphabetical or insertion order.
-
-The previous design (a handl-hosted `handl fmt` command with per-frontend
-parse/stringify pipelines and two placeholder plugin crates,
-`plugin-fmt-expression` and `plugin-fmt-stmt`) was never implemented beyond
-stubs. Those crates have been removed. This ADR replaces that design with a
-formatter built **in handl, for handl** — a generic, extensible, modular
-formatter with plugin support.
-
 ## Decision
+
 
 The formatter is a **tool written in handl itself**, not a host-level Rust
 command. It is generic (parameterized by `Language`, per ADR-0041 Phase 1:
@@ -112,18 +93,27 @@ an independent plugin — and extensible — new languages and frontends add
 formatting by contributing new `FormatBehavior` plugins, not by editing a
 monolithic formatter.
 
+
+## Why
+
+handl documents can be written in multiple frontends (YAML, JSON, TOML, `.handl`). Within each frontend, the same logical document can be formatted in many different styles: extra blank lines, mixed indentation, keys in arbitrary order, trailing whitespace. This creates noisy diffs, harder reviews, and formatting arguments in pull requests.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - All handl documents can be formatted the same way, reducing style noise
-  in diffs.
 - `handl fmt --check` can run in CI to enforce formatting.
 - The formatter stays in sync with the language model, so language changes
-  can update the canonical style by updating the relevant formatting plugin.
 - Existing documents need a one-time pass with `handl fmt --write`.
 - Each frontend needs its own parse/stringify implementation, but the key
-  ordering logic is shared through the generic core.
-- The formatter is self-hosting-capable: because it is a handl tool, it can
-  format its own source, consistent with ADR-0041's "every language gets
-  every tool, for free."
-- Adding a new language or frontend is a plugin contribution, not a core
-  change.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0014-formatter.md`](../design/0014-formatter.md).

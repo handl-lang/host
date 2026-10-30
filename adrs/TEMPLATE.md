@@ -1,5 +1,5 @@
 ---
-title: <the decision, stated as a fact — "X is Y", not "About X">
+title: 'ADR-NNNN: <the decision, stated as a fact — "X is Y", not "About X">'
 type: adr
 date: YYYY-MM-DD
 status: proposed          # proposed accepted implemented landed superseded absorbed rejected unrecorded

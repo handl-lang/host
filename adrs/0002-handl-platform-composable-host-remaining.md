@@ -6,15 +6,11 @@ status: proposed
 status_note: Proposed
 ---
 
+
 # ADR-0002 (Remaining): Plugin Library Conversion and Module Abstraction
 
-## Context
-
-ADR-0002 v1 (Single Plugin Model for Host, Operations, Libraries, Targets, and Options) has been implemented and archived. The core architecture is complete: `Plugin`, `RuleAcceptor`, `Behavior<Op>`, and the removal of `Extension`/`CommandProvider`/`Library` legacy traits are done. The host is now a pure composer with no hard-coded stage wiring.
-
-What remains is the conversion of library plugins to use the unified model.
-
 ## Decision
+
 
 Complete the conversion of the remaining `plugin-lib-*` crates to work cleanly within the unified plugin model. Key questions to resolve:
 
@@ -32,6 +28,15 @@ Complete the conversion of the remaining `plugin-lib-*` crates to work cleanly w
    - How do plugin-lib-* register options (e.g., compression level, timeout) if not via the legacy `Library::options()`?
    - Should the `OptionsPlugin` be extended to support library-scoped options?
 
+
+## Why
+
+ADR-0002 v1 (Single Plugin Model for Host, Operations, Libraries, Targets, and Options) has been implemented and archived. The core architecture is complete: `Plugin`, `RuleAcceptor`, `Behavior<Op>`, and the removal of `Extension`/`CommandProvider`/`Library` legacy traits are done. The host is now a pure composer with no hard-coded stage wiring.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - plugin-lib-* crates become clean participants in the unified plugin model, not legacy holdovers.
@@ -39,9 +44,10 @@ Complete the conversion of the remaining `plugin-lib-*` crates to work cleanly w
 - The platform/host contains no special-case logic for libraries.
 - Kit manifests can be fully audited and composed without hidden library dependencies.
 
-## Related work
+## Enforcement
 
-- `project/adrs/archived/0002-handl-platform-composable-host.md` — original decision
-- `project/adrs/archived/0002-handl-platform-composable-host-v1-complete.md` — v1 completion (Behavior<Op>, core architecture)
-- ADR-0040 (VM is an operation, not a subsystem) — ExecControl exception for eval-specific concerns
-- Crates: ~20+ plugin-lib-* (http-server, json, collections, intl, etc.)
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0002-handl-platform-composable-host-remaining.md`](../design/0002-handl-platform-composable-host-remaining.md).
