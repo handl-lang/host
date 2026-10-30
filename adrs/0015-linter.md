@@ -3,103 +3,46 @@ title: handl Linter
 type: adr
 date: 2026-08-24
 status: proposed
-status_note: Proposed
+status_note: Accepted — `handl lint` is an extensible rule registry with auto-fix.
 ---
 
-
-# handl Linter
+# ADR-0015: Linter
 
 ## Decision
 
-
-handl provides an `handl lint` command that checks documents against an
-extensible rule set.
-
-### Command surface
-
-```bash
-handl lint document.yaml                  # lint a single file
-handl lint document.yaml --fix            # auto-fix where possible
-handl lint document.yaml --fail-on-warn   # exit non-zero on warnings too
-handl lint document.yaml --except style   # skip a rule
-handl lint libraries/**/*.yaml            # lint many files
-```
-
-### Severity levels
-
-- `error` — the document violates a hard convention and must not pass CI.
-- `warn` — the document works but is missing a recommended practice.
-- `info` — a reminder or style suggestion.
-
-By default `handl lint` exits `0` when only warnings and info are present and
-`1` when any `error` is present. `--fail-on-warn` makes warnings fail too.
-
-### Rule architecture
-
-Each rule is a pure function from the parsed document and file metadata to
-a list of `LintIssue`s:
-
-```rust
-pub struct LintIssue {
-    pub rule: String,
-    pub severity: Severity,
-    pub file: String,
-    pub line: Option<usize>,
-    pub message: String,
-    pub fix: Option<Fix>,
-}
-```
-
-Rules are registered in a rule registry. The linter runs all enabled rules
-and collects issues. `--fix` applies auto-fixable issues in a stable order.
-
-### Initial rule set
-
-- `naming-convention` (`error`): field names do not follow the naming
-  convention (snake_case, no reserved keywords).
-- `missing-annotations` (`warn`): a library module is missing one of
-  `title`, `description`, `author`, `since`, `see`.
-- `deprecated-keyword` (`warn`): a schema uses a deprecated keyword.
-- `unused-field` (`info`): a field is declared but never referenced.
-- `style` (`warn`, auto-fixable): the file is not in canonical format
-  (ADR-0014). The fix reuses the formatter module.
-- `missing-version` (`info`): a library module has no `version` field
-  (ADR-0012).
-
-### Plugin architecture
-
-The rule registry is extensible. Hosts and applications (e.g. Peregrin) can
-register additional rules:
-
-- Peregrin might add rules for event contract validation, resilience
-  defaults, or orchestration-specific naming conventions.
-- A custom host might add rules for capability declarations or security
-  policies.
-
-Host-specific rules are namespaced (e.g. `peregrin.event-contract`) to
-avoid collisions with language-level rules.
-
+1. **`handl lint` checks documents against an extensible rule set**; paths may
+   be files or globs, and `--fix` applies auto-fixes.
+2. **A rule is a pure function** from the parsed document + file metadata to
+   `LintIssue[]` (rule, severity, file, line, message, optional fix).
+3. **Severity is `error` / `warn` / `info`**; exit 0 unless an `error` is
+   present, and `--fail-on-warn` escalates warnings.
+4. **The initial rule set** is naming-convention, missing-annotations,
+   deprecated-keyword, unused-field, style (auto-fixable via the formatter) and
+   missing-version.
+5. **Rules are namespaced and extensible** — hosts register their own
+   (`peregrin.event-contract`), and `--except` disables one by name.
 
 ## Why
 
-`handl validate` checks that a document loads and that basic structural invariants hold: fields are well-formed, schemas are valid, expressions parse. As the language and standard library grow, there are more conventions that are not strictly load errors but do affect quality, maintainability, and safety:
+The linter had a fixed rule list, so every new convention meant editing the
+linter and host-specific policy had no home. A registry of pure rules keeps the
+linter generic and lets hosts extend it without forking.
 
 ## Not doing
-
-- none recorded — legacy record; the design doc lists what was deferred.
+- **A fixed rule list** — hooks and hosts need their own rules.
+- **Fixing in rule order** — `--fix` applies in a stable order across all rules.
+- **Warnings failing by default** — only errors gate; `--fail-on-warn` opts in.
 
 ## Consequences
-
-- CI can enforce handl conventions without making `validate` opinionated.
-- Library authors get clear, rule-based feedback on naming, annotations, and
-- The rule set grows incrementally as new ADRs add conventions.
-- Auto-fix reduces the friction of adopting style rules.
-- `validate` and `lint` remain separate: `validate` is a fast load-only
+- Rules are data/functions, registered; the linter is a driver.
+- Auto-fix reuses the formatter for style.
+- Namespacing prevents host/language collisions.
 
 ## Enforcement
-
-- Code and tests are named in the design doc.
+- `crates/plugin-ext-lint/` — registry and the initial rules.
+- `plugin-engine-lint` — the generic driver.
+- Rule tests and CLI tests.
 
 ## Design
-
-The full record (context, tables, phases, trade-offs): [`design/0015-linter.md`](../design/0015-linter.md).
++Command surface, severities, issue shape, the initial rules and plugin model:
++[`design/0015-linter.md`](../design/0015-linter.md).

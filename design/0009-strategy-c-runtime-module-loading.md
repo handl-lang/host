@@ -1,53 +1,15 @@
 ---
-title: Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail
+title: 'ADR-0009: Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail'
 type: design
 date: 2026-10-16
 updated: 2026-10-29
 refs: [ADR-0009]
 ---
 
-# Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail
+# ADR-0009: Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail
 
 Moved verbatim from ADR-0009 (ADR-0161 size budget). The ADR carries the rules;
-this page carries the context, tables, phases and trade-offs.
-
-## Context
-
-ADR-0069 defines three normalisation strategies for module imports. Strategies A (compile-time desugar) and B (whole-program flattening) are implemented: they eliminate `module_ref`/`project` ops from the `Scheme` graph before the handler sees them. Strategy C (runtime module loading) is described but not implemented.
-
-ADR-0069 §5 describes Strategy C as "imports are resolved on first access" via a runtime module loader. The original framing implied a separate mechanism — a runtime loader, a directive, a capability flag. That framing is wrong. It adds concepts the language doesn't need.
-
-### The insight
-
-Module loading is already two `arr` ops:
-
-```
-module_ref("collection/sort")  →  arr { op: "module_ref", lit: "collection/sort" }
-project(record, "sort")        →  arr { op: "project", args: [record], lit: "sort" }
-```
-
-These are ordinary `arr` ops. A handler that has operation clauses for `module_ref` and `project` interprets them at runtime — loading the file, evaluating it, returning the arrow record, extracting the field. A handler that doesn't have those clauses either normalises them away first (Strategy A/B) or refuses to interpret the graph.
-
-**The handler's operation table is the opt-in.** No directive, no capability flag, no new mechanism. The same machinery that handles `arr add`, `arr const`, `arr list.head` handles `arr module_ref` and `arr project`.
-
-### What module loading actually is
-
-Module loading is sugar for projection of evaluated code:
-
-- `module_ref(path)` = "evaluate this file, give me the record of public arrows"
-- `project(record, field)` = "give me this field from the record"
-
-That's it. The handler's `module_ref` clause calls the resolver, evaluates the module, returns the record. The `project` clause extracts the field. Existing handler machinery, no new language concept.
-
-### What about static analysis?
-
-A common objection to runtime loading: "you lose static whole-program analysis." This is false. The `module_ref`/`project` ops are visible in the `Scheme` graph. You can:
-
-- **Detect cycles statically:** walk the graph, collect `module_ref(path)` nodes, build the import graph, detect cycles. No execution needed.
-- **Infer contracts:** register `module_ref` and `project` in `ContractRegistry` with permissive contracts (input: Any, output: Any). For tighter contracts, load referenced modules' contracts at analysis time and compose — without inlining code.
-- **Type check:** the ops have types, the graph is closed, analysis works.
-
-What you lose is _precision_ (permissive contracts for the ops vs. exact contracts for inlined arrows), not the capability itself. And precision is recoverable by loading referenced modules' contracts without inlining their code.
+this page carries the mechanism, tables and rationale.
 
 ## Decision
 
@@ -122,9 +84,15 @@ Graduate to real `Scheme::ModuleRef`/`Scheme::Project` variants only if:
 
 Until then, the closed kernel principle (ADR: closed arrow calculus kernel) holds: six combinators, no more.
 
-## Consequences
+## Why
 
-**Positive:**
+ADR-0069 defines three normalisation strategies for module imports. Strategies A (compile-time desugar) and B (whole-program flattening) are implemented: they eliminate `module_ref`/`project` ops from the `Scheme` graph before the handler sees them. Strategy C (runtime module loading) is described but not implemented.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
+## Consequences
 
 - No new language mechanism. Module loading uses the existing handler `op` machinery. Zero new concepts.
 - Opt-in is automatic: a handler that handles `module_ref`/`project` does runtime loading; one that doesn't doesn't. No configuration beyond the operation table.
@@ -132,32 +100,10 @@ Until then, the closed kernel principle (ADR: closed arrow calculus kernel) hold
 - Enables REPLs, hot-reload, plugin systems, dynamic loading — all via handler clauses, no special-casing.
 - Composes with Strategies A/B: normalise when you want a closed artifact, don't normalise when you want runtime loading. Same graph, different handler.
 
-**Negative:**
+## Enforcement
 
-- Less precise contracts than inlining (permissive `Any` contracts for the ops vs. exact contracts for inlined arrows). Recoverable by loading referenced modules' contracts without inlining code.
-- Runtime loading overhead (amortised by the module loader's cache).
-- The handler must implement governance (allowlist, depth, cycle detection) in its `module_ref` clause. This is handler code, not language machinery — but it's still code someone must write and get right.
+- Code and tests are named in the design doc.
 
-**Risk:**
+## Design
 
-- Handler authors must implement governance correctly. A handler that resolves `module_ref` without checking the allowlist or depth limit is a security hole. Mitigation: provide a standard `module_ref` clause implementation in the stdlib that handles governance, so handler authors don't write it from scratch.
-
-## Implementation (what's left)
-
-The infrastructure already exists from ADR-0069 implementation:
-
-- `ModuleResolver` trait + `FileResolver`/`MemoryResolver`/`ChainResolver`/`CachingResolver` — done
-- `ModuleLoader` with graph + contract caches — done
-- `module_ref`/`project` op encoding (`rewrite_imports`) — done
-- `normalize_compile_time` / `flatten_program` (Strategies A/B) — done
-
-What's left:
-
-1. **Handler `module_ref`/`project` clauses** — a standard implementation in the stdlib that calls the resolver, evaluates, returns the record/field, with governance (allowlist, depth, cycle detection).
-2. **`module_ref`/`project` contracts in `ContractRegistry`** — permissive contracts for static inference without inlining.
-3. **Static cycle detection pass** — walk the graph, collect `module_ref` nodes, build import graph, detect cycles.
-4. **Handler config for governance** — allowlist, depth limit, resolver wiring.
-
-## Relationship to ADR-0069
-
-This ADR refines ADR-0069 §5 Strategy C. It does not contradict ADR-0069 — the semantic model (import = projection) is unchanged. It clarifies the implementation: Strategy C is not a separate mechanism but the handler interpreting ops that Strategies A/B would eliminate. ADR-0069's description of Strategy C as "imports are resolved on first access" is accurate; this ADR specifies _how_ (handler clauses, not a directive or capability flag).
+The full record (context, tables, phases, trade-offs): [`design/0009-strategy-c-runtime-module-loading.md`](../design/0009-strategy-c-runtime-module-loading.md).
