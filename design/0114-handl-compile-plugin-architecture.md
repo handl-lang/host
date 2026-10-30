@@ -1,24 +1,15 @@
 ---
-title: Handl Compile Plugin Architecture — design detail
+title: 'ADR-0114: Handl Compile Plugin Architecture — design detail'
 type: design
 date: 2026-09-14
 updated: 2026-10-29
 refs: [ADR-0114]
 ---
 
-# Handl Compile Plugin Architecture — design detail
+# ADR-0114: Handl Compile Plugin Architecture — design detail
 
 Moved verbatim from ADR-0114 (ADR-0161 size budget). The ADR carries the rules;
-this page carries the context, tables, phases and trade-offs.
-
-## Context
-
-Handl currently has three execution engines (tree-walk, bytecode, cranelift)
-that run Handl source at compile time and at runtime. It also has
-`handl-emitters` for emitting `Language` data fragments and
-`plugin-sdkgen-emitter-file` for writing generated SDK `.hnl` files. What it
-does **not** have is a generic plugin architecture for compiling Handl source to
-external target languages such as JavaScript, C, or WebAssembly.
+this page carries the mechanism, tables and rationale.
 
 ## Decision
 
@@ -115,19 +106,25 @@ lifetime bookkeeping.
 - Where is cross-target validation enforced: `CompilerInput`, CLI, or
   `TargetMachine` creation?
 
+## Why
+
+Handl currently has three execution engines (tree-walk, bytecode, cranelift) that run Handl source at compile time and at runtime. It also has `handl-emitters` for emitting `Language` data fragments and `plugin-sdkgen-emitter-file` for writing generated SDK `.hnl` files. What it does **not** have is a generic plugin architecture for compiling Handl source to external target languages such as JavaScript, C, or WebAssembly.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - Compilers become first-class plugins alongside formatters, linters, and the
-  test runner.
 - The `Compiler` trait can be implemented without touching the Handl core, as
-  long as the input AST and type information are exposed.
 - The SDK generator (`plugin-sdkgen-*`) and the source-to-source compiler
-  (`plugin-compile-*`) remain separate concerns: the former turns foreign APIs
-  into Handl source; the latter turns Handl source into foreign code.
 - A new dependency appears: the compiler needs access to the type-checked AST
-  and a type/grade projection API from `plugin-engine-typecheck`.
 
-## References
+## Enforcement
 
-- [ADR-0107 — Handl SDK Generator](./0107-handl-sdk-generator.md)
-- [ADR-0090 — Bootstrap CLI](./0090-bootstrap-cli.md)
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0114-handl-compile-plugin-architecture.md`](../design/0114-handl-compile-plugin-architecture.md).

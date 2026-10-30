@@ -1,83 +1,15 @@
 ---
-title: Chunk Certificates — design detail
+title: 'ADR-0067: Chunk Certificates — design detail'
 type: design
 date: 2026-09-02
 updated: 2026-10-29
 refs: [ADR-0067]
 ---
 
-# Chunk Certificates — design detail
+# ADR-0067: Chunk Certificates — design detail
 
 Moved verbatim from ADR-0067 (ADR-0161 size budget). The ADR carries the rules;
-this page carries the context, tables, phases and trade-offs.
-
-## Context
-
-### This is a trust/provenance feature, not an optimization
-
-ADR-0065 (cache/compression) and ADR-0066 (chunking) are optimization
-techniques. This ADR is a different concern: **trust**. It answers "do I
-believe this chunk is what its author claims it is, and does it come from a
-source I trust?"
-
-The distinction matters because bundling trust under "optimization" obscures
-the threat model. Optimization is about performance; trust is about safety.
-They share a unit (the chunk, per ADR-0066) but they have different failure
-modes, different stakeholders, and different design constraints. This ADR
-keeps them separate.
-
-### The threat model
-
-ADR-0046 made capability discipline static: a `Language`'s capability set is
-computed from its data, and `eval` checks it at the boundary. This prevents
-a `Language` from exercising capabilities it doesn't declare. It does **not**
-prevent:
-
-1. **Tampering.** A chunk is modified after authoring (by an attacker, a
-   corrupted cache, a MITM on a network load) to declare fewer capabilities
-   than it actually exercises, or to replace a safe fragment with a
-   malicious one.
-2. **Misattribution.** A chunk claims to be from a trusted author but isn't.
-3. **Supply-chain substitution.** A chunk dependency (ADR-0066 §2
-   `dependencies: Set<ChunkId>`) is replaced with a different chunk that
-   has the same id but different content.
-
-ADR-0046's capability check inspects the `Language` data as presented. If the
-data has been tampered with to lie about its capabilities, the check passes
-falsely. Certificates close this gap by verifying **provenance and
-integrity**, not just declared capabilities.
-
-### Why this depends on ADR-0066
-
-Chunks (ADR-0066) are the unit of certification. A certificate covers a
-chunk: its content, its dependencies, its author, its capability set. Without
-chunking, the unit is the whole `Language` — too coarse for incremental
-trust (one changed fragment re-certifies the entire language). With chunking,
-trust is per-chunk: a new chunk from a trusted author is certified
-independently; an untrusted chunk is rejected without loading the rest.
-
-### Why this is deferred
-
-Today, all `Language` data is authored in-repo and embedded at compile time
-(ADR-0044 §6). There are no untrusted sources. Certificates add overhead
-(signature verification on every load, key management, revocation) with no
-benefit when the source is trusted by construction.
-
-Certificates pay off when:
-
-- **Mods/plugins from third parties.** A user loads a mod's `Language`
-  chunks; the host verifies the mod author's signature before eval.
-- **Network-loaded languages.** Chunks fetched over a network can be
-  tampered with in transit; signatures verify integrity.
-- **Shared caches (ADR-0065 §5 `NetworkCache`).** A cache entry from another
-  host must be verified before use — the cache is not trusted.
-- **Compliance/regulatory environments.** A deployment requires provenance
-  attestation for all loaded code.
-
-None of these drivers exist today. This ADR records the design — because
-trust is a distinct concern from optimization and should not be designed ad
-hoc when the first untrusted source appears — but marks it **deferred until
-a concrete driver exists**.
+this page carries the mechanism, tables and rationale.
 
 ## Decision
 
@@ -201,88 +133,26 @@ This closes the tampering gap: an attacker cannot modify the chunk to add a
 `Foreign` scheme without invalidating the signature, and cannot lie about
 the capability set without the runtime detecting the mismatch.
 
+## Why
+
+ADR-0065 (cache/compression) and ADR-0066 (chunking) are optimization techniques. This ADR is a different concern: **trust**. It answers "do I believe this chunk is what its author claims it is, and does it come from a source I trust?"
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
-### Positive
-
 - **Provenance and integrity, not just declared capabilities.** ADR-0046
-  checks what the data claims; this ADR verifies the data hasn't been
-  tampered with and comes from a trusted author. Together they form
-  defense-in-depth.
 - **Per-chunk trust.** A new chunk from a trusted author is certified
-  independently; an untrusted chunk is rejected without loading the rest.
-  This composes with ADR-0066's lazy load.
 - **Supply-chain substitution is detected.** A dependency chunk with the
-  same id but different content fails the hash check in the parent's
-  certificate.
 - **Capability-set tampering is detected.** The certificate's declared
-  capability set is verified against the data; a mismatch is a rejection.
-
-### Negative
-
 - **Cryptographic overhead on every load of a certified chunk.** Ed25519
-  verification is fast (~100µs) but non-zero. For a chunk loaded on every
-  eval, this adds up. Mitigation: verify once, cache the verification
-  result alongside the chunk (ADR-0065 cache stores "verified" flag).
-- **Key management is a real operational burden.** Key distribution,
-  rotation, revocation, trust store management — this is PKI, not a
-  wrapper. The host operator bears this cost.
-- **Revocation lists can grow.** A long-lived deployment accumulates
-  revoked chunks. The list must be pruned or bounded.
-- **A compromised author key compromises all chunks signed by it.**
-  Standard PKI failure mode; revocation is the mitigation, but there is a
-  window between compromise and revocation.
 
-### Neutral
+## Enforcement
 
-- **Deferred.** This ADR records the design but does not mandate
-  implementation. A concrete driver (third-party mods, network-loaded
-  languages, shared caches, compliance requirements) must appear before
-  implementation begins.
-- **Separate from optimization.** Certificates are not a performance
-  feature. They are a trust feature that happens to share a unit (chunk)
-  with the optimization features (ADR-0065, ADR-0066).
+- Code and tests are named in the design doc.
 
-## Implementation phases (deferred)
+## Design
 
-### Phase 1 — Certificate format and signing
-
-Define the `Certificate` struct, canonical serialization, and Ed25519
-signing/verification. Test: sign a chunk, verify the signature; tamper the
-chunk, verification fails.
-
-### Phase 2 — Trust store and verification pipeline
-
-Implement the trust store (host config), the verification pipeline (hash →
-signature → author → capabilities → dependencies), and the revocation list.
-Test: a chunk from a trusted author loads; a chunk from an untrusted author
-is rejected; a revoked chunk is rejected.
-
-### Phase 3 — Integration with chunk loading (ADR-0066)
-
-Wire certificate verification into the chunk-load path (ADR-0066 §3). A
-chunk is verified before decompression and typecheck. Test: the lazy-load
-pipeline verifies each chunk on demand.
-
-### Phase 4 — Capability-set mismatch detection
-
-Verify the certificate's declared `CapabilitySet` against the computed one
-(ADR-0046 §1). Test: a chunk whose data contains a `Foreign` not in the
-certificate's capability set is rejected.
-
-## References
-
-- [ADR-0066](./0066-dependency-graph-chunking.md) — Dependency-Graph
-  Chunking (chunks are the unit of certification)
-- [ADR-0065](./0065-derived-artifact-cache-and-compression.md) —
-  Derived-Artifact Cache and Compression (cached artifacts are trust
-  targets; verification result can be cached)
-- [ADR-0046](./0046-capability-discipline-at-the-language-level.md) —
-  Capability Discipline (static capability check; this ADR verifies the
-  data the check inspects)
-- [ADR-0044](./0044-language-as-data-and-runtime-split.md) — Language as Data
-  and Runtime Split (`Language` is serializable data; certificates sign
-  that data)
-- Ed25519 (RFC 8032) — the signature scheme
-- Standard PKI patterns (X.509, TUF, Sigstore) — key distribution,
-  revocation, trust store design
+The full record (context, tables, phases, trade-offs): [`design/0067-chunk-certificates.md`](../design/0067-chunk-certificates.md).

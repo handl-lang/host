@@ -3,93 +3,52 @@ title: Platform abstractions and plugin system
 type: adr
 date: 2026-08-25
 status: proposed
-status_note: Proposed
+status_note: Accepted — one `handl-platform` crate holds the core contracts; capabilities are data.
 ---
 
-
-# ADR 0031: Platform abstractions and plugin system
+# ADR-0031: Platform Abstractions
 
 ## Decision
 
-
-Introduce a single new crate `handl-platform` that contains the core platform contracts as modules. No separate `handl-plugin`, `handl-extension`, or `handl-framework` crates for now.
-
-The `handl-platform` modules are:
-
-- `capability` — `Capability`, `CapabilityId`, `CapabilityMetadata`
-- `plugin` — `Plugin`, `PluginManifest`, `PluginRegistry`, `InProcessPlugin`, `ProcessPlugin`
-- `extension` — `Extension`, `ExtensionMetadata`
-- `kit` — `Kit`, `KitManifest`, `KitRegistry`
-- `host` — `Host`
-- `boundary` — `Boundary`, `BoundaryKind`
-
-`CapabilityMetadata` is any JSON-serializable object. The platform layer does not define CLI-specific keys such as `command` or `aliases`. It is exposed as an opaque `serde_json::Value` so hosts can interpret it independently:
-
-```rust
-pub type CapabilityMetadata = serde_json::Value;
-```
-
-A plugin may return metadata like:
-
-```json
-{
-  "command": "compile",
-  "description": "Compile a Handl module",
-  "aliases": ["build"]
-}
-```
-
-The `handl-host-cli` host may read the `command` field from this object and use it to generate a `clap` subcommand, but it does not require or hard-code any specific schema. Other hosts (LSP, web UI, CI) may surface the same capability using different fields.
-
-### Built-in default capabilities
-
-The platform ships with a set of default capability crates named `handl-ext-{name}`. Each crate is a regular plugin that implements one capability and is pre-registered by the default `Host`:
-
-- `handl-ext-fmt`
-- `handl-ext-lint`
-- `handl-ext-typecheck`
-- `handl-ext-eval`
-- `handl-ext-compile`
-- `handl-ext-build`
-- `handl-ext-extension` — manages extensions (`add`, `remove`, `info`)
-- `handl-ext-kit` — manages kits (`add`, `remove`, `info`)
-- `handl-ext-plugin` — manages plugins (`add`, `remove`, `info`)
-
-These crates are the only place where concrete command semantics live. The `handl-host-cli` binary does not know about `fmt`, `lint`, `plugin`, etc. It loads the default `Host`, reads `CapabilityMetadata` from the registry, and generates subcommands from whatever the metadata contains.
-
-The management capabilities (`extension`, `kit`, `plugin`) operate on the platform registries defined in `handl-platform`. They are not special-cased in the CLI.
-
-### Existing crate migrations
-
-- `crates/host-cli-plugin` is emptied; its `PluginRegistry` and `CliPlugin` logic move into `handl-platform::plugin` and are generalized.
-- `crates/compiler-pass-*` become pass hosts that use the platform `Plugin`/`Capability` traits to run a `Vec<Box<dyn Pass>>` assembled by `handl-compiler`.
-- `crates/vm` / `crates/plugin-vm-host-eval` align their `Host` with `handl-platform::host`.
-
-### Out of scope
-
-For now we intentionally defer `Framework`, `Middleware`, `Rpc`, and the `handl-document` unification work described in ADRs 0028/0030. They can be added once the platform layer is stable.
-
+1. **One crate, `handl-platform`**, holds the core contracts as modules:
+   `capability`, `plugin`, `extension`, `kit`, `host`, `boundary`.
+2. **`CapabilityMetadata` is opaque `serde_json::Value`**; the platform
+   defines no CLI-specific keys — each host interprets the object.
+3. **Default capabilities ship as `handl-ext-*` plugins** (fmt, lint, typecheck,
+   eval, compile, build, extension, kit, plugin); concrete command semantics
+   live only there.
+4. **Hosts generate their surface from capability metadata**; the CLI does not
+   know `fmt`/`lint`/`plugin`, and the management capabilities operate on the
+   platform registries, not as CLI special cases.
+5. **Existing crates migrate**: `host-cli-plugin` empties into
+   `platform::plugin`; `compiler-pass-*` become pass hosts; `vm` aligns with
+   `platform::host`.
+6. **Out of scope** until the layer is stable: `Framework`, `Middleware`,
+   `Rpc`, and the `handl-document` unification.
 
 ## Why
 
-The Handl repository has grown a large number of small crates (`handl-ast`, `handl-vm`, `handl-compiler`, `handl-host-cli-plugin`, etc.) but it does not yet have a single, stable platform layer that defines how capabilities, plugins, extensions, hosts, and boundaries compose. Existing ADRs 0028, 0029, and 0030 describe pluggable composition, the CLI as a capability orchestrator, and a `lib-lang` façade, but they leave the platform contract undefined.
+Each host had its own plugin/registry types and the CLI hardcoded its
+subcommands, so a new host or capability meant a new abstraction. One platform
+crate with opaque capability metadata lets every host surface the same
+capability differently.
 
 ## Not doing
-
-- none recorded — legacy record; the design doc lists what was deferred.
+- **Separate `handl-plugin`/`extension`/`framework` crates** — modules first.
+- **A CLI-specific metadata schema** — metadata is opaque.
+- **Command semantics in the CLI** — they live in `handl-ext-*`.
+- **Framework/RPC work now** — deferred until the contracts settle.
 
 ## Consequences
-
-- A single, small crate owns all platform contracts, making dependency direction explicit: everything else depends on `handl-platform`.
-- The CLI becomes a pure metadata-driven host. New capabilities appear automatically when a plugin registers them.
-- Built-in commands (`fmt`, `lint`, `plugin`, `kit`, etc.) are implemented as ordinary capability plugins, not as CLI code.
-- The compiler pipeline can be assembled from plugins without the compiler knowing the concrete pass implementations.
-- Stale `docs/api/ac_*` documentation and the `Peregrin.toml` reference can be removed as part of this work.
+- Hosts are thin; capabilities are plugins with metadata.
+- Management commands use the same registries as everything else.
+- The migration is mechanical: move types, generalize, align hosts.
 
 ## Enforcement
-
-- Code and tests are named in the design doc.
+- `crates/handl-platform/` — the six modules.
+- `crates/handl-ext-*/` — the default capabilities.
+- Host tests that generate subcommands from metadata.
 
 ## Design
-
-The full record (context, tables, phases, trade-offs): [`design/0031-platform-abstractions.md`](../design/0031-platform-abstractions.md).
++Module contents, metadata example, built-in capabilities and migrations:
++[`design/0031-platform-abstractions.md`](../design/0031-platform-abstractions.md).

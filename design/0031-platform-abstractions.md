@@ -1,23 +1,15 @@
 ---
-title: Platform abstractions and plugin system — design detail
+title: 'ADR 0031: Platform abstractions and plugin system — design detail'
 type: design
 date: 2026-08-25
 updated: 2026-10-29
 refs: [ADR-0031]
 ---
 
-# Platform abstractions and plugin system — design detail
+# ADR 0031: Platform abstractions and plugin system — design detail
 
 Moved verbatim from ADR-0031 (ADR-0161 size budget). The ADR carries the rules;
-this page carries the context, tables, phases and trade-offs.
-
-## Context
-
-The Handl repository has grown a large number of small crates (`handl-ast`, `handl-vm`, `handl-compiler`, `handl-host-cli-plugin`, etc.) but it does not yet have a single, stable platform layer that defines how capabilities, plugins, extensions, hosts, and boundaries compose. Existing ADRs 0028, 0029, and 0030 describe pluggable composition, the CLI as a capability orchestrator, and a `lib-lang` façade, but they leave the platform contract undefined.
-
-We also have stale documentation (`docs/api/ac_*`, `README.md` referencing non-existent crates) and a `handl-host-cli-plugin` crate that is hard-coded for the CLI rather than being a generic platform mechanism.
-
-This ADR defines the smallest set of platform abstractions needed to make the rest of the architecture coherent.
+this page carries the mechanism, tables and rationale.
 
 ## Decision
 
@@ -78,6 +70,14 @@ The management capabilities (`extension`, `kit`, `plugin`) operate on the platfo
 
 For now we intentionally defer `Framework`, `Middleware`, `Rpc`, and the `handl-document` unification work described in ADRs 0028/0030. They can be added once the platform layer is stable.
 
+## Why
+
+The Handl repository has grown a large number of small crates (`handl-ast`, `handl-vm`, `handl-compiler`, `handl-host-cli-plugin`, etc.) but it does not yet have a single, stable platform layer that defines how capabilities, plugins, extensions, hosts, and boundaries compose. Existing ADRs 0028, 0029, and 0030 describe pluggable composition, the CLI as a capability orchestrator, and a `lib-lang` façade, but they leave the platform contract undefined.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - A single, small crate owns all platform contracts, making dependency direction explicit: everything else depends on `handl-platform`.
@@ -85,5 +85,11 @@ For now we intentionally defer `Framework`, `Middleware`, `Rpc`, and the `handl-
 - Built-in commands (`fmt`, `lint`, `plugin`, `kit`, etc.) are implemented as ordinary capability plugins, not as CLI code.
 - The compiler pipeline can be assembled from plugins without the compiler knowing the concrete pass implementations.
 - Stale `docs/api/ac_*` documentation and the `Peregrin.toml` reference can be removed as part of this work.
-- `handl-host-cli-plugin` can be deleted after the migration.
-- `Framework`, `Middleware`, `Rpc`, and `handl-document` remain out of scope until this ADR is accepted and implemented.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0031-platform-abstractions.md`](../design/0031-platform-abstractions.md).

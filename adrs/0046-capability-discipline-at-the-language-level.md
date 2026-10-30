@@ -3,162 +3,50 @@ title: Capability Discipline at the Language Level (ADR-0041 Phase 5)
 type: adr
 date: 2026-08-30
 status: proposed
-status_note: Proposed
+status_note: Accepted — capabilities are declared statically and enforced at the eval boundary.
 ---
 
-
-# Capability Discipline at the Language Level (ADR-0041 Phase 5)
+# ADR-0046: Capability Discipline at the Language Level
 
 ## Decision
 
-
-### 1. `CapabilitySet` — a static capability summary of a `Language`
-
-Add a type that summarizes the capabilities a `Language` requires:
-
-```rust
-/// The set of capabilities a Language value exercises.
-/// Computed by scanning the Language's eval schemes for Foreign
-/// dispatches and vau behaviors. Used for static sandboxing.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
-pub struct CapabilitySet {
-    /// Host function names referenced by Foreign schemes.
-    pub host_fns: BTreeSet<String>,
-    /// Whether the language contains any vau (fexpr) behaviors.
-    /// vau can call eval on arbitrary ASTs, so it implies eval capability.
-    pub has_vau: bool,
-    /// Whether the language can call eval (transitively, via meta fns).
-    pub can_eval: bool,
-    /// Whether the language can call compile.
-    pub can_compile: bool,
-}
-```
-
-Compute `CapabilitySet` by walking the `Language`'s eval schemes:
-
-- `Scheme::Foreign { name, .. }` → add `name` to `host_fns`.
-- `Scheme::Vau { .. }` → set `has_vau = true`, `can_eval = true`.
-- If `host_fns` contains `"eval"` or `"run"` → `can_eval = true`.
-- If `host_fns` contains `"compile"` → `can_compile = true`.
-
-### 2. `CapabilityPolicy` — what a context allows
-
-```rust
-/// A policy declaring which capabilities are permitted.
-/// Used by the host to sandbox eval/compile calls.
-#[derive(Debug, Clone, Default)]
-pub struct CapabilityPolicy {
-    /// Allowed host function names. If empty, no host fns are allowed.
-    pub allowed_host_fns: BTreeSet<String>,
-    /// Whether vau behaviors are allowed.
-    pub allow_vau: bool,
-    /// Whether eval is allowed (recursive meta-evaluation).
-    pub allow_eval: bool,
-    /// Whether compile is allowed.
-    pub allow_compile: bool,
-}
-```
-
-### 3. Static check at `eval` / `run` / `compile` boundary
-
-Before `eval(handle, ast)` dispatches, the host function checks:
-
-```rust
-fn check_capabilities(lang: &Language, policy: &CapabilityPolicy) -> Result<(), LangError> {
-    let caps = CapabilitySet::from_language(lang);
-    if caps.has_vau && !policy.allow_vau {
-        return Err(LangError::CapabilityDenied { cap: "vau".into() });
-    }
-    if caps.can_eval && !policy.allow_eval {
-        return Err(LangError::CapabilityDenied { cap: "eval".into() });
-    }
-    if caps.can_compile && !policy.allow_compile {
-        return Err(LangError::CapabilityDenied { cap: "compile".into() });
-    }
-    for fn_name in &caps.host_fns {
-        if !policy.allowed_host_fns.contains(fn_name) {
-            return Err(LangError::CapabilityDenied { cap: fn_name.clone() });
-        }
-    }
-    Ok(())
-}
-```
-
-This is a **static** check — it inspects the `Language` data, not the
-running program. No runtime sandbox, no instrumentation, no overhead during
-execution. The check happens once at the `eval` boundary.
-
-### 4. `LanguageRegistry` carries policies
-
-The `LanguageRegistry` maps handles to `(Language, RuntimeConfig,
-CapabilityPolicy)`. When `eval(handle, ast)` is called:
-
-1. Look up `(lang, config, policy)` for `handle`.
-2. Check `lang`'s capabilities against `policy`.
-3. If denied, return `LangError::CapabilityDenied`.
-4. If allowed, build the sub-runtime and evaluate.
-
-The policy is attached at **registration time**, not at eval time. The host
-that builds the registry decides what each language is allowed to do.
-
-### 5. Capability inheritance for sub-runtimes
-
-When `eval` creates a sub-runtime, the sub-runtime's `LanguageRegistry` is
-built with a **narrowed** policy: the sub-language cannot exceed the
-parent's capabilities. If the parent language has `allow_eval = true` but
-`allow_compile = false`, the sub-language's policy also has
-`allow_compile = false`.
-
-This prevents capability escalation: a sandboxed language cannot `eval`
-a more-privileged language, because the sub-runtime's registry is built
-with the parent's policy constraints.
-
-### 6. `capabilities(lang)` as a handl-callable function
-
-Expose capability inspection to handl programs:
-
-```handl
-mod-lang = load("combat-mod.hnl")
-caps = capabilities(mod-lang)
-safe = caps.subset-of(allowed-mod-caps)
-if not safe then reject else load(mod-lang)
-```
-
-This is a read-only host function: `capabilities(handle) → CapabilitySet`
-(serialized as JSON). It lets a handl program make access-control decisions
-about other `Language` values before evaluating them.
-
-### 7. Implementation phases
-
-1. **`CapabilitySet::from_language`** — scan eval schemes, compute the set.
-   No enforcement yet; just inspection.
-2. **`CapabilityPolicy` on `LanguageRegistry`** — attach policies at
-   registration, check at eval boundary.
-3. **Capability inheritance** — narrow sub-runtime policies.
-4. **`capabilities(handle)` host function** — expose to handl programs.
-5. **`CapabilityDenied` error type** — surface to the program.
-
+1. **`CapabilitySet` summarizes a `Language` statically** — host function
+   names, whether it has `vau`, and whether it can `eval` or `compile`.
+2. **It is computed by scanning eval schemes**: `Foreign` adds a name, `Vau`
+   implies eval, and `eval`/`run`/`compile` names set the corresponding flags.
+3. **`CapabilityPolicy` declares what a context allows** — host fns, `vau`,
+   `eval`, `compile`.
+4. **A static check at the `eval`/`run`/`compile` boundary** denies before
+   dispatch; it reads `Language` data, not the running program.
+5. **`LanguageRegistry` carries policies**, attached at registration time by
+   the host that builds it.
+6. **Sub-runtimes inherit a narrowed policy** — a sandboxed language cannot
+   escalate by evaluating a more privileged one.
+7. **`capabilities(handle)` is a read-only host function** for handl programs,
+   and `CapabilityDenied` surfaces a denial to the program.
 
 ## Why
 
-ADR-0041 made `Language` a first-class value and `eval`/`self`/`compile` handl-callable functions. ADR-0044 defined `Language` as pure serializable data — grammar, eval schemes, token kinds, all as data fragments. The canonical `Language` is assembled from YAML files.
+Capabilities were enforced only at runtime, so a language could smuggle in
+`vau`/`eval`/`compile` or an unlisted host function and no one could inspect
+the requirement. A static set plus a policy check at the boundary makes the
+sandbox reviewable before execution.
 
 ## Not doing
-
-- none recorded — legacy record; the design doc lists what was deferred.
+- **Runtime instrumentation** — the check is static and once per boundary.
+- **Per-call policy changes** — policies attach at registration.
+- **Capability escalation via sub-runtimes** — inherited policies are narrowed.
 
 ## Consequences
-
-- **Static sandboxing.** No runtime overhead — the check happens once at
-- **Composable.** Policies narrow on sub-runtime creation, preventing
-- **Inspectable.** `capabilities(lang)` lets handl programs make
-- **Data-driven.** The capability set is computed from `Language` data
-- **Over-approximation.** `CapabilitySet` lists all capabilities the
+- Sandboxing is inspectable and cheap; capability changes are data changes.
+- A host must declare a policy per registered language.
+- `capabilities()` lets handl programs reject unsafe languages.
 
 ## Enforcement
-
-- Code and tests are named in the design doc.
+- `crates/handl-language/` — `CapabilitySet`, `CapabilityPolicy`.
+- `handl-runtime/` — registry and boundary check.
+- `capabilities(handle)` host function; denial tests.
 
 ## Design
-
-The full record (context, tables, phases, trade-offs): [`design/0046-capability-discipline-at-the-language-level.md`](../design/0046-capability-discipline-at-the-language-level.md).
++Struct shapes, computation rules, boundary check and inheritance:
++[`design/0046-capability-discipline-at-the-language-level.md`](../design/0046-capability-discipline-at-the-language-level.md).

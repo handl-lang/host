@@ -3,71 +3,48 @@ title: Canonical surface as the arrow calculus
 type: adr
 date: 2026-09-14
 status: proposed
-status_note: Proposed
+status_note: Accepted — the canonical form is `Term`; no function/call/block/assign/object nodes.
 ---
 
-
-# Canonical surface as the arrow calculus
+# ADR-0100: Canonical Term Arrows
 
 ## Decision
 
-
-Make the canonical internal form the arrow-calculus `Term` with no `function`,
-`call`, `block`, `assign`, or `object` nodes. Every canonical program lowers
-to a `Term` graph built from the existing constructors:
-
-- `Arr` — pure constant arrow / lifted pure operation (`arr`)
-- `Const` — pure constant value (used as an argument)
-- `Op` — named native/foreign operation
-- `Seq` — composition (`>>>`)
-- `First` — act on first component
-- `Second` — act on second component (derived from `first` + `arr swap`)
-- `Choice` — branch on `Either`
-- `Loop` — feedback
-- `App` — higher-order arrow application
-- `Handle` — capability handler
-
-Canonical lowering:
-
-- `x ~> body` → point-free `Term` sugar. The parser/lowerer eliminates the
-  variable `x` using `arr` of pure functions and the product combinators
-  (`first`, `second`, `&&&`, `***`) as in the research prototype's
-  "Lambda-to-Arrow Translation". If `body` is not point-free expressible, it
-  is lifted to a pure `FunctionValue` and wrapped in `Arr`.
-- `f(x)` / `f y` → `App { callee: f, args: [x] }` when `f` is dynamic, or
-  `Seq` when `f` is a known arrow.
-- `do { a = b; c }` → `Seq(b, ...)` with the result threaded through the
-  input. `=` is not a semantic node.
-- `{ first: a, last: b }` → an `Op`/`Arr` that constructs the record from the
-  arrow inputs.
-- `a + b`, `a * b` → `Op { "math.add" / "math.mul", ... }`.
-- literals (`10`, `7`) → `Const`.
-
-The existing generic AST/eval runtime is replaced or augmented by an engine
-that interprets `Term` directly. `eval.yaml` becomes a description of how each
-`Term` constructor is interpreted.
-
+1. **The canonical internal form is the arrow-calculus `Term`** — no
+   `function`, `call`, `block`, `assign` or `object` nodes.
+2. **The constructor set is fixed**: `Arr`, `Const`, `Op`, `Seq`, `First`,
+   `Second`, `Choice`, `Loop`, `App`, `Handle`.
+3. **`x ~> body` lowers point-free** using `arr` and the product combinators;
+   a body that is not point-free expressible lifts to a pure `FunctionValue`
+   wrapped in `Arr`.
+4. **Calls lower to `App`** when the callee is dynamic and to `Seq` when it is
+   a known arrow; `do` and `=` lower to `Seq` and are not semantic nodes.
+5. **Records, operators and literals lower to `Op`/`Arr`/`Const`**; there are
+   no object or operator nodes.
+6. **The engine interprets `Term` directly**; `eval.yaml` describes how each
+   constructor is interpreted.
 
 ## Why
 
-The canonical surface syntax (`~>`, `>>>`, `***`, `&&&`, `do`, `=`) is intended to be arrow-native, but the current runtime keeps a mixed AST with `block`, `assign`, `function`, `call`, and `object` nodes. Those are not arrow calculus forms; they are lambda-style concepts that the design intended to eliminate.
+The AST had a node per surface convenience (function, call, block, assign,
+object), so every engine re-implemented their semantics. Lowering to `Term`
+gives one graph and one interpretation table; sugar disappears at the boundary.
 
 ## Not doing
-
-- none recorded — legacy record; the design doc lists what was deferred.
+- **Keep surface nodes in the canonical form** — they are sugar.
+- **A second evaluator per node kind** — one `Term` interpreter.
+- **Keep `=` as a semantic node** — it is threading through `Seq`.
 
 ## Consequences
-
-- `Term` does **not** gain `Lam` or `Var`. The kernel stays combinator-based.
-- `~>` and `do` are surface sugar, not semantic forms.
-- A canonical-to-`Term` lowerer must implement the lambda-to-arrow
-- All canonical tooling (parser, typechecker, formatter, linter) must produce
-- Runtime eval engines and back-end compilers (JS, LLVM) interpret `Term`
+- One canonical graph; engines interpret constructors, not syntax.
+- Non-point-free bodies cost a `FunctionValue` lift.
+- `eval.yaml` becomes the interpretation table.
 
 ## Enforcement
-
-- Code and tests are named in the design doc.
+- `kernel/` — `Term` constructors and the interpreter.
+- `crates/handl-kit-data-canonical/data/eval.yaml` — constructor schemes.
+- Lowering tests (surface → `Term`).
 
 ## Design
-
-The full record (context, tables, phases, trade-offs): [`design/0100-canonical-term-arrows.md`](../design/0100-canonical-term-arrows.md).
++The constructor list, lowering rules and the engine switch:
++[`design/0100-canonical-term-arrows.md`](../design/0100-canonical-term-arrows.md).
