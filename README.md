@@ -25,6 +25,7 @@ One screen. The rule is ADR-0162; this file is the map.
 | `reports/` | *what we measured* — audits, sweeps, migrations | after the measurement | dated (frontmatter), immutable |
 | `retros/` | *what went wrong* — process post-mortems | after an incident or a bad estimate | dated (frontmatter), immutable |
 | `references.md` | *what we depend on* — other repos' ADR ids + URLs | this repo relies on a foreign decision | maintained |
+| `DECISIONS.md` | *what was decided* — one line per rule, with the ADR link | generated from every `## Decision`; never hand-edited | regenerated |
 | `docs-split.yaml` | *where things live* — the assignment manifest | a path moves or a repo is split | maintained |
 
 ## Choosing in one question

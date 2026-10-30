@@ -29,6 +29,8 @@ applies_to: all repos with a `project` branch; `docs` (the published hub)
    | `reports/` | *what we measured* — audits, sweeps | dated, immutable |
    | `retros/` | *what went wrong* — process post-mortems | dated, immutable |
    | `references.md` | *what we depend on* — other repos' ADR ids | maintained |
+   | `DECISIONS.md` | *what was decided* — one line per rule | generated, never hand-edited |
+   | `principles.md` | *org policy* — the standing principles (org `project` repo only) | maintained |
    | `docs-split.yaml` | *where things live* — assignment manifest | maintained |
 
    Anything else is a layout error, unless the repo declares it under
