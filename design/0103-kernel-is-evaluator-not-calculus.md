@@ -1,5 +1,5 @@
 ---
-title: ADR-0103 Phase 2: The Kernel is the Evaluator, Not the Calculus — design detail
+title: 'ADR-0103 Phase 2: The Kernel is the Evaluator, Not the Calculus — design detail'
 type: design
 date: 2026-09-10
 updated: 2026-10-29
