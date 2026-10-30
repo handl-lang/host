@@ -9,7 +9,8 @@ short record would otherwise lose:
     Not doing    the alternatives rejected, one line each, so nobody re-proposes them
 
 Report-only by default so the historical corpus can migrate incrementally;
-`--strict` turns warnings into a failure for CI, and `--strict-budget` also
+`--strict` turns warnings into a failure for CI; `--changed REV` limits the run to
+ADRs touched since REV (the PR ratchet); `--strict-budget` also
 fails on legacy size/decision budgets (ADR-0161 grandfathers those until the
 record is next edited).
 
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -47,6 +49,19 @@ ENFORCEMENT = re.compile(r"^##+\s+(Enforcement|Enforced by|Verification)\b", re.
 # from code. Collisions created before the global registry therefore stay as
 # they are — they are recorded, not fixed. Only a *new* collision is an error.
 HISTORICAL_DUPS = {"1", "2", "9", "83", "100"}
+
+
+def changed_adrs(proj: Path, rev: str) -> set[Path]:
+    """ADRs touched since `rev` (plus untracked ones), resolved to real paths."""
+    paths: set[Path] = set()
+    for args in (["diff", "--name-only", rev, "--", "."],
+                 ["ls-files", "--others", "--exclude-standard", "--", "."]):
+        out = subprocess.run(["git", "-C", str(proj)] + args,
+                             capture_output=True, text=True).stdout
+        for line in out.splitlines():
+            if line.endswith(".md"):
+                paths.add((proj / line).resolve())
+    return paths
 
 
 def adr_files(proj: Path) -> list[Path]:
@@ -96,6 +111,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-kb", type=int, default=8, help="soft budget per ADR (default 8)")
     ap.add_argument("--max-items", type=int, default=10, help="soft budget per Decision list")
     ap.add_argument("--repo", type=Path, default=ROOT, help="repo root (default: this repo)")
+    ap.add_argument("--changed", metavar="REV",
+                    help="only ADRs changed since REV (the PR ratchet)")
     ap.add_argument("--allow-dup", default="",
                     help="comma-separated historically-colliding numbers for this repo")
     args = ap.parse_args(argv)
@@ -112,6 +129,12 @@ def main(argv: list[str] | None = None) -> int:
             if line:
                 allowed.add(line.lstrip("0") or "0")
     files = adr_files(proj)
+    if args.changed:
+        touched = changed_adrs(proj, args.changed)
+        files = [p for p in files if p.resolve() in touched]
+        if not files:
+            print(f"no ADRs changed since {args.changed}")
+            return 0
     if not files:
         print(f"no ADRs under {proj}/adrs", file=sys.stderr)
         return 1
