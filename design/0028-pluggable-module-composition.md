@@ -1,5 +1,5 @@
 ---
-title: Pluggable Module Composition — design detail
+title: 'Pluggable Module Composition — design detail'
 type: design
 date: 2026-08-24
 updated: 2026-10-29
@@ -9,13 +9,7 @@ refs: [ADR-0028]
 # Pluggable Module Composition — design detail
 
 Moved verbatim from ADR-0028 (ADR-0161 size budget). The ADR carries the rules;
-this page carries the context, tables, phases and trade-offs.
-
-## Context
-
-The handl compiler already keeps lexing, parsing, resolving, typechecking, and formatting in separate crates. The existing `ParseStage` dispatches to a `Frontend` using only the `Source.format` string, and `FileResolver` derives that format from the file extension. This is the beginning of a multi-language import pipeline, but it is hard-coded: the `frontend_for(format)` map is a static match, and the `Dialect` trait represents a single bundled syntax.
-
-Because the pipeline is decoupled, the module system can already import files with different lexers, parsers, and syntaxes. We want to make this first-class: each handl module should declare which kits and plugins it uses, and the compiler should compose the correct pipeline for that module.
+this page carries the mechanism, tables and rationale.
 
 ## Decision
 
@@ -94,6 +88,14 @@ Plugins may produce different ASTs. To keep the rest of the pipeline tractable, 
 
 The existing `handl-dialect` `Dialect` trait and canonical dialect crate are deprecated in favor of this plugin model. Syntax, schema vocabulary, and special keys become `handl-lexer-*`, `handl-parser-*`, and `handl-pass-*` plugins rather than a single bundled dialect.
 
+## Why
+
+The handl compiler already keeps lexing, parsing, resolving, typechecking, and formatting in separate crates. The existing `ParseStage` dispatches to a `Frontend` using only the `Source.format` string, and `FileResolver` derives that format from the file extension. This is the beginning of a multi-language import pipeline, but it is hard-coded: the `frontend_for(format)` map is a static match, and the `Dialect` trait represents a single bundled syntax.
+
+## Not doing
+
+- none recorded — legacy record; the design doc lists what was deferred.
+
 ## Consequences
 
 - `Source.format` and `frontend_for(format)` will be removed in favor of `Source.module_config` and `Composer::compose(config)`.
@@ -101,6 +103,11 @@ The existing `handl-dialect` `Dialect` trait and canonical dialect crate are dep
 - `handl-dialect` and `handl-dialect-canonical` will be removed or significantly reduced.
 - Every compiler pass crate becomes a plugin host rather than a single implementation.
 - A new plugin registry is required to map `handl-*` names to concrete trait implementors.
-- `module-resolver-*` crates must be updated to read `module.toml` and pass `ModuleConfig`.
-- Tests will move from “this syntax” vs “that syntax” to “this kit/plugins combination” vs “that kit/plugins combination”.
-- Nested modules can mix syntaxes, e.g. a root project in `handl-kit-canonical` importing a JSON-config sub-module.
+
+## Enforcement
+
+- Code and tests are named in the design doc.
+
+## Design
+
+The full record (context, tables, phases, trade-offs): [`design/0028-pluggable-module-composition.md`](../design/0028-pluggable-module-composition.md).
