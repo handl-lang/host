@@ -2,6 +2,8 @@
 
 ## title: TODO type: task date: 2026-09-02
 
+- [ ] T-098 drop dead handl-lib-encoding dep (Cargo.toml:109, retired shell ADR-0161) · created:2026-10-31
+
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
 - [ ] T-001 D remainder — one real open question (kept ignored with a precise reason): parity\_cell\_comp\_v (×2) / arrow\_parity\_cell\_comp\_v — a model-parity gap : for a derived ( Term::Opaque ) record the Handl model evaluates it ( {"\_\_tag\_\_":"Cell2", …} ) while the Rust default model returns Null . Which is right depends on ADR-0119 §4 (it calls CellCompV redundant). Scope note: this is confined to the model layer . The source-level behaviour is already covered by the passing option\_b\_frontier\_e2e test axis\_flow\_axis1\_matches\_cell\_comp\_v , which runs both >>>\[1\] (the indexed paste) and =>> (the derived cell\_comp\_v ) and asserts they agree. What the parked tests add is that the two models disagree on a derived record — so deleting them would remove the only signal of that.
