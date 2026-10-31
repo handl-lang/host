@@ -1,7 +1,7 @@
 +++
 id = "I-001"
 title = "pushed commits fail to compile — handl_lib_base64 missing"
-status = "in-progress"
+status = "done"
 created = "2026-10-31"
 owner = "devin"
 priority = "high"
