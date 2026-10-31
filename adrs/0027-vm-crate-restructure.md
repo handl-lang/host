@@ -1,3 +1,10 @@
++++
+id = "ADR-0027"
+title = "VM Crate Restructure"
+status = "open"
+priority = "medium"
++++
+
 ---
 title: VM Crate Restructure
 type: adr
