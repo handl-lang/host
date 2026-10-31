@@ -313,6 +313,8 @@ handl-plugin-ffi = { path = "../kit-ffi/modules/ffi" }
 handl-kit-data-prelude = { path = "../kit-data-prelude/crates/handl-kit-data-prelude" }
 [patch."https://github.com/handl-lang/kit-prelude-lang"]
 handl-kit-prelude-lang = { path = "../kit-prelude-lang/crates/handl-kit-prelude-lang" }
+[patch."https://github.com/handl-lang/lib-base64"]
+handl-lib-base64 = { path = "../lib-base64" }
 [patch."https://github.com/handl-lang/lib-char-native"]
 handl-plugin-lib-char-native = { path = "../lib-char-native" }
 [patch."https://github.com/handl-lang/lib-collections"]
@@ -323,8 +325,12 @@ handl-plugin-lib-crypto = { path = "../lib-crypto" }
 handl-lib-desugar = { path = "../lib-desugar" }
 [patch."https://github.com/handl-lang/lib-hello"]
 handl-lib-hello = { path = "../lib-hello" }
+[patch."https://github.com/handl-lang/lib-hex"]
+handl-lib-hex = { path = "../lib-hex" }
 [patch."https://github.com/handl-lang/lib-ip"]
 handl-lib-ip = { path = "../lib-ip" }
+[patch."https://github.com/handl-lang/lib-json"]
+handl-lib-json = { path = "../lib-json" }
 [patch."https://github.com/handl-lang/lib-kv"]
 handl-plugin-lib-kv = { path = "../lib-kv" }
 [patch."https://github.com/handl-lang/lib-kv-hashmap"]
@@ -359,8 +365,14 @@ handl-lib-str-handl = { path = "../lib-str-handl" }
 
 [patch."https://github.com/handl-lang/lib-tag"]
 handl-lib-tag = { path = "../lib-tag" }
+[patch."https://github.com/handl-lang/lib-tar"]
+handl-lib-tar = { path = "../lib-tar" }
 [patch."https://github.com/handl-lang/lib-transform"]
 handl-lib-transform = { path = "../lib-transform" }
+[patch."https://github.com/handl-lang/lib-url-rfc"]
+handl-lib-url-rfc = { path = "../lib-url-rfc" }
+[patch."https://github.com/handl-lang/lib-url-whatwg"]
+handl-lib-url-whatwg = { path = "../lib-url-whatwg" }
 [patch."https://github.com/handl-lang/sdkgen-c"]
 handl-plugin-sdkgen-backend-c = { path = "../sdkgen-c" }
 [patch."https://github.com/handl-lang/sdkgen-cli"]

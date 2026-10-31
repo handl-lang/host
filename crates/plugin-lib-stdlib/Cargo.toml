@@ -53,6 +53,11 @@ handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-tag = { git = "https://github.com/handl-lang/host", branch = "main" }
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
+# Test-only: `tests/base64.rs`/`tests/hex.rs` exercise the shell crates' Rust
+# op impls (`ops::*`, `*_op_registry`) — the packages themselves are pure
+# `.hnl` table rows vendored by build.rs (ADR-0160/0161).
+handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = "main" }
+handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde_json = "1"
 [build-dependencies]

@@ -275,7 +275,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "json",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-json/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-json/src/index_flat.hnl"
+        )),
         funcs: &["stringify", "parse", "json"],
         ops: &[],
         values: &[],
@@ -283,7 +286,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ip",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-ip/src/index_flat.hnl"
+        )),
         funcs: &[
             "parse",
             "format",
@@ -306,7 +312,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "serialize",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-serialize/src/index_flat.hnl"
+        )),
         funcs: &["serialize", "deserialize", "toml", "yaml"],
         ops: &[],
         values: &[],
@@ -315,7 +324,10 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
         name: "base64",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-base64/src/index_flat.hnl"
+        )),
         funcs: &["encode", "decode", "codec"],
         ops: &[],
         values: &[],
@@ -323,7 +335,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "hex",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-hex/src/index_flat.hnl"
+        )),
         funcs: &["encode", "decode", "codec"],
         ops: &[],
         values: &[],
@@ -359,7 +374,10 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-url-rfc/src/index_flat.hnl"
+        )),
         funcs: &["parse", "url_rfc"],
         ops: &[],
         values: &[],
@@ -367,7 +385,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "url_whatwg",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-whatwg/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-url-whatwg/src/index_flat.hnl"
+        )),
         funcs: &["parse", "url_whatwg"],
         ops: &[],
         values: &[],
@@ -581,7 +602,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // declaration lines are stripped by the loader).
     ModuleSpec {
         name: "hello",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hello/src/index.hnl")),
+        hnl: handl_lib_hello::HELLO_HNL,
         funcs: &["greet"],
         ops: &[],
         values: &[],
@@ -666,7 +687,10 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "tar",
-        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-tar/src/index.hnl")),
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-tar/src/index_flat.hnl"
+        )),
         funcs: &["pack", "unpack"],
         ops: &[],
         values: &[],
