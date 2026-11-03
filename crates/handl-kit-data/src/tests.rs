@@ -151,9 +151,7 @@ fn seven_construct_languages() -> Vec<(&'static str, Language)> {
         ),
     ]
     .into_iter()
-    .map(|(name, tok, gram, eval, kind)| {
-        (name, construct_language(tok, gram, eval, kind))
-    })
+    .map(|(name, tok, gram, eval, kind)| (name, construct_language(tok, gram, eval, kind)))
     .collect()
 }
 
@@ -284,8 +282,8 @@ fn base_language_and_data_file_merge_together() {
     // the file's `token.x` and the base's `token.A` coexist.
     let path = lang_file("base-merge", &token_language("token.x"));
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, token_a_language()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 2);
     let _ = std::fs::remove_file(path);
@@ -307,10 +305,13 @@ fn assemble_produces_language_and_runtime_config() {
 
 #[test]
 fn assemble_construct_language_merges_all_three_sets() {
-    let path = lang_file("construct", &construct_language("token.c", "g.c", "e.c", "c"));
+    let path = lang_file(
+        "construct",
+        &construct_language("token.c", "g.c", "e.c", "c"),
+    );
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("c", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("c", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     assert_eq!(kit.lang().grammar.len(), 1);
@@ -356,8 +357,7 @@ fn include_keeps_only_listed_ids() {
 fn include_empty_keeps_all() {
     let a = lang_file("incl-empty", &token_language("token.a"));
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("a", a));
+    let manifest = DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("a", a));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
 }
@@ -388,7 +388,10 @@ fn exclude_does_not_filter_base_language() {
 #[test]
 fn exclude_across_multiple_sets() {
     // Excluding a grammar id skips only that grammar row, not the token.
-    let path = lang_file("excl-multi", &construct_language("token.c", "g.c", "e.c", "c"));
+    let path = lang_file(
+        "excl-multi",
+        &construct_language("token.c", "g.c", "e.c", "c"),
+    );
     let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()
         .with_fragment(FragmentSourceEntry::data_file("c", path.clone()))
@@ -515,8 +518,8 @@ fn extends_child_overrides_parent_fragment() {
         .unwrap();
     let child_lang = lang_file("child-y", &lang);
     let mut reg = KitRegistry::new();
-    let parent = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("x", parent_lang));
+    let parent =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("x", parent_lang));
     reg.register_kit("parent-kit", parent);
     let child = DataKitManifest::new()
         .with_extends("parent-kit")
@@ -533,8 +536,8 @@ fn extends_chain_union_of_capabilities() {
     let parent_lang = lang_file("cap-a", &cap_language("cap.a"));
     let child_lang = lang_file("cap-b", &cap_language("cap.b"));
     let mut reg = KitRegistry::new();
-    let parent = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("cap-a", parent_lang));
+    let parent =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("cap-a", parent_lang));
     reg.register_kit("parent-kit", parent);
     let child = DataKitManifest::new()
         .with_extends("parent-kit")
@@ -582,8 +585,8 @@ fn data_file_json_source_loads_language() {
     let lang = sample_language();
     let path = temp_file("lang", "json", &serde_json::to_string(&lang).unwrap());
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     let _ = std::fs::remove_file(path);
@@ -594,8 +597,8 @@ fn data_file_yaml_source_loads_language() {
     let lang = sample_language();
     let path = temp_file("lang", "yaml", &serde_yaml::to_string(&lang).unwrap());
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     let _ = std::fs::remove_file(path);
@@ -605,8 +608,8 @@ fn data_file_yaml_source_loads_language() {
 fn data_file_toml_source_loads_language() {
     let path = temp_file("empty", "toml", &empty_language_toml());
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 0);
     let _ = std::fs::remove_file(path);
@@ -617,8 +620,8 @@ fn data_file_unknown_extension_falls_back_to_json() {
     let lang = sample_language();
     let path = temp_file("lang", "fragment", &serde_json::to_string(&lang).unwrap());
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().tokens.len(), 1);
     let _ = std::fs::remove_file(path);
@@ -628,8 +631,8 @@ fn data_file_unknown_extension_falls_back_to_json() {
 fn data_file_missing_file_errors_with_path() {
     let missing = std::env::temp_dir().join("handl-kit-data-does-not-exist.json");
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", missing.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", missing.clone()));
     let err = DataKit::assemble(&manifest, &reg, Language::new()).unwrap_err();
     assert!(matches!(err, LangError::Engine { .. }));
     assert!(
@@ -642,8 +645,8 @@ fn data_file_missing_file_errors_with_path() {
 fn data_file_unparseable_errors_with_path() {
     let path = temp_file("garbage", "json", "{ not json");
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("d", path.clone()));
     let err = DataKit::assemble(&manifest, &reg, Language::new()).unwrap_err();
     assert!(matches!(err, LangError::Engine { .. }));
     assert!(format!("{err}").contains("garbage.json"), "{err}");
@@ -683,10 +686,10 @@ fn kit_manifest_load_missing_file_errors_with_path() {
 
 #[test]
 fn into_runtime_binds_pratt_and_tree_walk() {
+    use handl_runtime::EngineRegistry;
     use hnl_engine_exec_tree_walk::TreeWalkEngine;
     use hnl_engine_lex_pattern::DataLexerEngine;
     use hnl_engine_parse_pratt::PrattEngine;
-    use handl_runtime::EngineRegistry;
     use std::rc::Rc;
 
     let reg = KitRegistry::new();
@@ -707,15 +710,14 @@ fn into_runtime_binds_pratt_and_tree_walk() {
 
 #[test]
 fn into_runtime_unknown_eval_engine_errors() {
+    use handl_runtime::EngineRegistry;
     use hnl_engine_exec_tree_walk::TreeWalkEngine;
     use hnl_engine_lex_pattern::DataLexerEngine;
     use hnl_engine_parse_pratt::PrattEngine;
-    use handl_runtime::EngineRegistry;
     use std::rc::Rc;
 
     let reg = KitRegistry::new();
-    let manifest =
-        DataKitManifest::new().with_runtime(RuntimeConfig::new().with_eval("nonsense"));
+    let manifest = DataKitManifest::new().with_runtime(RuntimeConfig::new().with_eval("nonsense"));
     let kit = DataKit::assemble(&manifest, &reg, token_language("token.x")).unwrap();
     let mut engine_reg = EngineRegistry::new();
     engine_reg.register_lex("data", Box::new(DataLexerEngine::new()));
@@ -791,8 +793,8 @@ fn assemble_merges_ast_and_options_fragments() {
 fn assemble_merges_caps_fragment() {
     let path = lang_file("cap-z", &cap_language("cap.z"));
     let reg = KitRegistry::new();
-    let manifest = DataKitManifest::new()
-        .with_fragment(FragmentSourceEntry::data_file("cap", path.clone()));
+    let manifest =
+        DataKitManifest::new().with_fragment(FragmentSourceEntry::data_file("cap", path.clone()));
     let kit = DataKit::assemble(&manifest, &reg, Language::new()).unwrap();
     assert_eq!(kit.lang().caps.len(), 1);
     assert!(kit.lang().caps.get_by_id("cap.z").is_some());
@@ -816,7 +818,10 @@ fn exclude_skips_ast_and_options() {
 fn exclude_skips_eval_and_caps_fragments() {
     // Exercising the "skip" branch of the include/exclude filter for the eval
     // and caps fragment sets (coverage of the `if passes(...)` false path).
-    let construct = lang_file("excl-construct", &construct_language("token.c", "g.c", "e.c", "c"));
+    let construct = lang_file(
+        "excl-construct",
+        &construct_language("token.c", "g.c", "e.c", "c"),
+    );
     let cap = lang_file("excl-cap", &cap_language("cap.z"));
     let reg = KitRegistry::new();
     let manifest = DataKitManifest::new()

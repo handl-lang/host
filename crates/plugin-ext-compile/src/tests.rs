@@ -14,9 +14,9 @@ use hnl_engine::Term;
 #[cfg(any(feature = "js", feature = "llvm"))]
 use serde_json::{Number, Value};
 
-use crate::CompileFileRequest;
 #[cfg(any(feature = "js", feature = "llvm"))]
 use crate::CompileDispatcher;
+use crate::CompileFileRequest;
 
 #[cfg(any(feature = "js", feature = "llvm"))]
 fn js_input(term: Term) -> CompilerInput {

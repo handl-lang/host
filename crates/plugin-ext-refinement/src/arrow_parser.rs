@@ -41,10 +41,9 @@
 use std::collections::{HashMap, HashSet};
 
 use handl_language::{Ast, AstNode, Language, Term, Value};
+use hnl_engine::{ArrSource, RewriteWitness, TermData};
 use hnl_engine_parse::{ParserEngine, ParserRequest};
 use hnl_engine_parse_pratt::PrattEngine;
-use hnl_engine::{ArrSource, RewriteWitness, TermData};
-
 
 // ============================================================================
 // Public API
@@ -300,10 +299,7 @@ pub fn parse_arrow_module(lang: &Language, src: &str) -> Result<ParsedModule, St
 /// `load_arrow_file` to handle files with import/export declarations while
 /// preserving the bare-reference form that `resolve_apps` expects.
 /// `lang` is the arrow-dialect [`Language`] — see [`parse_arrow_file`].
-pub fn parse_arrow_module_no_rewrite(
-    lang: &Language,
-    src: &str,
-) -> Result<ParsedModule, String> {
+pub fn parse_arrow_module_no_rewrite(lang: &Language, src: &str) -> Result<ParsedModule, String> {
     parse_arrow_module_inner(lang, src)
 }
 
@@ -428,7 +424,12 @@ fn parse_arrow_module_inner(lang: &Language, src: &str) -> Result<ParsedModule, 
     // §Migration; `hash_map.set` mints the same record shape.)
     let tag_constructor_src: String = tags
         .iter()
-        .map(|t| format!("{} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{}\")", t.name, t.name))
+        .map(|t| {
+            format!(
+                "{} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{}\")",
+                t.name, t.name
+            )
+        })
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -1151,8 +1152,7 @@ fn try_parse_simple_rec(lang: &Language, src: &str) -> Option<Term> {
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
 fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Term, String> {
-    let tokens =
-        hnl_engine_lex_pattern::lex(lang, src).map_err(|e| format!("lex error: {}", e))?;
+    let tokens = hnl_engine_lex_pattern::lex(lang, src).map_err(|e| format!("lex error: {}", e))?;
 
     if tokens.0.is_empty() {
         return Err("no tokens produced by lexer".to_string());

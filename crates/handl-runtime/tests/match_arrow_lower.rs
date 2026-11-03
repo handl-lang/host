@@ -11,14 +11,14 @@
 
 use handl_kit_arrow_lower::lower_ast;
 use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Source, Term, Value};
+use handl_runtime::Runtime;
+use hnl_engine::term_interpreter::interpret;
 use hnl_engine_exec::{EvalEngine, EvalRequest};
 use hnl_engine_exec_bytecode::BytecodeEngine;
 use hnl_engine_exec_cranelift::CraneliftEngine;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::Runtime;
-use hnl_engine::term_interpreter::interpret;
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -124,7 +124,10 @@ fn assert_lowered_on_compiled_engines(src: &str) {
     let want = interpret(&term, Value::Null)
         .unwrap_or_else(|e| panic!("term interpreter failed on {src:?}: {e}"));
     for (name, engine) in [
-        ("bytecode", Box::new(BytecodeEngine::new()) as Box<dyn EvalEngine>),
+        (
+            "bytecode",
+            Box::new(BytecodeEngine::new()) as Box<dyn EvalEngine>,
+        ),
         ("cranelift", Box::new(CraneliftEngine::new()) as _),
     ] {
         let got = eval_term_on(engine.as_ref(), rt.lang(), &term);
@@ -140,7 +143,10 @@ fn assert_lowered_ast_on_compiled_engines(ast: &Ast, want: Value) {
     let term = lower_ast(ast, rt.lang(), root)
         .unwrap_or_else(|e| panic!("lower_ast declined hand-built ast: {e}"));
     for (name, engine) in [
-        ("bytecode", Box::new(BytecodeEngine::new()) as Box<dyn EvalEngine>),
+        (
+            "bytecode",
+            Box::new(BytecodeEngine::new()) as Box<dyn EvalEngine>,
+        ),
         ("cranelift", Box::new(CraneliftEngine::new()) as _),
     ] {
         let got = eval_term_on(engine.as_ref(), rt.lang(), &term);
@@ -156,18 +162,14 @@ fn object_patterns_on_compiled_engines() {
     assert_lowered_on_compiled_engines(
         r#"match { "a": 5, "b": 2 } { { "a": x, ...r }: r.b, _: 0 }"#,
     );
-    assert_lowered_on_compiled_engines(
-        r#"match { "a": 5, "b": 2 } { { "a": x, ...r }: r, _: 0 }"#,
-    );
+    assert_lowered_on_compiled_engines(r#"match { "a": 5, "b": 2 } { { "a": x, ...r }: r, _: 0 }"#);
     assert_lowered_on_compiled_engines(r#"match { "a": 5 } { { "c": x }: x, _: 0 }"#);
     assert_lowered_on_compiled_engines(r#"match 5 { { "a": x }: x, _: 0 }"#);
     // `{}` — the `is_obj` discriminant.
     assert_lowered_on_compiled_engines(r#"match { "a": 1 } { {}: "obj", _: "no" }"#);
     assert_lowered_on_compiled_engines(r#"match 5 { {}: "obj", _: "no" }"#);
     // Nested object/array sub-patterns — `arr_len`/`arr_drop` too.
-    assert_lowered_on_compiled_engines(
-        r#"match { "a": [1, 2] } { { "a": [x, ...t] }: x, _: 0 }"#,
-    );
+    assert_lowered_on_compiled_engines(r#"match { "a": [1, 2] } { { "a": [x, ...t] }: x, _: 0 }"#);
     // Literal sub-patterns under entries + `has_field` guard fallthrough.
     assert_lowered_on_compiled_engines(
         r#"match { "a": 5, "b": 2 } { { "a": 5 }: "hit", _: "miss" }"#,
@@ -202,9 +204,7 @@ fn runtime_object_keys_on_compiled_engines() {
         r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#,
     );
     // Non-string runtime key coerces to `""` (try_object_pattern parity).
-    assert_lowered_on_compiled_engines(
-        r#"do { n :: 42, match { "a": 1 } { {[n]: x}: x, _: 0 } }"#,
-    );
+    assert_lowered_on_compiled_engines(r#"do { n :: 42, match { "a": 1 } { {[n]: x}: x, _: 0 } }"#);
     // Nested dynamic keys — the staged `Extend` appends a tuple slot at
     // depth, shared between the discriminant and both binder paths
     // (`o.k` stays runtime-valued: `static_term_value` cannot fold the
@@ -413,58 +413,36 @@ fn runtime_object_pattern_keys() {
     // early `Ok(false)` on non-Obj before key collection).
     assert_lowered(r#"((k) ~> match 5 { {[k]: x}: x, _: 0 })("a")"#);
     // Param key + sub-pattern under the dynamic field.
-    assert_lowered(
-        r#"((k) ~> match { "a": 9 } { {[k]: 9}: "hit", _: "miss" })("a")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: 9}: "hit", _: "miss" })("a")"#);
     assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: 9}: "hit", _: "miss" })("b")"#);
     // Env-bound *runtime* key — a non-const expression (field access on
     // a bound record), which `static_term_value` cannot collapse.
-    assert_lowered(
-        r#"do { o :: {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#,
-    );
+    assert_lowered(r#"do { o :: {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#);
     // Nested object pattern with a runtime key one level down.
-    assert_lowered(
-        r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("b")"#,
-    );
-    assert_lowered(
-        r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("z")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("b")"#);
+    assert_lowered(r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("z")"#);
     // `...rest` under a runtime key — `obj_except(target, keys)` reads
     // the slot-2 evaluated key list.
-    assert_lowered(
-        r#"((k) ~> match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 })("a")"#,
-    );
-    assert_lowered(
-        r#"((k) ~> match { "b": 1, "a": 2 } { {[k]: x, ...r}: r, _: 0 })("a")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 })("a")"#);
+    assert_lowered(r#"((k) ~> match { "b": 1, "a": 2 } { {[k]: x, ...r}: r, _: 0 })("a")"#);
     // Mixed static + runtime keys in one pattern.
-    assert_lowered(
-        r#"((k) ~> match { "a": 1, "b": 2 } { { "a": 1, [k]: x }: x, _: 0 })("b")"#,
-    );
-    assert_lowered(
-        r#"((k) ~> match { "a": 1, "b": 2 } { { "a": 1, [k]: x }: x, _: 0 })("c")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "a": 1, "b": 2 } { { "a": 1, [k]: x }: x, _: 0 })("b")"#);
+    assert_lowered(r#"((k) ~> match { "a": 1, "b": 2 } { { "a": 1, [k]: x }: x, _: 0 })("c")"#);
     // Key hitting an absent field: arm falls through to wildcard.
     assert_lowered(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 5 })("b")"#);
     // Non-string runtime key coerces to `""` (try_object_pattern parity).
     assert_lowered(r#"((k) ~> match { "a": 1 } { {[k]: x}: x, _: 0 })(42)"#);
     assert_lowered(r#"((k) ~> match { "": 3, "a": 1 } { {[k]: x}: x, _: 0 })(42)"#);
     // Runtime key under a nested literal-eval sub-pattern.
-    assert_lowered(
-        r#"((k) ~> match { "a": 9 } { {[k]: (9)}: "hit", _: "miss" })("a")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: (9)}: "hit", _: "miss" })("a")"#);
     // Runtime key over a non-object scrutinee falls through cleanly.
     assert_lowered(r#"((k) ~> match [1, 2] { {[k]: x}: x, _: 0 })("a")"#);
     // A dynamic-key binder used *twice* in the body — the key list is
     // forced once ahead of the discriminant and rides the dispatched
     // `[v, in, keys]` triple into the body; the binder reads `keys[i]`
     // rather than re-evaluating the key term per use.
-    assert_lowered(
-        r#"((k) ~> match { "a": 9 } { {[k]: x}: x + x + x, _: 0 })("a")"#,
-    );
-    assert_lowered(
-        r#"((k) ~> match { "a": 9 } { {[k]: x}: [x, x, x], _: 0 })("a")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: x}: x + x + x, _: 0 })("a")"#);
+    assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: x}: [x, x, x], _: 0 })("a")"#);
     // Two dynamic keys, both binders used, plus a `...rest` read —
     // via do-block slots (`(k, j) ~>` multi-param dynamic keys are a
     // pre-existing `elem` OOB on the pair projection, unrelated to the
@@ -485,17 +463,13 @@ fn runtime_object_pattern_keys() {
     );
     // `o.a` present but not an object → the nested gate fails, the arm
     // falls through, no key evaluates.
-    assert_lowered(
-        r#"((k) ~> match { "a": 5 } { { "a": {[k]: x} }: x, _: 0 })("b")"#,
-    );
+    assert_lowered(r#"((k) ~> match { "a": 5 } { { "a": {[k]: x} }: x, _: 0 })("b")"#);
     // Two nested dynamic-key objects under sibling entries.
     assert_lowered(
         r#"((k) ~> match { "a": { "b": 1 }, "c": { "b": 4 } } { { "a": {[k]: x}, "c": {[k]: y} }: x + y, _: 0 })("b")"#,
     );
     // Nested dynamic key inside an array pattern.
-    assert_lowered(
-        r#"((k) ~> match [{ "b": 3 }] { [{[k]: x}]: x, _: 0 })("b")"#,
-    );
+    assert_lowered(r#"((k) ~> match [{ "b": 3 }] { [{[k]: x}]: x, _: 0 })("b")"#);
     // `...rest` under a nested dynamic key — `obj_except(target, keys)`
     // reads the forced slot.
     assert_lowered(
@@ -644,9 +618,7 @@ fn nested_runtime_object_key_evaluated_once() {
     );
     // Under an array element too.
     assert_eq!(
-        obj_key_count(
-            r#"((k) ~> match [{ "b": 3 }] { [{[k]: x}]: x, _: 0 })("b")"#,
-        ),
+        obj_key_count(r#"((k) ~> match [{ "b": 3 }] { [{[k]: x}]: x, _: 0 })("b")"#,),
         1,
     );
     // Two nested dynamic-key objects on sibling entries — one forcing

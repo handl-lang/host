@@ -75,12 +75,7 @@ const TAG_HNL: &str = handl_lib_tag::TAG_HNL;
 /// with the `__tag__`/`{tag}` bridge (ADR-0152 §Migration): user code
 /// no longer mints tagged values; host-internal `__tag__` records
 /// (Cell/Arrow/Handler/law) remain inspectable.
-const TAG_OPS: &[&str] = &[
-    "tag.untag",
-    "tag.tag_of",
-    "tag.is_tag",
-    "tag.match_type",
-];
+const TAG_OPS: &[&str] = &["tag.untag", "tag.tag_of", "tag.is_tag", "tag.match_type"];
 
 // ---------------------------------------------------------------------------
 // Function impls (the handls — Rust bodies for the `op` declarations)

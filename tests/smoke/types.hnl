@@ -6,9 +6,15 @@
 --- `<>` (a dimension IS an index; phase-2 WS-C). `Vec<Succ n, a>` folds
 --- whitespace into `call` inside the bracket.
 
-data Nat :: Zero | Succ(pred : Nat)
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
 
-data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+Vec<n : Nat, a : Type> := {
+  VNil : Vec(0, a),
+  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+}
 
 v1 : Vec<2, Bool> = VCons(true, VCons(false, VNil))
 

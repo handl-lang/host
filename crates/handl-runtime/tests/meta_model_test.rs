@@ -28,7 +28,6 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use serde_json::{Value, json};
 
-
 /// Install the canonical default language once per test binary.
 ///
 /// `HandlModule` bridge runtimes resolve [`default_language`] lazily
@@ -37,8 +36,7 @@ use serde_json::{Value, json};
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -100,7 +98,7 @@ fn sample_term() -> Value {
 
 #[test]
 fn identity_model_returns_a_record_with_run() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     assert!(model.is_object(), "identity_model should be an object");
     assert!(
@@ -111,7 +109,7 @@ fn identity_model_returns_a_record_with_run() {
 
 #[test]
 fn identity_model_run_returns_term_unchanged() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let term = sample_term();
     let result = call_meta("run_model", &[model, term.clone(), Value::Null, json!({})]);
@@ -120,7 +118,7 @@ fn identity_model_run_returns_term_unchanged() {
 
 #[test]
 fn identity_model_run_preserves_arbitrary_term() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let term =
         json!({ "__tag__": "Op", "name": "add", "args": [], "source": "Native", "lit": null });
@@ -134,7 +132,7 @@ fn identity_model_run_preserves_arbitrary_term() {
 
 #[test]
 fn run_model_dispatches_to_run_handler() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let term = json!({ "__tag__": "Arr", "value": 7 });
     let result = call_meta("run_model", &[model, term.clone(), Value::Null, json!({})]);
@@ -147,7 +145,7 @@ fn run_model_dispatches_to_run_handler() {
 
 #[test]
 fn validate_model_accepts_identity_model() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let result = call_meta("validate_model", &[model]);
     assert_eq!(result, json!(true));
@@ -155,21 +153,21 @@ fn validate_model_accepts_identity_model() {
 
 #[test]
 fn validate_model_rejects_non_record() {
-        ensure_lang();
+    ensure_lang();
     let result = call_meta("validate_model", &[json!(42)]);
     assert_eq!(result.get("__tag__"), Some(&json!("ModelError")));
 }
 
 #[test]
 fn validate_model_rejects_record_without_run() {
-        ensure_lang();
+    ensure_lang();
     let result = call_meta("validate_model", &[json!({ "foo": 1 })]);
     assert_eq!(result.get("__tag__"), Some(&json!("ModelError")));
 }
 
 #[test]
 fn validate_model_rejects_non_function_run() {
-        ensure_lang();
+    ensure_lang();
     let result = call_meta("validate_model", &[json!({ "run": 5 })]);
     assert_eq!(result.get("__tag__"), Some(&json!("ModelError")));
 }
@@ -180,7 +178,7 @@ fn validate_model_rejects_non_function_run() {
 
 #[test]
 fn available_tags_lists_run_for_identity_model() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let tags = call_meta("available_tags", &[model]);
     // `hash_map.keys` returns an array containing "run".
@@ -194,7 +192,7 @@ fn available_tags_lists_run_for_identity_model() {
 
 #[test]
 fn available_tags_empty_for_non_record() {
-        ensure_lang();
+    ensure_lang();
     let tags = call_meta("available_tags", &[json!(5)]);
     assert_eq!(tags, json!([]));
 }
@@ -205,7 +203,7 @@ fn available_tags_empty_for_non_record() {
 
 #[test]
 fn model_name_is_null_for_anonymous_model() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let name = call_meta("model_name", &[model]);
     assert_eq!(name, Value::Null);
@@ -213,7 +211,7 @@ fn model_name_is_null_for_anonymous_model() {
 
 #[test]
 fn model_name_null_for_non_record() {
-        ensure_lang();
+    ensure_lang();
     let name = call_meta("model_name", &[json!(7)]);
     assert_eq!(name, Value::Null);
 }
@@ -224,7 +222,7 @@ fn model_name_null_for_non_record() {
 
 #[test]
 fn register_and_lookup_model_roundtrip() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let registry = call_meta("register_model", &[json!("id"), model.clone(), json!({})]);
     assert!(registry.is_object());
@@ -238,7 +236,7 @@ fn register_and_lookup_model_roundtrip() {
 
 #[test]
 fn register_model_stamps_name() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let registry = call_meta("register_model", &[json!("my_model"), model, json!({})]);
     let looked_up = call_meta("lookup_model", &[json!("my_model"), registry]);
@@ -247,14 +245,14 @@ fn register_model_stamps_name() {
 
 #[test]
 fn lookup_model_returns_null_for_missing() {
-        ensure_lang();
+    ensure_lang();
     let looked_up = call_meta("lookup_model", &[json!("nope"), json!({})]);
     assert_eq!(looked_up, Value::Null);
 }
 
 #[test]
 fn lookup_model_null_for_non_record_registry() {
-        ensure_lang();
+    ensure_lang();
     let looked_up = call_meta("lookup_model", &[json!("x"), json!(3)]);
     assert_eq!(looked_up, Value::Null);
 }
@@ -265,7 +263,7 @@ fn lookup_model_null_for_non_record_registry() {
 
 #[test]
 fn compose_identity_with_identity_is_identity() {
-        ensure_lang();
+    ensure_lang();
     let id = call_meta("identity_model", &[]);
     let composed = call_meta("compose", &[id.clone(), id.clone()]);
     assert!(composed.is_object());
@@ -280,7 +278,7 @@ fn compose_identity_with_identity_is_identity() {
 
 #[test]
 fn compose_left_identity_preserves_model() {
-        ensure_lang();
+    ensure_lang();
     // compose(identity, m).run(t) = m.run(identity.run(t)) = m.run(t).
     // With m = identity, this is identity.
     let id = call_meta("identity_model", &[]);
@@ -299,7 +297,7 @@ fn compose_left_identity_preserves_model() {
 
 #[test]
 fn pipeline_of_identity_list_is_identity() {
-        ensure_lang();
+    ensure_lang();
     let id = call_meta("identity_model", &[]);
     let piped = call_meta("pipeline", &[json!([id.clone(), id.clone(), id])]);
     assert!(piped.is_object());
@@ -311,7 +309,7 @@ fn pipeline_of_identity_list_is_identity() {
 
 #[test]
 fn pipeline_empty_is_identity() {
-        ensure_lang();
+    ensure_lang();
     let piped = call_meta("pipeline", &[json!([])]);
     assert!(piped.is_object());
     assert!(piped.get("run").is_some());
@@ -326,7 +324,7 @@ fn pipeline_empty_is_identity() {
 
 #[test]
 fn parallel_returns_a_pair_of_results() {
-        ensure_lang();
+    ensure_lang();
     let id = call_meta("identity_model", &[]);
     let par = call_meta("parallel", &[id.clone(), id]);
     assert!(par.is_object());
@@ -343,7 +341,7 @@ fn parallel_returns_a_pair_of_results() {
 
 #[test]
 fn trace_model_returns_result_and_trace() {
-        ensure_lang();
+    ensure_lang();
     let id = call_meta("identity_model", &[]);
     let term = sample_term();
     let traced = call_meta("trace_model", &[id, term.clone(), Value::Null, json!({})]);
@@ -357,7 +355,7 @@ fn trace_model_returns_result_and_trace() {
 
 #[test]
 fn trace_model_records_tag_dispatch() {
-        ensure_lang();
+    ensure_lang();
     let id = call_meta("identity_model", &[]);
     let term = json!({ "__tag__": "Arr", "value": 1 });
     let traced = call_meta("trace_model", &[id, term, Value::Null, json!({})]);
@@ -374,7 +372,7 @@ fn trace_model_records_tag_dispatch() {
 
 #[test]
 fn model_handler_returns_run_for_identity_model() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let handler = call_meta("model_handler", &[model, json!("run")]);
     assert!(
@@ -385,7 +383,7 @@ fn model_handler_returns_run_for_identity_model() {
 
 #[test]
 fn model_handler_returns_null_for_missing_tag() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta("identity_model", &[]);
     let handler = call_meta("model_handler", &[model, json!("does_not_exist")]);
     assert_eq!(handler, Value::Null);
@@ -560,7 +558,7 @@ fn call_meta_kernel(name: &str, args: &[Value], kernel: MockKernelModule) -> Val
 
 #[test]
 fn load_model_loads_and_parses_a_small_model() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta_kernel("load_model", &[json!("models/mini.hnl")], mock_kernel());
     assert!(
         model.is_object(),
@@ -581,7 +579,7 @@ fn load_model_loads_and_parses_a_small_model() {
 
 #[test]
 fn load_model_loaded_model_validates() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta_kernel("load_model", &[json!("models/mini.hnl")], mock_kernel());
     let result = call_meta_kernel("validate_model", &[model], mock_kernel());
     assert_eq!(result, json!(true));
@@ -589,7 +587,7 @@ fn load_model_loaded_model_validates() {
 
 #[test]
 fn load_model_loaded_model_lists_run_tag() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta_kernel("load_model", &[json!("models/mini.hnl")], mock_kernel());
     let tags = call_meta_kernel("available_tags", &[model], mock_kernel());
     assert!(
@@ -604,7 +602,7 @@ fn load_model_loaded_model_lists_run_tag() {
 
 #[test]
 fn load_model_loaded_model_is_runnable() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta_kernel("load_model", &[json!("models/mini.hnl")], mock_kernel());
     let term = json!({ "__tag__": "Arr", "value": 5 });
     let result = call_meta_kernel(
@@ -618,7 +616,7 @@ fn load_model_loaded_model_is_runnable() {
 
 #[test]
 fn load_model_returns_null_for_nonexistent_path() {
-        ensure_lang();
+    ensure_lang();
     let model = call_meta_kernel("load_model", &[json!("does/not/exist.hnl")], mock_kernel());
     // The mock `fs.read` returns Null for an unknown path; `parse(Null)`
     // returns Null, so `load_model` surfaces a null model.

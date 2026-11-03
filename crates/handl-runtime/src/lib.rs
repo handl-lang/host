@@ -76,6 +76,8 @@ use serde::{Deserialize, Serialize};
 
 use handl_kit_arrow_lower::lower_ast;
 use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
+use handl_value::{TaggedValue, tagged_to_value};
+use hnl_engine::term_interpreter::interpret_with_handlers;
 use hnl_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
 use hnl_engine_lex::{LexerEngine, LexerRequest};
 use hnl_engine_parse::{ParserEngine, ParserRequest};
@@ -84,8 +86,6 @@ use hnl_engine_parse::{ParserEngine, ParserRequest};
 /// `hnl-engine-typecheck` (ADR-0054).
 pub use hnl_engine_typecheck::{TypecheckDiagnostic, TypecheckResult};
 use hnl_engine_typecheck::{TypecheckEngine, TypecheckRequest};
-use handl_value::{TaggedValue, tagged_to_value};
-use hnl_engine::term_interpreter::interpret_with_handlers;
 use rustc_hash::FxHashMap;
 
 // ---------------------------------------------------------------------------
@@ -2121,10 +2121,10 @@ mod tests {
         TokenKindDef,
     };
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
-    use hnl_engine_lex::Lexer;
-    use hnl_engine_parse::{Parser, ParserContext};
     use handl_plugin_module::ModuleRegistry;
     use hnl_engine::TermData;
+    use hnl_engine_lex::Lexer;
+    use hnl_engine_parse::{Parser, ParserContext};
     use serde_json::{Value, json};
 
     // -----------------------------------------------------------------------
@@ -2455,9 +2455,8 @@ mod tests {
 
     #[test]
     fn eval_only_runtime_lex_returns_error_eval_works() {
-        let rt = Runtime::new(arith_lang()).with_eval_engine(Box::new(
-            hnl_engine_exec_tree_walk::TreeWalkEngine::new(),
-        ));
+        let rt = Runtime::new(arith_lang())
+            .with_eval_engine(Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()));
         // lex returns NotImplemented (no lex engine).
         assert_eq!(
             rt.lex(&Source::new("1 + 2")).unwrap_err(),

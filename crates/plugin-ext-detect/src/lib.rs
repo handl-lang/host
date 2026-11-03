@@ -165,10 +165,7 @@ mod tests {
             Dialect::Contract
         );
         // An axiom that is *not* the first statement is canonical.
-        assert_eq!(
-            detect_dialect("x = 1;\naxiom a: true"),
-            Dialect::Canonical
-        );
+        assert_eq!(detect_dialect("x = 1;\naxiom a: true"), Dialect::Canonical);
     }
 
     #[test]

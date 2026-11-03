@@ -21,12 +21,12 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use handl_language::{Source, Value};
+use handl_runtime::{ModuleLoader, Runtime};
+use handl_value::TaggedValue;
 use hnl_engine_exec::ImportResolver;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::{ModuleLoader, Runtime};
-use handl_value::TaggedValue;
 use serde_json::json;
 
 /// A unique temp directory for this test process's module fixtures.

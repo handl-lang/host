@@ -24,12 +24,10 @@ use crate::types::{Measure, Pred};
 /// dev-dep data crate plus the `arrow_language_for` overrides (tests may
 /// depend on `lang/` data; the library must not).
 fn arrow_lang() -> &'static handl_language::Language {
-    static LANG: std::sync::OnceLock<handl_language::Language> =
-        std::sync::OnceLock::new();
+    static LANG: std::sync::OnceLock<handl_language::Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
         crate::arrow_lang::arrow_language_for(
-            &handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            &handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         )
     })
 }
@@ -587,7 +585,8 @@ fn test_infer_counter_from_disk() {
     let counter_path = format!("{}/state/counter.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
-    let result = infer_file(arrow_lang(), &counter_path, &registry).expect("infer counter from disk");
+    let result =
+        infer_file(arrow_lang(), &counter_path, &registry).expect("infer counter from disk");
 
     let pretty = result.guarantee.pretty();
     println!("counter (from disk) guarantee: {}", pretty);
@@ -626,7 +625,8 @@ fn test_infer_protocol_from_disk() {
     let protocol_path = format!("{}/state/protocol.hnl", fixtures_dir);
     let registry = ContractRegistry::minimal();
 
-    let result = infer_file(arrow_lang(), &protocol_path, &registry).expect("infer protocol from disk");
+    let result =
+        infer_file(arrow_lang(), &protocol_path, &registry).expect("infer protocol from disk");
     println!(
         "protocol (from disk) guarantee: {}",
         result.guarantee.pretty()

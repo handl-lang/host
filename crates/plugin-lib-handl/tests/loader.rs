@@ -25,8 +25,7 @@ use handl_plugin_lib_handl::{
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -191,8 +190,7 @@ mod bootstrap {
                 }
                 _ if depth == 0 && (c.is_ascii_alphabetic() || c == b'_') => {
                     let mut j = i + 1;
-                    while j < bytes.len()
-                        && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
+                    while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
                     {
                         j += 1;
                     }
@@ -985,9 +983,8 @@ fn separatorless_export_fails_loudly() {
     );
 
     // The bootstrap mirror panics with the diagnostic.
-    let caught = std::panic::catch_unwind(|| {
-        bootstrap::transform_export_to_object("export just_a_name\n")
-    });
+    let caught =
+        std::panic::catch_unwind(|| bootstrap::transform_export_to_object("export just_a_name\n"));
     let panic_msg = caught.expect_err("bootstrap must panic on separator-less export");
     let text = panic_msg
         .downcast_ref::<String>()
@@ -1001,9 +998,7 @@ fn separatorless_export_fails_loudly() {
 
     // And the public entry point — loader error falls back to the
     // bootstrap panic — is loud too.
-    let caught = std::panic::catch_unwind(|| {
-        transform_export_to_object("export just_a_name\n")
-    });
+    let caught = std::panic::catch_unwind(|| transform_export_to_object("export just_a_name\n"));
     assert!(caught.is_err(), "public transform must fail loudly");
 }
 
@@ -1019,9 +1014,8 @@ fn nameless_export_fails_loudly() {
             .is_err(),
         "loader must fail on a nameless export"
     );
-    let caught = std::panic::catch_unwind(|| {
-        bootstrap::transform_export_to_object("export := 1\n")
-    });
+    let caught =
+        std::panic::catch_unwind(|| bootstrap::transform_export_to_object("export := 1\n"));
     let panic_msg = caught.expect_err("bootstrap must panic on a nameless export");
     let text = panic_msg
         .downcast_ref::<String>()
@@ -1099,7 +1093,7 @@ fn single_line_module_exports_evaluate() {
 
 #[test]
 fn loader_parity() {
-        ensure_lang();
+    ensure_lang();
     install();
     for (i, src) in CORPUS.iter().enumerate() {
         assert_eq!(

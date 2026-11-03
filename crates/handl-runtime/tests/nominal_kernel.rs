@@ -177,7 +177,10 @@ fn vm_sym_string_arg_is_seeded_mint() {
     let a2 = call("sym", &[json!("test.seed.A")]);
     let b = call("sym", &[json!("test.seed.B")]);
     assert!(nominal_eq_json(&a1, &a2), "seeded mints are deterministic");
-    assert!(!nominal_eq_json(&a1, &b), "distinct seeds are distinct syms");
+    assert!(
+        !nominal_eq_json(&a1, &b),
+        "distinct seeds are distinct syms"
+    );
     // The seeded name is the short segment (presentation only) — identity
     // is the handle, asserted equal above.
     let inner = a1.get("__sym__").unwrap();
@@ -195,10 +198,7 @@ fn vm_sym_too_many_args_errors() {
     let msg = format!("{:?}", err);
     assert!(msg.contains("takes a seed string first"), "{}", msg);
     // Arity caps at 3: `sym("seed", parent, ty)` is the widest mint.
-    let err = call_err(
-        "sym",
-        &[json!("seed"), root.clone(), root.clone(), root],
-    );
+    let err = call_err("sym", &[json!("seed"), root.clone(), root.clone(), root]);
     let msg = format!("{:?}", err);
     assert!(msg.contains("expected 0–3 arguments"), "{}", msg);
 }
@@ -338,10 +338,7 @@ fn vm_instance_of_tag_datum_is_obj_member() {
     }
     // Identical to a plain object literal — the tag carries no semantics.
     assert_eq!(
-        call(
-            "instance_of",
-            &[json!({"a": 1}), seeded("type.Obj")]
-        ),
+        call("instance_of", &[json!({"a": 1}), seeded("type.Obj")]),
         json!(true)
     );
 }
@@ -407,9 +404,6 @@ fn vm_instance_of_non_member_objects_untouched() {
     // `42` is a `type.Nat`/`type.Int`/`type.Number` member through the
     // literal defaults — the scalar read is untouched by the tag deletion.
     for seed in ["type.Nat", "type.Int", "type.Number"] {
-        assert_eq!(
-            call("instance_of", &[json!(42), seeded(seed)]),
-            json!(true)
-        );
+        assert_eq!(call("instance_of", &[json!(42), seeded(seed)]), json!(true));
     }
 }

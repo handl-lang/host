@@ -10,9 +10,15 @@
 --- this file stays check-side — `hnl run` would print the pair but the
 --- ctor-object rendering is not part of the asserted surface.
 
-data Nat :: Zero | Succ(pred : Nat)
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
 
-data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+Vec<n : Nat, a : Type> := {
+  VNil : Vec(0, a),
+  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+}
 
 -- ---------------------------------------------------------------------
 -- Existential length: "some `m` with a `Vec(m, a)`". The witness refines

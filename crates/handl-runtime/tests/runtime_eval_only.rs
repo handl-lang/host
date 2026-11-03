@@ -178,9 +178,8 @@ fn eval_only_runtime_with_manual_engine_binding() {
     // Verify that manually binding an eval engine via the builder (not
     // from_config) also works for an eval-only runtime.
     let lang = eval_lang();
-    let rt = Runtime::new(lang).with_eval_engine(Box::new(
-        hnl_engine_exec_tree_walk::TreeWalkEngine::new(),
-    ));
+    let rt = Runtime::new(lang)
+        .with_eval_engine(Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()));
 
     // lex/parse are not bound.
     assert_eq!(

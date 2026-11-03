@@ -90,7 +90,8 @@ fn copy_hnl(src: &Path, dst: &Path) -> Result<(), String> {
             copy_hnl(&path, &dst.join(entry.file_name()))?;
         } else if path.extension().is_some_and(|e| e == "hnl") {
             let target = dst.join(entry.file_name());
-            std::fs::copy(&path, &target).map_err(|e| format!("vendor: {}: {e}", path.display()))?;
+            std::fs::copy(&path, &target)
+                .map_err(|e| format!("vendor: {}: {e}", path.display()))?;
             println!("cargo:rerun-if-changed={}", path.display());
         }
     }
@@ -150,14 +151,20 @@ mod tests {
             &root,
             "lib-x",
             "{ modules: [\"x\"] }\n",
-            &[("src/index.hnl", "{ a: c ~> true }\n"), ("src/notes.txt", "skip")],
+            &[
+                ("src/index.hnl", "{ a: c ~> true }\n"),
+                ("src/notes.txt", "skip"),
+            ],
         );
         let out = root.join("out");
         std::fs::create_dir_all(&out).unwrap();
         let dest = vendor_into(&pkg, &out).unwrap();
         assert!(dest.join("pkg.hnl").is_file());
         assert!(dest.join("src/index.hnl").is_file());
-        assert!(!dest.join("src/notes.txt").exists(), "non-.hnl is not vendored");
+        assert!(
+            !dest.join("src/notes.txt").exists(),
+            "non-.hnl is not vendored"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -173,7 +180,11 @@ mod tests {
         let out = root.join("out");
         std::fs::create_dir_all(&out).unwrap();
         let dest = vendor_into(&pkg, &out).unwrap();
-        assert!(module_file(&dest, "b").unwrap().ends_with("src/b/index.hnl"));
+        assert!(
+            module_file(&dest, "b")
+                .unwrap()
+                .ends_with("src/b/index.hnl")
+        );
         assert!(module_file(&dest, "zzz").is_err());
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -187,8 +198,12 @@ mod tests {
         // 21 of the 113 repos predate `pkg.hnl`; their sources still vendor.
         let legacy = root.join("lib-legacy");
         std::fs::create_dir_all(legacy.join("src")).unwrap();
-        std::fs::write(legacy.join("src/index.hnl"), "{ a: c ~> true }
-").unwrap();
+        std::fs::write(
+            legacy.join("src/index.hnl"),
+            "{ a: c ~> true }
+",
+        )
+        .unwrap();
         let dest = vendor_into(&legacy, &out).unwrap();
         assert!(dest.join("src/index.hnl").is_file());
         assert!(!dest.join("pkg.hnl").exists());

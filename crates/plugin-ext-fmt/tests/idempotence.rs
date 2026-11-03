@@ -11,11 +11,9 @@ use handl_plugin_ext_fmt::format_source_with_language;
 /// The canonical language, assembled once from the dev-dep data crate
 /// (integration tests may depend on `lang/` data; the library must not).
 fn lang() -> &'static handl_language::Language {
-    static LANG: std::sync::OnceLock<handl_language::Language> =
-        std::sync::OnceLock::new();
+    static LANG: std::sync::OnceLock<handl_language::Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
-        handl_kit_data_prelude::language_from_yaml()
-            .expect("canonical language assembles")
+        handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles")
     })
 }
 

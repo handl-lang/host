@@ -8,9 +8,15 @@
 --- partial matches today — totality is enforced where index
 --- refinement makes coverage decidable.)
 
-data Nat :: Zero | Succ(pred : Nat)
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
 
-data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+Vec<n : Nat, a : Type> := {
+  VNil : Vec(0, a),
+  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+}
 
 export is_nil_broken<n, a> : Vec<n, a> ~> Bool =
   v ~> match v { VNil: true }

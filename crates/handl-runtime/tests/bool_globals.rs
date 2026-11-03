@@ -8,12 +8,12 @@
 //! name compares against its bound value rather than binding unconditionally.
 
 use handl_language::Source;
+use handl_runtime::Runtime;
 use hnl_engine_exec_bytecode::BytecodeEngine;
 use hnl_engine_exec_cranelift::CraneliftEngine;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::Runtime;
 use serde_json::json;
 
 fn canonical_lang() -> handl_language::Language {

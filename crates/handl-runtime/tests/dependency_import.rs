@@ -27,11 +27,11 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use handl_language::{Source, Value};
+use handl_runtime::{ModuleLoader, Runtime};
 use hnl_engine_exec::ImportResolver;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::{ModuleLoader, Runtime};
 use serde_json::json;
 
 /// A unique temp directory for this test process's module fixtures.
@@ -43,7 +43,10 @@ fn scratch_dir(tag: &str) -> PathBuf {
 
 /// Build a `ModuleLoader` + `Runtime` rooted at `module_root` with `deps` as
 /// the `[dependencies]` name → package-dir map.
-fn loader_and_runtime(module_root: PathBuf, deps: HashMap<String, PathBuf>) -> (Rc<ModuleLoader>, Runtime) {
+fn loader_and_runtime(
+    module_root: PathBuf,
+    deps: HashMap<String, PathBuf>,
+) -> (Rc<ModuleLoader>, Runtime) {
     let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     let lang_rc = Rc::new(kit.lang().clone());
 
@@ -56,8 +59,8 @@ fn loader_and_runtime(module_root: PathBuf, deps: HashMap<String, PathBuf>) -> (
         )
         .with_dependencies(deps),
     );
-    let mut loader_eval = TreeWalkEngine::new()
-        .with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
+    let mut loader_eval =
+        TreeWalkEngine::new().with_import_resolver(Rc::clone(&loader) as Rc<dyn ImportResolver>);
     for (name, val) in &kit.lang().globals {
         loader_eval = loader_eval.with_global(name, val.clone());
     }
@@ -88,7 +91,11 @@ fn dependency_name_specs_resolve_inside_the_dep_dir() {
     std::fs::create_dir_all(&dep_libc).unwrap();
 
     std::fs::write(dep_ws.join("ws-c.hnl"), "export prepare := (x) ~> x + 1\n").unwrap();
-    std::fs::write(dep_libc.join("socket.hnl"), "export socket := (x) ~> x * 2\n").unwrap();
+    std::fs::write(
+        dep_libc.join("socket.hnl"),
+        "export socket := (x) ~> x * 2\n",
+    )
+    .unwrap();
     std::fs::write(
         project.join("consumer.hnl"),
         concat!(
@@ -175,8 +182,16 @@ fn dependency_names_shadow_same_named_relative_dirs() {
     std::fs::create_dir_all(&local).unwrap();
     std::fs::create_dir_all(&vendored).unwrap();
 
-    std::fs::write(local.join("socket.hnl"), "export socket := (x) ~> x + 100\n").unwrap();
-    std::fs::write(vendored.join("socket.hnl"), "export socket := (x) ~> x + 1\n").unwrap();
+    std::fs::write(
+        local.join("socket.hnl"),
+        "export socket := (x) ~> x + 100\n",
+    )
+    .unwrap();
+    std::fs::write(
+        vendored.join("socket.hnl"),
+        "export socket := (x) ~> x + 1\n",
+    )
+    .unwrap();
     std::fs::write(
         project.join("consumer.hnl"),
         "from \"libc/socket\" import socket\nexport go := (x) ~> socket(x)\n",

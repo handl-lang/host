@@ -27,12 +27,10 @@ use crate::types::{BaseTy, Pred, RefTy};
 /// dev-dep data crate plus the `arrow_language_for` overrides (tests may
 /// depend on `lang/` data; the library must not).
 fn arrow_lang() -> &'static handl_language::Language {
-    static LANG: std::sync::OnceLock<handl_language::Language> =
-        std::sync::OnceLock::new();
+    static LANG: std::sync::OnceLock<handl_language::Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
         crate::arrow_lang::arrow_language_for(
-            &handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            &handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         )
     })
 }
@@ -715,9 +713,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::arrow_loader::{
-    CachingResolver, ChainResolver, FileResolver, LoadError, MemoryResolver,
-    ModuleLoader, ModuleResolver, ResolveErrorKind, flatten_program, has_unresolved_apps,
-    normalize_compile_time,
+    CachingResolver, ChainResolver, FileResolver, LoadError, MemoryResolver, ModuleLoader,
+    ModuleResolver, ResolveErrorKind, flatten_program, has_unresolved_apps, normalize_compile_time,
 };
 use crate::arrow_parser::{ExportDecl, parse_arrow_module};
 

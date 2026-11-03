@@ -37,7 +37,7 @@ STATUS_SECTION = re.compile(r"^##\s+Status\s*$", re.M)
 STATUS_LINE = re.compile(r"^[-*]?\s*\**Status\**\s*[:—]\s*(.+)$", re.M)
 SUPERSEDED_BY = re.compile(r"Superseded by\s*\[?ADR[-\s]?(\d{3,4})", re.I)
 DECISION = re.compile(r"^##\s+Decision\b(.*?)(?=^##\s|\Z)", re.M | re.S)
-ITEM = re.compile(r"^\s*(?:\d+\.|[-*])\s+", re.M)
+ITEM = re.compile(r"^(?:\d+\.|[-*])\s+", re.M)   # top-level rules only; nested bullets are detail
 FRONT = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", re.S)
 
 # Headings accepted as the "why" — legacy files use Context/Rationale.

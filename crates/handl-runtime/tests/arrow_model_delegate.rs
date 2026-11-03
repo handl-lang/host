@@ -14,14 +14,13 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
-use hnl_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
 use handl_plugin_lib_handl::{HandlModelAdapter, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use hnl_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
+use hnl_engine_exec_tree_walk::{TreeWalkEngine, ValueModel};
 use serde_json::json;
-
 
 /// Install the canonical default language once per test binary.
 ///
@@ -31,8 +30,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -102,7 +100,7 @@ fn run_model<M: Model<Value = Value>>(model: &M, term: &Term, incoming: Value) -
 /// `NotImplemented`), matching the direct `HandlModelAdapter` output.
 #[test]
 fn delegated_path_matches_adapter() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
         TermData::arr(json!(2)),
@@ -121,7 +119,7 @@ fn delegated_path_matches_adapter() {
 /// Rust `ValueModel`, confirming the delegate is a faithful replacement.
 #[test]
 fn delegated_path_matches_rust_default() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
         TermData::arr(json!(2)),
@@ -140,7 +138,7 @@ fn delegated_path_matches_rust_default() {
 /// the direct adapter.
 #[test]
 fn delegated_equiv_matches_adapter() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
         TermData::arr(json!(1)),
@@ -155,7 +153,7 @@ fn delegated_equiv_matches_adapter() {
 /// The delegated `Equiv` result matches the default Rust `ValueModel`.
 #[test]
 fn delegated_equiv_matches_rust_default() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
         TermData::arr(json!(1)),
@@ -174,7 +172,7 @@ fn delegated_equiv_matches_rust_default() {
 /// matching the direct adapter.
 #[test]
 fn delegated_refine_matches_adapter() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
         TermData::refine(
@@ -191,7 +189,7 @@ fn delegated_refine_matches_adapter() {
 /// The delegated `Refine` result matches the default Rust `ValueModel`.
 #[test]
 fn delegated_refine_matches_rust_default() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
         TermData::refine(
@@ -214,7 +212,7 @@ fn delegated_refine_matches_rust_default() {
 /// its result — this confirms the delegate path is exercised and agrees.
 #[test]
 fn delegated_rewrite_matches_adapter() {
-        ensure_lang();
+    ensure_lang();
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -233,7 +231,7 @@ fn delegated_rewrite_matches_adapter() {
 /// The delegated `Rewrite` result matches the default Rust `ValueModel`.
 #[test]
 fn delegated_rewrite_matches_rust_default() {
-        ensure_lang();
+    ensure_lang();
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -257,7 +255,7 @@ fn delegated_rewrite_matches_rust_default() {
 /// when a delegate is configured. This guards the `is_hott_tag` boundary.
 #[test]
 fn delegated_model_still_handles_core_tags_in_rust() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
         TermData::op("inc", vec![], &ArrSource::Native, None),

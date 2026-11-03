@@ -199,8 +199,7 @@ mod tests {
     fn lang() -> &'static Language {
         static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
         LANG.get_or_init(|| {
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles")
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles")
         })
     }
 

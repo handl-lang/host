@@ -306,10 +306,7 @@ impl ToolingHost {
     }
 
     /// Returns the locations referencing the symbol at `request.pos`.
-    pub fn references(
-        &self,
-        request: &ReferencesRequest,
-    ) -> Result<Vec<Location>, PlatformError> {
+    pub fn references(&self, request: &ReferencesRequest) -> Result<Vec<Location>, PlatformError> {
         match &self.references {
             Some(plugin) => {
                 let resp = plugin.run(request)?;

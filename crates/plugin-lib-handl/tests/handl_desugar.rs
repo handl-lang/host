@@ -5,23 +5,22 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstRef, Language, Source};
-use hnl_engine_lex::{LexerEngine, LexerRequest};
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse::ParserRequest;
-use handl_runtime::ParseEngineDyn;
-use hnl_engine_parse_pratt::PrattEngine;
-use hnl_engine_transform_rewrite::native::desugar_native_registry;
-use hnl_engine_transform_rewrite::RewriteEngine;
 use handl_plugin_lib_char_native::CharModule;
 use handl_plugin_lib_handl::transform::DESUGAR_HNL;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
+use handl_runtime::ParseEngineDyn;
+use hnl_engine_lex::{LexerEngine, LexerRequest};
+use hnl_engine_lex_pattern::DataLexerEngine;
+use hnl_engine_parse::ParserRequest;
+use hnl_engine_parse_pratt::PrattEngine;
+use hnl_engine_transform_rewrite::RewriteEngine;
+use hnl_engine_transform_rewrite::native::desugar_native_registry;
 use serde_json::Value;
 
 fn lang() -> &'static Language {
     static LANG: std::sync::OnceLock<Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
-        let l = handl_kit_data_prelude::language_from_yaml()
-            .expect("canonical language");
+        let l = handl_kit_data_prelude::language_from_yaml().expect("canonical language");
         let _ = handl_plugin_lib_handl::install_default_language(l.clone());
         l
     })
@@ -61,8 +60,8 @@ fn handl_desugar(ast: &Ast) -> Ast {
 /// Desugar via the Rust natives only — the registry dual-registers the
 /// `handl:desugar.*` spellings, so the same fallback table resolves them.
 fn rust_desugar(ast: &Ast) -> Ast {
-    let engine = RewriteEngine::new()
-        .with_desugar_and_handl_natives(Arc::new(desugar_native_registry()));
+    let engine =
+        RewriteEngine::new().with_desugar_and_handl_natives(Arc::new(desugar_native_registry()));
     let root = AstRef::new(ast.len() - 1);
     engine
         .run_pass(lang(), ast, root, "desugar")
@@ -104,15 +103,15 @@ fn same_payload(a: &Ast, pa: &Value, b: &Ast, pb: &Value, depth: usize) -> bool 
             ka.sort();
             kb.sort();
             if ka != kb {
-                eprintln!("payload keys differ: {ka:?} vs {kb:?} path={:?}", PATH.lock().unwrap());
+                eprintln!(
+                    "payload keys differ: {ka:?} vs {kb:?} path={:?}",
+                    PATH.lock().unwrap()
+                );
                 return false;
             }
             for k in ka {
                 if k == "children" {
-                    let (xs, ys) = match (
-                        ma[k].as_array(),
-                        mb[k].as_array(),
-                    ) {
+                    let (xs, ys) = match (ma[k].as_array(), mb[k].as_array()) {
                         (Some(x), Some(y)) => (x, y),
                         _ => return false,
                     };
@@ -123,8 +122,7 @@ fn same_payload(a: &Ast, pa: &Value, b: &Ast, pb: &Value, depth: usize) -> bool 
                     for (xv, yv) in xs.iter().zip(ys) {
                         match (xv.as_u64(), yv.as_u64()) {
                             (Some(xi), Some(yi)) => {
-                                if !same_node(a, xi as usize, b, yi as usize, depth + 1)
-                                {
+                                if !same_node(a, xi as usize, b, yi as usize, depth + 1) {
                                     return false;
                                 }
                             }
@@ -201,9 +199,7 @@ fn data_maybe_parity() {
 
 #[test]
 fn match_nat_parity() {
-    assert_parity(
-        "data Nat :: Zero | Succ(pred : Nat)\nx :: match n { Zero: 0, Succ(p): p }",
-    );
+    assert_parity("data Nat :: Zero | Succ(pred : Nat)\nx :: match n { Zero: 0, Succ(p): p }");
 }
 
 #[test]

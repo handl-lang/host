@@ -535,16 +535,11 @@ fn claim_temp_slot(parent: &Path, slot: &Path) -> Result<PathBuf, String> {
         .file_name()
         .map_or_else(|| "dep".to_string(), |n| n.to_string_lossy().into_owned());
     for attempt in 0..64u32 {
-        let tmp = parent.join(format!(
-            ".{name}.fetch-{}-{attempt}",
-            std::process::id(),
-        ));
+        let tmp = parent.join(format!(".{name}.fetch-{}-{attempt}", std::process::id(),));
         match std::fs::create_dir(&tmp) {
             Ok(()) => return Ok(tmp),
             Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(e) => {
-                return Err(format!("cannot create temp slot {}: {e}", tmp.display()))
-            }
+            Err(e) => return Err(format!("cannot create temp slot {}: {e}", tmp.display())),
         }
     }
     Err(format!(
@@ -964,17 +959,16 @@ pub fn pkg_module_path(modules: &[String], entry: Option<&str>, module: &str) ->
 /// `src/index.hnl` is the rule (ADR-0160); `src/<module>.hnl` is the legacy
 /// 1-module shape most of the 113 repos still use, and
 /// `src/<module>/index.hnl` the multi-module one.
-pub fn pkg_module_candidates(
-    modules: &[String],
-    entry: Option<&str>,
-    module: &str,
-) -> Vec<String> {
+pub fn pkg_module_candidates(modules: &[String], entry: Option<&str>, module: &str) -> Vec<String> {
     let mut out = Vec::new();
     if let Some(path) = pkg_module_path(modules, entry, module) {
         out.push(path);
     }
     if modules.iter().any(|m| m == module) {
-        for candidate in [format!("src/{module}.hnl"), format!("src/{module}/index.hnl")] {
+        for candidate in [
+            format!("src/{module}.hnl"),
+            format!("src/{module}/index.hnl"),
+        ] {
             if !out.contains(&candidate) {
                 out.push(candidate);
             }
@@ -992,7 +986,11 @@ pub fn dep_spec_ref(spec: &str) -> (&'static str, String) {
             "tag" => ("tag", value.trim().to_string()),
             _ => ("branch", {
                 let v = value.trim();
-                if v.is_empty() { "main".to_string() } else { v.to_string() }
+                if v.is_empty() {
+                    "main".to_string()
+                } else {
+                    v.to_string()
+                }
             }),
         },
         _ => ("branch", "main".to_string()),
@@ -1010,7 +1008,6 @@ pub fn dep_repo_candidates(name: &str) -> Vec<String> {
     ]
 }
 
-
 /// The text between the brackets of a top-level `key: [ … ]` list.
 fn pkg_list_body(src: &str, key: &str) -> Option<String> {
     let clean: String = src
@@ -1020,8 +1017,10 @@ fn pkg_list_body(src: &str, key: &str) -> Option<String> {
             None => l,
         })
         .collect::<Vec<_>>()
-        .join("
-");
+        .join(
+            "
+",
+        );
     let at = clean.find(key)?;
     let open = clean[at..].find('[')? + at;
     let close = clean[open..].find(']')? + open;
@@ -1807,7 +1806,10 @@ vendored = { path = "../lib-vendored" }
     #[test]
     fn pkg_modules_reads_the_list() {
         let src = "-- pkg\n{ deps: { }, modules: [\"vec\", \"list\"] }\n";
-        assert_eq!(pkg_modules(src), vec!["vec".to_string(), "list".to_string()]);
+        assert_eq!(
+            pkg_modules(src),
+            vec!["vec".to_string(), "list".to_string()]
+        );
         assert!(pkg_modules("{ modules: [] }").is_empty());
         assert!(pkg_modules("no manifest here").is_empty());
     }
@@ -1852,8 +1854,12 @@ vendored = { path = "../lib-vendored" }
     fn dep_repo_candidates_are_ordered() {
         assert_eq!(
             dep_repo_candidates("pred"),
-            vec!["lib-pred", "lib-pred-handl", "lib-pred-c", "lib-pred-native"]
+            vec![
+                "lib-pred",
+                "lib-pred-handl",
+                "lib-pred-c",
+                "lib-pred-native"
+            ]
         );
     }
-
 }

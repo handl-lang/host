@@ -120,7 +120,7 @@ fn push_slot(env: &mut HashMap<String, EnvEntry>, params: &mut Vec<String>, name
                 arrow_value: false,
                 slot: true,
                 param_names: None,
-                    quote: None,
+                quote: None,
             },
         );
     }
@@ -133,7 +133,7 @@ fn push_slot(env: &mut HashMap<String, EnvEntry>, params: &mut Vec<String>, name
             arrow_value: false,
             slot: true,
             param_names: None,
-                    quote: None,
+            quote: None,
         },
     );
 }
@@ -283,8 +283,7 @@ fn lower_node(
                     body_env.remove(n);
                 }
                 let body = lower_node(ast, lang, body_idx, &body_env, &full_params)?;
-                let bound_terms: Vec<Term> =
-                    captured.iter().map(|(_, t)| t.clone()).collect();
+                let bound_terms: Vec<Term> = captured.iter().map(|(_, t)| t.clone()).collect();
                 let bound_arr = Term::op_native("array", bound_terms);
                 Ok(Term::Op {
                     dim: Term::default_dim(),
@@ -340,14 +339,17 @@ fn lower_node(
                 // produce the composite *arrow value*. An Arrow-kind rhs
                 // is a body arrow — `ensure_quoted` marshals it to the
                 // arrow value `flow` dispatches on.
-                Ok(Term::op_native("flow", vec![
-                    l,
-                    if r_kind == FlowOperand::Arrow {
-                        ensure_quoted(&unquote_term(r))
-                    } else {
-                        r
-                    },
-                ]))
+                Ok(Term::op_native(
+                    "flow",
+                    vec![
+                        l,
+                        if r_kind == FlowOperand::Arrow {
+                            ensure_quoted(&unquote_term(r))
+                        } else {
+                            r
+                        },
+                    ],
+                ))
             } else {
                 Ok(Term::seq(unquote_term(l), unquote_term(r)))
             }
@@ -378,14 +380,17 @@ fn lower_node(
             if axis.nat_literal() == Some(0)
                 && (r_kind == FlowOperand::Value || flow_lhs_is_arrow_value(&l))
             {
-                Ok(Term::op_native("flow", vec![
-                    l,
-                    if r_kind == FlowOperand::Arrow {
-                        ensure_quoted(&unquote_term(r))
-                    } else {
-                        r
-                    },
-                ]))
+                Ok(Term::op_native(
+                    "flow",
+                    vec![
+                        l,
+                        if r_kind == FlowOperand::Arrow {
+                            ensure_quoted(&unquote_term(r))
+                        } else {
+                            r
+                        },
+                    ],
+                ))
             } else {
                 Ok(Term::seq_axis(axis, unquote_term(l), unquote_term(r)))
             }
@@ -459,10 +464,9 @@ fn lower_node(
                     // one-element array (the eval `array` op's rule).
                     acc = Some(match acc {
                         Some(a) => Term::op_native("concat", vec![a, term]),
-                        None => Term::op_native(
-                            "concat",
-                            vec![Term::op_native("array", vec![]), term],
-                        ),
+                        None => {
+                            Term::op_native("concat", vec![Term::op_native("array", vec![]), term])
+                        }
                     });
                 } else {
                     run.push(term);
@@ -967,7 +971,9 @@ fn instantiate_op(
                 return Err(format!(
                     "lower: `{name}` placeholder sits in a non-input position (kind `{}`, child {})",
                     ctx.node.kind,
-                    lit.and_then(Value::as_u64).map(|i| i.to_string()).unwrap_or_default()
+                    lit.and_then(Value::as_u64)
+                        .map(|i| i.to_string())
+                        .unwrap_or_default()
                 ));
             }
             let i = lit
@@ -1217,15 +1223,10 @@ fn lower_block(
                 });
                 push_slot(&mut env, &mut params, name);
             }
-            None if i + 1 == count => {
-                last = Some(lower_node(ast, lang, idx, &env, &params)?)
-            }
+            None if i + 1 == count => last = Some(lower_node(ast, lang, idx, &env, &params)?),
             None => {
                 let stmt = lower_node(ast, lang, idx, &env, &params)?;
-                let step = Term::seq(
-                    Term::op_native("product", vec![stmt, id_op()]),
-                    elem_op(1),
-                );
+                let step = Term::seq(Term::op_native("product", vec![stmt, id_op()]), elem_op(1));
                 prefix = Some(match prefix {
                     Some(p) => Term::seq(p, step),
                     None => step,
@@ -1443,10 +1444,7 @@ fn classify_binding(
         BindOutcome::Env(bound)
     } else {
         local.insert(name.clone());
-        BindOutcome::Slot {
-            name,
-            value: bound,
-        }
+        BindOutcome::Slot { name, value: bound }
     }
 }
 
@@ -2272,10 +2270,7 @@ fn lower_while(
         // multi-param, `cur` itself for a single param (the flat `__bound__
         // ++ args` convention on both apply paths).
         let arg_terms: Vec<Term> = if step_params.len() > 1 {
-            step_params
-                .iter()
-                .map(|p| field(cur.clone(), p))
-                .collect()
+            step_params.iter().map(|p| field(cur.clone(), p)).collect()
         } else {
             vec![cur]
         };
@@ -2305,11 +2300,7 @@ fn lower_while(
             step_params
                 .iter()
                 .map(|p| {
-                    Term::op_native_lit(
-                        "field_access",
-                        vec![id.clone()],
-                        Value::from(p.as_str()),
-                    )
+                    Term::op_native_lit("field_access", vec![id.clone()], Value::from(p.as_str()))
                 })
                 .collect(),
         )
@@ -2381,15 +2372,15 @@ fn lower_nullish(
         a.clone(),
         Term::op_native(
             "eq",
-            vec![Term::op_native("id", vec![]), Term::const_value(Value::Null)],
+            vec![
+                Term::op_native("id", vec![]),
+                Term::const_value(Value::Null),
+            ],
         ),
     );
     Ok(Term::seq(
         Term::op_native("product", vec![is_null, Term::op_native("id", vec![])]),
-        Term::seq(
-            Term::op_native("pair_tag", vec![]),
-            Term::choice(b, a),
-        ),
+        Term::seq(Term::op_native("pair_tag", vec![]), Term::choice(b, a)),
     ))
 }
 
@@ -2478,7 +2469,7 @@ fn lower_match(
                 arrow_value: false,
                 slot: true,
                 param_names: None,
-                    quote: None,
+                quote: None,
             },
         );
     }
@@ -2778,10 +2769,7 @@ fn compile_pattern(
                         Term::op_native(
                             "eq",
                             vec![
-                                Term::seq(
-                                    bound.clone(),
-                                    Term::op_native("ctor_name", vec![]),
-                                ),
+                                Term::seq(bound.clone(), Term::op_native("ctor_name", vec![])),
                                 Term::const_value(Value::Null),
                             ],
                         ),
@@ -3133,9 +3121,8 @@ fn compile_pattern(
         // an arrow (an env-bound `function` literal here), else the
         // sorted-fields fallback (`ctor_fields`, minus `__ctor__`/
         // `type`).
-        let declared: Option<Vec<String>> = pat_env
-            .get(tag_name)
-            .and_then(|e| e.param_names.clone());
+        let declared: Option<Vec<String>> =
+            pat_env.get(tag_name).and_then(|e| e.param_names.clone());
         // Binder positions start at the `args` role (index 1 on
         // canonical `call`); every position advances the payload index,
         // while non-`var` and wildcard args bind nothing — mirroring
@@ -3181,11 +3168,7 @@ fn compile_pattern(
                 },
                 None => Term::seq(
                     on_v(Term::op_native("ctor_fields", vec![id.clone()])),
-                    Term::op_native_lit(
-                        "field_access",
-                        vec![id.clone()],
-                        Value::from(i as i64),
-                    ),
+                    Term::op_native_lit("field_access", vec![id.clone()], Value::from(i as i64)),
                 ),
             };
             binds.push((
@@ -3206,8 +3189,8 @@ fn compile_pattern(
         // Literal values — `value`/`lit`/`number`/`string`/`bool` nodes
         // carry their payload directly.
         "value" | "lit" | "number" | "string" | "bool" => {
-                Ok(compiled(eq_lit(pat.payload.clone()), vec![]))
-            }
+            Ok(compiled(eq_lit(pat.payload.clone()), vec![]))
+        }
         // `paren` is a transparent wrapper — literal-eval of the inner
         // expression (`lower_node` unwraps the `body` child), which
         // covers literals, env-bound vars, and arbitrary expressions.

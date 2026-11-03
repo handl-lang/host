@@ -153,9 +153,10 @@ impl SdkgenRegistry {
     /// Run target `name` over `req`: spec-input path first when it
     /// matches, else backend → parse → provenance → docs → emit.
     pub fn run(&self, name: &str, req: &SdkgenRequest<'_>) -> Result<(), SdkgenTargetError> {
-        let target = self.targets.get(name).ok_or_else(|| {
-            SdkgenTargetError::Usage(format!("unknown sdkgen target `{name}`"))
-        })?;
+        let target = self
+            .targets
+            .get(name)
+            .ok_or_else(|| SdkgenTargetError::Usage(format!("unknown sdkgen target `{name}`")))?;
 
         if !target.source_filters && (req.include.is_some() || req.exclude.is_some()) {
             return Err(SdkgenTargetError::Usage(format!(

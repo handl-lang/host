@@ -11,11 +11,17 @@
 --- eval with a stderr note (`lower_ast unsupported … falling back`);
 --- exit code and stdout stay clean, the note is expected.
 
-data Nat :: Zero | Succ(pred : Nat)
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
 
 to_num : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + to_num(p) }
 
-data Opt(a : Type) :: None | Some(x : a)
+Opt<a : Type> := {
+  None : Opt,
+  Some : (x : a) ~> Opt
+}
 
 get_or : Opt(Number) ~> Number ~> Number =
   o ~> d ~> match o { None: d, Some(x): x }

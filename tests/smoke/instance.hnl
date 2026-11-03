@@ -11,9 +11,14 @@
 --- erasure class — `match ev` has no dict value to dispatch on under
 --- `hnl run` today.
 
-data Nat :: Zero | Succ(pred : Nat)
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
 
-data Eq(a : Type) :: mkEq(f : a ~> a ~> Bool)
+Eq<a : Type> := {
+  mkEq : (f : a ~> a ~> Bool) ~> Eq
+}
 
 instance Eq(Nat) := { eq: (x, y) ~> x == y }
 

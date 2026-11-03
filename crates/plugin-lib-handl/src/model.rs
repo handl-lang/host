@@ -9,8 +9,8 @@ use std::rc::Rc;
 
 use handl_language::{AstRef, LangError, Language, LanguageView, RewriteWitness, Term, Value};
 use handl_platform::{EvalContext, Module};
-use hnl_engine_exec::{EvalEngine, EvalRequest};
 use hnl_engine::{Model, ModelCtx, RewriteResult, TermData};
+use hnl_engine_exec::{EvalEngine, EvalRequest};
 use serde_json::json;
 
 use crate::HandlModule;

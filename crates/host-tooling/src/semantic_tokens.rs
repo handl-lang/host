@@ -417,8 +417,8 @@ impl SemanticTokensPlugin for BasicSemanticTokens {
         &self,
         request: &SemanticTokensRequest,
     ) -> Result<SemanticTokensResponse, PlatformError> {
-        let tokens = (self.lex)(&request.source)
-            .map_err(|e| PlatformError::Plugin(e.to_string()))?;
+        let tokens =
+            (self.lex)(&request.source).map_err(|e| PlatformError::Plugin(e.to_string()))?;
 
         let line_starts = compute_line_starts(&request.source);
 

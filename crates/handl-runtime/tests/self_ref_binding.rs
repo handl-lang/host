@@ -17,12 +17,12 @@
 //! `s := "s"` case pins the lowerer side directly.
 
 use handl_language::Source;
+use handl_runtime::Runtime;
 use hnl_engine_exec_bytecode::BytecodeEngine;
 use hnl_engine_exec_cranelift::CraneliftEngine;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::Runtime;
 use serde_json::json;
 
 fn canonical_lang() -> handl_language::Language {
@@ -79,6 +79,48 @@ fn self_recursion_at_depth() {
     run_all(
         "do { fib := (n) ~> if n < 2 { n } else { fib(n - 1) + fib(n - 2) }; fib(10) }",
         json!(55),
+    );
+}
+
+/// Regression (recursive-`handle` stack overflow): a self-recursive
+/// arrow at depth ~15k — plain, `handle` inside the body, and applied
+/// under an outer `handle` (deep-carry reinstalls the handler per
+/// application) — previously SIGSEGV'd: every application recursed
+/// natively on the platform stack. The exec recursion funnels
+/// (tree-walk `eval_node_inner`/`apply_app`, bytecode
+/// `exec_node_inner`/`apply_app`, cranelift `eval_child_node`, the
+/// `Term` interpreter, and `try_pattern`/`nat_ctor_depth` in
+/// `hnl-engine-exec`) now run under `stacker::maybe_grow`.
+#[test]
+fn self_recursion_deep_does_not_overflow() {
+    run_all(
+        "do { countdown := (n) ~> if n == 0 { 0 } else { 1 + countdown(n - 1) }; countdown(15000) }",
+        json!(15000),
+    );
+}
+
+#[test]
+fn self_recursion_with_handle_in_body_does_not_overflow() {
+    run_all(
+        "do {
+          h := { tick: (req) ~> req };
+          f := (n) ~> if n == 0 { 0 } else { 1 + handle f(n - 1) with h };
+          f(15000)
+        }",
+        json!(15000),
+    );
+}
+
+#[test]
+fn self_recursion_under_outer_handle_does_not_overflow() {
+    run_all(
+        "do {
+          h := { tick: (req) ~> req };
+          f := (n) ~> if n == 0 { 0 } else { 1 + f(n - 1) };
+          g := handle f with h;
+          g(15000)
+        }",
+        json!(15000),
     );
 }
 

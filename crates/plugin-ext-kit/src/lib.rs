@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use handl_kit_data::{LibraryPlugin, LibraryRegistry};
 // §0.4: the registry itself is injected — this crate no longer links any
@@ -384,8 +384,8 @@ impl BasicKitLoaderPlugin {
         // manifest lookup (`handl-kit-data-prelude/data/kits/<name>.yaml`
         // in the canonical host), then resolve each listed library module
         // through the populated `LibraryRegistry`.
-        let module_names = (self.module_names)(name_or_path)
-            .map_err(PlatformError::InvalidMetadata)?;
+        let module_names =
+            (self.module_names)(name_or_path).map_err(PlatformError::InvalidMetadata)?;
         let mut modules = Vec::with_capacity(module_names.len());
         for name in &module_names {
             let plugin = self.libraries.resolve(name).ok_or_else(|| {
@@ -396,8 +396,6 @@ impl BasicKitLoaderPlugin {
         Ok(BasicKit::Modules(ModuleKit::new(name_or_path, modules)))
     }
 }
-
-
 
 impl Plugin for BasicKitLoaderPlugin {
     fn id(&self) -> &str {

@@ -430,9 +430,8 @@ impl DataKit {
 /// Returns [`LangError::Engine`] if the file cannot be read, or if no parser
 /// accepts its contents.
 fn read_data_file<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> Result<T, LangError> {
-    let text = std::fs::read_to_string(path).map_err(|e| {
-        LangError::engine(format!("cannot read data file {}: {e}", path.display()))
-    })?;
+    let text = std::fs::read_to_string(path)
+        .map_err(|e| LangError::engine(format!("cannot read data file {}: {e}", path.display())))?;
     parse_data(&text, &extension_of(path), &path.display().to_string())
 }
 

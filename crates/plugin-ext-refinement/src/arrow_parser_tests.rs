@@ -26,12 +26,10 @@ use crate::types::Measure;
 /// dev-dep data crate plus the `arrow_language_for` overrides (tests may
 /// depend on `lang/` data; the library must not).
 fn arrow_lang() -> &'static handl_language::Language {
-    static LANG: std::sync::OnceLock<handl_language::Language> =
-        std::sync::OnceLock::new();
+    static LANG: std::sync::OnceLock<handl_language::Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
         crate::arrow_lang::arrow_language_for(
-            &handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            &handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         )
     })
 }
@@ -277,7 +275,8 @@ fn test_parse_first() {
 
 #[test]
 fn test_parse_choice() {
-    let scheme = parse_arrow_expr(arrow_lang(), r#"choice(arr("a"), arr("b"))"#).expect("parse choice");
+    let scheme =
+        parse_arrow_expr(arrow_lang(), r#"choice(arr("a"), arr("b"))"#).expect("parse choice");
     match scheme {
         Term::Choice { l, r } => {
             assert!(matches!(*l, Term::Op { name: ref op, .. } if op == "a"));
@@ -301,7 +300,8 @@ fn test_parse_loop() {
 #[test]
 fn test_parse_nested_loop_comp() {
     // loop(insert >>> first(id))
-    let scheme = parse_arrow_expr(arrow_lang(), "loop(comp(insert, first(id)))").expect("parse nested");
+    let scheme =
+        parse_arrow_expr(arrow_lang(), "loop(comp(insert, first(id)))").expect("parse nested");
     match scheme {
         Term::Loop { body } => {
             match body.as_ref() {
@@ -354,7 +354,8 @@ fn test_parse_bare_identifier_is_app_reference() {
 #[test]
 fn test_parse_seq_operator() {
     // a >>> b should produce Seq(a, b) -- same as comp(a, b)
-    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
+    let scheme =
+        parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b")"#).expect("parse seq operator");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -367,7 +368,8 @@ fn test_parse_seq_operator() {
 #[test]
 fn test_parse_choice_operator() {
     // a ||| b should produce Choice(a, b) -- same as choice(a, b)
-    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
+    let scheme =
+        parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b")"#).expect("parse choice operator");
     match scheme {
         Term::Choice { l, r } => {
             assert!(matches!(l.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -380,8 +382,8 @@ fn test_parse_choice_operator() {
 #[test]
 fn test_parse_seq_operator_left_assoc() {
     // a >>> b >>> c should produce Seq(Seq(a, b), c)
-    let scheme =
-        parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b") >>> arr("c")"#).expect("parse seq left-assoc");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b") >>> arr("c")"#)
+        .expect("parse seq left-assoc");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             // snd should be arr("c")
@@ -402,8 +404,8 @@ fn test_parse_seq_operator_left_assoc() {
 #[test]
 fn test_parse_choice_operator_left_assoc() {
     // a ||| b ||| c should produce Choice(Choice(a, b), c)
-    let scheme =
-        parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b") ||| arr("c")"#).expect("parse choice left-assoc");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b") ||| arr("c")"#)
+        .expect("parse choice left-assoc");
     match scheme {
         Term::Choice { l, r } => {
             // r should be arr("c")
@@ -425,8 +427,8 @@ fn test_parse_choice_operator_left_assoc() {
 fn test_parse_mixed_precedence() {
     // a >>> b ||| c should parse as Seq(a, Choice(b, c))
     // because ||| binds tighter than >>>
-    let scheme =
-        parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b") ||| arr("c")"#).expect("parse mixed precedence");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b") ||| arr("c")"#)
+        .expect("parse mixed precedence");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -445,7 +447,8 @@ fn test_parse_mixed_precedence() {
 #[test]
 fn test_parse_operator_with_parens() {
     // (a ||| b) >>> c should parse as Seq(Choice(a, b), c)
-    let scheme = parse_arrow_expr(arrow_lang(), r#"(arr("a") ||| arr("b")) >>> arr("c")"#).expect("parse parens");
+    let scheme = parse_arrow_expr(arrow_lang(), r#"(arr("a") ||| arr("b")) >>> arr("c")"#)
+        .expect("parse parens");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(snd.as_ref(), Term::Op { name: op, .. } if op == "c"));
@@ -464,8 +467,10 @@ fn test_parse_operator_with_parens() {
 #[test]
 fn test_parse_operator_equivalent_to_comp() {
     // a >>> b should produce the same Term as comp(a, b)
-    let op_scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b")"#).expect("parse operator");
-    let call_scheme = parse_arrow_expr(arrow_lang(), r#"comp(arr("a"), arr("b"))"#).expect("parse comp call");
+    let op_scheme =
+        parse_arrow_expr(arrow_lang(), r#"arr("a") >>> arr("b")"#).expect("parse operator");
+    let call_scheme =
+        parse_arrow_expr(arrow_lang(), r#"comp(arr("a"), arr("b"))"#).expect("parse comp call");
     assert_eq!(
         op_scheme, call_scheme,
         "operator syntax should produce same Term as function-call syntax"
@@ -475,8 +480,10 @@ fn test_parse_operator_equivalent_to_comp() {
 #[test]
 fn test_parse_operator_equivalent_to_choice() {
     // a ||| b should produce the same Term as choice(a, b)
-    let op_scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b")"#).expect("parse operator");
-    let call_scheme = parse_arrow_expr(arrow_lang(), r#"choice(arr("a"), arr("b"))"#).expect("parse choice call");
+    let op_scheme =
+        parse_arrow_expr(arrow_lang(), r#"arr("a") ||| arr("b")"#).expect("parse operator");
+    let call_scheme =
+        parse_arrow_expr(arrow_lang(), r#"choice(arr("a"), arr("b"))"#).expect("parse choice call");
     assert_eq!(
         op_scheme, call_scheme,
         "operator syntax should produce same Term as function-call syntax"
@@ -486,10 +493,10 @@ fn test_parse_operator_equivalent_to_choice() {
 #[test]
 fn test_parse_operator_with_first_and_loop() {
     // loop(insert >>> first(id)) should produce same as loop(comp(insert, first(id)))
-    let op_scheme =
-        parse_arrow_expr(arrow_lang(), "loop(insert >>> first(id))").expect("parse operator with first/loop");
-    let call_scheme =
-        parse_arrow_expr(arrow_lang(), "loop(comp(insert, first(id)))").expect("parse comp with first/loop");
+    let op_scheme = parse_arrow_expr(arrow_lang(), "loop(insert >>> first(id))")
+        .expect("parse operator with first/loop");
+    let call_scheme = parse_arrow_expr(arrow_lang(), "loop(comp(insert, first(id)))")
+        .expect("parse comp with first/loop");
     assert_eq!(
         op_scheme, call_scheme,
         "operator syntax with first/loop should match function-call syntax"
@@ -500,8 +507,11 @@ fn test_parse_operator_with_first_and_loop() {
 fn test_parse_operator_complex_backtrack() {
     // arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))
     // should produce Seq(a, Choice(b, Seq(c, d)))
-    let scheme = parse_arrow_expr(arrow_lang(), r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#)
-        .expect("parse complex backtrack");
+    let scheme = parse_arrow_expr(
+        arrow_lang(),
+        r#"arr("a") >>> (arr("b") ||| (arr("c") >>> arr("d")))"#,
+    )
+    .expect("parse complex backtrack");
     match scheme {
         Term::Seq { fst, snd, .. } => {
             assert!(matches!(fst.as_ref(), Term::Op { name: op, .. } if op == "a"));
@@ -855,7 +865,8 @@ fn test_load_new_rich_loops_from_disk() {
 
 #[test]
 fn test_parse_nested_map_rich_hnl() {
-    let parsed = parse_arrow_file(arrow_lang(), NESTED_MAP_RICH_HNL).expect("parse nested_map_rich.hnl");
+    let parsed =
+        parse_arrow_file(arrow_lang(), NESTED_MAP_RICH_HNL).expect("parse nested_map_rich.hnl");
     match parsed {
         ParsedFile::Single(scheme) => {
             // Should be: loop(loop(first(fn.apply)))
@@ -889,7 +900,8 @@ fn test_parse_nested_map_rich_hnl() {
 
 #[test]
 fn test_parsed_nested_map_rich_matches_handbuilt() {
-    let parsed = parse_arrow_file(arrow_lang(), NESTED_MAP_RICH_HNL).expect("parse nested_map_rich");
+    let parsed =
+        parse_arrow_file(arrow_lang(), NESTED_MAP_RICH_HNL).expect("parse nested_map_rich");
     let handbuilt = nested_map_graph();
     if let ParsedFile::Single(scheme) = parsed {
         assert_eq!(

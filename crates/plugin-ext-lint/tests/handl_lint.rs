@@ -4,9 +4,9 @@
 //! `HandlNativeRewrite` for transforms).
 
 use handl_language::{Ast, AstNode, AstRef, AstShapeDef, Language, LintCheck, LintRuleDef, Span};
-use hnl_engine_lint::{LintEngine, NativeLintRegistry};
 use handl_plugin_ext_lint::HandlNativeLint;
 use handl_plugin_lib_handl::HandlModule;
+use hnl_engine_lint::{LintEngine, NativeLintRegistry};
 use serde_json::json;
 
 /// A trivial .hnl lint module: `check` reports one hit (with a fix),
@@ -20,8 +20,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -69,7 +68,7 @@ fn test_ast() -> (Ast, AstRef) {
 
 #[test]
 fn handl_lint_fires_with_span_and_fix() {
-        ensure_lang();
+    ensure_lang();
     let lang = test_lang("handl:t.check");
     let (ast, root) = test_ast();
     let diags = LintEngine::new()
@@ -88,7 +87,7 @@ fn handl_lint_fires_with_span_and_fix() {
 
 #[test]
 fn handl_lint_null_reports_nothing() {
-        ensure_lang();
+    ensure_lang();
     let lang = test_lang("handl:t.decline");
     let (ast, root) = test_ast();
     let diags = LintEngine::new()
@@ -100,7 +99,7 @@ fn handl_lint_null_reports_nothing() {
 
 #[test]
 fn handl_lint_unknown_module_errors() {
-        ensure_lang();
+    ensure_lang();
     let lang = test_lang("handl:missing.f");
     let (ast, root) = test_ast();
     let err = LintEngine::new()
@@ -112,7 +111,7 @@ fn handl_lint_unknown_module_errors() {
 
 #[test]
 fn handl_lint_unknown_function_errors() {
-        ensure_lang();
+    ensure_lang();
     let lang = test_lang("handl:t.nope");
     let (ast, root) = test_ast();
     let err = LintEngine::new()
@@ -124,7 +123,7 @@ fn handl_lint_unknown_function_errors() {
 
 #[test]
 fn handl_lint_resolver_declines_non_handl_names() {
-        ensure_lang();
+    ensure_lang();
     // A map-registered native still wins; an unregistered non-`handl:`
     // name is declined by the resolver and errors as unregistered.
     let mut reg = test_registry();

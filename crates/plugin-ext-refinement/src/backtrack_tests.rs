@@ -23,12 +23,10 @@ use crate::types::Pred;
 /// dev-dep data crate plus the `arrow_language_for` overrides (tests may
 /// depend on `lang/` data; the library must not).
 fn arrow_lang() -> &'static handl_language::Language {
-    static LANG: std::sync::OnceLock<handl_language::Language> =
-        std::sync::OnceLock::new();
+    static LANG: std::sync::OnceLock<handl_language::Language> = std::sync::OnceLock::new();
     LANG.get_or_init(|| {
         crate::arrow_lang::arrow_language_for(
-            &handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            &handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         )
     })
 }

@@ -7,7 +7,6 @@
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_handl::HandlModule;
 
-
 /// Install the canonical default language once per test binary.
 ///
 /// `HandlModule` bridge runtimes resolve [`default_language`] lazily
@@ -16,8 +15,7 @@ use handl_plugin_lib_handl::HandlModule;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -39,7 +37,7 @@ const SRC: &str = r#"do {
 
 #[test]
 fn callee_bindings_do_not_leak_into_caller() {
-        ensure_lang();
+    ensure_lang();
     for eng in ["tree-walk", "bytecode"] {
         let m = HandlModule::new_raw("t", SRC, &["f"]).with_eval_engine(eng);
         let r = m

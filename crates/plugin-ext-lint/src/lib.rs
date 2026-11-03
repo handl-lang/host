@@ -47,11 +47,11 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use handl_language::LangError;
+use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
 use hnl_engine_lint::{
     DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, NativeLintResolver,
     canonical_lint_natives,
 };
-use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -367,10 +367,7 @@ mod tests {
         static CTX: OnceLock<LintContext> = OnceLock::new();
         CTX.get_or_init(|| {
             let kit = handl_kit_prelude::Kit::new().expect("canonical kit assembles");
-            LintContext::with_resolver(
-                kit.language().clone(),
-                kit.handl_lint_adapter().resolver(),
-            )
+            LintContext::with_resolver(kit.language().clone(), kit.handl_lint_adapter().resolver())
         })
         .clone()
     }

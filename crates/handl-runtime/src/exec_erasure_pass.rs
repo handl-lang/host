@@ -55,7 +55,9 @@ pub const EXEC_ERASURE_PASS: &str = "exec-erasure";
 /// [`apply_exec_erasure`] returns the arena unchanged (fast path — most
 /// test `Language`s carry no transform fragments).
 pub fn has_exec_erasure_rules(lang: &Language) -> bool {
-    lang.transforms.iter().any(|def| def.pass == EXEC_ERASURE_PASS)
+    lang.transforms
+        .iter()
+        .any(|def| def.pass == EXEC_ERASURE_PASS)
 }
 
 /// Apply the `"exec-erasure"` transform pass to `ast`, returning the
@@ -138,9 +140,7 @@ mod tests {
         let mut ast = Ast::new();
         ast.push(AstNode::new("value").with_payload(json!(42)));
         ast.push(AstNode::new("var").with_payload(json!("Nat")));
-        ast.push(
-            AstNode::new("type-annot").with_payload(json!({"children": [0, 1]})),
-        );
+        ast.push(AstNode::new("type-annot").with_payload(json!({"children": [0, 1]})));
         ast
     }
 

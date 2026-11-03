@@ -10,9 +10,9 @@
 //! carry the argument *value* (`{"tag":"Zero"}`), not the string `"pred"`.
 
 use handl_language::{Ast, AstNode, AstRef, EvalSchemeDef, Language, Value};
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use handl_runtime::{Runtime, desugar_pass::apply_desugar};
 use hnl_engine::{ArrSource, TermData};
+use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use serde_json::json;
 
 /// A `Language` with just the eval schemes needed for this regression: `var`

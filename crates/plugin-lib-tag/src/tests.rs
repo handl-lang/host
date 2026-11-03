@@ -249,7 +249,9 @@ fn match_type_host_function_dispatches() {
 #[test]
 fn match_type_host_function_returns_null_when_no_case() {
     let reg = TypeRegistry::new(crate::CANONICAL_REGISTRY_ID);
-    let v = reg.construct("type.sigma", &json!({ "name": "x" })).unwrap();
+    let v = reg
+        .construct("type.sigma", &json!({ "name": "x" }))
+        .unwrap();
     let cases = json!({ "type.collection": "is-collection" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, Value::Null);
@@ -265,7 +267,9 @@ fn match_type_host_function_returns_null_for_non_type_value() {
 #[test]
 fn match_type_host_function_no_default_fallback() {
     let reg = TypeRegistry::new(crate::CANONICAL_REGISTRY_ID);
-    let v = reg.construct("type.sigma", &json!({ "name": "x" })).unwrap();
+    let v = reg
+        .construct("type.sigma", &json!({ "name": "x" }))
+        .unwrap();
     let cases = json!({ "type.collection": "is-collection", "_": "fallback" });
     let result = call_fn(&MatchType, &[v, cases]).unwrap();
     assert_eq!(result, Value::Null);

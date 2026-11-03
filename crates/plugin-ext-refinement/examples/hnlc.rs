@@ -23,8 +23,8 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use handl_language::Term;
 use handl_language::Language;
+use handl_language::Term;
 use handl_plugin_ext_refinement::{
     ContractRegistry, FileResolver, ModuleLoader, RefinementResult, arrow_lang::arrow_language_for,
     contains_module_ref, contains_project, flatten_program, has_unresolved_apps, infer_refinement,

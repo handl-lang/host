@@ -655,10 +655,10 @@ fn arrow_identity_is_its_serializable_data() {
 
 /// Build a canonical runtime with lex + Pratt parse + tree-walk eval.
 fn canonical_runtime() -> handl_runtime::Runtime {
+    use handl_runtime::{EngineRegistry, Runtime};
     use hnl_engine_exec_tree_walk::TreeWalkEngine;
     use hnl_engine_lex_pattern::DataLexerEngine;
     use hnl_engine_parse_pratt::PrattEngine;
-    use handl_runtime::{EngineRegistry, Runtime};
 
     let kit = handl_kit_data_prelude::assemble().expect("full kit assembles");
     let mut reg = EngineRegistry::new();

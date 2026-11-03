@@ -31,13 +31,13 @@
 //! records are the documented surface n-cell shape.
 
 use handl_language::{Ast, Language, Source};
+use handl_runtime::Runtime;
 use hnl_engine_exec::{EvalEngine, EvalRequest};
 use hnl_engine_exec_bytecode::BytecodeEngine;
 use hnl_engine_exec_cranelift::CraneliftEngine;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::Runtime;
 use serde_json::{Value, json};
 
 fn canonical_lang() -> Language {

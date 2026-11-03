@@ -107,9 +107,7 @@ use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Language};
 use handl_platform::{EvalContext, Function, Module};
-use hnl_engine_transform::native::{
-    NativeRewrite, RewriteCtx, install_transform_overlay,
-};
+use hnl_engine_transform::native::{NativeRewrite, RewriteCtx, install_transform_overlay};
 use serde_json::Value;
 
 use crate::HandlModule;
@@ -501,14 +499,20 @@ fn realize_value(
             }
             let mut out = serde_json::Map::with_capacity(map.len());
             for (k, val) in map {
-                out.insert(k.clone(), realize_value(val, ctx, fresh_counter, fresh_names)?);
+                out.insert(
+                    k.clone(),
+                    realize_value(val, ctx, fresh_counter, fresh_names)?,
+                );
             }
             Ok(Value::Object(out))
         }
         Value::Object(map) => {
             let mut out = serde_json::Map::with_capacity(map.len());
             for (k, val) in map {
-                out.insert(k.clone(), realize_value(val, ctx, fresh_counter, fresh_names)?);
+                out.insert(
+                    k.clone(),
+                    realize_value(val, ctx, fresh_counter, fresh_names)?,
+                );
             }
             Ok(Value::Object(out))
         }

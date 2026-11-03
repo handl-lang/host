@@ -11,7 +11,6 @@ use handl_plugin_lib_tag::TagModule;
 use handl_runtime::{EngineRegistry, Runtime, RuntimeConfig};
 use hnl_engine::TermData;
 
-
 /// Install the canonical default language once per test binary.
 ///
 /// `HandlModule` bridge runtimes resolve [`default_language`] lazily
@@ -20,8 +19,7 @@ use hnl_engine::TermData;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -30,7 +28,7 @@ const VALUE_MODEL_HNL: &str = include_str!("fixtures/value_model.hnl");
 
 #[test]
 fn handl_value_model_evaluates_arr_const() {
-        ensure_lang();
+    ensure_lang();
     // Build the canonical language and add a tiny eval scheme that exposes
     // a concrete Term to the engine.
     let mut lang = assemble().unwrap().lang().clone();

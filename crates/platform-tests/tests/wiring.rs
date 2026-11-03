@@ -58,8 +58,7 @@ fn ledger() -> Ledger {
     let path = repo_root().join("project/parked.yaml");
     let text = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("cannot read {}: {e}", path.display()));
-    serde_yaml::from_str(&text)
-        .unwrap_or_else(|e| panic!("cannot parse {}: {e}", path.display()))
+    serde_yaml::from_str(&text).unwrap_or_else(|e| panic!("cannot parse {}: {e}", path.display()))
 }
 
 /// The `name` field of a manifest's `[package]` section.
@@ -206,7 +205,10 @@ fn ledger_is_not_stale() {
 
     for e in l.entry_points.iter().chain(l.exempt.iter()) {
         if !members.contains_key(&e.krate) {
-            problems.push(format!("entry point `{}` is not a workspace member", e.krate));
+            problems.push(format!(
+                "entry point `{}` is not a workspace member",
+                e.krate
+            ));
         }
         if e.why.trim().is_empty() {
             problems.push(format!("entry point `{}` has an empty reason", e.krate));

@@ -340,9 +340,7 @@ mod tests {
             TEST_KIT.with(|cell| {
                 let mut slot = cell.borrow_mut();
                 if slot.is_none() {
-                    *slot = Some(
-                        handl_kit_prelude::Kit::new().expect("canonical kit assembles"),
-                    );
+                    *slot = Some(handl_kit_prelude::Kit::new().expect("canonical kit assembles"));
                 }
                 let kit = slot.as_ref().expect("kit populated above");
                 Ok::<_, String>(engine::base_runtime(

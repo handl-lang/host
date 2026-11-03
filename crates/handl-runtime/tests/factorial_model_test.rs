@@ -19,14 +19,13 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
-use hnl_engine_exec_tree_walk::ValueModel;
 use handl_plugin_lib_handl::{HandlModel, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use hnl_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
+use hnl_engine_exec_tree_walk::ValueModel;
 use serde_json::json;
-
 
 /// Install the canonical default language once per test binary.
 ///
@@ -36,8 +35,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -166,7 +164,7 @@ fn factorial_iter() -> Term {
 /// `factorial(5) = 120` via a nested `mul` `Op` chain — exec model.
 #[test]
 fn factorial_mul_chain_exec_model() {
-        ensure_lang();
+    ensure_lang();
     let term = factorial_mul_chain();
     let (rust, _handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(120));
@@ -175,7 +173,7 @@ fn factorial_mul_chain_exec_model() {
 /// `factorial(5) = 120` via a nested `mul` `Op` chain — arrow model.
 #[test]
 fn factorial_mul_chain_arrow_model() {
-        ensure_lang();
+    ensure_lang();
     let term = factorial_mul_chain();
     let (_rust, handl) = eval(&term, Value::Null);
     assert_eq!(handl, json!(120));
@@ -185,7 +183,7 @@ fn factorial_mul_chain_arrow_model() {
 /// (mul-chain encoding).
 #[test]
 fn factorial_mul_chain_parity() {
-        ensure_lang();
+    ensure_lang();
     let term = factorial_mul_chain();
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(120));
@@ -199,7 +197,7 @@ fn factorial_mul_chain_parity() {
 /// models, confirming parity on bounded iteration.
 #[test]
 fn factorial_iter_parity() {
-        ensure_lang();
+    ensure_lang();
     let term = factorial_iter();
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, handl);
@@ -211,7 +209,7 @@ fn factorial_iter_parity() {
 /// uses its two evaluated args, not `incoming`).
 #[test]
 fn factorial_mul_chain_non_null_incoming() {
-        ensure_lang();
+    ensure_lang();
     let term = factorial_mul_chain();
     let (rust, handl) = eval(&term, json!(999));
     assert_eq!(rust, json!(120));
@@ -222,7 +220,7 @@ fn factorial_mul_chain_non_null_incoming() {
 /// A smaller factorial `factorial(3) = 6` confirms the chain scales.
 #[test]
 fn factorial_three_is_six() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::op(
         "mul",
         vec![
@@ -246,7 +244,7 @@ fn factorial_three_is_six() {
 /// `factorial(1) = 1` (base case) — a single `Arr` constant.
 #[test]
 fn factorial_one_is_one() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::arr(json!(1)));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(1));
@@ -257,7 +255,7 @@ fn factorial_one_is_one() {
 /// `factorial(0) = 1` (empty product) — a single `Arr` constant.
 #[test]
 fn factorial_zero_is_one() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::arr(json!(1)));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(1));
@@ -270,7 +268,7 @@ fn factorial_zero_is_one() {
 /// will consume (ADR-0103 Phase 6).
 #[test]
 fn factorial_mul_chain_termdata_roundtrip() {
-        ensure_lang();
+    ensure_lang();
     let term = factorial_mul_chain();
     let data = TermData::from_term(&term);
     assert_eq!(data.tag(), "Op");
@@ -285,7 +283,7 @@ fn factorial_mul_chain_termdata_roundtrip() {
 /// second. This exercises `First` (fan-out) parity with the factorial value.
 #[test]
 fn factorial_in_pair_first() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(pair(json!(120), json!(0))),
         TermData::first(TermData::op("id", vec![], &ArrSource::Native, None)),

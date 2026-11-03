@@ -28,7 +28,7 @@ fn bench_typecheck(c: &mut Criterion) {
                 &hnl_engine_lex_pattern::DataLexerEngine,
                 &hnl_engine_parse_pratt::PrattEngine::new(),
             )
-                .expect("sample typechecks")
+            .expect("sample typechecks")
         });
     });
 }

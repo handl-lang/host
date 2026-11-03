@@ -209,10 +209,7 @@ mod tests {
         static CTX: OnceLock<LintContext> = OnceLock::new();
         CTX.get_or_init(|| {
             let kit = handl_kit_prelude::Kit::new().expect("canonical kit assembles");
-            LintContext::with_resolver(
-                kit.language().clone(),
-                kit.handl_lint_adapter().resolver(),
-            )
+            LintContext::with_resolver(kit.language().clone(), kit.handl_lint_adapter().resolver())
         })
         .clone()
     }

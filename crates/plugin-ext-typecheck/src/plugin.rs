@@ -45,8 +45,7 @@ pub const TYPECHECK_CAPABILITY: &str = "typecheck";
 /// closure that reads it. The plugin is then a pure adapter: it carries no
 /// `handl-kit-canonical` type, and the crate keeps no normal dependency on
 /// the canonical kit.
-pub type TypecheckFn =
-    dyn Fn(&str, &HashSet<String>) -> Result<Value, LangError> + Send + Sync;
+pub type TypecheckFn = dyn Fn(&str, &HashSet<String>) -> Result<Value, LangError> + Send + Sync;
 
 /// Adapts an injected typechecker to the capability contract.
 pub struct TypecheckPlugin {

@@ -5,8 +5,8 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, AstShapeDef, Language, TransformDef, TransformRule};
-use hnl_engine_transform_rewrite::RewriteEngine;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
+use hnl_engine_transform_rewrite::RewriteEngine;
 use serde_json::json;
 
 /// A trivial .hnl transform module: rewrite any matched node into kind
@@ -20,8 +20,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -68,7 +67,7 @@ fn test_engine() -> RewriteEngine {
 
 #[test]
 fn handl_transform_rewrites_node() {
-        ensure_lang();
+    ensure_lang();
     let lang = test_lang();
     let engine = test_engine();
 
@@ -92,7 +91,7 @@ fn handl_transform_rewrites_node() {
 
 #[test]
 fn handl_transform_null_declines() {
-        ensure_lang();
+    ensure_lang();
     let lang = test_lang();
     let engine = test_engine();
 
@@ -113,7 +112,7 @@ fn handl_transform_null_declines() {
 
 #[test]
 fn handl_transform_unknown_module_errors() {
-        ensure_lang();
+    ensure_lang();
     let mut lang = Language::new();
     lang.merge_ast_fragment(AstShapeDef::new("ast.foo", "foo"))
         .unwrap();
@@ -147,7 +146,7 @@ fn handl_transform_unknown_module_errors() {
 
 #[test]
 fn handl_transform_falls_back_for_non_handl_names() {
-        ensure_lang();
+    ensure_lang();
     use hnl_engine_transform::native::NativeRewriteRegistry;
 
     let mut fallback = NativeRewriteRegistry::new();

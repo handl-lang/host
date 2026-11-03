@@ -472,10 +472,8 @@ impl Function for SymFn {
             // `sym(parent)` — fresh child; `sym("seed")` — seeded root.
             1 => match &args[0] {
                 Value::String(seed) => handl_value::sym_seeded(seed),
-                other => {
-                    sym_from_parent_value(DEFAULT_NAME, &TaggedValue::from(other.clone()))
-                        .map_err(EvalError::TypeMismatch)?
-                }
+                other => sym_from_parent_value(DEFAULT_NAME, &TaggedValue::from(other.clone()))
+                    .map_err(EvalError::TypeMismatch)?,
             },
             // `sym("seed", parent[, ty])` — the declared mint carrying
             // the `parent` (<:) and `type` (membership) links.
@@ -876,12 +874,8 @@ mod sym_module_tests {
         let m = SymModule::new();
         let number = call(&m, "sym", &[json!("type.Number")]).unwrap();
         let ty = call(&m, "sym", &[json!("type.Type")]).unwrap();
-        let int = call(
-            &m,
-            "sym",
-            &[json!("type.Int"), number.clone(), ty.clone()],
-        )
-        .expect("seeded mint with links");
+        let int = call(&m, "sym", &[json!("type.Int"), number.clone(), ty.clone()])
+            .expect("seeded mint with links");
         // `parent` and `type` links serialize in the payload.
         assert_eq!(
             int["__sym__"]["parent"]["__sym__"]["handle"],

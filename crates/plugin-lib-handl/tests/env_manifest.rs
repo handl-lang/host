@@ -19,8 +19,7 @@ use handl_plugin_lib_handl::{HandlModule, ModuleEnv, ModuleResolver};
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -114,8 +113,7 @@ fn deps(spec: &str) -> Vec<(String, String)> {
 fn from_manifest_resolves_every_declared_dep() {
     ensure_lang();
     let resolver = StubResolver::new(&[("alpha", "A"), ("beta", "B")]);
-    let env =
-        ModuleEnv::from_manifest(&deps("branch:main"), &resolver).expect("both deps resolve");
+    let env = ModuleEnv::from_manifest(&deps("branch:main"), &resolver).expect("both deps resolve");
 
     let m = HandlModule::new("m", SRC, &["ask"]).instantiate(env);
     assert_eq!(call_ask(&m, "x"), serde_json::json!("A/B:x"));
@@ -156,7 +154,9 @@ fn from_manifest_mints_one_fresh_env_id() {
     // Overrides still build: layering a dep reconfigures the env and
     // re-mints its id (the contents changed).
     assert_ne!(
-        a.clone().with_dependency_arc(StubDep::arc("extra", "E")).env_id(),
+        a.clone()
+            .with_dependency_arc(StubDep::arc("extra", "E"))
+            .env_id(),
         a.env_id()
     );
     // An empty manifest is a valid (empty) env, still fresh.
@@ -173,7 +173,8 @@ fn from_pkg_hnl_builds_the_env_from_a_pkg_manifest() {
     ensure_lang();
     let resolver = StubResolver::new(&[("alpha", "A"), ("beta", "B")]);
     // A lib-tensor-style manifest: comment header + deps record.
-    let pkg = "--- deps of this package\n{ deps: { alpha: \"branch:main\", beta: \"branch:main\" } }\n";
+    let pkg =
+        "--- deps of this package\n{ deps: { alpha: \"branch:main\", beta: \"branch:main\" } }\n";
     let env = ModuleEnv::from_pkg_hnl(pkg, &resolver).expect("manifest deps resolve");
     let m = HandlModule::new("m", SRC, &["ask"]).instantiate(env);
     assert_eq!(call_ask(&m, "x"), serde_json::json!("A/B:x"));

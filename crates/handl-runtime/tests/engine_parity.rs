@@ -19,13 +19,13 @@
 use std::collections::HashMap;
 
 use handl_language::{LangError, Source, Value};
+use handl_runtime::Runtime;
 use hnl_engine_exec::EvalEngine;
 use hnl_engine_exec_bytecode::BytecodeEngine;
 use hnl_engine_exec_cranelift::CraneliftEngine;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::Runtime;
 use serde_json::json;
 
 fn canonical_lang() -> handl_language::Language {
@@ -253,17 +253,20 @@ fn match_array_patterns() {
     assert_parity("match [1, 2] { []: 0, [h, ...t]: h, _: 9 }", json!(1));
     assert_parity("match [] { []: 0, [h, ...t]: h, _: 9 }", json!(0));
     assert_parity("match \"abc\" { []: 0, _: 9 }", json!(9));
-    assert_parity(
-        "match [1, 2, 3] { [a, b, c]: a + b + c, _: 0 }",
-        json!(6),
-    );
+    assert_parity("match [1, 2, 3] { [a, b, c]: a + b + c, _: 0 }", json!(6));
     assert_parity("match [1, 2, 3] { [...t]: t, _: 0 }", json!([1, 2, 3]));
     assert_parity(
         "match [\"-\", \"a\"] { [\"-\", ...t]: t, _: [] }",
         json!(["a"]),
     );
-    assert_parity("match [1, 2] { [1, 2]: \"hit\", _: \"miss\" }", json!("hit"));
-    assert_parity("match [1, 3] { [1, 2]: \"hit\", _: \"miss\" }", json!("miss"));
+    assert_parity(
+        "match [1, 2] { [1, 2]: \"hit\", _: \"miss\" }",
+        json!("hit"),
+    );
+    assert_parity(
+        "match [1, 3] { [1, 2]: \"hit\", _: \"miss\" }",
+        json!("miss"),
+    );
     assert_parity("match [1] { [1, 2]: \"hit\", _: \"miss\" }", json!("miss"));
     assert_parity(
         "match [[1, 2], [3]] { [[a, b], ...t]: a + b, _: 0 }",
@@ -286,10 +289,7 @@ fn match_object_patterns() {
         json!("miss"),
     );
     // Missing key / non-object falls through.
-    assert_parity(
-        "match { \"a\": 5 } { { \"c\": x }: x, _: 0 }",
-        json!(0),
-    );
+    assert_parity("match { \"a\": 5 } { { \"c\": x }: x, _: 0 }", json!(0));
     assert_parity("match 5 { { \"a\": x }: x, _: 0 }", json!(0));
     // Rest binding captures the remaining fields.
     assert_parity(
@@ -323,10 +323,7 @@ fn match_runtime_object_keys() {
         json!(0),
     );
     // Non-object scrutinee: is_obj gates the key-forcing stage.
-    assert_parity(
-        "((k) ~> match 5 { {[k]: x}: x, _: 0 })(\"a\")",
-        json!(0),
-    );
+    assert_parity("((k) ~> match 5 { {[k]: x}: x, _: 0 })(\"a\")", json!(0));
     // Nested object pattern carrying a runtime key.
     assert_parity(
         "((k) ~> match { \"a\": { \"b\": 7 } } { { \"a\": {[k]: x} }: x, _: 0 })(\"b\")",
@@ -385,20 +382,11 @@ fn while_fold() {
         json!(6),
     );
     // Imperative form: `x = e` updates an enclosing-scope binding.
-    assert_parity(
-        "do { x := 0; while x < 5 { x = x + 1 }; x }",
-        json!(5),
-    );
+    assert_parity("do { x := 0; while x < 5 { x = x + 1 }; x }", json!(5));
     // Post-test `do { body } while cond` — desugars to the same loop
     // machinery; runs the body at least once.
-    assert_parity(
-        "do { x := 0; do { x = x + 1 } while x < 5; x }",
-        json!(5),
-    );
-    assert_parity(
-        "do { x := 10; do { x = x + 1 } while x < 5; x }",
-        json!(11),
-    );
+    assert_parity("do { x := 0; do { x = x + 1 } while x < 5; x }", json!(5));
+    assert_parity("do { x := 10; do { x = x + 1 } while x < 5; x }", json!(11));
 }
 
 #[test]
@@ -430,14 +418,8 @@ fn arrow_currying() {
 #[test]
 fn arrow_rest_params() {
     // `[a, ...rest] ~> body` binds surplus args as an array.
-    assert_parity(
-        "do { f := [h, ...t] ~> h; f(1, 2, 3) }",
-        json!(1),
-    );
-    assert_parity(
-        "do { f := [h, ...t] ~> t; f(1, 2, 3) }",
-        json!([2, 3]),
-    );
+    assert_parity("do { f := [h, ...t] ~> h; f(1, 2, 3) }", json!(1));
+    assert_parity("do { f := [h, ...t] ~> t; f(1, 2, 3) }", json!([2, 3]));
 }
 
 #[test]
@@ -465,14 +447,8 @@ fn arrow_block_bodies_and_binders() {
         json!(12),
     );
     // Arrow bodies see the ambient `in` via `~>` rebasing.
-    assert_parity(
-        "((xs) ~> match xs { []: 1, _: 2 })([])",
-        json!(1),
-    );
-    assert_parity(
-        "((xs) ~> match xs { []: 1, _: 2 })([3])",
-        json!(2),
-    );
+    assert_parity("((xs) ~> match xs { []: 1, _: 2 })([])", json!(1));
+    assert_parity("((xs) ~> match xs { []: 1, _: 2 })([3])", json!(2));
     // Higher-order composition through nested closures.
     assert_parity(
         "do { c := (f) ~> (g) ~> (x) ~> f(g(x)); h := c((n) ~> n + 1)((n) ~> n * 2); h(5) }",
@@ -654,9 +630,18 @@ fn tag_inspection_ops_on_untagged_values() {
     // `tag.untag` from `tag.untag` surface syntax. On non-tagged values
     // they return `null`/`null`/`false` identically on every engine.
     for (name, rt) in [
-        ("tree-walk", runtime_with_tag(Box::new(TreeWalkEngine::new()))),
-        ("bytecode", runtime_with_tag(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_tag(Box::new(CraneliftEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_tag(Box::new(TreeWalkEngine::new())),
+        ),
+        (
+            "bytecode",
+            runtime_with_tag(Box::new(BytecodeEngine::new())),
+        ),
+        (
+            "cranelift",
+            runtime_with_tag(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         let src = r#"tag.untag(5)"#;
         let got = eval_engine_path(&rt, src)
@@ -682,9 +667,18 @@ fn tag_mint_producers_deleted_error_everywhere() {
     // parity in the error case. The engines' messages differ in shape
     // but all name the missing function.
     for (name, rt) in [
-        ("tree-walk", runtime_with_tag(Box::new(TreeWalkEngine::new()))),
-        ("bytecode", runtime_with_tag(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_tag(Box::new(CraneliftEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_tag(Box::new(TreeWalkEngine::new())),
+        ),
+        (
+            "bytecode",
+            runtime_with_tag(Box::new(BytecodeEngine::new())),
+        ),
+        (
+            "cranelift",
+            runtime_with_tag(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         for src in [
             r#"tag.tag("ok", { "value": 42 })"#,
@@ -731,9 +725,15 @@ fn runtime_with_io(engine: Box<dyn EvalEngine>) -> Runtime {
 #[test]
 fn io_perform_mints_io_former() {
     for (name, rt) in [
-        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
         ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         let got = eval_engine_path(&rt, r#"perform(puts, "hi")"#)
             .unwrap_or_else(|e| panic!("{name} engine-path failed: {e}"));
@@ -759,9 +759,15 @@ fn io_perform_through_handle() {
         "indices": [{ "puts": "handled:hi" }],
     });
     for (name, rt) in [
-        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
         ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         let src = r#"do {
           x := perform(puts, "hi")
@@ -787,9 +793,15 @@ fn io_perform_through_handle() {
 #[test]
 fn perform_in_flight_dispatch() {
     for (name, rt) in [
-        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
         ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         // Covered op — `perform` resumes with the impl's result.
         let src = r#"handle do { s := perform(get, "x"); s + "!" }
@@ -813,9 +825,15 @@ fn perform_in_flight_dispatch() {
 #[test]
 fn perform_acc_state_threading() {
     for (name, rt) in [
-        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
         ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         let src = r#"handle do {
             s := perform(get, ())
@@ -835,9 +853,15 @@ fn perform_acc_state_threading() {
 #[test]
 fn perform_return_clause() {
     for (name, rt) in [
-        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
         ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         let src = r#"handle perform(get, "x") with {
             get: u ~> "g",
@@ -857,9 +881,15 @@ fn perform_return_clause() {
 #[test]
 fn perform_multishot_resume() {
     for (name, rt) in [
-        ("tree-walk", runtime_with_io(Box::new(TreeWalkEngine::new()))),
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
         ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
-        ("cranelift", runtime_with_io(Box::new(CraneliftEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
     ] {
         // Two `resume` calls → both continuations, each running through
         // the rest of the body (`+ 100`).
@@ -950,10 +980,7 @@ fn nat_tower_binary_add() {
 /// self-ref binder in the arrow's `binds`, resolved at application).
 #[test]
 fn self_recursive_arrow_evals_via_ast_fallback() {
-    for (name, rt) in [
-        ("tree-walk", tree_walk()),
-        ("cranelift", cranelift()),
-    ] {
+    for (name, rt) in [("tree-walk", tree_walk()), ("cranelift", cranelift())] {
         let got = eval_engine_path(&rt, SRC);
         assert_eq!(got.unwrap(), json!(2), "{name} on {SRC:?}");
     }

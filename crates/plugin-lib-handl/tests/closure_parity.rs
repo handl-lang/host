@@ -9,16 +9,15 @@ use std::rc::Rc;
 
 use handl_kit_data_prelude;
 use handl_language::{Source, Value};
+use handl_plugin_lib_handl::HandlModule;
+use handl_plugin_module::ModuleRegistry;
+use handl_runtime::Runtime;
 use hnl_engine_exec::EvalEngine;
 use hnl_engine_exec_bytecode::BytecodeEngine;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_plugin_lib_handl::HandlModule;
-use handl_plugin_module::ModuleRegistry;
-use handl_runtime::Runtime;
 use serde_json::json;
-
 
 /// Install the canonical default language once per test binary.
 ///
@@ -28,8 +27,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -77,13 +75,13 @@ fn assert_both_engines(src: &str, expected: Value) {
 /// `transform.map` takes an arrow as an argument.
 #[test]
 fn transform_map_with_arrow_arg() {
-        ensure_lang();
+    ensure_lang();
     assert_both_engines("transform.map([1, 2, 3], x ~> x * 2)", json!([2, 4, 6]));
 }
 
 /// `maker.make` returns a closure that closes over `x`.
 #[test]
 fn module_returns_closure() {
-        ensure_lang();
+    ensure_lang();
     assert_both_engines("2 >>> maker.make(5)", json!(7));
 }

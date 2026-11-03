@@ -2,9 +2,15 @@
 --- (explicit-Pi surface sugar), and `~[n]~>` dimension arrows. Driven by
 --- `hnl typecheck` (see `ci.sh smoke`).
 
-data Nat :: Zero | Succ(pred : Nat)
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
 
-data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)
+Vec<n : Nat, a : Type> := {
+  VNil : Vec(0, a),
+  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+}
 
 -- ---------------------------------------------------------------------
 -- `type.Name(p…) := T` — a transparent alias (ADR-0154 §3): binds a

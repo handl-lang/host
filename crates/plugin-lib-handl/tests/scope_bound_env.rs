@@ -29,8 +29,7 @@ use serde_json::{Value, json};
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -56,11 +55,7 @@ impl StubDep {
 }
 
 impl Function for StubWho {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.is_empty() {
             Ok(json!(self.0))
         } else {
@@ -74,11 +69,7 @@ impl Function for StubWho {
 }
 
 impl Function for StubCat {
-    fn call(
-        &self,
-        args: &[Value],
-        _ctx: &mut EvalContext,
-    ) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
         if args.len() != 2 {
             return Err(EvalError::Other(format!(
                 "dep.cat expects 2 args, got {}",
@@ -168,10 +159,7 @@ fn wrapper_arrow_applies_through_the_module_chain() {
     // f() — the rest-bound args array is empty.
     assert_eq!(call(&m, "ping", &[wrapper.clone()]), json!("orig"));
     // f("x") — one forwarded arg.
-    assert_eq!(
-        call(&m, "apply", &[wrapper, json!("x")]),
-        json!("orig:x")
-    );
+    assert_eq!(call(&m, "apply", &[wrapper, json!("x")]), json!("orig:x"));
 }
 
 /// `callv` forwards the *whole* args array: a two-arg dep function sees
@@ -221,7 +209,10 @@ fn env_record_field_applies_through_field_access() {
     // `m.who() + ":" + x` — record field access yields the wrapper arrow,
     // `call` routes the non-string callee to `!App`, `callv` lands on
     // `call_host` with zero args.
-    assert_eq!(call(&m, "ask", &[Value::from(record), json!("x")]), json!("orig:x"));
+    assert_eq!(
+        call(&m, "ask", &[Value::from(record), json!("x")]),
+        json!("orig:x")
+    );
 }
 
 /// The bytecode engine compiles the `callv` scheme like any other
@@ -319,9 +310,9 @@ fn const_arrow(result: &str) -> handl_value::TaggedValue {
         params: Rc::from(Vec::<String>::new()),
         rest: Some(Rc::from("args")),
         array_pattern: false,
-        body_def: Rc::new(handl_value::TaggedValue::from(
-            handl_language::ast_value(&body),
-        )),
+        body_def: Rc::new(handl_value::TaggedValue::from(handl_language::ast_value(
+            &body,
+        ))),
         binds: Default::default(),
         handlers: Default::default(),
     }
@@ -426,10 +417,7 @@ fn undeclared_names_still_fall_back_through_the_chain() {
     struct GhostFn;
     impl Function for GhostFn {
         fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
-            Ok(json!(format!(
-                "table:{}",
-                args[0].as_str().unwrap_or("?")
-            )))
+            Ok(json!(format!("table:{}", args[0].as_str().unwrap_or("?"))))
         }
     }
     struct GhostLookup {

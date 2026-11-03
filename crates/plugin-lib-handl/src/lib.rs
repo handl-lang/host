@@ -248,10 +248,8 @@ pub fn wrap_dep_fn(name: &str) -> handl_value::TaggedValue {
         handl_language::AstNode::new(handl_language::LIT_KIND)
             .with_payload(serde_json::json!(name)),
     );
-    let args = body.push(
-        handl_language::AstNode::new("var")
-            .with_payload(serde_json::json!(DEP_WRAP_REST)),
-    );
+    let args = body
+        .push(handl_language::AstNode::new("var").with_payload(serde_json::json!(DEP_WRAP_REST)));
     body.push(
         handl_language::AstNode::new("callv").with_payload(serde_json::json!({
             "children": [callee.index(), args.index()],
@@ -261,9 +259,9 @@ pub fn wrap_dep_fn(name: &str) -> handl_value::TaggedValue {
         params: Rc::from(Vec::<String>::new()),
         rest: Some(Rc::from(DEP_WRAP_REST)),
         array_pattern: false,
-        body_def: Rc::new(handl_value::TaggedValue::from(
-            handl_language::ast_value(&body),
-        )),
+        body_def: Rc::new(handl_value::TaggedValue::from(handl_language::ast_value(
+            &body,
+        ))),
         binds: Default::default(),
         handlers: Default::default(),
     }
@@ -281,11 +279,7 @@ pub fn wrap_dep_module(module: &dyn Module) -> handl_value::TaggedValue {
     for (fname, _f) in module.functions() {
         obj.insert(
             fname.to_string(),
-            handl_language::Value::from(wrap_dep_fn(&format!(
-                "{}.{}",
-                module.name(),
-                fname
-            ))),
+            handl_language::Value::from(wrap_dep_fn(&format!("{}.{}", module.name(), fname))),
         );
     }
     for vname in module.value_names() {
@@ -371,8 +365,7 @@ fn dep_env_globals(
 /// the `call_host` leaf's `ModuleLookup` chain resolves them — simply
 /// does not install a provider; [`global_lookup`](HandlModule::with_global_lookup)
 /// is orthogonal and remains the leaf either way.
-pub type DefaultEnv =
-    Arc<dyn Fn() -> HashMap<String, serde_json::Value> + Send + Sync>;
+pub type DefaultEnv = Arc<dyn Fn() -> HashMap<String, serde_json::Value> + Send + Sync>;
 
 impl ImportResolver for DependencyImportResolver {
     fn resolve_import(
@@ -680,8 +673,7 @@ mod bootstrap {
                     // Consume a whole identifier word so keywords inside
                     // larger names (`exporter`, `fromage`) never match.
                     let mut j = i + 1;
-                    while j < bytes.len()
-                        && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
+                    while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_')
                     {
                         j += 1;
                     }
@@ -979,9 +971,7 @@ mod bootstrap {
                 };
                 let name = strip_export_name(&rest[..sep_pos]);
                 if name.is_empty() {
-                    panic!(
-                        "module prep: `export` declaration has no binding name: {trimmed}"
-                    );
+                    panic!("module prep: `export` declaration has no binding name: {trimmed}");
                 }
                 let rhs = rest[sep_pos + sep_len..].trim();
                 let is_type_only = (sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':'))
@@ -2232,7 +2222,9 @@ impl Function for HandlFunction {
                 let runtime =
                     std::rc::Rc::new(builder().expect("handl module runtime build failed"));
                 RUNTIME_CACHE.with(|cache| {
-                    cache.borrow_mut().insert(module_id, std::rc::Rc::clone(&runtime));
+                    cache
+                        .borrow_mut()
+                        .insert(module_id, std::rc::Rc::clone(&runtime));
                 });
                 runtime
             }
@@ -2974,7 +2966,9 @@ impl HandlModule {
                 let runtime =
                     std::rc::Rc::new(builder().expect("handl module runtime build failed"));
                 RUNTIME_CACHE.with(|cache| {
-                    cache.borrow_mut().insert(module_id, std::rc::Rc::clone(&runtime));
+                    cache
+                        .borrow_mut()
+                        .insert(module_id, std::rc::Rc::clone(&runtime));
                 });
                 runtime
             }
@@ -3305,8 +3299,7 @@ pub fn handl_module_from_sources(
         }
         siblings.insert(name.to_string(), Arc::new(module));
     }
-    let mut index =
-        HandlModule::new(mod_name, index_src, index_funcs).with_eval_engine(eval_name);
+    let mut index = HandlModule::new(mod_name, index_src, index_funcs).with_eval_engine(eval_name);
     for spec in str_handl_import_specs(index_src) {
         let dep_name = normalize_import_name(&spec);
         let dep = siblings

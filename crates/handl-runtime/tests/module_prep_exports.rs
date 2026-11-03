@@ -17,11 +17,11 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use handl_language::Source;
+use handl_runtime::{ModuleLoader, Runtime};
 use hnl_engine_exec::ImportResolver;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::{ModuleLoader, Runtime};
 use serde_json::json;
 
 /// A unique temp directory for this test process's module fixtures.
@@ -220,7 +220,11 @@ fn n_cell_value_exports_are_preserved() {
     .expect("cell exports must bind");
     assert_eq!(value["a"], json!(true), "f ~[2]~> g is a value — kept");
     assert_eq!(value["l"], json!(true), "string-law cell is a value — kept");
-    assert_eq!(value["b"], json!(true), "lowercase-led grade-1 term is a value — kept");
+    assert_eq!(
+        value["b"],
+        json!(true),
+        "lowercase-led grade-1 term is a value — kept"
+    );
     std::fs::remove_dir_all(&root).ok();
 }
 
@@ -240,8 +244,16 @@ fn bare_type_signature_erases_lambda_cell_body_keeps() {
         r#"do { from "mod.hnl" import { BareSig, sigma }; { sig: BareSig, s: sigma != null } }"#,
     )
     .expect("bare-type signature erases; cell-bodied lambda binds");
-    assert_eq!(value["sig"], json!(null), "Int ~[1]~> Result<…> is a signature");
-    assert_eq!(value["s"], json!(true), "lambda with a cell body is a value");
+    assert_eq!(
+        value["sig"],
+        json!(null),
+        "Int ~[1]~> Result<…> is a signature"
+    );
+    assert_eq!(
+        value["s"],
+        json!(true),
+        "lambda with a cell body is a value"
+    );
     std::fs::remove_dir_all(&root).ok();
 }
 
@@ -265,8 +277,12 @@ fn annotated_export_keeps_body_evaluation() {
 fn nested_graded_arrow_still_evaluates() {
     let root = scratch_dir("nested-graded");
     let src = "export cell := [ (x) ~> x ~[2]~> (y) ~> y ]\n";
-    let value = run(&root, src, r#"do { from "mod.hnl" import cell; cell[0] != null }"#)
-        .expect("nested graded arrow evaluates");
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import cell; cell[0] != null }"#,
+    )
+    .expect("nested graded arrow evaluates");
     assert_eq!(value, json!(true));
     std::fs::remove_dir_all(&root).ok();
 }

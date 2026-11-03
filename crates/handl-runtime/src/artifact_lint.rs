@@ -191,7 +191,12 @@ pub fn check_exec_artifact(lang: &Language, ast: &Ast) -> Result<(), LangError> 
     let summary = findings
         .iter()
         .take(4)
-        .map(|f| format!("[{}] {} node {}: {}", f.rule, f.node_kind, f.node, f.message))
+        .map(|f| {
+            format!(
+                "[{}] {} node {}: {}",
+                f.rule, f.node_kind, f.node, f.message
+            )
+        })
         .collect::<Vec<_>>()
         .join("; ");
     let suffix = if findings.len() > 4 {
@@ -285,9 +290,7 @@ fn node_carries_child_refs(node: &AstNode) -> bool {
 /// (the *spelling* of a runtime-minted former object, e.g. inside an
 /// `.hnl` model building one as data) is a string value, not the
 /// encoding — runtime-minted cells are allowed (ADR-0154 §6).
-fn find_type_level_key(
-    v: &Value,
-) -> Option<&'static (&'static str, &'static str, &'static str)> {
+fn find_type_level_key(v: &Value) -> Option<&'static (&'static str, &'static str, &'static str)> {
     match v {
         Value::Object(map) => {
             for entry in TYPE_LEVEL_VALUE_KEYS {
@@ -318,10 +321,18 @@ mod tests {
     fn typed_lang() -> Language {
         let mut lang = Language::new();
         lang.types
-            .merge(TypeRuleDef::new("type.pi", "pi", Term::constant(json!(null))))
+            .merge(TypeRuleDef::new(
+                "type.pi",
+                "pi",
+                Term::constant(json!(null)),
+            ))
             .unwrap();
         lang.types
-            .merge(TypeRuleDef::new("type.value", "value", Term::constant(json!(null))))
+            .merge(TypeRuleDef::new(
+                "type.value",
+                "value",
+                Term::constant(json!(null)),
+            ))
             .unwrap();
         lang
     }
@@ -381,7 +392,10 @@ mod tests {
         let mut ast = Ast::new();
         ast.push(node("value", json!(42)));
         ast.push(node("value", json!({"__tag__": "type.number"})));
-        ast.push(node("value", json!({"__sym__": {"handle": 1, "name": "Int"}})));
+        ast.push(node(
+            "value",
+            json!({"__sym__": {"handle": 1, "name": "Int"}}),
+        ));
         ast.push(node(
             "value",
             json!({"__arrow__": {"params": ["x"], "binds": {}}}),
@@ -418,10 +432,7 @@ mod tests {
         let lang = typed_lang();
         let mut ast = Ast::new();
         ast.push(node("value", json!({"__meta__": 0})));
-        ast.push(node(
-            "function",
-            json!({"params": ["x"], "body": 0}),
-        ));
+        ast.push(node("function", json!({"params": ["x"], "body": 0})));
         let findings = lint_exec_artifact(&lang, &ast, AstRef::new(1));
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].node, 0);

@@ -11,11 +11,11 @@
 
 use handl_kit_arrow_lower::lower_ast;
 use handl_language::{AstRef, Source, Value};
+use handl_runtime::Runtime;
+use hnl_engine::term_interpreter::interpret;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::Runtime;
-use hnl_engine::term_interpreter::interpret;
 use std::collections::HashMap;
 
 fn canonical_lang() -> handl_language::Language {
@@ -70,18 +70,14 @@ fn flow_param_alias_nested_capture() {
 /// the composite arrow and applying it runs `g(f(arg))`.
 #[test]
 fn flow_two_param_arrows_compose() {
-    assert_lowered(
-        "do {\n  comp := (f, g) ~> f >>> g\n  comp((n) ~> n + 1, (m) ~> m * 2)(10)\n}",
-    );
+    assert_lowered("do {\n  comp := (f, g) ~> f >>> g\n  comp((n) ~> n + 1, (m) ~> m * 2)(10)\n}");
 }
 
 /// `x >>> f` where `f` is a slot-held bound-arrow record (`mk(1)`): the
 /// flow applies the held arrow to the lhs value — `f(10)` = `10 + 1`.
 #[test]
 fn flow_slot_arrow_applies() {
-    assert_lowered(
-        "do {\n  mk := (k) ~> (n) ~> n + k\n  f := mk(1)\n  10 >>> f\n}",
-    );
+    assert_lowered("do {\n  mk := (k) ~> (n) ~> n + k\n  f := mk(1)\n  10 >>> f\n}");
 }
 
 /// `x >>>[0] f` — axis-0 composition routes through `flow` like `>>>`:

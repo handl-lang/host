@@ -1,14 +1,13 @@
 use std::rc::Rc;
 
 use handl_language::{Ast, Language, Term, Value};
-use hnl_engine_exec_tree_walk::ValueModel;
 use handl_plugin_lib_handl::{HandlModel, HandlModule};
 use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use hnl_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
+use hnl_engine_exec_tree_walk::ValueModel;
 use serde_json::json;
-
 
 /// Install the canonical default language once per test binary.
 ///
@@ -18,8 +17,7 @@ use serde_json::json;
 fn ensure_lang() {
     if handl_plugin_lib_handl::default_language().is_none() {
         let _ = handl_plugin_lib_handl::install_default_language(
-            handl_kit_data_prelude::language_from_yaml()
-                .expect("canonical language assembles"),
+            handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
         );
     }
 }
@@ -100,7 +98,7 @@ fn either_right(v: Value) -> Value {
 
 #[test]
 fn arrow_parity_arr_const() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::arr(json!(5)));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, json!(5));
@@ -110,7 +108,7 @@ fn arrow_parity_arr_const() {
 
 #[test]
 fn arrow_parity_seq() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
         TermData::op("inc", vec![], &ArrSource::Native, None),
@@ -122,7 +120,7 @@ fn arrow_parity_seq() {
 
 #[test]
 fn arrow_parity_first() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(pair(json!(1), json!(2))),
         TermData::first(TermData::op("inc", vec![], &ArrSource::Native, None)),
@@ -134,7 +132,7 @@ fn arrow_parity_first() {
 
 #[test]
 fn arrow_parity_choice_left() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(either_left(json!(5))),
         TermData::choice(
@@ -149,7 +147,7 @@ fn arrow_parity_choice_left() {
 
 #[test]
 fn arrow_parity_choice_right() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(either_right(json!(5))),
         TermData::choice(
@@ -164,7 +162,7 @@ fn arrow_parity_choice_right() {
 
 #[test]
 fn arrow_parity_loop() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(pair(json!(1), json!(2))),
         TermData::loop_feedback(TermData::arr(pair(json!(42), json!(0)))),
@@ -176,7 +174,7 @@ fn arrow_parity_loop() {
 
 #[test]
 fn arrow_parity_iter() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::iter(
         TermData::arr(json!(10)),
         TermData::op("is_pos", vec![], &ArrSource::Native, None),
@@ -190,7 +188,7 @@ fn arrow_parity_iter() {
 
 #[test]
 fn arrow_parity_app_tag_inspection() {
-        ensure_lang();
+    ensure_lang();
     // `app` to a `tag.*` op through the module registry — post-deletion
     // the surviving op is `tag.untag` (the `tag.tag` producer is gone,
     // ADR-0152 §Migration): applied to a host-internal tagged record it
@@ -206,7 +204,7 @@ fn arrow_parity_app_tag_inspection() {
 
 #[test]
 fn arrow_parity_record_proj() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
         TermData::record_proj(TermData::op("id", vec![], &ArrSource::Native, None), "a"),
@@ -218,7 +216,7 @@ fn arrow_parity_record_proj() {
 
 #[test]
 fn arrow_parity_record_with() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!({ "a": 1, "b": 2 })),
         TermData::record_with(
@@ -234,7 +232,7 @@ fn arrow_parity_record_with() {
 
 #[test]
 fn arrow_parity_tag() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::tag_value("ok", TermData::arr(json!(42))));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, handl);
@@ -243,7 +241,7 @@ fn arrow_parity_tag() {
 
 #[test]
 fn arrow_parity_refine() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
         TermData::refine(
@@ -258,7 +256,7 @@ fn arrow_parity_refine() {
 
 #[test]
 fn arrow_parity_cobind() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(99)),
         TermData::cobind(
@@ -273,7 +271,7 @@ fn arrow_parity_cobind() {
 
 #[test]
 fn arrow_parity_path() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::path(
         TermData::arr(json!(1)),
         TermData::arr(json!(2)),
@@ -294,7 +292,7 @@ fn arrow_parity_path() {
 
 #[test]
 fn arrow_parity_equiv_bool() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::equiv(
         TermData::arr(json!(1)),
         TermData::arr(json!(1)),
@@ -307,7 +305,7 @@ fn arrow_parity_equiv_bool() {
 
 #[test]
 fn arrow_parity_equiv_path() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(1)),
         TermData::equiv(
@@ -327,7 +325,7 @@ fn arrow_parity_equiv_path() {
 
 #[test]
 fn arrow_parity_cell_id() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::cell_id(TermData::arr(json!(7))));
     let (rust, handl) = eval(&term, Value::Null);
     assert_eq!(rust, handl);
@@ -345,7 +343,7 @@ fn arrow_parity_cell_id() {
 #[test]
 #[ignore = "model-parity gap: the Rust default model returns Null for derived (opaque) records that the Handl model evaluates. See project/TODO.md"]
 fn arrow_parity_cell_comp_v() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::cell_comp_v(
         TermData::arr(json!(1)),
         TermData::arr(json!(2)),
@@ -356,7 +354,7 @@ fn arrow_parity_cell_comp_v() {
 
 #[test]
 fn arrow_parity_whisker_left() {
-        ensure_lang();
+    ensure_lang();
     use handl_language::Side;
     let term = to_term(TermData::whisker(
         &Side::Left,
@@ -369,7 +367,7 @@ fn arrow_parity_whisker_left() {
 
 #[test]
 fn arrow_parity_univalence() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::univalence(TermData::equiv(
         TermData::arr(json!(1)),
         TermData::arr(json!(1)),
@@ -381,7 +379,7 @@ fn arrow_parity_univalence() {
 
 #[test]
 fn arrow_parity_glue_fibrant_jelim() {
-        ensure_lang();
+    ensure_lang();
     // `Glue`, `Fibrant`, and `JElim` all return the incoming/base value when
     // their path/family arguments do not provide a genuine path/cell.
     let glue = to_term(TermData::seq(
@@ -416,7 +414,7 @@ fn arrow_parity_glue_fibrant_jelim() {
 
 #[test]
 fn arrow_parity_rewrite() {
-        ensure_lang();
+    ensure_lang();
     use handl_language::RewriteWitness;
     let term = to_term(TermData::seq(
         TermData::arr(json!(5)),
@@ -433,7 +431,7 @@ fn arrow_parity_rewrite() {
 
 #[test]
 fn arrow_parity_op_arithmetic() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::op(
         "add",
         vec![TermData::arr(json!(1)), TermData::arr(json!(2))],
@@ -447,7 +445,7 @@ fn arrow_parity_op_arithmetic() {
 
 #[test]
 fn arrow_parity_op_is_pos() {
-        ensure_lang();
+    ensure_lang();
     let term = to_term(TermData::seq(
         TermData::arr(json!(3)),
         TermData::op("is_pos", vec![], &ArrSource::Native, None),
@@ -459,7 +457,7 @@ fn arrow_parity_op_is_pos() {
 
 #[test]
 fn arrow_parity_handle_number_add() {
-        ensure_lang();
+    ensure_lang();
     let handler_impl = serde_json::to_value(&to_term(TermData::op(
         "number_add",
         vec![],

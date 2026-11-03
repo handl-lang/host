@@ -15,11 +15,11 @@
 use handl_language::{
     Ast, AstNode, AstRef, Language, Term, TransformDef, TransformRule, TypeRuleDef, Value,
 };
+use handl_runtime::Runtime;
 use handl_runtime::artifact_lint::{check_exec_artifact, lint_exec_artifact, rules};
 use handl_runtime::exec_erasure_pass::{
     EXEC_ERASURE_PASS, apply_exec_erasure, prepare_exec_artifact,
 };
-use handl_runtime::Runtime;
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use serde_json::json;
 
@@ -52,7 +52,11 @@ fn erasure_lang() -> Language {
 fn typed_lang() -> Language {
     let mut lang = Language::new();
     lang.types
-        .merge(TypeRuleDef::new("type.pi", "pi", Term::constant(json!(null))))
+        .merge(TypeRuleDef::new(
+            "type.pi",
+            "pi",
+            Term::constant(json!(null)),
+        ))
         .unwrap();
     lang
 }
@@ -135,8 +139,14 @@ fn lint_passes_clean_artifact() {
     // type value, a defunctionalized arrow value.
     let mut ast = Ast::new();
     ast.push(node("value", json!(42)));
-    ast.push(node("value", json!({"__tag__": "type.number", "__registry__": "handl.canonical"})));
-    ast.push(node("value", json!({"__sym__": {"handle": 1, "name": "Int"}})));
+    ast.push(node(
+        "value",
+        json!({"__tag__": "type.number", "__registry__": "handl.canonical"}),
+    ));
+    ast.push(node(
+        "value",
+        json!({"__sym__": {"handle": 1, "name": "Int"}}),
+    ));
     ast.push(node(
         "value",
         json!({"__arrow__": {"params": ["x"], "binds": {}}}),
@@ -162,7 +172,10 @@ fn eval_rejects_crafted_stuck_artifact() {
     // the artifact lint fires before the eval engine ever sees it.
     let rt = Runtime::new(Language::new()).with_eval_engine(Box::new(TreeWalkEngine::new()));
     let mut ast = Ast::new();
-    ast.push(node("value", json!({"__former__": {"sym": null, "args": []}})));
+    ast.push(node(
+        "value",
+        json!({"__former__": {"sym": null, "args": []}}),
+    ));
     let err = rt.eval(&ast).unwrap_err();
     assert!(err.to_string().contains("artifact lint"), "got: {err}");
 }

@@ -88,10 +88,7 @@ pub fn load_arrow_file(lang: &Language, path: &str) -> Result<Term, String> {
 /// For multi-name files, returns all named arrows.
 /// `lang` is the arrow-dialect [`Language`](handl_language::Language) —
 /// see [`load_arrow_file`].
-pub fn load_arrow_file_named(
-    lang: &Language,
-    path: &str,
-) -> Result<HashMap<String, Term>, String> {
+pub fn load_arrow_file_named(lang: &Language, path: &str) -> Result<HashMap<String, Term>, String> {
     let content =
         fs::read_to_string(path).map_err(|e| format!("failed to read {}: {}", path, e))?;
     let parsed = parse_arrow_module_no_rewrite(lang, &content)?;
@@ -673,8 +670,7 @@ impl ModuleLoader {
         let resolved = self.resolver.resolve(path).map_err(LoadError::Resolve)?;
 
         // Parse with module-aware parser (extracts imports/exports).
-        let parsed =
-            parse_arrow_module(&self.lang, &resolved.source).map_err(LoadError::Parse)?;
+        let parsed = parse_arrow_module(&self.lang, &resolved.source).map_err(LoadError::Parse)?;
 
         // Convert ParsedFile to HashMap<String, Term>.
         let arrows = match parsed.arrows {

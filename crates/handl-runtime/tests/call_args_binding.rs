@@ -11,10 +11,10 @@
 use std::rc::Rc;
 
 use handl_language::Source;
+use handl_runtime::{EngineRegistry, Runtime};
 use hnl_engine_exec_tree_walk::TreeWalkEngine;
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse_pratt::PrattEngine;
-use handl_runtime::{EngineRegistry, Runtime};
 
 /// Build a tree-walk runtime over the canonical data kit (no typecheck).
 fn tree_walk_runtime() -> Runtime {
