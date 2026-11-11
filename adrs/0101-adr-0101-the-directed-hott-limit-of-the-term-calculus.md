@@ -13,7 +13,7 @@ status: proposed
 status_note: Proposed — the calculus is a directed (∞,1)-category; 1-cells stay the engine.
 ---
 
-# ADR-0100: The Directed-HoTT Limit of the Term Calculus
+# ADR-0101: The Directed-HoTT Limit of the Term Calculus
 
 ## Decision
 
