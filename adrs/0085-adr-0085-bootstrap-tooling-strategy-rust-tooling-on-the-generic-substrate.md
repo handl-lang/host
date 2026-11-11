@@ -2,7 +2,7 @@
 id = "ADR-0085"
 title = "ADR-0085: Bootstrap Tooling Strategy — Rust Tooling on the Generic Substrate"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

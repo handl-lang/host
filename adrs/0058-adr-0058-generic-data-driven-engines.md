@@ -2,7 +2,7 @@
 id = "ADR-0058"
 title = "ADR-0058: Generic Data-Driven Engines"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

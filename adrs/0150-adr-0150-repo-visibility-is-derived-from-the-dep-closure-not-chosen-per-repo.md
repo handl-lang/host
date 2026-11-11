@@ -2,7 +2,7 @@
 id = "ADR-0150"
 title = "ADR-0150: Repo visibility is derived from the dep closure, not chosen per-repo"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

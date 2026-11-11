@@ -2,7 +2,7 @@
 id = "ADR-0127"
 title = "ADR-0127: `TransformRule::Replace` — a rule form for root-eliminating rewrites"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

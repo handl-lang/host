@@ -2,7 +2,7 @@
 id = "ADR-0047"
 title = "ADR-0047: Meta Functions as `plugin-lib-*` Crates"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

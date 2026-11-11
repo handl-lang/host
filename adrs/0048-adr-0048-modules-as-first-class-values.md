@@ -2,7 +2,7 @@
 id = "ADR-0048"
 title = "ADR-0048: Modules as First-Class Values"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0160"
 title = "ADR-0160: `lib-*` repos are language packages, not crates"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

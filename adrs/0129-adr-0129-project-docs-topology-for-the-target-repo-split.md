@@ -2,7 +2,7 @@
 id = "ADR-0129"
 title = "ADR-0129: Project-docs topology for the target-repo split"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

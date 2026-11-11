@@ -2,7 +2,7 @@
 id = "ADR-0094"
 title = "ADR-0094: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

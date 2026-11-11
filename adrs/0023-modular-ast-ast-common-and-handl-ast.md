@@ -2,7 +2,7 @@
 id = "ADR-0023"
 title = "Modular AST: `ast-common` and `handl-ast`"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

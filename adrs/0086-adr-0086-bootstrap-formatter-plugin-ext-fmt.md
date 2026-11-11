@@ -2,7 +2,7 @@
 id = "ADR-0086"
 title = "ADR-0086: Bootstrap Formatter (`plugin-ext-fmt`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

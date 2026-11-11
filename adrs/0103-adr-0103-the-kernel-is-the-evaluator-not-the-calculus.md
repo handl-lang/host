@@ -2,7 +2,7 @@
 id = "ADR-0103"
 title = "ADR-0103: The Kernel Is the Evaluator, Not the Calculus"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

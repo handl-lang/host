@@ -2,7 +2,7 @@
 id = "ADR-0050"
 title = "ADR-0050: Plugin System in Handl"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

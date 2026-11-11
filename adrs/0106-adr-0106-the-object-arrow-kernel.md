@@ -2,7 +2,7 @@
 id = "ADR-0106"
 title = "ADR-0106: The Object-Arrow Kernel"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

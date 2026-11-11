@@ -2,7 +2,7 @@
 id = "ADR-0012"
 title = "Versioning for Language Artifacts"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

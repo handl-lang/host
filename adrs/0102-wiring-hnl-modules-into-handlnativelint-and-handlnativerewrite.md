@@ -2,7 +2,7 @@
 id = "ADR-0102"
 title = "Wiring `.hnl` modules into `HandlNativeLint` and `HandlNativeRewrite`"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

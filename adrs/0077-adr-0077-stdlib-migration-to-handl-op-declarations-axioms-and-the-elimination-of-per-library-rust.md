@@ -2,7 +2,7 @@
 id = "ADR-0077"
 title = "ADR-0077: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Elimination of Per-Library Rust"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

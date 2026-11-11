@@ -2,7 +2,7 @@
 id = "ADR-0155"
 title = "ADR-0155: Scope-Bound Arrow Environments"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

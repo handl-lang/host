@@ -2,7 +2,7 @@
 id = "ADR-0037"
 title = "ADR-0037: Plugin Resolution and Excludes"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

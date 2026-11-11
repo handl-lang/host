@@ -2,7 +2,7 @@
 id = "ADR-0035"
 title = "ADR-0035: Loaders as Abstract Plugins"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0087"
 title = "ADR-0087: Bootstrap Linter (`plugin-ext-lint`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0157"
 title = "ADR-0157: mlopt on the fragment tower — domain vocabularies as `Language` fragments"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

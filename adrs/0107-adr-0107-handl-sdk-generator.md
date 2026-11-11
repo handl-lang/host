@@ -2,7 +2,7 @@
 id = "ADR-0107"
 title = "ADR-0107: Handl SDK Generator"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

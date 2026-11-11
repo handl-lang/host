@@ -2,7 +2,7 @@
 id = "ADR-0162"
 title = "ADR-0162: `project/` holds process artifacts; published docs live in the org `docs/`"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

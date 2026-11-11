@@ -2,7 +2,7 @@
 id = "ADR-0002"
 title = "ADR-0002 (Remaining): Plugin Library Conversion and Module Abstraction"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

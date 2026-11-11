@@ -2,7 +2,7 @@
 id = "ADR-0070"
 title = "ADR-0070: Refinement Inference Scope — Deterministic Dataflow"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

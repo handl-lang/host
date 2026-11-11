@@ -2,7 +2,7 @@
 id = "ADR-0031"
 title = "ADR-0031: Platform Abstractions"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0041"
 title = "ADR-0041: Languages as First-Class Values"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

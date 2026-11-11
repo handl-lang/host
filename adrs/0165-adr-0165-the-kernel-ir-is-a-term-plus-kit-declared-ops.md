@@ -2,7 +2,7 @@
 id = "ADR-0165"
 title = "ADR-0165: The kernel IR is a `Term` plus kit-declared ops"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

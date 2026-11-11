@@ -2,7 +2,7 @@
 id = "ADR-0101"
 title = "ADR-0100: The Directed-HoTT Limit of the Term Calculus"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

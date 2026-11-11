@@ -2,7 +2,7 @@
 id = "ADR-0091"
 title = "ADR-0091: Shared Diagnostics Crate (`plugin-ext-diag`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

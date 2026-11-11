@@ -2,7 +2,7 @@
 id = "ADR-0154"
 title = "ADR-0154: Typecheck semantics — identity, equality, universes, literals, erasure"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

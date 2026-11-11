@@ -2,7 +2,7 @@
 id = "ADR-0055"
 title = "ADR-0055: Tagged Values"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

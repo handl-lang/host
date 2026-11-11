@@ -2,7 +2,7 @@
 id = "ADR-0069"
 title = "ADR-0069: Arrow-Native Modules"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

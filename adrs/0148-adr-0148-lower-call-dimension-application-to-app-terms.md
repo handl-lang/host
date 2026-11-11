@@ -2,7 +2,7 @@
 id = "ADR-0148"
 title = "ADR-0148: Lower `call`/`dimension` application to `App` terms"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

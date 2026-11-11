@@ -2,7 +2,7 @@
 id = "ADR-0028"
 title = "ADR-0028: Pluggable Module Composition"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0161"
 title = "ADR-0161: An ADR is a one-page decision record"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

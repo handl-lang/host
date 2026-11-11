@@ -2,7 +2,7 @@
 id = "ADR-0004"
 title = "Platform is agnostic of language-specific plugins"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

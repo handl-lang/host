@@ -2,7 +2,7 @@
 id = "ADR-0096"
 title = "ADR-0096: Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencies"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

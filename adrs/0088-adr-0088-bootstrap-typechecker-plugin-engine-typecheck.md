@@ -2,7 +2,7 @@
 id = "ADR-0088"
 title = "ADR-0088: Bootstrap Typechecker (`plugin-engine-typecheck`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

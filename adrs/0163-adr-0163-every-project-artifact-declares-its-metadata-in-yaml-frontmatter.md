@@ -2,7 +2,7 @@
 id = "ADR-0163"
 title = "ADR-0163: Every `project/` artifact declares its metadata in YAML frontmatter"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

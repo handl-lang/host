@@ -2,7 +2,7 @@
 id = "ADR-0052"
 title = "ADR-0052: Arrow Calculus Kernel"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0149"
 title = "ADR-0149: `host-cli` is a dumb host; `ext-*` extensions load dynamically"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

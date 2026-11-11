@@ -2,7 +2,7 @@
 id = "ADR-0089"
 title = "ADR-0089: Bootstrap Test Runner (`plugin-engine-test`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0169"
 title = "ADR Review and Archive Summary"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0043"
 title = "ADR-0043: Proofs as First-Class Values"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

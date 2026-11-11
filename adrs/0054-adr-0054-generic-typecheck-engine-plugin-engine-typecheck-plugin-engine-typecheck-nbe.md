@@ -2,7 +2,7 @@
 id = "ADR-0054"
 title = "ADR-0054: Generic Typecheck Engine (`plugin-engine-typecheck` + `plugin-engine-typecheck-nbe`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0090"
 title = "ADR-0090: Bootstrap CLI (`host-cli`)"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

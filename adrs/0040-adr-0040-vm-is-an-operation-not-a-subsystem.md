@@ -2,7 +2,7 @@
 id = "ADR-0040"
 title = "ADR-0040: VM is an Operation, Not a Subsystem"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

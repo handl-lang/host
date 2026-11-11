@@ -2,7 +2,7 @@
 id = "ADR-0063"
 title = "ADR-0063: Scheme-Core Completeness for Self-Hosting"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

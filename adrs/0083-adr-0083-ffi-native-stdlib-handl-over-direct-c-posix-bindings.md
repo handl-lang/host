@@ -2,7 +2,7 @@
 id = "ADR-0083"
 title = "ADR-0083: FFI-Native Stdlib — Handl over Direct C/POSIX Bindings"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

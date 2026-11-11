@@ -2,7 +2,7 @@
 id = "ADR-0120"
 title = "ADR-0120: Paper/Implementation Alignment"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

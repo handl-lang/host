@@ -2,7 +2,7 @@
 id = "ADR-0072"
 title = "ADR-0072: Concurrent Arrow Calculus"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

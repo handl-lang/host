@@ -2,7 +2,7 @@
 id = "ADR-0170"
 title = 'ADR-NNNN: <the decision, stated as a fact — "X is Y", not "About X">'
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

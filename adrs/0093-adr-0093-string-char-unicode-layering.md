@@ -2,7 +2,7 @@
 id = "ADR-0093"
 title = "ADR-0093: String / Char / Unicode Layering"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

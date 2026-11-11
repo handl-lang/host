@@ -2,7 +2,7 @@
 id = "ADR-0059"
 title = "ADR-0059: Generic Object Key Evaluation"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

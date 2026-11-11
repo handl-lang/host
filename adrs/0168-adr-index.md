@@ -2,7 +2,7 @@
 id = "ADR-0168"
 title = "ADR index"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

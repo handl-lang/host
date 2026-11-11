@@ -2,7 +2,7 @@
 id = "ADR-0100"
 title = "ADR-0100: Canonical Term Arrows"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

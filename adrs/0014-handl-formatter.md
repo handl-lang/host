@@ -2,7 +2,7 @@
 id = "ADR-0014"
 title = "handl Formatter"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

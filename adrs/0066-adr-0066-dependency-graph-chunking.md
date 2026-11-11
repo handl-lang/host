@@ -2,7 +2,7 @@
 id = "ADR-0066"
 title = "ADR-0066: Dependency-Graph Chunking"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

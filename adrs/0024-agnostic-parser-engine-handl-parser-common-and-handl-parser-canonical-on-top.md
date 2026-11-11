@@ -2,7 +2,7 @@
 id = "ADR-0024"
 title = "Agnostic parser engine: `handl-parser-common` and `handl-parser-canonical` on top"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

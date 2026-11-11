@@ -2,7 +2,7 @@
 id = "ADR-0044"
 title = "ADR-0044: Language as Data and Runtime Split"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

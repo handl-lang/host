@@ -2,7 +2,7 @@
 id = "ADR-0158"
 title = "ADR-0158: Effect resumption semantics — `perform`/`handle` as algebra homomorphisms on free arrow-algebras"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

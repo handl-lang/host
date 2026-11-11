@@ -2,7 +2,7 @@
 id = "ADR-0060"
 title = "ADR-0060: Generic Call Dispatch"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

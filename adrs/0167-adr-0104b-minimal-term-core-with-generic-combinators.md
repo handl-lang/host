@@ -2,7 +2,7 @@
 id = "ADR-0167"
 title = "ADR-0104b: Minimal `Term` Core with Generic Combinators"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0123"
 title = "Implementation finding"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

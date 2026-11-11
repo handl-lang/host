@@ -2,7 +2,7 @@
 id = "ADR-0114"
 title = "ADR-0114: Handl Compile Plugin Architecture"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

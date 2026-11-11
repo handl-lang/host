@@ -2,7 +2,7 @@
 id = "ADR-0051"
 title = "ADR-0051: `ffi-rust` — Generic Rust Binding Façade"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

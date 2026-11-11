@@ -2,7 +2,7 @@
 id = "ADR-0064"
 title = "ADR-0064: Computational Language Authoring"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

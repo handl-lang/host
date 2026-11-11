@@ -2,7 +2,7 @@
 id = "ADR-0081"
 title = "ADR-0081: Data-Driven AST Child Roles — Closing the Last Engine Hardcoding"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

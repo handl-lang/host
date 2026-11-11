@@ -2,7 +2,7 @@
 id = "ADR-0097"
 title = "ADR-0097: Lint Rules as Language Data"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

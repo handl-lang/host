@@ -2,7 +2,7 @@
 id = "ADR-0126"
 title = "ADR-0126: Kernel boundary, and the idea ledger for retired reifications"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

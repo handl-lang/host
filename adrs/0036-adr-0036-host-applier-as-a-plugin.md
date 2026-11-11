@@ -2,7 +2,7 @@
 id = "ADR-0036"
 title = "ADR-0036: Host Applier as a Plugin"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

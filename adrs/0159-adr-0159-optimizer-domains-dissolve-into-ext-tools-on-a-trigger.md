@@ -2,7 +2,7 @@
 id = "ADR-0159"
 title = "ADR-0159: Optimizer domains dissolve into `ext` tools, on a trigger"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0009"
 title = "ADR-0009: Strategy C — Runtime Module Loading as Handler-Interpreted Ops"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0147"
 title = "ADR-0147: Lower the `while` state fold to `Loop` + explicit protocol ops"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

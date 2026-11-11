@@ -2,7 +2,7 @@
 id = "ADR-0065"
 title = "ADR-0065: Derived-Artifact Cache and Compression"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0124"
 title = "ADR-0124: Handing a `Language` to capability plugins"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0105"
 title = "ADR-0105: Typechecker in Handl"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

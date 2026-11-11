@@ -2,7 +2,7 @@
 id = "ADR-0166"
 title = "ADR-0166: The IR gains `pipeline(depth)`, and the schedule programme stops there"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

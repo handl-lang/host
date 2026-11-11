@@ -2,7 +2,7 @@
 id = "ADR-0015"
 title = "ADR-0015: Linter"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

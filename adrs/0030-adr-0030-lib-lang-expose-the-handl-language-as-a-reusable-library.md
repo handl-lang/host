@@ -2,7 +2,7 @@
 id = "ADR-0030"
 title = "ADR 0030: lib-lang — Expose the Handl language as a reusable library"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

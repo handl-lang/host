@@ -2,7 +2,7 @@
 id = "ADR-0038"
 title = "ADR-0038: Ignored Test Inventory and Triage"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

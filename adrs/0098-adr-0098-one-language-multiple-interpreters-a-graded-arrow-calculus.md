@@ -2,7 +2,7 @@
 id = "ADR-0098"
 title = "ADR-0098: One Language, Multiple Interpreters — A Graded Arrow Calculus"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

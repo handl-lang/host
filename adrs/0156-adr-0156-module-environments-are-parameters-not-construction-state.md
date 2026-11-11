@@ -2,7 +2,7 @@
 id = "ADR-0156"
 title = "ADR-0156: Module environments are parameters, not construction state"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

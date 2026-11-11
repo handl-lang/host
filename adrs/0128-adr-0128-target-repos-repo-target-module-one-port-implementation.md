@@ -2,7 +2,7 @@
 id = "ADR-0128"
 title = "ADR-0128: Target Repos — Repo = Target, Module = One Port Implementation"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

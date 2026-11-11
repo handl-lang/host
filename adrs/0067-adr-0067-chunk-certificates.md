@@ -2,7 +2,7 @@
 id = "ADR-0067"
 title = "ADR-0067: Chunk Certificates"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

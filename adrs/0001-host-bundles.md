@@ -2,7 +2,7 @@
 id = "ADR-0001"
 title = "Host Bundles"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

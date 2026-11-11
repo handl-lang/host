@@ -2,7 +2,7 @@
 id = "ADR-0152"
 title = "ADR-0152: `data` is a nominal former + constructor arrows + dependent eliminator"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0022"
 title = "Lexer Architecture: Self-Hosted Streaming with Runtime Config"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

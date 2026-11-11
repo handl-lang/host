@@ -2,7 +2,7 @@
 id = "ADR-0049"
 title = "ADR-0049: Modules are Evaluated Environments"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0153"
 title = "ADR-0153: `~[n]~>` is a dimension index — n-cells as one indexed former"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

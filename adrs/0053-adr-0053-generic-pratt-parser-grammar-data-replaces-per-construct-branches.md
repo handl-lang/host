@@ -2,7 +2,7 @@
 id = "ADR-0053"
 title = "ADR-0053: Generic Pratt Parser — Grammar Data Replaces Per-Construct Branches"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0042"
 title = "ADR-0042: Transformations as First-Class Values"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

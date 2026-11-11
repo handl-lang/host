@@ -2,7 +2,7 @@
 id = "ADR-0056"
 title = "ADR-0056: Import / Export and Multi-File Programs"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

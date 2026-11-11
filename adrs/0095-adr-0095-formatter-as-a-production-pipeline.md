@@ -2,7 +2,7 @@
 id = "ADR-0095"
 title = "ADR-0095: Formatter as a Production Pipeline"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

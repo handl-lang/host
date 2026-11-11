@@ -2,7 +2,7 @@
 id = "ADR-0061"
 title = "ADR-0061: Generic Pattern Match"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

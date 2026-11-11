@@ -2,7 +2,7 @@
 id = "ADR-0046"
 title = "ADR-0046: Capability Discipline at the Language Level"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0099"
 title = "ADR-0099: Principled Boundaries Between `plugin-engine-*` and `plugin-ext-*` Crates"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

@@ -2,7 +2,7 @@
 id = "ADR-0010"
 title = "Package Manager: Content-Addressed, Diff-Based, Composable Stores"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

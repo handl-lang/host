@@ -2,7 +2,7 @@
 id = "ADR-0003"
 title = "Library crates are exposed as Platform plugins"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

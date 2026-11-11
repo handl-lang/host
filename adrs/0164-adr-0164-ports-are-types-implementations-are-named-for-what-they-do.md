@@ -2,7 +2,7 @@
 id = "ADR-0164"
 title = "ADR-0164: Ports are types; implementations are named for what they do"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

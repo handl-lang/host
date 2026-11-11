@@ -2,7 +2,7 @@
 id = "ADR-0151"
 title = "ADR-0151: Exec erases type annotations — signatures are typecheck-owned metadata"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---

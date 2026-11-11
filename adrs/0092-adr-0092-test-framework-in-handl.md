@@ -2,7 +2,7 @@
 id = "ADR-0092"
 title = "ADR-0092: Test Framework in Handl"
 status = "open"
-priority = "medium"
+priority = "med"
 +++
 
 ---
