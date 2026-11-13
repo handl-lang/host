@@ -25,6 +25,7 @@ cargo bench -p handl-bench --bench lexer
 
 ## Why a separate crate
 
-`kit-canonical/benches/perf.rs` benchmarks the *assembled kit* (parse+eval of a
+`kit-prelude`'s `crates/kit-prelude/benches/perf.rs` (in the
+`handl-lang/kit-prelude` repo) benchmarks the *assembled kit* (parse+eval of a
 long module). This crate benchmarks the *engines* directly, so a regression can
 be attributed to the lexer or parser rather than to assembly or eval.

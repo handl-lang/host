@@ -77,8 +77,10 @@ fn main() -> Result<(), PlatformError> {
 
 ### 3. Compose with kits and config
 
-For real compositions, a `HostApplier` (from `handl-plugin-applier`)
-reads `.handl.toml`, CLI flags, and env into a `HostConfig`:
+For real compositions, the applier plugins in `plugin-applier-*` do this
+for you: `DefaultApplierPlugin` reads `.handl.toml` into a `HostConfig`
+(`HostConfig::from_toml`) and applies it through capabilities during
+`contribute`:
 
 ```toml
 [[kit]]
@@ -95,7 +97,10 @@ manifest = "path/to/plugin.json"
 - `[[kit]]` — kits to load via the `kit/load` capability.
 - `[[plugin]]` — external plugins to load via the `load` capability, by
   `PluginManifest` path.
-- `[options]` — option overrides keyed by dotted option id.
+- `[options]` — option overrides keyed by dotted option id, applied via
+  the `option/set` capability.
+- `[dependencies]` / `[patch]` — `.hnl` package sources for `import`
+  resolution (see `resolve_dependencies` in `handl-platform`).
 
 ## If something goes wrong
 

@@ -3,16 +3,18 @@
 handl is a **platform for building languages** — a closed arrow-calculus
 kernel, a data-driven engine layer, and a composable plugin host.
 
-The published pieces today are the machinery, not the language. The handl
-surface language (its syntax, its standard library, and the `hnl`
-toolchain) is still in development and is deliberately not documented
-here.
+The published pieces today are the machinery. Parts of the handl
+surface language are public — the `engine-fmt` / `engine-lint` /
+`engine-typecheck` engines and a handful of `lib-*` packages — but the
+`hnl` toolchain and most of the standard library are still in
+development.
 
 ## Three ideas, one stack
 
 **The kernel is a closed arrow calculus.** All computation is an arrow
-`A ~> B` built from six combinators — `arr`, `>>>`, `first`, `choice`,
-`loop`, `app`. Everything is an object in one world (`Obj : sym()`);
+`A ~> B` built from a small, closed set of combinators — `arr`, `>>>`,
+`first`, `choice`, `loop`, `app` and their supporting forms.
+Everything is an object in one world (`Obj : sym()`);
 types, grades, proofs, and capabilities are ordinary objects, and there
 is no separate lambda, closure, or mutable-environment machinery. See
 [The arrow calculus kernel](./arrow-calculus-kernel) and
@@ -24,12 +26,12 @@ lexing, parsing, transforming, and executing are generic: they dispatch
 on the `Language` data, never on hardcoded constructs. A new language is
 a data change, not an engine recompile. See [Language as data](./language-as-data).
 
-**The host is a composer.** An empty `Host` loads `Plugin`s, resolves
-their dependencies, runs `contribute` to a fixed point, and dispatches
-capabilities. A parser is a `RuleAcceptor` for `Behavior<Parser>`; a
-formatter accepts `Behavior<Format>`; a target contributes evaluation or
-compilation rules. The host does not know which tool it becomes. See
-[The composable host](./composable-host).
+**The host is a composer.** An empty `DefaultHost` registers `Plugin`s,
+runs `load` — a single registration-order `contribute` pass with
+deferred-rule retries — and dispatches capabilities through `run`. A
+formatter accepts `Behavior<Format>` rules; a compiler target accepts
+`Behavior<Compile>` rules. The host does not know which tool it becomes.
+See [The composable host](./composable-host).
 
 ## Why this matters
 

@@ -1,12 +1,12 @@
 # Build a host
 
 In this tutorial you will build an executable handl host from scratch —
-a Rust binary that creates an empty `Host`, registers a plugin that
+a Rust binary that creates an empty `DefaultHost`, registers a plugin that
 provides a capability, loads the composition, and runs it.
 
 ## What you will learn
 
-- How a `Host` starts as an empty composer.
+- How a `DefaultHost` starts as an empty composer.
 - How plugins provide capabilities.
 - How `load` resolves the plugin graph.
 - How to execute a capability.
@@ -113,9 +113,9 @@ You should see:
 1. `DefaultHost::new()` created an empty composer.
 2. `register_plugin` added `GreetPlugin` to the `PluginRegistry`,
    declaring the `greet` capability.
-3. `host.load()` resolved plugin dependencies and ran every plugin's
-   `contribute` method to a fixed point (this plugin contributes
-   nothing).
+3. `host.load()` made a single registration-order pass calling every
+   plugin's `contribute` (this plugin contributes nothing; rule
+   contributions whose acceptor is missing are deferred and retried).
 4. `host.run` dispatched the `CapabilityRequest` to the plugin providing
    `greet` — `GreetPlugin` — which returned a `CapabilityResponse`.
 

@@ -15,7 +15,7 @@ cargo nextest run -p handl-platform-tests
 | --- | --- |
 | `src/lib.rs` | `MockPlugin` (a `Plugin` that **records** the capabilities it served), `mock_manifest`, `request`. |
 | `tests/mock.rs` | `Plugin` trait surface (`name`/`id`/`capabilities`/`metadata`) and registry dispatch reaching the plugin. |
-| `tests/integration.rs` | Several plugins on one host, `load()` to a fixed point, per-capability dispatch, kit resolution by name and by composition, unknown-capability error. |
+| `tests/integration.rs` | Several plugins on one host, `load()` in registration order, per-capability dispatch, kit resolution by name and by composition, unknown-capability error. |
 | `tests/e2e.rs` | A simulated host loads a kit and dispatches every capability the kit declares. |
 
 ## Restoration notes

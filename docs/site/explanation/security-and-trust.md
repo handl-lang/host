@@ -25,7 +25,7 @@ The platform does provide some safety properties:
 
 The design is not a security boundary for untrusted code:
 
-- **No process isolation.** A plugin that uses `unsafe` or calls arbitrary syscalls can crash or compromise the `Host`. Rust's type system does not prevent this.
+- **No process isolation.** A plugin that uses `unsafe` or calls arbitrary syscalls can crash or compromise the `DefaultHost`. Rust's type system does not prevent this.
 - **No automatic capability restrictions.** By default, a `Plugin` can `contribute` to any `RuleAcceptor` and a `Library`/`Target` plugin can `register_plugin`.
 - **No plugin signing.** Kits and libraries are trusted by inclusion, not by cryptographic signature.
 
@@ -33,7 +33,7 @@ The design is not a security boundary for untrusted code:
 
 If you curate or deploy hosts, consider the following:
 
-1. **Capability-limited `ContributionContext`.** The `Host` can hand different `ContributionContext` flavours to different plugins:
+1. **Capability-limited `ContributionContext`.** The host can hand different `ContributionContext` flavours to different plugins:
    - `Library` and `Target` plugins get `register_plugin`.
    - Rule plugins get `contribute` to public `RuleAcceptor`s only.
    - Untrusted plugins get a read-only or `contribute`-only context.

@@ -61,13 +61,14 @@ it costs a reboot.
 The suites that dominate wall clock are `hnl-engine-typecheck-nbe`'s
 dependent-structure/axis-flow tests (15-113 s each) and
 `plugin-lib-handl::loader`'s `loader_parity` (~68 s). `standalone_bootstrap` (cranelift) and
-`kit-canonical`'s slow tests moved to the `native`/`kit-canonical` repos.
+`kit-prelude`'s slow tests moved to the `kit-prelude` repo.
 Check `ps -eo etime,cmd | grep <binary>` before concluding a run is hung.
 
-**Note — `kit-canonical` moved out (ADR-0128 Phase 11):** it lives in the
-sibling `handl-lang/kit-canonical` repo now (git dep, patched to
-`../kit-canonical` for local dev). Its tests no longer run here — run them
-there with `CARGO_PROFILE_DEV_DEBUG=0 cargo test -p handl-kit-canonical`.
+**Note — the canonical kit moved out (ADR-0128 Phase 11):** it lives in
+the sibling `handl-lang/kit-prelude` repo now (`handl-kit-prelude`, the
+`Kit` wrapper over the assembled `Language`), with the canonical YAML
+fragments in `kit-prelude-lang`/`kit-data-prelude`. Their tests no
+longer run here — run them there.
 
 **Note — the calculus kernel moved out (ADR-0040/0128):**
 `hnl-engine`, `handl-language`, and `handl-value` — the `Plugin`/`Host`/
@@ -93,7 +94,7 @@ Measured after the fix: the whole crate is **252/252 in 648 s single-threaded**
 2.59 s).
 
 The whole-workspace run stays on nextest; the crates still dominated by
-Handl-model typechecking (`kit-canonical`'s `fp_integration`/`ordered_annotations`
+Handl-model typechecking (`kit-prelude`'s `fp_integration`/`ordered_annotations`
 and the lib `typecheck_*` tests, ~8 s each) are the remaining slow spots.
 
 
@@ -185,8 +186,8 @@ sibling **`host-lsp`** repo (ADR-0128 Phase 8, renamed ADR-0149).
 | AST formatter          | `hnl-engine-fmt`                                                                                                                         | `FormatEngine::format(lang, ast, root)`, `PreserveEmitter::new(src, ast, root, &changed)?.format(lang, ast, root)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Linter                 | `plugin-ext-lint` (wiring) + `hnl-engine-lint` (engine, ADR-0097)                                                                        | `lint_source(src)`, `check_source(src)`, `fix_source(src)`; rules are `LintRuleDef`s in `lang.lints` (`data/lints.yaml`): `!Match { node_kind, when }` uses the `TransformCondition` vocabulary; `!Native "name"` resolves via `NativeLintRegistry` (`canonical_lint_natives` = `scope.*`/`naming-convention`/`source.*`/`builtin.*`; `plugin-ext-lint` overrides `source.fmt`); `!Native "handl:<mod>.<fn>"` routes to `.hnl` functions via `HandlNativeLint` in `plugin-ext-lint` (a `NativeLintResolver` on the registry, mirroring `HandlNativeRewrite`)                        |
 | Typechecker            | `hnl-engine-typecheck`                                                                                                                   | `check_module(src) -> Result<TypecheckReport, CheckError>`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Test runner            | `hnl-engine-test` (new, ADR-0089)                                                                                                        | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `handl-packages/pred/pred.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
-| Test framework library | `handl-packages/test/` (pure-handl, ADR-0092) + `hnl-engine-test::framework` (assert side-channel only)                                  | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Test runner            | `hnl-engine-test` (new, ADR-0089)                                                                                                        | `discover(paths)`/`discover_with(&dyn TestProvider)` → `TestPlan`; `filter_predicate`/`tag_predicate`/`tag_expr_predicate` → `Filter` (a handl filter arrow from `lib-pred`'s `src/index.hnl` evaluated per case against a `{ name, path, tags }` record projection via `pred.matches`); `run`/`run_with_filter`/`run_selected`/`run_selected_cached`/`run_with_config(&mut RunConfig)` → `RunReport`; `TestEvent` sink; `summarize` → `Summary` → `Reporter` (`HumanReporter`/`JsonReporter`); consumes `plugin-lib-scheduler`, `plugin-exec-cache` (`TestRunCache` via `AstKey`) |
+| Test framework library | `lib-test` (pure-handl, ADR-0092; `src/*.hnl` + `pkg.hnl` in the `lib-test` repo) + `hnl-engine-test::framework` (assert side-channel only) | `assert.*`, `property.for_all`, `benchmark.run`, `fuzz.run`, `snapshot.*`, `test.run` (op interface in `test.hnl`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Transform abstraction  | `hnl-engine-transform` (ADR-0094)                                                                                                        | `TransformEngine` trait, `TransformRequest`/`TransformMode` (`Pass`/`Pipeline`/`ApplyAt`/`Plan`), `TransformOutput`/`RewriteTrace`/`PassStats`, `RuleSource`, `NativeRewrite`/`RewriteCtx`/`NativeRewriteRegistry`, `validate_transforms`                                                                                                                                                                                                                                                                                                                                            |
 | Transform engine       | `hnl-engine-transform-rewrite` (ADR-0094)                                                                                                | `RewriteEngine` — `run_pass`/`run_pipeline`/`apply_rule`/`find_matches`, `Traversal` (`BottomUp`/`TopDown`/`Fixpoint`), `DESUGAR_NATIVES`/`with_desugar_natives` (the remaining semantic `desugar.data`/`desugar.match_recursor` natives)                                                                                                                                                                                                                                                                                                                                            |
 | SDK generator          | `plugin-sdkgen` (IR) + `plugin-sdkgen-backend-{c,webidl}` + `plugin-sdkgen-emitter-file` + `plugin-ext-sdkgen` (wiring; ADR-0107, ADR-0113) | `SdkgenBackend::parse_header` → `SdkgenModule` → `Emitter::emit`; `FileEmitter` runs `format_source` so output is canonical; `module.source` renders as `--- source:` provenance; generated bindings live under `handl-packages/generated/` (port `<pkg>/` + adapter `<pkg>-<backend>-<target>/`); spec inputs (`*.webidl`/`*.idl`) are gitignored                                                                                                                                                                                                                                   |
@@ -213,10 +214,11 @@ checking, and (for `match`) search the arena for `data` declarations —
 genuinely semantic work that would require per-constructor iteration /
 environment lookup, i.e. a macro system, not a rewrite step.
 `validate_transforms` runs at `Language`
-build in `handl-kit-data-canonical::merge_fragments` — Error-severity
+build during kit assembly (`handl-kit-prelude-lang` /
+`handl-kit-data-prelude`) — Error-severity
 diagnostics fail assembly — and under `hnl typecheck`, whose bootstrap
 `Language` assembly in `hnl-engine-typecheck::bootstrap` mirrors
-`merge_fragments` (embedded `transforms.yaml` + `merge_ast_fragment`
+assembly (embedded `transforms.yaml` + `merge_ast_fragment`
 lowering + validation; errors surface as `CheckError::Language`).
 
 `.hnl`-authored rewrites are supported via the `Native("handl:<mod>.<fn>")`
@@ -244,16 +246,16 @@ shapes that declare no roles.
 
 `hnl-engine-typecheck` takes the assembled `Language` from its caller
 (`check_module(lang, src)`; `hnl typecheck` builds it once via
-`handl-kit-canonical`) — the crate used to embed and merge the canonical
-YAML itself because `handl-kit-canonical` → `handl-runtime` →
+`handl-kit-prelude`'s `Kit`) — the crate used to embed and merge the canonical
+YAML itself because `handl-kit-prelude` → `handl-runtime` →
 `hnl-engine-typecheck` would create a cycle. Tests still need the
-canonical language, which they get from a `handl-kit-data-canonical`
+canonical language, which they get from a `handl-kit-data-prelude`
 **dev-dependency** (dev-dep cycles are allowed). `plugin-ext-fmt` and
 `hnl-engine-test` (ADR-0089)
-use `handl-kit-data-canonical` (no eval engine) or
-`handl-kit-canonical` respectively. `plugin-lib-test` is deleted per
-ADR-0092; the framework is now pure-handl under `handl-packages/test/`
-(registered by `handl-kit-canonical`), and `hnl-engine-test::framework`
+use `handl-kit-data-prelude` (no eval engine) or
+`handl-kit-prelude` respectively. `plugin-lib-test` is deleted per
+ADR-0092; the framework is now pure-handl in the `lib-test` repo
+(`src/*.hnl` + `pkg.hnl`), and `hnl-engine-test::framework`
 retains only the `assert` failure side-channel.
 
 ### Source splitting
@@ -268,11 +270,12 @@ lexer to strip).
 
 ### Dogfood gate status — GREEN
 
-The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate over
-`handl-packages/` is scripted in `scripts/dogfood-gate.sh`
-and wired as a **blocking** step in the Dagger CI pipeline
-(`dagger call dogfood` / `dagger call ci`, see `dagger/src/ci/main.py`)
-(the gate is green; `continue-on-error` was removed).
+The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate is
+scripted in `scripts/dogfood-gate.sh`. Note the script still discovers
+`.hnl` files under `handl-packages/` — that corpus has moved to the
+`lib-*` repos (`src/*.hnl` + `pkg.hnl`), so each package repo now gates
+its own sources; the in-repo mechanism remains for any future
+`handl-packages/` content.
 
 All four phases are clean over the 177-file corpus:
 
@@ -294,9 +297,9 @@ Arrow}` sniffing shared by `typecheck`/`lint`/`fmt`/test discovery;
   scope pass handles pattern binders (`AstShapeDef::pattern_role`), `data`
   ctor binding, and type-expression positions; `plugin-ext-lint` delegates
   `unbound-wire` to it instead of its own scope walk.
-- `kit-canonical::canonical_wire_names` — the stdlib/prelude name set
-  derived from the same module chain the eval engines wire; the `ext-*`
-  wrappers pass it to both `typecheck` and `lint`.
+- `handl_kit_prelude::prelude_wire_names` — the stdlib/prelude name set
+derived from the same module chain the eval engines wire; the `ext-*`
+wrappers pass it to both `typecheck` and `lint`.
 
 ### Unified import model (ADR-0096)
 
@@ -368,7 +371,7 @@ apply the guard**. The paths:
 
 The Term path is the subtle one and was the source of a real bug (the
 `user_object_literal_cannot_forge_tag_key` test in
-`kit-canonical/tests/tagged_values.rs` failed for a long time because of
+`kit-prelude/crates/kit-prelude/tests/tagged_values.rs` (kit-prelude repo) failed for a long time because of
 it). `Runtime::eval` tries `lower_ast` → `interpret_with_handlers` **first**
 and returns that value on success, so a lowered program never reaches the
 AST engine's `object` op. `lower_object` therefore builds the record itself
@@ -465,7 +468,7 @@ duplicating the predicate where `handl_language` is unreachable.
     - `plugin-ext-refinement/src/arrow_parser.rs` **= bootstrap**. The arrow
       combinator vocabulary (`arr`, `comp`, `first`, `choice`, `loop`, `app`,
       `id`, `flow`) is calculus-kernel syntax, not surface-language syntax,
-      so materializing it into `Scheme` in Rust is allowed per the rule
+      so materializing it into `Term` in Rust is allowed per the rule
       "adding a calculus combinator = engine edit". The hand-rolled
       import/export/`op`/`handl`/`cap`/`tag` line scanner is also intentional
       bootstrap: arrow modules use `import x from "path"` (and
@@ -474,7 +477,7 @@ duplicating the predicate where `handl_language` is unreachable.
       before arrow expressions are parsed. The
       `from "./x" import { dedent }` brace form was handled by **neither**
       the arrow-loader line scanner nor the canonical `stmt-from` row; the
-      single call site (`handl-packages/dedent/dedent.test.hnl`) was
+      single call site (`lib-dedent/src/dedent.test.hnl`) was
       rewritten to canonical `from "./dedent" import * as dedent`, so the
       divergence is **closed**. Note the import line in `.test.hnl` files is
       still skipped textually by the test runner (and stripped by `hnl
@@ -527,11 +530,11 @@ run` when its specifier does not resolve to a file) — the stdlib
       ("extract a `call` callee name from a `var`"). The whole unwired family
       is now retired and recorded in `project/parked.yaml` (ADR-0040), where
       `crates/platform-tests/tests/wiring.rs` keeps the ledger honest.
-    - `host-lsp/src/*` and `kit-canonical/src/lib.rs` (in the sibling
-      `kit-canonical/` repo since Phase 11): residual
+    - `host-lsp/src/*` and `kit-prelude/crates/kit-prelude/src/lib.rs`
+      (in the sibling `kit-prelude/` repo since Phase 11): residual
       keyword text matches (`rec`/`law`/`match`/...) and legacy token-class
       shims are identity-specific or for bootstrap/third-party kits.
-      `kit-canonical`'s `is_identifier_kind`/`is_number_kind`/… helpers
+      `handl-kit-prelude`'s `is_identifier_kind`/`is_number_kind`/… helpers
       string-match canonical `token.*` ids because they classify *embedded
       YAML* text (prelude names, `cap` rows), not tokens flowing through a
       `Language` — a `token_in_category` call needs a `Language` they do not
@@ -582,7 +585,7 @@ run` when its specifier does not resolve to a file) — the stdlib
   `BoundedScheduler`/`SchedulePolicy`) and filtering, which is now a
   **handl arrow**: `plugin-lib-predicate` is deleted and its combinator
   vocabulary (`and`/`or`/`not`/`field`/`exact`/`glob`/`always`/`never`/
-  `match_glob`) lives in `handl-packages/pred/pred.hnl`, evaluated per
+  `match_glob`) lives in `lib-pred/src/index.hnl`, evaluated per
   case against a `{ name, path, tags }` record projection — plus
   `handl-language::capabilities` and `plugin-exec-cache` (`TestRunCache` keys
   results by `AstKey{kind:"test.result", module+name+body_source}`). The
@@ -599,7 +602,7 @@ human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
   `expected`/`actual`/`diff` flow from both failure paths into
   `FailureDetail`: the engine `assert` keyword via the
   `TestAssertHandler` thread-local side-channel, and the pure-handl
-  `assert.*` helpers (`handl-packages/test/assert.hnl`) via their `err`
+  `assert.*` helpers (`lib-test/src/assert.hnl`) via their `err`
   payload (`failure_detail_from_value`); both reporters render them
   (human: `== <module> ==` suite headers + indented detail lines; json:
   `suites` array + per-test fields). `diff` is only produced by the
@@ -607,8 +610,8 @@ human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
   ADR-0074 grammar is **not** amended.
 - **ADR-0092 (pure-handl migration done):**
   `plugin-lib-test` is **deleted**. The framework now lives as pure handl
-  in `handl-packages/test/` (`assert.hnl`, `property.hnl`, `benchmark.hnl`,
-  `fuzz.hnl`, `snapshot.hnl`, `test.hnl`). `handl-kit-canonical` builds and
+  in the `lib-test` repo (`src/assert.hnl`, `property.hnl`, `benchmark.hnl`,
+  `fuzz.hnl`, `snapshot.hnl`, `test.hnl`). `handl-kit-prelude` builds and
   registers these modules through the generic `HandlModule` seam; their
   `op`/`handl` declarations are stripped at load time. The
   `hnl-engine-test::framework` crate no longer contains the temporary
@@ -624,9 +627,9 @@ human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
 
 ## Library packaging (ADR-0077 fold-in)
 
-Handl-authored libraries are **data, not crates**: `handl-packages/*` holds
-the contracts (`.hnl` `cap`/`op`/`handl` declarations) and pure-handl impls;
-`crates/plugin-lib-stdlib` holds the package table (`src/packages.rs` —
+Handl-authored libraries are **data, not crates**: the `lib-*` repos hold
+`src/*.hnl` + `pkg.hnl` — the contracts (`.hnl` `cap`/`op`/`handl`
+declarations) and pure-handl impls; `crates/plugin-lib-stdlib` holds the package table (`src/packages.rs` —
 `MODULES`: name → `.hnl` + funcs + ops + deps; `PACKAGES`: library name →
 modules) plus the native op impls (`src/ops/`); `plugin-lib-*-native` crates
 are FFI atom backends; `plugin-lib-handl` is the loader seam
@@ -637,7 +640,7 @@ with deps on non-table natives (e.g. `result` → `tag`) are built via
 
 ### Loader self-hosting (ADR-0094) — status: canonical in handl, bootstrap on the hot path
 
-`handl-packages/loader/loader.hnl` is the **complete canonical
+`lib-loader/src/index.hnl` is the **complete canonical
 implementation** of the `.hnl` text transforms: `strip_comments`,
 `strip_decls`, `transform_export_to_object` (incl. `find_binding_sep`),
 `parse_imports`, `parse_caps`, `parse_tags`, `expand_tags`,
@@ -668,12 +671,12 @@ impossible across the `serde_json::Value` boundary — arrows' captured
 `env`s expand exponentially for `do {}`-block modules like `str-handl`).
 
 That residual is severe enough that installing the loader as the default is
-actively harmful, which is why `kit-canonical` does **not** `install_loader`
+actively harmful, which is why `handl-kit-prelude` does **not** `install_loader`
 (see the NOTE in `build_kit`). Measured with it installed: the *first* module
 analysis in a process executed **~21,000 interpreted calls** (`char.chars`
 ×2809, `len.len` ×2674, `head.head` ×2650, `rev.rev` ×2543 at ~2.6 ms each)
 for a one-time **~40 s** per process — enough to dominate the whole
-`kit-canonical` suite under nextest's process-per-test model. Removing the
+`kit-prelude` suite under nextest's process-per-test model. Removing the
 install took the full workspace run from **3871 s to 1502 s**.
 
 Promotion to the default path awaits a compiled eval engine
@@ -690,36 +693,35 @@ The `str`/`char`/`unicode` surface is layered: a **backend-neutral contract**
 runtime-specific backends), mirroring the `encoding`/`url`/`ws` pattern.
 
 ```text
-handl-packages/str/str.hnl       contract: 45 axioms + laws (no impl)
-handl-packages/char/char.hnl     contract: 18 char axioms (semantic names —
-                                 `is_whitespace`/`is_alpha`, NOT `is_ascii_*`)
-handl-packages/str-handl/str-handl.hnl   canonical `str` impl: pure handl
-                                         over the `char` floor (char.chars /
-                                         char.from_chars for O(n) iter)
-handl-packages/char-native/      `char` backend: Rust `std::char` (Unicode
-                                 scalar values, not bytes)
-handl-packages/unicode/unicode.hnl  contract: graphemes/normalization/
-                                    casefold/width (UAX #29/#15/#11)
-handl-packages/unicode-handl/       `unicode` impl: code-point-level subset
-                                    over `char.*` (graphemes/width are
-                                    code-point fallbacks; `nfc`/`nfd` are
-                                    backend-required and omitted from the
-                                    record so a composite backend can fail
-                                    loudly if no native layer is wired)
+lib-str/src/*.hnl             contract: 45 axioms + laws (no impl)
+lib-char/src/*.hnl            contract: 18 char axioms (semantic names —
+                              `is_whitespace`/`is_alpha`, NOT `is_ascii_*`)
+lib-str-handl/src/*.hnl       canonical `str` impl: pure handl
+                              over the `char` floor (char.chars /
+                              char.from_chars for O(n) iter)
+lib-char-native/              `char` backend: Rust `std::char` (Unicode
+                              scalar values, not bytes)
+lib-unicode/src/index.hnl     `unicode`: graphemes/normalization/
+                              casefold/width (UAX #29/#15/#11)
+lib-unicode-c/                `unicode` impl: ICU4X-backed native ops
+                              (graphemes/width/casefold/nfc/nfd/decode/
+                              identifiers); code-point-level fallback
+                              lives in the pure-handl layer
 crates/plugin-lib-char-native    `CharModule` — registers `char.*` ops
 crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
-                                 (graphemes/width/casefold/nfc/nfd/decode/
-                                 identifiers) composed with `unicode-handl`
+                              (graphemes/width/casefold/nfc/nfd/decode/
+                              identifiers) composed with the pure-handl
+                              `unicode` record
 ```
 
-- `kit-canonical` registers `str-handl` under `"str"` **first** (before the
+- `handl-kit-prelude` registers `str-handl` under `"str"` **first** (before the
   all-FFI `str` table row in `plugin-lib-stdlib` — `ops::strs`, the former
   `plugin-lib-utils` `StrModule`), so `str.*` and `from "str" import`
   resolve to the handl impl. `char` resolves via `StdlibResolver` →
   `CharModule`.
-- `kit-canonical` registers `handl-plugin-lib-unicode-native::UnicodeModule`
-  under `"unicode"`; native `op`s take precedence and the `unicode-handl`
-  record supplies fallback behavior for anything not implemented natively.
+- `handl-kit-prelude` registers `handl-plugin-lib-unicode-native::UnicodeModule`
+  under `"unicode"`; native `op`s take precedence and the pure-handl
+  `unicode` record supplies fallback behavior for anything not implemented natively.
 - `str-handl` must depend only on `char.*` atoms — never on Rust/Js/UTF-8 or
   byte offsets. `char.chars`/`char.from_chars` exist precisely so O(n) bulk
   conversion replaces O(n²) `char.at` loops.
@@ -748,22 +750,23 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   route the `body` index back to the AST + Language + module chain that
   minted it. `apply_app` also curries surplus args (`x ~> y ~> body`
   applied to two args applies `x` then applies the result to `y`).
-- The former `plugin-lib-utils` `StrModule` + `handl-packages/utils/str.hnl`
-  are **demoted to a backend**: `plugin-lib-utils` is folded into
+- The former `plugin-lib-utils` `StrModule` + the `lib-utils` `str.hnl`
+  contract are **demoted to a backend**: `plugin-lib-utils` is folded into
   `plugin-lib-stdlib` — the `str` MODULES row dispatches `str.*` ops via
   `ops::strs` — and `kit-cli`/`kit-stdlib`/`kit-server`/`host-lsp` consume
   `str.*` through `plugin-ext-kit::populate` → `library("utils")` without
   wiring the `char` resolver, so the FFI ops stay the non-canonical
   fallback. The canonical `"str"` is `str-handl`.
 - **`hnl typecheck` dialect routing (dogfood-sweep reconciliation).** Not
-  every `.hnl` file is canonical surface syntax: `handl-packages/` mixes
+  every `.hnl` file is canonical surface syntax: the `lib-*` package
+  sources mix
   two dialects — (a) canonical handl, (b) **contract files**
   (`axiom <name> : T -> T` + indented `requires:`/`guarantee:`/
   `termination:` clauses; `str`, `char`, `time`, `unicode`).
   (c) **arrow-module files** (top-level `cap`/`op`/`handl`/`tag`
   declarations and arrow-graph expressions — `arr(`/`first(`/`choice(`/
   `loop(`/`comp(`/`app(`/`|||`/`rec { ... }` simple form) no longer live
-  in `handl-packages/` — the former `state/*`, `fn/*`, `collection/*`,
+  in the package sources — the former `state/*`, `fn/*`, `collection/*`,
   `contracts/*`, `parse-*` corpus is relocated under
   `crates/plugin-ext-refinement/tests/fixtures/`. `typecheck_one` in
   `host-cli` now routes: contract files (first top-level line starts with
@@ -772,7 +775,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   retried through `parse_arrow_module` (which itself runs the canonical
   grammar data-driven, then a legacy arrow fallback). Routing lives in
   `host-cli` because `hnl-engine-typecheck` → `plugin-ext-refinement`
-  would cycle (`refinement` → `kit-data-canonical` → `handl-runtime` →
+  would cycle (`refinement` → `handl-kit-data-prelude` → `handl-runtime` →
   `typecheck`). Sweep result: **30 → 0 parse failures** across the 177-file
   corpus; typecheck failures 128 → 57, all remaining `[unbound-wire]`
   (binder/match-arm scoping and module-env gaps — a separate class).
@@ -808,7 +811,7 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   - Match-arm `{ stmt; stmt }` multi-statement bodies (`fn/*`,
     `collection/*` rich-rec files) were left in arrow-dialect form — they
     parse via `parse_arrow_module`'s legacy path and are consumed by the
-    refinement pipeline today (`state_tests` asserts their `Scheme`s).
+    refinement pipeline today (`state_tests` asserts their `Term`s).
     Canonical multi-statement bodies remain `do { ... }`.
 
 ## Stashes
@@ -817,15 +820,15 @@ crates/plugin-lib-unicode-native `UnicodeModule` — ICU4X-backed native ops
   crate and related changes from a prior session. Since superseded: the
   `plugin-lib-{hello,result,arrow-iter}` crates were folded into the
   `plugin-lib-stdlib` package table (`MODULES`/`PACKAGES` rows) and
-  deleted; `handl-packages/{hello,result,arrow_iter}/` remain the source
-  of truth.
+  deleted; the `lib-hello`/`lib-result`/`lib-arrow-iter` package repos
+  hold the `.hnl` sources.
 
 ## .hnl model source trap
 
 `HandlModule::new` runs `bootstrap::strip_declaration_lines` — it silently
 deletes any line whose text starts with `op `/`cap `/`handl ` (and indented
 `guarantee`/`requires`/`termination` contract lines). Never begin a line in a
-`.hnl` source (e.g. `typecheck_model.hnl`, `handl-packages/`) with a local
+`.hnl` source (e.g. `typecheck_model.hnl`, the `lib-*` package sources) with a local
 binding spelled `op :: ...` — rename it (`bop`, `op_name`, ...). Symptoms are
 misleading parse errors several tokens later ("unexpected token: token.equal").
 

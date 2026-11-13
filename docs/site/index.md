@@ -7,15 +7,16 @@ title: Handl Language
 **The categorical language platform** — a closed arrow-calculus kernel,
 a data-driven language engine, and a plugin-composed host.
 
-The published pieces today are the machinery. The handl surface language
-— syntax, the standard library, and the `hnl` toolchain — is in
-development and deliberately not documented here.
+The published pieces today are the machinery, plus parts of the surface
+language — the `engine-fmt` / `engine-lint` / `engine-typecheck` engines
+and a few `lib-*` packages are public. The `hnl` toolchain and most of
+the standard library are still in development.
 
 ## From foundation to surface
 
 | layer | what it is | where |
 | --- | --- | --- |
-| **Kernel** | The closed arrow calculus — `Term`/`Value`, `Plugin`/`Host`/`Operation`/`Behavior` primitives, the `Language` data schema | [`kernel`](https://github.com/handl-lang/kernel) |
+| **Kernel** | The closed arrow calculus — `Term`/`Value`, `Plugin`/`DefaultHost`/`Operation`/`Behavior` primitives, the `Language` data schema | [`kernel`](https://github.com/handl-lang/kernel) |
 | **Engines** | Generic, data-driven machinery for lex, parse, transform, and exec — dispatch on `Language` data, never on hardcoded constructs | [`engine-*`](https://github.com/handl-lang) |
 | **Platform** | `handl-platform` contracts — hosts, kits, options, capability dispatch, and the `plugin-ext-*` operation surfaces | [`host`](https://github.com/handl-lang/host) |
 | **Language data** | The canonical eval-path `Language` as YAML fragments | [`kit-prelude-lang`](https://github.com/handl-lang/kit-prelude-lang) |

@@ -16,7 +16,7 @@
 
 - `crates/platform` — core contracts: `Capability`/`CapabilityId`, `CapabilityRequest`/`CapabilityResponse`, `Plugin`, `PluginRegistry`, `Kit`, `KitRegistry`, `DefaultHost`, `PlatformError`.
 - `crates/handl-language` — `Language`, `Ast`, `AstNode`, `AstRef`, and data-driven shape/type/eval/grammar fragments. **Moved to the sibling `handl-lang/kernel` repo** (with `handl-value`, `handl-ext`, `handl-defining-handl`, and the `handl-lib-*` substrate packages; `hnl-engine` lives in `handl-lang/engine`); consumed here as a `main`-floating git dep patched to `../kernel` for local dev.
-- `crates/handl-kit-*` — canonical language data assembly and ready-made kit loading (`kit-canonical` lives in `handl-lang/kit-canonical`).
+- `crates/handl-kit-*` — kit data assembly (`handl-kit-data`, `handl-kit-arrow-lower`); the canonical language data lives in `kit-prelude-lang` / `kit-data-prelude` and the ready-made `Kit` wrapper in `kit-prelude`.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
 - `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `detect`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin`, `sdkgen`, `test`, `typecheck`. The `hnl` *commands* they back live in the `ext-*` repos as dynamic cdylibs (ADR-0149); `cli`/`lsp` moved to their host repos in ADR-0128 Phase 8.
 - `hnl-engine` / `hnl-engine-*` — the engine substrate and concrete tooling engines (`lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform`, `exec`, …) live in the sibling **`engine*`** repos; consumed as `main`-floating git deps.
@@ -24,9 +24,7 @@
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and the plugin loaders (`plugin-load`, `plugin-loader-native`).
 - `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`host-cli`** repo, `host-lsp` (LSP server) in **`host-lsp`**.
 - `crates/handl-value` — shared value model. **Moved to `handl-lang/kernel`.** `handl-test-utils` — the conformance corpus; `handl-defining-handl` moved to `handl-lang/kernel` (`crates/defining-handl`).
-- `handl-packages/` — generated `.hnl` bindings (sdkgen output). The
-  canonical language data (YAML fragments) and the `.hnl` packages live
-  in the `kit-*` repos (`kit-prelude-lang`, …).
+- `.hnl` package sources — pure-handl libraries live in the `lib-*` repos (`lib-tag`, `lib-test`, `lib-pred`, …) as `src/*.hnl` + `pkg.hnl`; sdkgen output conventionally lands under `handl-packages/generated/`.
 
 ## Build and test
 
@@ -67,8 +65,8 @@ error; unknown command exits `2` listing the loaded commands.
 
 ## Crate directory map
 
-- `crates/handl-*` — language core: `handl-kit-data`, `handl-kit-arrow-lower`, `handl-runtime`, `handl-test-utils`. (`handl-language`, `handl-value`, `handl-defining-handl` and the `handl-lib-*` packages moved to **`kernel`**; `kit-canonical` to **`kit-canonical`**.)
-- `crates/platform` — core platform contract (`Plugin`, `Capability`, `Host`, `Kit`); `crates/platform-tests` — its integration tests.
+- `crates/handl-*` — language core: `handl-kit-data`, `handl-kit-arrow-lower`, `handl-runtime`, `handl-test-utils`. (`handl-language`, `handl-value`, `handl-defining-handl` and the `handl-lib-*` packages moved to **`kernel`**; the canonical kit/data crates live in the **`kit-*`** repos.)
+- `crates/platform` — core platform contract (`Plugin`, `Capability`, `DefaultHost`, `Kit`); `crates/platform-tests` — its integration tests.
 - `hnl-engine` / `crates/hnl-engine-*` — the generic engine substrate and concrete engines, all data-driven off `Language`, moved to the sibling **`engine*`** repos:
   - front end — `lex`, `lex-pattern`, `parse`, `parse-pratt`
   - tooling — `fmt`, `lint`, `typecheck` (NBE engine + bootstrap scope checker), `test`
@@ -81,7 +79,7 @@ error; unknown command exits `2` listing the loaded commands.
 - `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-native` — applier composition and the native loader; `plugin-module` — module plumbing.
 - `crates/host-*` — `host-tooling` (the shared tooling/LSP host contract). `host-cli` + `plugin-ext-cli` moved to the **`host-cli`** repo; `host-lsp` + `plugin-lsp` + `plugin-lsp-std` + `plugin-ext-lsp` moved to the **`host-lsp`** repo (ADR-0128 Phase 8, repos renamed ADR-0149).
 - `crates/bench` / `ext-tests` — criterion benchmarks and integration-test scaffolding.
-- `handl-packages/` — generated `.hnl` bindings (sdkgen output); canonical language data and `.hnl` packages live in the **`kit-*`** repos.
+- `handl-packages/generated/` — sdkgen output root; canonical language data lives in the **`kit-*`** repos (`kit-prelude-lang`, `kit-data-prelude`) and `.hnl` packages in the **`lib-*`** repos.
 - `docs/site/` — the published Handl product pages, vendored by the sibling **`docs`** repo (the VitePress hub) to `/handl/`: the site,
   the published ADR index, and the aggregated per-repo reference/rustdoc.
 - `project/` — project notes and ADRs.
@@ -89,7 +87,7 @@ error; unknown command exits `2` listing the loaded commands.
 ## Current status
 
 - The pluggable expression pipeline and canonical kit are functional: lexing, parsing, error recovery, statement modules, formatting, and diagnostics all have working tests.
-- `handl-kit-canonical` (in the **`kit-canonical`** repo) ships with optional typecheck and runtime plugin slots; the default `CanonicalKit` loads the canonical parser but does not enable full typecheck/runtime implementations unless they are configured.
+- `handl-kit-prelude` (in the **`kit-prelude`** repo) ships the canonical `Kit` — `lex`/`parse`/`eval`/`typecheck`/`run` over the assembled `Language` — with engine slots selected by name; `handl-kit-data-prelude` (in **`kit-data-prelude`**) owns the canonical YAML fragments and `language_from_yaml`/`assemble`.
 - `handl-host-tooling` / `handl-host-lsp` (latter in the `host-lsp` repo) provide LSP plumbing with decoupled completion, goto-definition, document-symbols, and incremental-sync plugin slots. Hover and real source-position resolution are still placeholders.
 - Many compiler-pass, capability, and VM crates are partially implemented or still stubs; the workspace is in active construction.
 

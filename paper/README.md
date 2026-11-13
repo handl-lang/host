@@ -23,6 +23,9 @@ stale pdf.
 ## This paper
 
 Every quantitative claim cites the probe, test, or retro that produced
-it — the evidence ledger is [`../bench/RESULTS.md`](../bench/RESULTS.md)
+it — the evidence ledger is
+[`bench/RESULTS.md`](https://github.com/handl-lang/graphopt/blob/main/bench/RESULTS.md)
 and the extended working draft (full win/loss tables, evidence table)
-is [`../docs/paper_draft.md`](../docs/paper_draft.md).
+is
+[`docs/paper_draft.md`](https://github.com/handl-lang/graphopt/blob/main/docs/paper_draft.md)
+— both live in the `graphopt` repo.

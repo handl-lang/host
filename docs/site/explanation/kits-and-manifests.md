@@ -1,14 +1,15 @@
 # Kits and manifests
 
-A `Kit` is a curated, version-pinned manifest of plugins and default
-option values. It is the unit of reuse for hosts.
+A `Kit` is a curated manifest of plugins. It is the unit of reuse for hosts.
 
 ## What a kit is
 
-A kit is not an executable. It is a list of plugin ids, their versions,
-any default option values, and an optional target. The host loads the
+A kit is not an executable. It is a list of plugin ids, capability
+selectors, and an optional target (`KitManifest`: `id`, `name`,
+`plugins`, `target`, `selectors`). The host loads the
 kit, applies any overrides from `.handl.toml`, resolves dependencies,
-and runs `contribute` to a fixed point.
+and runs `contribute` in a single registration-order pass (deferred rule
+contributions are retried as their acceptors appear).
 
 ## Example kit manifest
 
@@ -22,35 +23,33 @@ plugins = [
     "my-lint-rules",
 ]
 target = "tree-walk"
-
-[options]
-"comment.style" = "above"
-"no-unused-imports.level" = "error"
 ```
 
 ## Why kits matter
 
-Kits make hosts reproducible. A kit pins the exact plugins and defaults
-it contains, so an executable host only needs to declare which kits it
+Kits make hosts reproducible. A kit pins the exact plugins it contains,
+so an executable host only needs to declare which kits it
 loads. This separates the curation of language features from the
 mechanics of the host.
 
 Kits also let users compose languages. A server kit might include HTTP
 and JSON plugins; a sandbox kit might exclude file-system plugins; a
 domain-specific kit might add custom grammar and formatter rules. The
-same `Host` can load any of these without recompilation.
+same `DefaultHost` can load any of these without recompilation.
 
 ## The kit loading contract
 
 When a host loads a kit:
 
-1. The kit manifest is parsed.
+1. The kit manifest is parsed (`KitManifest::load`).
 2. Each plugin id is matched against `available_plugins` supplied by the
    kit crate.
-3. The `HostConfig` is built by merging all included kits, applying
-   excludes, and adding direct plugins.
-4. `Host::load` resolves dependencies and runs `contribute` to a fixed
-   point.
+3. A `HostConfig` is built (e.g. by `HostConfig::from_toml` for
+   `.handl.toml`) by merging all included kits, applying excludes, and
+   adding direct plugins.
+4. `DefaultHost::load` makes a single registration-order pass over the
+   plugins, calling `contribute` once each; rule contributions whose
+   acceptor is not yet registered are deferred and retried.
 
 If a kit requests a plugin that is not in `available_plugins`, loading
 fails with a clear error — a kit cannot silently depend on code the host
@@ -74,7 +73,8 @@ compromise the process.
 
 To create a new kit:
 
-1. Write a `KitManifest` that lists the plugins and defaults.
+1. Write a `KitManifest` that lists the plugins (and optional target /
+   capability selectors).
 2. Expose the manifest and `available_plugins`.
 3. Publish the crate or use it as a path dependency.
 
@@ -101,7 +101,11 @@ canonical fragments:
 | file | required |
 | --- | --- |
 | `tokens.yaml`, `grammar.yaml`, `eval.yaml`, `types.yaml`, `ast.yaml`, `caps.yaml`, `options.yaml`, `lexer_rules.yaml` | yes (empty `[]` is valid) |
-| `transforms.yaml`, `lints.yaml`, `lsp.yaml` | optional (absent = none) |
+| `transforms.yaml`, `globals.yaml` | optional (absent = none) |
+
+`lints.yaml` and `lsp.yaml` are **not** read by `language_from_dir` —
+they are tooling fragments layered on afterwards via `merge_lints` /
+`merge_lsp`.
 
 Two things bite when writing these files by hand or from another tool:
 

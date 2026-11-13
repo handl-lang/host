@@ -35,9 +35,9 @@ kernel, engines, and host.
    the rest.
 10. **Everything is a plugin.** Every concept is a `Plugin`: semantics,
     tooling, targets, the garbage collector, the standard library. A
-    `Host` is an empty composer that loads kits and plugins and
+    `DefaultHost` is an empty composer that loads kits and plugins and
     dispatches `CapabilityRequest`s. Nothing is hard-coded except the
-    composition primitives (`Plugin`, `Host`, `Operation`, `Behavior`,
+    composition primitives (`Plugin`, `DefaultHost`, `Operation`, `Behavior`,
     `RuleAcceptor`, `Contribution`). There is no privileged subsystem.
 11. **Evaluation is an operation, not a subsystem.** There is no
     separate "VM" layer. Evaluation is the `Eval` operation, served by

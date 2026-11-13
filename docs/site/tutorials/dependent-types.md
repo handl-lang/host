@@ -24,7 +24,11 @@ intentionally break one file to see what a real type error looks like.
 
 ## Prerequisites
 
-- A working `hnl` binary (see [Set up the platform](./setup)).
+- A working `hnl` binary. The `hnl` CLI is not yet released as an
+  installable tool — it is built from the `host-cli` repo (`cargo build
+  -p handl-host-cli`) together with the `ext-*` command extensions. This
+  tutorial documents the surface language ahead of the toolchain
+  release; the `.hnl` listings are the durable part.
 - Familiarity with the arrow surface: `x ~> body` is a function,
   `name : Type = value` is an annotated binding.
 

@@ -1,7 +1,7 @@
 # Platform architecture
 
 The handl platform is a family of Rust crates organised around one goal:
-every concept is a `Plugin`, every tool is a `Host` that composes
+every concept is a `Plugin`, every tool is a host that composes
 plugins, and a language is data the engines dispatch on.
 
 ## The public repo layers
@@ -26,7 +26,6 @@ host/                          # the platform workspace
   crates/handl-runtime         #   runtime coordination, eval dispatch
   crates/handl-kit-*           #   kit data assembly
   crates/host-tooling          #   semantic-token/LSP helpers
-  crates/handl                 #   the facade
 kit-prelude-lang/              # the canonical eval-path Language as YAML data
 host-tensor/                   # dense n-d tensor functions for runtimes
 egraph/, discovery/            # equality-saturation + discovery substrates
@@ -34,11 +33,11 @@ egraph/, discovery/            # equality-saturation + discovery substrates
 
 | Layer | Responsibility |
 | --- | --- |
-| `kernel` | The calculus vocabulary — `Term`/`Value` shapes, the `Language` data schema, and the composition primitives (`Plugin`, `Host`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`). Depends on nothing in the org. |
-| `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`) plus concrete engines (e.g. the tree-walk interpreter). Generic: they dispatch on `Language` data, never on hardcoded constructs. |
-| `handl-platform` | `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `Options`, and the built-in operation contracts (`Format`, `Lint`, `Compile`, `Eval`). |
-| `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `sdkgen`, `test`, `typecheck`). A contract is public even where the engine behind it is not yet released. |
-| `handl-plugin-applier-*` | Read `.handl.toml` / CLI args / env into a `HostConfig` and apply it to a `Host`. |
+| `kernel` | The calculus vocabulary — `Term`/`Value` shapes, the `Language` data schema, and the composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`). Depends on nothing in the org. |
+| `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`) plus concrete engines (e.g. the tree-walk interpreter, and the published `engine-fmt` / `engine-lint` / `engine-typecheck` toolchain engines). Generic: they dispatch on `Language` data, never on hardcoded constructs. |
+| `handl-platform` | `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
+| `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `sdkgen`, `test`, `typecheck`). |
+| `handl-plugin-applier-*` | Read `.handl.toml` into a `HostConfig` and apply it — `ApplierFactory` / `DefaultApplierPlugin` register kits, plugins, options, and excludes through capabilities. |
 | `handl-plugin-load*` | Plugin loaders — manifests, and the native cdylib loader. |
 | `handl-plugin-lib-*` | Library plugins that register native/runtime modules (`stdlib`, `handl`, `scheduler`, `tag`, …). |
 | `handl-runtime` | Runtime coordination — desugaring and eval-engine dispatch. |
@@ -47,12 +46,17 @@ egraph/, discovery/            # equality-saturation + discovery substrates
 
 ## What is not published
 
-The layer above the contracts — the `hnl` CLI and LSP hosts, the `ext-*`
-command extensions, the release toolchain engines (formatter, linter,
-typechecker, test runner, compilers), the curated `kit-*` kits, and the
-`lib-*` standard library — is not yet released. It appears here only as a
-boundary: the contracts it plugs into are public, the implementations are
-not.
+The layer above the contracts is only partly public. Public today: the
+kernel, the platform workspace, the generic `engine-*` repos (including
+the `engine-fmt` / `engine-lint` / `engine-typecheck` toolchain engines),
+`kit-prelude-lang`, `host-tensor`, and a handful of `lib-*` packages
+(`lib-char`, `lib-char-native`, `lib-desugar`, `lib-loader`,
+`lib-str-handl`).
+
+Not yet released: the `hnl` CLI and LSP hosts (`host-cli`, `host-lsp`),
+the `ext-*` command extensions, the curated `kit-*` kits, and most of the
+`lib-*` standard library. Those appear here only as a boundary: the
+contracts they plug into are public, most of the implementations are not.
 
 ## Plugins are the only unit
 
@@ -84,25 +88,37 @@ the same composition model, from a CLI to an LSP server to a test runner.
 
 ## The host as composer
 
-A `Host` starts empty and ends as a fully composed tool. It does this by:
+A `DefaultHost` starts empty and ends as a fully composed tool. In
+practice a host is assembled by an **applier** plugin
+(`plugin-applier-bootstrap` selects one via `ApplierFactory`;
+`plugin-applier-default`'s `DefaultApplierPlugin` is the shipped
+implementation):
 
-1. Loading `HostConfig` from a `HostApplier`.
-2. Merging kit manifests into `PluginRegistry`.
-3. Resolving `requires` and `optional` dependencies.
-4. Running `Plugin::contribute` in topological order.
-5. Repeating steps 3–4 until no new plugins appear.
-6. Resolving `Options` from merged schemas and overrides.
+1. The applier reads `.handl.toml` into a `HostConfig`
+   (`HostConfig::from_toml`).
+2. Its `contribute` registers the kit loader, options plugin, and loader
+   plugins, then loads each configured kit through the `kit/load`
+   capability and each plugin manifest through `load`.
+3. `[options]` entries are applied through `option/set`; `exclude`
+   entries are scheduled via `ContributionContext::exclude_plugin`.
+4. `DefaultHost::load` then makes a single registration-order pass over
+   every plugin, calling `contribute` once each; rule contributions
+   whose acceptor is not yet registered are deferred and retried as
+   loading progresses.
+5. `DefaultHost::run` dispatches a `CapabilityRequest` to the plugin
+   that provides the requested capability.
 
-After this, `Host::execute` dispatches a `CapabilityRequest` to the
-plugin that provides the requested capability.
+`DefaultHost::resolve_composition` additionally validates the live
+registry against the manifest-level resolver (`resolve`).
 
 ## Adding a new operation
 
 To add a new operation such as `Hover`:
 
-1. Define a `Hover` marker type implementing `Operation`.
+1. Define a `Hover` marker type implementing `Operation` (with its
+   `Request` type).
 2. Define a `HoverBehavior` implementing `Behavior<Hover>`.
-3. Provide a `BasicHover` as a `RuleAcceptor<Rule = HoverBehavior>`.
+3. Provide a `BasicHover` as a `RuleAcceptor<Rule = Box<dyn HoverBehavior>>`.
 4. Register `BasicHover` in the host.
 
 No platform change is required — `Operation` and `Behavior<Op>` are
@@ -112,19 +128,18 @@ public extension points in `handl-platform`.
 
 A rule plugin can contribute behavior to any loaded `RuleAcceptor`, and
 any plugin can answer a `CapabilityRequest` in `run`. The host learns
-about neither ahead of time — it discovers both during the fixed-point
-`contribute` pass:
+about neither ahead of time — it discovers both during the
+registration-order `contribute` pass:
 
 ```rust
-impl Plugin for LintPlugin {
-    fn id(&self) -> &str { "lint" }
-
+impl Plugin for MyLintRules {
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> {
-        ctx.contribute::<BasicLinter>(Box::new(NoUnusedImports))?;
+        ctx.contribute::<BasicLinter>(Box::new(MyLintBehavior))?;
         Ok(())
     }
+    // … name/capabilities/metadata/run as usual
 }
 ```
 
-The host does not know `lint` exists. The plugin contributed the rule,
-and the host ran it when the `lint` capability was requested.
+The host does not know the rule exists. The plugin contributed it, and
+the host ran it when the corresponding capability was requested.

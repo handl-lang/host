@@ -57,11 +57,12 @@ the tutorials builds on it.
 
 ## What is not here
 
-The `hnl` CLI, the editor extensions, the toolchain engines
-(formatter, linter, typechecker, compilers), the curated kits, and the
-standard library are not yet released — there is nothing to install.
-What you can build today is a host binary of your own, which is the
-next tutorial.
+The `hnl` CLI, the editor extensions, the curated kits, and most of the
+standard library are not yet released. The toolchain *engines* are
+public — `engine-fmt`, `engine-lint`, and `engine-typecheck` are
+usable as git-dependency crates — and a handful of `lib-*` packages are
+public language packages. What you can build today without them is a
+host binary of your own, which is the next tutorial.
 
 ## Next steps
 

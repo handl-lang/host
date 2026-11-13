@@ -45,6 +45,9 @@ The frozen public surface of the research stack — bound to
 
 ## Not here
 
-The `lib-*` standard-library packages, the `hnl` toolchain surface, and
-the curated `kit-*` kits are not yet released — they produce no pages
-and no links on this site.
+The `hnl` toolchain surface (the `hnl` CLI and its `ext-*` command
+extensions), the curated `kit-*` kits, and most of the `lib-*`
+standard library are not yet released — they produce no pages and no
+links on this site. The toolchain *engines* (`engine-fmt`,
+`engine-lint`, `engine-typecheck`) and a handful of `lib-*` packages
+are public repos; see each repo's own documentation.

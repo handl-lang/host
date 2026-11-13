@@ -8,7 +8,8 @@ A plugin that declares an option and a rule that reads it.
 
 ## Declare an option schema
 
-Contribute an `OptionSchema` to the `Options` `RuleAcceptor`:
+Contribute an `OptionSchema` to the `OptionsPlugin` `RuleAcceptor` (it is
+deferred automatically if `OptionsPlugin` has not been registered yet):
 
 ```rust
 use handl_platform::{ContributionContext, OptionSchema, OptionsPlugin, PlatformError, Plugin};
@@ -73,13 +74,10 @@ impl Behavior<Format> for CommentFormatter {
 }
 ```
 
-## Resolution order
+## Resolution
 
-Resolved option values are produced by merging, from lowest to highest priority:
-
-1. The plugin's declared default.
-2. The kit's default value, if any.
-3. The `.handl.toml` or `HostConfig` override.
-4. Command-line flags, when supported by the `HostApplier`.
-
-Higher-priority sources win. Values outside `possible_values` are rejected.
+`OptionsPlugin::resolve` builds `ResolvedOptions` by starting from each
+contributed schema's `default` and applying every override set through
+the `option/set` capability — which is how `[options]` entries in
+`.handl.toml` reach the resolved values (the applier plugins issue the
+`option/set` requests).

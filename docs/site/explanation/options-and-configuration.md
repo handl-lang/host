@@ -1,15 +1,15 @@
 # Options and configuration
 
-Options in handl are not declared by the host or by the formatter. They are contributed by the plugins that own them. The `Options` plugin resolves the final values from schemas, kit defaults, and user overrides.
+Options in handl are not declared by the host or by the formatter. They are contributed by the plugins that own them. The `OptionsPlugin` collects `OptionSchema` contributions and resolves them into `ResolvedOptions` values that operations can query.
 
 ## Option schemas
 
-A plugin declares an option by contributing an `OptionSchema`:
+A plugin declares an option by contributing an `OptionSchema` to the `OptionsPlugin` acceptor:
 
 ```rust
 pub struct OptionSchema {
     pub id: String,
-    pub scope: OptionScope,
+    pub scope: OptionScope,          // Global | Kit | Node
     pub applies_to: Option<String>,
     pub default: serde_json::Value,
     pub possible_values: Vec<serde_json::Value>,
@@ -17,7 +17,7 @@ pub struct OptionSchema {
 }
 ```
 
-For example, a formatter plugin might declare:
+For example, a plugin might declare:
 
 ```rust
 OptionSchema {
@@ -33,27 +33,16 @@ OptionSchema {
 }
 ```
 
-The formatter and linter never know `comment.style` exists. They read the resolved value from the `ResolvedOptions` attached to their `Request`.
+## Resolution
 
-## Resolution order
-
-The `Options` plugin resolves values by merging, from lowest to highest priority:
-
-1. The `default` from the `OptionSchema`.
-2. Kit default values from `KitManifest`.
-3. `HostConfig` overrides, typically from `.handl.toml`.
-4. CLI flags or environment variables from the `HostApplier`, when supported.
-
-Higher-priority sources override lower ones. Any value outside `possible_values` is rejected with an error, so invalid values fail early.
-
-## ResolvedOptions
-
-`ResolvedOptions` is a map from option id to value. It is built once during `Host::load` and shared for the lifetime of the operation:
+`OptionsPlugin` accepts `OptionSchema` rules during `contribute` (deferred
+and retried like any other rule contribution) and exposes the `option/set`
+capability for overrides. `OptionsPlugin::resolve` builds a
+`ResolvedOptions` map by starting from each schema's `default` and
+applying every override set through `option/set`:
 
 ```rust
-pub struct ResolvedOptions {
-    values: HashMap<String, serde_json::Value>,
-}
+pub struct ResolvedOptions { /* id → serde_json::Value */ }
 
 impl ResolvedOptions {
     pub fn get(&self, id: &str) -> Option<&Value>;
@@ -62,22 +51,20 @@ impl ResolvedOptions {
 }
 ```
 
-Every operation `Request` carries a `&ResolvedOptions`. A `Behavior` reads the option values it needs directly from the request.
-
-## Why options are plugin-defined
-
-If options lived in `Host` or `KitManifest`, adding a new option would require editing the host. Plugin-defined options keep the host ignorant of specific tunables. A formatter plugin can add `comment.style`, a linter plugin can add `comment.max-length`, and the `Options` plugin resolves both without the formatter or linter knowing about each other.
+Operation request types that carry options (e.g. `FormatRequest.options`)
+hold a `ResolvedOptions`, so a `Behavior` reads the values it needs
+directly from the request.
 
 ## Configuration files
 
-A `.handl.toml` is the main user-facing configuration file. It lists kits, direct plugins, exclusions, and option overrides:
+A `.handl.toml` is the main user-facing configuration file. It lists kits, direct plugins, exclusions, option overrides, and `[dependencies]`/`[patch]` package tables:
 
 ```toml
 [[kit]]
 include = "my-kit"
 
 [[plugin]]
-register = "my-custom-linter"
+manifest = "path/to/plugin.json"
 
 [options]
 "comment.style" = "above"
@@ -85,4 +72,10 @@ register = "my-custom-linter"
 "experimental.lifetime-check" = false
 ```
 
-The `HostApplier` reads this file and CLI flags, builds a `HostConfig`, and applies it to the `Host`. The `Host` itself never touches the filesystem.
+`HostConfig::from_toml` parses this into a `HostConfig` (`kits`,
+`plugins`, `excludes`, `options`, `dependencies`, `patch`). The applier
+plugins in `plugin-applier-*` read the file and apply it: kits are loaded
+through the `kit/load` capability, plugin manifests through `load`,
+`[options]` entries through `option/set`, and excludes through
+`ContributionContext::exclude_plugin`. `DefaultHost` itself never touches
+the filesystem.

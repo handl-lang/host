@@ -12,7 +12,7 @@ recompile.
 
 - Dispatch on node kind via `lang.eval`/`lang.types`/`lang.grammar`/`lang.lexer_rules` — never a Rust `match` on hardcoded kind strings like `"let"`, `"if"`, `"assign"`, `"paren"`, `"block"`, `"return"`, `"type-annot"`.
 - AST layout knowledge comes from `lang.ast[node.kind]` (`AstShapeDef`), not from `node.kind == "assign"` shape checks inside primitives.
-- Behavior is built by composing arrow-calculus combinators from `Scheme` data, not by adding `if node.kind == X` branches.
+- Behavior is built by composing arrow-calculus combinators from `Term` data, not by adding `if node.kind == X` branches.
 
 **Allowed to be fixed in Rust:** only the calculus vocabulary itself — the combinator set, primitive _forms_ (e.g. `LexerPattern` variants), value shapes. Adding a calculus combinator = engine edit; adding a language construct = YAML fragment.
 

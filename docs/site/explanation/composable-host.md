@@ -8,20 +8,21 @@ Earlier versions of the platform tried to keep several overlapping ideas apart: 
 
 A library simply registers more plugins. A target adds target-specific operations and options. A plugin is already capable of being executed. The old model created a lot of plumbing for very little benefit.
 
-The composable host collapses these into a single object-safe `Plugin` trait:
+The composable host collapses these into a single object-safe `Plugin` trait (abridged — see rustdoc):
 
 ```rust
-pub trait Plugin: Send + Sync + 'static + std::any::Any {
-    fn id(&self) -> &str;
-    fn version(&self) -> &str;
-    fn metadata(&self) -> serde_json::Value;
+pub trait Plugin: Send + Sync + Any {
+    fn id(&self) -> &str { self.name() }
+    fn name(&self) -> &str;
+    fn version(&self) -> &str { "0.0.0" }
+    fn capabilities(&self) -> &[CapabilityId];
     fn requires(&self) -> &[CapabilityId] { &[] }
     fn optional(&self) -> &[CapabilityId] { &[] }
+    fn metadata(&self, capability: &CapabilityId) -> Option<CapabilityMetadata>;
 
     fn contribute(&self, ctx: &mut ContributionContext) -> Result<(), PlatformError> { Ok(()) }
     fn run(&self, request: &CapabilityRequest, ctx: &mut PluginContext)
-        -> Result<CapabilityResponse, PlatformError>
-    { Err(PlatformError::NotImplemented) }
+        -> Result<CapabilityResponse, PlatformError>;
 }
 ```
 
@@ -38,11 +39,11 @@ A `Library`, a `Target`, an `Operation`, and an executable all become the same k
 
 ## The host as a composer
 
-A `Host` is not a concrete type full of hard-coded fields. It is a composer with one primary registry: `PluginRegistry`. When a host loads, it resolves plugin dependencies, runs each plugin's `contribute` method, and repeats that process until no new plugins appear.
+`DefaultHost` is not a concrete type full of hard-coded fields. It holds two registries — `PluginRegistry` and `KitRegistry` — and composes plugins through them. When `DefaultHost::load` runs, it makes a **single pass over the registered plugins in registration order**, calling each plugin's `contribute` exactly once. Plugins registered *during* the pass are visited later in the same pass, so loading one library can still bring in dozens of other plugins without the host knowing about them ahead of time.
 
-This fixed-point loading means that loading one library can bring in dozens of other plugins, and the host does not need to know about them ahead of time.
+Rule contributions whose `RuleAcceptor` is not registered yet are **deferred**: they are queued and retried as loading progresses (`flush_pending_rules` after each `contribute`, plus a final flush). A rule whose acceptor never appears fails `load` with `MissingRuleAcceptor` — deferred is not the same as ignored.
 
-The composer also holds the `Options` plugin, which is itself a `RuleAcceptor<OptionSchema>`. Other plugins contribute their options, and the `Options` plugin resolves the final values from kit defaults, host configuration, and user overrides. Because options live in the same contribution graph as everything else, a plugin can introduce and consume a new tunable without touching any other crate.
+The composer also holds the `OptionsPlugin`, which is itself a `RuleAcceptor` for `OptionSchema`. Other plugins contribute their option schemas, and `OptionsPlugin::resolve` merges schema defaults with overrides set through its `option/set` capability (which is how `HostConfig`'s `[options]` table is applied). Because options live in the same contribution graph as everything else, a plugin can introduce and consume a new tunable without touching any other crate.
 
 ## The AST as a shared value type
 
@@ -56,10 +57,10 @@ pub struct AstNode {
 }
 ```
 
-There is no `Ast` plugin. Instead, `Formatter`, `Linter`, `Typechecker`, `Parser`, `Lexer`, and `Diagnostics` are all `RuleAcceptor` plugins. A plugin introduces a new language construct by contributing `Behavior` rules to each of those operations for the same `AstNode.kind`. Because the AST is not a fixed enum, adding a new kind does not require a platform change.
+There is no `Ast` plugin. Instead, the `Basic*` operation acceptors (`BasicFormatter`, `BasicLinter`, `BasicBuilder`, `BasicCompiler`, `BasicEvaluator`) collect `Behavior` rules keyed by `AstNode.kind`. A plugin introduces a new language construct by contributing `Behavior` rules to each operation for the same `AstNode.kind`. Because the AST is not a fixed enum, adding a new kind does not require a platform change.
 
 ## Why this is enough
 
-The four pieces above — `Plugin`, `RuleAcceptor`, `Operation`, and `Behavior` — cover libraries, targets, operations, rules, options, the AST, and data types. Because the host is a composer, any combination of plugins can be loaded into the same process. Because `RuleAcceptor` and `Behavior` are generic, new operations can be added in new `handl-plugin-ext-*` crates without changing `handl-platform`. Because the CLI, the LSP server, the test runner, and the REPL are all just executable hosts, they all share the same composition rules.
+The four pieces above — `Plugin`, `RuleAcceptor`, `Operation`, and `Behavior` — cover libraries, targets, operations, rules, options, and the AST. Because the host is a composer, any combination of plugins can be loaded into the same process. Because `RuleAcceptor` and `Behavior` are generic, new operations can be added in new `handl-plugin-ext-*` crates without changing `handl-platform`. Because the CLI, the LSP server, the test runner, and the REPL are all just executable hosts, they all share the same composition rules.
 
-This is the composable host: one plugin, one registry, one loading algorithm, and every tool built from the same pieces.
+This is the composable host: one plugin, one registry, one loading pass, and every tool built from the same pieces.

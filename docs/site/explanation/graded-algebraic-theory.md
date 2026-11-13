@@ -60,7 +60,7 @@ The grade of `lookup` is the morphism that takes a unit state and produces an `i
 | Grade                 | capability / effect                  |
 | Carrier               | `Model::Value` for a sort            |
 | Operation             | a graded arrow declaration           |
-| Term                  | `Term` data in the `Scheme` calculus |
+| Term                  | `Term` data in the arrow calculus (`hnl-engine`) |
 | Model                 | `Model` + handlers                   |
 | Handler               | model for one sort                   |
 
@@ -98,24 +98,28 @@ to `add`. It is a constraint on the sort of the inputs.
 
 ### Terms
 
-A `Term` is a term in the free arrow category over the `Language` signature. The `Term` enum in `hnl-engine` is the calculus:
+A `Term` is a term in the free arrow category over the `Language` signature. The `Term` enum in `hnl-engine` is the calculus — its core combinators plus supporting forms (abridged):
 
 ```rust
 pub enum Term {
-    Arr { value: Value },       // pure constant arrow
-    Op { name: String, args: Vec<Term>, ... },  // graded operation
-    Seq { ... },                // composition
-    First { ... },              // product routing
-    Choice { ... },             // sum routing
-    Loop { ... },               // feedback
-    App { ... },                // dynamic application
-    Iter { ... },               // bounded iteration
-    Child { ... },              // AST child reference
+    Arr { .. },                 // pure constant arrow
+    Const { .. },               // constant value
+    Op { name, args, dim, .. }, // graded operation
+    Seq { .. },                 // composition (>>>)
+    First { .. },               // product routing
+    Choice { .. },              // sum routing
+    Loop { .. },                // feedback
+    App { .. },                 // dynamic application
+    Iter { .. },                // bounded iteration
+    Child { .. },               // AST child reference
+    Handle { .. },              // handler installation
+    // … record/cell/tag forms and Opaque derived-operator records
 }
 ```
 
-These are the only things the engine knows. Surface constructs
-desugar to these terms.
+`Term::desugar` expands derived surface forms into the core set before
+interpretation. These are the only things the engine knows. Surface
+constructs desugar to these terms.
 
 ### Models
 

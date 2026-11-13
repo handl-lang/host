@@ -25,10 +25,10 @@ The existing systems are mostly **"one big VM, many languages compiled to a comm
    A new syntax is not a compiler back-end or a VM target. It is `Language` data plus a set of `Behavior` rules contributed by plugins — the rules produce and consume the same `AstNode` type.
 
 2. **The host is the runtime composer.**
-   The `Host` loads plugins, resolves dependencies, and assembles the language. It does not define the language itself. The language is the _composition_ of the loaded plugins.
+   The `DefaultHost` loads plugins, resolves dependencies, and assembles the language. It does not define the language itself. The language is the _composition_ of the loaded plugins.
 
 3. **The language can host and spawn hosts.**
-   Because the `Host` is minimal and plugin-based, a `handl` program can eventually create and configure new `Host` instances. This makes `handl` able to describe its own runtime composition.
+   Because the `DefaultHost` is minimal and plugin-based, a `handl` program can eventually create and configure new `DefaultHost` instances. This makes `handl` able to describe its own runtime composition.
 
 4. **Sandboxing by design.**
    Capabilities such as `contribute`, `register-plugin`, and `execute` can be tracked as `handl` effects. A module that does not declare a capability cannot use it, even if it is loaded.

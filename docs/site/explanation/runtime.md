@@ -1,14 +1,16 @@
 # Runtime
 
 The handl runtime is not a single, hard-coded VM. It is the set of
-operation plugins that a `Host` loads and executes, plus the engine that
+operation plugins that a `DefaultHost` loads and executes, plus the engine that
 evaluates `Term`s. There is no separate "VM" subsystem — evaluation is
 the `Eval` operation, served like any other operation.
 
 ## The execution model
 
-A `Host` loads kits, resolves dependencies, and runs `contribute` to a
-fixed point. After loading, `Host::execute` dispatches a
+A `DefaultHost` loads plugins and kits, then `load` makes a single
+registration-order pass calling each plugin's `contribute` (rule
+contributions whose acceptor is not yet registered are deferred and
+retried). After loading, `DefaultHost::run` dispatches a
 `CapabilityRequest` to the plugin that provides the requested capability.
 
 The language pipeline is also a set of operation executions. A host that
@@ -21,7 +23,7 @@ engine parameterized by the same `Language` data
 
 Programs reach the engines as `Term`s — nodes in the closed arrow
 calculus — over the shared `Value` representation (both defined in the
-[`kernel`](https://github.com/handl-lang/kernel) repo). The engine layer
+[`hnl-engine`](https://github.com/handl-lang/engine) repo). The engine layer
 evaluates `Term`s against the `Language`'s `eval` schemes; the reference
 interpreter is `hnl-engine-exec-tree-walk`, which walks the
 `Term` graph directly.
