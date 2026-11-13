@@ -64,21 +64,36 @@ is_canonical() {
 
 # Known non-canonical / dialect files that the heuristic detector does not
 # catch on its own. Keep this list short and remove entries as detection
-# improves.
+# improves. Entries are path suffixes matched against the absolute corpus
+# paths collected below (e.g. "lib-collections/src/array/first.hnl").
 SKIP_LIST=(
-  "handl-packages/collections/array/first.hnl"
-  "handl-packages/collections/array.hnl"
 )
 
 is_skipped() {
-  local f=$1
+  local f=$1 skip
   for skip in "${SKIP_LIST[@]}"; do
-    if [[ "$f" == "$skip" || "$f" == "$skip"/* ]]; then
-      return 0
-    fi
+    case "$f" in
+      "$skip"|*"/$skip") return 0 ;;
+    esac
   done
   return 1
 }
+
+# The canonical .hnl corpus moved out of `handl-packages/` in the
+# ADR-0128 repo-per-package split: each `lib-*` sibling repo ships its
+# sources under `src/` (the `pkg.hnl` at each repo root is a data
+# manifest, not gateable source), and the kit prelude repos
+# (kit-prelude / kit-prelude-lang / kit-data-prelude) keep theirs
+# wherever they live in the repo. Sweep the sibling checkouts — resolve
+# the workspace root through the *main* checkout's git-common-dir (same
+# trick as ci.sh) so a detached-worktree run still finds the real
+# siblings instead of the worktree parent's symlink farm. The corpus is
+# .hnl data: the sibling checkouts' current sources are the honest
+# corpus regardless of which host sha is under test.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+GIT_COMMON="$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir)"
+MAIN_CHECKOUT="$(dirname "$GIT_COMMON")"
+WORKSPACE_ROOT="$(dirname "$MAIN_CHECKOUT")"
 
 # Collect the canonical file list once.
 canonical_files=()
@@ -86,7 +101,19 @@ while IFS= read -r -d '' f; do
   if is_canonical "$f" && ! is_skipped "$f"; then
     canonical_files+=("$f")
   fi
-done < <(find handl-packages -name '*.hnl' -print0 | sort -z)
+done < <(
+  {
+    for pkg in "$WORKSPACE_ROOT"/lib-*/src; do
+      [ -d "$pkg" ] || continue
+      case "$pkg" in *.stray-src/*) continue ;; esac
+      find "$pkg" -name '*.hnl' -not -path '*/target/*' -print0
+    done
+    for pkg in kit-prelude kit-prelude-lang kit-data-prelude; do
+      [ -d "$WORKSPACE_ROOT/$pkg" ] || continue
+      find "$WORKSPACE_ROOT/$pkg" -name '*.hnl' -not -path '*/target/*' -print0
+    done
+  } | sort -z
+)
 
 echo "Canonical .hnl files: ${#canonical_files[@]}"
 

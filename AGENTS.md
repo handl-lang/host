@@ -273,13 +273,19 @@ lexer to strip).
 ### Dogfood gate status — GREEN
 
 The `hnl fmt --check && hnl lint && hnl typecheck && hnl test` gate is
-scripted in `scripts/dogfood-gate.sh`. Note the script still discovers
-`.hnl` files under `handl-packages/` — that corpus has moved to the
-`lib-*` repos (`src/*.hnl` + `pkg.hnl`), so each package repo now gates
-its own sources; the in-repo mechanism remains for any future
-`handl-packages/` content.
+scripted in `scripts/dogfood-gate.sh`. The `handl-packages/` corpus moved
+to the `lib-*` package repos in the ADR-0128 split; the script now
+sweeps the sibling checkouts — `lib-*/src/**/*.hnl` (the `pkg.hnl`
+manifest is data, not gateable source) plus the
+`kit-prelude`/`kit-prelude-lang`/`kit-data-prelude` repos — resolving
+the workspace root through the main checkout's git-common-dir so
+detached-worktree CI runs still find the real siblings. Each package
+repo also gates its own `src/` sources via its `hnl-gate.sh`; this gate
+is the cross-repo sweep.
 
-All four phases are clean over the 177-file corpus:
+All four phases are clean over the corpus (177 files under the old
+`handl-packages/` layout; 122 canonical files under the current
+`lib-*`/`kit-*` sweep — re-verify on the next dogfood run):
 
 - `hnl fmt --check`: 0 failures
 - `hnl lint`: 0 errors (residual warnings: `missing-module-doc` info,
