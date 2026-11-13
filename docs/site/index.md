@@ -16,9 +16,9 @@ the standard library are still in development.
 
 | layer | what it is | where |
 | --- | --- | --- |
-| **Kernel** | The closed arrow calculus — `Term`/`Value`, `Plugin`/`DefaultHost`/`Operation`/`Behavior` primitives, the `Language` data schema | [`kernel`](https://github.com/handl-lang/kernel) |
+| **Kernel** | The closed arrow calculus — `Term`/`Value` shapes and the `Language` data schema | [`kernel`](https://github.com/handl-lang/kernel) |
 | **Engines** | Generic, data-driven machinery for lex, parse, transform, and exec — dispatch on `Language` data, never on hardcoded constructs | [`engine-*`](https://github.com/handl-lang) |
-| **Platform** | `handl-platform` contracts — hosts, kits, options, capability dispatch, and the `plugin-ext-*` operation surfaces | [`host`](https://github.com/handl-lang/host) |
+| **Platform** | `handl-platform` contracts — `Plugin`/`DefaultHost`/`Operation`/`Behavior`/`RuleAcceptor`/`Contribution` primitives, hosts, kits, options, capability dispatch, and the `plugin-ext-*` operation surfaces | [`host`](https://github.com/handl-lang/host) |
 | **Language data** | The canonical eval-path `Language` as YAML fragments | [`kit-prelude-lang`](https://github.com/handl-lang/kit-prelude-lang) |
 
 ## Documentation

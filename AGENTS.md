@@ -71,11 +71,13 @@ fragments in `kit-prelude-lang`/`kit-data-prelude`. Their tests no
 longer run here — run them there.
 
 **Note — the calculus kernel moved out (ADR-0040/0128):**
-`hnl-engine`, `handl-language`, and `handl-value` — the `Plugin`/`Host`/
-`Operation`/`Behavior`/`RuleAcceptor`/`Contribution` primitives, the
-`Language` data schema, and the `Term`/`Value` shapes — live in the sibling
-`handl-lang/kernel` repo now (git deps on `main`, patched to `../kernel`
-for local dev). Their tests no longer run here —
+`handl-language` and `handl-value` — the `Term`/`Value` shapes and the
+`Language` data schema — live in the sibling `handl-lang/kernel` repo
+now (git deps on `main`, patched to `../kernel` for local dev);
+`hnl-engine` lives in the sibling `handl-lang/engine` repo. The
+composition primitives (`Plugin`/`Operation`/`Behavior`/`RuleAcceptor`/
+`Contribution`) live here in `crates/platform` (`handl-platform`).
+Their tests no longer run here —
 `cd ../kernel && cargo test --workspace`.
 
 **Cross-repo dep policy — float on `main`, pin at release.** Every

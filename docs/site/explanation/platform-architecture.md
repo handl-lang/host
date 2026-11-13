@@ -33,9 +33,9 @@ egraph/, discovery/            # equality-saturation + discovery substrates
 
 | Layer | Responsibility |
 | --- | --- |
-| `kernel` | The calculus vocabulary — `Term`/`Value` shapes, the `Language` data schema, and the composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`). Depends on nothing in the org. |
+| `kernel` | The calculus vocabulary — `Term`/`Value` shapes and the `Language` data schema. Depends on nothing in the org. |
 | `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`) plus concrete engines (e.g. the tree-walk interpreter, and the published `engine-fmt` / `engine-lint` / `engine-typecheck` toolchain engines). Generic: they dispatch on `Language` data, never on hardcoded constructs. |
-| `handl-platform` | `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
+| `handl-platform` | The composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`), `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
 | `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `sdkgen`, `test`, `typecheck`). |
 | `handl-plugin-applier-*` | Read `.handl.toml` into a `HostConfig` and apply it — `ApplierFactory` / `DefaultApplierPlugin` register kits, plugins, options, and excludes through capabilities. |
 | `handl-plugin-load*` | Plugin loaders — manifests, and the native cdylib loader. |
