@@ -1,7 +1,7 @@
 //! Rust `Function` impls for the `math` module — the handls (handlers)
 //! for the `op`/`handl` declarations in `math.hnl`.
 //!
-//! All 62 functions are FFI atoms: they call `f64` methods or Rust
+//! All 67 functions are FFI atoms: they call `f64` methods or Rust
 //! arithmetic that cannot be expressed as pure handl arrows without
 //! losing the exact `TypeMismatch` error messages the tests rely on.
 //! The `op`/`handl` declaration form (ADR-0077 Phase 2) declares the
@@ -624,6 +624,9 @@ unary_fn!(Sqrt, |x: f64| x.sqrt());
 unary_fn!(Log, |x: f64| x.ln());
 unary_fn!(Log10, |x: f64| x.log10());
 unary_fn!(Exp, |x: f64| x.exp());
+unary_fn!(Exp2, |x: f64| x.exp2());
+unary_fn!(ExpM1, |x: f64| x.exp_m1());
+unary_fn!(Log1p, |x: f64| x.ln_1p());
 unary_fn!(Log2, |x: f64| x.log2());
 unary_fn!(Cbrt, |x: f64| x.cbrt());
 
@@ -700,6 +703,48 @@ unary_fn!(Degrees, |x: f64| x.to_degrees());
 unary_fn!(Radians, |x: f64| x.to_radians());
 
 #[derive(Clone, Copy)]
+pub struct Copysign;
+impl Function for Copysign {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_numbers(args)?;
+        Ok(num(a.copysign(b)))
+    }
+}
+
+/// One-ULP step toward `b`, mirroring host-tensor's `k_nextafter`
+/// bit-for-bit: `b` itself when `a == b` or either side is NaN, else a
+/// single IEEE-754 bit-pattern step in `b`'s direction.
+#[derive(Clone, Copy)]
+pub struct Nextafter;
+impl Function for Nextafter {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        let (a, b) = require_two_numbers(args)?;
+        let v = if a == b || a.is_nan() || b.is_nan() {
+            b
+        } else {
+            let bits = a.to_bits();
+            let nb = if a < b {
+                if a >= 0.0 { bits + 1 } else { bits - 1 }
+            } else if a >= 0.0 {
+                bits - 1
+            } else {
+                bits + 1
+            };
+            f64::from_bits(nb)
+        };
+        Ok(num(v))
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct Atan2;
 impl Function for Atan2 {
     fn call(
@@ -742,6 +787,7 @@ pub const MATH_OPS: &[&str] = &[
     "math.add",
     "math.ceil",
     "math.clamp",
+    "math.copysign",
     "math.cos",
     "math.cosh",
     "math.cbrt",
@@ -760,6 +806,8 @@ pub const MATH_OPS: &[&str] = &[
     "math.div",
     "math.e",
     "math.exp",
+    "math.exp2",
+    "math.expm1",
     "math.factorial",
     "math.floor",
     "math.floor_div",
@@ -775,6 +823,7 @@ pub const MATH_OPS: &[&str] = &[
     "math.lerp",
     "math.log",
     "math.log10",
+    "math.log1p",
     "math.log2",
     "math.map_range",
     "math.max",
@@ -782,6 +831,7 @@ pub const MATH_OPS: &[&str] = &[
     "math.mod",
     "math.mul",
     "math.nan",
+    "math.nextafter",
     "math.pi",
     "math.pow",
     "math.radians",
@@ -808,6 +858,7 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.add", Arc::new(Add));
     registry.register("math.ceil", Arc::new(Ceil));
     registry.register("math.clamp", Arc::new(Clamp));
+    registry.register("math.copysign", Arc::new(Copysign));
     registry.register("math.cos", Arc::new(Cos));
     registry.register("math.cosh", Arc::new(Cosh));
     registry.register("math.cbrt", Arc::new(Cbrt));
@@ -826,6 +877,8 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.div", Arc::new(Div));
     registry.register("math.e", Arc::new(E));
     registry.register("math.exp", Arc::new(Exp));
+    registry.register("math.exp2", Arc::new(Exp2));
+    registry.register("math.expm1", Arc::new(ExpM1));
     registry.register("math.factorial", Arc::new(Factorial));
     registry.register("math.floor", Arc::new(Floor));
     registry.register("math.floor_div", Arc::new(FloorDiv));
@@ -841,6 +894,7 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.lerp", Arc::new(Lerp));
     registry.register("math.log", Arc::new(Log));
     registry.register("math.log10", Arc::new(Log10));
+    registry.register("math.log1p", Arc::new(Log1p));
     registry.register("math.log2", Arc::new(Log2));
     registry.register("math.map_range", Arc::new(MapRange));
     registry.register("math.max", Arc::new(Max));
@@ -848,6 +902,7 @@ pub fn math_op_registry() -> OpRegistry {
     registry.register("math.mod", Arc::new(Mod));
     registry.register("math.mul", Arc::new(Mul));
     registry.register("math.nan", Arc::new(Nan));
+    registry.register("math.nextafter", Arc::new(Nextafter));
     registry.register("math.pi", Arc::new(Pi));
     registry.register("math.pow", Arc::new(Pow));
     registry.register("math.radians", Arc::new(Radians));

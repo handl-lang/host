@@ -211,6 +211,87 @@ fn exp() {
 }
 
 #[test]
+fn exp2() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "exp2", &[n(3.0)]).as_f64(),
+        Some(8.0)
+    );
+    assert_eq!(
+        call(module_ref("math").unwrap(), "exp2", &[n(0.5)]).as_f64(),
+        Some(std::f64::consts::SQRT_2)
+    );
+}
+
+#[test]
+fn expm1() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "expm1", &[n(0.0)]).as_f64(),
+        Some(0.0)
+    );
+    // expm1 is the accurate e^x - 1 near zero: ln_1p-style precision,
+    // not the naive (exp(x) - 1) which loses bits for tiny x.
+    let tiny = 1e-20;
+    let got = call(module_ref("math").unwrap(), "expm1", &[n(tiny)])
+        .as_f64()
+        .unwrap();
+    assert_eq!(got, tiny.exp_m1());
+}
+
+#[test]
+fn log1p() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "log1p", &[n(0.0)]).as_f64(),
+        Some(0.0)
+    );
+    let got = call(module_ref("math").unwrap(), "log1p", &[n(1e-20)])
+        .as_f64()
+        .unwrap();
+    assert_eq!(got, 1e-20f64.ln_1p());
+}
+
+#[test]
+fn copysign() {
+    assert_eq!(
+        call(module_ref("math").unwrap(), "copysign", &[n(3.0), n(-1.0)])
+            .as_f64(),
+        Some(-3.0)
+    );
+    assert_eq!(
+        call(module_ref("math").unwrap(), "copysign", &[n(-3.0), n(1.0)])
+            .as_f64(),
+        Some(3.0)
+    );
+    // sign of zero is preserved through copysign
+    let neg_zero = call(module_ref("math").unwrap(), "copysign", &[n(1.0), n(-0.0)])
+        .as_f64()
+        .unwrap();
+    assert!(neg_zero.is_sign_negative());
+}
+
+#[test]
+fn nextafter() {
+    // one ULP up from 1.0 is 1.0 + f64::EPSILON
+    assert_eq!(
+        call(module_ref("math").unwrap(), "nextafter", &[n(1.0), n(2.0)])
+            .as_f64(),
+        Some(1.0 + f64::EPSILON)
+    );
+    // equal operands return b (host-tensor parity)
+    assert_eq!(
+        call(module_ref("math").unwrap(), "nextafter", &[n(2.0), n(2.0)])
+            .as_f64(),
+        Some(2.0)
+    );
+    // one ULP down from 1.0 — the predecessor is 1 - 2^-53, not
+    // 1 - EPSILON (which is two ULPs below 1.0).
+    assert_eq!(
+        call(module_ref("math").unwrap(), "nextafter", &[n(1.0), n(0.0)])
+            .as_f64(),
+        Some(f64::from_bits(1.0f64.to_bits() - 1))
+    );
+}
+
+#[test]
 fn sin() {
     let result = call(module_ref("math").unwrap(), "sin", &[n(0.0)]).as_f64();
     assert!(result.is_some());
