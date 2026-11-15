@@ -1,0 +1,512 @@
+{
+  "sweep": "wp4-parity",
+  "adr": "ADR-0178 WP4 gate",
+  "cases": [
+    {
+      "case": "conv_bn_fold",
+      "source": "conv_bn_eval",
+      "size": 6,
+      "python": {
+        "engine": "python",
+        "search_s": 0.931,
+        "stats_engine": "python",
+        "n_enodes": 31,
+        "n_classes": 29,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "add",
+          "conv2d",
+          "mul",
+          "reshape",
+          "rsqrt",
+          "sub"
+        ],
+        "cost_before": 29186.0,
+        "cost_after": 27649.0,
+        "verified": true,
+        "verify_max_abs": 8.881784197001252e-16
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.054,
+        "stats_engine": "eqsat",
+        "n_enodes": 10,
+        "n_classes": 10,
+        "iterations": 1,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [],
+          "rule_fires": {}
+        },
+        "term_ops": [
+          "batch_norm",
+          "conv2d"
+        ],
+        "cost_before": 29186.0,
+        "cost_after": 29186.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      }
+    },
+    {
+      "case": "silu_fold",
+      "source": "manual_silu",
+      "size": 16,
+      "python": {
+        "engine": "python",
+        "search_s": 0.024,
+        "stats_engine": "python",
+        "n_enodes": 4,
+        "n_classes": 3,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "silu"
+        ],
+        "cost_before": 194.0,
+        "cost_after": 193.0,
+        "verified": true,
+        "verify_max_abs": 4.440892098500626e-16
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.038,
+        "stats_engine": "eqsat",
+        "n_enodes": 5,
+        "n_classes": 4,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "silu_fold"
+          ],
+          "rule_fires": {
+            "silu_fold": 1
+          }
+        },
+        "term_ops": [
+          "silu"
+        ],
+        "cost_before": 194.0,
+        "cost_after": 193.0,
+        "verified": true,
+        "verify_max_abs": 4.440892098500626e-16
+      }
+    },
+    {
+      "case": "softmax_fold",
+      "source": "manual_softmax",
+      "size": 16,
+      "python": {
+        "engine": "python",
+        "search_s": 0.023,
+        "stats_engine": "python",
+        "n_enodes": 5,
+        "n_classes": 4,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "softmax"
+        ],
+        "cost_before": 327.0,
+        "cost_after": 65.0,
+        "verified": true,
+        "verify_max_abs": 5.551115123125783e-17
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.042,
+        "stats_engine": "eqsat",
+        "n_enodes": 6,
+        "n_classes": 5,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "softmax_fold"
+          ],
+          "rule_fires": {
+            "softmax_fold": 1
+          }
+        },
+        "term_ops": [
+          "softmax"
+        ],
+        "cost_before": 327.0,
+        "cost_after": 65.0,
+        "verified": true,
+        "verify_max_abs": 5.551115123125783e-17
+      }
+    },
+    {
+      "case": "glu_fold",
+      "source": "manual_glu",
+      "size": 16,
+      "python": {
+        "engine": "python",
+        "search_s": 0.022,
+        "stats_engine": "python",
+        "n_enodes": 6,
+        "n_classes": 5,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "glu"
+        ],
+        "cost_before": 98.0,
+        "cost_after": 33.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.039,
+        "stats_engine": "eqsat",
+        "n_enodes": 7,
+        "n_classes": 6,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "glu_fold"
+          ],
+          "rule_fires": {
+            "glu_fold": 1
+          }
+        },
+        "term_ops": [
+          "glu"
+        ],
+        "cost_before": 98.0,
+        "cost_after": 33.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      }
+    },
+    {
+      "case": "swiglu_mlp",
+      "source": "swiglu_mlp",
+      "size": 16,
+      "python": {
+        "engine": "python",
+        "search_s": 0.025,
+        "stats_engine": "python",
+        "n_enodes": 9,
+        "n_classes": 8,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "concat",
+          "linear",
+          "mul",
+          "silu",
+          "split"
+        ],
+        "cost_before": 4356.0,
+        "cost_after": 4355.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.048,
+        "stats_engine": "eqsat",
+        "n_enodes": 10,
+        "n_classes": 9,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "silu_expand"
+          ],
+          "rule_fires": {
+            "silu_expand": 1
+          }
+        },
+        "term_ops": [
+          "linear",
+          "mul",
+          "silu"
+        ],
+        "cost_before": 4356.0,
+        "cost_after": 4356.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      }
+    },
+    {
+      "case": "select_mul",
+      "source": "select_mul",
+      "size": 8,
+      "python": {
+        "engine": "python",
+        "search_s": 0.02,
+        "stats_engine": "python",
+        "n_enodes": 7,
+        "n_classes": 6,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "mul",
+          "select"
+        ],
+        "cost_before": 15.0,
+        "cost_after": 15.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.04,
+        "stats_engine": "eqsat",
+        "n_enodes": 8,
+        "n_classes": 7,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "select_mul"
+          ],
+          "rule_fires": {
+            "select_mul": 1
+          }
+        },
+        "term_ops": [
+          "mul",
+          "select"
+        ],
+        "cost_before": 15.0,
+        "cost_after": 15.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      }
+    },
+    {
+      "case": "rms_norm_fold",
+      "source": "rms_norm_gained",
+      "size": 16,
+      "python": {
+        "engine": "python",
+        "search_s": 0.029,
+        "stats_engine": "python",
+        "n_enodes": 14,
+        "n_classes": 10,
+        "iterations": 3,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "rms_norm"
+        ],
+        "cost_before": 282.0,
+        "cost_after": 129.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.051,
+        "stats_engine": "eqsat",
+        "n_enodes": 15,
+        "n_classes": 11,
+        "iterations": 3,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "pow_to_square",
+            "rms_norm_fold",
+            "rms_norm_fold_nogain",
+            "square_expand"
+          ],
+          "rule_fires": {
+            "pow_to_square": 1,
+            "rms_norm_fold": 1,
+            "rms_norm_fold_nogain": 1,
+            "square_expand": 1
+          }
+        },
+        "term_ops": [
+          "rms_norm"
+        ],
+        "cost_before": 282.0,
+        "cost_after": 129.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      }
+    },
+    {
+      "case": "mul_unsq_nat",
+      "source": "mul_unsq_nat",
+      "size": 6,
+      "python": {
+        "engine": "python",
+        "search_s": 0.022,
+        "stats_engine": "python",
+        "n_enodes": 7,
+        "n_classes": 6,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "mul",
+          "unsqueeze"
+        ],
+        "cost_before": 75.0,
+        "cost_after": 50.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.039,
+        "stats_engine": "eqsat",
+        "n_enodes": 8,
+        "n_classes": 7,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "mul_unsq_nat"
+          ],
+          "rule_fires": {
+            "mul_unsq_nat": 1
+          }
+        },
+        "term_ops": [
+          "mul",
+          "unsqueeze"
+        ],
+        "cost_before": 75.0,
+        "cost_after": 50.0,
+        "verified": true,
+        "verify_max_abs": 0.0
+      }
+    },
+    {
+      "case": "weight_merge",
+      "source": "weight_merge",
+      "size": 16,
+      "python": {
+        "engine": "python",
+        "search_s": 0.023,
+        "stats_engine": "python",
+        "n_enodes": 8,
+        "n_classes": 7,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": null,
+        "term_ops": [
+          "add",
+          "linear"
+        ],
+        "cost_before": 4163.0,
+        "cost_after": 2049.0,
+        "verified": true,
+        "verify_max_abs": 7.771561172376096e-16
+      },
+      "eqsat": {
+        "engine": "eqsat",
+        "search_s": 0.039,
+        "stats_engine": "eqsat",
+        "n_enodes": 9,
+        "n_classes": 8,
+        "iterations": 2,
+        "stop": "fixed_point",
+        "nonlocal_passes": "skipped (engine is not an EGraph)",
+        "eqsat": {
+          "binary": "/home/luis/GitHub/handl-lang/engine-eqsat/target/debug/eqsat-run",
+          "cost": {
+            "kind": "size"
+          },
+          "laws_requested": 341,
+          "laws_applied": 133,
+          "laws_uncovered_n": 208,
+          "fired": [
+            "weight_factor_linear"
+          ],
+          "rule_fires": {
+            "weight_factor_linear": 1
+          }
+        },
+        "term_ops": [
+          "add",
+          "linear"
+        ],
+        "cost_before": 4163.0,
+        "cost_after": 2049.0,
+        "verified": true,
+        "verify_max_abs": 7.771561172376096e-16
+      }
+    }
+  ]
+}

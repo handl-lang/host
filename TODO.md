@@ -4,6 +4,7 @@
 
 - [ ] T-098 drop dead handl-lib-encoding dep (Cargo.toml:109, retired shell ADR-0161) · created:2026-10-31
 - [ ] T-099 hnl-gate.sh: HNL=../host-cli breaks in bupha worktrees (~92 repos) · created:2026-10-31
+- [ ] T-100 Refine brand assets (assets/logo-512x.png, drawing.svg) and wire into docs/product where useful · created:2026-11-15
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
