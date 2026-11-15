@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -27,18 +28,38 @@ SUPERSEDE = re.compile(
     r"(Superseded by|Supersedes)\s*\[?ADR[-\s]?(\d{3,4})", re.IGNORECASE
 )
 FRONT = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", re.S)
+TOML_FRONT = re.compile(r"\A\+\+\+[ \t]*\r?\n(.*?)\r?\n\+\+\+[ \t]*\r?\n", re.S)
 
 
 def frontmatter(text: str) -> dict:
-    """ADR-0163 header, or {} for a legacy file."""
-    m = FRONT.match(text)
+    """ADR-0163 header, or {} for a legacy file.
+
+    Since the `+++` migration an ADR leads with a TOML block (id/title/
+    status/priority) followed by the `---` YAML block that carries the
+    ADR-0163 fields (title/date/status/status_note/supersedes/…).  Parse
+    both; the YAML block wins on shared keys — it is the canonical header.
+    """
+    data: dict = {}
+    rest = text
+    tm = TOML_FRONT.match(rest)
+    if tm:
+        try:
+            tdata = tomllib.loads(tm.group(1))
+        except tomllib.TOMLDecodeError:
+            tdata = {}
+        if isinstance(tdata, dict):
+            data.update(tdata)
+        rest = rest[tm.end():].lstrip("\r\n")
+    m = FRONT.match(rest)
     if not m:
-        return {}
+        return data
     try:
-        data = yaml.safe_load(m.group(1)) or {}
+        ydata = yaml.safe_load(m.group(1)) or {}
     except yaml.YAMLError:
-        return {}
-    return data if isinstance(data, dict) else {}
+        return data
+    if isinstance(ydata, dict):
+        data.update(ydata)
+    return data
 
 
 def read_adr(path: Path) -> dict:
