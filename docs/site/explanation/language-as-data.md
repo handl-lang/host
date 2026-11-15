@@ -35,8 +35,13 @@ fragment set is published as data in
 
 The `engine-*` crates are **generic machinery**: each is an abstraction
 crate for one operation — `hnl-engine-lex`, `hnl-engine-parse`,
-`hnl-engine-transform`, `hnl-engine-exec` — plus concrete engines like the
-tree-walk interpreter (`hnl-engine-exec-tree-walk`). They share one rule:
+`hnl-engine-transform`, `hnl-engine-exec`, `hnl-engine-typecheck` — plus
+concrete engines: three interchangeable eval backends
+(`hnl-engine-exec-tree-walk` the reference interpreter,
+`hnl-engine-exec-bytecode` the stack VM, `hnl-engine-exec-cranelift`
+the JIT), the rule-interpreting transform engine
+(`hnl-engine-transform-rewrite`), and the `fmt`/`lint`/`typecheck`
+toolchain engines. They share one rule:
 
 > Dispatch on node kind via `Language` data — never a hardcoded `match`
 > on kind strings.
@@ -72,8 +77,9 @@ languages run on untouched engines.
 The engine layer is deliberately small:
 
 - **Data** — everything specific to a language lives in fragments.
-- **Calculus** — the six-combinator vocabulary lives in the
-  [kernel](./arrow-calculus-kernel).
+- **Calculus** — the six-combinator vocabulary lives in `hnl-engine`
+  (the [`engine` repo](https://github.com/handl-lang/engine)); see
+  [The arrow calculus kernel](./arrow-calculus-kernel).
 - **Engines** — the generic dispatch machinery lives in the `engine-*`
   repos.
 - **Host** — composition, kits, options, and capabilities live in the

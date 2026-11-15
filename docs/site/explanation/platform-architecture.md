@@ -7,16 +7,23 @@ plugins, and a language is data the engines dispatch on.
 ## The public repo layers
 
 ```text
-kernel/                        # the calculus + Language schema
-  hnl-engine                   #   Term/Value calculus, composition primitives
-  handl-language               #   the Language data schema (ADR-0044)
-  handl-value                  #   the shared tagged Value model
-  handl-ext, handl-lib-*       #   kernel substrate packages
+kernel/                        # the Language schema + shared values
+  handl-language               #   the Language data schema (ADR-0044);
+                               #   re-exports the Term kernel
+  handl-value                  #   the tagged Value model (TaggedValue)
+  handl-ext                    #   the dynamic-extension ABI (ADR-0149)
+  handl-defining-handl         #   self-hosting infrastructure
+  handl-lib-*                  #   floor substrate packages
+                               #   (prim, ops, bytes, cmp, error, obj,
+                               #    type, mood, combinators, …)
+engine/                        # hnl-engine — the Term/Value calculus
 engine-*/                      # generic engines — one repo per operation
-  hnl-engine-lex, -lex-pattern
-  hnl-engine-parse, -parse-pratt
-  hnl-engine-transform
-  hnl-engine-exec, -exec-tree-walk
+  engine-lex, engine-lex-pattern
+  engine-parse, engine-parse-pratt
+  engine-transform, engine-transform-rewrite
+  engine-exec, engine-exec-tree-walk, engine-exec-bytecode,
+  engine-exec-cranelift
+  engine-fmt, engine-lint, engine-typecheck
 host/                          # the platform workspace
   crates/platform              #   handl-platform — contracts + DefaultHost
   crates/plugin-ext-*          #   operation contract surfaces
@@ -28,13 +35,13 @@ host/                          # the platform workspace
   crates/host-tooling          #   semantic-token/LSP helpers
 kit-prelude-lang/              # the canonical eval-path Language as YAML data
 host-tensor/                   # dense n-d tensor functions for runtimes
-egraph/, discovery/            # equality-saturation + discovery substrates
 ```
 
 | Layer | Responsibility |
 | --- | --- |
-| `kernel` | The calculus vocabulary — `Term`/`Value` shapes and the `Language` data schema. Depends on nothing in the org. |
-| `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`) plus concrete engines (e.g. the tree-walk interpreter, and the published `engine-fmt` / `engine-lint` / `engine-typecheck` toolchain engines). Generic: they dispatch on `Language` data, never on hardcoded constructs. |
+| `kernel` | The `Language` data schema and the shared value model. `handl-language` defines the fragment schema and re-exports the `Term` kernel; `handl-value` provides `TaggedValue` (including the tensor scalar); `handl-lib-*` are the floor substrate packages. Depends on `engine` for `Term`, on nothing else in the org. |
+| `engine` (`hnl-engine`) | The arrow-calculus `Term` kernel itself — the data-only combinator set every engine interprets, plus `Term::desugar`. |
+| `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`, `typecheck`) plus concrete engines — the tree-walk reference interpreter, the bytecode VM, the Cranelift JIT, the rewrite engine, and the `fmt`/`lint`/`typecheck` toolchain engines. Generic: they dispatch on `Language` data, never on hardcoded constructs. |
 | `handl-platform` | The composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`), `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
 | `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `sdkgen`, `test`, `typecheck`). |
 | `handl-plugin-applier-*` | Read `.handl.toml` into a `HostConfig` and apply it — `ApplierFactory` / `DefaultApplierPlugin` register kits, plugins, options, and excludes through capabilities. |
@@ -47,8 +54,9 @@ egraph/, discovery/            # equality-saturation + discovery substrates
 ## What is not published
 
 The layer above the contracts is only partly public. Public today: the
-kernel, the platform workspace, the generic `engine-*` repos (including
-the `engine-fmt` / `engine-lint` / `engine-typecheck` toolchain engines),
+kernel, the `engine`/`engine-*` family (the whole operation surface —
+lex, parse, transform, exec, fmt, lint, typecheck — minus the private
+NBE typecheck engine and the test runner), the platform workspace,
 `kit-prelude-lang`, `host-tensor`, and a handful of `lib-*` packages
 (`lib-char`, `lib-char-native`, `lib-desugar`, `lib-loader`,
 `lib-str-handl`).
@@ -57,6 +65,28 @@ Not yet released: the `hnl` CLI and LSP hosts (`host-cli`, `host-lsp`),
 the `ext-*` command extensions, the curated `kit-*` kits, and most of the
 `lib-*` standard library. Those appear here only as a boundary: the
 contracts they plug into are public, most of the implementations are not.
+
+## The product repos
+
+The platform machinery above is what the published **products** are
+built on. Each has its own docs section on this site:
+
+| repo | what it is |
+| --- | --- |
+| [`graphopt`](https://github.com/handl-lang/graphopt) | The research stack — a categorical optimizer for neural-network computation graphs. Lifts models to the `Term` IR, saturates an e-graph under a law bank, verifies the result, and delivers a runnable artifact. Its discovery loop *mints* rewrite laws, runs them through a certification gauntlet, and learns to play the game the growing bank creates. |
+| [`eqsat`](https://github.com/handl-lang/eqsat) | The equality-saturation substrate `graphopt` is built on — `mlopt-core` (the torch-free term IR, e-graph, certificates, law machinery, cost algebra) and `mlopt-orchestrator` (the backend-neutral `search`/`lower` pipeline), behind port traits. |
+| [`gamekit`](https://github.com/handl-lang/gamekit) | The domain-free game layer — the `Board` protocol, episode/train/eval drivers, the player registry, scoring specs, and the benchmark harness (`benchkit`) any domain can pin. |
+| [`host-tensor`](https://github.com/handl-lang/host-tensor) | Dense n-d `f64` tensor functions (`tensor.*`) for `.hnl` runtimes — a host-side plugin, not a language feature. |
+| [`kit-prelude-lang`](https://github.com/handl-lang/kit-prelude-lang) | The canonical eval-path `Language` as YAML fragments — the language-as-data payload the engines dispatch on. |
+| [`egraph`](https://github.com/handl-lang/egraph), [`discovery`](https://github.com/handl-lang/discovery) | The Rust ports of the same ideas — `handl-egraph`, a generic e-graph/equality-saturation substrate over the kernel's `Term`, and `handl-discovery`, the pure-compute legs of the law-discovery/gauntlet machinery composed over it. |
+
+The split mirrors the platform's own layering: `eqsat`/`gamekit` are
+domain-free substrates (like `handl-platform` is for hosts), `graphopt`
+is the domain that composes them, and `host-tensor` is a host-side
+component any runtime can compose. Where a product lowers into `.hnl`,
+it goes through the same `Language`-as-data and `Term` machinery
+described above — the optimizer's rewrite laws and the language's
+transform rules are the same kind of object seen from two sides.
 
 ## Plugins are the only unit
 

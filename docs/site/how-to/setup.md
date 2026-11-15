@@ -21,11 +21,15 @@ cargo check --workspace
 cargo test --workspace
 ```
 
-Clone the engines and language data only as you need them:
+Clone the `Term` kernel, the engines, and the language data only as you
+need them:
 
 ```sh
+git clone https://github.com/handl-lang/engine                       # hnl-engine — the Term calculus
 git clone https://github.com/handl-lang/engine-exec
-git clone https://github.com/handl-lang/engine-exec-tree-walk
+git clone https://github.com/handl-lang/engine-exec-tree-walk        # reference interpreter
+git clone https://github.com/handl-lang/engine-exec-bytecode         # stack-VM backend
+git clone https://github.com/handl-lang/engine-exec-cranelift        # Cranelift JIT backend
 git clone https://github.com/handl-lang/engine-lex
 git clone https://github.com/handl-lang/engine-parse
 git clone https://github.com/handl-lang/engine-transform
@@ -46,10 +50,11 @@ serde_json = "1"
 
 The `hnl` CLI, editor extensions, the curated kits, and most of the
 standard library are not yet released. The toolchain *engines* are
-public, though — `engine-fmt`, `engine-lint`, and `engine-typecheck` are
-git-dependency crates you can add to a Rust project, and a handful of
-`lib-*` packages (`lib-char`, `lib-char-native`, `lib-desugar`,
-`lib-loader`, `lib-str-handl`) are public language packages.
+public, though — the whole `engine-*` family (`engine-fmt`,
+`engine-lint`, `engine-typecheck`, and the exec backends) is usable as
+git-dependency crates — and a handful of `lib-*` packages
+(`lib-char`, `lib-char-native`, `lib-desugar`, `lib-loader`,
+`lib-str-handl`) are public language packages.
 
 ## Next steps
 

@@ -7,17 +7,21 @@ title: Handl Language
 **The categorical language platform** — a closed arrow-calculus kernel,
 a data-driven language engine, and a plugin-composed host.
 
-The published pieces today are the machinery, plus parts of the surface
-language — the `engine-fmt` / `engine-lint` / `engine-typecheck` engines
-and a few `lib-*` packages are public. The `hnl` toolchain and most of
-the standard library are still in development.
+The published pieces today are the machinery — the `kernel` schema and
+values, the whole `engine`/`engine-*` operation family (lex, parse,
+transform, exec — tree-walk, bytecode, and Cranelift — plus the
+`fmt`/`lint`/`typecheck` toolchain engines), the `host` platform
+workspace, the canonical `kit-prelude-lang` language data, and
+`host-tensor`. The `hnl` CLI, the `ext-*` extensions, the curated
+`kit-*` kits, and most of the standard library are still in
+development.
 
 ## From foundation to surface
 
 | layer | what it is | where |
 | --- | --- | --- |
-| **Kernel** | The closed arrow calculus — `Term`/`Value` shapes and the `Language` data schema | [`kernel`](https://github.com/handl-lang/kernel) |
-| **Engines** | Generic, data-driven machinery for lex, parse, transform, and exec — dispatch on `Language` data, never on hardcoded constructs | [`engine-*`](https://github.com/handl-lang) |
+| **Kernel** | The `Term` arrow calculus (`engine`/`hnl-engine`), the `Language` data schema, and the tagged `Value` model | [`kernel`](https://github.com/handl-lang/kernel), [`engine`](https://github.com/handl-lang/engine) |
+| **Engines** | Generic, data-driven machinery for lex, parse, transform, typecheck, exec, fmt, and lint — dispatch on `Language` data, never on hardcoded constructs; interchangeable eval backends (tree-walk, bytecode, Cranelift) | [`engine-*`](https://github.com/handl-lang) |
 | **Platform** | `handl-platform` contracts — `Plugin`/`DefaultHost`/`Operation`/`Behavior`/`RuleAcceptor`/`Contribution` primitives, hosts, kits, options, capability dispatch, and the `plugin-ext-*` operation surfaces | [`host`](https://github.com/handl-lang/host) |
 | **Language data** | The canonical eval-path `Language` as YAML fragments | [`kit-prelude-lang`](https://github.com/handl-lang/kit-prelude-lang) |
 

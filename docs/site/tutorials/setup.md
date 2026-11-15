@@ -28,14 +28,18 @@ work/
 └── kernel/
 ```
 
-The generic engines live in their own repos; clone the ones you need:
+The `Term` kernel and the generic engines live in their own repos;
+clone the ones you need:
 
 ```sh
+git clone https://github.com/handl-lang/engine                       # hnl-engine — the Term calculus
 git clone https://github.com/handl-lang/engine-lex
 git clone https://github.com/handl-lang/engine-parse
 git clone https://github.com/handl-lang/engine-transform
 git clone https://github.com/handl-lang/engine-exec
-git clone https://github.com/handl-lang/engine-exec-tree-walk
+git clone https://github.com/handl-lang/engine-exec-tree-walk        # reference interpreter
+git clone https://github.com/handl-lang/engine-exec-bytecode         # stack-VM backend
+git clone https://github.com/handl-lang/engine-exec-cranelift        # Cranelift JIT backend
 ```
 
 And the canonical language data:
@@ -59,10 +63,11 @@ the tutorials builds on it.
 
 The `hnl` CLI, the editor extensions, the curated kits, and most of the
 standard library are not yet released. The toolchain *engines* are
-public — `engine-fmt`, `engine-lint`, and `engine-typecheck` are
-usable as git-dependency crates — and a handful of `lib-*` packages are
-public language packages. What you can build today without them is a
-host binary of your own, which is the next tutorial.
+public — the whole `engine-*` family (`engine-fmt`, `engine-lint`,
+`engine-typecheck`, the exec backends, and the rest) is usable as
+git-dependency crates — and a handful of `lib-*` packages are public
+language packages. What you can build today without them is a host
+binary of your own, which is the next tutorial.
 
 ## Next steps
 
