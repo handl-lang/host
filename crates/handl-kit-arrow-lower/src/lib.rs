@@ -294,6 +294,7 @@ fn lower_node(
                         Value::from("__term__"),
                         Value::from("__bound__"),
                     ])),
+                    attrs: None,
                 })
             }
         }
@@ -740,12 +741,14 @@ fn instantiate_scheme(
             args,
             source,
             lit,
+            attrs,
         } => instantiate_op(
             dim,
             name,
             args,
             source,
             lit.as_ref(),
+            attrs.as_ref(),
             input_faithful,
             either_input,
             ctx,
@@ -961,6 +964,7 @@ fn instantiate_op(
     args: &[Term],
     source: &ArrSource,
     lit: Option<&Value>,
+    attrs: Option<&Value>,
     input_faithful: bool,
     either_input: bool,
     ctx: &SchemeCtx<'_>,
@@ -1039,6 +1043,7 @@ fn instantiate_op(
                 args,
                 source: source.clone(),
                 lit,
+                attrs: attrs.cloned(),
             })
         }
     }
@@ -1070,6 +1075,7 @@ fn lift_to_dim(
             args: vec![],
             source: ArrSource::Native,
             lit: None,
+            attrs: None,
         },
     ))
 }
@@ -1793,6 +1799,7 @@ fn lower_object(
             args: values,
             source: handl_language::ArrSource::Native,
             lit: Some(Value::Array(keys)),
+            attrs: None,
         });
     }
 
@@ -1804,6 +1811,7 @@ fn lower_object(
             args: vec![],
             source: ArrSource::Native,
             lit: Some(Value::Array(vec![])),
+            attrs: None,
         });
     }
     // An `object` node whose children are *all* non-`entry` is the
@@ -1830,6 +1838,7 @@ fn lower_object(
                 args: Vec::new(),
                 source: ArrSource::Native,
                 lit: Some(Value::Array(Vec::new())),
+                attrs: None,
             });
         }
         return Err(format!(
@@ -1913,6 +1922,7 @@ fn push_object_run(acc: &mut Option<Term>, keys: &mut Vec<Value>, values: &mut V
         args: std::mem::take(values),
         source: ArrSource::Native,
         lit: Some(Value::Array(std::mem::take(keys))),
+        attrs: None,
     };
     *acc = Some(match acc.take() {
         Some(prev) => Term::op_native("record_merge", vec![prev, record]),
@@ -1987,6 +1997,7 @@ fn lower_op(
         args: vec![],
         source: ArrSource::Native,
         lit: None,
+        attrs: None,
     })
 }
 
@@ -2068,6 +2079,7 @@ fn lower_arr(
             args: vec![],
             source: ArrSource::Native,
             lit: None,
+            attrs: None,
         })
     }
 }
@@ -3724,6 +3736,7 @@ fn op_term_from_graded_arrow(
         args: vec![],
         source: ArrSource::Native,
         lit: None,
+        attrs: None,
     })
 }
 

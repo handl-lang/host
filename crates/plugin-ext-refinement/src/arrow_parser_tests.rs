@@ -159,6 +159,7 @@ fn test_parse_arr() {
             args,
             lit,
             dim: _,
+            ..
         } => {
             assert_eq!(op, "sort");
             assert!(args.is_empty());

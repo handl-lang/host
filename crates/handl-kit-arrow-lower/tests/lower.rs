@@ -59,6 +59,7 @@ fn graded_arrow_with_op_and_grade_product_lowers_to_named_op() {
             args: vec![],
             source: ArrSource::Native,
             lit: None,
+            attrs: None,
         }
     );
 }
@@ -80,6 +81,7 @@ fn id_at_dim(d: u64) -> Term {
         args: vec![],
         source: ArrSource::Native,
         lit: None,
+        attrs: None,
     }
 }
 
@@ -225,6 +227,7 @@ fn frontier_cell_lowers_via_scheme() {
                 args: vec![],
                 source: ArrSource::Native,
                 lit: Some(Value::from(0u64)),
+                attrs: None,
             }),
             snd: Box::new(Term::Op {
                 dim: Box::new(Term::constant(Value::from(2))),
@@ -232,6 +235,7 @@ fn frontier_cell_lowers_via_scheme() {
                 args: vec![],
                 source: ArrSource::Native,
                 lit: Some(Value::from(1u64)),
+                attrs: None,
             }),
         },
     );
@@ -287,6 +291,7 @@ fn dim_arrow_lowers_via_scheme() {
             ],
             source: ArrSource::Native,
             lit: None,
+            attrs: None,
         },
     );
 
@@ -318,6 +323,7 @@ fn dim_arrow_lowers_via_scheme() {
             ],
             source: ArrSource::Native,
             lit: None,
+            attrs: None,
         }
     );
 }

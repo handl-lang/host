@@ -30,6 +30,7 @@ fn arr(op: &str) -> Term {
         args: vec![],
         source: ArrSource::Native,
         lit: None,
+        attrs: None,
     }
 }
 
