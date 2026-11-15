@@ -5,6 +5,7 @@
 - [ ] T-098 drop dead handl-lib-encoding dep (Cargo.toml:109, retired shell ADR-0161) · created:2026-10-31
 - [ ] T-099 hnl-gate.sh: HNL=../host-cli breaks in bupha worktrees (~92 repos) · created:2026-10-31
 - [ ] T-100 Refine brand assets (assets/logo-512x.png, drawing.svg) and wire into docs/product where useful · created:2026-11-15
+- [ ] T-101 host-tensor eager-eval: dead-branch casts (tensor.to int64 on -inf inside where-else) fail loudly where torch discards — needs lazy/select semantics or poison-tolerant cast policy; blocks t5-small verify-run · created:2026-11-15
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
