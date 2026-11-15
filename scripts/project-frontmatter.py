@@ -42,6 +42,7 @@ import datetime as dt
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -66,6 +67,7 @@ ORDER = ("title", "type", "date", "status", "status_note", "supersedes",
          "superseded_by", "absorbed_into", "refs", "applies_to", "updated")
 
 FM = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n?", re.S)
+TOML_FM = re.compile(r"\A\+\+\+[ \t]*\r?\n(.*?)\r?\n\+\+\+[ \t]*\r?\n?", re.S)
 H1 = re.compile(r"^#\s+(.+?)\s*$", re.M)
 IDENT = re.compile(r"^(?:ADR[- ]?\d+[a-z]?|RFC[- ]?\d+[a-z]?|Task)\s*[:—–-]\s*", re.I)
 DATE_PREFIX = re.compile(r"^(\d{4}-\d{2}(?:-\d{2})?)-")
@@ -110,13 +112,37 @@ def type_of(rel: Path) -> str | None:
 
 # -------------------------------------------------------------------- metadata
 def split(text: str) -> tuple[dict, str, bool]:
-    m = FM.match(text)
-    if not m:
-        return {}, text, False
-    meta = yaml.safe_load(m.group(1)) or {}
-    if not isinstance(meta, dict):
-        meta = {}
-    return meta, text[m.end():], True
+    """(frontmatter, body, has-frontmatter).
+
+    Since the `+++` migration an artifact can lead with a TOML block
+    (id/title/status/priority) ahead of the `---` YAML header that carries
+    the ADR-0163 fields; the YAML block wins on shared keys. Either block
+    counts as frontmatter.
+    """
+    data: dict = {}
+    rest = text
+    has = False
+    tm = TOML_FM.match(rest)
+    if tm:
+        try:
+            tdata = tomllib.loads(tm.group(1))
+        except tomllib.TOMLDecodeError:
+            tdata = {}
+        if isinstance(tdata, dict):
+            data.update(tdata)
+        rest = rest[tm.end():].lstrip("\r\n")
+        has = True
+    m = FM.match(rest)
+    if m:
+        try:
+            ydata = yaml.safe_load(m.group(1)) or {}
+        except yaml.YAMLError:
+            ydata = {}
+        if isinstance(ydata, dict):
+            data.update(ydata)
+        rest = rest[m.end():]
+        has = True
+    return data, rest, has
 
 
 def normalize_title(title: str) -> str:

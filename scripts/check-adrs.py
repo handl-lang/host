@@ -25,6 +25,7 @@ import argparse
 import re
 import subprocess
 import sys
+import tomllib
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -39,6 +40,7 @@ SUPERSEDED_BY = re.compile(r"Superseded by\s*\[?ADR[-\s]?(\d{3,4})", re.I)
 DECISION = re.compile(r"^##\s+Decision\b(.*?)(?=^##\s|\Z)", re.M | re.S)
 ITEM = re.compile(r"^(?:\d+\.|[-*])\s+", re.M)   # top-level rules only; nested bullets are detail
 FRONT = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*\r?\n", re.S)
+TOML_FRONT = re.compile(r"\A\+\+\+[ \t]*\r?\n(.*?)\r?\n\+\+\+[ \t]*\r?\n", re.S)
 
 # Headings accepted as the "why" — legacy files use Context/Rationale.
 WHY = re.compile(r"^##\s+(Why|Context|Rationale|Motivation)\b", re.M | re.I)
@@ -74,15 +76,33 @@ def adr_files(proj: Path) -> list[Path]:
 
 
 def frontmatter(text: str) -> dict:
-    """The ADR-0163 header, or {} for a legacy record."""
-    m = FRONT.match(text)
+    """The ADR-0163 header, or {} for a legacy record.
+
+    Since the `+++` migration an ADR leads with a TOML block
+    (id/title/status/priority) followed by the `---` YAML block that
+    carries the ADR-0163 fields; the YAML block wins on shared keys.
+    """
+    data: dict = {}
+    rest = text
+    tm = TOML_FRONT.match(rest)
+    if tm:
+        try:
+            tdata = tomllib.loads(tm.group(1))
+        except tomllib.TOMLDecodeError:
+            tdata = {}
+        if isinstance(tdata, dict):
+            data.update(tdata)
+        rest = rest[tm.end():].lstrip("\r\n")
+    m = FRONT.match(rest)
     if not m:
-        return {}
+        return data
     try:
-        data = yaml.safe_load(m.group(1)) or {}
+        ydata = yaml.safe_load(m.group(1)) or {}
     except yaml.YAMLError:
-        return {}
-    return data if isinstance(data, dict) else {}
+        return data
+    if isinstance(ydata, dict):
+        data.update(ydata)
+    return data
 
 
 def status_of(text: str) -> str:
