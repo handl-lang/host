@@ -1,5 +1,75 @@
 # P3 Step D — graphopt→mlopt merge: impact map & sequencing
 
+## Status — 2026-11-16
+
+### Step D landing status
+
+| Step | Content | Status |
+|---|---|---|
+| D-1a | `mlopt-onnx` → `kit-onnx` (handl-lang/kit-onnx) | **DONE** (earlier) |
+| D-1b | `mlopt-carriers` → `kit-carriers` | **DONE** (earlier) |
+| D-1c | `mlopt-cuda` → `kit-cuda` | **DONE** (earlier; `v0.1.2` UAF fix landed today — see below) |
+| D-1d | `mlopt-discovery` → `kit-discovery` | **DONE** — repo live, graphopt `v0.1.19` (`4851fd9`), kit-discovery tags `v0.1.0`/`v0.1.1`/`v0.1.2`; audit pass 19 verdict CLEAN |
+| D-1e | `mlopt-torch` → `kit-torch` | **IN FLIGHT** — repo live at `main@e579e714` (split `653586a0` + follow-up `e579e714` "bind 'inv' natively + carrier-optional test guards"); **tag pending**, agent still working; zero consumers pinned yet |
+| D-1f | `mlopt-host-tensor` → `kit-host-tensor` | **DONE** — graphopt `v0.1.20` (`d4e2ea5`), kit-host-tensor `v0.1.0`–`v0.1.3`; audit pass 19/20 verified |
+| D-1g+ | `mlopt-kit`/`mlopt-experiments`/`mlopt-handl-peer` absorption | pending (post-D-2 naming decisions) |
+| **D-2** | free `mlopt` name → merge → rename graphopt→mlopt | **PREP DONE, awaiting user approval** — breakage inventory in `d2_merge_prep.md` (4 `parents[N]` sites, meta-dist rename fatal-not-cosmetic, tooling blast radius, `handl-kit-mlopt` contract survives iff `.venv` has `mlopt` installed); all `gh` repo ops (rename/archive) need explicit user go |
+
+### ADR-0179 — IMPLEMENTED (2026-11-16)
+
+Binary `__tensor__` wire + dtype-preserving tensor storage landed across
+the stack: kernel `9d9e875` (handl-value `TensorData::{F64,F32}` +
+`__tensor_bin__` codec), host-tensor `3af18c0`+`c488bad` (codec bin arm +
+ranged safetensors payload-as-wire `tensor.load`), graphopt `069d7db` +
+`eadddba` (hnl-run materialize-before-print egress + `wire.py` decode),
+tagged **graphopt `v0.1.18`**.  Verified on the llama ladder:
+**llama1 6.1e-14**, **llama4 PASS @ 2.05 GB**, **llama8 PASS @ 3.0 GB**
+(previously OOM), **llama22 pending retry**.  See
+`adr_binary_tensor_channel.md` (status → implemented) and
+`llama1_verify_run.md` / `llama8_verify_run.md`.
+
+### Other landings — 2026-11-16
+
+- **kit-cuda `v0.1.2`** — CUDA-graph use-after-free fix (`6813e3b`
+  keep-captured-storages-alive + recapture-on-param-rebind, `a917f7e`
+  fallback-path test coverage); mlopt `d4d4d9e` (deliver skips siblings
+  after a CUDA-context-poisoning failure) + `31b1fdc` (pin bump).
+- **Delivery v6 protocol** — mlopt `4fa228c` (paired-round timing,
+  persisted oracle drains, move-cost reward); corpus result
+  **19/21 oracle-positive** (`delivery_v6_corpus.md`, was v5's 2/9);
+  `deliver_train` oracle-reuse training in flight (uncommitted
+  worktree changes at audit time).
+- **eqsat `v0.1.10` fleet repin** — law-corpus/kit_* cascade completed
+  org-wide; graphopt at `v0.1.21`, kit-cuda `v0.1.3`, kit-host-tensor
+  `v0.1.3`, kit-discovery `v0.1.2` (`repin_cascade_eqsat_v0110.md` —
+  uv propagates `[tool.uv.sources]` transitively, so every consumer
+  carrying eqsat sources needed repin+retag in dep order).
+- **engine-parse-pratt `50070dc`** — multi-statement parse fix: all
+  top-level statements parse into a block; trailing tokens error.
+- **engine-eqsat `dd4815e`** — dag emits `{"Arr": …}` leaf records for
+  canonical `arr` enodes (arr-leaf round-trip).
+- **mlopt `bd386b7`** — whisper decoder declares CUDA-graph
+  `alias_inputs`/`mutable_inputs` meta.
+- **Audits 17–20 all PASS** — per-pass verdicts in `audit_pass_*.md`;
+  residuals filed as P*-N* notes (see open items).
+
+### Open items (need user decision / known issues)
+
+- **Step E Block B + python-egraph oracle** — decisions pending user
+  (`mlopt_step_e_plan.md`).
+- **D-2** — all GitHub-side ops (rename `handl-lang/mlopt` →
+  `mlopt-product`, merge, rename graphopt → mlopt, archive) await user
+  approval; prep inventory complete (`d2_merge_prep.md`).
+- **P20-N3 (LOW, known issue)** — `deliver_train.py` `_DRAIN_KEYS`
+  does not persist the `skipped: True` flag; skip records survive only
+  as `config` + `reason` string, so consumers must parse the reason
+  prefix to distinguish a context-poison skip from an ordinary decline.
+  File as known issue; fix = add `"skipped"` to the persisted key set.
+- Carry-forwards from audit 20: mlopt-torch consumer pins still
+  `v0.1.16` pending kit-torch tag (D-1e); stale v5
+  `DELIVERY_PLAYER_WEIGHTS` (P19-N7); kit-onnx untagged chore HEAD
+  `1aa20df` (P19-N8).
+
 ## A. Where "mlopt" is load-bearing (complete census)
 
 ### A.1 The `mlopt` distribution name is claimed TWICE today
