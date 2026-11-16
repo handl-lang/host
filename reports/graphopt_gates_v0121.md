@@ -94,18 +94,60 @@ eqsat/gamekit/kit-discovery).
 - `-m "not e2e and not slow"` (**core lane**, 4,564 tests — the user's
   "fast lane": skips the 631 e2e engine-boundary tests and the 4 slow
   soak tests; `requires_cuda` tests do run — RTX 2050 present, CUDA
-  available): _IN PROGRESS — see below._
+  available):
+  - Serial attempt: abandoned after ~30 min at ~5% — blocked on
+    `tests/test_compositional_cache.py::test_tampered_entry_declines_and_recovers`,
+    a single unmarked test running >25 min of `optimize()` calls, each
+    spawning `eqsat-run` searches (~1–5 min each, 300 s
+    `MLOPT_EQSAT_TIMEOUT`-bounded).
+  - `-n 2` (xdist) attempt: **PASS — 4,449 passed, 116 skipped, 0
+    failed** in 2,110 s (~35 min). Skips are optional-dep/platform
+    skips, consistent with a normal run. (xdist was needed because a
+    serial run was blocked >25 min on a single unmarked
+    eqsat-search-heavy test; AGENTS.md's serial-default warning was
+    measured on the pre-split 6,372-test suite — the post-split core
+    lane is lighter, but the same pathological-test caveat applies.)
+  - Dev lane (`-m "not slow"`, adds the 631 e2e engine-boundary tests)
+    and full lane: **not run** — e2e is explicitly out of the "cheap"
+    scope, the host was under memory contention from a concurrent
+    agent's suite (two earlyoom kills), and the serial dev lane is
+    documented in AGENTS.md as not finishing in 30 min even
+    uncontended.
 
-<!-- PYTEST_RESULT -->
+### Performance note (possible repin regression — investigate)
+
+The dominant wall time is `eqsat-run` subprocess searches taking
+minutes each inside tests that are **not** marked `slow`. Between the
+previous eqsat pin (`v0.1.6`, per `3f592fc`) and `v0.1.10` the law
+corpus grew substantially (corpus snapshots 301→524 records across
+`0dd897a`..`0bb5940` — more machine-shipped `DEFAULT` laws ⇒ larger
+rule bank ⇒ slower saturation per search). Plausible cause of the
+slowdown; not yet benchmarked old-vs-new. If confirmed, candidates:
+re-mark the affected tests `slow`, or profile the rule-bank growth.
+Files observed slow: `tests/test_compositional_cache.py` (last two
+tests ~25 min each), `tests/test_compositional_pairs.py`.
 
 ## Blocking assessment for D-2 (mlopt-torch removal)
 
-- Python static gates: all green except pre-existing vulture noise in
-  `tests/test_torch_backend_registry.py` (a file that will travel with
+- **Python static gates: green** — ruff check/format, ty, lint-imports,
+  bandit, semgrep, radon ratchet all pass on the shipped source. Only
+  vulture is red, on two pre-existing findings in
+  `tests/test_torch_backend_registry.py` (a file that travels with
   mlopt-torch — the finding disappears with the split, or needs a
-  `# noqa`-style fixture rename if the test stays).
-- Rust arm (`ci.sh`): **red** on egraph/kernel pin skew — independent of
-  the Python split but should be fixed (lock bump) before calling the
-  repo fully green.
-- pytest dev lane: could not complete under host memory contention;
-  core lane result pending.
+  fixture-rename/`# noqa` if the test stays).
+- **Python suite (fast lane): green** — core lane 4,449/4,449 passed.
+  Dev/full lanes not run (see above); the e2e tier is untested here.
+- **Rust arm (`ci.sh`): RED — should be fixed before calling the repo
+  green.** `cargo test` for `mlopt-experiments` fails on
+  `handl-egraph@b873c12` vs the patched local kernel's `Term::Op.attrs`
+  (ADR-0173). Fix is a lockfile bump (`cargo update -p handl-egraph` →
+  egraph `main@2b83e74`+ which carries `7eebc5c`), independent of the
+  Python split but in the same post-migration blast radius.
+- **Perf question to resolve (not a correctness blocker):** unmarked
+  tests now spend minutes each in `eqsat-run` searches — consistent
+  with the law-corpus growth across the eqsat v0.1.6→v0.1.10 repin.
+  Worth a before/after benchmark; if real, re-mark the worst offenders
+  `slow` so `gates.sh` dev lane stays usable.
+- Housekeeping: `scripts/gates.sh` hard-stops at vulture before the
+  suite, so its dev lane can never run on this tree as-is; either fix
+  the two findings or reorder/allowlist vulture in the script.
