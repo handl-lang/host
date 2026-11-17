@@ -1,5 +1,5 @@
 ---
-title: Audit pass 20 — kit-cuda v0.1.2 UAF fix + mlopt poisoned-context skip verified (CUDA unit test passes live; mlopt .venv still runs the buggy 0.1.0 build — env drift, not repo defect); kit-torch D-1e repo landed clean at e579e714, untagged, zero consumers; delivery_v6 corpus 19/21 oracle-positive confirmed against persisted drains (all picks verified, t5 backed by safe-drain summary only); llama22 v3 peak 5.29 GB exit=143 consistent with ADR-0179 memory claims but verify still incomplete; carry-forwards: eqsat repin in flight in graphopt worktree, mlopt-torch pins still v0.1.16
+title: "Audit pass 20 — kit-cuda v0.1.2 UAF fix + mlopt poisoned-context skip verified (CUDA unit test passes live; mlopt .venv still runs the buggy 0.1.0 build — env drift, not repo defect); kit-torch D-1e repo landed clean at e579e714, untagged, zero consumers; delivery_v6 corpus 19/21 oracle-positive confirmed against persisted drains (all picks verified, t5 backed by safe-drain summary only); llama22 v3 peak 5.29 GB exit=143 consistent with ADR-0179 memory claims but verify still incomplete; carry-forwards: eqsat repin in flight in graphopt worktree, mlopt-torch pins still v0.1.16"
 type: report
 date: 2026-11-16
 ---

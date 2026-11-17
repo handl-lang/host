@@ -1,7 +1,7 @@
 ---
-title: `mlopt_core.egraph` demotion plan — Python e-graph → oracle/edge-fallback
+title: "`mlopt_core.egraph` demotion plan — Python e-graph → oracle/edge-fallback"
 type: report
-date: 2026-11-2x
+date: 2026-11-20
 status: plan (P2-finish; binds ADR-0174 phase P2/P3 and ADR-0178 WP4–WP5)
 ---
 

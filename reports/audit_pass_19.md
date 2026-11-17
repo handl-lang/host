@@ -1,5 +1,5 @@
 ---
-title: Audit pass 19 — D-1d landed clean (kit-discovery repo + v0.1.0/v0.1.1 tags verified on remote, graphopt v0.1.19 shrunk consistent); D-1f Phase 1+2 landed (kit-host-tensor v0.1.2, mlopt repinned, forbidden-name renames tagged across four repos, eqsat-pin revert verified correct); deliver v6 paired-round protocol audits sound (one INFO: seeded shuffle can fail to alternate); ext-eval materialize egress closes P18-N1; pin sweep finds only superseded-but-benign tags plus one real corpus skew (eqsat v0.1.9=468 laws vs canonical 524)
+title: "Audit pass 19 — D-1d landed clean (kit-discovery repo + v0.1.0/v0.1.1 tags verified on remote, graphopt v0.1.19 shrunk consistent); D-1f Phase 1+2 landed (kit-host-tensor v0.1.2, mlopt repinned, forbidden-name renames tagged across four repos, eqsat-pin revert verified correct); deliver v6 paired-round protocol audits sound (one INFO: seeded shuffle can fail to alternate); ext-eval materialize egress closes P18-N1; pin sweep finds only superseded-but-benign tags plus one real corpus skew (eqsat v0.1.9=468 laws vs canonical 524)"
 type: report
 date: 2026-11-16
 ---
