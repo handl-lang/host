@@ -7,7 +7,6 @@
 - [ ] T-100 Refine brand assets (assets/logo-512x.png, drawing.svg) and wire into docs/product where useful · created:2026-11-15
 - [ ] T-101 host-tensor eager-eval: dead-branch casts (tensor.to int64 on -inf inside where-else) fail loudly where torch discards — needs lazy/select semantics or poison-tolerant cast policy; blocks t5-small verify-run · created:2026-11-15
 - [ ] T-103 workspace: push templates repo to GH (remote create — deferred publish) · owner:devin · created:2026-11-20 · #publish · links:P-001 · epic:weekend-2026-11-20
-- [ ] T-108 sweep pitch-\* + bare/oddballs: README per pitch.md/bare.md · pri:low · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-109 rename prep (local): sdkgen-\*→tool-sdkgen-\*, compile-\*→engine-compile-\*, slidev-theme→slidev-theme-handl, mlopt→research-mlopt, host-tensor→? · owner:devin · created:2026-11-20 · #rename · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-110 kit-\*/lib-\* .hnl-only migration plan (on-demand refactors; python kits relocate out of kit-\*) · pri:low · owner:devin · created:2026-11-20 · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20
@@ -17,6 +16,7 @@
 - [ ] T-105 sweep engine-\*/ext-\*/compile-\*/sdkgen-\*: README + vendor xtask + Cargo metadata + LICENSE · status:in-progress · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-106 sweep kit-\*/host-\*: README + vendor xtask + metadata (transitional pending hnl migration) · status:in-progress · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-107 sweep python repos: vendor gate.py + README + metadata · status:in-progress · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
+- [ ] T-108 sweep pitch-\* + bare/oddballs: README per pitch.md/bare.md · status:in-progress · pri:low · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
