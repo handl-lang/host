@@ -49,6 +49,7 @@ url = "2"
 handl-kit-data-prelude = { git = "https://github.com/handl-lang/kit-data-prelude", branch = "main" }
 handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
+handl-runtime = { path = "../handl-runtime" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-tag = { git = "https://github.com/handl-lang/host", branch = "main" }

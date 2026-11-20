@@ -30,8 +30,17 @@ fn inner() -> &'static HandlModule {
     CHAR_MODULE.get_or_init(|| {
         let mut registry = OpRegistry::new();
         registry.import_kernel(&handl_plugin_lib_char_native::char_op_registry());
-        HandlModule::new("char", handl_plugin_lib_char_native::CHAR_NATIVE_HNL, &[])
-            .with_ops(CHAR_OPS, Arc::new(registry))
+        // `with_loader_disabled`: `HandlModule::new`'s `analyze_source`
+        // would otherwise route `char`'s prep through the installed
+        // `.hnl` loader — a nested eval whose runtime build materializes
+        // dep env bindings (`dep_env_globals` → `CharModule::name()` →
+        // `inner()`) and self-deadlocks this `OnceLock`. Built-in module
+        // construction uses the bootstrap transforms regardless of
+        // loader state (same guard `plugin-lib-stdlib::module_ref` uses).
+        crate::with_loader_disabled(|| {
+            HandlModule::new("char", handl_plugin_lib_char_native::CHAR_NATIVE_HNL, &[])
+                .with_ops(CHAR_OPS, Arc::new(registry))
+        })
     })
 }
 

@@ -60,13 +60,23 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
     // `assign`s (`A(params) := c0 | c1`, optionally preceded by a stray
     // `var "data"`); both spellings lower to the same `data` shape here.
     let mut ast = ast.clone();
-    lower_family_record_decls(&mut ast);
+    normalize_family_records(&mut ast);
     let ast = &ast;
     let engine = RewriteEngine::new().with_desugar_natives();
     let root = AstRef::new(ast.len() - 1);
     let mut out = engine.run_pass(lang, ast, root, "desugar")?.ast;
     splice_decl_blocks(lang, &mut out);
     Ok(out)
+}
+
+/// Normalize surface family-record declarations into the internal `data`
+/// nodes the desugar rules consume — the same lowering [`apply_desugar`]
+/// performs before running the pass. Exposed for hosts/tests that drive
+/// `RewriteEngine::run_pass` directly on a raw-parse AST: without it the
+/// arena carries the surface `alt`-of-`assign` spelling and rules that
+/// scan for `data` nodes (e.g. `desugar.match_recursor`) see none.
+pub fn normalize_family_records(ast: &mut Ast) {
+    lower_family_record_decls(ast);
 }
 
 /// Lower a surface family-record declaration into a `data` node.
@@ -249,7 +259,11 @@ fn splice_decl_blocks(lang: &Language, ast: &mut Ast) {
                 }
                 spliced.push(entry.clone());
             }
-            if changed { Some(spliced) } else { None }
+            if changed {
+                Some(spliced)
+            } else {
+                None
+            }
         };
         if let Some(children) = new_children {
             if let Some(node) = ast.get_mut(AstRef::new(i)) {

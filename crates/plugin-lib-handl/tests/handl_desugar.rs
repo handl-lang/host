@@ -5,16 +5,16 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstRef, Language, Source};
-use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::transform::DESUGAR_HNL;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
 use handl_runtime::ParseEngineDyn;
 use hnl_engine_lex::{LexerEngine, LexerRequest};
 use hnl_engine_lex_pattern::DataLexerEngine;
 use hnl_engine_parse::ParserRequest;
 use hnl_engine_parse_pratt::PrattEngine;
-use hnl_engine_transform_rewrite::RewriteEngine;
 use hnl_engine_transform_rewrite::native::desugar_native_registry;
+use hnl_engine_transform_rewrite::RewriteEngine;
 use serde_json::Value;
 
 fn lang() -> &'static Language {
@@ -163,7 +163,14 @@ fn dump(ast: &Ast, path: &str) {
 }
 
 fn assert_parity(src: &str) {
-    let ast = parse_raw(src);
+    let mut ast = parse_raw(src);
+    // `Runtime::parse` lowers surface family-record declarations into the
+    // internal `data` nodes before the desugar pass runs
+    // (`desugar_pass::normalize_family_records`); the raw arena still
+    // carries the `alt`-of-`assign` spelling the `data` keyword's
+    // retirement left behind, which `desugar.match_recursor`'s decl scan
+    // would not find.
+    handl_runtime::desugar_pass::normalize_family_records(&mut ast);
     let h = handl_desugar(&ast);
     let r = rust_desugar(&ast);
     if std::env::var_os("DUMP").is_some() {

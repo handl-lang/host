@@ -3,8 +3,10 @@
 //! A consumer that must stay **hermetic** (every `kit-*`, and
 //! `plugin-lib-stdlib`) cannot load its `.hnl` at runtime. Instead its `build.rs`
 //! calls [`vendor`] once, which copies the package (`pkg.hnl` + `src/**/*.hnl`)
-//! into `OUT_DIR/<package>` and prints `cargo:rerun-if-changed`. The crate then
-//! embeds the vendored file with
+//! — plus any `handl-packages/**/*.hnl` payload (e.g. `lib-intl-c`'s
+//! sdkgen-generated ICU port/adapter sources, which table specs embed
+//! directly) — into `OUT_DIR/<package>` and prints `cargo:rerun-if-changed`.
+//! The crate then embeds the vendored file with
 //! `include_str!(concat!(env!("OUT_DIR"), "/lib-x/src/index.hnl"))`.
 //!
 //! The *lib* repo ships no `Cargo.toml` — that is the point of ADR-0160; the
@@ -48,6 +50,13 @@ pub fn vendor_into(pkg_dir: &Path, out_root: &Path) -> Result<PathBuf, String> {
         println!("cargo:rerun-if-changed={}", manifest.display());
     }
     copy_hnl(&pkg_dir.join("src"), &dest.join("src"))?;
+    // `handl-packages/` payloads: generated/contract `.hnl` sources a
+    // consumer embeds outside the `src/` layout (absent for most repos —
+    // `copy_hnl` is a no-op then).
+    copy_hnl(
+        &pkg_dir.join("handl-packages"),
+        &dest.join("handl-packages"),
+    )?;
     normalize_single_module(&dest);
     Ok(dest)
 }
@@ -180,11 +189,9 @@ mod tests {
         let out = root.join("out");
         std::fs::create_dir_all(&out).unwrap();
         let dest = vendor_into(&pkg, &out).unwrap();
-        assert!(
-            module_file(&dest, "b")
-                .unwrap()
-                .ends_with("src/b/index.hnl")
-        );
+        assert!(module_file(&dest, "b")
+            .unwrap()
+            .ends_with("src/b/index.hnl"));
         assert!(module_file(&dest, "zzz").is_err());
         let _ = std::fs::remove_dir_all(&root);
     }

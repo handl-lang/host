@@ -82,10 +82,10 @@ mod char_module;
 pub mod model;
 pub mod op_registry;
 pub mod transform;
-pub use char_module::{CHAR_OPS, CharModule};
-pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
+pub use char_module::{CharModule, CHAR_OPS};
+pub use model::{term_to_value, HandlModel, HandlModelAdapter, HandlModelEngine};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
-pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
+pub use transform::{HandlNativeRewrite, HANDL_PREFIX, KEEP_KEY};
 
 /// Re-export of the engine's [`ImportResolver`] trait so `.hnl` library
 /// builders (e.g. `plugin-lib-stdlib`) can supply an import resolver
@@ -95,8 +95,8 @@ pub use hnl_engine_exec::ImportResolver;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 use handl_language::Source;
 use handl_platform::{
@@ -1046,19 +1046,30 @@ mod bootstrap {
             let record = if tail_is_binding {
                 let mut seen = std::collections::HashSet::new();
                 let mut fields: Vec<String> = Vec::new();
-                let mut push_field = |name: &str| {
-                    if is_valid_ident(name) && seen.insert(name.to_string()) {
+                // Bindable names project `name: name`; a name that cannot
+                // be a `:=` target (a keyword like `first`) carries its
+                // expression inline under a quoted key — mirrors
+                // `handl_runtime::module_prep`.
+                let mut push_field = |name: &str, expr_lines: &[String]| {
+                    if !seen.insert(name.to_string()) {
+                        return;
+                    }
+                    if is_bindable_name(name) {
                         fields.push(format!("{name}: {name}"));
+                    } else {
+                        fields.push(format!("\"{name}\": {}", expr_lines.join("\n").trim()));
                     }
                 };
-                for (name, _, _) in &bindings {
-                    push_field(name);
+                for (name, expr_lines, _) in &bindings {
+                    push_field(name, expr_lines);
                 }
                 for seg in top_level_segments(src) {
                     let trimmed = seg.trim();
                     if is_import_line(trimmed) {
                         for local in import_bound_locals(trimmed) {
-                            push_field(&local);
+                            if is_bindable_name(&local) {
+                                push_field(&local, &[]);
+                            }
                         }
                     }
                 }
@@ -1081,12 +1092,16 @@ mod bootstrap {
             return out;
         }
 
-        // Private bindings hoist as `name := expr;` prelude assignments;
-        // exports stay inline in the trailing record literal (`name: expr`)
-        // — mirrors `loader.hnl`'s `prelude + emit_object`.
+        // Every bindable binding — exported or not — hoists as a
+        // `name := expr;` prelude assignment so sibling references
+        // resolve (`export None := none()` needs `none` bound; exported
+        // or not is irrelevant to scoping). The record then projects the
+        // exported names — `name: name` for bindable names, `"name": expr`
+        // inline for names that cannot be a `:=` target (a keyword like
+        // `first`) — mirrors `handl_runtime::module_prep`.
         let mut prelude = String::new();
-        for (name, expr_lines, exported) in &bindings {
-            if *exported {
+        for (name, expr_lines, _) in &bindings {
+            if !is_bindable_name(name) {
                 continue;
             }
             prelude.push_str(name);
@@ -1104,13 +1119,20 @@ mod bootstrap {
                 record.push_str(", ");
             }
             first = false;
-            // Always quote record keys: an export name may be a keyword
-            // (`first`, `export`) that lexes as `token.keyword.*`, not an
-            // identifier — `is_valid_ident` is only a shape check.
-            record.push('"');
-            record.push_str(name);
-            record.push_str("\": ");
-            record.push_str(expr_lines.join("\n").trim());
+            if is_bindable_name(name) {
+                record.push_str(name);
+                record.push_str(": ");
+                record.push_str(name);
+            } else {
+                // Always quote record keys for non-bindable names: an
+                // export name may be a keyword (`first`, `export`) that
+                // lexes as `token.keyword.*`, not an identifier —
+                // `is_valid_ident` is only a shape check.
+                record.push('"');
+                record.push_str(name);
+                record.push_str("\": ");
+                record.push_str(expr_lines.join("\n").trim());
+            }
         }
         record.push_str(" }");
 
@@ -1346,6 +1368,75 @@ mod bootstrap {
             }
             _ => false,
         }
+    }
+
+    /// Names that cannot be a `:=` binding target even though they pass
+    /// [`is_valid_ident`]: the `token.keyword.*` category plus the literal
+    /// tokens (`true`/`false`/`null`) — they lex as non-identifier tokens,
+    /// so `first := …` does not parse. Mirrors the data-driven check
+    /// `handl_runtime::module_prep` runs through the language's lexer
+    /// (`ModuleLoader::is_bindable_name`); the bootstrap has no `Language`
+    /// at prep time, so it mirrors the canonical keyword category from
+    /// `kit-prelude-lang/data/tokens.yaml` — keep in sync when the
+    /// vocabulary changes.
+    const NON_BINDABLE: &[&str] = &[
+        "absurd",
+        "acc",
+        "app",
+        "arr",
+        "as",
+        "axiom",
+        "cobox",
+        "data",
+        "do",
+        "else",
+        "exists",
+        "export",
+        "fibrant",
+        "first",
+        "for",
+        "forall",
+        "from",
+        "glue",
+        "grade",
+        "grades",
+        "handle",
+        "id2",
+        "if",
+        "impl",
+        "import",
+        "in",
+        "infer",
+        "instance",
+        "j",
+        "law",
+        "left",
+        "let",
+        "match",
+        "op",
+        "rec",
+        "return",
+        "rewrite",
+        "right",
+        "second",
+        "sort",
+        "then",
+        "trait",
+        "true",
+        "false",
+        "null",
+        "type",
+        "univalence",
+        "where",
+        "while",
+        "with",
+    ];
+
+    /// Whether `name` can be a `:=` binding target — [`is_valid_ident`]
+    /// shape plus not a keyword/literal token. Mirrors
+    /// `handl_runtime::module_prep`'s `is_bindable`.
+    fn is_bindable_name(name: &str) -> bool {
+        is_valid_ident(name) && !NON_BINDABLE.contains(&name)
     }
 
     /// Returns true if the line is an import declaration (`import ...` or

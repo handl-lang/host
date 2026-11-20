@@ -13,15 +13,20 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use serde_json::json;
 
-/// Resolver: the package table, plus `"tag"` → `TagModule`.
+/// Resolver: the package table, plus the non-table floor modules the
+/// `.hnl` source reaches ambiently — `"tag"` → `TagModule` and `"sym"` →
+/// `SymModule` (`sym.seeded` mints the ADR-0152 `__ctor__` symbols; in a
+/// kit the prelude registers `sym`, here the test resolver plays that
+/// role, same as `floor_resolver` in the codec tests).
 struct TagResolver;
 
 impl ModuleResolver for TagResolver {
     fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
-        if name == "tag" {
-            return Some(Arc::new(TagModule));
+        match name {
+            "tag" => Some(Arc::new(TagModule)),
+            "sym" => Some(Arc::new(handl_runtime::vm_primitives::SymModule::new())),
+            _ => stdlib::DEFAULT_RESOLVER.resolve(name),
         }
-        stdlib::DEFAULT_RESOLVER.resolve(name)
     }
 }
 
