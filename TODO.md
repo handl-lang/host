@@ -12,7 +12,6 @@
 - [ ] T-112 lib-\*: crate-model decision — 3 models (plugin-lib native / const-only / pure .hnl) + 6 architectures → .hnl-only target; fix broken ci.sh ×4 + unresolvable pkg.hnl ×6 first · pri:high · owner:devin · created:2026-11-20 · #lib · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · status:in-progress · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-106 sweep kit-\*/host-\*: README + vendor xtask + metadata (transitional pending hnl migration) · status:in-progress · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
-- [ ] T-108 sweep pitch-\* + bare/oddballs: README per pitch.md/bare.md · status:in-progress · pri:low · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-113 fix cargo xtask alias for 13 repos where .cargo/ is gitignored (engine-eqsat, engine-exec\*, engine-fmt, engine-lex\*, engine-lint, engine-parse\*, engine-transform\*, engine-typecheck\*) — README dev command or gitignore exception · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-114 license unification: dual MIT OR Apache-2.0 → single MIT (delete LICENSE-APACHE, license="MIT", ensure LICENSE file) across ~40 repos — user directive 'all MIT' · pri:high · owner:devin · created:2026-11-20 · #license · links:P-001 · epic:weekend-2026-11-20
 
