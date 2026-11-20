@@ -13,7 +13,6 @@
 - [ ] T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · status:in-progress · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-105 sweep engine-\*/ext-\*/compile-\*/sdkgen-\*: README + vendor xtask + Cargo metadata + LICENSE · status:in-progress · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-106 sweep kit-\*/host-\*: README + vendor xtask + metadata (transitional pending hnl migration) · status:in-progress · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
-- [ ] T-107 sweep python repos: vendor gate.py + README + metadata · status:in-progress · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-108 sweep pitch-\* + bare/oddballs: README per pitch.md/bare.md · status:in-progress · pri:low · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
