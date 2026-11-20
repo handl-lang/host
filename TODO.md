@@ -13,6 +13,7 @@
 - [ ] T-106 sweep kit-\*/host-\*: README + vendor xtask + metadata (transitional pending hnl migration) · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-107 sweep python repos: vendor gate.py + README + metadata · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-108 sweep pitch-\* + bare/oddballs: README per pitch.md/bare.md · pri:low · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
+- [ ] T-109 rename prep (local): sdkgen-\*→tool-sdkgen-\*, compile-\*→engine-compile-\*, slidev-theme→slidev-theme-handl, mlopt→research-mlopt, host-tensor→? · owner:devin · created:2026-11-20 · #rename · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
