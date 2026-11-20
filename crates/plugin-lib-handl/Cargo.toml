@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 handl-plugin-module = { path = "../plugin-module" }
+handl-ops = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-language = { workspace = true }
 handl-runtime = { path = "../handl-runtime" }

@@ -747,6 +747,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-kit-mlopt"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-core",
+ "handl-platform",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-kit-prelude"
 version = "0.1.0"
 dependencies = [
@@ -755,6 +764,7 @@ dependencies = [
  "handl-kit-data-prelude",
  "handl-kit-ffi",
  "handl-kit-lang",
+ "handl-kit-mlopt",
  "handl-kit-server",
  "handl-kit-stdlib",
  "handl-kit-test",
@@ -778,6 +788,7 @@ dependencies = [
  "hnl-engine-parse-pratt",
  "hnl-engine-typecheck",
  "hnl-engine-typecheck-nbe",
+ "libc",
  "serde",
  "serde_json",
 ]
@@ -865,8 +876,7 @@ name = "handl-lib-bytes"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "handl-value",
  "serde_json",
 ]
@@ -876,8 +886,7 @@ name = "handl-lib-cmp"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -894,8 +903,7 @@ name = "handl-lib-combinators"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -908,8 +916,7 @@ name = "handl-lib-error"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -953,8 +960,7 @@ name = "handl-lib-mood"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -963,8 +969,7 @@ name = "handl-lib-obj"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -972,7 +977,7 @@ dependencies = [
 name = "handl-lib-ops"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -1029,8 +1034,7 @@ name = "handl-lib-type"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -1055,6 +1059,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-ops"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "handl-pkg-vendor"
 version = "0.1.0"
 dependencies = [
@@ -1065,6 +1077,7 @@ dependencies = [
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
+ "handl-ops",
  "handl-value",
  "semver",
  "serde",
@@ -1360,6 +1373,7 @@ dependencies = [
  "handl-lib-desugar",
  "handl-lib-loader",
  "handl-lib-str-handl",
+ "handl-ops",
  "handl-platform",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-stdlib",
@@ -1549,6 +1563,7 @@ dependencies = [
  "handl-lib-serialize",
  "handl-lib-transform",
  "handl-lib-type",
+ "handl-ops",
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-char-native",

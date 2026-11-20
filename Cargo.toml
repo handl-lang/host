@@ -129,6 +129,7 @@ handl-host-tooling = { path = "crates/host-tooling" }
 # `handl-language`, `handl-value`) lives in the `kernel` repo; local
 # development resolves it from the sibling checkout via `[patch]` below.
 handl-language = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-kit-arrow-lower = { path = "crates/handl-kit-arrow-lower" }
 handl-plugin-compile = { path = "crates/plugin-compile" }
 # ADR-0128 Phase 5: the js compiler + webidl backend live in the `web`
@@ -299,6 +300,7 @@ handl-lib-cmp = { path = "../kernel/crates/cmp" }
 handl-lib-combinators = { path = "../kernel/crates/combinators" }
 handl-lib-error = { path = "../kernel/crates/error" }
 handl-language = { path = "../kernel/crates/handl-language" }
+handl-ops = { path = "../kernel/crates/handl-ops" }
 handl-value = { path = "../kernel/crates/handl-value" }
 handl-lib-mood = { path = "../kernel/crates/mood" }
 handl-lib-obj = { path = "../kernel/crates/obj" }

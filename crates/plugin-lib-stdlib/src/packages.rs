@@ -49,7 +49,20 @@ pub struct ModuleSpec {
     /// value fields from arrow fields requires evaluating the record.
     pub values: &'static [&'static str],
     /// Builder for the op registry, or `None` for pure-handl modules.
-    pub registry: Option<fn() -> OpRegistry>,
+    pub registry: Option<RegistrySource>,
+}
+
+/// Where a module's op registry comes from.
+///
+/// `Host` builders return the platform [`OpRegistry`] directly; `Kernel`
+/// builders return a [`handl_ops::OpRegistry`] from a `handl-lib-*`/`lib-*`
+/// crate, which is imported into the host registry at module build time.
+#[derive(Clone, Copy)]
+pub enum RegistrySource {
+    /// A host-side `*_op_registry()` returning [`OpRegistry`].
+    Host(fn() -> OpRegistry),
+    /// A kernel-side `*_op_registry()` returning [`handl_ops::OpRegistry`].
+    Kernel(fn() -> handl_ops::OpRegistry),
 }
 
 /// One row of the package table: a named library contributing one or more
@@ -134,7 +147,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::math::MATH_OPS,
         values: &[],
-        registry: Some(ops::math::math_op_registry),
+        registry: Some(RegistrySource::Host(ops::math::math_op_registry)),
     },
     ModuleSpec {
         name: "str",
@@ -142,7 +155,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::strs::STR_OPS,
         values: &[],
-        registry: Some(ops::strs::str_op_registry),
+        registry: Some(RegistrySource::Host(ops::strs::str_op_registry)),
     },
     ModuleSpec {
         name: "combinators",
@@ -150,7 +163,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_combinators::COMBINATORS_OPS,
         values: &[],
-        registry: Some(handl_lib_combinators::combinators_op_registry),
+        registry: Some(RegistrySource::Kernel(
+            handl_lib_combinators::combinators_op_registry,
+        )),
     },
     ModuleSpec {
         name: "transform",
@@ -158,7 +173,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_combinators::TRANSFORM_OPS,
         values: &[],
-        registry: Some(handl_lib_combinators::transform_op_registry),
+        registry: Some(RegistrySource::Kernel(
+            handl_lib_combinators::transform_op_registry,
+        )),
     },
     ModuleSpec {
         name: "typeof",
@@ -166,7 +183,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_type::TYPE_OPS,
         values: &[],
-        registry: Some(handl_lib_type::type_op_registry),
+        registry: Some(RegistrySource::Kernel(handl_lib_type::type_op_registry)),
     },
     ModuleSpec {
         name: "option",
@@ -185,7 +202,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_mood::MOOD_OPS,
         values: &[],
-        registry: Some(handl_lib_mood::mood_op_registry),
+        registry: Some(RegistrySource::Kernel(handl_lib_mood::mood_op_registry)),
     },
     ModuleSpec {
         name: "encoding",
@@ -205,7 +222,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_bytes::BYTES_OPS,
         values: &[],
-        registry: Some(handl_lib_bytes::bytes_op_registry),
+        registry: Some(RegistrySource::Kernel(handl_lib_bytes::bytes_op_registry)),
     },
     // ── datetime (pure handl, formerly plugin-lib-datetime Rust crate) ──────
     // Moved to handl-packages/datetime/ as pure handl over math/str/char/typeof.
@@ -261,7 +278,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_plugin_lib_otlp_c::OTLP_OPS,
         values: &[],
-        registry: Some(handl_plugin_lib_otlp_std::otlp_std_op_registry),
+        registry: Some(RegistrySource::Host(
+            handl_plugin_lib_otlp_std::otlp_std_op_registry,
+        )),
     },
     ModuleSpec {
         name: "kv_map",
@@ -275,10 +294,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "json",
-        hnl: include_str!(concat!(
-            env!("OUT_DIR"),
-            "/lib-json/src/index_flat.hnl"
-        )),
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-json/src/index_flat.hnl")),
         funcs: &["stringify", "parse", "json"],
         ops: &[],
         values: &[],
@@ -286,10 +302,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "ip",
-        hnl: include_str!(concat!(
-            env!("OUT_DIR"),
-            "/lib-ip/src/index_flat.hnl"
-        )),
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index_flat.hnl")),
         funcs: &[
             "parse",
             "format",
@@ -324,10 +337,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── codecs / formats (former plugin-lib-{base64,hex,json,toml,yaml}) ──
     ModuleSpec {
         name: "base64",
-        hnl: include_str!(concat!(
-            env!("OUT_DIR"),
-            "/lib-base64/src/index_flat.hnl"
-        )),
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index_flat.hnl")),
         funcs: &["encode", "decode", "codec"],
         ops: &[],
         values: &[],
@@ -335,10 +345,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "hex",
-        hnl: include_str!(concat!(
-            env!("OUT_DIR"),
-            "/lib-hex/src/index_flat.hnl"
-        )),
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index_flat.hnl")),
         funcs: &["encode", "decode", "codec"],
         ops: &[],
         values: &[],
@@ -358,7 +365,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_plugin_lib_serialize_toml_c::TOML_C_OPS,
         values: &[],
-        registry: Some(handl_plugin_lib_serialize_toml_c::toml_c_op_registry),
+        registry: Some(RegistrySource::Host(
+            handl_plugin_lib_serialize_toml_c::toml_c_op_registry,
+        )),
     },
     ModuleSpec {
         name: "yaml_c",
@@ -369,15 +378,14 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_plugin_lib_serialize_yaml_c::YAML_C_OPS,
         values: &[],
-        registry: Some(handl_plugin_lib_serialize_yaml_c::yaml_c_op_registry),
+        registry: Some(RegistrySource::Host(
+            handl_plugin_lib_serialize_yaml_c::yaml_c_op_registry,
+        )),
     },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
         name: "url_rfc",
-        hnl: include_str!(concat!(
-            env!("OUT_DIR"),
-            "/lib-url-rfc/src/index_flat.hnl"
-        )),
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index_flat.hnl")),
         funcs: &["parse", "url_rfc"],
         ops: &[],
         values: &[],
@@ -401,7 +409,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_cmp::CMP_OPS,
         values: &[],
-        registry: Some(handl_lib_cmp::cmp_op_registry),
+        registry: Some(RegistrySource::Kernel(handl_lib_cmp::cmp_op_registry)),
     },
     // ── collections (former plugin-lib-collections) ────────────────────
     // Sequential containers: the whole non-nullary surface is pure handl
@@ -415,7 +423,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::VEC_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     ModuleSpec {
         name: "list",
@@ -426,7 +436,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::LIST_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     // `list` per-arrow modules (`collections/list/<name>.hnl`), mirroring
     // `array`'s per-arrow split. IMPORTANT: unlike `array`, each arrow is
@@ -499,7 +511,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "enqueue", "dequeue", "peek"],
         ops: ops::collections::QUEUE_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     ModuleSpec {
         name: "stack",
@@ -507,7 +521,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &["len", "is_empty", "push", "pop", "peek"],
         ops: ops::collections::STACK_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     ModuleSpec {
         name: "deque",
@@ -524,7 +540,9 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         ops: ops::collections::DEQUE_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     // `hash_map`/`hash_set` stay mostly native (see the module .hnl docs);
     // the field-enumeration surface (`keys`/`values`/`entries`) is now
@@ -547,7 +565,9 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         ops: ops::collections::HASH_MAP_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     ModuleSpec {
         name: "hash_set",
@@ -558,7 +578,9 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: ops::collections::HASH_SET_OPS,
         values: &[],
-        registry: Some(ops::collections::collections_op_registry),
+        registry: Some(RegistrySource::Host(
+            ops::collections::collections_op_registry,
+        )),
     },
     // The `array` package is loaded from `handl-packages/collections/array/index.hnl`
     // at runtime via `crate::loader::load_hnl_file` instead of being embedded here.
@@ -633,7 +655,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_obj::OBJ_OPS,
         values: &[],
-        registry: Some(handl_lib_obj::obj_op_registry),
+        registry: Some(RegistrySource::Kernel(handl_lib_obj::obj_op_registry)),
     },
     // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
     // `error.raise` is an irreducible atom: aborting evaluation cannot be
@@ -647,7 +669,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_lib_error::ERROR_OPS,
         values: &[],
-        registry: Some(handl_lib_error::error_op_registry),
+        registry: Some(RegistrySource::Kernel(handl_lib_error::error_op_registry)),
     },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
     // Declaration-only module: the `while`/`for`/`fix` derived forms are
@@ -687,10 +709,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "tar",
-        hnl: include_str!(concat!(
-            env!("OUT_DIR"),
-            "/lib-tar/src/index_flat.hnl"
-        )),
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-tar/src/index_flat.hnl")),
         funcs: &["pack", "unpack"],
         ops: &[],
         values: &[],
@@ -1917,8 +1936,16 @@ fn build_module_shallow(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) ->
             &resolver,
         ))))
         .with_global_lookup(lookup);
-    if let Some(registry) = spec.registry {
-        module = module.with_ops(spec.ops, Arc::new(registry()));
+    if let Some(source) = spec.registry {
+        let registry = match source {
+            RegistrySource::Host(build) => Arc::new(build()),
+            RegistrySource::Kernel(build) => {
+                let mut imported = OpRegistry::new();
+                imported.import_kernel(&build());
+                Arc::new(imported)
+            }
+        };
+        module = module.with_ops(spec.ops, registry);
     }
     module
 }

@@ -35,40 +35,27 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use handl_ops::Op as KernelOp;
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::Value;
 
+/// Runtime axiom checker for op predicates (ADR-0077 Phase 3) — the kernel
+/// ABI definition, re-exported so host code keeps one name.
+pub use handl_ops::RuntimePredicateChecker;
+
 // ---------------------------------------------------------------------------
-// RuntimePredicateChecker
+// KernelOpFn — adapts a kernel `handl_ops::Op` to the host `Function` trait
 // ---------------------------------------------------------------------------
 
-/// A runtime checker for op axiom predicates (ADR-0077 Phase 3).
-///
-/// Op authors can optionally provide a checker when registering an op. If
-/// provided, the checker is called at eval time by [`OpFunction::call`]:
-/// - [`RuntimePredicateChecker::check_requires`] is called **before** the op
-///   executes, with the call args. If it returns `Err`, the call is rejected.
-/// - [`RuntimePredicateChecker::check_guarantee`] is called **after** the op
-///   executes, with the return value. If it returns `Err`, the result is
-///   rejected.
-///
-/// If no checker is registered for an op, its axioms are **trusted** (no
-/// runtime check is performed) — the op behaves exactly as before.
-///
-/// The checker is `Send + Sync` so it can be shared across threads via
-/// [`Arc`] alongside the [`OpRegistry`].
-pub trait RuntimePredicateChecker: Send + Sync {
-    /// Check the `requires` predicate against call arguments.
-    ///
-    /// Return `Ok(())` if the predicate is satisfied, or `Err(message)` with
-    /// a human-readable description of the violation if it is not.
-    fn check_requires(&self, args: &[Value]) -> Result<(), String>;
+/// Presents a kernel [`handl_ops::Op`] as a host [`Function`]. The kernel op
+/// sees the host [`EvalContext`] through the [`handl_ops::OpContext`] impl in
+/// `handl-platform`; errors convert at the boundary.
+struct KernelOpFn(Arc<dyn KernelOp>);
 
-    /// Check the `guarantee` predicate against the return value.
-    ///
-    /// Return `Ok(())` if the predicate is satisfied, or `Err(message)` with
-    /// a human-readable description of the violation if it is not.
-    fn check_guarantee(&self, output: &Value) -> Result<(), String>;
+impl Function for KernelOpFn {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        self.0.call(args, ctx).map_err(EvalError::from)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +160,23 @@ impl OpRegistry {
     /// Returns `true` if no ops are registered.
     pub fn is_empty(&self) -> bool {
         self.ops.is_empty()
+    }
+
+    /// Import every op (and checker) from a kernel [`handl_ops::OpRegistry`],
+    /// wrapping each [`handl_ops::Op`] as a host [`Function`].
+    ///
+    /// This is how `handl-lib-*`/`lib-*` crates — which depend only on the
+    /// kernel op ABI — plug into host dispatch.
+    pub fn import_kernel(&mut self, kernel: &handl_ops::OpRegistry) {
+        for (name, op, checker) in kernel.iter() {
+            let func: Arc<dyn Function + Send + Sync> = Arc::new(KernelOpFn(op));
+            match checker {
+                Some(c) => {
+                    self.register_with_checker(name, func, Some(c));
+                }
+                None => self.register(name, func),
+            }
+        }
     }
 }
 

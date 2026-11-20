@@ -1,4 +1,4 @@
-use handl_platform::Function;
+use handl_ops::Op;
 use serde_json::Value as JsonValue;
 
 use handl_lib_mood::ops::{MoodCnd, MoodInd, MoodInt, MoodNeg, MoodNorm, MoodPot};
@@ -22,7 +22,7 @@ fn err(v: JsonValue) -> serde_json::Value {
     )])))
 }
 
-fn call(f: &dyn Function, args: &[serde_json::Value]) -> serde_json::Value {
+fn call(f: &dyn Op, args: &[serde_json::Value]) -> serde_json::Value {
     let mut c = ctx();
     f.call(args, &mut c).unwrap()
 }

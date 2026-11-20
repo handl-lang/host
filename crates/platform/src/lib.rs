@@ -29,6 +29,8 @@ pub mod kit;
 pub mod lint;
 /// Plugin manifest definitions and dependency declarations.
 pub mod manifest;
+/// Kernel op ABI bridge (`handl_ops::OpContext` for `EvalContext`).
+pub mod ops;
 /// Plugin-provided option schemas and resolved values.
 pub mod options;
 /// Plugin traits, registries, and built-in plugin implementations.
