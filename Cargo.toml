@@ -197,17 +197,17 @@ serde_json = "1"
 #   cargo check --workspace
 # dev-link: begin
 [patch."https://github.com/handl-lang/compile-dot"]
-handl-plugin-compile-dot = { path = "../compile-dot/modules/compile-dot" }
+handl-plugin-compile-dot = { path = "../engine-compile-dot/modules/compile-dot" }
 [patch."https://github.com/handl-lang/compile-handl"]
-handl-plugin-compile-handl = { path = "../compile-handl/modules/compile-handl" }
+handl-plugin-compile-handl = { path = "../engine-compile-handl/modules/compile-handl" }
 [patch."https://github.com/handl-lang/compile-js"]
-handl-plugin-compile-js = { path = "../compile-js" }
+handl-plugin-compile-js = { path = "../engine-compile-js" }
 [patch."https://github.com/handl-lang/compile-llvm"]
-handl-plugin-compile-llvm = { path = "../compile-llvm" }
+handl-plugin-compile-llvm = { path = "../engine-compile-llvm" }
 [patch."https://github.com/handl-lang/compile-sexp"]
-handl-plugin-compile-sexp = { path = "../compile-sexp/modules/compile-sexp" }
+handl-plugin-compile-sexp = { path = "../engine-compile-sexp/modules/compile-sexp" }
 [patch."https://github.com/handl-lang/compile-term"]
-handl-plugin-compile-term = { path = "../compile-term/modules/compile-term" }
+handl-plugin-compile-term = { path = "../engine-compile-term/modules/compile-term" }
 [patch."https://github.com/handl-lang/engine"]
 hnl-engine = { path = "../engine" }
 [patch."https://github.com/handl-lang/engine-exec"]
@@ -380,15 +380,15 @@ handl-lib-url-rfc = { path = "../lib-url-rfc" }
 [patch."https://github.com/handl-lang/lib-url-whatwg"]
 handl-lib-url-whatwg = { path = "../lib-url-whatwg" }
 [patch."https://github.com/handl-lang/sdkgen-c"]
-handl-plugin-sdkgen-backend-c = { path = "../sdkgen-c" }
+handl-plugin-sdkgen-backend-c = { path = "../tool-sdkgen-c" }
 [patch."https://github.com/handl-lang/sdkgen-cli"]
-handl-plugin-sdkgen-cli = { path = "../sdkgen-cli" }
+handl-plugin-sdkgen-cli = { path = "../tool-sdkgen-cli" }
 [patch."https://github.com/handl-lang/sdkgen-file"]
-handl-plugin-sdkgen-emitter-file = { path = "../sdkgen-file" }
+handl-plugin-sdkgen-emitter-file = { path = "../tool-sdkgen-file" }
 [patch."https://github.com/handl-lang/sdkgen-python"]
-handl-plugin-sdkgen-emitter-python = { path = "../sdkgen-python" }
+handl-plugin-sdkgen-emitter-python = { path = "../tool-sdkgen-python" }
 [patch."https://github.com/handl-lang/sdkgen-webidl"]
-handl-plugin-sdkgen-backend-webidl = { path = "../sdkgen-webidl" }
+handl-plugin-sdkgen-backend-webidl = { path = "../tool-sdkgen-webidl" }
 
 
 [patch."https://github.com/handl-lang/lib-perlin"]
