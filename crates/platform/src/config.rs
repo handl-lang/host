@@ -776,6 +776,55 @@ pub fn pkg_dep_specs(src: &str) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/// First `key:` occurrence in comment-stripped `pkg.hnl` source.
+///
+/// `key` must stand alone (no identifier char before it) and be followed
+/// by optional whitespace then `:`, and quoted strings are skipped — so
+/// annotation prose like `description: "deps: see docs"` or a bare word
+/// in `keywords: [deps]` cannot shadow the real table.
+fn pkg_key_at(src: &str, key: &str) -> Option<usize> {
+    let bytes = src.as_bytes();
+    let key = key.as_bytes();
+    let mut i = 0usize;
+    let mut in_str = false;
+    let mut escaped = false;
+    while i + key.len() <= bytes.len() {
+        let b = bytes[i];
+        if in_str {
+            if escaped {
+                escaped = false;
+            } else if b == b'\\' {
+                escaped = true;
+            } else if b == b'"' {
+                in_str = false;
+            }
+            i += 1;
+            continue;
+        }
+        if b == b'"' {
+            in_str = true;
+            i += 1;
+            continue;
+        }
+        let boundary = i == 0
+            || !matches!(
+                bytes[i - 1],
+                b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_'
+            );
+        if boundary && bytes[i..].starts_with(key) {
+            let mut j = i + key.len();
+            while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+                j += 1;
+            }
+            if j < bytes.len() && bytes[j] == b':' {
+                return Some(i);
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
 /// The text between the braces of the `deps:` table in a `pkg.hnl` source.
 ///
 /// Line comments (`--`) are stripped first; the scan is brace-balanced and
@@ -789,7 +838,7 @@ fn pkg_deps_body(src: &str) -> Option<String> {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let deps_at = src.find("deps")?;
+    let deps_at = pkg_key_at(&src, "deps")?;
     let open = src[deps_at..].find('{')? + deps_at;
     let mut depth = 0usize;
     let mut in_str = false;
@@ -926,7 +975,7 @@ pub fn pkg_entry(src: &str) -> Option<String> {
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let at = clean.find("entry")?;
+    let at = pkg_key_at(&clean, "entry")?;
     let tail = &clean[at + "entry".len()..];
     let colon = tail.find(':')?;
     let value = tail[colon + 1..].trim_start();
@@ -1021,7 +1070,7 @@ fn pkg_list_body(src: &str, key: &str) -> Option<String> {
             "
 ",
         );
-    let at = clean.find(key)?;
+    let at = pkg_key_at(&clean, key)?;
     let open = clean[at..].find('[')? + at;
     let close = clean[open..].find(']')? + open;
     Some(clean[open + 1..close].to_string())
@@ -1821,6 +1870,46 @@ vendored = { path = "../lib-vendored" }
             Some("src/a.hnl".into())
         );
         assert_eq!(pkg_entry("{ modules: [\"a\"] }"), None);
+    }
+
+    /// Annotation fields (`name`/`description`/`keywords`/…) routinely
+    /// mention the scanner keys in prose; only a real `key:` may match.
+    #[test]
+    fn pkg_scanners_ignore_annotation_prose() {
+        let src = r#"{
+            name: "lib-foo",
+            description: "deps: see docs; entry: the start; modules listed",
+            license: "MIT",
+            keywords: [deps, modules, entry],
+            deps: { "math-c": "branch:main" },
+            modules: ["vec"],
+            entry: "src/vec.hnl",
+        }"#;
+        assert_eq!(
+            pkg_dep_specs(src),
+            vec![("math-c".to_string(), "branch:main".to_string())]
+        );
+        assert_eq!(pkg_modules(src), vec!["vec".to_string()]);
+        assert_eq!(pkg_entry(src).as_deref(), Some("src/vec.hnl"));
+    }
+
+    /// A key embedded in a longer identifier is not a match.
+    #[test]
+    fn pkg_scanners_require_word_boundary() {
+        assert!(pkg_dep_specs("{ nodeps: { a: \"branch:main\" } }").is_empty());
+        assert!(pkg_modules("{ submodules: [\"x\"] }").is_empty());
+        assert_eq!(pkg_entry("{ reentry: \"src/x.hnl\" }"), None);
+    }
+
+    /// Annotations placed after the functional keys change nothing.
+    #[test]
+    fn pkg_annotations_after_keys_parse_identically() {
+        let bare = "{ deps: { a: \"branch:main\" }, modules: [\"x\"], entry: \"src/x.hnl\" }";
+        let annotated = "{ deps: { a: \"branch:main\" }, modules: [\"x\"], entry: \"src/x.hnl\", \
+                         name: \"n\", description: \"deps modules entry\", keywords: [entry] }";
+        assert_eq!(pkg_dep_specs(bare), pkg_dep_specs(annotated));
+        assert_eq!(pkg_modules(bare), pkg_modules(annotated));
+        assert_eq!(pkg_entry(bare), pkg_entry(annotated));
     }
 
     #[test]
