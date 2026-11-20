@@ -8,6 +8,7 @@
 - [ ] T-101 host-tensor eager-eval: dead-branch casts (tensor.to int64 on -inf inside where-else) fail loudly where torch discards — needs lazy/select semantics or poison-tolerant cast policy; blocks t5-small verify-run · created:2026-11-15
 - [ ] T-102 host: harden pkg.hnl scanners (deps/modules/entry key-aware) + tests · pri:high · owner:devin · created:2026-11-20 · #pkg-hnl · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-103 workspace: push templates repo to GH (remote create — deferred publish) · owner:devin · created:2026-11-20 · #publish · links:P-001 · epic:weekend-2026-11-20
+- [ ] T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
