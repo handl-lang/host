@@ -1,5 +1,25 @@
 # P3 Step D — graphopt→mlopt merge: impact map & sequencing
 
+## Status — 2026-11-19
+
+### Step D landing status
+
+| Step | Content | Status |
+|---|---|---|
+| D-1a–D-1f | `mlopt-onnx`/`mlopt-carriers`/`mlopt-cuda`/`mlopt-discovery`/`mlopt-torch`/`mlopt-host-tensor` → `kit-*` repos | **COMPLETE** — kit-torch split was the last (`graphopt v0.1.22`/`v0.1.23`; kit-torch now at `v0.1.7`) |
+| D-1g+ | `mlopt-kit`/`mlopt-experiments`/`mlopt-handl-peer` absorption | pending (post-merge repoints) |
+| **D-2** | free `mlopt` name → merge → rename graphopt→mlopt | **CONTENT MERGE + RENAMES DONE; local mv + repoints pending v7 completion** — merged repo live as `handl-lang/mlopt` **v0.1.24** (`598e809a`, packages/mlopt merged + mlopt-meta root, all gates green); **v0.1.25** (`ee4a45f1`) post-merge repin to eqsat `v0.1.13` + latest kit-*. GitHub renames done: `handl-lang/mlopt` = merged repo (public), old product = `handl-lang/mlopt-product` (private), `handl-lang/graphopt` redirects. Remaining: local dir mv `~/GitHub/handl-lang/graphopt`→`mlopt`, `handl_deps.env`/`kit.toml`/docs repoints — deferred until the v7 quiet window closes |
+
+### Other landings — 2026-11-19 (see `session_2026-11-19.md`)
+
+- **Step E Term repr ~complete** — eqsat `v0.1.12` (`term`/`term_json` + `ir` shim), `v0.1.13` `Arr` emit; `hnl_codec`→`term_json` (kit-discovery `v0.1.4`); source-onnx canonical; mlopt stage-codec; graphopt bench-codec; kernelopt codec; kit-onnx/kit-torch repoints. Remaining: engine-eqsat arr-leaf fix (`1b7730e`) enabled `v0.1.13` fleet-wide.
+- **I-002 CLOSED** — RCA (stale-env UAF, `i002_cuda_poison_rca.md`) + kit-torch `v0.1.5` executor storage-safety + kit-carriers `v0.1.6` replay delegation + kit-cuda `v0.1.6`/`v0.1.8` empty-graph decline + stats honesty (`cuda_graph_skipped`, mlopt `6c10981a`).
+- **I-003 CLOSED earlier** — expansive tags + joint-safe preset.
+- **Trainer checkpoint/resume** landed (mlopt `79546f1`, now in `packages/mlopt`).
+- **v7 training** — infra-blocked ×3, checkpoint banked, armed resume script pending quiet window.
+- **llama-22L** — ref done, HNL eval still pending quiet window.
+- **Audits 22/23/24/25 all PASS.**
+
 ## Status — 2026-11-16
 
 ### Step D landing status
