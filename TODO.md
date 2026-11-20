@@ -6,7 +6,6 @@
 - [ ] T-099 hnl-gate.sh: HNL=../host-cli breaks in bupha worktrees (~92 repos) · created:2026-10-31
 - [ ] T-100 Refine brand assets (assets/logo-512x.png, drawing.svg) and wire into docs/product where useful · created:2026-11-15
 - [ ] T-101 host-tensor eager-eval: dead-branch casts (tensor.to int64 on -inf inside where-else) fail loudly where torch discards — needs lazy/select semantics or poison-tolerant cast policy; blocks t5-small verify-run · created:2026-11-15
-- [ ] T-103 workspace: push templates repo to GH (remote create — deferred publish) · owner:devin · created:2026-11-20 · #publish · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-109 rename prep (local): sdkgen-\*→tool-sdkgen-\*, compile-\*→engine-compile-\*, slidev-theme→slidev-theme-handl, mlopt→research-mlopt, host-tensor→? · owner:devin · created:2026-11-20 · #rename · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-110 kit-\*/lib-\* .hnl-only migration plan (on-demand refactors; python kits relocate out of kit-\*) · pri:low · owner:devin · created:2026-11-20 · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20
