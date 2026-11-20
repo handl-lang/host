@@ -6,7 +6,6 @@
 - [ ] T-099 hnl-gate.sh: HNL=../host-cli breaks in bupha worktrees (~92 repos) · created:2026-10-31
 - [ ] T-100 Refine brand assets (assets/logo-512x.png, drawing.svg) and wire into docs/product where useful · created:2026-11-15
 - [ ] T-101 host-tensor eager-eval: dead-branch casts (tensor.to int64 on -inf inside where-else) fail loudly where torch discards — needs lazy/select semantics or poison-tolerant cast policy; blocks t5-small verify-run · created:2026-11-15
-- [ ] T-102 host: harden pkg.hnl scanners (deps/modules/entry key-aware) + tests · pri:high · owner:devin · created:2026-11-20 · #pkg-hnl · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-103 workspace: push templates repo to GH (remote create — deferred publish) · owner:devin · created:2026-11-20 · #publish · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-105 sweep engine-\*/ext-\*/compile-\*/sdkgen-\*: README + vendor xtask + Cargo metadata + LICENSE · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
@@ -17,6 +16,7 @@
 - [ ] T-110 kit-\*/lib-\* .hnl-only migration plan (on-demand refactors; python kits relocate out of kit-\*) · pri:low · owner:devin · created:2026-11-20 · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-112 lib-\*: crate-model decision — 3 models (plugin-lib native / const-only / pure .hnl) + 6 architectures → .hnl-only target; fix broken ci.sh ×4 + unresolvable pkg.hnl ×6 first · pri:high · owner:devin · created:2026-11-20 · #lib · #refactor · links:P-001 · epic:weekend-2026-11-20
+- [ ] T-102 host: harden pkg.hnl scanners (deps/modules/entry key-aware) + tests · status:in-progress · pri:high · owner:devin · created:2026-11-20 · #pkg-hnl · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
