@@ -87,6 +87,15 @@ likely relocates out of `kit-*` — decide per-repo during migration.
   step for when the user returns. Pushes to *existing* origins were already
   approved.
 
+## Audit input (2026-11-20, reference not truth)
+
+`handl-lang/workspace/audit-2026-11-20.md` — lib-* is the worst family (~6
+architectures: kernel-substrate Rust crates in lib- clothing, broken ci.sh
+×4, unresolvable pkg.hnl ×6, legacy handl-packages/ ×4+, three crate
+models). Top-fix ordering feeds the sweep: broken gates first, then
+pkg.hnl resolvability, then the lib crate-model decision (resolved by the
+.hnl-only target), license metadata, handl-packages/ migration.
+
 ## Execution order
 
 1. host: `config.rs` scanner hardening + tests.
