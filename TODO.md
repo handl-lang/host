@@ -10,7 +10,6 @@
 - [ ] T-110 kit-\*/lib-\* .hnl-only migration plan (on-demand refactors; python kits relocate out of kit-\*) · pri:low · owner:devin · created:2026-11-20 · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-112 lib-\*: crate-model decision — 3 models (plugin-lib native / const-only / pure .hnl) + 6 architectures → .hnl-only target; fix broken ci.sh ×4 + unresolvable pkg.hnl ×6 first · pri:high · owner:devin · created:2026-11-20 · #lib · #refactor · links:P-001 · epic:weekend-2026-11-20
-- [ ] T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · status:in-progress · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-114 license unification: dual MIT OR Apache-2.0 → single MIT (delete LICENSE-APACHE, license="MIT", ensure LICENSE file) across ~40 repos — user directive 'all MIT' · pri:high · owner:devin · created:2026-11-20 · #license · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
