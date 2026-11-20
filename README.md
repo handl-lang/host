@@ -96,13 +96,10 @@ live in `docs/site/` (`PAPER.md`, `SAE.md`, `explanation/`), vendored by the
 sibling `docs` repo to `/handl/`; project
 notes and ADRs are on the `project` branch, mounted at `project/` (ADR-0129).
 
+## License
+
+MIT.
+
 ## Documentation
 
-Published site (Diátaxis): <https://handl-lang.github.io/docs/handl/>
-
-- [Reference](https://handl-lang.github.io/docs/handl/reference/) — API and schemas
-- [How-to](https://handl-lang.github.io/docs/handl/how-to/) — task recipes
-- [Explanation](https://handl-lang.github.io/docs/handl/explanation/) — design and rationale
-
-Project docs (ADRs, backlog, design notes) ship on the `project` branch and are
-published under [`/handl/project/`](https://handl-lang.github.io/docs/handl/project/).
+<https://handl-lang.github.io/docs/handl/>

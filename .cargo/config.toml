@@ -21,6 +21,7 @@ rustflags = ["-C", "link-arg=-fuse-ld=lld"]
 jobs = 4
 
 [alias]
+xtask = "run --manifest-path xtask/Cargo.toml --"
 # Fast test runner using cargo-nextest (parallel within binaries, cached
 # compilations). Install with: cargo install cargo-nextest
 t = "nextest run --workspace"
