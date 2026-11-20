@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use handl_platform::{EvalContext, Module};
-use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::{
     HandlLoader, HandlModule, ModuleResolver, build_str_handl_module, expand_tag_declarations,
     install_loader, loader, parse_cap_declarations, parse_tag_declarations, strip_comment_lines,

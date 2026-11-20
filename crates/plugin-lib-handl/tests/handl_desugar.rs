@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstRef, Language, Source};
-use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::transform::DESUGAR_HNL;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
 use handl_runtime::ParseEngineDyn;

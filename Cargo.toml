@@ -295,19 +295,13 @@ handl-plugin-loader-native = { path = "../host/crates/plugin-loader-native" }
 handl-plugin-module = { path = "../host/crates/plugin-module" }
 handl-plugin-sdkgen = { path = "../host/crates/plugin-sdkgen" }
 [patch."https://github.com/handl-lang/kernel"]
-handl-lib-bytes = { path = "../kernel/crates/bytes" }
-handl-lib-cmp = { path = "../kernel/crates/cmp" }
-handl-lib-combinators = { path = "../kernel/crates/combinators" }
-handl-lib-error = { path = "../kernel/crates/error" }
+handl-calculus = { path = "../kernel/crates/handl-calculus" }
 handl-language = { path = "../kernel/crates/handl-language" }
 handl-ops = { path = "../kernel/crates/handl-ops" }
 handl-value = { path = "../kernel/crates/handl-value" }
-handl-lib-mood = { path = "../kernel/crates/mood" }
-handl-lib-obj = { path = "../kernel/crates/obj" }
 handl-lib-ops = { path = "../kernel/crates/ops" }
 handl-lib-prim = { path = "../kernel/crates/prim" }
 handl-lib-prim-handl = { path = "../kernel/crates/prim-handl" }
-handl-lib-type = { path = "../kernel/crates/type" }
 [patch."https://github.com/handl-lang/kit-prelude"]
 handl-kit-prelude = { path = "../kit-prelude/crates/kit-prelude" }
 handl-plugin-ffi = { path = "../kit-ffi/modules/ffi" }
@@ -317,12 +311,18 @@ handl-kit-data-prelude = { path = "../kit-data-prelude/crates/handl-kit-data-pre
 handl-kit-prelude-lang = { path = "../kit-prelude-lang/crates/handl-kit-prelude-lang" }
 [patch."https://github.com/handl-lang/lib-base64"]
 handl-lib-base64 = { path = "../lib-base64" }
+[patch."https://github.com/handl-lang/lib-bytes"]
+handl-lib-bytes = { path = "../lib-bytes" }
 [patch."https://github.com/handl-lang/lib-char-native"]
 handl-plugin-lib-char-native = { path = "../lib-char-native" }
+[patch."https://github.com/handl-lang/lib-cmp"]
+handl-lib-cmp = { path = "../lib-cmp" }
 [patch."https://github.com/handl-lang/lib-collections"]
 handl-lib-collections = { path = "../lib-collections" }
 [patch."https://github.com/handl-lang/lib-crypto"]
 handl-plugin-lib-crypto = { path = "../lib-crypto" }
+[patch."https://github.com/handl-lang/lib-error"]
+handl-lib-error = { path = "../lib-error" }
 [patch."https://github.com/handl-lang/lib-desugar"]
 handl-lib-desugar = { path = "../lib-desugar" }
 [patch."https://github.com/handl-lang/lib-hello"]
@@ -352,6 +352,10 @@ handl-plugin-lib-lang-typecheck = { path = "../lib-lang-typecheck" }
 
 [patch."https://github.com/handl-lang/lib-loader"]
 handl-lib-loader = { path = "../lib-loader" }
+[patch."https://github.com/handl-lang/lib-mood"]
+handl-lib-mood = { path = "../lib-mood" }
+[patch."https://github.com/handl-lang/lib-obj"]
+handl-lib-obj = { path = "../lib-obj" }
 [patch."https://github.com/handl-lang/lib-otlp-c"]
 handl-plugin-lib-otlp-c = { path = "../lib-otlp-c" }
 [patch."https://github.com/handl-lang/lib-otlp-std"]
@@ -402,4 +406,7 @@ handl-lib-ffi = { path = "../lib-ffi" }
 
 [patch."https://github.com/handl-lang/lib-comb"]
 handl-lib-comb = { path = "../lib-comb" }
+
+[patch."https://github.com/handl-lang/lib-type"]
+handl-lib-type = { path = "../lib-type" }
 

@@ -20,7 +20,8 @@ use std::sync::Arc;
 
 use handl_platform::{EvalContext, Module};
 use handl_plugin_lib_handl::ModuleResolver;
-use handl_plugin_lib_otlp_c::{OtlpEvent, OtlpModule, OtlpState, StubOtlpState};
+use handl_plugin_lib_otlp_c::{OtlpEvent, OtlpState, StubOtlpState};
+use handl_plugin_lib_stdlib::OtlpModule;
 use handl_plugin_lib_stdlib::module_with;
 use serde_json::json;
 

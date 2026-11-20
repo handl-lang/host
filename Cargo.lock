@@ -645,6 +645,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-calculus"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-ext-tests"
 version = "0.1.0"
 dependencies = [
@@ -683,6 +691,7 @@ name = "handl-kit-core"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-ops",
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-ext-lint",
@@ -773,7 +782,6 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-lint",
- "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
@@ -853,8 +861,8 @@ dependencies = [
 name = "handl-language"
 version = "0.1.0"
 dependencies = [
+ "handl-calculus",
  "handl-value",
- "hnl-engine",
  "rustc-hash 2.1.3",
  "serde",
  "serde_json",
@@ -866,8 +874,7 @@ name = "handl-lib-base64"
 version = "0.1.0"
 dependencies = [
  "base64",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -896,10 +903,6 @@ version = "0.1.0"
 
 [[package]]
 name = "handl-lib-comb"
-version = "0.1.0"
-
-[[package]]
-name = "handl-lib-combinators"
 version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
@@ -932,8 +935,7 @@ version = "0.1.0"
 name = "handl-lib-hex"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "hex",
  "serde_json",
 ]
@@ -942,8 +944,6 @@ dependencies = [
 name = "handl-lib-ip"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
  "serde_json",
 ]
 
@@ -997,10 +997,6 @@ version = "0.1.0"
 name = "handl-lib-serialize"
 version = "0.1.0"
 dependencies = [
- "handl-lib-ops",
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-value",
  "serde_json",
  "thiserror",
 ]
@@ -1028,6 +1024,11 @@ version = "0.1.0"
 [[package]]
 name = "handl-lib-transform"
 version = "0.1.0"
+dependencies = [
+ "handl-lib-ops",
+ "handl-ops",
+ "serde_json",
+]
 
 [[package]]
 name = "handl-lib-type"
@@ -1042,8 +1043,6 @@ dependencies = [
 name = "handl-lib-url-rfc"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
  "iri-string",
  "serde_json",
 ]
@@ -1052,8 +1051,6 @@ dependencies = [
 name = "handl-lib-url-whatwg"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
  "serde_json",
  "url",
 ]
@@ -1355,8 +1352,8 @@ dependencies = [
 name = "handl-plugin-lib-char-native"
 version = "0.1.0"
 dependencies = [
+ "handl-ops",
  "handl-pkg-vendor",
- "handl-platform",
  "serde_json",
 ]
 
@@ -1397,9 +1394,7 @@ dependencies = [
 name = "handl-plugin-lib-kv"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
+ "handl-ops",
  "serde_json",
 ]
 
@@ -1407,10 +1402,8 @@ dependencies = [
 name = "handl-plugin-lib-kv-hashmap"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "handl-plugin-lib-kv",
- "handl-plugin-module",
  "serde_json",
 ]
 
@@ -1490,11 +1483,7 @@ dependencies = [
 name = "handl-plugin-lib-otlp-c"
 version = "0.1.0"
 dependencies = [
- "handl-language",
- "handl-platform",
- "handl-plugin-lib-handl",
- "handl-plugin-module",
- "handl-value",
+ "handl-ops",
  "hex",
  "rand",
  "serde_json",
@@ -1505,8 +1494,7 @@ dependencies = [
 name = "handl-plugin-lib-otlp-std"
 version = "0.1.0"
 dependencies = [
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "handl-plugin-lib-otlp-c",
  "handl-value",
  "serde_json",
@@ -1522,8 +1510,7 @@ name = "handl-plugin-lib-serialize-toml-c"
 version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
  "toml",
 ]
@@ -1533,8 +1520,7 @@ name = "handl-plugin-lib-serialize-yaml-c"
 version = "0.1.0"
 dependencies = [
  "handl-lib-serialize",
- "handl-platform",
- "handl-plugin-lib-handl",
+ "handl-ops",
  "serde_json",
  "serde_yaml",
 ]
@@ -1550,7 +1536,7 @@ dependencies = [
  "handl-lib-bytes",
  "handl-lib-cmp",
  "handl-lib-collections",
- "handl-lib-combinators",
+ "handl-lib-comb",
  "handl-lib-error",
  "handl-lib-hello",
  "handl-lib-hex",
@@ -1566,7 +1552,6 @@ dependencies = [
  "handl-ops",
  "handl-pkg-vendor",
  "handl-platform",
- "handl-plugin-lib-char-native",
  "handl-plugin-lib-crypto",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-otlp-c",
@@ -1794,6 +1779,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 name = "hnl-engine"
 version = "0.1.0"
 dependencies = [
+ "handl-calculus",
  "handl-value",
  "serde",
  "serde_json",
@@ -1924,7 +1910,6 @@ dependencies = [
  "handl-plugin-exec-cache",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-refinement",
- "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-scheduler",
  "handl-runtime",

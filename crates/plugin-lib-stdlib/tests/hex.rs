@@ -1,10 +1,19 @@
 use handl_lib_hex::ops::*;
+use handl_ops::Op;
 use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
 use handl_plugin_lib_handl::{OpRegistry, RuntimePredicateChecker};
 use handl_plugin_lib_stdlib::{library, module};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};
 use std::sync::Arc;
+
+/// Wrap a kernel [`handl_ops::OpRegistry`] into the host [`OpRegistry`]
+/// that [`handl_plugin_lib_handl::OpFunction`] dispatches through.
+fn host_registry(kernel: &handl_ops::OpRegistry) -> Arc<OpRegistry> {
+    let mut host = OpRegistry::new();
+    host.import_kernel(kernel);
+    Arc::new(host)
+}
 
 /// Install the canonical default language once per test binary — the
 /// pure-.hnl `hex` module evaluates through a `HandlModule` bridge
@@ -122,8 +131,8 @@ fn hex_module_works_in_module_registry() {
 fn hex_encode_guarantee_checker_validates_valid_output() {
     // The OpFunction dispatch path runs the guarantee checker. A valid
     // hex output passes.
-    let registry = Arc::new(hex_op_registry());
-    let op_func = handl_plugin_lib_handl::OpFunction::new("hex.encode", registry);
+    let op_func =
+        handl_plugin_lib_handl::OpFunction::new("hex.encode", host_registry(&hex_op_registry()));
     let mut ctx = EvalContext::new();
     let result = op_func.call(&[json!("hello")], &mut ctx).unwrap();
     assert_eq!(result, json!("68656c6c6f"));
@@ -168,14 +177,13 @@ fn hex_encode_op_rejects_when_guarantee_always_fails() {
         }
     }
 
-    let mut registry = OpRegistry::new();
-    registry.register_with_checker(
+    let mut kernel = handl_ops::OpRegistry::new();
+    kernel.register_with_checker(
         "hex.encode",
         Arc::new(HexEncode),
         Some(Arc::new(AlwaysFailGuarantee)),
     );
-    let shared = Arc::new(registry);
-    let op_func = handl_plugin_lib_handl::OpFunction::new("hex.encode", shared);
+    let op_func = handl_plugin_lib_handl::OpFunction::new("hex.encode", host_registry(&kernel));
     let mut ctx = EvalContext::new();
     let err = op_func.call(&[json!("hello")], &mut ctx).unwrap_err();
     let msg = err.to_string();
@@ -190,11 +198,11 @@ fn hex_encode_op_rejects_when_guarantee_always_fails() {
 fn hex_decode_op_has_no_checker_trusted() {
     // hex.decode is registered without a checker → axioms trusted,
     // behaves as before.
-    let registry = Arc::new(hex_op_registry());
-    assert!(registry.get_checker("hex.decode").is_none());
-    assert!(registry.get_checker("hex.encode").is_some());
+    let kernel = hex_op_registry();
+    assert!(kernel.get_checker("hex.decode").is_none());
+    assert!(kernel.get_checker("hex.encode").is_some());
 
-    let op_func = handl_plugin_lib_handl::OpFunction::new("hex.decode", registry);
+    let op_func = handl_plugin_lib_handl::OpFunction::new("hex.decode", host_registry(&kernel));
     let mut ctx = EvalContext::new();
     let result = op_func.call(&[json!("68656c6c6f")], &mut ctx).unwrap();
     assert_eq!(result, json!("hello"));

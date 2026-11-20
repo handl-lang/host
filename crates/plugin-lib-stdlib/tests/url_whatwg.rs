@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use handl_platform::{EvalContext, Module, Plugin};
-use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
 use handl_plugin_lib_stdlib::{PackageResolver, library, module_with};
 use serde_json::json;

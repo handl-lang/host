@@ -78,9 +78,11 @@
 //! `HandlModule::new_raw` loads the `loader` itself raw, without applying
 //! those transforms to its own source.
 
+mod char_module;
 pub mod model;
 pub mod op_registry;
 pub mod transform;
+pub use char_module::{CHAR_OPS, CharModule};
 pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
 pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
@@ -3317,8 +3319,7 @@ pub fn handl_module_from_sources(
 /// `str-handl` is a package: [`STR_HANDL_HNL`] is an aggregator index and
 /// each `str` arrow lives in its own file ([`STR_HANDL_SOURCES`]). The
 /// files import `char`, so the supplied resolver must map `"char"` to a
-/// `char` backend (typically
-/// [`CharModule`](handl_plugin_lib_char_native::CharModule)); sibling
+/// `char` backend (typically [`CharModule`](crate::CharModule)); sibling
 /// `from "./x"` imports are wired from the sources table itself. Runs on
 /// the bytecode engine — the loader's `str` dep path.
 pub fn build_str_handl_module(resolver: &dyn ModuleResolver) -> HandlModule {

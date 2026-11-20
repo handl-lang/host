@@ -159,22 +159,22 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     ModuleSpec {
         name: "combinators",
-        hnl: handl_lib_combinators::COMBINATORS_HNL,
+        hnl: handl_lib_comb::COMBINATORS_HNL,
         funcs: &[],
-        ops: handl_lib_combinators::COMBINATORS_OPS,
+        ops: handl_lib_comb::COMBINATORS_OPS,
         values: &[],
         registry: Some(RegistrySource::Kernel(
-            handl_lib_combinators::combinators_op_registry,
+            handl_lib_comb::combinators_op_registry,
         )),
     },
     ModuleSpec {
         name: "transform",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-transform/src/index.hnl")),
         funcs: &[],
-        ops: handl_lib_combinators::TRANSFORM_OPS,
+        ops: handl_lib_transform::TRANSFORM_OPS,
         values: &[],
         registry: Some(RegistrySource::Kernel(
-            handl_lib_combinators::transform_op_registry,
+            handl_lib_transform::transform_op_registry,
         )),
     },
     ModuleSpec {
@@ -278,7 +278,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_plugin_lib_otlp_c::OTLP_OPS,
         values: &[],
-        registry: Some(RegistrySource::Host(
+        registry: Some(RegistrySource::Kernel(
             handl_plugin_lib_otlp_std::otlp_std_op_registry,
         )),
     },
@@ -365,7 +365,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_plugin_lib_serialize_toml_c::TOML_C_OPS,
         values: &[],
-        registry: Some(RegistrySource::Host(
+        registry: Some(RegistrySource::Kernel(
             handl_plugin_lib_serialize_toml_c::toml_c_op_registry,
         )),
     },
@@ -378,7 +378,7 @@ pub static MODULES: &[ModuleSpec] = &[
         funcs: &[],
         ops: handl_plugin_lib_serialize_yaml_c::YAML_C_OPS,
         values: &[],
-        registry: Some(RegistrySource::Host(
+        registry: Some(RegistrySource::Kernel(
             handl_plugin_lib_serialize_yaml_c::yaml_c_op_registry,
         )),
     },

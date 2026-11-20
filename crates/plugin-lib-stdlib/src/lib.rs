@@ -24,9 +24,11 @@ pub mod arrow_iter;
 pub use handl_lib_ops::{function_value, shared};
 pub mod loader;
 pub mod ops;
+pub mod otlp_module;
 pub mod packages;
 
 pub use loader::{load_hnl_file, load_hnl_file_with_env};
+pub use otlp_module::OtlpModule;
 pub use packages::{
     DEFAULT_RESOLVER, GREET_HNL, MODULES, ModuleSpec, PACKAGES, PackagePlugin, PackageResolver,
     PackageSpec, TRANSFORM_FILTER_HNL, TRANSFORM_MAP_HNL, TRANSFORM_REDUCE_HNL, TableModuleLookup,

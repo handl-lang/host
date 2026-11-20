@@ -343,15 +343,18 @@ pub fn module_in_dir(pkg_dir: &Path, module: &str) -> Result<PackageModuleDef, L
 /// # Errors
 ///
 /// Returns [`LangError::engine`] when `src/` cannot be read.
-pub fn module_sources_in_dir(pkg_dir: &Path) -> Result<Vec<(String, String, Vec<String>)>, LangError> {
+pub fn module_sources_in_dir(
+    pkg_dir: &Path,
+) -> Result<Vec<(String, String, Vec<String>)>, LangError> {
     let src_dir = pkg_dir.join("src");
     let mut paths = Vec::new();
     collect_hnl(&src_dir, &mut paths)?;
     paths.sort();
     let mut out = Vec::with_capacity(paths.len());
     for path in paths {
-        let source = std::fs::read_to_string(&path)
-            .map_err(|e| LangError::engine(format!("module_sources_in_dir: {}: {e}", path.display())))?;
+        let source = std::fs::read_to_string(&path).map_err(|e| {
+            LangError::engine(format!("module_sources_in_dir: {}: {e}", path.display()))
+        })?;
         let name = path
             .file_stem()
             .map(|s| s.to_string_lossy().to_string())

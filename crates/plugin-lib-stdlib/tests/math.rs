@@ -252,13 +252,11 @@ fn log1p() {
 #[test]
 fn copysign() {
     assert_eq!(
-        call(module_ref("math").unwrap(), "copysign", &[n(3.0), n(-1.0)])
-            .as_f64(),
+        call(module_ref("math").unwrap(), "copysign", &[n(3.0), n(-1.0)]).as_f64(),
         Some(-3.0)
     );
     assert_eq!(
-        call(module_ref("math").unwrap(), "copysign", &[n(-3.0), n(1.0)])
-            .as_f64(),
+        call(module_ref("math").unwrap(), "copysign", &[n(-3.0), n(1.0)]).as_f64(),
         Some(3.0)
     );
     // sign of zero is preserved through copysign
@@ -272,21 +270,18 @@ fn copysign() {
 fn nextafter() {
     // one ULP up from 1.0 is 1.0 + f64::EPSILON
     assert_eq!(
-        call(module_ref("math").unwrap(), "nextafter", &[n(1.0), n(2.0)])
-            .as_f64(),
+        call(module_ref("math").unwrap(), "nextafter", &[n(1.0), n(2.0)]).as_f64(),
         Some(1.0 + f64::EPSILON)
     );
     // equal operands return b (host-tensor parity)
     assert_eq!(
-        call(module_ref("math").unwrap(), "nextafter", &[n(2.0), n(2.0)])
-            .as_f64(),
+        call(module_ref("math").unwrap(), "nextafter", &[n(2.0), n(2.0)]).as_f64(),
         Some(2.0)
     );
     // one ULP down from 1.0 — the predecessor is 1 - 2^-53, not
     // 1 - EPSILON (which is two ULPs below 1.0).
     assert_eq!(
-        call(module_ref("math").unwrap(), "nextafter", &[n(1.0), n(0.0)])
-            .as_f64(),
+        call(module_ref("math").unwrap(), "nextafter", &[n(1.0), n(0.0)]).as_f64(),
         Some(f64::from_bits(1.0f64.to_bits() - 1))
     );
 }

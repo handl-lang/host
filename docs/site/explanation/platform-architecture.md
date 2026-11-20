@@ -65,6 +65,10 @@ Not yet released: the `hnl` CLI and LSP hosts (`host-cli`, `host-lsp`),
 the `ext-*` command extensions, the curated `kit-*` kits, and most of the
 `lib-*` standard library. Those appear here only as a boundary: the
 contracts they plug into are public, most of the implementations are not.
+Two newer repos are also still private: `engine-eqsat`, the e-graph
+**search** interpretation over kernel `Term`s (ADR-0174 phase P2), and
+`compile-cuda`, a `compile-*` emitter lowering `lib-kernel-ir` terms to
+CUDA C++.
 
 ## The product repos
 
@@ -87,6 +91,36 @@ component any runtime can compose. Where a product lowers into `.hnl`,
 it goes through the same `Language`-as-data and `Term` machinery
 described above — the optimizer's rewrite laws and the language's
 transform rules are the same kind of object seen from two sides.
+
+## The direction: one term, many interpretations
+
+The accepted end-state (ADR-0174) tightens this layering into a single
+pipeline: **a model is lifted once into Handl `Term`s; a search
+interpretation optimizes them under verified laws; delivery
+interpretations emit runnable artifacts.** Concretely:
+
+- `engine-eqsat` is the e-graph search interpretation — saturation and
+  extraction as one more engine beside tree-walk, bytecode and
+  Cranelift, over the same kernel `Term`, not a second IR.
+- `compile-*` emitters lower `Term`s to targets; `compile-cuda` is the
+  first CUDA backend, emitting real CUDA C++ from `lib-kernel-ir`
+  terms and declining uncovered ops by name.
+- Pipelines are themselves terms: `lift >>> search >>> verify >>>
+  deliver` is `Seq` composition, and `hnl run <script>.hnl` evaluates
+  scripts whose stage-ops (`lift`, `search`, `verify`, `deliver`,
+  `mint`, `gauntlet`, `bench`) are registered by kits. The stage
+  protocol already exists — `python -m mlopt stage
+  lift|search|verify|deliver` is the kit-mlopt JSON endpoint — and
+  `kit-mlopt` is its ratified home. The game layer (`gamekit`,
+  `discoverykit`, `benchkit`) becomes a meta tier of composable,
+  user-writable scripts rather than a fixed driver.
+- The research repos dissolve toward kits along the ratified map
+  (ADR-0175): `graphopt`'s contents are headed for `kit-torch` /
+  `kit-onnx`, and `mlopt` becomes `kit-mlopt` — a kit assembling
+  adapters and stage-ops, not an engine with an IR of its own.
+
+This is the agreed direction, still in flight — the repos in the
+tables above remain the shipping surface today.
 
 ## Plugins are the only unit
 

@@ -1,11 +1,20 @@
 use handl_lib_base64::ops::*;
+use handl_ops::Op;
 use handl_platform::{EvalContext, Function, Module, ModuleLookup, Plugin};
-use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::{ModuleResolver, OpRegistry, RuntimePredicateChecker};
-use handl_plugin_lib_stdlib::{PackageResolver, library, module, module_with};
+use handl_plugin_lib_stdlib::{PackageResolver, library, module_with};
 use handl_plugin_module::ModuleRegistry;
 use serde_json::{Value, json};
 use std::sync::Arc;
+
+/// Wrap a kernel [`handl_ops::OpRegistry`] into the host [`OpRegistry`]
+/// that [`handl_plugin_lib_handl::OpFunction`] dispatches through.
+fn host_registry(kernel: &handl_ops::OpRegistry) -> Arc<OpRegistry> {
+    let mut host = OpRegistry::new();
+    host.import_kernel(kernel);
+    Arc::new(host)
+}
 
 /// Install the canonical default language once per test binary (see
 /// `json.rs` — the `HandlModule` bridge runtimes resolve it lazily).
@@ -143,8 +152,10 @@ fn base64_module_works_in_module_registry() {
 fn base64_encode_guarantee_checker_validates_valid_output() {
     // The OpFunction dispatch path runs the guarantee checker. A valid
     // base64 output passes.
-    let registry = Arc::new(base64_op_registry());
-    let op_func = handl_plugin_lib_handl::OpFunction::new("base64.encode", registry);
+    let op_func = handl_plugin_lib_handl::OpFunction::new(
+        "base64.encode",
+        host_registry(&base64_op_registry()),
+    );
     let mut ctx = EvalContext::new();
     let result = op_func.call(&[json!("hello")], &mut ctx).unwrap();
     assert_eq!(result, json!("aGVsbG8="));
@@ -189,14 +200,13 @@ fn base64_encode_op_rejects_when_guarantee_always_fails() {
         }
     }
 
-    let mut registry = OpRegistry::new();
-    registry.register_with_checker(
+    let mut kernel = handl_ops::OpRegistry::new();
+    kernel.register_with_checker(
         "base64.encode",
         Arc::new(Base64Encode),
         Some(Arc::new(AlwaysFailGuarantee)),
     );
-    let shared = Arc::new(registry);
-    let op_func = handl_plugin_lib_handl::OpFunction::new("base64.encode", shared);
+    let op_func = handl_plugin_lib_handl::OpFunction::new("base64.encode", host_registry(&kernel));
     let mut ctx = EvalContext::new();
     let err = op_func.call(&[json!("hello")], &mut ctx).unwrap_err();
     let msg = err.to_string();
@@ -211,11 +221,11 @@ fn base64_encode_op_rejects_when_guarantee_always_fails() {
 fn base64_decode_op_has_no_checker_trusted() {
     // base64.decode is registered without a checker → axioms trusted,
     // behaves as before.
-    let registry = Arc::new(base64_op_registry());
-    assert!(registry.get_checker("base64.decode").is_none());
-    assert!(registry.get_checker("base64.encode").is_some());
+    let kernel = base64_op_registry();
+    assert!(kernel.get_checker("base64.decode").is_none());
+    assert!(kernel.get_checker("base64.encode").is_some());
 
-    let op_func = handl_plugin_lib_handl::OpFunction::new("base64.decode", registry);
+    let op_func = handl_plugin_lib_handl::OpFunction::new("base64.decode", host_registry(&kernel));
     let mut ctx = EvalContext::new();
     let result = op_func.call(&[json!("aGVsbG8=")], &mut ctx).unwrap();
     assert_eq!(result, json!("hello"));

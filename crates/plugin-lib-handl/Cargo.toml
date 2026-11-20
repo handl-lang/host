@@ -33,7 +33,6 @@ hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = 
 hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
 hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
 hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
-handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 # Cyclic dev-dep (stdlib's normal deps include this crate): tests consume the
 # `TRANSFORM_*_HNL` `pub const` re-exports of `handl-packages/transform/`,
 # which stdlib owns per ADR-0128 §".hnl ownership".

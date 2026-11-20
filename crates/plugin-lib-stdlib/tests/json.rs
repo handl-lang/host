@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use handl_platform::{EvalContext, Module, ModuleLookup, Plugin};
-use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::{HandlModule, ModuleResolver};
 use handl_plugin_lib_stdlib::packages::TableImportResolver;
 use handl_plugin_lib_stdlib::{PackageResolver, TableModuleLookup, library, module_with};

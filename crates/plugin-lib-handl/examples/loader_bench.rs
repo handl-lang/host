@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use handl_platform::{EvalContext, Module};
-use handl_plugin_lib_char_native::CharModule;
+use handl_plugin_lib_handl::CharModule;
 use handl_plugin_lib_handl::{
     HandlLoader, ModuleResolver, build_str_handl_module, install_loader, strip_declaration_lines,
     transform_export_to_object,

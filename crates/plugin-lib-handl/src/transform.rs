@@ -554,7 +554,7 @@ const DESUGAR_FUNCS: &[&str] = &["data"];
 /// every parse).
 pub fn desugar_module() -> HandlModule {
     HandlModule::new("desugar", DESUGAR_HNL, DESUGAR_FUNCS)
-        .with_dependency_arc(Arc::new(handl_plugin_lib_char_native::CharModule))
+        .with_dependency_arc(Arc::new(crate::CharModule))
         .with_dependency_arc(Arc::new(handl_runtime::vm_primitives::SymModule::new()))
         .with_eval_engine("tree-walk")
 }
