@@ -67,7 +67,7 @@ doc comments remain their annotation surface.
 
 ## 2. Org-wide README / LICENSE / metadata normalization
 
-Canonical templates live in `handl-lang/workspace/templates/README/`
+Canonical templates live in `handl-lang/workspace/templates/`
 (`rust-crate`, `rust-workspace`, `handl-pkg`, `python-pkg`, `fallback`).
 
 Rules: license is always **MIT** (README says `MIT.`; every repo carries an
