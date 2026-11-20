@@ -1,28 +1,28 @@
 +++
 id = "P-001"
-title = "pkg.hnl annotations + org-wide README/LICENSE/metadata normalization"
+title = "Weekend: org-wide README/LICENSE/metadata normalization, pkg.hnl annotations, repo renames, kit/lib .hnl-only migration"
 status = "open"
 created = "2026-11-20"
 owner = "devin"
 priority = "high"
-labels = ["metadata", "readme"]
+labels = ["metadata", "readme", "weekend"]
+epic = "weekend-2026-11-20"
 +++
 
-# pkg.hnl package annotations + org-wide README/LICENSE/metadata normalization
+# Weekend push: repo hygiene epic
 
-Two coupled changes across all `handl-lang/*` repos:
+Approved-in-session scope (2026-11-20). Canonical templates + vendored gate
+tooling live in `handl-lang/workspace/templates/` (`README/{family}.md`,
+`xtask/`, `gate.py`).
 
 ## 1. `pkg.hnl` annotation schema
 
-`pkg.hnl` is currently functional-only (`{ modules, deps, entry }`) and is read
-by **textual substring scanners** (`handl_platform::pkg_modules` /
-`pkg_entry` / `pkg_dep_specs` in `host/crates/platform/src/config.rs`) —
-`str::find("modules"|"deps"|"entry")` on comment-stripped source, first match
-wins, not string-aware for the key.
+`pkg.hnl` is functional-only (`{ modules, deps, entry }`) and read by textual
+substring scanners (`handl_platform::pkg_modules` / `pkg_entry` /
+`pkg_dep_specs` in `host/crates/platform/src/config.rs`) — `str::find` on
+comment-stripped source, first match wins.
 
-### Schema
-
-Flat top-level keys; functional keys unchanged:
+Schema (flat top-level keys; functional keys unchanged):
 
 ```hnl
 {
@@ -37,68 +37,61 @@ Flat top-level keys; functional keys unchanged:
 }
 ```
 
-| Key | Type | Required | Notes |
-|---|---|---|---|
-| `modules` | `[str]` | yes | unchanged |
-| `deps` | `{name: spec}` | no | unchanged |
-| `entry` | `str` | no | unchanged |
-| `name` | `str` | no | matters for `handl-packages/<pkg>/` multi-package repos |
-| `description` | `str` | yes | one line; same text as README lead |
-| `license` | `str` | yes | `"MIT"` |
-| `keywords` | `[str]` | no | |
-| `homepage` | `str` | no | default `github.com/handl-lang/<repo>` |
+Constraint: annotation string values must not contain `deps`, `modules`, or
+`entry` substrings (comments exempt). Enforced by gate check.
 
-### Safety constraint
+Prerequisite: harden the three scanners in `config.rs` to require `key` +
+optional-ws + `:` (~30 lines + tests) — host repo, ship first.
 
-Annotation string values must not contain the substrings `deps`, `modules`,
-or `entry` (comments are already stripped and exempt). Enforced by a gate
-check.
+## 2. README / LICENSE / metadata sweep (all ~160 repos)
 
-### Parser hardening (host repo, prerequisite)
+- Templates per prefix family: `engine`, `engine-compile`, `tool`,
+  `tool-sdkgen`, `lib`, `lib-rust` (transitional), `kit`, `kit-rust`/
+  `kit-python` (transitional), `host`, `pitch`, `python`, `bare`.
+- Rules: license always **MIT** + `LICENSE` file in every repo; **no
+  provenance** in READMEs; `## Documentation` = bare docs-hub URL or omitted;
+  normalize structure, keep prose.
+- Gate tooling: vendor `xtask/` + `.cargo` alias into Rust repos
+  (`cargo xtask gate`); vendor `gate.py` → `scripts/gate.py` into python
+  repos (`uv run scripts/gate.py`).
+- Manifest metadata: `Cargo.toml [package]` full fields; `pkg.hnl`
+  annotations; `package.json` fields.
+- 14 repos missing READMEs get them created.
 
-Update the three scanners in `config.rs` to require `key` followed by
-optional whitespace + `:` before scanning — removes substring
-false-positives except a literal `deps:`/`modules:`/`entry:` inside a
-string, which the gate check bans. ~30 lines + tests.
+## 3. Repo renames (local prep now; GH ops deferred)
 
-`handl-packages/<pkg>/pkg.hnl` uses the same schema (`name` distinguishes
-packages). `crates/<crate>/src/*.hnl` substrate packages have no `pkg.hnl`;
-doc comments remain their annotation surface.
+- `sdkgen-*` → `tool-sdkgen-*` (5)
+- `compile-*` → `engine-compile-*` (8)
+- `slidev-theme` → `slidev-theme-handl`
+- `mlopt` → `research-mlopt`
+- `host-tensor` → NOT a host (host = distribution only); target
+  `lib-*`/`engine-*` — decision pending, tensor likely lib-adjacent
+- Templates already reflect target names (`engine-compile.md`,
+  `tool-sdkgen.md`, `tool.md`, `pitch.md`).
 
-## 2. Org-wide README / LICENSE / metadata normalization
+## 4. `kit-*`/`lib-*` → `.hnl`-only target
 
-Canonical templates live in `handl-lang/workspace/templates/README/`
-(`rust-crate`, `rust-workspace`, `handl-pkg`, `python-pkg`, `fallback`).
+Target state: `lib-*` and `kit-*` are pure Handl packages — no Rust, no
+Python. Interop/bindings via `tool-sdkgen-*` where needed. This is a
+planned-on-demand refactor, not big-bang: transitional `lib-rust.md`,
+`kit-rust.md`, `kit-python.md` templates stay until each repo migrates.
+Python kit stack (torch/cuda/onnx/carriers/discovery/host-tensor/kernel-ir)
+likely relocates out of `kit-*` — decide per-repo during migration.
 
-Rules: license is always **MIT** (README says `MIT.`; every repo carries an
-MIT `LICENSE` file — add where missing); **no provenance** in READMEs (no
-ADR citations, split notes, history); `## Documentation` is a bare docs-hub
-URL, omitted when no site exists; normalize structure, keep existing prose.
+## 5. Constraints
 
-Metadata everywhere:
+- `kernel` is frozen — no changes without a great reason.
+- **Local-first**: do all local work (commits, vendored tooling, README
+  edits) without stopping; anything needing GH permission (repo creation,
+  renames, pushes to *new* remotes) is batched into a deferred publishing
+  step for when the user returns. Pushes to *existing* origins were already
+  approved.
 
-- `Cargo.toml [package]`: `description`, `license = "MIT"`, `repository`,
-  `homepage`/`documentation`, `keywords`, `categories`, `readme` where
-  missing.
-- `pkg.hnl`: the annotation schema above.
-- `package.json`: `name`, `version`, `description`, `license`, `repository`,
-  `homepage`.
+## Execution order
 
-Scope: ~160 sibling repos, each its own git repo — per-repo commit + push to
-`origin/main`. Includes the 14 repos missing READMEs entirely
-(`compile-handl`, `kit-{core,ffi,lang,pkg,server,stdlib,test}`, `lib-{ip-c,
-json-handl,kv-map,otlp-c,serialize-toml-c,serialize-yaml-c}`).
-
-## Plan
-
-1. Host: harden `pkg_*` scanners + tests; ship first (other repos' gates may
-   consume it).
-2. `workspace`: push templates repo (xtask + gate.py vendored under `templates/`) (needs a GitHub remote).
-3. Sweep repos in family order: `lib-*` → `engine-*`/`ext-*`/`compile-*`/
-   `sdkgen-*` → `kit-*`/`host-*` → python repos → oddballs. Per repo:
-   README normalize-or-create, LICENSE check/add, metadata annotations,
-   commit, push.
-4. Final sweep: every repo has README + LICENSE + annotated manifests.
-
-Templates approved in session 2026-11-20 (MIT-only, no provenance,
-single docs link).
+1. host: `config.rs` scanner hardening + tests.
+2. `workspace`: templates repo — create GH remote (deferred publish).
+3. Per-family sweeps: `lib-*` → `engine-*`/`ext-*`/`compile-*`/`sdkgen-*` →
+   `kit-*`/`host-*` → python → `pitch-*`/`bare`.
+4. Rename prep (local branches/dirs + README/manifest name updates).
+5. Deferred publishing batch (needs user go): GH creates/renames/pushes.
