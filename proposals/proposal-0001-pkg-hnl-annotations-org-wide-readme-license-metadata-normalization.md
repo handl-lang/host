@@ -67,7 +67,7 @@ doc comments remain their annotation surface.
 
 ## 2. Org-wide README / LICENSE / metadata normalization
 
-Canonical templates live in `handl-lang/workspace/templates/`
+Canonical templates live in `handl-lang/workspace/templates/README/`
 (`rust-crate`, `rust-workspace`, `handl-pkg`, `python-pkg`, `fallback`).
 
 Rules: license is always **MIT** (README says `MIT.`; every repo carries an
@@ -93,7 +93,7 @@ json-handl,kv-map,otlp-c,serialize-toml-c,serialize-yaml-c}`).
 
 1. Host: harden `pkg_*` scanners + tests; ship first (other repos' gates may
    consume it).
-2. `workspace`: push templates repo (needs a GitHub remote).
+2. `workspace`: push templates repo (xtask + gate.py vendored under `templates/`) (needs a GitHub remote).
 3. Sweep repos in family order: `lib-*` → `engine-*`/`ext-*`/`compile-*`/
    `sdkgen-*` → `kit-*`/`host-*` → python repos → oddballs. Per repo:
    README normalize-or-create, LICENSE check/add, metadata annotations,
