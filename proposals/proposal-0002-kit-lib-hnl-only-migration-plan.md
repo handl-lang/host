@@ -45,13 +45,13 @@ packages — **no Rust, no Python**. Interop/bindings via `tool-sdkgen-*`
 
 - `ci.sh` runs `cargo test` with no `Cargo.toml`: `lib-{arrow-iter,datetime,
   encoding,stats}` — gate broken today.
-- Unresolvable `pkg.hnl` modules: `lib-comb`, `lib-os-c`, `lib-os-stub`,
+- Unresolvable `pkg.hnl` modules: `lib-comb`, `lib-posix-c`, `lib-posix-stub`,
   `lib-ip` (partial — flat `src/*.hnl` vs `src/<name>/index.hnl` convention),
   `lib-curl`, `lib-libc`, `lib-libz` (no `.hnl` at all — generated bindings
   under gitignored `handl-packages/generated/`).
 - Legacy `handl-packages/` layout without `pkg.hnl`: `lib-{command,event,
   query,otlp}` (+`lib-otlp` dual layout).
-- Stray `../../lib-*` relative imports: `lib-{os-c,noise-c,unicode-c,ffi}`.
+- Stray `../../lib-*` relative imports: `lib-{posix-c,noise-c,unicode-c,ffi}`.
 - `lib-math-js`/`lib-mood`-style skeleton repos (`src/` empty).
 - ~40 crates declared `MIT OR Apache-2.0` while shipping single MIT LICENSE —
   resolved org-wide by T-114 (single MIT).

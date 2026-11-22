@@ -62,7 +62,7 @@ scalars/`cstr`/`ptr`/`handle`/`f64`/`void` — **no struct-by-value**.
 
 Census: already used by lib-cli (libc, ~20 sites), lib-fetch-c (libcurl),
 lib-intl-c/lib-unicode-c (ICU), lib-ws-c, lib-tls-libssl, lib-compress (zlib),
-lib-os-c, lib-rand-c, lib-concurrent-epoll, and sdkgen-c's generated output.
+lib-posix-c, lib-rand-c, lib-concurrent-epoll, and sdkgen-c's generated output.
 
 **Gaps:** no callbacks into `.hnl` (C→handl fn pointers — fetch-c redesigned
 around this), no structs/unions by value, no `f32`/`wchar_t`, errno is

@@ -30,8 +30,8 @@ repo that now owns it, per `docs-split.yaml`). Nothing here is unique.
 | `split/handl-packages-ffi` | `8144eadf` | 9 |
 | `split/handl-packages-noise-c` | `aded73ef` | 1 |
 | `split/handl-packages-noise-stub` | `540b1b8a` | 1 |
-| `split/handl-packages-os-c` | `b6ccab46` | 6 |
-| `split/handl-packages-os-stub` | `f7285f77` | 4 |
+| `split/handl-packages-posix-c` | `b6ccab46` | 6 |
+| `split/handl-packages-posix-stub` | `f7285f77` | 4 |
 | `split/handl-packages-perlin` | `aa3213bd` | 2 |
 | `split/handl-packages-query` | `660422e8` | 4 |
 | `split/handl-packages-rand-stub` | `102d57d8` | 10 |

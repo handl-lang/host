@@ -417,7 +417,7 @@ This phase validates the whole template on a 1-crate port surface with
       **Done:** sibling repo `handl-lang/kit-canonical` holds
       `crates/kit-canonical` (subtree-split history) plus
       `handl-packages/`: moved sole-consumer dirs (`comb`, `ffi`,
-      `noise-c`, `noise-stub`, `os-c`, `os-stub`, `perlin`, `rand-stub`,
+      `noise-c`, `noise-stub`, `posix-c`, `posix-stub`, `perlin`, `rand-stub`,
       `simplex`, `test`, `type-handl`, `uuid-c`, `uuid-stub`,
       `playground/rand-stub-test.hnl`) and *copies* of dirs still pinned
       by platform crates (`rand-c`, `time-c`, `intl-c`, `unicode-c`,
