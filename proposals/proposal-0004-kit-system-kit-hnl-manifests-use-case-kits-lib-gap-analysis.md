@@ -3,7 +3,7 @@ id = "P-004"
 title = "kit system: kit.hnl manifests, use-case kits, lib-* gap analysis"
 status = "open"
 created = "2026-11-22"
-priority = "med"
+priority = "high"
 +++
 
 # kit system: kit.hnl manifests, use-case kits, lib-* gap analysis
@@ -12,14 +12,170 @@ Status: **draft** · Created: 2026-11-22
 
 ## Goal & Overview
 
+`kit-*` = curated sets of `lib-*` modules (+ plugins) for a use-case —
+manifests, not code. Existing precedent: `kit-data-prelude/data/kits/*.yaml`
+already implements this (`extends` chains, `modules:`, `caps:`,
+`base_modules:`) inside a Rust repo; P-004 makes it the public contract.
 
+## Decisions (user, 2026-11-22)
+
+1. **Manifest format**: `kit.hnl` — a `.hnl` data literal, consistent with
+   `pkg.hnl`.
+2. **Repo shape**: `kit-*/` repo containing `kit.hnl` (+ optional glue `.hnl`).
+3. **No umbrella prelude kit** — kits must be distinctive per use-case;
+   environment-dependent composition stays out.
+4. Kits are named by use-case. Approved names so far:
+   - `kit-test` — test runner curation
+   - `kit-web-server` — HTTP server curation
+   - `kit-web-browser-iterop` — browser/client-side JS interop (was
+     `kit-web-client-js`)
+   - `kit-web-worker-iterop` — web worker interop
+   - `kit-cli-app` — CLI application curation
+   - NOT for now: `kit-data`, `kit-native`
+
+## Manifest sketch
+
+```hnl
+{
+  name: "web-server",
+  description: "serve HTTP from handl",
+  license: "MIT",
+  libs: ["http-server", "json", "str", "async"],
+  plugins: ["ffi"],
+  entry: "src/index.hnl",   -- optional kit glue
+}
+```
+
+Open sub-questions: does `kit.hnl` reuse the `data/kits/*.yaml` schema
+(`extends`, `caps`, `base_modules`) translated to `.hnl`, or a simpler
+libs+plugins shape? Loader: host-side kit resolution vs pkg mechanism.
+
+## Kit repo reclassification (from triage)
+
+Already true kits (data-only, stay): `kit-data-prelude` (manifest exemplar —
+likely becomes the canonical kit registry or splits), `kit-prelude-lang`,
+`kit-eqsat`.
+
+Impl repos needing rehoming:
+- `kit-core` → host/platform machinery
+- `kit-prelude` → composition root (host-*/tool-*); ships `handl-kit-mlopt` +
+  `hnl-ext-mlopt` → move to mlopt-product/ext
+- `kit-stdlib`, `kit-server`, `kit-test`, `kit-ffi`, `kit-lang` → module
+  bundles with single consumer (kit-prelude); merge or rename to reflect
+  content
+- `kit-pkg` → tool-*/host-* (project discovery for ext-*)
+
+## Kit designs (investigated 2026-11-22)
+
+Naming rule confirmed: `lib-{port}` = contract, `lib-{port}-{impl}` = backend.
+
+### kit-web-browser-iterop
+
+```hnl
+{ name: "kit-web-browser-iterop",
+  libs: ["js", "fetch-js", "ws-whatwg-wasm", "json"],
+  plugins: ["compile-js"] }
+```
+
+`lib-js` = the JS-interop contract (`call`/`invoke`/`await`/`error`, `JS` grade);
+`lib-fetch-js` = fetch over generated WebIDL + `js.await` (the precedent);
+`engine-compile-js` already targets `browser` (esm/iife/inline).
+**New libs:** `lib-dom` (sdkgen-webidl `dom.idl`/`html.idl` already in
+`tool-sdkgen-webidl/specs/` → generated adapters + hand-written convenience
+layer, following lib-fetch-js pattern); optional `lib-js-host` marshalling
+shim; `lib-event-dom` later. **Blocker:** no JS→handl callback mechanism —
+`lib-js` has call/invoke/await but no `on_event` registration; DOM listeners
+and worker `onmessage` need a host injection or JS-side trampoline.
+
+### kit-web-worker-iterop
+
+```hnl
+{ name: "kit-web-worker-iterop",
+  libs: ["js", "worker"],
+  plugins: ["compile-js"],
+  glue: "src/worker-run.hnl" }
+```
+
+Mostly greenfield: `lib-concurrent` task model + `lib-js.await` exist, but no
+Worker binding/postMessage/structuredClone anywhere. **New libs:**
+`lib-worker` (spawn/post/on_message/terminate over `js.call`, `self` side for
+worker-compiled entries, optional SharedArrayBuffer/Atomics); optional
+`lib-concurrent-js` backend implementing `concurrent.Run` over
+MessageChannel/setTimeout so the task model runs in-browser.
+
+### kit-cli-app
+
+```hnl
+{ name: "kit-cli-app",
+  libs: ["args", "stdio", "os-c", "cli", "json", "str-handl", "collections", "time-c"],
+  glue: "src/main.hnl" }
+```
+
+**Critical gap:** nothing reads own-process argv or stdio today — `lib-cli` is
+child-process spawn only; `lib-fs` is a libpython hack (broken); `lib-os-c`
+has env/path/time but no argv/stdio. **New libs:** `lib-args` (pure parser
+taking argv as param — spec reuses `cli.FlagSpec` shape; argv sourced via
+`/proc/self/cmdline` or runner injection `{"args":…}` protocol),
+`lib-stdio` (`print`/`eprint`/`read_line`/`read_all`/`exit` over libc
+`write`/`read`/`exit` ffi.call — descriptor vocabulary proven in cli-c),
+`lib-log` (optional, pure over stdio+time), real `lib-fs` rewrite.
+
+### kit-test
+
+`lib-test` ships six pure-.hnl modules (`test`/`property`/`benchmark`/`fuzz`/
+`snapshot`/`assert`) — but note: these are the **in-language** test surface;
+the host `hnl test` runner (engine-test) is a separate mechanism. kit-test
+curates the former.
+
+```hnl
+{ name: "kit-test",
+  libs: ["test", "rand-stub", "serialize", "combinators", "type", "tag"] }
+```
+
+(`rand-stub` binds as module `rand` — reconcile pkg.hnl naming first.)
+Current Rust `kit-test` crate = delivery binding only (vendors lib-test +
+lib-rand-stub); the kit.hnl replaces that role.
+**Gaps:** no coverage lib, no mock lib, no reporter lib; `property`/`fuzz`
+generate only `seeded_float` inputs; `lib-test/pkg.hnl` modules list stale.
+
+### kit-web-server
+
+The server already exists: `lib-serve` (contract) + `lib-serve-epoll`
+(implementation — accept loop, keep-alive, pipelining, chunked req bodies,
+TLS via opts.tls, WebSocket upgrade via opts.on_ws). Handler = `req ~> resp`
+arrow. Linux-only (epoll/libcurl/libssl).
+
+```hnl
+{ name: "kit-web-server",
+  libs: ["serve-epoll", "concurrent-epoll", "concurrent", "http-rfc",
+         "tls-libssl", "ws-frame", "ws-frame-handl", "ws-whatwg-c",
+         "ws-c", "json", "str", "bytes", "curl", "libc"],
+  glue: ["glue/routes.hnl"] }   -- optional router/static conveniences
+```
+
+Serve call needs no glue: `serve((req) ~> resp, {port: 8080, tls?, on_ws?})`.
+**Gaps:** no router lib (by design routing is in-handler — `lib-http-route`
+would be the addition), no multipart, no static files, no chunked responses,
+no HTTP/2, TLS/WS pull a heavy dep tree (consider plain vs tls/ws kit split).
+NOTE: `lib-serve-epoll` modules aren't registered in any Rust kit crate yet —
+kit.hnl may be the first-class resolution mechanism for them.
+
+### lib-* gap list (consolidated)
+
+New libs needed: `lib-worker`, `lib-dom`, `lib-args`, `lib-stdio`, `lib-log`
+(optional), `lib-concurrent-js` (optional), `lib-http-route` (optional),
+`lib-fs` rewrite (libpython hack must go), `lib-event` finish or
+`lib-event-dom`. Empty stubs to fill or drop: `lib-{str-c,str-js,math-js,
+rand-js}`. Prototypes to fix/delete: `lib-fs`, `lib-json-lib` (libpython3.14
+FFI hacks). Optional later: `lib-coverage`, `lib-mock`, reporter lib,
+`lib-http-multipart`, HTTP/2.
+
+## lib-* gap analysis
 
 ## Requirements
 
-
-
-## Technical Design
-
-
-
-## Open questions
+- Systematic: every kit answers "what can you do with handl after loading
+  this?" — no umbrella kits.
+- New `lib-*` designed to same `pkg.hnl` rules; native backends via
+  `ffi.call`/sdkgen per P-003.
+- Migration of impl repos sequenced after manifest format is frozen.
