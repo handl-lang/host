@@ -166,12 +166,15 @@ kit.hnl may be the first-class resolution mechanism for them.
 
 ### lib-* gap list (consolidated)
 
-New libs needed: `lib-worker`, `lib-dom`, `lib-args`, `lib-stdio`, `lib-log`
+New libs needed: `lib-worker`, `lib-args`, `lib-stdio`, `lib-log`
 (optional), `lib-concurrent-js` (optional), `lib-http-route` (optional),
-`lib-fs` rewrite (libpython hack must go), `lib-event` finish or
-`lib-event-dom`. Empty stubs to fill or drop: `lib-{str-c,str-js,math-js,
-rand-js}`. Prototypes to fix/delete: `lib-fs`, `lib-json-lib` (libpython3.14
-FFI hacks). Optional later: `lib-coverage`, `lib-mock`, reporter lib,
+`lib-event` finish or `lib-event-dom`. Planned backends: `lib-json-c`,
+`lib-json-js` (generated pkg inside lib-js, lib-dom pattern), `lib-fs-js`
+(Node fs API is the de-facto standard). `lib-fs` rewrite in flight (POSIX
+fd API via ffi.call — the standard is POSIX.1). `lib-json-lib` deleted
+(libpython hack; lib-json + lib-json-handl suffice). Stubs: `lib-math-js` +
+`lib-rand-js` implementing (js.call); `lib-{str-c,str-js}` pending user
+decision. Optional later: `lib-coverage`, `lib-mock`, reporter lib,
 `lib-http-multipart`, HTTP/2.
 
 ## lib-* gap analysis
