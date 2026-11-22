@@ -1,4 +1,88 @@
-use handl_platform::EvalError;
+use handl_platform::{EvalContext, EvalError};
+
+use crate::function_value::FunctionValue;
+
+/// `{"__arrow__": true, …}` wire value — the callable shape produced by
+/// the tree-walk/host eval (ADR-0106).
+pub(super) fn is_arrow_value(value: &serde_json::Value) -> bool {
+    value
+        .as_object()
+        .and_then(|obj| obj.get("__arrow__"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Call a callable value with positional arguments.
+///
+/// Arrow-values (`{"__arrow__": true, …}`) are dispatched through
+/// [`EvalContext::try_call_value`] — the only call path that works under
+/// the tree-walk eval, where `eval_expr` has no wired evaluator. Legacy
+/// `FunctionValue` JSON keeps the serialized-body + `eval_expr` path
+/// (positional parameter binding, missing args bind `Null`).
+pub(super) fn call_callable(
+    ctx: &mut EvalContext,
+    callee: &serde_json::Value,
+    args: &[serde_json::Value],
+) -> Result<serde_json::Value, EvalError> {
+    if is_arrow_value(callee) {
+        return ctx.try_call_value(callee, args).ok_or_else(|| {
+            EvalError::Other("call_value: no value callable set in context".to_string())
+        })?;
+    }
+    let fn_val = FunctionValue::from_json(callee).ok_or(EvalError::TypeMismatch(format!(
+        "expected {}, got {}",
+        "function value", "non-function",
+    )))?;
+    let vars: Vec<(String, serde_json::Value)> = fn_val
+        .params
+        .iter()
+        .enumerate()
+        .map(|(i, (name, _))| {
+            (
+                name.clone(),
+                args.get(i).cloned().unwrap_or(serde_json::Value::Null),
+            )
+        })
+        .collect();
+    ctx.eval_expr(&fn_val.body, &vars)
+}
+
+/// Single-argument convenience wrapper over [`call_callable`].
+pub(super) fn call_callable1(
+    ctx: &mut EvalContext,
+    callee: &serde_json::Value,
+    value: &serde_json::Value,
+) -> Result<serde_json::Value, EvalError> {
+    call_callable(ctx, callee, std::slice::from_ref(value))
+}
+
+/// Handl-style truthiness for callable results.
+pub(super) fn is_truthy_value(value: &serde_json::Value) -> bool {
+    if let Some(b) = value.as_bool() {
+        b
+    } else if let Some(n) = value.as_f64() {
+        n != 0.0
+    } else if let Some(s) = value.as_str() {
+        !s.is_empty()
+    } else if value.is_null() {
+        false
+    } else if let Some(arr) = value.as_array() {
+        !arr.is_empty()
+    } else if let Some(obj) = value.as_object() {
+        !obj.is_empty()
+    } else {
+        true
+    }
+}
+
+/// Call a predicate callable and report whether its result is truthy.
+pub(super) fn is_truthy_callable(
+    ctx: &mut EvalContext,
+    callee: &serde_json::Value,
+    value: &serde_json::Value,
+) -> Result<bool, EvalError> {
+    Ok(is_truthy_value(&call_callable1(ctx, callee, value)?))
+}
 
 /// Require an argument at `idx` to be an array.
 pub(super) fn require_array(

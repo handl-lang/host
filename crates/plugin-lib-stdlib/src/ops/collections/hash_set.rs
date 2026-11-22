@@ -7,10 +7,11 @@
 
 use std::collections::HashSet;
 
-use crate::function_value::FunctionValue;
 use handl_platform::{EvalContext, EvalError, Function};
 
-use super::common::{arr, b, num, require_array, require_one_array, require_two_arrays};
+use super::common::{
+    arr, b, call_callable1, num, require_array, require_one_array, require_two_arrays,
+};
 
 fn has_value(input: &[serde_json::Value], target: &serde_json::Value) -> bool {
     input.iter().any(|item| item == target)
@@ -40,23 +41,10 @@ fn dedup_ordered(items: &[serde_json::Value]) -> Vec<serde_json::Value> {
     result
 }
 
-fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
-    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!(
-        "expected {}, got {}",
-        "function value", "non-function",
-    )))
-}
-
-fn bind_param(
-    fn_val: &FunctionValue,
-    value: &serde_json::Value,
-) -> Vec<(String, serde_json::Value)> {
-    fn_val
-        .params
-        .first()
-        .map(|(name, _)| vec![(name.clone(), serde_json::Value::from(value.clone()))])
-        .unwrap_or_default()
-}
+// Callbacks arrive as `{"__arrow__": …}` wire values under the tree-walk
+// eval; `super::common::call_callable1` dispatches them through
+// `ctx.try_call_value` (with a legacy `FunctionValue` + `eval_expr`
+// fallback).
 
 /// `collections.hash_set.new() → set`
 #[derive(Clone, Copy)]
@@ -367,12 +355,11 @@ impl Function for UniqueBy {
             )));
         }
         let array = require_array(args, 0)?;
-        let fn_val = require_function_value(&args[1])?;
+        let callee = &args[1];
         let mut seen: HashSet<String> = HashSet::new();
         let mut result = Vec::new();
         for item in array {
-            let vars = bind_param(&fn_val, item);
-            let key = ctx.eval_expr(&fn_val.body, &vars)?;
+            let key = call_callable1(ctx, callee, item)?;
             let key_str = value_key(&key);
             if seen.insert(key_str) {
                 result.push(item.clone());

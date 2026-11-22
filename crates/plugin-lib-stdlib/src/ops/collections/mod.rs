@@ -13,14 +13,15 @@
 //!   word (it cannot be a record field); `to_array` stays grouped with them.
 //! - [`array`] — the `array.*` functional ops that take handl **arrows**
 //!   (`take_while`/`drop_while`/`scan`/`foldr`/`find_*`): arrow arguments
-//!   cannot cross the `HandlFunction` boundary, so they evaluate the
-//!   serialized [`crate::function_value::FunctionValue`] body through
-//!   `EvalContext::eval_expr` natively. The arrow-free `array.*` surface
-//!   lives in `handl-packages/collections/array/index.hnl` as pure handl.
+//!   arrive as `{"__arrow__": …}` wire values and are invoked through
+//!   `EvalContext::try_call_value` (see [`common::call_callable`]); legacy
+//!   `FunctionValue` JSON still falls back to `eval_expr`. The arrow-free
+//!   `array.*` surface lives in `handl-packages/collections/array/index.hnl`
+//!   as pure handl.
 //! - [`hash_map`] — the `hash_map.*` object ops. Native because handl has
 //!   no object-key-iteration primitive (`merge`/`pick`/`omit`/`invert` need
 //!   to enumerate a record's fields) and several members take arrow
-//!   arguments.
+//!   arguments (same `try_call_value` dispatch as [`array`]).
 //! - [`hash_set`] — the `hash_set.*` set ops. Native because membership is
 //!   keyed on a *serialized* value (`value_key`), which distinguishes
 //!   `1` from `1.0` and differs from handl `==` (cross-numeric equality);

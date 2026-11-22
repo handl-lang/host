@@ -2,13 +2,13 @@
 //!
 //! Currently implemented as a wrapper around `serde_json::Value::Object`.
 
-use crate::function_value::FunctionValue;
 use handl_platform::{EvalContext, EvalError, Function};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 
 use super::common::{
-    num, obj as object_value, require_array, require_object, require_one_array, require_one_object,
+    call_callable1, is_truthy_callable, num, obj as object_value, require_array, require_object,
+    require_one_array, require_one_object,
 };
 
 // ── shared helpers ────────────────────────────────────────────────
@@ -72,56 +72,10 @@ fn require_object_value(arg: &serde_json::Value) -> Result<&Map<String, Value>, 
     )))
 }
 
-fn require_function_value(arg: &serde_json::Value) -> Result<FunctionValue, EvalError> {
-    FunctionValue::from_json(arg).ok_or(EvalError::TypeMismatch(format!(
-        "expected {}, got {}",
-        "function value", "non-function",
-    )))
-}
-
-fn bind_param(fn_val: &FunctionValue, value: &Value) -> Vec<(String, serde_json::Value)> {
-    fn_val
-        .params
-        .first()
-        .map(|(name, _)| vec![(name.clone(), serde_json::Value::from(value.clone()))])
-        .unwrap_or_default()
-}
-
-fn apply_fn(
-    ctx: &mut EvalContext,
-    fn_val: &FunctionValue,
-    value: &Value,
-) -> Result<serde_json::Value, EvalError> {
-    let vars = bind_param(fn_val, value);
-    ctx.eval_expr(&fn_val.body, &vars)
-}
-
-fn is_truthy_value(value: &serde_json::Value) -> bool {
-    if let Some(b) = value.as_bool() {
-        b
-    } else if let Some(n) = value.as_f64() {
-        n != 0.0
-    } else if let Some(s) = value.as_str() {
-        !s.is_empty()
-    } else if value.is_null() {
-        false
-    } else if let Some(arr) = value.as_array() {
-        !arr.is_empty()
-    } else if let Some(obj) = value.as_object() {
-        !obj.is_empty()
-    } else {
-        true
-    }
-}
-
-fn is_truthy_fn(
-    ctx: &mut EvalContext,
-    fn_val: &FunctionValue,
-    value: &Value,
-) -> Result<bool, EvalError> {
-    let result = apply_fn(ctx, fn_val, value)?;
-    Ok(is_truthy_value(&result))
-}
+// Callbacks arrive as `{"__arrow__": …}` wire values under the tree-walk
+// eval; `super::common::call_callable1`/`is_truthy_callable` dispatch them
+// through `ctx.try_call_value` (with a legacy `FunctionValue` +
+// `eval_expr` fallback).
 
 fn value_to_string(value: &Value) -> String {
     match value {
@@ -197,13 +151,11 @@ fn set_path_recursive(value: Value, segments: &[&str], new_value: Value) -> Valu
 fn update_path_recursive(
     value: Value,
     segments: &[&str],
-    fn_val: &FunctionValue,
+    callee: &serde_json::Value,
     ctx: &mut EvalContext,
 ) -> Result<Value, EvalError> {
     if segments.is_empty() {
-        let vars = bind_param(fn_val, &value);
-        let result = ctx.eval_expr(&fn_val.body, &vars)?;
-        return Ok(result);
+        return call_callable1(ctx, callee, &value);
     }
     let segment = segments[0];
     let rest = &segments[1..];
@@ -212,7 +164,7 @@ fn update_path_recursive(
         _ => Map::new(),
     };
     let current = map.get(segment).cloned().unwrap_or(Value::Null);
-    let updated = update_path_recursive(current, rest, fn_val, ctx)?;
+    let updated = update_path_recursive(current, rest, callee, ctx)?;
     map.insert(segment.to_string(), updated);
     Ok(Value::Object(map))
 }
@@ -467,9 +419,8 @@ impl Function for Update {
         let (obj_arg, key_arg, fn_arg) = require_three_args(args)?;
         let obj = require_object_value(obj_arg)?;
         let key = require_string(key_arg)?;
-        let fn_val = require_function_value(fn_arg)?;
         let current = obj.get(key).cloned().unwrap_or(Value::Null);
-        let new_value = apply_fn(ctx, &fn_val, &current)?;
+        let new_value = call_callable1(ctx, fn_arg, &current)?;
         let mut result = obj.clone();
         result.insert(key.to_string(), new_value);
         Ok(object_value(result))
@@ -506,9 +457,8 @@ impl Function for UpdatePath {
     ) -> Result<serde_json::Value, EvalError> {
         let (obj_arg, path_arg, fn_arg) = require_three_args(args)?;
         let path = require_string(path_arg)?;
-        let fn_val = require_function_value(fn_arg)?;
         let segments: Vec<&str> = path.split('.').filter(|s| !s.is_empty()).collect();
-        let result = update_path_recursive(obj_arg.clone(), &segments, &fn_val, ctx)?;
+        let result = update_path_recursive(obj_arg.clone(), &segments, fn_arg, ctx)?;
         Ok(serde_json::Value::from(result))
     }
 }
@@ -526,11 +476,10 @@ impl Function for MapValues {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let (fn_arg, obj_arg) = require_two_args(args)?;
-        let fn_val = require_function_value(fn_arg)?;
         let obj = require_object_value(obj_arg)?;
         let mut result = Map::new();
         for (k, v) in obj {
-            let new_value = apply_fn(ctx, &fn_val, v)?;
+            let new_value = call_callable1(ctx, fn_arg, v)?;
             result.insert(k.clone(), new_value);
         }
         Ok(object_value(result))
@@ -548,11 +497,10 @@ impl Function for MapKeys {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let (fn_arg, obj_arg) = require_two_args(args)?;
-        let fn_val = require_function_value(fn_arg)?;
         let obj = require_object_value(obj_arg)?;
         let mut result = Map::new();
         for (k, v) in obj {
-            let new_key = apply_fn(ctx, &fn_val, &Value::String(k.clone()))?;
+            let new_key = call_callable1(ctx, fn_arg, &Value::String(k.clone()))?;
             let key_str = key_to_string(&new_key);
             result.insert(key_str, v.clone());
         }
@@ -571,11 +519,10 @@ impl Function for FilterKeys {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let (fn_arg, obj_arg) = require_two_args(args)?;
-        let fn_val = require_function_value(fn_arg)?;
         let obj = require_object_value(obj_arg)?;
         let mut result = Map::new();
         for (k, v) in obj {
-            if is_truthy_fn(ctx, &fn_val, &Value::String(k.clone()))? {
+            if is_truthy_callable(ctx, fn_arg, &Value::String(k.clone()))? {
                 result.insert(k.clone(), v.clone());
             }
         }
@@ -594,11 +541,10 @@ impl Function for FilterValues {
         ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         let (fn_arg, obj_arg) = require_two_args(args)?;
-        let fn_val = require_function_value(fn_arg)?;
         let obj = require_object_value(obj_arg)?;
         let mut result = Map::new();
         for (k, v) in obj {
-            if is_truthy_fn(ctx, &fn_val, v)? {
+            if is_truthy_callable(ctx, fn_arg, v)? {
                 result.insert(k.clone(), v.clone());
             }
         }
