@@ -14,6 +14,7 @@
 - [ ] T-118 lib-http-route v3: pattern compiler — optionals (/v:version), suffix vars (:file.:ext), search constraints (?foo=bar); bounded-state matching, no regex backtracking (remix route-pattern model) · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-119 lib-http-route v3: resources()/resource() REST route generators (index/show/create/edit/update/destroy, only:, param:) · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-120 lib-http-middleware: request-scoped context through handlers (auth, sessions, CSRF, CORS, logging) — separate lib, not route's job · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
+- [ ] T-121 lib-http-route: full-URL patterns (host/port/protocol) — DEFERRED, irrelevant for origin server; revisit only if proxy/vhost use-case appears · pri:low · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
