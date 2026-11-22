@@ -170,11 +170,14 @@ New libs needed: `lib-worker`, `lib-args`, `lib-stdio`, `lib-log`
 (optional), `lib-concurrent-js` (optional), `lib-http-route` (optional),
 `lib-event` finish or `lib-event-dom`. Planned backends: `lib-json-c`,
 `lib-json-js` (generated pkg inside lib-js, lib-dom pattern), `lib-fs-js`
-(Node fs API is the de-facto standard). FS libs follow port/impl split
-(user decision 2026-11-22): **`lib-posix`** (contract: POSIX.1 fd/fs API
-decls) + **`lib-posix-c`** (libc ffi.call impl — the lib-fs rewrite becomes
-this; lib-fs repo renamed/replaced). Sibling note: `lib-os-c` covers
-env/path/time — posix covers fs/fd; possible future merge. `lib-json-lib`
+(Node fs API is the de-facto standard). **OS surface migrates to posix
+naming** (user decision 2026-11-22, T-117): `lib-posix` contract (POSIX.1 —
+fs/fd/env/path/**time**; clock fns are POSIX so time folds in, lib-time/-c
+become aliases/fold later) + `lib-posix-c` impl (libc ffi.call — absorbs
+lib-os-c env/path/time AND the lib-fs rewrite) + `lib-posix-stub`. Full
+rename incl. module names (`os-c`→`posix-c`, `os-stub`→`posix-stub`);
+consumer sweep required. `lib-os-c`/`lib-os-stub`/`lib-fs` repos retire.
+`lib-json-lib`
 deleted
 (libpython hack; lib-json + lib-json-handl suffice). Stubs: `lib-math-js` +
 `lib-rand-js` implementing (js.call); `lib-{str-c,str-js}` pending user
