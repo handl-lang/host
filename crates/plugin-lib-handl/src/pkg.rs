@@ -463,6 +463,25 @@ impl PackageResolver {
             lazy_dirs: Some(dirs),
         }
     }
+
+    /// Build a lazy resolver over a kit repo's `kit.hnl` curation manifest
+    /// (kit.hnl v1, proposal P-004).
+    ///
+    /// Each `libs` entry resolves to its sibling `lib-<name>` package and
+    /// each package's `pkg.hnl` `deps` close over transitively — the same
+    /// name→dir map [`handl_platform::resolve_kit_dependencies`] produces
+    /// for the `ModuleLoader` deps table. Modules resolve on demand by
+    /// their `pkg.hnl` `modules` names (a kit entry names the *package*;
+    /// the module names inside come from each package's own manifest).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError::engine`] when `kit.hnl` cannot be read.
+    pub fn from_kit_dir(kit_dir: &Path) -> Result<Self, LangError> {
+        let dirs = handl_platform::resolve_kit_dependencies(kit_dir)
+            .map_err(|e| LangError::engine(format!("kit dependencies: {e}")))?;
+        Ok(Self::lazy(dirs))
+    }
 }
 
 impl ModuleResolver for PackageResolver {
@@ -647,6 +666,44 @@ op \"b.go\" : Unit -> Unit
         assert!(resolver.resolve("absent").is_none());
         let _ = std::fs::remove_dir_all(&good);
         let _ = std::fs::remove_dir_all(&bad);
+    }
+
+    /// `from_kit_dir` resolves a kit.hnl v1 manifest: `libs` entries map to
+    /// sibling `lib-<name>` packages and each package's `pkg.hnl` `deps`
+    /// close over — modules then resolve lazily by their `pkg.hnl`
+    /// `modules` names.
+    #[test]
+    fn from_kit_dir_resolves_libs_and_transitive_deps() {
+        let root = std::env::temp_dir().join(format!("hnl-kit-pkg-{}", std::process::id()));
+        let kit = root.join("kit-demo");
+        let lib_a = root.join("lib-a");
+        let lib_b = root.join("lib-b");
+        for dir in [&kit, &lib_a, &lib_b] {
+            std::fs::create_dir_all(dir.join("src")).unwrap();
+        }
+        std::fs::write(
+            kit.join("kit.hnl"),
+            "{ name: \"kit-demo\", license: \"MIT\", libs: [\"a\"] }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            lib_a.join("pkg.hnl"),
+            "{ modules: [\"a\"], deps: { b: \"branch:main\" } }\n",
+        )
+        .unwrap();
+        std::fs::write(lib_a.join("src/index.hnl"), "export f := (x) ~> x\n").unwrap();
+        std::fs::write(lib_b.join("pkg.hnl"), "{ modules: [\"b\"] }\n").unwrap();
+        std::fs::write(lib_b.join("src/index.hnl"), "export g := (x) ~> x\n").unwrap();
+
+        let resolver = PackageResolver::from_kit_dir(&kit).expect("kit resolves");
+        let a = resolver.resolve("a").expect("kit lib `a` resolves");
+        assert_eq!(a.name(), "a");
+        // `b` arrived only through `a`'s pkg.hnl deps — the transitive half.
+        let b = resolver.resolve("b").expect("transitive dep `b` resolves");
+        assert_eq!(b.name(), "b");
+        assert!(resolver.resolve("nope").is_none());
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
 

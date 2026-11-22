@@ -4,7 +4,8 @@
 //! host should load, what to exclude, and which option overrides to apply. It
 //! also defines the `HostApplier` trait and a `.handl.toml` backed applier.
 
-use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -752,9 +753,7 @@ pub fn resolve_pkg_dependencies(
     let mut out = HashMap::new();
     for (name, _spec) in pkg_dep_specs(&src) {
         // Local-dev convention: the dep lives in the sibling `lib-<name>` repo.
-        let dir = manifest_dir.join("..").join(format!("lib-{name}"));
-        let dir = std::fs::canonicalize(&dir).unwrap_or(dir);
-        out.insert(name, dir);
+        out.insert(name.clone(), sibling_lib_dir(manifest_dir, &name));
     }
     Ok(out)
 }
@@ -959,10 +958,7 @@ pub fn pkg_modules(src: &str) -> Vec<String> {
     let Some(body) = pkg_list_body(src, "modules") else {
         return Vec::new();
     };
-    body.split(',')
-        .map(|s| s.trim().trim_matches('"').trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
+    hnl_list_entries(&body)
 }
 
 /// The `entry` override of a `pkg.hnl` source, when declared.
@@ -1074,6 +1070,132 @@ fn pkg_list_body(src: &str, key: &str) -> Option<String> {
     let open = clean[at..].find('[')? + at;
     let close = clean[open..].find(']')? + open;
     Some(clean[open + 1..close].to_string())
+}
+
+/// Quoted-string list entries of a `[ … ]` body, in order — the shared
+/// tail of [`pkg_modules`] and [`kit_libs`].
+fn hnl_list_entries(body: &str) -> Vec<String> {
+    body.split(',')
+        .map(|s| s.trim().trim_matches('"').trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// kit.hnl v1 — pure-curation kit manifests (proposal P-004)
+//
+// A `kit.hnl` is a `.hnl` data literal at a `kit-*` repo's root:
+//
+// ```text
+// { name: "web-server", description: "…", license: "MIT",
+//   libs: ["serve-epoll", "http-route", "json"] }
+// ```
+//
+// `libs` entries are lib package names — the `lib-*` repo name minus the
+// `lib-` prefix — resolved by the same sibling-checkout convention
+// [`resolve_pkg_dependencies`] applies to `pkg.hnl` `deps`. Like `pkg.hnl`,
+// parsing is a lenient scan: a missing or malformed manifest yields empty
+// results rather than an error.
+// ---------------------------------------------------------------------------
+
+/// The `name:` field of a `kit.hnl` source, when declared.
+///
+/// Same lenient scan as [`pkg_entry`]: comment-stripped, string-aware, and
+/// `None` on a missing or non-string value.
+pub fn kit_name(src: &str) -> Option<String> {
+    let clean: String = src
+        .lines()
+        .map(|l| match l.find("--") {
+            Some(i) => &l[..i],
+            None => l,
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let at = pkg_key_at(&clean, "name")?;
+    let tail = &clean[at + "name".len()..];
+    let colon = tail.find(':')?;
+    let value = tail[colon + 1..].trim_start();
+    if !value.starts_with('"') {
+        return None;
+    }
+    let end = value[1..].find('"')? + 1;
+    Some(value[1..end].to_string())
+}
+
+/// The `libs` list of a `kit.hnl` source, in declaration order.
+///
+/// Empty when the table is absent or malformed — the same leniency
+/// [`pkg_modules`] applies.
+pub fn kit_libs(src: &str) -> Vec<String> {
+    let Some(body) = pkg_list_body(src, "libs") else {
+        return Vec::new();
+    };
+    hnl_list_entries(&body)
+}
+
+/// The sibling `lib-<name>` package directory for a lib/kit entry —
+/// the local-development convention shared by [`resolve_pkg_dependencies`]
+/// and [`resolve_kit_dependencies`]. Canonicalized when it exists so
+/// downstream cache keys are stable.
+fn sibling_lib_dir(base: &Path, name: &str) -> PathBuf {
+    let dir = base.join("..").join(format!("lib-{name}"));
+    std::fs::canonicalize(&dir).unwrap_or(dir)
+}
+
+/// Read `<kit_dir>/kit.hnl` and resolve its `libs` into an import-name →
+/// package-directory map, closing over each package's own `pkg.hnl`
+/// `deps` transitively.
+///
+/// This is the kit.hnl v1 loader (proposal P-004): a kit is pure curation —
+/// `libs: ["js", "json"]` means "the `lib-js` and `lib-json` sibling
+/// checkouts, plus whatever their `pkg.hnl` `deps` pull in" (contracts and
+/// transitive backends). The result has the same shape as
+/// [`resolve_dependencies`]'s map, so it drops straight into
+/// `ModuleLoader::with_dependencies` or `PackageResolver::lazy`.
+///
+/// `kit_dir` may be the kit repo's root (the directory containing
+/// `kit.hnl`) or the `kit.hnl` file itself. A missing manifest yields an
+/// empty map; a malformed one is lenient, matching the `pkg.hnl` rule.
+/// Names already resolved keep their first directory — kit `libs` order
+/// wins over transitively discovered deps.
+///
+/// # Errors
+///
+/// Reserved for future validation; currently always `Ok`.
+pub fn resolve_kit_dependencies(kit_dir: &Path) -> Result<HashMap<String, PathBuf>, PlatformError> {
+    let dir = if kit_dir.is_file() {
+        kit_dir.parent().unwrap_or(kit_dir)
+    } else {
+        kit_dir
+    };
+    let Ok(src) = std::fs::read_to_string(dir.join("kit.hnl")) else {
+        return Ok(HashMap::new());
+    };
+    let mut deps: HashMap<String, PathBuf> = HashMap::new();
+    let mut queue: VecDeque<PathBuf> = VecDeque::new();
+    for name in kit_libs(&src) {
+        let pkg_dir = sibling_lib_dir(dir, &name);
+        if let Entry::Vacant(e) = deps.entry(name) {
+            e.insert(pkg_dir.clone());
+            queue.push_back(pkg_dir);
+        }
+    }
+    // Transitive closure over `pkg.hnl` `deps`: breadth-first so kit
+    // `libs` (and earlier discoveries) keep precedence on a name
+    // collision; `expanded` bounds the walk on dep cycles.
+    let mut expanded: HashSet<PathBuf> = HashSet::new();
+    while let Some(pkg_dir) = queue.pop_front() {
+        if !expanded.insert(pkg_dir.clone()) {
+            continue;
+        }
+        for (name, dep_dir) in resolve_pkg_dependencies(&pkg_dir)? {
+            if let Entry::Vacant(e) = deps.entry(name) {
+                e.insert(dep_dir.clone());
+                queue.push_back(dep_dir);
+            }
+        }
+    }
+    Ok(deps)
 }
 
 #[cfg(test)]
@@ -1950,5 +2072,124 @@ vendored = { path = "../lib-vendored" }
                 "lib-pred-native"
             ]
         );
+    }
+
+    // -- kit.hnl v1 ---------------------------------------------------------
+
+    /// `kit_name`/`kit_libs` read the kit.hnl v1 fields — and ignore the
+    /// annotation prose the real manifests carry (`description` mentions
+    /// "libs"-adjacent words; comments precede the record).
+    #[test]
+    fn kit_manifest_fields_parse() {
+        let src = "-- kit-test: kit.hnl v1 curation manifest\n\
+                   { name: \"kit-test\",\n  \
+                   \x20 description: \"libs: see proposal; name: not a field\",\n  \
+                   \x20 license: \"MIT\",\n  \
+                   \x20 libs: [\"test\", \"rand\", \"rand-stub\"], }\n";
+        assert_eq!(kit_name(src).as_deref(), Some("kit-test"));
+        assert_eq!(
+            kit_libs(src),
+            vec![
+                "test".to_string(),
+                "rand".to_string(),
+                "rand-stub".to_string()
+            ]
+        );
+        assert_eq!(kit_name("{ libs: [] }"), None);
+        assert!(kit_libs("no manifest here").is_empty());
+        assert!(kit_libs("{ libs: [").is_empty());
+    }
+
+    /// A `name:` embedded in a longer identifier is not a match.
+    #[test]
+    fn kit_name_requires_word_boundary() {
+        assert_eq!(kit_name("{ username: \"x\" }"), None);
+        assert_eq!(kit_name("{ name: 42 }"), None);
+    }
+
+    /// `resolve_kit_dependencies` maps each `libs` entry to its sibling
+    /// `lib-<name>` checkout and closes over `pkg.hnl` `deps`
+    /// transitively — the kit.hnl v1 loader contract.
+    #[test]
+    fn resolve_kit_dependencies_maps_libs_and_transitive_deps() {
+        let root = std::env::temp_dir().join(format!("hnl-kitdeps-{}", std::process::id()));
+        let kit = root.join("kit-demo");
+        let lib_a = root.join("lib-a");
+        let lib_b = root.join("lib-b");
+        let lib_c = root.join("lib-c");
+        for dir in [&kit, &lib_a, &lib_b, &lib_c] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(
+            kit.join("kit.hnl"),
+            "{ name: \"kit-demo\", license: \"MIT\", libs: [\"a\", \"b\"] }\n",
+        )
+        .unwrap();
+        // `a` pulls contract `c` through its own pkg.hnl deps; `b` is a
+        // leaf. The kit also lists `c`'s dep explicitly? No — closure only.
+        std::fs::write(
+            lib_a.join("pkg.hnl"),
+            "{ modules: [\"a\"], deps: { c: \"branch:main\" } }\n",
+        )
+        .unwrap();
+        std::fs::write(lib_b.join("pkg.hnl"), "{ modules: [\"b\"] }\n").unwrap();
+        std::fs::write(lib_c.join("pkg.hnl"), "{ modules: [\"c\"] }\n").unwrap();
+
+        let deps = resolve_kit_dependencies(&kit).unwrap();
+        assert_eq!(deps.len(), 3);
+        assert_eq!(deps["a"], std::fs::canonicalize(&lib_a).unwrap());
+        assert_eq!(deps["b"], std::fs::canonicalize(&lib_b).unwrap());
+        assert_eq!(deps["c"], std::fs::canonicalize(&lib_c).unwrap());
+
+        // The kit.hnl file path itself resolves the same way.
+        let deps2 = resolve_kit_dependencies(&kit.join("kit.hnl")).unwrap();
+        assert_eq!(deps2, deps);
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// Kit `libs` order wins on a name collision with a transitively
+    /// discovered dep, and a missing `kit.hnl`/`lib-*` dir is lenient.
+    #[test]
+    fn resolve_kit_dependencies_is_lenient_and_ordered() {
+        let root = std::env::temp_dir().join(format!("hnl-kitdeps-bad-{}", std::process::id()));
+        let empty = root.join("kit-empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(resolve_kit_dependencies(&empty).unwrap().is_empty());
+
+        // `a` exists and deps on `x`; the kit lists `x` *first* — the kit's
+        // own `lib-x` entry must win over `a`'s transitive discovery even
+        // though both resolve to the same sibling convention here. Use a
+        // dep name the kit also lists to prove first-wins: kit lists
+        // ["x", "a"], `a` deps on `x` — `x` maps once.
+        let kit = root.join("kit-ord");
+        let lib_x = root.join("lib-x");
+        let lib_a = root.join("lib-a");
+        for dir in [&kit, &lib_x, &lib_a] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(kit.join("kit.hnl"), "{ libs: [\"x\", \"a\"] }\n").unwrap();
+        std::fs::write(
+            lib_a.join("pkg.hnl"),
+            "{ modules: [\"a\"], deps: { x: \"branch:main\" } }\n",
+        )
+        .unwrap();
+        std::fs::write(lib_x.join("pkg.hnl"), "{ modules: [\"x\"] }\n").unwrap();
+
+        let deps = resolve_kit_dependencies(&kit).unwrap();
+        assert_eq!(deps.len(), 2);
+        assert_eq!(deps["x"], std::fs::canonicalize(&lib_x).unwrap());
+        assert_eq!(deps["a"], std::fs::canonicalize(&lib_a).unwrap());
+
+        // A `libs` entry with no sibling checkout still maps (lenient —
+        // the absent dir fails at import time, naming the slot).
+        let ghost = root.join("kit-ghost");
+        std::fs::create_dir_all(&ghost).unwrap();
+        std::fs::write(ghost.join("kit.hnl"), "{ libs: [\"missing\"] }\n").unwrap();
+        let deps = resolve_kit_dependencies(&ghost).unwrap();
+        assert_eq!(deps.len(), 1);
+        assert!(deps.contains_key("missing"));
+
+        std::fs::remove_dir_all(&root).ok();
     }
 }
