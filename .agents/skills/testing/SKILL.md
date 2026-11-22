@@ -33,7 +33,7 @@ Two test surfaces: Rust (`cargo`) and Handl (`.test.hnl`).
 
 - No test-mock framework: use the **contract + backend** pattern — a contract
   package (`rand/`, `os/`, `uuid/`) plus swappable backends (`rand-c`,
-  `rand-stub`, `os-c`, `os-stub`). Tests bind the stub backend.
+  `rand-stub`, `posix-c`, `posix-stub`). Tests bind the stub backend.
 
 ## Gate
 
