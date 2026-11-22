@@ -33,22 +33,25 @@ already implements this (`extends` chains, `modules:`, `caps:`,
    - `kit-cli-app` — CLI application curation
    - NOT for now: `kit-data`, `kit-native`
 
-## Manifest sketch
+## Manifest sketch — kit.hnl v1 (user-approved 2026-11-22)
 
 ```hnl
 {
   name: "web-server",
   description: "serve HTTP from handl",
   license: "MIT",
-  libs: ["http-server", "json", "str", "async"],
-  plugins: ["ffi"],
-  entry: "src/index.hnl",   -- optional kit glue
+  libs: ["serve-epoll", "http-route", "http-rfc", "json", "posix-c"],
 }
 ```
 
-Open sub-questions: does `kit.hnl` reuse the `data/kits/*.yaml` schema
-(`extends`, `caps`, `base_modules`) translated to `.hnl`, or a simpler
-libs+plugins shape? Loader: host-side kit resolution vs pkg mechanism.
+**v1 = pure curation, nothing else.** No `plugins` field (native needs are
+implied transitively by lib deps — `ffi.call`/cylib covers all native
+access; host statically links the Rust plugin layer anyway). No `entry`/
+glue field (rejected as coupled/non-pluggable — kit-specific logic must
+live in a `lib-*` so kits stay swappable manifests; serve loops etc.
+graduate to libs like `lib-http-route`). `kit.hnl` = `{ name,
+description, license, libs }` only. Open: whether `libs` entries are pkg
+names or `lib-*` repo names; loader mechanism (host-side vs pkg).
 
 ## Kit repo reclassification (from triage)
 
@@ -111,12 +114,12 @@ MessageChannel/setTimeout so the task model runs in-browser.
 
 ```hnl
 { name: "kit-cli-app",
-  libs: ["args", "stdio", "os-c", "cli", "json", "str-handl", "collections", "time-c"],
+  libs: ["args", "stdio", "posix-c", "cli", "json", "str-handl", "collections", "time-c"],
   glue: "src/main.hnl" }
 ```
 
 **Critical gap:** nothing reads own-process argv or stdio today — `lib-cli` is
-child-process spawn only; `lib-fs` is a libpython hack (broken); `lib-os-c`
+child-process spawn only; `lib-fs` is a libpython hack (broken); `lib-posix-c`
 has env/path/time but no argv/stdio. **New libs:** `lib-args` (pure parser
 taking argv as param — spec reuses `cli.FlagSpec` shape; argv sourced via
 `/proc/self/cmdline` or runner injection `{"args":…}` protocol),
@@ -172,11 +175,18 @@ New libs needed: `lib-worker`, `lib-args`, `lib-stdio`, `lib-log`
 `lib-json-js` (generated pkg inside lib-js, lib-dom pattern), `lib-fs-js`
 (Node fs API is the de-facto standard). **OS surface migrates to posix
 naming** (user decision 2026-11-22, T-117): `lib-posix` contract (POSIX.1 —
-fs/fd/env/path/**time**; clock fns are POSIX so time folds in, lib-time/-c
-become aliases/fold later) + `lib-posix-c` impl (libc ffi.call — absorbs
-lib-os-c env/path/time AND the lib-fs rewrite) + `lib-posix-stub`. Full
-rename incl. module names (`os-c`→`posix-c`, `os-stub`→`posix-stub`);
-consumer sweep required. `lib-os-c`/`lib-os-stub`/`lib-fs` repos retire.
+fs/fd/env/path/**time**; clock fns are POSIX so time folds in — DONE:
+`lib-time`/`lib-time-c` folded into the posix family, `lib-posix-c`
+implements `now_ms`/`instant_ns`/`elapsed_ns`/`epoch` with a direct
+`clock_gettime` `ffi.call` (no `time-c` dep), `lib-posix-stub` covers the
+same names with zeros, consumers swept (kit-prelude `time_c.rs`→
+`posix_time.rs`, kit-test `benchmark` `time.`→`posix.` + posix-stub
+backend registered as `posix`, host stdlib `clock_gettime` module repointed
+to `lib-posix-c/src/clock_gettime.hnl`); local `lib-time`/`lib-time-c`
+clones retired) + `lib-posix-c` impl (libc ffi.call — absorbs
+lib-posix-c env/path/time AND the lib-fs rewrite) + `lib-posix-stub`. Full
+rename incl. module names (`posix-c`→`posix-c`, `posix-stub`→`posix-stub`);
+consumer sweep required. `lib-posix-c`/`lib-posix-stub`/`lib-fs` repos retire.
 `lib-json-lib`
 deleted
 (libpython hack; lib-json + lib-json-handl suffice). Stubs: `lib-math-js` +
