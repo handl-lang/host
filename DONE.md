@@ -10,3 +10,4 @@
 - T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-114 license unification: dual MIT OR Apache-2.0 → single MIT (delete LICENSE-APACHE, license="MIT", ensure LICENSE file) across ~40 repos — user directive 'all MIT' · pri:high · owner:devin · created:2026-11-20 · #license · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-109 rename prep (local): sdkgen-\*→tool-sdkgen-\*, compile-\*→engine-compile-\*, slidev-theme→slidev-theme-handl, mlopt→research-mlopt, host-tensor→? · owner:devin · created:2026-11-20 · #rename · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
+- T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-22
