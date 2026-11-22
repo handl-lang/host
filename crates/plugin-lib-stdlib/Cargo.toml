@@ -23,7 +23,6 @@ handl-lib-transform = { git = "https://github.com/handl-lang/lib-transform", bra
 
 handl-lib-prim = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-lib-prim-handl = { git = "https://github.com/handl-lang/kernel", branch = "main" }
-handl-lib-hello = { git = "https://github.com/handl-lang/lib-hello", branch = "main" }
 handl-lib-type = { git = "https://github.com/handl-lang/lib-type", branch = "main" }
 handl-lib-comb = { git = "https://github.com/handl-lang/lib-comb", branch = "main" }
 handl-lib-mood = { git = "https://github.com/handl-lang/lib-mood", branch = "main" }

@@ -117,10 +117,20 @@ const ENTROPY_MODULE: ModuleSpec = ModuleSpec {
 // `include_str!`s.
 // ---------------------------------------------------------------------------
 
-/// Raw source of `handl-packages/hello/greet.hnl` — a bare arrow
+/// Raw source of `lib-hello/src/index.hnl` — a bare arrow
 /// (`name ~> "Hello, " + name + "!"`), consumed by `handl-kit-canonical`'s
-/// `greet` bridge.
-pub use handl_lib_hello::GREET_HNL;
+/// `greet` bridge. Vendored by `build.rs` like every other `lib-*` row
+/// (the const-only `handl-lib-hello` crate is retired — ADR-0160 P3).
+pub const GREET_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-hello/src/index.hnl"));
+
+/// The `hello` module record — `{ greet: (<index.hnl>) }`, the shape
+/// [`HandlModule`] needs (a bare arrow is not a record). Formerly
+/// `handl_lib_hello::HELLO_HNL`.
+const HELLO_MODULE_HNL: &str = concat!(
+    "{ greet: (\n",
+    include_str!(concat!(env!("OUT_DIR"), "/lib-hello/src/index.hnl")),
+    "\n) }"
+);
 
 /// Source of the transform sub-ops (`lib-transform`).
 pub use handl_lib_transform::{
@@ -626,7 +636,7 @@ pub static MODULES: &[ModuleSpec] = &[
     // declaration lines are stripped by the loader).
     ModuleSpec {
         name: "hello",
-        hnl: handl_lib_hello::HELLO_HNL,
+        hnl: HELLO_MODULE_HNL,
         funcs: &["greet"],
         ops: &[],
         values: &[],

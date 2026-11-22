@@ -920,15 +920,12 @@ version = "0.1.0"
 dependencies = [
  "handl-lib-ops",
  "handl-ops",
+ "handl-value",
  "serde_json",
 ]
 
 [[package]]
 name = "handl-lib-ffi"
-version = "0.1.0"
-
-[[package]]
-name = "handl-lib-hello"
 version = "0.1.0"
 
 [[package]]
@@ -1007,10 +1004,6 @@ version = "0.1.0"
 
 [[package]]
 name = "handl-lib-str-handl"
-version = "0.1.0"
-
-[[package]]
-name = "handl-lib-tag"
 version = "0.1.0"
 
 [[package]]
@@ -1538,7 +1531,6 @@ dependencies = [
  "handl-lib-collections",
  "handl-lib-comb",
  "handl-lib-error",
- "handl-lib-hello",
  "handl-lib-hex",
  "handl-lib-ip",
  "handl-lib-mood",
@@ -1578,7 +1570,7 @@ name = "handl-plugin-lib-tag"
 version = "0.1.0"
 dependencies = [
  "handl-language",
- "handl-lib-tag",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
  "serde_json",

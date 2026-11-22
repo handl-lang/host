@@ -102,7 +102,6 @@ handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
 handl-lib-str-handl = { git = "https://github.com/handl-lang/lib-str-handl", branch = "main" }
 handl-lib-loader = { git = "https://github.com/handl-lang/lib-loader", branch = "main" }
 handl-lib-desugar = { git = "https://github.com/handl-lang/lib-desugar", branch = "main" }
-handl-lib-tag = { git = "https://github.com/handl-lang/lib-tag", branch = "main" }
 handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
@@ -325,8 +324,6 @@ handl-plugin-lib-crypto = { path = "../lib-crypto" }
 handl-lib-error = { path = "../lib-error" }
 [patch."https://github.com/handl-lang/lib-desugar"]
 handl-lib-desugar = { path = "../lib-desugar" }
-[patch."https://github.com/handl-lang/lib-hello"]
-handl-lib-hello = { path = "../lib-hello" }
 [patch."https://github.com/handl-lang/lib-hex"]
 handl-lib-hex = { path = "../lib-hex" }
 [patch."https://github.com/handl-lang/lib-ip"]
@@ -369,8 +366,6 @@ handl-plugin-lib-serialize-yaml-c = { path = "../lib-serialize-yaml-c" }
 [patch."https://github.com/handl-lang/lib-str-handl"]
 handl-lib-str-handl = { path = "../lib-str-handl" }
 
-[patch."https://github.com/handl-lang/lib-tag"]
-handl-lib-tag = { path = "../lib-tag" }
 [patch."https://github.com/handl-lang/lib-tar"]
 handl-lib-tar = { path = "../lib-tar" }
 [patch."https://github.com/handl-lang/lib-transform"]

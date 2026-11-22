@@ -66,9 +66,9 @@ pub use registry::TypeRegistry;
 mod tests;
 
 /// The handl source declaring the tag `op` interface — the single source
-/// of truth for the tag API surface. Loaded at compile time from the
-/// kit-stdlib data dir.
-const TAG_HNL: &str = handl_lib_tag::TAG_HNL;
+/// of truth for the tag API surface. Vendored from `lib-tag` by `build.rs`
+/// (the const-only `handl-lib-tag` crate is retired — ADR-0160 P3).
+const TAG_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-tag/src/index.hnl"));
 
 /// The op names declared in `tag.hnl` — inspection ops only. The
 /// `__tag__` mint producers (`tag.tag`/`tag.construct`) were deleted
