@@ -170,8 +170,12 @@ New libs needed: `lib-worker`, `lib-args`, `lib-stdio`, `lib-log`
 (optional), `lib-concurrent-js` (optional), `lib-http-route` (optional),
 `lib-event` finish or `lib-event-dom`. Planned backends: `lib-json-c`,
 `lib-json-js` (generated pkg inside lib-js, lib-dom pattern), `lib-fs-js`
-(Node fs API is the de-facto standard). `lib-fs` rewrite in flight (POSIX
-fd API via ffi.call — the standard is POSIX.1). `lib-json-lib` deleted
+(Node fs API is the de-facto standard). FS libs follow port/impl split
+(user decision 2026-11-22): **`lib-posix`** (contract: POSIX.1 fd/fs API
+decls) + **`lib-posix-c`** (libc ffi.call impl — the lib-fs rewrite becomes
+this; lib-fs repo renamed/replaced). Sibling note: `lib-os-c` covers
+env/path/time — posix covers fs/fd; possible future merge. `lib-json-lib`
+deleted
 (libpython hack; lib-json + lib-json-handl suffice). Stubs: `lib-math-js` +
 `lib-rand-js` implementing (js.call); `lib-{str-c,str-js}` pending user
 decision. Optional later: `lib-coverage`, `lib-mock`, reporter lib,
