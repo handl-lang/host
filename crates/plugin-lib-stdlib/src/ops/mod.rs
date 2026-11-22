@@ -7,10 +7,6 @@
 //! crates — only the `Module`/`Plugin` boilerplate was dropped.
 
 pub mod collections;
-/// `ip` lives in its own repo (`lib-ip`); re-export it under the former
-/// `ops::ip` path so consumers (`kit-canonical`) keep resolving
-/// `ops::ip::IpModule` / `ops::ip::LibraryPlugin`.
-pub use handl_lib_ip as ip;
 pub mod math;
 pub mod strs;
 pub mod toml;

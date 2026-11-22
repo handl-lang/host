@@ -96,12 +96,6 @@ handl-kit-prelude = { git = "https://github.com/handl-lang/kit-prelude", branch 
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
-# ADR-0128 §"1a": the `.hnl` sources of `str-handl` live in its own
-# repo; that crate exports the sources as consts so this workspace can
-# include them without owning the files.
-handl-lib-str-handl = { git = "https://github.com/handl-lang/lib-str-handl", branch = "main" }
-handl-lib-loader = { git = "https://github.com/handl-lang/lib-loader", branch = "main" }
-handl-lib-desugar = { git = "https://github.com/handl-lang/lib-desugar", branch = "main" }
 handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
@@ -166,7 +160,6 @@ handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
-handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/lib-crypto", branch = "main" }
 handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/lib-lang-compile", branch = "main" }
 handl-plugin-lib-lang-eval = { git = "https://github.com/handl-lang/lib-lang-eval", branch = "main" }
 handl-plugin-lib-lang-lex = { git = "https://github.com/handl-lang/lib-lang-lex", branch = "main" }
@@ -318,18 +311,10 @@ handl-plugin-lib-char-native = { path = "../lib-char-native" }
 handl-lib-cmp = { path = "../lib-cmp" }
 [patch."https://github.com/handl-lang/lib-collections"]
 handl-lib-collections = { path = "../lib-collections" }
-[patch."https://github.com/handl-lang/lib-crypto"]
-handl-plugin-lib-crypto = { path = "../lib-crypto" }
 [patch."https://github.com/handl-lang/lib-error"]
 handl-lib-error = { path = "../lib-error" }
-[patch."https://github.com/handl-lang/lib-desugar"]
-handl-lib-desugar = { path = "../lib-desugar" }
 [patch."https://github.com/handl-lang/lib-hex"]
 handl-lib-hex = { path = "../lib-hex" }
-[patch."https://github.com/handl-lang/lib-ip"]
-handl-lib-ip = { path = "../lib-ip" }
-[patch."https://github.com/handl-lang/lib-json"]
-handl-lib-json = { path = "../lib-json" }
 [patch."https://github.com/handl-lang/lib-kv"]
 handl-plugin-lib-kv = { path = "../lib-kv" }
 [patch."https://github.com/handl-lang/lib-kv-hashmap"]
@@ -347,8 +332,6 @@ handl-plugin-lib-lang-run-compiled = { path = "../lib-lang-run-compiled" }
 [patch."https://github.com/handl-lang/lib-lang-typecheck"]
 handl-plugin-lib-lang-typecheck = { path = "../lib-lang-typecheck" }
 
-[patch."https://github.com/handl-lang/lib-loader"]
-handl-lib-loader = { path = "../lib-loader" }
 [patch."https://github.com/handl-lang/lib-mood"]
 handl-lib-mood = { path = "../lib-mood" }
 [patch."https://github.com/handl-lang/lib-obj"]
@@ -363,17 +346,8 @@ handl-lib-serialize = { path = "../lib-serialize" }
 handl-plugin-lib-serialize-toml-c = { path = "../lib-serialize-toml-c" }
 [patch."https://github.com/handl-lang/lib-serialize-yaml-c"]
 handl-plugin-lib-serialize-yaml-c = { path = "../lib-serialize-yaml-c" }
-[patch."https://github.com/handl-lang/lib-str-handl"]
-handl-lib-str-handl = { path = "../lib-str-handl" }
-
-[patch."https://github.com/handl-lang/lib-tar"]
-handl-lib-tar = { path = "../lib-tar" }
 [patch."https://github.com/handl-lang/lib-transform"]
 handl-lib-transform = { path = "../lib-transform" }
-[patch."https://github.com/handl-lang/lib-url-rfc"]
-handl-lib-url-rfc = { path = "../lib-url-rfc" }
-[patch."https://github.com/handl-lang/lib-url-whatwg"]
-handl-lib-url-whatwg = { path = "../lib-url-whatwg" }
 [patch."https://github.com/handl-lang/sdkgen-c"]
 handl-plugin-sdkgen-backend-c = { path = "../tool-sdkgen-c" }
 [patch."https://github.com/handl-lang/sdkgen-cli"]
@@ -385,19 +359,6 @@ handl-plugin-sdkgen-emitter-python = { path = "../tool-sdkgen-python" }
 [patch."https://github.com/handl-lang/sdkgen-webidl"]
 handl-plugin-sdkgen-backend-webidl = { path = "../tool-sdkgen-webidl" }
 
-
-[patch."https://github.com/handl-lang/lib-perlin"]
-handl-lib-perlin = { path = "../lib-perlin" }
-
-[patch."https://github.com/handl-lang/lib-simplex"]
-handl-lib-simplex = { path = "../lib-simplex" }
-
-[patch."https://github.com/handl-lang/lib-test"]
-handl-lib-test = { path = "../lib-test" }
-
-
-[patch."https://github.com/handl-lang/lib-ffi"]
-handl-lib-ffi = { path = "../lib-ffi" }
 
 [patch."https://github.com/handl-lang/lib-comb"]
 handl-lib-comb = { path = "../lib-comb" }

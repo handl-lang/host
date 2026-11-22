@@ -260,8 +260,11 @@ pub static MODULES: &[ModuleSpec] = &[
     // ── crypto — pure-handl SHA-1/SHA-256/MD5 over math/bytes/typeof ─────
     ModuleSpec {
         name: "crypto",
-        hnl: handl_plugin_lib_crypto::CRYPTO_HNL,
-        funcs: handl_plugin_lib_crypto::CRYPTO_FUNCS,
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-crypto/handl-packages/crypto/crypto.hnl"
+        )),
+        funcs: &["sha1", "sha256", "md5"],
         ops: &[],
         values: &[],
         registry: None,
@@ -1511,7 +1514,10 @@ pub static PACKAGES: &[PackageSpec] = &[
         lib_name: "crypto",
         plugin_id: "lib.crypto",
         plugin_name: "lib-crypto",
-        hnl: handl_plugin_lib_crypto::CRYPTO_HNL,
+        hnl: include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-crypto/handl-packages/crypto/crypto.hnl"
+        )),
         modules: &[],
     },
     PackageSpec {

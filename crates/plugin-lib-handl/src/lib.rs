@@ -80,6 +80,7 @@
 
 mod char_module;
 pub mod model;
+mod str_handl;
 pub mod op_registry;
 pub mod transform;
 pub use char_module::{CharModule, CHAR_OPS};
@@ -3135,7 +3136,7 @@ impl Module for HandlModule {
 /// Owned by this crate (ADR-0128 §".hnl ownership": one `include_str!` per
 /// package; other consumers — e.g. `examples/loader_bench.rs` — take this
 /// `pub const`).
-pub use handl_lib_str_handl::STR_HANDL_HNL;
+pub use str_handl::STR_HANDL_HNL;
 
 /// The canonical text-transform loader source (ADR-0094).
 ///
@@ -3143,7 +3144,8 @@ pub use handl_lib_str_handl::STR_HANDL_HNL;
 /// installed through [`install_loader`], every `.hnl` text transform
 /// (declaration/comment stripping, export transformation, import/
 /// capability/tag parsing, tag expansion) is evaluated in handl.
-const LOADER_HNL: &str = handl_lib_loader::LOADER_HNL;
+const LOADER_HNL: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/lib-loader/src/index.hnl"));
 
 /// The record field names exposed by `loader.hnl`.
 pub const LOADER_FUNCS: &[&str] = &[
@@ -3251,8 +3253,7 @@ fn loader_call(func: &str, src: &str) -> Option<serde_json::Value> {
     }
 }
 
-pub use handl_lib_str_handl::STR_HANDL_FUNCS;
-pub use handl_lib_str_handl::STR_HANDL_SOURCES;
+pub use str_handl::{STR_HANDL_FUNCS, STR_HANDL_SOURCES};
 /// Internal helpers that invoke caller-supplied arrows (`f`/`p`).
 const STR_HANDL_CALLBACK_INVOKERS: &[&str] = &["map", "all", "drop_while"];
 

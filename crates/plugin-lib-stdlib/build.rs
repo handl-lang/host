@@ -11,6 +11,7 @@ fn main() {
         "lib-base64",
         "lib-char",
         "lib-collections",
+        "lib-crypto",
         "lib-datetime",
         "lib-encoding",
         "lib-hello",

@@ -30,11 +30,9 @@ handl-lib-obj = { git = "https://github.com/handl-lang/lib-obj", branch = "main"
 handl-lib-error = { git = "https://github.com/handl-lang/lib-error", branch = "main" }
 handl-lib-cmp = { git = "https://github.com/handl-lang/lib-cmp", branch = "main" }
 handl-lib-bytes = { git = "https://github.com/handl-lang/lib-bytes", branch = "main" }
-handl-lib-ip = { git = "https://github.com/handl-lang/lib-ip", branch = "main" }
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-plugin-lib-serialize-toml-c = { git = "https://github.com/handl-lang/lib-serialize-toml-c", branch = "main" }
 handl-plugin-lib-serialize-yaml-c = { git = "https://github.com/handl-lang/lib-serialize-yaml-c", branch = "main" }
-handl-plugin-lib-crypto = { git = "https://github.com/handl-lang/lib-crypto", branch = "main" }
 base64 = "0.22"
 tar = "0.4"
 hex = "0.4"

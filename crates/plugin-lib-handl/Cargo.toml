@@ -20,12 +20,11 @@ hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-t
 hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
 hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform", branch = "main" }
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
-# `.hnl` sources owned by their own repos (ADR-0128 §"1a").
-handl-lib-str-handl = { workspace = true }
-handl-lib-loader = { workspace = true }
-handl-lib-desugar = { workspace = true }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde_json = { workspace = true }
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }
 
 [dev-dependencies]
 handl-kit-data-prelude = { workspace = true }
