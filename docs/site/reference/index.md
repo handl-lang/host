@@ -15,15 +15,12 @@ from **public** sibling repos only — each section links into
 
 - [Prim](./kernel/lib-prim) — the minimal atom layer for the arrow-based
   substrate.
-- [Bytes](./kernel/lib-bytes) — byte-buffer primitives for the `Bytes`
-  scalar type.
-- [Cmp](./kernel/lib-cmp) — deep equality / total ordering.
-- [Combinators](./kernel/lib-combinators) — function combinator
-  utilities.
-- [Error](./kernel/lib-error) — the error-raising primitive contract.
-- [Mood](./kernel/lib-mood) — mood (mode-of-data) operations.
-- [Obj](./kernel/lib-obj) — record introspection primitives.
-- [Type](./kernel/lib-type) — type coercion, predicates, and utilities.
+
+The rest of the floor libraries dissolved out of the kernel workspace
+into their own `lib-*` repos — `lib-bytes`, `lib-cmp`, `lib-comb`
+(was `combinators`), `lib-error`, `lib-mood`, `lib-obj`, `lib-type`
+(`typeof` merged in), `lib-transform` — and are not yet released (see
+*Not here*).
 
 ## Research stack (`graphopt`, renamed from `research-mlopt`)
 

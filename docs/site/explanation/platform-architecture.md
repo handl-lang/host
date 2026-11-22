@@ -8,15 +8,16 @@ plugins, and a language is data the engines dispatch on.
 
 ```text
 kernel/                        # the Language schema + shared values
+  handl-calculus              #   the Term/Model arrow-calculus IR
   handl-language               #   the Language data schema (ADR-0044);
                                #   re-exports the Term kernel
   handl-value                  #   the tagged Value model (TaggedValue)
+  handl-ops                    #   the op ABI (Op/OpRegistry/OpContext)
   handl-ext                    #   the dynamic-extension ABI (ADR-0149)
-  handl-defining-handl         #   self-hosting infrastructure
-  handl-lib-*                  #   floor substrate packages
-                               #   (prim, ops, bytes, cmp, error, obj,
-                               #    type, mood, combinators, …)
-engine/                        # hnl-engine — the Term/Value calculus
+  handl-defining-handl         #   the self-hosting corpus
+  handl-lib-*                  #   remaining floor substrate packages
+                               #   (ops, prim, prim-handl)
+engine/                        # hnl-engine — engine-side helpers over the calculus
 engine-*/                      # generic engines — one repo per operation
   engine-lex, engine-lex-pattern
   engine-parse, engine-parse-pratt
@@ -39,8 +40,8 @@ host-tensor/                   # dense n-d tensor functions for runtimes
 
 | Layer | Responsibility |
 | --- | --- |
-| `kernel` | The `Language` data schema and the shared value model. `handl-language` defines the fragment schema and re-exports the `Term` kernel; `handl-value` provides `TaggedValue` (including the tensor scalar); `handl-lib-*` are the floor substrate packages. Depends on `engine` for `Term`, on nothing else in the org. |
-| `engine` (`hnl-engine`) | The arrow-calculus `Term` kernel itself — the data-only combinator set every engine interprets, plus `Term::desugar`. |
+| `kernel` | The `Language` data schema, the `Term`/`Model` calculus (`handl-calculus`), the op ABI (`handl-ops`), and the shared value model. `handl-language` defines the fragment schema and re-exports the `Term` kernel; `handl-value` provides `TaggedValue` (including the tensor scalar); `handl-lib-*` are the remaining floor substrate packages — the rest of the floor libs live in their own `lib-*` repos. Self-contained: no `engine`/`host` deps. |
+| `engine` (`hnl-engine`) | Engine-side helpers over the arrow calculus — the `Term`/`Model` data itself lives in the kernel's `handl-calculus`. |
 | `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`, `typecheck`) plus concrete engines — the tree-walk reference interpreter, the bytecode VM, the Cranelift JIT, the rewrite engine, and the `fmt`/`lint`/`typecheck` toolchain engines. Generic: they dispatch on `Language` data, never on hardcoded constructs. |
 | `handl-platform` | The composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`), `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
 | `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `sdkgen`, `test`, `typecheck`). |
