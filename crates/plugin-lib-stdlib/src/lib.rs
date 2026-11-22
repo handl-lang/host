@@ -27,7 +27,7 @@ pub mod ops;
 pub mod otlp_module;
 pub mod packages;
 
-pub use loader::{load_hnl_file, load_hnl_file_with_env};
+pub use loader::{load_hnl_file, load_hnl_file_with_env, load_hnl_file_with_ops};
 pub use otlp_module::OtlpModule;
 pub use packages::{
     DEFAULT_RESOLVER, GREET_HNL, MODULES, ModuleSpec, PACKAGES, PackagePlugin, PackageResolver,

@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use handl_platform::Module;
-use handl_plugin_lib_handl::{HandlModule, ModuleEnv};
+use handl_plugin_lib_handl::{HandlModule, ModuleEnv, OpRegistry};
 
 use crate::packages::module;
 
@@ -143,6 +143,32 @@ pub fn load_hnl_file_with_env<P: AsRef<Path>>(
     let instance = Arc::new(base.instantiate(env.clone()));
     let mut cache = top_module_env_cache().lock().ok()?;
     Some(Arc::clone(cache.entry(key).or_insert(instance)))
+}
+
+/// Like [`load_hnl_file`], additionally exposing `op_names` as op-backed
+/// functions dispatched through `registry` — the same
+/// [`HandlModule::with_ops`] wiring the table
+/// [`ModuleSpec`](crate::packages::ModuleSpec)s use.
+///
+/// This is for file-driven modules that keep a native-op surface alongside
+/// their pure-handl record: the `array` package's arrow-taking/variadic
+/// members (`take_while`/`drop_while`/`scan`/`foldr`/`find_*`/`push`/
+/// `range`) are Rust ops in `ops::collections`, not record fields, so a
+/// plain [`load_hnl_file`] module cannot resolve `array.take_while`-style
+/// names through [`Module::function`].
+///
+/// The ops are attached to an [`HandlModule::instantiate`]d sibling of the
+/// cached base (sharing its prepared source, deps, and lookups under a
+/// fresh `module_id`), so the path-keyed [`load_hnl_file`] cache is
+/// untouched and plain callers keep getting the ops-free module.
+pub fn load_hnl_file_with_ops<P: AsRef<Path>>(
+    path: P,
+    op_names: &[&str],
+    registry: Arc<OpRegistry>,
+) -> Option<Arc<HandlModule>> {
+    let base = load_hnl_file(path)?;
+    let instance = base.instantiate(base.env()).with_ops(op_names, registry);
+    Some(Arc::new(instance))
 }
 
 // ---------------------------------------------------------------------------

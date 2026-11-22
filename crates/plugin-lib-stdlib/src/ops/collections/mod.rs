@@ -275,10 +275,15 @@ impl CollectionsModule {
         };
         // The tree ships in `lib-collections` (ADR-0128): `array/index.hnl`
         // imports its siblings by path, so the loader needs a real directory.
-        let array = crate::load_hnl_file(format!(
-            "{}/src/array/index.hnl",
-            handl_lib_collections::ROOT
-        ))
+        // The arrow-taking/variadic members stay native ops
+        // ([`ARRAY_OPS`]/[`collections_op_registry`]) — attach them to the
+        // loaded module so `array.take_while`-style names resolve through
+        // [`Module::function`] like every other sub-module's ops.
+        let array = crate::load_hnl_file_with_ops(
+            format!("{}/src/array/index.hnl", handl_lib_collections::ROOT),
+            ARRAY_OPS,
+            Arc::new(collections_op_registry()),
+        )
         .expect("array module");
         Self {
             vec: build("vec"),

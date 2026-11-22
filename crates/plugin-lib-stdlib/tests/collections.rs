@@ -654,3 +654,33 @@ fn array_arrow_ops_registered() {
         );
     }
 }
+
+/// I-010: the `array` sub-module's native ops must resolve through
+/// [`CollectionsModule::function`] — the dotted-dispatch path
+/// `ModuleRegistry::lookup` (and therefore `Kit::eval`) uses for both
+/// `array.<op>` and `collections.array.<op>` spellings. The pure-handl
+/// record fields already resolved; the ops were missing because the
+/// file-loaded `array/index.hnl` module carried no op functions.
+#[test]
+fn array_native_ops_resolve_through_aggregate() {
+    use handl_plugin_lib_stdlib::ops::collections::ARRAY_OPS;
+    let c = collections();
+    for op_name in ARRAY_OPS {
+        // `ModuleRegistry::lookup`'s all-module pass calls
+        // `function("array.<op>")`; its module-name fallback for
+        // `collections.array.<op>` lands on the same call.
+        assert!(
+            c.function(op_name).is_some(),
+            "collections module must resolve '{op_name}'"
+        );
+    }
+    // The non-arrow ops execute end-to-end through the module function.
+    assert_eq!(
+        call(&c, "array.push", &[arr(&[n(1.0)]), n(2.0)]),
+        arr(&[n(1.0), n(2.0)])
+    );
+    assert_eq!(
+        call(&c, "array.range", &[n(0.0), n(3.0)]),
+        arr(&[n(0.0), n(1.0), n(2.0)])
+    );
+}
