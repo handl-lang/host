@@ -47,7 +47,7 @@ fn handl_value_model_evaluates_arr_const() {
         .with_dependency_arc(
             stdlib::load_hnl_file(format!(
                 "{}/src/array/index.hnl",
-                handl_lib_collections::ROOT
+                concat!(env!("OUT_DIR"), "/lib-collections")
             ))
             .expect("array module"),
         )

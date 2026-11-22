@@ -891,10 +891,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-lib-collections"
-version = "0.1.0"
-
-[[package]]
 name = "handl-lib-comb"
 version = "0.1.0"
 dependencies = [
@@ -1214,7 +1210,7 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-data-prelude",
  "handl-language",
- "handl-lib-collections",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-ext-detect",
  "handl-plugin-lib-char-native",
@@ -1456,7 +1452,6 @@ dependencies = [
  "handl-lib-base64",
  "handl-lib-bytes",
  "handl-lib-cmp",
- "handl-lib-collections",
  "handl-lib-comb",
  "handl-lib-error",
  "handl-lib-hex",
@@ -1612,7 +1607,7 @@ dependencies = [
  "handl-kit-data-prelude",
  "handl-kit-prelude",
  "handl-language",
- "handl-lib-collections",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
@@ -3184,6 +3179,10 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[patch.unused]]
+name = "handl-lib-collections"
+version = "0.1.0"
 
 [[patch.unused]]
 name = "handl-plugin-applier-bootstrap"

@@ -96,7 +96,6 @@ handl-kit-prelude = { git = "https://github.com/handl-lang/kit-prelude", branch 
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
-handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
@@ -309,8 +308,6 @@ handl-lib-bytes = { path = "../lib-bytes" }
 handl-plugin-lib-char-native = { path = "../lib-char-native" }
 [patch."https://github.com/handl-lang/lib-cmp"]
 handl-lib-cmp = { path = "../lib-cmp" }
-[patch."https://github.com/handl-lang/lib-collections"]
-handl-lib-collections = { path = "../lib-collections" }
 [patch."https://github.com/handl-lang/lib-error"]
 handl-lib-error = { path = "../lib-error" }
 [patch."https://github.com/handl-lang/lib-hex"]

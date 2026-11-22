@@ -22,7 +22,6 @@ serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
-handl-lib-collections = { workspace = true }
 serde_json = { workspace = true }
 hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
 hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
@@ -35,3 +34,6 @@ handl-kit-prelude = { workspace = true }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-plugin-lib-stdlib = { workspace = true }
 handl-plugin-lib-tag = { path = "../plugin-lib-tag" }
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }

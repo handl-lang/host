@@ -29,7 +29,7 @@ fn array_module() -> Arc<handl_plugin_lib_handl::HandlModule> {
     ensure_lang();
     load_hnl_file(format!(
         "{}/src/array/index.hnl",
-        handl_lib_collections::ROOT
+        concat!(env!("OUT_DIR"), "/lib-collections")
     ))
     .expect("array module")
 }

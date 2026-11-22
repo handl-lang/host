@@ -27,7 +27,9 @@ z3 = { version = "0.12", features = ["static-link-z3"], optional = true }
 # --example hnlc -- ...`) — it needs `handl-kit-data-prelude`, which is a
 # dev-dependency now, and examples may use dev-deps while a `[[bin]]` cannot.
 [dev-dependencies]
-handl-lib-collections = { workspace = true }
 handl-kit-data-prelude = { workspace = true }
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 serde_json = { workspace = true }
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }

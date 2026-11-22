@@ -18,7 +18,6 @@ handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std"
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 # ADR-0128: port packages live in their own repos.
-handl-lib-collections = { git = "https://github.com/handl-lang/lib-collections", branch = "main" }
 handl-lib-transform = { git = "https://github.com/handl-lang/lib-transform", branch = "main" }
 
 handl-lib-prim = { git = "https://github.com/handl-lang/kernel", branch = "main" }

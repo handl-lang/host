@@ -280,7 +280,10 @@ impl CollectionsModule {
         // loaded module so `array.take_while`-style names resolve through
         // [`Module::function`] like every other sub-module's ops.
         let array = crate::load_hnl_file_with_ops(
-            format!("{}/src/array/index.hnl", handl_lib_collections::ROOT),
+            format!(
+                "{}/src/array/index.hnl",
+                concat!(env!("OUT_DIR"), "/lib-collections")
+            ),
             ARRAY_OPS,
             Arc::new(collections_op_registry()),
         )
