@@ -80,10 +80,14 @@ Naming rule confirmed: `lib-{port}` = contract, `lib-{port}-{impl}` = backend.
 `lib-js` = the JS-interop contract (`call`/`invoke`/`await`/`error`, `JS` grade);
 `lib-fetch-js` = fetch over generated WebIDL + `js.await` (the precedent);
 `engine-compile-js` already targets `browser` (esm/iife/inline).
-**New libs:** `lib-dom` (sdkgen-webidl `dom.idl`/`html.idl` already in
-`tool-sdkgen-webidl/specs/` → generated adapters + hand-written convenience
-layer, following lib-fetch-js pattern); optional `lib-js-host` marshalling
-shim; `lib-event-dom` later. **Blocker:** no JS→handl callback mechanism —
+**New libs:** DOM bindings live **inside `lib-js`** (user decision
+2026-11-22 — no separate repo): specs already exist in
+`tool-sdkgen-webidl/specs/` (`dom.idl`, `html.idl`, `websockets.idl`,
+`storage.idl`, `console.idl`, …); generated package lands in
+`lib-js/handl-packages/generated/dom-webidl-browser/` via sdkgen-webidl,
+consumed via dep/path imports (lib-fetch-js pattern). Optional
+`lib-js-host` marshalling shim; `lib-event-dom` later. **Blocker:**
+no JS→handl callback mechanism —
 `lib-js` has call/invoke/await but no `on_event` registration; DOM listeners
 and worker `onmessage` need a host injection or JS-side trampoline.
 
