@@ -30,7 +30,7 @@ fn main() {
         "lib-serialize-toml-c",
         "lib-serialize-yaml-c",
         "lib-tar",
-        "lib-time-c",
+        "lib-posix-c",
         "lib-transform",
         "lib-type",
         "lib-unicode",

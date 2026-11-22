@@ -1,7 +1,7 @@
 //! Verifies that the `time` abstraction contract parses cleanly with
 //! `parse_contracts` and registers all 3 axioms.
 //!
-//! The contract lives in the `lib-time` repo (ADR-0128); this crate keeps a
+//! The clock contract folded into `lib-posix` (was `lib-time`, ADR-0128); this crate keeps a
 //! **fixture copy** rather than reaching across the repo boundary, the same
 //! shape as the other vendored `.hnl` fixtures here.
 

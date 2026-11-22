@@ -599,7 +599,7 @@ fn transform_export_to_object(src: &str, op_names: &[String]) -> String {
     // Private bindings become `do`-block assignments (`name := expr;`)
     // emitted *before* the object so exported closures can reference
     // private helpers such as `clock_gettime` in
-    // `time-c/clock_gettime.hnl`; exported bindings become record fields.
+    // `posix-c/clock_gettime.hnl`; exported bindings become record fields.
     let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
     let mut current: Option<(String, Vec<String>, bool)> = None;
     // Whether the module's last top-level statement is a binding. When it

@@ -629,7 +629,7 @@ human|json`/`--list`/`--changed`). The full event vocabulary is emitted:
   it neither raises nor catches errors directly. The engine continues to
   convert per-case `EvalError` into a failed `TestOutcome` in the runner,
   and `assert.*` helpers build `err` result values directly. The
-  `rand.seeded_*` RNG and `time.instant_ns` clock used by the framework
+  `rand.seeded_*` RNG and `posix.instant_ns` clock used by the framework
   were already wired into the canonical module chain; `error.raise` and
   `error.try` are not used by the test framework.
 

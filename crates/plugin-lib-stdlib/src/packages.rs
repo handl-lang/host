@@ -89,7 +89,7 @@ const CLOCK_GETTIME_MODULE: ModuleSpec = ModuleSpec {
     name: "clock_gettime",
     hnl: include_str!(concat!(
         env!("OUT_DIR"),
-        "/lib-time-c/src/clock_gettime.hnl"
+        "/lib-posix-c/src/clock_gettime.hnl"
     )),
     funcs: &["read_ns"],
     ops: &[],
