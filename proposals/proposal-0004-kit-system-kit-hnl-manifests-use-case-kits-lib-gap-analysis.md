@@ -105,10 +105,11 @@ and worker `onmessage` need a host injection or JS-side trampoline.
 
 Mostly greenfield: `lib-concurrent` task model + `lib-js.await` exist, but no
 Worker binding/postMessage/structuredClone anywhere. **New libs:**
-`lib-worker` (spawn/post/on_message/terminate over `js.call`, `self` side for
-worker-compiled entries, optional SharedArrayBuffer/Atomics); optional
-`lib-concurrent-js` backend implementing `concurrent.Run` over
-MessageChannel/setTimeout so the task model runs in-browser.
+Worker bindings via WebIDL → `tool-sdkgen-webidl` → generated package inside
+`lib-js` (lib-dom pattern — user decision: no `lib-worker` repo; worker is a
+kit-curated surface, not a lib). `DedicatedWorkerGlobalScope`/`Worker` specs +
+`postMessage`/`onmessage`/`terminate`; optional `lib-concurrent-js` backend
+implementing `concurrent.Run` over MessageChannel/setTimeout.
 
 ### kit-cli-app
 
@@ -169,7 +170,7 @@ kit.hnl may be the first-class resolution mechanism for them.
 
 ### lib-* gap list (consolidated)
 
-New libs needed: `lib-worker`, `lib-args`, `lib-stdio`, `lib-log`
+New libs needed: ~~`lib-worker`~~ (WebIDL-generated pkg inside lib-js instead), `lib-mri` (was lib-args — DONE), `lib-stdio` (DONE: contract + stdio-c), `lib-log`
 (optional), `lib-concurrent-js` (optional), `lib-http-route` (optional),
 `lib-event` finish or `lib-event-dom`. Planned backends: `lib-json-c`,
 `lib-json-js` (generated pkg inside lib-js, lib-dom pattern), `lib-fs-js`
