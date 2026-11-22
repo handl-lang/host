@@ -223,6 +223,7 @@ hnl-engine-parse = { path = "../engine-parse" }
 hnl-engine-parse-pratt = { path = "../engine-parse-pratt" }
 [patch."https://github.com/handl-lang/engine-test"]
 hnl-engine-test = { path = "../engine-test" }
+handl-kit-test = { path = "../engine-test/crates/kit-test" }
 [patch."https://github.com/handl-lang/engine-transform"]
 hnl-engine-transform = { path = "../engine-transform" }
 [patch."https://github.com/handl-lang/engine-transform-rewrite"]
@@ -240,8 +241,6 @@ handl-kit-stdlib = { path = "../kit-stdlib/crates/kit-stdlib" }
 [patch."https://github.com/handl-lang/kit-server"]
 handl-kit-server = { path = "../kit-server/crates/kit-server" }
 
-[patch."https://github.com/handl-lang/kit-test"]
-handl-kit-test = { path = "../kit-test/crates/kit-test" }
 
 [patch."https://github.com/handl-lang/kit-lang"]
 handl-kit-lang = { path = "../kit-lang/crates/kit-lang" }
