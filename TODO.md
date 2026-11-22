@@ -7,9 +7,9 @@
 - [ ] T-100 Refine brand assets (assets/logo-512x.png, drawing.svg) and wire into docs/product where useful · created:2026-11-15
 - [ ] T-101 host-tensor eager-eval: dead-branch casts (tensor.to int64 on -inf inside where-else) fail loudly where torch discards — needs lazy/select semantics or poison-tolerant cast policy; blocks t5-small verify-run · created:2026-11-15
 - [ ] T-110 kit-\*/lib-\* .hnl-only migration plan (on-demand refactors; python kits relocate out of kit-\*) · pri:low · owner:devin · created:2026-11-20 · #refactor · links:P-001 · epic:weekend-2026-11-20
-- [ ] T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-112 lib-\*: crate-model decision — 3 models (plugin-lib native / const-only / pure .hnl) + 6 architectures → .hnl-only target; fix broken ci.sh ×4 + unresolvable pkg.hnl ×6 first · pri:high · owner:devin · created:2026-11-20 · #lib · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-115 host-tensor family decision — discuss: lib-\* must be all .hnl; python interop via tool-sdkgen-python; host-tensor (rust+py tensor stack) doesn't fit kit-\*/lib-\* targets · owner:human:luis · created:2026-11-22 · #decision · links:P-001,P-002 · epic:weekend-2026-11-20
+- [ ] T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · status:in-progress · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
