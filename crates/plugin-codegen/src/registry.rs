@@ -41,8 +41,8 @@ use std::path::Path;
 use handl_language::Language;
 
 use hnl_engine_codegen::{
-    ApplyOptions, ArtifactStore, Change, CodegenError, EmitContext, Emitter, Engine, FsStore,
-    IrKind, IrModule, Manifest, RunMeta, Source,
+    ApplyOptions, ApplyReport, ArtifactStore, Change, CodegenError, EmitContext, Emitter, Engine,
+    FsStore, IrKind, IrModule, Manifest, Plan, RevertReport, RunMeta, Source,
 };
 
 use crate::{SdkgenModule, SpecModule};
@@ -410,23 +410,161 @@ impl CodegenRegistry {
     /// provenance → docs → materialize → verify → kernel apply.
     pub fn run(&self, name: &str, req: &CodegenRequest<'_>) -> Result<(), CodegenTargetError> {
         if let Some(typed) = self.typed.get(name) {
-            return self.run_typed(name, typed, req);
+            let changes = self.typed_changes(typed, req)?;
+            return self.apply(name, req, changes);
         }
-        let target = self
-            .targets
-            .get(name)
-            .ok_or_else(|| CodegenTargetError::Usage(format!("unknown codegen target `{name}`")))?;
+        let target = self.target_record(name)?;
+        self.check_source_filters(name, target, req)?;
+        match self.record_changes(name, target, req, true)? {
+            // A spec input consumed the request and already emitted.
+            None => Ok(()),
+            Some(changes) => self.apply(name, req, changes),
+        }
+    }
 
+    /// Materialize `name`'s desired [`Change`] set **without touching
+    /// the store** — parse → provenance → docs → emit → verify, the
+    /// same pipeline [`Self::run`] runs before `Engine::apply`. This is
+    /// the `plan`/`--check` half of the lifecycle (`hnl codegen plan`).
+    ///
+    /// Spec-input targets bypass the `Change` pipeline entirely and are
+    /// rejected here — there is no desired-state diff to plan.
+    pub fn materialize(
+        &self,
+        name: &str,
+        req: &CodegenRequest<'_>,
+    ) -> Result<Vec<Change>, CodegenTargetError> {
+        if let Some(typed) = self.typed.get(name) {
+            return self.typed_changes(typed, req);
+        }
+        let target = self.target_record(name)?;
+        self.check_source_filters(name, target, req)?;
+        match self.record_changes(name, target, req, false)? {
+            Some(changes) => Ok(changes),
+            // `allow_spec_input = false` turns a spec-input match into
+            // an error inside `record_changes`, so `None` is
+            // unreachable — but stay total rather than unwrap.
+            None => Err(CodegenTargetError::Failed(format!(
+                "codegen target `{name}` produced no change set"
+            ))),
+        }
+    }
+
+    /// Diff `name`'s desired state against the store under
+    /// `req.output` — no mutation. `hnl codegen plan` /
+    /// `--check` / `--dry-run`.
+    pub fn plan(&self, name: &str, req: &CodegenRequest<'_>) -> Result<Plan, CodegenTargetError> {
+        let changes = self.materialize(name, req)?;
+        let store = FsStore::new(req.output);
+        let engine = Engine::new(&store);
+        let prior = read_prior_manifest(&store, name);
+        engine
+            .plan(&changes, prior.as_ref())
+            .map_err(|e| CodegenTargetError::Failed(e.to_string()))
+    }
+
+    /// Delete exactly the artifacts `name`'s prior manifest records
+    /// (plus the manifest itself) under `req.output` —
+    /// `hnl codegen destroy`. Manifest-driven: unrecorded artifacts are
+    /// never touched, and there is no drift check (the manifest is the
+    /// authority on what the target owns).
+    pub fn destroy(
+        &self,
+        name: &str,
+        req: &CodegenRequest<'_>,
+    ) -> Result<ApplyReport, CodegenTargetError> {
+        let store = FsStore::new(req.output);
+        let engine = Engine::new(&store);
+        let manifest = read_prior_manifest(&store, name).ok_or_else(|| {
+            CodegenTargetError::Failed(format!(
+                "codegen target `{name}` has no manifest under {} — nothing to destroy",
+                req.output.display()
+            ))
+        })?;
+        engine
+            .destroy(&manifest, &ApplyOptions::default())
+            .map_err(|e| CodegenTargetError::Failed(e.to_string()))
+    }
+
+    /// Revert journal run `run_id` under `req.output` —
+    /// `hnl codegen revert`. When `run_id` is `None`, the run that
+    /// produced `name`'s current manifest is reverted (the common
+    /// "undo the last apply" case); pass `--run <id>` for an explicit
+    /// journal.
+    pub fn revert(
+        &self,
+        name: &str,
+        req: &CodegenRequest<'_>,
+        run_id: Option<&str>,
+    ) -> Result<RevertReport, CodegenTargetError> {
+        let store = FsStore::new(req.output);
+        let engine = Engine::new(&store);
+        let run_id = match run_id {
+            Some(id) => id.to_string(),
+            None => read_prior_manifest(&store, name)
+                .map(|m| m.run_id)
+                .filter(|id| !id.is_empty())
+                .ok_or_else(|| {
+                    CodegenTargetError::Failed(format!(
+                        "codegen target `{name}` has no manifest under {} — pass --run <id>",
+                        req.output.display()
+                    ))
+                })?,
+        };
+        engine
+            .revert(&run_id, &ApplyOptions::default())
+            .map_err(|e| CodegenTargetError::Failed(e.to_string()))
+    }
+
+    /// Look up a record target by name, mapping a miss to the CLI-level
+    /// `Usage` error `run`/`materialize` share.
+    fn target_record(&self, name: &str) -> Result<&CodegenTarget, CodegenTargetError> {
+        self.targets
+            .get(name)
+            .ok_or_else(|| CodegenTargetError::Usage(format!("unknown codegen target `{name}`")))
+    }
+
+    /// The `--include`/`--exclude` gate record targets declare via
+    /// `source_filters`.
+    fn check_source_filters(
+        &self,
+        name: &str,
+        target: &CodegenTarget,
+        req: &CodegenRequest<'_>,
+    ) -> Result<(), CodegenTargetError> {
         if !target.source_filters && (req.include.is_some() || req.exclude.is_some()) {
             return Err(CodegenTargetError::Usage(format!(
                 "--include/--exclude are not supported for `codegen {name}`"
             )));
         }
+        Ok(())
+    }
 
+    /// The record-target pipeline minus the `Engine::apply` tail:
+    /// spec-input (transitional, direct-emit — skipped when
+    /// `allow_spec_input` is false) → source parse → provenance → docs →
+    /// `--emit-spec` dump → diagnostics → materialize → verify.
+    ///
+    /// Returns `Ok(None)` when a spec input consumed the request (it
+    /// already emitted — there is no `Change` set to return).
+    fn record_changes(
+        &self,
+        name: &str,
+        target: &CodegenTarget,
+        req: &CodegenRequest<'_>,
+        allow_spec_input: bool,
+    ) -> Result<Option<Vec<Change>>, CodegenTargetError> {
         if let Some(spec_input) = &target.spec_input
             && (spec_input.matches)(req.spec)
         {
-            return (spec_input.run)(req).map_err(CodegenTargetError::Failed);
+            if !allow_spec_input {
+                return Err(CodegenTargetError::Failed(format!(
+                    "codegen target `{name}` uses a direct spec input that bypasses \
+                     the Change pipeline; plan/materialize cannot represent it"
+                )));
+            }
+            (spec_input.run)(req).map_err(CodegenTargetError::Failed)?;
+            return Ok(None);
         }
 
         let source_def = self.sources.get(target.source).ok_or_else(|| {
@@ -474,18 +612,17 @@ impl CodegenRegistry {
         emitter
             .verify_erased(&module, &changes)
             .map_err(|e| CodegenTargetError::Failed(e.to_string()))?;
-
-        self.apply(name, req, changes)
+        Ok(Some(changes))
     }
 
-    /// Typed-target path: parse → materialize → verify → apply, with no
-    /// record features (filters/docs/spec_input).
-    fn run_typed(
+    /// The typed-target pipeline minus the `Engine::apply` tail:
+    /// parse → provenance → `--emit-spec` dump → diagnostics →
+    /// materialize → verify.
+    fn typed_changes(
         &self,
-        name: &str,
         typed: &CodegenTypedTarget,
         req: &CodegenRequest<'_>,
-    ) -> Result<(), CodegenTargetError> {
+    ) -> Result<Vec<Change>, CodegenTargetError> {
         let ctx = emit_context(req);
         let mut module = typed
             .source
@@ -506,7 +643,7 @@ impl CodegenRegistry {
             .emitter
             .verify_erased(&module, &changes)
             .map_err(|e| CodegenTargetError::Failed(e.to_string()))?;
-        self.apply(name, req, changes)
+        Ok(changes)
     }
 
     /// Reconcile the desired `Change` set against `req.output` through
@@ -587,10 +724,7 @@ fn emit_spec_dump(module: &ErasedModule) -> Result<(), CodegenTargetError> {
         return Ok(());
     }
     std::fs::write(&dump.dest, &dump.yaml).map_err(|e| {
-        CodegenTargetError::Failed(format!(
-            "failed to write emitted spec `{}`: {e}",
-            dump.dest
-        ))
+        CodegenTargetError::Failed(format!("failed to write emitted spec `{}`: {e}", dump.dest))
     })
 }
 

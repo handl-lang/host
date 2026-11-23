@@ -28,7 +28,7 @@ pub use registry::{
 pub use hnl_engine_codegen::{
     ApplyOptions, ApplyReport, ArtifactRef, ArtifactStat, Change, CodegenError, ContentHash,
     EmitContext, Emitter, Engine, FsStore, IrKind, IrModule, Manifest, MemoryStore, OnError, Plan,
-    RevertReport, RunMeta, Source, StoreError,
+    PlanAction, PlanEntry, RevertReport, RunMeta, Source, StoreError,
 };
 
 use serde::{Deserialize, Serialize};
