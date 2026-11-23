@@ -192,7 +192,9 @@ stage_coverage_gate() {
 # `libhnl_ext_*` cdylibs built from the sibling ext-* repos and discovered
 # at runtime via $HANDL_EXT_DIR. The gate must therefore build the ext
 # libs too, and — on a detached worktree — against the sha under test.
-DOGFOOD_EXTS=(ext-fmt ext-lint ext-typecheck ext-test)
+# ext-sdkgen rides along: the specs-driven lib-* gates (sdkgen c
+# <header> regen) resolve `hnl sdkgen` from this same HANDL_EXT_DIR.
+DOGFOOD_EXTS=(ext-fmt ext-lint ext-typecheck ext-test ext-sdkgen)
 
 # `smoke` needs the checker/eval/test cdylibs (`run`, `typecheck`,
 # `test`); `fmt`/`lint` are dogfood-only.
