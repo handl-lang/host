@@ -1,3 +1,12 @@
++++
+id = "P-008"
+title = "lib-route: transport-agnostic router + middleware pipeline"
+status = "open"
+created = "2026-11-23"
+priority = "med"
+labels = ["http", "routing"]
++++
+
 # P-008 — lib-route: transport-agnostic router + middleware pipeline
 
 ***Status:** draft · **New repo:** `lib-route` · **Task:** T-136
