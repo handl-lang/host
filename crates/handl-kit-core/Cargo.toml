@@ -1,0 +1,26 @@
+[package]
+name = "handl-kit-core"
+version.workspace = true
+edition.workspace = true
+description = "Shared kit substrate — module table, resolver, caches, registry builder."
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+handl-value = { workspace = true }
+handl-ops = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+handl-plugin-ext-lint = { workspace = true }
+handl-plugin-lib-stdlib = { workspace = true }
+handl-plugin-module = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+# Tests assemble the canonical default language (ADR-0128 §"The 0.8 seam")
+# from the data crate; the library itself links no language data.
+handl-kit-data-prelude = { workspace = true }
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }
