@@ -1,0 +1,16 @@
+[package]
+name = "handl-kit-server"
+version.workspace = true
+edition.workspace = true
+description = "Server kit — OS-adjacent and C-library-backed modules (crypto/intl_c/unicode_c/entropy) plus the config/server manifests' library rows."
+license.workspace = true
+repository.workspace = true
+keywords = ["handl", "kit", "server"]
+categories = ["development-tools"]
+
+[dependencies]
+handl-kit-core = { workspace = true }
+handl-kit-data = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+handl-plugin-lib-stdlib = { workspace = true }
+handl-plugin-lib-otlp-std = { workspace = true }

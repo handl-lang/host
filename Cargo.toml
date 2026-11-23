@@ -41,6 +41,11 @@ members = [
   "crates/handl-kit-core",
   "crates/handl-kit-prelude-lang",
   "crates/handl-kit-data-prelude",
+  "crates/handl-kit-stdlib",
+  "crates/handl-kit-server",
+  "crates/handl-kit-ffi",
+  "crates/handl-kit-lang",
+  "crates/plugin-ffi",
   "crates/plugin-compile",
   "crates/handl-runtime",
   "crates/handl-kit-data",
@@ -160,6 +165,17 @@ handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-core = { path = "crates/handl-kit-core" }
 handl-kit-prelude-lang = { path = "crates/handl-kit-prelude-lang" }
 handl-kit-data-prelude = { path = "crates/handl-kit-data-prelude" }
+# T-125 Phase C: the four kit repos folded into this workspace.
+handl-kit-stdlib = { path = "crates/handl-kit-stdlib" }
+handl-kit-server = { path = "crates/handl-kit-server" }
+handl-kit-ffi = { path = "crates/handl-kit-ffi" }
+handl-plugin-ffi = { path = "crates/plugin-ffi" }
+handl-kit-lang = { path = "crates/handl-kit-lang" }
+# Vendored .hnl-only lib packages consumed by handl-kit-stdlib
+# (ADR-0160 P3); resolved from the sibling lib-* checkouts via [patch].
+handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = "main" }
+handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
+handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
@@ -244,19 +260,22 @@ hnl-engine-typecheck-nbe = { path = "../engine-typecheck-nbe" }
 # resolve to this member until the consumer-repoint sweep.
 handl-kit-core = { path = "crates/handl-kit-core" }
 
+# T-125 Phase C: the four kit crates are workspace members now — external
+# consumers that still declare the kit-* git deps resolve to these members
+# until the consumer-repoint sweep.
 [patch."https://github.com/handl-lang/kit-stdlib"]
-handl-kit-stdlib = { path = "../kit-stdlib/crates/kit-stdlib" }
+handl-kit-stdlib = { path = "crates/handl-kit-stdlib" }
 
 [patch."https://github.com/handl-lang/kit-server"]
-handl-kit-server = { path = "../kit-server/crates/kit-server" }
+handl-kit-server = { path = "crates/handl-kit-server" }
 
 
 [patch."https://github.com/handl-lang/kit-lang"]
-handl-kit-lang = { path = "../kit-lang/crates/kit-lang" }
+handl-kit-lang = { path = "crates/handl-kit-lang" }
 
 [patch."https://github.com/handl-lang/kit-ffi"]
-handl-kit-ffi = { path = "../kit-ffi/crates/kit-ffi" }
-handl-plugin-ffi = { path = "../kit-ffi/modules/ffi" }
+handl-kit-ffi = { path = "crates/handl-kit-ffi" }
+handl-plugin-ffi = { path = "crates/plugin-ffi" }
 
 [patch."https://github.com/handl-lang/host"]
 handl-plugin-lib-stdlib = { path = "../host/crates/plugin-lib-stdlib" }
@@ -303,7 +322,7 @@ handl-lib-prim = { path = "../kernel/crates/prim" }
 handl-lib-prim-handl = { path = "../kernel/crates/prim-handl" }
 [patch."https://github.com/handl-lang/kit-prelude"]
 handl-kit-prelude = { path = "../kit-prelude/crates/kit-prelude" }
-handl-plugin-ffi = { path = "../kit-ffi/modules/ffi" }
+handl-plugin-ffi = { path = "crates/plugin-ffi" }
 # T-124 Phase B: `handl-kit-prelude-lang` and `handl-kit-data-prelude` are
 # workspace members now — external kits that still declare the git deps
 # resolve to these members until the consumer-repoint sweep.

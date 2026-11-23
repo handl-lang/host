@@ -1,0 +1,18 @@
+[package]
+name = "handl-plugin-ffi"
+version.workspace = true
+edition.workspace = true
+description = "Generic FFI dispatcher for handl."
+license = "MIT"
+repository.workspace = true
+keywords = ["handl", "ffi"]
+categories = ["development-tools"]
+
+[dependencies]
+handl-platform = { workspace = true }
+handl-value = { workspace = true }
+libloading = { workspace = true }
+serde_json = { workspace = true }
+cranelift = { workspace = true, features = ["frontend", "native"] }
+cranelift-jit = { workspace = true }
+cranelift-module = { workspace = true }

@@ -1,0 +1,30 @@
+[package]
+name = "handl-kit-ffi"
+version.workspace = true
+edition.workspace = true
+description = "FFI kit — the `ffi` handl module (`ffi.hnl` + native ops over handl-plugin-ffi, or stubs)."
+license.workspace = true
+repository.workspace = true
+
+# The `ffi` handl module always resolves; the `ffi` feature only flips
+# whether the native ops are real (`handl-plugin-ffi` — cranelift +
+# libloading) or the graceful-degradation stubs (capability ops raise,
+# `ffi.load`/`ffi.sym` probes return `{__tag__: "err"}` so dependent
+# packages fall back instead of propagating).
+keywords = ["handl", "kit", "ffi"]
+categories = ["development-tools"]
+
+[features]
+default = ["ffi"]
+ffi = ["dep:handl-plugin-ffi"]
+
+[dependencies]
+handl-kit-core = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+
+handl-plugin-ffi = { workspace = true, optional = true }
+serde_json = { workspace = true }
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }

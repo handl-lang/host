@@ -1,0 +1,23 @@
+[package]
+name = "handl-kit-stdlib"
+version.workspace = true
+edition.workspace = true
+description = "Stdlib kit — data-format, codec, and utility .hnl modules (json/tar/url/kv/perlin/simplex/collections)."
+license.workspace = true
+repository.workspace = true
+keywords = ["handl", "kit", "stdlib"]
+categories = ["development-tools"]
+
+[dependencies]
+handl-kit-core = { workspace = true }
+handl-kit-data = { workspace = true }
+handl-platform = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+handl-plugin-lib-stdlib = { workspace = true }
+handl-plugin-lib-kv-hashmap = { workspace = true }
+handl-lib-base64 = { workspace = true }
+handl-lib-hex = { workspace = true }
+handl-lib-serialize = { workspace = true }
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }
