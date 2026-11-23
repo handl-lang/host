@@ -267,11 +267,16 @@ fn pretty_scheme_inner(scheme: &Term, depth: usize) -> String {
             body,
             target,
             impl_,
+            acc,
         } => {
             let mut out = format!("{}handle({}) {{\n", indent, target);
             out.push_str(&pretty_scheme_inner(body, depth + 1));
             out.push('\n');
             out.push_str(&pretty_scheme_inner(impl_, depth + 1));
+            if let Some(acc) = acc {
+                out.push_str(" acc ");
+                out.push_str(&pretty_scheme_inner(acc, depth + 1));
+            }
             out.push('\n');
             out.push_str(&indent);
             out.push('}');

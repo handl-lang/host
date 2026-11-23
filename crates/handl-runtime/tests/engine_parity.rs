@@ -848,17 +848,49 @@ fn perform_acc_state_threading() {
     }
 }
 
+/// `acc` stays an ordinary identifier everywhere except directly after a
+/// `handle … with <impl>` form — the contextual keyword is recognized only
+/// in the optional-child separator position (ADR-0158; see
+/// `handl-runtime`'s `contextual_keywords` retokenization pass).
+#[test]
+fn acc_remains_an_identifier() {
+    for (name, rt) in [
+        (
+            "tree-walk",
+            runtime_with_io(Box::new(TreeWalkEngine::new())),
+        ),
+        ("bytecode", runtime_with_io(Box::new(BytecodeEngine::new()))),
+        (
+            "cranelift",
+            runtime_with_io(Box::new(CraneliftEngine::new())),
+        ),
+    ] {
+        // `acc` as a bound variable.
+        let got = eval_engine_path(&rt, "do { acc := 40; acc + 2 }")
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on acc binding: {e}"));
+        assert_eq!(got, json!(42), "{name} acc binding");
+
+        // `acc := …` directly after a `handle` form: the keyword reading
+        // (`acc` clause) fails to parse — `:=` cannot start the seed
+        // expression — so the identifier reading is kept.
+        let got = eval_engine_path(&rt, "do { handle 1 with {}; acc := 40; acc + 2 }")
+            .unwrap_or_else(|e| panic!("{name} engine-path failed on post-handle acc: {e}"));
+        assert_eq!(got, json!(42), "{name} post-handle acc binding");
+    }
+}
+
 /// T-007c / ADR-0158: `handle … with … acc s0` — `ast.handle` declares
 /// the optional `acc` role and the AST engines thread `(payload, s)`
-/// through it, but `Term::Handle` (kernel `handl-calculus`) carries
-/// only `body`/`target`/`impl_`. The lowerer must therefore *decline*
-/// rather than silently drop the accumulator seed.
+/// through it. `Term::Handle` now carries an optional `acc` slot, but the
+/// shared `Term` interpreter does not implement the accumulator
+/// convention, so the lowerer must still *decline* rather than silently
+/// drop the seed.
 ///
-/// The `acc` clause is currently unreachable from surface syntax —
-/// `acc` is deliberately not a reserved keyword (see
-/// `data/lexer_rules.yaml`: reserving it broke the handl-authored
-/// desugar pass; a contextual match is TODO) — so this builds the
-/// 3-child `handle` node by hand, the shape a fixed parser will emit.
+/// The surface `handle … with … acc s0` spelling now parses (the
+/// `contextual_keywords` retokenization pass turns the identifier `acc`
+/// into `token.keyword.acc` in clause position), but this test still
+/// builds the 3-child `handle` node by hand to pin the *lowerer's*
+/// contract independently of the parser.
 #[test]
 fn handle_acc_clause_declines_lowering() {
     use handl_language::{Ast, AstNode};
@@ -1051,7 +1083,7 @@ fn self_recursive_arrow_without_data_types() {
     }
 }
 
-const SRC: &str = 
+const SRC: &str =
 "do {
           Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
           Vec<n : Nat, a : Type> := { VNil : Vec<0, a>, VCons : (x : a, xs : Vec<n, a>) ~> Vec<n + 1, a> }

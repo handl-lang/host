@@ -835,11 +835,17 @@ fn instantiate_scheme(
             body,
             target,
             impl_,
+            acc,
         } => Ok(Term::Handle {
             body: Box::new(instantiate_scheme(body, input_faithful, either_input, ctx)?),
             target: target.clone(),
             // `impl_` evaluates on a constant input, not the node input.
             impl_: Box::new(instantiate_scheme(impl_, false, false, ctx)?),
+            // `acc`-carrying `handle` nodes are declined in `lower_handle`
+            // before a `Term::Handle` is built, so a scheme `Handle`
+            // reaching here always has `acc: None`; pass it through
+            // verbatim rather than dropping it silently.
+            acc: acc.clone(),
         }),
         Term::Rewrite {
             source,
@@ -2052,12 +2058,14 @@ fn lower_handle(
         let body = lower_node(ast, lang, body_idx, env, params)?;
         op_target_name(&body).unwrap_or_default().to_string()
     };
-    // ADR-0158 `acc` clause: `handle f with h acc s0` — the optional
-    // accumulator seed has no slot in `Term::Handle` (the kernel variant
-    // carries only `body`/`target`/`impl_`), so the honest move is a
-    // decline: the AST engines thread `(payload, s)` state across
-    // dispatches and must keep handling this shape until the calculus
-    // grows an accumulator field.
+    // ADR-0158 `acc` clause: `handle f with h acc s0` — decline rather
+    // than risk a silent drop. `Term::Handle` now carries an optional
+    // `acc` slot (kernel `handl-calculus`), but the shared `Term`
+    // interpreter's `Handle` arm does not thread the `(payload, s)`
+    // accumulator convention the AST engines implement — lowering this
+    // shape would produce a term that evaluates with the seed ignored.
+    // The AST eval engines handle the 3-child node correctly, so decline
+    // and let `Runtime::eval` fall back to them.
     if lang
         .child_role_index_for(node, "acc")
         .ok()

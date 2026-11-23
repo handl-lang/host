@@ -58,6 +58,7 @@
 #![warn(missing_docs)]
 
 pub mod artifact_lint;
+pub(crate) mod contextual_keywords;
 pub mod desugar_pass;
 pub mod erase_pass;
 pub mod exec_erasure_pass;
@@ -838,8 +839,11 @@ impl Runtime {
             .parse_engine
             .as_ref()
             .ok_or(LangError::NotImplemented)?;
-        let req = ParserRequest::new(toks.clone());
-        engine.parse_dyn(&self.lang, &req)
+        // Contextual keywords (e.g. `acc` in `handle … with … acc s0`)
+        // have no lexer rule, so the parser never sees their token kind —
+        // retokenize identifier occurrences in separator-gated optional-
+        // child position before/while parsing (data-driven, ADR-0158).
+        contextual_keywords::parse_with_contextual_keywords(&self.lang, engine.as_ref(), toks)
     }
 
     /// Parse a token stream into an [`Ast`] using the bound parse engine,
@@ -1829,8 +1833,15 @@ impl ModuleLoader {
             })?
         };
         let ast = {
-            let req = ParserRequest::new(toks);
-            self.parse_engine.parse_dyn(&self.lang, &req).map_err(|e| {
+            // Same contextual-keyword retokenization `Runtime::parse_raw`
+            // applies — imported modules see the same surface syntax.
+            let toks = &toks;
+            contextual_keywords::parse_with_contextual_keywords(
+                &self.lang,
+                self.parse_engine.as_ref(),
+                toks,
+            )
+            .map_err(|e| {
                 LangError::engine(format!(
                     "import \"{}\" ({}): parse error: {}",
                     display_path, resolved, e

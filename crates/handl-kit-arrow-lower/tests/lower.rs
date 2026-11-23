@@ -429,6 +429,7 @@ fn handle_arrow_with_handler_lowers_to_term_handle() {
             body: Box::new(Term::op_native("read", vec![])),
             target: "read".to_string(),
             impl_: Box::new(Term::op_native("NumberHandler", vec![])),
+            acc: None,
         }
     );
 }

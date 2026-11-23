@@ -226,8 +226,10 @@
 # `acc` is NOT reserved: it is the most common accumulator name in handl
 # sources (89 uses in lib-desugar alone) and reserving it broke the
 # handl-authored desugar pass for every `data` file. The `handle … acc`
-# surface needs a contextual match (or a distinct spelling) before it can
-# claim the word; see project/TODO.md.
+# surface is served by the host-side contextual-keyword retokenization
+# pass (`handl-runtime`'s `contextual_keywords`): identifier `acc` is
+# retokenized to `token.keyword.acc` only in the optional-child separator
+# position after a `handle … with <impl>` node.
 - id: lex.keyword.do
   token_kind: token.keyword.do
   pattern: !Literal
