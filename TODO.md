@@ -10,7 +10,6 @@
 - [ ] T-112 lib-\*: crate-model decision — 3 models (plugin-lib native / const-only / pure .hnl) + 6 architectures → .hnl-only target; fix broken ci.sh ×4 + unresolvable pkg.hnl ×6 first · pri:high · owner:devin · created:2026-11-20 · #lib · #refactor · links:P-001 · epic:weekend-2026-11-20
 - [ ] T-115 host-tensor family decision — discuss: lib-\* must be all .hnl; python interop via tool-sdkgen-python; host-tensor (rust+py tensor stack) doesn't fit kit-\*/lib-\* targets · owner:human:luis · created:2026-11-22 · #decision · links:P-001,P-002 · epic:weekend-2026-11-20
 - [ ] T-116 scale .hnl-only migration: ~30 const-only lib-\* repos — recipe proven on lib-hello/lib-tag (P-002); per-repo: find \*\_HNL consumers, swap to pkg-vendor include\_str\!, drop patch entries, delete crate shim · pri:high · owner:agent · created:2026-11-22 · epic:weekend-2026-11-20
-- [ ] T-120 lib-http-middleware: request-scoped context through handlers (auth, sessions, CSRF, CORS, logging) — separate lib, not route's job · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-121 lib-http-route: full-URL patterns (host/port/protocol) — DEFERRED, irrelevant for origin server; revisit only if proxy/vhost use-case appears · pri:low · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-123 Fold kit-core crate into host workspace (module table/resolver/caches substrate) · created:2026-11-23
 - [ ] T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23
@@ -23,6 +22,7 @@
 - [ ] T-132 lib-mock spies/stubs + coverage phase for engine-test parity · created:2026-11-23
 - [ ] T-133 lib-concurrent-js: concurrent.Run over MessageChannel/setTimeout/Atomics (isomorphic runtime) · created:2026-11-23
 - [ ] T-135 engine-test+ext-test: push watch commits (engine-test first, then ext-test) · created:2026-11-23
+- [ ] T-136 lib-route: transport-agnostic router+pipeline extracted from http-route/http-middleware (pattern match, specificity dispatch, onion chain); unblocks CLI subcommand routing in kit-cli-app · owner:agent · created:2026-11-23 · links:P-008 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
