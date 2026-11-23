@@ -44,13 +44,15 @@ pub use handl_lint::HandlNativeLint;
 pub use plugin::{LINT_CAPABILITY, LintPlugin};
 
 use std::collections::HashSet;
+use std::path::Path;
 use std::sync::Arc;
 
 use handl_language::LangError;
-use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span, apply_fixes_to_fixpoint};
+use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span};
+use hnl_engine_codegen::{ApplyOptions, ArtifactRef, ArtifactStore, Engine, FsStore, RunMeta};
 use hnl_engine_lint::{
-    DiagnosticLevel, LintDiagnostic, LintEngine, LintFixOut, NativeHit, NativeLintResolver,
-    canonical_lint_natives,
+    DiagnosticLevel, FixpointOutcome, LintDiagnostic, LintEngine, LintFixError, LintFixOut,
+    NativeHit, NativeLintResolver, canonical_lint_natives,
 };
 
 // ---------------------------------------------------------------------------
@@ -60,14 +62,18 @@ use hnl_engine_lint::{
 /// Error from the linter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LintError {
-    /// Source failed to parse.
+    /// Source failed to parse (or a lint pass failed).
     Parse(String),
+    /// A file-level fix ([`fix_file`]) failed — store read, splice
+    /// planning, or the journaled `Engine::apply`.
+    Fix(String),
 }
 
 impl std::fmt::Display for LintError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             LintError::Parse(msg) => write!(f, "parse error: {msg}"),
+            LintError::Fix(msg) => write!(f, "fix error: {msg}"),
         }
     }
 }
@@ -216,43 +222,212 @@ pub fn fix_source(ctx: &LintContext, src: &str) -> Result<String, LintError> {
 /// Apply fixable diagnostics to source text, with a host-supplied wire
 /// prelude for `unbound-wire` (see [`lint_source_with_prelude`]).
 ///
+/// The fixpoint itself lives in `hnl-engine-lint`
+/// ([`LintEngine::fix_source`], PL-004 T-091): each round's fix batch is
+/// selected by the whole-file-fix-subsumes policy and spliced in
+/// descending byte order; lint failures propagate as honest errors
+/// rather than silently ending the loop.
+///
 /// # Errors
 ///
-/// Returns [`LintError::Parse`] if the source cannot be parsed after fixing.
+/// Returns [`LintError::Parse`] if the source cannot be linted (before
+/// or after fixing), [`LintError::Fix`] if the fixpoint does not
+/// converge within the iteration budget.
 pub fn fix_source_with_prelude(
     ctx: &LintContext,
     src: &str,
     prelude: &HashSet<String>,
 ) -> Result<String, LintError> {
-    let fixed = apply_fixes_to_fixpoint(src, |s| compute_fixes(ctx, s, prelude), 5)
-        .map_err(|e| LintError::Parse(e.to_string()))?;
-    // Verify the fixed source still parses.
-    let _ = lint_source_with_prelude(ctx, &fixed, prelude)?;
-    Ok(fixed)
+    let outcome = fix_outcome(ctx, src)?;
+    // Verify the fixed source still lints end-to-end (the typecheck
+    // scope pass included) — the same guarantee the old
+    // `apply_fixes_to_fixpoint` + re-lint path provided.
+    let _ = lint_source_with_prelude(ctx, &outcome.source, prelude)?;
+    Ok(outcome.source)
 }
 
-/// Compute the next batch of fixes for the fixpoint loop.
+/// Fixpoint iteration budget — the same 5 the pre-T-091
+/// `apply_fixes_to_fixpoint` loop used.
+const MAX_FIX_ITERATIONS: usize = 5;
+
+/// The engine-side fixpoint over `src` — shared by [`fix_source`] and
+/// [`fix_file`]. `prelude` does not reach the fix computation (the
+/// typecheck-scope diagnostics it feeds carry no fixes), so it is not
+/// threaded here; callers that need the prelude-checked *diagnostics*
+/// use [`lint_source_with_prelude`].
+fn fix_outcome(ctx: &LintContext, src: &str) -> Result<FixpointOutcome, LintError> {
+    lint_engine(ctx.resolver.clone())
+        .fix_source(
+            ctx.lang(),
+            src,
+            &hnl_engine_lex_pattern::DataLexerEngine,
+            &hnl_engine_parse_pratt::PrattEngine::new(),
+            MAX_FIX_ITERATIONS,
+        )
+        .map_err(|e| match e {
+            // A lint failure (unparseable source, rule error) keeps the
+            // historical `Parse` classification.
+            LintFixError::Lint(le) => LintError::Parse(le.to_string()),
+            other => LintError::Fix(other.to_string()),
+        })
+}
+
+/// What [`fix_file`] did to one artifact.
+#[derive(Debug, Clone)]
+pub struct LintFileFix {
+    /// The artifact ref that was fixed (relative to the store root).
+    pub artifact: ArtifactRef,
+    /// `true` when at least one fix round produced a journaled write.
+    pub changed: bool,
+    /// The shared journal run id (`lint-fix-…`) — pass to
+    /// `hnl_engine_codegen::Engine::revert` to undo every round.
+    /// `None` when the file was already clean.
+    pub run_id: Option<String>,
+    /// Fix rounds the fixpoint ran (0 = already clean).
+    pub iterations: usize,
+    /// Byte edits applied across all rounds.
+    pub edits: usize,
+}
+
+/// Fix a `.hnl` file on disk through the codemod engine — the
+/// `hnl lint --fix` write path (PL-004 T-091).
 ///
-/// The `fmt` fix spans the whole file and would overlap every other fix, so
-/// when it is present it is applied alone; otherwise the remaining fixable
-/// diagnostics (non-overlapping among themselves) are returned.
-fn compute_fixes(ctx: &LintContext, src: &str, prelude: &HashSet<String>) -> Vec<Fix> {
-    let diags = match lint_source_with_prelude(ctx, src, prelude) {
-        Ok(d) => d,
-        Err(_) => return Vec::new(),
-    };
-    if let Some(fmt_fix) = diags
-        .iter()
-        .find(|d| d.rule == "fmt")
-        .and_then(|d| d.fix.clone())
-    {
-        return vec![fmt_fix];
+/// `root` is the [`FsStore`] root and `artifact` a validated
+/// root-relative path — **not** a process-CWD-relative path, which is
+/// what makes this safe to call for files anywhere under the project.
+/// Each fixpoint round's `hnl_engine_lint::FixHit`s become
+/// `hnl_engine_codemod::ByteEdit`s whose offsets
+/// are valid against the store's *current* content (the previous
+/// round's applied state), so every round plans through
+/// [`hnl_engine_codemod::CodemodEngine::plan_byte_edits`] and applies
+/// through [`Engine::apply`] under one shared `lint-fix` run id. The
+/// write is journaled and atomic, drift-checked (`before_hash`), and
+/// `Engine::revert(run_id)` restores the original — replacing the old
+/// direct `write_atomic` path.
+///
+/// # Errors
+///
+/// [`LintError::Fix`] when the artifact cannot be read, is not UTF-8,
+/// a splice batch fails validation, or an apply reports failures.
+/// [`LintError::Parse`] when the source (or a fix intermediate) does
+/// not lint.
+pub fn fix_file(ctx: &LintContext, root: &Path, artifact: &str) -> Result<LintFileFix, LintError> {
+    fix_file_with_prelude(ctx, root, artifact, &HashSet::new())
+}
+
+/// [`fix_file`] with a host-supplied wire prelude — see
+/// [`lint_source_with_prelude`]. The prelude only affects the final
+/// verification lint (scope diagnostics carry no fixes).
+pub fn fix_file_with_prelude(
+    ctx: &LintContext,
+    root: &Path,
+    artifact: &str,
+    prelude: &HashSet<String>,
+) -> Result<LintFileFix, LintError> {
+    let store = FsStore::new(root);
+    let artifact = ArtifactRef::new(artifact);
+    let bytes = store
+        .read(&artifact)
+        .map_err(|e| LintError::Fix(format!("cannot read {artifact}: {e}")))?
+        .ok_or_else(|| {
+            LintError::Fix(format!(
+                "lint fix: {artifact} not found under {}",
+                root.display()
+            ))
+        })?;
+    let src = String::from_utf8(bytes)
+        .map_err(|_| LintError::Fix(format!("lint fix: {artifact} is not valid UTF-8")))?;
+
+    let outcome = fix_outcome(ctx, &src)?;
+    if outcome.rounds.is_empty() {
+        return Ok(LintFileFix {
+            artifact,
+            changed: false,
+            run_id: None,
+            iterations: 0,
+            edits: 0,
+        });
     }
-    diags
-        .iter()
-        .filter(|d| d.rule != "fmt")
-        .filter_map(|d| d.fix.clone())
-        .collect()
+    // Same end-to-end verification `fix_source` performs.
+    let _ = lint_source_with_prelude(ctx, &outcome.source, prelude)?;
+
+    // One run id across all rounds: the journal accumulates every
+    // round's before-images under `lint-fix-<id>` and `revert` restores
+    // them in reverse order — a single undo returns the original file.
+    let mut meta = RunMeta::new("lint-fix", env!("CARGO_PKG_VERSION"));
+    meta.new_run_id();
+    let run_id = meta.run_id.clone();
+
+    let codemod = hnl_engine_codemod::CodemodEngine::new(&store);
+    let lifecycle = Engine::new(&store);
+    let opts = ApplyOptions::default();
+    let mut edits = 0usize;
+
+    for round in &outcome.rounds {
+        let byte_edits: Vec<hnl_engine_codemod::ByteEdit> = round
+            .iter()
+            .map(|h| {
+                hnl_engine_codemod::ByteEdit::new(
+                    h.rule.clone(),
+                    h.fix.start,
+                    h.fix.end,
+                    h.fix.replacement.clone(),
+                )
+            })
+            .collect();
+        edits += byte_edits.len();
+        let plan = codemod.plan_byte_edits(&artifact, &byte_edits);
+        if !plan.diagnostics.is_empty() {
+            let detail = plan
+                .diagnostics
+                .iter()
+                .map(|d| format!("{:?}: {}", d.kind, d.message))
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(LintError::Fix(format!(
+                "lint fix: {artifact}: splice plan declined: {detail}"
+            )));
+        }
+        if plan.changes.is_empty() {
+            continue;
+        }
+        let report = lifecycle
+            .apply(&plan.changes, None, &meta, &opts)
+            .map_err(|e| LintError::Fix(format!("lint fix apply failed for {artifact}: {e}")))?;
+        if !report.clean() {
+            let detail = report
+                .failures
+                .iter()
+                .map(|(a, e)| format!("{a}: {e}"))
+                .chain(report.fatal.iter().cloned())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(LintError::Fix(format!(
+                "lint fix apply failed for {artifact}: {detail}"
+            )));
+        }
+    }
+
+    // The per-round splices must compose to exactly the fixpoint's
+    // converged source — a divergence means the store and the in-memory
+    // fixpoint disagree, which is a bug, not a partial success.
+    let after = store
+        .read(&artifact)
+        .map_err(|e| LintError::Fix(format!("cannot re-read {artifact}: {e}")))?
+        .unwrap_or_default();
+    if after.as_slice() != outcome.source.as_bytes() {
+        return Err(LintError::Fix(format!(
+            "lint fix: {artifact}: applied rounds diverged from the fixpoint result"
+        )));
+    }
+
+    Ok(LintFileFix {
+        artifact,
+        changed: true,
+        run_id: Some(run_id),
+        iterations: outcome.iterations,
+        edits,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -485,8 +660,9 @@ mod tests {
 
     #[test]
     fn fix_source_applies_the_fmt_fix() {
-        // A non-canonical file: the `fmt` rule supplies a whole-file fix, and
-        // `compute_fixes` applies it alone (it overlaps every other fix).
+        // A non-canonical file: the `fmt` rule supplies a whole-file fix,
+        // which the engine's `fix_batch` applies alone (it overlaps every
+        // other fix).
         let ctx = canonical_ctx();
         let fixed = fix_source(&ctx, "x   =   1;").expect("fixes");
         assert!(
@@ -496,12 +672,24 @@ mod tests {
     }
 
     #[test]
-    fn compute_fixes_on_canonical_source_is_empty() {
-        // No fmt fix present, so the non-fmt filter chain is exercised.
+    fn fix_outcome_on_canonical_source_has_no_rounds() {
+        // No fmt fix present, so the fixpoint converges immediately.
         let canonical =
             handl_plugin_ext_fmt::format_source_with_language(canonical_ctx().lang(), "x = 1;")
                 .expect("formats");
-        assert!(compute_fixes(&canonical_ctx(), &canonical, &HashSet::new()).is_empty());
+        let outcome = fix_outcome(&canonical_ctx(), &canonical).expect("fixpoint");
+        assert!(outcome.rounds.is_empty());
+        assert_eq!(outcome.iterations, 0);
+    }
+
+    #[test]
+    fn fix_outcome_propagates_a_lint_failure() {
+        // Unlike the old `compute_fixes` (which swallowed lint errors into
+        // "no fixes"), the engine fixpoint reports them honestly.
+        assert!(matches!(
+            fix_outcome(&canonical_ctx(), UNLEXABLE),
+            Err(LintError::Parse(_))
+        ));
     }
 
     #[test]
@@ -512,11 +700,6 @@ mod tests {
             scope_diagnostics_with_language(ctx.lang(), UNLEXABLE, &prelude).is_empty(),
             "a check failure must degrade to no diagnostics, not propagate"
         );
-    }
-
-    #[test]
-    fn compute_fixes_is_empty_when_the_source_cannot_be_linted() {
-        assert!(compute_fixes(&canonical_ctx(), UNLEXABLE, &HashSet::new()).is_empty());
     }
 
     #[test]
@@ -573,8 +756,83 @@ mod tests {
 
     #[test]
     fn check_source_with_prelude_propagates_a_parse_error() {
-        // Unlike `compute_fixes`/`fmt_rule`, the `check_source*` family
+        // Unlike `fix_outcome`/`fmt_rule`, the `check_source*` family
         // propagates the parse failure to the caller.
         assert!(check_source_with_prelude(&canonical_ctx(), UNLEXABLE, &HashSet::new()).is_err());
+    }
+
+    // --- fix_file: the journaled file-write path (PL-004 T-091) ---
+
+    #[test]
+    fn fix_file_writes_through_the_journaled_apply_and_reverts() {
+        let ctx = canonical_ctx();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let original = "x   =   1;";
+        std::fs::write(root.join("a.hnl"), original).expect("seed file");
+
+        let report = fix_file(&ctx, root, "a.hnl").expect("fix_file");
+        assert!(report.changed, "expected a write, got {report:?}");
+        let run_id = report.run_id.clone().expect("a run id");
+        assert!(report.edits > 0);
+
+        // The file now holds exactly what the string fixpoint produces.
+        let after = std::fs::read_to_string(root.join("a.hnl")).expect("read back");
+        assert_eq!(after, fix_source(&ctx, original).expect("fix_source"));
+
+        // Codegen bookkeeping landed under the reserved prefix.
+        assert!(
+            root.join(".handl/codegen").is_dir(),
+            "expected .handl/codegen bookkeeping under {}",
+            root.display()
+        );
+
+        // `Engine::revert` on the shared run id restores the original.
+        let store = FsStore::new(root);
+        let engine = Engine::new(&store);
+        let rev = engine
+            .revert(&run_id, &ApplyOptions::default())
+            .expect("revert");
+        assert!(rev.failures.is_empty() && !rev.aborted, "got {rev:?}");
+        assert_eq!(
+            std::fs::read_to_string(root.join("a.hnl")).expect("read back"),
+            original
+        );
+    }
+
+    #[test]
+    fn fix_file_on_clean_source_is_a_noop() {
+        let ctx = canonical_ctx();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let canonical =
+            handl_plugin_ext_fmt::format_source_with_language(ctx.lang(), "-- doc\nx = 1;\n")
+                .expect("formats");
+        std::fs::write(root.join("clean.hnl"), &canonical).expect("seed file");
+
+        let report = fix_file(&ctx, root, "clean.hnl").expect("fix_file");
+        assert!(!report.changed);
+        assert!(report.run_id.is_none());
+        assert_eq!(report.iterations, 0);
+        assert_eq!(
+            std::fs::read_to_string(root.join("clean.hnl")).expect("read back"),
+            canonical
+        );
+    }
+
+    #[test]
+    fn fix_file_missing_artifact_is_a_fix_error() {
+        let ctx = canonical_ctx();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let err = fix_file(&ctx, dir.path(), "nope.hnl").expect_err("must fail");
+        assert!(matches!(err, LintError::Fix(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn fix_file_rejects_a_traversal_ref() {
+        let ctx = canonical_ctx();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let err = fix_file(&ctx, dir.path(), "../escape.hnl").expect_err("must fail");
+        assert!(matches!(err, LintError::Fix(_)), "got {err:?}");
     }
 }
