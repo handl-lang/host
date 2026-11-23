@@ -324,6 +324,11 @@ pub struct DiscoveredKit {
     /// The `kit =` value verbatim: a kit directory path or a bare
     /// `kit-<name>` name, resolved by the caller exactly like `--kit`.
     pub spec: String,
+    /// The `extends =` link of the kit-declaring manifest, resolved to
+    /// the `.handl.toml` it names — `None` when that manifest declares
+    /// no `extends` (or the link does not resolve). Recorded for
+    /// forward-compat: non-kit keys will layer along this link.
+    pub extends: Option<PathBuf>,
 }
 
 /// The user-level config directory consulted by [`discover_kit_spec`]'s
@@ -347,16 +352,178 @@ pub fn global_manifest_path() -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
-/// The `kit = "<spec>"` scalar of a `.handl.toml` source, when present.
+/// The `kit`/`extends` string keys of a `.handl.toml`, parsed leniently.
 ///
-/// Reads the top-level `kit` key only when it is a string — `[[kit]]`
-/// host-kit tables and manifests without the key both yield `None`. An
-/// unparseable manifest also yields `None`: the file's own
-/// [`resolve_dependencies`] path reports the parse error with its path,
-/// so discovery stays lenient rather than shadowing that diagnostic.
-fn manifest_kit_spec(src: &str) -> Option<String> {
+/// Reads the top-level keys only when they are strings — `[[kit]]`
+/// host-kit tables, non-string values, and manifests without the keys
+/// all yield `None` for that key. An unparseable manifest yields `None`
+/// for both: the file's own [`resolve_dependencies`] path reports the
+/// parse error with its path, so discovery stays lenient rather than
+/// shadowing that diagnostic.
+#[derive(Debug, Default)]
+struct ManifestKeys {
+    /// The `kit = "<name-or-path>"` eval-kit selection (T-122).
+    kit: Option<String>,
+    /// The `extends = "<path-or-spec>"` inheritance link.
+    extends: Option<String>,
+}
+
+fn manifest_keys(src: &str) -> Option<ManifestKeys> {
     let value: toml::Value = toml::from_str(src).ok()?;
-    value.get("kit")?.as_str().map(str::to_string)
+    let string_key = |key: &str| {
+        value
+            .get(key)
+            .and_then(toml::Value::as_str)
+            .map(str::to_string)
+    };
+    Some(ManifestKeys {
+        kit: string_key("kit"),
+        extends: string_key("extends"),
+    })
+}
+
+/// Maximum `extends` hops followed while discovering a kit — a bound on
+/// pathological chains. Cycles are reported separately (a manifest
+/// revisited through the chain is always an error, never a silent stop).
+const MAX_EXTENDS_DEPTH: usize = 8;
+
+/// Resolve a `.handl.toml` `extends = "<path-or-spec>"` value to the
+/// manifest file it names.
+///
+/// Path-like values (absolute, or containing a `/`/`\` separator)
+/// resolve relative to `manifest_dir`; a directory target means its
+/// `.handl.toml`, a file target is used as-is. A bare name follows the
+/// kit-spec convention — probe `<manifest_dir>/kit-<name>` then
+/// `<manifest_dir>/../kit-<name>` — and names the `.handl.toml` inside
+/// (mirroring `resolve_kit_dir`'s sibling-checkout convention).
+///
+/// `Err` when nothing resolves: a dangling `extends` is a manifest bug,
+/// not a reason to silently skip the link.
+fn resolve_extends_manifest(manifest_dir: &Path, value: &str) -> Result<PathBuf, PlatformError> {
+    let path = Path::new(value);
+    if !path.is_absolute() && !value.contains('/') && !value.contains('\\') {
+        let parent = manifest_dir.parent().unwrap_or(manifest_dir);
+        for base in [manifest_dir, parent] {
+            let candidate = base.join(format!("kit-{value}")).join(".handl.toml");
+            if candidate.is_file() {
+                return Ok(std::fs::canonicalize(&candidate).unwrap_or(candidate));
+            }
+        }
+        return Err(PlatformError::InvalidMetadata(format!(
+            "extends `{value}`: no kit-{value}/.handl.toml next to {}",
+            manifest_dir.display()
+        )));
+    }
+    let base = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        manifest_dir.join(path)
+    };
+    let candidate = if base.is_dir() {
+        base.join(".handl.toml")
+    } else {
+        base
+    };
+    if candidate.is_file() {
+        Ok(std::fs::canonicalize(&candidate).unwrap_or(candidate))
+    } else {
+        Err(PlatformError::InvalidMetadata(format!(
+            "extends `{value}`: {} does not exist",
+            candidate.display()
+        )))
+    }
+}
+
+/// Follow a manifest's `extends` chain looking for the first `kit =`
+/// key. `entry` is the `.handl.toml` path of a manifest already known
+/// to lack `kit` — the chain is inspected starting *at* it (a defensive
+/// re-read covers callers that hand over an uninspected manifest).
+///
+/// Returns the [`DiscoveredKit`] of the first chained manifest
+/// declaring `kit` — its own `manifest_dir` anchors the spec, and its
+/// own `extends` is recorded on the result — or `None` when the chain
+/// ends without a `kit` (the caller then continues its normal ancestor
+/// walk; `extends` supplies fallback keys, it does not redirect the
+/// walk).
+///
+/// A manifest revisited through the chain is a cycle and an `extends`
+/// chain longer than [`MAX_EXTENDS_DEPTH`] hops is too deep — both are
+/// [`PlatformError::InvalidMetadata`] errors naming the manifests.
+fn kit_via_extends_chain(entry: &Path) -> Result<Option<DiscoveredKit>, PlatformError> {
+    let mut visited = HashSet::new();
+    let mut current = entry.to_path_buf();
+    let mut hops = 0usize;
+    loop {
+        let canonical = std::fs::canonicalize(&current).unwrap_or_else(|_| current.clone());
+        if !visited.insert(canonical) {
+            return Err(PlatformError::InvalidMetadata(format!(
+                "extends cycle: {} reaches {} again",
+                entry.display(),
+                current.display()
+            )));
+        }
+        let manifest_dir = current.parent().map(Path::to_path_buf).unwrap_or_default();
+        let manifest_dir = std::fs::canonicalize(&manifest_dir).unwrap_or(manifest_dir);
+        let Ok(src) = std::fs::read_to_string(&current) else {
+            return Ok(None);
+        };
+        let Some(keys) = manifest_keys(&src) else {
+            return Ok(None);
+        };
+        if let Some(spec) = keys.kit {
+            let extends = keys
+                .extends
+                .as_deref()
+                .and_then(|e| resolve_extends_manifest(&manifest_dir, e).ok());
+            return Ok(Some(DiscoveredKit {
+                manifest_dir,
+                spec,
+                extends,
+            }));
+        }
+        let Some(link) = keys.extends else {
+            return Ok(None);
+        };
+        hops += 1;
+        if hops > MAX_EXTENDS_DEPTH {
+            return Err(PlatformError::InvalidMetadata(format!(
+                "extends chain from {} exceeds depth {MAX_EXTENDS_DEPTH}",
+                entry.display()
+            )));
+        }
+        current = resolve_extends_manifest(&manifest_dir, &link)?;
+    }
+}
+
+/// Inspect one `.handl.toml`: a `kit =` key on the manifest itself wins
+/// immediately (its `extends`, when present, is only recorded); failing
+/// that, an `extends` link is followed via [`kit_via_extends_chain`].
+/// `Ok(None)` when the manifest is unreadable, unparseable, or yields
+/// no kit through its chain.
+fn kit_declared_or_extended(manifest: &Path) -> Result<Option<DiscoveredKit>, PlatformError> {
+    let Ok(src) = std::fs::read_to_string(manifest) else {
+        return Ok(None);
+    };
+    let Some(keys) = manifest_keys(&src) else {
+        return Ok(None);
+    };
+    let manifest_dir = manifest.parent().map(Path::to_path_buf).unwrap_or_default();
+    if let Some(spec) = keys.kit {
+        let extends = keys
+            .extends
+            .as_deref()
+            .and_then(|e| resolve_extends_manifest(&manifest_dir, e).ok());
+        let manifest_dir = std::fs::canonicalize(&manifest_dir).unwrap_or(manifest_dir);
+        return Ok(Some(DiscoveredKit {
+            manifest_dir,
+            spec,
+            extends,
+        }));
+    }
+    if keys.extends.is_some() {
+        return kit_via_extends_chain(manifest);
+    }
+    Ok(None)
 }
 
 /// T-122 kit discovery: walk up from `start` (a file or directory —
@@ -367,22 +534,44 @@ fn manifest_kit_spec(src: &str) -> Option<String> {
 /// [`global_manifest_path`] (`~/.config/handl/.handl.toml`), which uses
 /// the same key.
 ///
+/// `extends = "<path-or-spec>"` inheritance (T-122 follow-up): a
+/// manifest without `kit` but with `extends` hands discovery to the
+/// manifest it names — resolved relative to the manifest's directory,
+/// bare names probing `kit-<name>` like kit specs — and the first
+/// chained manifest declaring `kit` wins (its `manifest_dir` anchors
+/// the spec). A manifest declaring both keeps its own `kit`; its
+/// `extends` is recorded on [`DiscoveredKit::extends`] for future
+/// non-kit layering. Extends chains are cycle-checked and capped at
+/// [`MAX_EXTENDS_DEPTH`] hops; [`discover_kit_spec_checked`] surfaces
+/// those as errors while this lenient wrapper returns `None`.
+///
 /// The returned [`DiscoveredKit::spec`] is *not* resolved to a
 /// directory here — the caller resolves it against
 /// [`DiscoveredKit::manifest_dir`] exactly like an explicit `--kit`
 /// value (path-or-name), so `--kit` remains a strict override and a
 /// discovered spec that names no kit fails the same way.
-///
-/// `extends`/layering is deliberately out of scope: one manifest's `kit`
-/// fully selects the eval kit (replace, never union).
 pub fn discover_kit_spec(start: &Path) -> Option<DiscoveredKit> {
-    discover_kit_spec_in(start, global_manifest_path().as_deref())
+    discover_kit_spec_checked(start).ok().flatten()
+}
+
+/// [`discover_kit_spec`] with `extends`-chain diagnostics: `Err` on an
+/// `extends` cycle, an over-deep chain, or an unresolvable `extends`
+/// target; `Ok(None)` when nothing yields a kit.
+pub fn discover_kit_spec_checked(start: &Path) -> Result<Option<DiscoveredKit>, PlatformError> {
+    discover_kit_spec_in_checked(start, global_manifest_path().as_deref())
 }
 
 /// [`discover_kit_spec`] against an explicit global-manifest path — the
 /// test seam that keeps `$HOME`/`HANDL_CONFIG_DIR` env mutation out of
-/// the suite.
+/// the suite. The checked variant is [`discover_kit_spec_in_checked`].
 fn discover_kit_spec_in(start: &Path, global: Option<&Path>) -> Option<DiscoveredKit> {
+    discover_kit_spec_in_checked(start, global).ok().flatten()
+}
+
+fn discover_kit_spec_in_checked(
+    start: &Path,
+    global: Option<&Path>,
+) -> Result<Option<DiscoveredKit>, PlatformError> {
     let start_dir = if start.is_file() {
         start.parent().map(Path::to_path_buf)
     } else {
@@ -397,25 +586,15 @@ fn discover_kit_spec_in(start: &Path, global: Option<&Path>) -> Option<Discovere
         if !manifest.is_file() {
             continue;
         }
-        if let Ok(src) = std::fs::read_to_string(&manifest)
-            && let Some(spec) = manifest_kit_spec(&src)
-        {
-            return Some(DiscoveredKit {
-                manifest_dir: dir.to_path_buf(),
-                spec,
-            });
+        if let Some(found) = kit_declared_or_extended(&manifest)? {
+            return Ok(Some(found));
         }
     }
 
-    let global = global?;
-    let src = std::fs::read_to_string(global).ok()?;
-    let spec = manifest_kit_spec(&src)?;
-    let manifest_dir = global
-        .parent()
-        .map(Path::to_path_buf)
-        .and_then(|p| std::fs::canonicalize(p).ok())
-        .unwrap_or_else(|| PathBuf::from("."));
-    Some(DiscoveredKit { manifest_dir, spec })
+    let Some(global) = global else {
+        return Ok(None);
+    };
+    kit_declared_or_extended(global)
 }
 
 /// The directory a `git`-sourced `[dependencies]` entry resolves to when
@@ -2422,6 +2601,198 @@ vendored = { path = "../lib-vendored" }
         std::fs::remove_file(proj.join(".handl.toml")).unwrap();
         std::fs::write(&global, "[dependencies]\n").unwrap();
         assert!(discover_kit_spec_in(&proj, Some(&global)).is_none());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    // -- `extends` inheritance ------------------------------------------------
+
+    /// A manifest without `kit` but with `extends` hands discovery to
+    /// the named manifest: a relative path to another `.handl.toml`
+    /// (or its directory) resolves against the declaring manifest's
+    /// dir, and the chained manifest's `kit` applies — anchored at the
+    /// chained manifest's own directory.
+    #[test]
+    fn discover_kit_spec_follows_extends_chain() {
+        let root = std::env::temp_dir().join(format!("hnl-kitext-{}", std::process::id()));
+        let proj = root.join("proj");
+        let base = root.join("base");
+        std::fs::create_dir_all(proj.join("src")).unwrap();
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(base.join(".handl.toml"), "kit = \"../kit-base\"\n").unwrap();
+        // Path form naming the manifest file directly.
+        std::fs::write(
+            proj.join(".handl.toml"),
+            "extends = \"../base/.handl.toml\"\n",
+        )
+        .unwrap();
+
+        let found = discover_kit_spec_in_checked(&proj.join("src"), None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&base).unwrap());
+        assert_eq!(found.spec, "../kit-base");
+        assert_eq!(found.extends, None);
+
+        // Directory form (`extends = "../base"`) resolves the same way.
+        std::fs::write(proj.join(".handl.toml"), "extends = \"../base\"\n").unwrap();
+        let found = discover_kit_spec_in_checked(&proj, None).unwrap().unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&base).unwrap());
+        assert_eq!(found.spec, "../kit-base");
+
+        // Multi-hop: proj → mid → base; mid declares no kit of its own.
+        let mid = root.join("mid");
+        std::fs::create_dir_all(&mid).unwrap();
+        std::fs::write(mid.join(".handl.toml"), "extends = \"../base\"\n").unwrap();
+        std::fs::write(proj.join(".handl.toml"), "extends = \"../mid\"\n").unwrap();
+        let found = discover_kit_spec_in_checked(&proj, None).unwrap().unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&base).unwrap());
+        assert_eq!(found.spec, "../kit-base");
+
+        // A chain that ends without a `kit` falls through to the normal
+        // ancestor walk — an outer manifest's `kit` still applies.
+        let outer = root.join("outer");
+        std::fs::create_dir_all(outer.join("inner")).unwrap();
+        std::fs::write(outer.join(".handl.toml"), "kit = \"kit-outer\"\n").unwrap();
+        std::fs::write(
+            outer.join("inner").join(".handl.toml"),
+            "extends = \"../../base-empty\"\n",
+        )
+        .unwrap();
+        std::fs::create_dir_all(root.join("base-empty")).unwrap();
+        std::fs::write(
+            root.join("base-empty").join(".handl.toml"),
+            "[dependencies]\n",
+        )
+        .unwrap();
+        let found = discover_kit_spec_in_checked(&outer.join("inner"), None)
+            .unwrap()
+            .unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&outer).unwrap());
+        assert_eq!(found.spec, "kit-outer");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `extends` accepts a bare name resolved like a kit spec: probe
+    /// `<manifest_dir>/kit-<name>` then the parent directory.
+    #[test]
+    fn discover_kit_spec_extends_bare_name() {
+        let root = std::env::temp_dir().join(format!("hnl-kitext-bare-{}", std::process::id()));
+        let proj = root.join("proj");
+        let kit_manifest = root.join("kit-shared");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::create_dir_all(&kit_manifest).unwrap();
+        std::fs::write(kit_manifest.join(".handl.toml"), "kit = \"kit-real\"\n").unwrap();
+        std::fs::write(proj.join(".handl.toml"), "extends = \"shared\"\n").unwrap();
+
+        // `<proj>/kit-shared` does not exist; the parent probe
+        // `<root>/kit-shared` does.
+        let found = discover_kit_spec_in_checked(&proj, None).unwrap().unwrap();
+        assert_eq!(found.spec, "kit-real");
+        assert_eq!(
+            found.manifest_dir,
+            std::fs::canonicalize(&kit_manifest).unwrap()
+        );
+
+        // A `kit-<name>` dir inside the manifest dir wins first.
+        let inner = proj.join("kit-inner");
+        std::fs::create_dir_all(&inner).unwrap();
+        std::fs::write(inner.join(".handl.toml"), "kit = \"kit-inner-real\"\n").unwrap();
+        std::fs::write(proj.join(".handl.toml"), "extends = \"inner\"\n").unwrap();
+        let found = discover_kit_spec_in_checked(&proj, None).unwrap().unwrap();
+        assert_eq!(found.spec, "kit-inner-real");
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&inner).unwrap());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A manifest declaring both `kit` and `extends`: `kit` wins for
+    /// kit selection (the extends target's `kit` is never consulted)
+    /// and the resolved `extends` link is recorded on the result.
+    #[test]
+    fn discover_kit_spec_kit_wins_over_extends() {
+        let root = std::env::temp_dir().join(format!("hnl-kitext-both-{}", std::process::id()));
+        let proj = root.join("proj");
+        let base = root.join("base");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::create_dir_all(&base).unwrap();
+        std::fs::write(base.join(".handl.toml"), "kit = \"kit-base\"\n").unwrap();
+        std::fs::write(
+            proj.join(".handl.toml"),
+            "kit = \"kit-proj\"\nextends = \"../base\"\n",
+        )
+        .unwrap();
+
+        let found = discover_kit_spec_in_checked(&proj, None).unwrap().unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&proj).unwrap());
+        assert_eq!(found.spec, "kit-proj");
+        assert_eq!(
+            found.extends,
+            Some(std::fs::canonicalize(base.join(".handl.toml")).unwrap())
+        );
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `extends` cycles and over-deep chains are hard errors on the
+    /// checked entry point (the lenient wrapper reports `None`).
+    #[test]
+    fn discover_kit_spec_extends_cycle_and_depth() {
+        let root = std::env::temp_dir().join(format!("hnl-kitext-cyc-{}", std::process::id()));
+        let a = root.join("a");
+        let b = root.join("b");
+        std::fs::create_dir_all(&a).unwrap();
+        std::fs::create_dir_all(&b).unwrap();
+        std::fs::write(a.join(".handl.toml"), "extends = \"../b\"\n").unwrap();
+        std::fs::write(b.join(".handl.toml"), "extends = \"../a\"\n").unwrap();
+
+        let err = discover_kit_spec_in_checked(&a, None).unwrap_err();
+        assert!(format!("{err}").contains("extends cycle"), "{err}");
+        // Lenient wrapper: the broken chain reads as "no kit found".
+        assert!(discover_kit_spec_in(&a, None).is_none());
+
+        // Self-cycle is caught too.
+        std::fs::write(a.join(".handl.toml"), "extends = \".\"\n").unwrap();
+        // `.` has no separator → bare-name probe misses → dangling error.
+        let err = discover_kit_spec_in_checked(&a, None).unwrap_err();
+        assert!(format!("{err}").contains("extends"), "{err}");
+        std::fs::write(a.join(".handl.toml"), "extends = \"./.handl.toml\"\n").unwrap();
+        let err = discover_kit_spec_in_checked(&a, None).unwrap_err();
+        assert!(format!("{err}").contains("extends cycle"), "{err}");
+
+        // Depth cap: a linear chain of MAX+2 manifests, none with `kit`.
+        let chain = root.join("chain");
+        for i in 0..10 {
+            let dir = chain.join(format!("m{i}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            let next = if i == 9 {
+                "dead".to_string()
+            } else {
+                format!("../m{}", i + 1)
+            };
+            std::fs::write(dir.join(".handl.toml"), format!("extends = \"{next}\"\n")).unwrap();
+        }
+        std::fs::create_dir_all(chain.join("dead")).unwrap();
+        std::fs::write(chain.join("dead").join(".handl.toml"), "[dependencies]\n").unwrap();
+        let err = discover_kit_spec_in_checked(&chain.join("m0"), None).unwrap_err();
+        assert!(format!("{err}").contains("depth"), "{err}");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A dangling `extends` (no resolvable manifest) is an error on the
+    /// checked entry point, not a silent skip.
+    #[test]
+    fn discover_kit_spec_extends_dangling_is_error() {
+        let root = std::env::temp_dir().join(format!("hnl-kitext-dangle-{}", std::process::id()));
+        let proj = root.join("proj");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::write(proj.join(".handl.toml"), "extends = \"../nowhere\"\n").unwrap();
+
+        let err = discover_kit_spec_in_checked(&proj, None).unwrap_err();
+        assert!(format!("{err}").contains("extends"), "{err}");
+        assert!(discover_kit_spec_in(&proj, None).is_none());
 
         std::fs::remove_dir_all(&root).ok();
     }
