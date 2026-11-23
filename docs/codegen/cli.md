@@ -17,7 +17,19 @@ hnl codegen [plan|apply|destroy|revert] <target> [<spec> | --from-url <url>] --o
            [--target <triple>] [--include <glob>] [--exclude <glob>]
            [--config <yaml>] [--emit-spec <path|->] [--cache-dir <dir>]
            [--check|--dry-run|--plan] [--run <id>]
+
+hnl codegen [plan|apply] --manifest <dir> [--output <root>] [--check|--dry-run]
 ```
+
+The second form (PL-004 T-101) applies an mlopt change-set manifest —
+`manifest.json` + a `blobs/` store as produced by `python -m mlopt
+export --manifest`, `stage deliver`, or `kernel-lower --manifest-dir` —
+through the same `Engine::plan`/`Engine::apply` lifecycle via
+`handl-kit-mlopt`'s manifest bridge. The manifest is already
+materialized desired state, so no `<target>`/`<spec>` participates;
+`--output` is the `FsStore` root the artifact refs resolve under
+(default: the process cwd — apply from the emitter's cwd and `out`
+paths land where they pointed). `destroy`/`revert` stay target-only.
 
 The leading verb defaults to `apply` (the pre-PL-004 `sdkgen`
 behaviour). `<target>` is looked up in the `CodegenRegistry`; the usage
@@ -32,7 +44,7 @@ features).
 | `destroy` | Deletes exactly the artifacts the target's prior manifest records (plus the manifest itself). Manifest-driven: unrecorded files are never touched; no drift check. |
 | `revert [--run <id>]` | Undoes a journal run's before-images. Default run: the one that produced the target's current manifest; `--run` selects an explicit journal id. |
 | positional | Local spec/header path (or, for `cli`, a bare tool name to probe; for `fmt`, the `.hnl` file to format). Mutually exclusive with `--from-url`. `destroy`/`revert` take no positional spec. |
-| `--output <dir>` | Required for `apply`/`plan` (the `FsStore` root); also required-but-unused-by-pipeline for `destroy`/`revert` (the store root the manifest/journal live under). For spec-emitting targets it is the port package dir; the adapter lands in the sibling `<pkg>-<backend>-<slug>` dir. The basename of `--output` is the port package name. For `fmt`, pass the file's directory so the artifact ref resolves in place. |
+| `--output <dir>` | Required for target-mode `apply`/`plan` (the `FsStore` root); also required-but-unused-by-pipeline for `destroy`/`revert` (the store root the manifest/journal live under). In `--manifest` mode it is the `FsStore` root and **optional** (default: process cwd). For spec-emitting targets it is the port package dir; the adapter lands in the sibling `<pkg>-<backend>-<slug>` dir. The basename of `--output` is the port package name. For `fmt`, pass the file's directory so the artifact ref resolves in place. |
 | `--target <triple>` | Backend target selector. `c`: libclang `-target` triple (default: host triple). `webidl`: any slug (default `browser`). `cli`: adapter-package slug (default `host`). |
 | `--include <glob>` | Comma-separated globs; only accepted on targets with `source_filters` (`c`, `python`). Unioned with config `headers:` entries. |
 | `--exclude <glob>` | Same shape; a match vetoes even an include match. |
@@ -78,7 +90,7 @@ c       = ["dep:handl-plugin-codegen-backend-c", "dep:handl-plugin-codegen-emitt
 webidl  = ["dep:handl-plugin-codegen-backend-webidl", "dep:handl-plugin-codegen-emitter-file"]
 python  = ["c", "dep:handl-plugin-codegen-emitter-python"]
 cli     = ["dep:handl-plugin-codegen-cli"]
-fmt     = ["dep:hnl-engine-fmt"]
+fmt     = ["dep:hnl-tool-fmt"]
 ```
 
 `python` implies `c` because its target record names source `c` —
