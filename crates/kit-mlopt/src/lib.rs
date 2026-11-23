@@ -48,7 +48,7 @@
 //! real `lower(verify=True)` gate before emitting the `.hnl` artifact
 //! as a change-set manifest (v5 records — `manifest`/`changes` on the
 //! record; the [`manifest`] module is the apply side: it reconciles
-//! the manifest through `hnl-engine-codegen`'s `Engine::apply`/
+//! the manifest through `hnl-tool-codegen`'s `Engine::apply`/
 //! `FsStore`, T-093). `MLOPT_PIPELINE_CMD` still lets a host point at
 //! any conforming command (the test suite uses a fixture script).
 //!
@@ -82,7 +82,7 @@ use handl_platform::{EvalContext, EvalError, Function, Module};
 use serde_json::Value;
 
 /// The change-set manifest apply bridge (PL-004 T-093): mlopt's
-/// `manifest.json` + blob store → `hnl-engine-codegen` `Engine`.
+/// `manifest.json` + blob store → `hnl-tool-codegen` `Engine`.
 pub mod manifest;
 
 // ---------------------------------------------------------------------------
@@ -96,6 +96,7 @@ pub mod manifest;
 /// while a *higher* `v` is refused loudly — the kit never guesses at
 /// a schema it does not know. Bump this when the kit learns a newer
 /// record schema; it must never run ahead of what it validates.
+///
 /// v5 (mlopt side): manifest blob/change hashes are BLAKE3-256 — the
 /// kernel's `ContentHash` algorithm — so [`manifest::apply_manifest`]
 /// digest checks compare directly; v4 manifests carry `blake2b-256`
@@ -525,9 +526,9 @@ mod tests {
 
     #[test]
     fn record_schema_pin_is_validated() {
-        // `vok` emits `"v": 4` — the current pin passes through.
+        // `vok` emits `"v": 5` — the current pin passes through.
         let out = call_with("vok", Value::Null).unwrap();
-        assert_eq!(out["v"], 4);
+        assert_eq!(out["v"], 5);
 
         // A newer schema is a loud error on the OUTPUT side.
         let err = call_with("vfuture", Value::Null).unwrap_err();

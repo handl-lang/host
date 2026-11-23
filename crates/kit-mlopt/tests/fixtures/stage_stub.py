@@ -72,7 +72,7 @@ def main() -> int:
     elif stage == "vok":
         # A record carrying the current schema pin — the kit's
         # tolerant reader must accept it.
-        print(json.dumps({"stage": "vok", "ok": True, "v": 4}))
+        print(json.dumps({"stage": "vok", "ok": True, "v": 5}))
     elif stage == "vfuture":
         # A record stamped newer than the kit's schema — must be a
         # loud EvalError, never a silent pass.
