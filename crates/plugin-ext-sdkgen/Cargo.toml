@@ -20,7 +20,13 @@ cli = ["dep:handl-plugin-sdkgen-cli"]
 
 [dependencies]
 handl-language = { workspace = true }
-handl-plugin-sdkgen = { path = "../plugin-sdkgen" }
+# PL-004 Phase 1: the core was renamed `handl-plugin-sdkgen` →
+# `handl-plugin-codegen` and migrated to the kernel traits; this ext
+# crate still drives the pre-rename API until the T-075/T-076 migration
+# wave, so it consumes the pre-rename crate from git main — MUST stay
+# `branch = "main"` (not a rev pin): the engine-sdkgen-* siblings dep
+# on the same source and the types must unify.
+handl-plugin-sdkgen = { git = "https://github.com/handl-lang/host", branch = "main" }
 # ADR-0128 Phase 2: the c backend lives in the `c` repo; the root
 # `[patch]` resolves the sibling checkout for local dev.
 handl-plugin-sdkgen-backend-c = { git = "https://github.com/handl-lang/engine-sdkgen-c", branch = "main", optional = true }

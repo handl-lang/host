@@ -53,7 +53,7 @@ members = [
   "crates/plugin-compile",
   "crates/handl-runtime",
   "crates/handl-kit-data",
-  "crates/plugin-sdkgen",
+  "crates/plugin-codegen",
   "crates/plugin-ext-sdkgen",
 ]
 resolver = "3"
@@ -171,6 +171,12 @@ hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-by
 hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/engine-exec-cranelift", branch = "main" }
 hnl-engine-fmt = { git = "https://github.com/handl-lang/engine-fmt", branch = "main" }
 hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
+# PL-004 Phase 0/1: the desired-state codegen kernel lives in the
+# `engine-codegen` repo. The git remote does not exist yet (local-only
+# kernel), so the workspace dep is a path dep for now; the `[patch]`
+# entry below keeps the git-source convention ready for T-079 repo
+# wiring — flip this line back to `git = "https://github.com/handl-lang/engine-codegen", branch = "main"` then.
+hnl-engine-codegen = { path = "../engine-codegen" }
 hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform", branch = "main" }
 hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
 handl-runtime = { path = "crates/handl-runtime" }
@@ -190,7 +196,7 @@ handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = 
 handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
-handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
+handl-plugin-codegen = { path = "crates/plugin-codegen" }
 handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
 
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
@@ -252,6 +258,9 @@ hnl-engine-lex = { path = "../engine-lex" }
 hnl-engine-lex-pattern = { path = "../engine-lex-pattern" }
 [patch."https://github.com/handl-lang/engine-lint"]
 hnl-engine-lint = { path = "../engine-lint" }
+# PL-004: the codegen kernel resolves from the sibling checkout.
+[patch."https://github.com/handl-lang/engine-codegen"]
+hnl-engine-codegen = { path = "../engine-codegen" }
 [patch."https://github.com/handl-lang/engine-parse"]
 hnl-engine-parse = { path = "../engine-parse" }
 [patch."https://github.com/handl-lang/engine-parse-pratt"]
@@ -324,7 +333,12 @@ handl-plugin-lib-tag = { path = "../host/crates/plugin-lib-tag" }
 handl-plugin-load = { path = "../host/crates/plugin-load" }
 handl-plugin-loader-native = { path = "../host/crates/plugin-loader-native" }
 handl-plugin-module = { path = "../host/crates/plugin-module" }
-handl-plugin-sdkgen = { path = "../host/crates/plugin-sdkgen" }
+# PL-004 Phase 1: `handl-plugin-codegen` (renamed from plugin-sdkgen)
+# is a workspace member now. `handl-plugin-sdkgen` deliberately has no
+# entry — `plugin-ext-sdkgen` and the unmigrated engine-sdkgen-*
+# siblings still consume the pre-rename crate from git main until the
+# T-075/T-076 migration wave.
+handl-plugin-codegen = { path = "../host/crates/plugin-codegen" }
 [patch."https://github.com/handl-lang/kernel"]
 handl-calculus = { path = "../kernel/crates/handl-calculus" }
 handl-language = { path = "../kernel/crates/handl-language" }

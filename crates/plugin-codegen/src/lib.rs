@@ -1,17 +1,42 @@
-//! Handl SDK generator core IR and traits (ADR-0107).
+//! Handl codegen core: IR families, the `CodegenRegistry`, and the
+//! desired-state lifecycle wiring (P-001 / PL-004 — renamed from
+//! `plugin-sdkgen`, ADR-0107/ADR-0128).
+//!
+//! The pipeline is the org-wide `Lift → Transform → Materialize →
+//! [Verify] → Reconcile` shape: [`Source<I>`] parses an input spec into
+//! a typed [`IrModule`], an [`Emitter<I>`] renders it to a desired
+//! [`Change`] set with **no side effects**, and
+//! [`CodegenRegistry::run`] reconciles that set against the output
+//! directory through the `hnl-engine-codegen` kernel (`FsStore` +
+//! `Engine::apply` — manifest + journal under `.handl/codegen/`).
+//!
+//! `sdkgen` survives only as the *domain/IR* name — [`SdkgenModule`],
+//! backend ids (`c`, `webidl`, `cli`), emitter ids (`hnl-file`,
+//! `python`) — per the P-001 naming map; the command surface is
+//! `codegen`.
 
-mod targets;
+mod registry;
 
-pub use targets::{
-    SdkgenBackendDef, SdkgenEmitterDef, SdkgenRegistry, SdkgenRequest, SdkgenSpecInput,
-    SdkgenTarget, SdkgenTargetError,
+pub use registry::{
+    AnyEmitter, AnySource, CodegenEmitterDef, CodegenRegistry, CodegenRequest, CodegenSourceDef,
+    CodegenTarget, CodegenTargetError, CodegenTypedTarget, ErasedModule, emit_context,
+};
+
+// The kernel surface registrants implement against — re-exported so
+// target modules only depend on this crate.
+pub use hnl_engine_codegen::{
+    ApplyOptions, ApplyReport, ArtifactRef, ArtifactStat, Change, CodegenError, ContentHash,
+    EmitContext, Emitter, FsStore, IrKind, IrModule, Manifest, MemoryStore, OnError, Plan,
+    RevertReport, RunMeta, Source, StoreError,
 };
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
-/// Platform-agnostic SDK module produced by a backend and consumed by an emitter.
+/// Platform-agnostic SDK module produced by a [`Source`] and consumed
+/// by an [`Emitter`] — the foreign-binding IR family (kept under the
+/// `Sdkgen` name: it names the domain, not the command surface).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SdkgenModule {
     pub client_package: String,
@@ -29,8 +54,10 @@ pub struct SdkgenModule {
     #[serde(default)]
     pub imports: Vec<ModuleImport>,
     /// Provenance of the input spec — e.g. the URL passed to
-    /// `hnl sdkgen --from-url`. Rendered as a `--- source:` header line so
-    /// committed generated files record the pin they were produced from.
+    /// `hnl codegen --from-url`. Stamped by `Source::parse` from
+    /// `EmitContext::source_url` (P-001 inventory §4) and rendered as a
+    /// `--- source:` header line so committed generated files record
+    /// the pin they were produced from.
     #[serde(default)]
     pub source: Option<String>,
     /// File layout hint for emitters that support it: when set, the
@@ -43,6 +70,84 @@ pub struct SdkgenModule {
     #[serde(default)]
     pub per_record_files: bool,
     pub diagnostics: Vec<String>,
+}
+
+impl IrModule for SdkgenModule {
+    fn kind(&self) -> IrKind {
+        IrKind::new("sdkgen")
+    }
+}
+
+/// IR for the spec-input path (P-001 inventory §2): a parsed yaml/json
+/// spec document — the python target's spec-driven generation — so the
+/// registry's spec hook becomes a normal `Source`/`Emitter` pairing
+/// instead of an IR-free bypass. The `hnl` renderer lives in
+/// `engine-codegen-python` (`handl-plugin-codegen-emitter-python`); this
+/// crate defines the IR + [`Source`]/[`Emitter`] surface only.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SpecModule {
+    /// Spec format tag: `"yaml"` or `"json"`.
+    pub format: String,
+    /// Package/target name derived from the spec (file stem).
+    pub name: String,
+    /// The parsed spec document. YAML is normalised to a JSON value at
+    /// parse time so emitters see one shape regardless of format.
+    pub document: serde_json::Value,
+    /// Provenance (spec path / `--from-url` / `--source-url`).
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub diagnostics: Vec<String>,
+}
+
+impl IrModule for SpecModule {
+    fn kind(&self) -> IrKind {
+        IrKind::new("spec")
+    }
+}
+
+impl SpecModule {
+    /// Detect the spec format from a path's extension
+    /// (`.yaml`/`.yml`/`.json`); `None` for anything else.
+    pub fn format_for(path: &Path) -> Option<&'static str> {
+        match path.extension().and_then(|e| e.to_str()) {
+            Some("yaml" | "yml") => Some("yaml"),
+            Some("json") => Some("json"),
+            _ => None,
+        }
+    }
+
+    /// Parse a yaml/json spec file into [`SpecModule`] — the reference
+    /// [`Source<SpecModule>`] body for spec inputs. Pure: reads `path`,
+    /// writes nothing. `name` defaults to the file stem.
+    pub fn load(path: &Path, source: Option<String>) -> Result<Self, CodegenError> {
+        let format = Self::format_for(path).ok_or_else(|| {
+            CodegenError::Parse(format!("unsupported spec format: {}", path.display()))
+        })?;
+        let text = std::fs::read_to_string(path)
+            .map_err(|e| CodegenError::Parse(format!("failed to read {}: {e}", path.display())))?;
+        let document: serde_json::Value = if format == "json" {
+            serde_json::from_str(&text)
+                .map_err(|e| CodegenError::Parse(format!("invalid json spec: {e}")))?
+        } else {
+            // serde_yaml deserializes YAML mappings/sequences into
+            // serde_json::Value directly for JSON-compatible docs.
+            serde_yaml::from_str(&text)
+                .map_err(|e| CodegenError::Parse(format!("invalid yaml spec: {e}")))?
+        };
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("spec")
+            .to_string();
+        Ok(Self {
+            format: format.to_string(),
+            name,
+            document,
+            source,
+            diagnostics: Vec::new(),
+        })
+    }
 }
 
 /// A named import the emitted port needs: `from "<package>" import { names }`.
@@ -166,7 +271,7 @@ pub fn pick_doc(
 }
 
 /// Blocking HTTP GET with a timeout, used by [`DocSource`] impls that
-/// fetch docs over the network and by `hnl sdkgen --from-url` spec
+/// fetch docs over the network and by `hnl codegen --from-url` spec
 /// fetching. Returns the response body on a 2xx status; `Err` carries
 /// `HTTP <status>` for non-2xx responses or the transport error message.
 pub fn http_get(url: &str, timeout_ms: u64) -> Result<String, String> {
@@ -177,39 +282,6 @@ pub fn http_get(url: &str, timeout_ms: u64) -> Result<String, String> {
         Err(e) => Err(e.to_string()),
     }
 }
-
-/// Backend-specific parser from a foreign API description to [`SdkgenModule`].
-pub trait SdkgenBackend {
-    fn parse_header(&self, path: &Path) -> Result<SdkgenModule, SdkgenError>;
-}
-
-/// Output-channel-specific emitter for [`SdkgenModule`].
-pub trait Emitter {
-    fn emit(&self, module: &SdkgenModule, output: &Path) -> Result<(), SdkgenError>;
-}
-
-/// Top-level generation API.
-pub fn generate<B: SdkgenBackend, E: Emitter>(
-    backend: &B,
-    emitter: &E,
-    header: &Path,
-    output: &Path,
-) -> Result<(), SdkgenError> {
-    let module = backend.parse_header(header)?;
-    emitter.emit(&module, output)
-}
-
-/// SDK generation error.
-#[derive(Debug)]
-pub struct SdkgenError(pub String);
-
-impl std::fmt::Display for SdkgenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for SdkgenError {}
 
 #[cfg(test)]
 mod tests {
@@ -249,5 +321,32 @@ mod tests {
         pick_doc(&mut doc, &HashMap::new(), &["c"], Some(&src), None);
         assert_eq!(doc, None);
         assert!(src.0.borrow().is_empty());
+    }
+
+    #[test]
+    fn sdkgen_module_kind_is_stable() {
+        assert_eq!(SdkgenModule::default().kind().as_str(), "sdkgen");
+        assert_eq!(SpecModule::default().kind().as_str(), "spec");
+    }
+
+    #[test]
+    fn spec_module_load_json_and_yaml() {
+        let dir = tempfile::tempdir().unwrap();
+        let json = dir.path().join("in.spec.json");
+        std::fs::write(&json, r#"{"name":"demo","items":[1,2]}"#).unwrap();
+        let m = SpecModule::load(&json, None).unwrap();
+        assert_eq!(m.format, "json");
+        assert_eq!(m.name, "in.spec");
+        assert_eq!(m.document["items"][1], serde_json::json!(2));
+
+        let yaml = dir.path().join("in.spec.yaml");
+        std::fs::write(&yaml, "name: demo\nitems:\n  - 1\n  - 2\n").unwrap();
+        let m = SpecModule::load(&yaml, Some("https://example/spec".into())).unwrap();
+        assert_eq!(m.format, "yaml");
+        assert_eq!(m.document["name"], serde_json::json!("demo"));
+        assert_eq!(m.source.as_deref(), Some("https://example/spec"));
+
+        assert!(SpecModule::format_for(&dir.path().join("x.txt")).is_none());
+        assert!(SpecModule::load(&dir.path().join("x.txt"), None).is_err());
     }
 }

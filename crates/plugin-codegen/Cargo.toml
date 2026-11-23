@@ -1,17 +1,22 @@
 [package]
-name = "handl-plugin-sdkgen"
+name = "handl-plugin-codegen"
 version.workspace = true
 edition.workspace = true
-description = "Handl SDK generator core IR and traits (ADR-0107)."
+description = "Handl codegen registry: IR families, CodegenRequest/CodegenTarget records, and the Source -> Emitter -> Change -> Engine lifecycle wiring (P-001/PL-004, renamed from plugin-sdkgen)."
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-# `SdkgenRequest` carries the language emitted sources canonicalize
+# `CodegenRequest` carries the language emitted sources canonicalize
 # against (ADR-0128 §0.1 — the target registry lives on the port).
 handl-language = { workspace = true }
+# The desired-state lifecycle kernel (P-001): IrModule/Source/Emitter
+# traits, Change sets, ArtifactStore, Engine plan/apply/destroy/revert.
+hnl-engine-codegen = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 ureq = "2"
 
 [dev-dependencies]
-serde_json = { workspace = true }
+tempfile = "3"

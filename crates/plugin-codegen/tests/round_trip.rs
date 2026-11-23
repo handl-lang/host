@@ -1,4 +1,4 @@
-use handl_plugin_sdkgen::*;
+use handl_plugin_codegen::*;
 
 #[test]
 fn serde_round_trip() {
