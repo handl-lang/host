@@ -4,8 +4,7 @@ title = "lib-http-middleware: request-scoped pipeline"
 status = "done"
 created = "2026-11-23"
 priority = "med"
-labels = ["http","middleware"]
-task = "T-120"
+labels = ["http", "middleware"]
 +++
 
 # P-007 — lib-http-middleware: request-scoped pipeline

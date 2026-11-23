@@ -4,8 +4,7 @@ title = "lib-http-route v3: pattern compiler"
 status = "done"
 created = "2026-11-23"
 priority = "med"
-labels = ["http","routing"]
-task = "T-118"
+labels = ["http", "routing"]
 +++
 
 # P-005 — lib-http-route v3: Remix-style pattern compiler
