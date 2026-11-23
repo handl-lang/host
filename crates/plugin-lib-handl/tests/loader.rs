@@ -413,6 +413,227 @@ mod bootstrap {
         }
     }
 
+    /// Whether `rest` (the text after `export`) opens a `data` family
+    /// declaration. Mirrors `loader.hnl`'s `is_data_decl_rest` /
+    /// `handl_runtime::module_prep::is_data_decl_rest`.
+    fn is_data_decl_rest(rest: &str) -> bool {
+        let rest = rest.trim_start();
+        let Some(after) = rest.strip_prefix("data") else {
+            return false;
+        };
+        match after.chars().next() {
+            Some(c) if c.is_alphanumeric() || c == '_' => return false,
+            _ => {}
+        }
+        after
+            .trim_start()
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_')
+    }
+
+    /// Skip a balanced `open…close` group at the start of `s`, returning
+    /// the remainder. `None` when the group never closes. Mirrors
+    /// `loader.hnl`'s `skip_balanced` /
+    /// `handl_runtime::module_prep::skip_balanced`.
+    fn skip_balanced<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
+        if !s.starts_with(open) {
+            return Some(s);
+        }
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        for (i, c) in s.char_indices() {
+            if let Some(q) = in_str {
+                if c as u32 == q as u32 {
+                    in_str = None;
+                }
+                continue;
+            }
+            match c {
+                '"' | '\'' => in_str = Some(c as u8),
+                _ if c == open => depth += 1,
+                _ if c == close => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(&s[i + c.len_utf8()..]);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// The interior of the balanced `open…close` group at the start of
+    /// `s`. `None` when the group never closes. Mirrors `loader.hnl`'s
+    /// `balanced_inner` / `handl_runtime::module_prep::balanced_inner`.
+    fn balanced_inner<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
+        if !s.starts_with(open) {
+            return None;
+        }
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        for (i, c) in s.char_indices() {
+            if let Some(q) = in_str {
+                if c as u32 == q as u32 {
+                    in_str = None;
+                }
+                continue;
+            }
+            match c {
+                '"' | '\'' => in_str = Some(c as u8),
+                _ if c == open => depth += 1,
+                _ if c == close => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(&s[open.len_utf8()..i]);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Split `s` at `sep` characters at bracket depth zero (strings
+    /// respected) — the `|` constructor separator of a `data F :: …`
+    /// arm list and the `,` entry separator of the record form. Mirrors
+    /// `loader.hnl`'s `split_top_level` /
+    /// `handl_runtime::module_prep::split_top_level`.
+    fn split_top_level(s: &str, sep: char) -> Vec<&str> {
+        let bytes = s.as_bytes();
+        let sep = sep as u8;
+        let mut items = Vec::new();
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        let mut start = 0usize;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+            } else {
+                match c {
+                    b'"' | b'\'' => in_str = Some(c),
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ if c == sep && depth == 0 => {
+                        items.push(&s[start..i]);
+                        start = i + 1;
+                    }
+                    _ => {}
+                }
+            }
+            i += 1;
+        }
+        items.push(&s[start..]);
+        items
+    }
+
+    /// The leading identifier of a constructor arm (`C1(x : T)` → `C1`).
+    /// Mirrors `loader.hnl`'s `ctor_arm_name`.
+    fn ctor_arm_name(arm: &str) -> Option<String> {
+        let arm = arm.trim_start();
+        let end = arm
+            .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(arm.len());
+        let name = &arm[..end];
+        is_valid_ident(name).then(|| name.to_string())
+    }
+
+    /// The field key of a `name : value` record entry — an identifier
+    /// followed by a depth-zero `:` that is not `::`. Mirrors
+    /// `loader.hnl`'s `record_field_key` /
+    /// `handl_runtime::module_prep::record_field_key`.
+    fn record_field_key(item: &str) -> Option<String> {
+        let item = item.trim();
+        let bytes = item.as_bytes();
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+            } else {
+                match c {
+                    b'"' | b'\'' => in_str = Some(c),
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    b':' if depth == 0 => {
+                        if bytes.get(i + 1) == Some(&b':') {
+                            return None;
+                        }
+                        let key = item[..i].trim();
+                        return is_valid_ident(key).then(|| key.to_string());
+                    }
+                    _ => {}
+                }
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// The names a `data` declaration binds, for the module record: the
+    /// family name plus each constructor name. `decl` is the full
+    /// `data …` text (keyword included). `None` when no family name is
+    /// recognizable — the caller reports rather than silently dropping
+    /// the declaration. Mirrors `loader.hnl`'s `data_decl_bound_names` /
+    /// `handl_runtime::module_prep::data_decl_bound_names`.
+    fn data_decl_bound_names(decl: &str) -> Option<Vec<String>> {
+        let mut s = decl.trim_start().strip_prefix("data")?.trim_start();
+        let fam_end = s
+            .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(s.len());
+        let family = &s[..fam_end];
+        if !is_valid_ident(family) {
+            return None;
+        }
+        let mut names = vec![family.to_string()];
+        s = s[fam_end..].trim_start();
+        if s.starts_with('<') {
+            s = skip_balanced(s, '<', '>')?.trim_start();
+        } else if s.starts_with('(') {
+            s = skip_balanced(s, '(', ')')?.trim_start();
+        }
+        if let Some(ctors) = s.strip_prefix("::") {
+            for arm in split_top_level(ctors, '|') {
+                if let Some(name) = ctor_arm_name(arm) {
+                    if !names.iter().any(|n| *n == name) {
+                        names.push(name);
+                    }
+                }
+            }
+        } else {
+            let rhs = s
+                .strip_prefix(":=")
+                .or_else(|| s.strip_prefix('='))
+                .unwrap_or("")
+                .trim_start();
+            if rhs.starts_with('{') {
+                if let Some(inner) = balanced_inner(rhs, '{', '}') {
+                    for entry in split_top_level(inner, ',') {
+                        if let Some(key) = record_field_key(entry) {
+                            if is_valid_ident(&key) && !names.iter().any(|n| *n == key) {
+                                names.push(key);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Some(names)
+    }
+
     /// Whether `rhs` is a top-level arrow *signature* — contract data
     /// erased to `null`. Mirrors
     /// `handl_runtime::module_prep::is_signature_rhs`: a depth-0 `~[` is
@@ -520,9 +741,30 @@ mod bootstrap {
         // `handl_runtime::module_prep`). An `export` declaration that can't
         // be transformed panics — never a silent drop (the handl side
         // fails via `error.raise`; the fallback bootstrap panics).
+        // In-flight item: a `name := expr` binding or a verbatim
+        // `export data …` declaration — mirrors `loader.hnl`'s `cur`
+        // record (`kind: "bind" | "decl"`).
+        enum Cur {
+            Bind { name: String, lines: Vec<String> },
+            Decl { lines: Vec<String>, exports: Vec<String> },
+        }
+        impl Cur {
+            fn lines_mut(&mut self) -> &mut Vec<String> {
+                match self {
+                    Cur::Bind { lines, .. } | Cur::Decl { lines, .. } => lines,
+                }
+            }
+        }
+        // A finalized private/do-block statement: a `name := expr`
+        // assignment or a verbatim `export data …` declaration.
+        enum Priv {
+            Bind { name: String, expr_lines: Vec<String> },
+            Decl { lines: Vec<String> },
+        }
+
         let mut entries: Vec<(String, Vec<String>)> = Vec::new();
-        let mut privates: Vec<(String, Vec<String>)> = Vec::new();
-        let mut current: Option<(String, Vec<String>)> = None;
+        let mut privates: Vec<Priv> = Vec::new();
+        let mut current: Option<Cur> = None;
         let mut current_is_private: bool = false;
         // Whether the module's last top-level statement is a binding. When
         // it is not (a trailing `do { … }` or record literal) the body's
@@ -532,10 +774,27 @@ mod bootstrap {
         macro_rules! finalize {
             () => {
                 if let Some(entry) = current.take() {
-                    if current_is_private {
-                        privates.push(entry);
-                    } else {
-                        entries.push(entry);
+                    match entry {
+                        Cur::Bind { name, lines } => {
+                            if current_is_private {
+                                privates.push(Priv::Bind {
+                                    name,
+                                    expr_lines: lines,
+                                });
+                            } else {
+                                entries.push((name, lines));
+                            }
+                        }
+                        // `export data …` — the verbatim declaration joins
+                        // the do-block prelude; each bound name joins the
+                        // record as a `name: name` projection (mirrors
+                        // `loader.hnl`'s `flush` / `PrepItem::Decl`).
+                        Cur::Decl { lines, exports } => {
+                            privates.push(Priv::Decl { lines });
+                            for n in exports {
+                                entries.push((n.clone(), vec![n]));
+                            }
+                        }
                     }
                 }
             };
@@ -558,6 +817,24 @@ mod bootstrap {
             if let Some(rest) = export_decl_rest(trimmed) {
                 finalize!();
                 current_is_private = false;
+                // `export data F :: …` / `export data F := { … }` — a
+                // family declaration, not a `name := expr` binding: keep
+                // the decl verbatim and export the names it binds
+                // (mirrors `loader.hnl` / `module_prep`'s `PrepItem::Decl`).
+                if is_data_decl_rest(rest) {
+                    let Some(exports) = data_decl_bound_names(rest) else {
+                        panic!(
+                            "module prep: cannot read the family/constructor \
+                             names of `export data` declaration: {trimmed}"
+                        );
+                    };
+                    current = Some(Cur::Decl {
+                        lines: vec![rest.trim().to_string()],
+                        exports,
+                    });
+                    tail_is_binding = true;
+                    continue;
+                }
                 let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
                     panic!(
                         "module prep: cannot transform `export` declaration \
@@ -576,7 +853,10 @@ mod bootstrap {
                 if !expr_start.is_empty() {
                     expr_lines.push(expr_start.to_string());
                 }
-                current = Some((name, expr_lines));
+                current = Some(Cur::Bind {
+                    name,
+                    lines: expr_lines,
+                });
                 tail_is_binding = true;
                 continue;
             }
@@ -599,7 +879,10 @@ mod bootstrap {
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
                     }
-                    current = Some((name, expr_lines));
+                    current = Some(Cur::Bind {
+                        name,
+                        lines: expr_lines,
+                    });
                     current_is_private = true;
                     tail_is_binding = true;
                     continue;
@@ -612,8 +895,8 @@ mod bootstrap {
             // current binding's expression verbatim.
             if current.is_none() {
                 tail_is_binding = false;
-            } else if let Some((_, lines)) = &mut current {
-                lines.push(seg.clone());
+            } else if let Some(item) = &mut current {
+                item.lines_mut().push(seg.clone());
             }
         }
         finalize!();
@@ -621,11 +904,21 @@ mod bootstrap {
         let imports = collect_import_lines(src);
 
         let mut prelude = String::new();
-        for (name, expr_lines) in &privates {
-            prelude.push_str(name);
-            prelude.push_str(" := ");
-            prelude.push_str(expr_lines.join("\n").trim());
-            prelude.push_str(";\n");
+        for p in &privates {
+            match p {
+                Priv::Bind { name, expr_lines } => {
+                    prelude.push_str(name);
+                    prelude.push_str(" := ");
+                    prelude.push_str(expr_lines.join("\n").trim());
+                    prelude.push_str(";\n");
+                }
+                // `export data …` — the verbatim declaration statement;
+                // the desugar pass expands it inside this `do` block.
+                Priv::Decl { lines } => {
+                    prelude.push_str(&lines.join("\n"));
+                    prelude.push_str(";\n");
+                }
+            }
         }
 
         if entries.is_empty() {
@@ -649,8 +942,10 @@ mod bootstrap {
                         fields.push(name.to_string());
                     }
                 };
-                for (name, _) in &privates {
-                    push_field(&mut fields, name);
+                for p in &privates {
+                    if let Priv::Bind { name, .. } = p {
+                        push_field(&mut fields, name);
+                    }
                 }
                 for seg in top_level_segments(src) {
                     let trimmed = seg.trim();
@@ -956,6 +1251,16 @@ const CORPUS: &[&str] = &[
     // exports (`f ~[2]~> g`, string-law domains) stay. A grade-1 arrow
     // over a capitalized type head is still a signature.
     "export Sig := (Int) ~[1]~> Result<Int, String>\nexport BareSig := Int ~[1]~> Int\nexport f := (x) ~> x\nexport alpha := f ~[2]~> f\nexport law := \"a >>> b\" ~[2]~> \"id\"",
+    // `export data` family declarations — both the `::` constructor-arm
+    // and `:= { … }` record forms: the decl stays verbatim for desugar
+    // and the family/ctor names project into the export record.
+    "export data Nat :: Zero | Succ(n : Nat)\n",
+    "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
+    "export data Pair<A> :: Fst(x : A) | Snd(y : A)\nexport data List := { Nil : List, Cons : (head : Int, tail : List) ~> List }\n",
+    // `data`-prefixed identifiers that are NOT declarations.
+    "export data_transfer := 5\nexport data := 6\n",
+    // `export data` mixed with ordinary exports and a private helper.
+    "helper :: n ~> n + 1\nexport data Nat :: Zero | Succ(n : Nat)\nexport bump :: n ~> helper(n)\n",
     // NOTE: whole-package sources (e.g. str-handl.hnl) are excluded: the
     // interpreted transform over ~25k chars is far too slow for a test —
     // see AGENTS.md "loader self-hosting" for the performance note.
@@ -1029,11 +1334,12 @@ fn nameless_export_fails_loudly() {
 }
 
 /// `export data F := { C : R, … }` / `export data F :: C0 | C1(…)` —
-/// the bootstrap prep keeps the declaration verbatim and projects the
-/// family plus each constructor name (mirrors
+/// the prep keeps the declaration verbatim and projects the family
+/// plus each constructor name (mirrors
 /// `handl_runtime::module_prep`). Exercised through the bootstrap path
-/// (`with_loader_disabled`) — the `.hnl` loader's own
-/// `transform_export_to_object` does not know `export data` yet.
+/// (`with_loader_disabled`) and through the installed `.hnl` loader —
+/// both must produce the decl plus the `Nat: Nat`/`Zero: Zero`/
+/// `Succ: Succ` projections.
 #[test]
 fn export_data_decl_transforms() {
     ensure_lang();
@@ -1061,6 +1367,31 @@ fn export_data_decl_transforms() {
         out.contains("data_transfer: data_transfer"),
         "identifier starting with `data` must stay a binding, got:\n{out}"
     );
+
+    // The installed `.hnl` loader produces the same observable surface.
+    install();
+    for src in [
+        "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
+        "export data Nat :: Zero | Succ(n : Nat)\n",
+    ] {
+        let out = transform_export_to_object(src);
+        assert!(
+            out.contains("data Nat"),
+            "loader: decl must survive verbatim, got:\n{out}"
+        );
+        for name in ["Nat: Nat", "Zero: Zero", "Succ: Succ"] {
+            assert!(
+                out.contains(name),
+                "loader: record must project `{name}`, got:\n{out}"
+            );
+        }
+        // …and textually matches the bootstrap mirror.
+        assert_eq!(
+            out,
+            bootstrap::transform_export_to_object(src),
+            "loader/bootstrap parity for {src:?}"
+        );
+    }
 }
 
 /// End-to-end: a `.hnl` module whose exports share a line with an import
