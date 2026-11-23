@@ -119,16 +119,7 @@ impl HostConfig {
             toml::from_str(source).map_err(|e| PlatformError::InvalidMetadata(e.to_string()))?;
 
         Ok(Self {
-            kits: raw
-                .kit
-                .into_iter()
-                .map(|k| KitReference {
-                    include: k.include,
-                    exclude: k.exclude,
-                    path: k.path,
-                    version: k.version,
-                })
-                .collect(),
+            kits: parse_kit_field(raw.kit)?,
             plugins: raw
                 .plugin
                 .into_iter()
@@ -146,6 +137,43 @@ impl HostConfig {
             dependencies: parse_dependency_table("dependencies", raw.dependencies)?,
             patch: parse_dependency_table("patch", raw.patch)?,
         })
+    }
+}
+
+/// The `kit` key of `.handl.toml` accepts two shapes (T-122):
+///
+/// - `[[kit]]` tables — host-kit composition entries, which become
+///   [`HostConfig::kits`];
+/// - `kit = "<name-or-path>"` — the eval-kit selection key consumed by
+///   [`discover_kit_spec`] (`hnl run`/`hnl eval`). It names a `kit.hnl`
+///   kit for the eval-time module environment — a different namespace
+///   from host-kit composition — so it contributes no entries here.
+///
+/// Kept as a raw [`toml::Value`] so both spellings parse; anything else
+/// is a manifest error.
+fn parse_kit_field(raw: Option<toml::Value>) -> Result<Vec<KitReference>, PlatformError> {
+    let Some(value) = raw else {
+        return Ok(Vec::new());
+    };
+    match value {
+        toml::Value::String(_) => Ok(Vec::new()),
+        toml::Value::Array(entries) => entries
+            .into_iter()
+            .map(|entry| {
+                let k: RawKit = entry.try_into().map_err(|e| {
+                    PlatformError::InvalidMetadata(format!("invalid [[kit]] entry: {e}"))
+                })?;
+                Ok(KitReference {
+                    include: k.include,
+                    exclude: k.exclude,
+                    path: k.path,
+                    version: k.version,
+                })
+            })
+            .collect(),
+        other => Err(PlatformError::InvalidMetadata(format!(
+            "`kit` must be `kit = \"<name-or-path>\"` or [[kit]] tables, got {other}"
+        ))),
     }
 }
 
@@ -252,7 +280,7 @@ struct RawDependencySpec {
 #[derive(Debug, Clone, Default, Deserialize)]
 struct RawHostConfig {
     #[serde(default)]
-    kit: Vec<RawKit>,
+    kit: Option<toml::Value>,
     #[serde(default)]
     plugin: Vec<RawPlugin>,
     #[serde(default)]
@@ -284,6 +312,110 @@ pub fn discover_manifest_dir(start: &Path) -> Option<std::path::PathBuf> {
         .ancestors()
         .find(|dir| dir.join(".handl.toml").is_file())
         .map(Path::to_path_buf)
+}
+
+/// A `.handl.toml` `kit = "<spec>"` selection discovered on disk (T-122).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DiscoveredKit {
+    /// Directory containing the `.handl.toml` that declared `kit` —
+    /// relative specs resolve against it (the same convention
+    /// `[dependencies]` paths follow).
+    pub manifest_dir: PathBuf,
+    /// The `kit =` value verbatim: a kit directory path or a bare
+    /// `kit-<name>` name, resolved by the caller exactly like `--kit`.
+    pub spec: String,
+}
+
+/// The user-level config directory consulted by [`discover_kit_spec`]'s
+/// global fallback: `$HANDL_CONFIG_DIR` when set (the test seam, matching
+/// [`package_cache_dir`]'s `HANDL_PKG_DIR`), otherwise
+/// `~/.config/handl` (`%USERPROFILE%\.config\handl` off-Unix).
+pub fn handl_config_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("HANDL_CONFIG_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|home| PathBuf::from(home).join(".config").join("handl"))
+}
+
+/// The user-level `.handl.toml` — `~/.config/handl/.handl.toml` — the
+/// global fallback for [`discover_kit_spec`]. `None` when no config home
+/// resolves or the file is absent.
+pub fn global_manifest_path() -> Option<PathBuf> {
+    let path = handl_config_dir()?.join(".handl.toml");
+    path.is_file().then_some(path)
+}
+
+/// The `kit = "<spec>"` scalar of a `.handl.toml` source, when present.
+///
+/// Reads the top-level `kit` key only when it is a string — `[[kit]]`
+/// host-kit tables and manifests without the key both yield `None`. An
+/// unparseable manifest also yields `None`: the file's own
+/// [`resolve_dependencies`] path reports the parse error with its path,
+/// so discovery stays lenient rather than shadowing that diagnostic.
+fn manifest_kit_spec(src: &str) -> Option<String> {
+    let value: toml::Value = toml::from_str(src).ok()?;
+    value.get("kit")?.as_str().map(str::to_string)
+}
+
+/// T-122 kit discovery: walk up from `start` (a file or directory —
+/// `hnl run` passes the target `.hnl` file, `hnl eval` its cwd) looking
+/// for the nearest `.handl.toml` whose top level declares
+/// `kit = "<name-or-path>"`. Manifests without the key do not stop the
+/// walk. When no ancestor qualifies, fall back to the user-level
+/// [`global_manifest_path`] (`~/.config/handl/.handl.toml`), which uses
+/// the same key.
+///
+/// The returned [`DiscoveredKit::spec`] is *not* resolved to a
+/// directory here — the caller resolves it against
+/// [`DiscoveredKit::manifest_dir`] exactly like an explicit `--kit`
+/// value (path-or-name), so `--kit` remains a strict override and a
+/// discovered spec that names no kit fails the same way.
+///
+/// `extends`/layering is deliberately out of scope: one manifest's `kit`
+/// fully selects the eval kit (replace, never union).
+pub fn discover_kit_spec(start: &Path) -> Option<DiscoveredKit> {
+    discover_kit_spec_in(start, global_manifest_path().as_deref())
+}
+
+/// [`discover_kit_spec`] against an explicit global-manifest path — the
+/// test seam that keeps `$HOME`/`HANDL_CONFIG_DIR` env mutation out of
+/// the suite.
+fn discover_kit_spec_in(start: &Path, global: Option<&Path>) -> Option<DiscoveredKit> {
+    let start_dir = if start.is_file() {
+        start.parent().map(Path::to_path_buf)
+    } else {
+        Some(start.to_path_buf())
+    };
+    let start_dir = start_dir
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    for dir in start_dir.ancestors() {
+        let manifest = dir.join(".handl.toml");
+        if !manifest.is_file() {
+            continue;
+        }
+        if let Ok(src) = std::fs::read_to_string(&manifest)
+            && let Some(spec) = manifest_kit_spec(&src)
+        {
+            return Some(DiscoveredKit {
+                manifest_dir: dir.to_path_buf(),
+                spec,
+            });
+        }
+    }
+
+    let global = global?;
+    let src = std::fs::read_to_string(global).ok()?;
+    let spec = manifest_kit_spec(&src)?;
+    let manifest_dir = global
+        .parent()
+        .map(Path::to_path_buf)
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .unwrap_or_else(|| PathBuf::from("."));
+    Some(DiscoveredKit { manifest_dir, spec })
 }
 
 /// The directory a `git`-sourced `[dependencies]` entry resolves to when
@@ -2189,6 +2321,107 @@ vendored = { path = "../lib-vendored" }
         let deps = resolve_kit_dependencies(&ghost).unwrap();
         assert_eq!(deps.len(), 1);
         assert!(deps.contains_key("missing"));
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    // -- T-122: `.handl.toml` `kit =` discovery --------------------------------
+
+    /// `kit = "<name-or-path>"` parses alongside the rest of the manifest
+    /// but contributes no host-kit entries — it is the eval-kit
+    /// selection key, a different namespace from `[[kit]]`.
+    #[test]
+    fn host_config_accepts_kit_string_key() {
+        let config =
+            HostConfig::from_toml("kit = \"../kit-web\"\n[dependencies]\nx = \"vendor/x\"\n")
+                .unwrap();
+        assert!(config.kits.is_empty());
+        assert_eq!(config.dependencies["x"].path.as_deref(), Some("vendor/x"));
+
+        // `[[kit]]` tables still populate `kits`.
+        let config = HostConfig::from_toml("[[kit]]\ninclude = \"handl-kit-canonical\"\n").unwrap();
+        assert_eq!(config.kits.len(), 1);
+        assert_eq!(config.kits[0].include, "handl-kit-canonical");
+
+        // A non-string, non-table `kit` is still a manifest error.
+        assert!(HostConfig::from_toml("kit = 42\n").is_err());
+    }
+
+    /// Nearest `.handl.toml` with a `kit =` key wins; a manifest without
+    /// the key does not stop the walk; `start` may be the file itself.
+    #[test]
+    fn discover_kit_spec_nearest_manifest_wins() {
+        let root = std::env::temp_dir().join(format!("hnl-kitdisc-{}", std::process::id()));
+        let outer = root.join("outer");
+        let inner = outer.join("inner");
+        let deep = inner.join("a/b/c");
+        std::fs::create_dir_all(&deep).unwrap();
+        let file = deep.join("main.hnl");
+        std::fs::write(&file, "1").unwrap();
+
+        // Outer declares a kit; inner's manifest has none — outer wins.
+        std::fs::write(outer.join(".handl.toml"), "kit = \"kit-outer\"\n").unwrap();
+        std::fs::write(inner.join(".handl.toml"), "[dependencies]\n").unwrap();
+
+        let found = discover_kit_spec_in(&file, None).unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&outer).unwrap());
+        assert_eq!(found.spec, "kit-outer");
+
+        // Inner gains a `kit` key — now it is the nearest and wins
+        // (replace, never union: the outer spec is not consulted).
+        std::fs::write(inner.join(".handl.toml"), "kit = \"../kit-inner\"\n").unwrap();
+        let found = discover_kit_spec_in(&file, None).unwrap();
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&inner).unwrap());
+        assert_eq!(found.spec, "../kit-inner");
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `[[kit]]` host-kit tables are not the eval-kit key: a manifest
+    /// carrying only `[[kit]]` does not satisfy discovery.
+    #[test]
+    fn discover_kit_spec_ignores_host_kit_tables() {
+        let root = std::env::temp_dir().join(format!("hnl-kitdisc-host-{}", std::process::id()));
+        let proj = root.join("proj");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::write(
+            proj.join(".handl.toml"),
+            "[[kit]]\ninclude = \"handl-kit-canonical\"\n",
+        )
+        .unwrap();
+
+        assert!(discover_kit_spec_in(&proj, None).is_none());
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// No project manifest with `kit` → the explicit global manifest is
+    /// the fallback; a project `kit` shadows it entirely.
+    #[test]
+    fn discover_kit_spec_falls_back_to_global() {
+        let root = std::env::temp_dir().join(format!("hnl-kitdisc-glob-{}", std::process::id()));
+        let proj = root.join("proj");
+        let cfg = root.join("config");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::create_dir_all(&cfg).unwrap();
+        let global = cfg.join(".handl.toml");
+        std::fs::write(&global, "kit = \"kit-global\"\n").unwrap();
+
+        // Bare project dir: global fallback applies, anchored at the
+        // global manifest's own directory.
+        let found = discover_kit_spec_in(&proj, Some(&global)).unwrap();
+        assert_eq!(found.spec, "kit-global");
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&cfg).unwrap());
+
+        // A project `kit` replaces the global one — no union.
+        std::fs::write(proj.join(".handl.toml"), "kit = \"kit-proj\"\n").unwrap();
+        let found = discover_kit_spec_in(&proj, Some(&global)).unwrap();
+        assert_eq!(found.spec, "kit-proj");
+        assert_eq!(found.manifest_dir, std::fs::canonicalize(&proj).unwrap());
+
+        // Global manifest without a `kit` key yields nothing.
+        std::fs::remove_file(proj.join(".handl.toml")).unwrap();
+        std::fs::write(&global, "[dependencies]\n").unwrap();
+        assert!(discover_kit_spec_in(&proj, Some(&global)).is_none());
 
         std::fs::remove_dir_all(&root).ok();
     }
