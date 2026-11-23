@@ -3462,6 +3462,22 @@ name = "handl-plugin-compile-handl"
 version = "0.1.0"
 
 [[patch.unused]]
+name = "handl-plugin-compile-term"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-compile-dot"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-compile-sexp"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "handl-plugin-compile-llvm"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "handl-plugin-compile-dot"
 version = "0.1.0"
 
@@ -3475,6 +3491,10 @@ version = "0.0.1"
 
 [[patch.unused]]
 name = "handl-plugin-compile-js"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "hnl-tool-typecheck-handl"
 version = "0.1.0"
 
 [[patch.unused]]
@@ -3500,6 +3520,10 @@ version = "0.1.0"
 [[patch.unused]]
 name = "compile-triton"
 version = "0.0.1"
+
+[[patch.unused]]
+name = "handl-plugin-compile-handl"
+version = "0.1.0"
 
 [[patch.unused]]
 name = "handl-egraph"

@@ -148,14 +148,14 @@ handl-plugin-compile = { path = "crates/plugin-compile" }
 # ADR-0128 Phase 5: the js compiler + webidl backend live in the `web`
 # repo; local development resolves them from the sibling checkout via
 # `[patch]` below.
-handl-plugin-compile-js = { git = "https://github.com/handl-lang/compile-js", branch = "main" }
+handl-plugin-compile-js = { git = "https://github.com/handl-lang/tool-compile-js", branch = "main" }
 # ADR-0128 Phase 6: the native engines/compilers live in the native
 # repo; local development resolves them from the sibling checkout.
-handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/compile-llvm", branch = "main" }
-handl-plugin-compile-handl = { git = "https://github.com/handl-lang/compile-handl", branch = "main" }
-handl-plugin-compile-term = { git = "https://github.com/handl-lang/compile-term", branch = "main" }
-handl-plugin-compile-dot = { git = "https://github.com/handl-lang/compile-dot", branch = "main" }
-handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/compile-sexp", branch = "main" }
+handl-plugin-compile-llvm = { git = "https://github.com/handl-lang/tool-compile-llvm", branch = "main" }
+handl-plugin-compile-handl = { git = "https://github.com/handl-lang/tool-compile-handl", branch = "main" }
+handl-plugin-compile-term = { git = "https://github.com/handl-lang/tool-compile-term", branch = "main" }
+handl-plugin-compile-dot = { git = "https://github.com/handl-lang/tool-compile-dot", branch = "main" }
+handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/tool-compile-sexp", branch = "main" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 hnl-tool-lex = { git = "https://github.com/handl-lang/tool-lex", branch = "main" }
@@ -237,17 +237,17 @@ serde_json = "1"
 #   GIT_CONFIG_VALUE_1="https://github.com/handl-lang/kit-prelude" \
 #   cargo check --workspace
 # dev-link: begin
-[patch."https://github.com/handl-lang/compile-dot"]
+[patch."https://github.com/handl-lang/tool-compile-dot"]
 handl-plugin-compile-dot = { path = "../tool-compile-dot/modules/compile-dot" }
-[patch."https://github.com/handl-lang/compile-handl"]
+[patch."https://github.com/handl-lang/tool-compile-handl"]
 handl-plugin-compile-handl = { path = "../tool-compile-handl/modules/compile-handl" }
-[patch."https://github.com/handl-lang/compile-js"]
+[patch."https://github.com/handl-lang/tool-compile-js"]
 handl-plugin-compile-js = { path = "../tool-compile-js" }
-[patch."https://github.com/handl-lang/compile-llvm"]
+[patch."https://github.com/handl-lang/tool-compile-llvm"]
 handl-plugin-compile-llvm = { path = "../tool-compile-llvm" }
-[patch."https://github.com/handl-lang/compile-sexp"]
+[patch."https://github.com/handl-lang/tool-compile-sexp"]
 handl-plugin-compile-sexp = { path = "../tool-compile-sexp/modules/compile-sexp" }
-[patch."https://github.com/handl-lang/compile-term"]
+[patch."https://github.com/handl-lang/tool-compile-term"]
 handl-plugin-compile-term = { path = "../tool-compile-term/modules/compile-term" }
 [patch."https://github.com/handl-lang/engine"]
 hnl-engine = { path = "../engine" }
