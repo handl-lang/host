@@ -1,0 +1,27 @@
+[package]
+name = "handl-plugin-codemod"
+version.workspace = true
+edition.workspace = true
+description = "Handl codemod wiring: spec loading, glob resolution, Language lookup, HandlNativeRewrite/native rewrite registries, engine-context providers, and the CodemodRuleProvider plugin seam (P-002/PL-004 T-085)."
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+# `.hnl` rewrite modules (`handl:<mod>.<fn>`) resolve through the same
+# HandlNativeRewrite/HandlModule pair lint natives use (ADR-0094/0097).
+handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
+# The codemod spec model + CodemodEngine (plan → edits + Change set).
+hnl-engine-codemod = { workspace = true }
+# The desired-state lifecycle kernel the command half drives
+# (FsStore/Engine plan-apply-revert, manifest + journal).
+hnl-engine-codegen = { workspace = true }
+# NativeRewrite/RewriteCtx/ChainedRewrite — the rewrite resolver seam.
+hnl-engine-transform = { workspace = true }
+glob = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-kit-data-prelude = { workspace = true }
+tempfile = "3"

@@ -1158,6 +1158,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-codemod"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "handl-kit-data-prelude",
+ "handl-language",
+ "handl-plugin-lib-handl",
+ "hnl-engine-codegen",
+ "hnl-engine-codemod",
+ "hnl-engine-transform",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "handl-plugin-compile"
 version = "0.1.0"
 dependencies = [
@@ -1259,6 +1275,19 @@ dependencies = [
  "handl-plugin-codegen-cli",
  "handl-plugin-codegen-emitter-file",
  "handl-plugin-codegen-emitter-python",
+]
+
+[[package]]
+name = "handl-plugin-ext-codemod"
+version = "0.1.0"
+dependencies = [
+ "handl-kit-data-prelude",
+ "handl-language",
+ "handl-plugin-codemod",
+ "hnl-engine-codegen",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -1785,6 +1814,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "hnl-engine-codemod"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "hnl-engine-codegen",
+ "hnl-engine-fmt",
+ "hnl-engine-lex-pattern",
+ "hnl-engine-parse",
+ "hnl-engine-parse-pratt",
+ "hnl-engine-transform",
+ "hnl-engine-transform-rewrite",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+]
+
+[[package]]
 name = "hnl-engine-exec"
 version = "0.1.0"
 dependencies = [
@@ -1851,7 +1897,9 @@ name = "hnl-engine-fmt"
 version = "0.1.0"
 dependencies = [
  "handl-language",
+ "handl-plugin-codegen",
  "hnl-engine-codegen",
+ "hnl-engine-lex-pattern",
  "serde_json",
 ]
 

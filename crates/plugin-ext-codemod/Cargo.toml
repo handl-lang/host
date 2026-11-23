@@ -1,0 +1,22 @@
+[package]
+name = "handl-plugin-ext-codemod"
+version.workspace = true
+edition.workspace = true
+description = "`hnl codemod` CLI extension (PL-004 T-086) — declarative codemods over the hnl-engine-codemod spec model and the hnl-engine-codegen lifecycle kernel (plan/apply/revert, never destroy)."
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+handl-language = { workspace = true }
+# Spec model + CodemodEngine + host wiring (Language map, rewrite
+# resolver, rule-provider seam, glob resolution).
+handl-plugin-codemod = { workspace = true }
+# The desired-state lifecycle kernel: FsStore + Engine
+# plan/apply/revert, manifest + journal under `.handl/codegen/`.
+hnl-engine-codegen = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+handl-kit-data-prelude = { workspace = true }
+tempfile = "3"

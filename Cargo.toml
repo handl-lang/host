@@ -55,6 +55,8 @@ members = [
   "crates/handl-kit-data",
   "crates/plugin-codegen",
   "crates/plugin-ext-codegen",
+  "crates/plugin-codemod",
+  "crates/plugin-ext-codemod",
 ]
 resolver = "3"
 
@@ -198,6 +200,11 @@ handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", bra
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-codegen = { path = "crates/plugin-codegen" }
 handl-plugin-ext-codegen = { path = "crates/plugin-ext-codegen" }
+# PL-004 T-085/T-086: the codemod engine has no git remote (local-only,
+# same situation as `hnl-engine-codegen` above) — path dep for now.
+hnl-engine-codemod = { path = "../engine-codemod" }
+handl-plugin-codemod = { path = "crates/plugin-codemod" }
+handl-plugin-ext-codemod = { path = "crates/plugin-ext-codemod" }
 
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/lib-lang-compile", branch = "main" }
@@ -261,6 +268,10 @@ hnl-engine-lint = { path = "../engine-lint" }
 # PL-004: the codegen kernel resolves from the sibling checkout.
 [patch."https://github.com/handl-lang/engine-codegen"]
 hnl-engine-codegen = { path = "../engine-codegen" }
+# PL-004 T-085: the codemod engine is local-only (no remote yet) —
+# sibling checkout, same convention as engine-codegen above.
+[patch."https://github.com/handl-lang/engine-codemod"]
+hnl-engine-codemod = { path = "../engine-codemod" }
 [patch."https://github.com/handl-lang/engine-parse"]
 hnl-engine-parse = { path = "../engine-parse" }
 [patch."https://github.com/handl-lang/engine-parse-pratt"]
@@ -325,6 +336,8 @@ handl-plugin-ext-lint = { path = "../host/crates/plugin-ext-lint" }
 handl-plugin-ext-plugin = { path = "../host/crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "../host/crates/plugin-ext-refinement" }
 handl-plugin-ext-codegen = { path = "../host/crates/plugin-ext-codegen" }
+handl-plugin-codemod = { path = "../host/crates/plugin-codemod" }
+handl-plugin-ext-codemod = { path = "../host/crates/plugin-ext-codemod" }
 handl-plugin-ext-test = { path = "../host/crates/plugin-ext-test" }
 handl-plugin-ext-typecheck = { path = "../host/crates/plugin-ext-typecheck" }
 handl-plugin-lib-handl = { path = "../host/crates/plugin-lib-handl" }
