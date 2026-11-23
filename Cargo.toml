@@ -412,16 +412,18 @@ handl-plugin-lib-serialize-toml-c = { path = "../lib-serialize-toml-c" }
 handl-plugin-lib-serialize-yaml-c = { path = "../lib-serialize-yaml-c" }
 [patch."https://github.com/handl-lang/lib-transform"]
 handl-lib-transform = { path = "../lib-transform" }
-[patch."https://github.com/handl-lang/engine-sdkgen-c"]
-handl-plugin-sdkgen-backend-c = { path = "../engine-sdkgen-c" }
-[patch."https://github.com/handl-lang/engine-sdkgen-cli"]
-handl-plugin-sdkgen-cli = { path = "../engine-sdkgen-cli" }
-[patch."https://github.com/handl-lang/engine-sdkgen-file"]
-handl-plugin-sdkgen-emitter-file = { path = "../engine-sdkgen-file" }
-[patch."https://github.com/handl-lang/engine-sdkgen-python"]
-handl-plugin-sdkgen-emitter-python = { path = "../engine-sdkgen-python" }
-[patch."https://github.com/handl-lang/engine-sdkgen-webidl"]
-handl-plugin-sdkgen-backend-webidl = { path = "../engine-sdkgen-webidl" }
+# PL-004 T-075: the engine-sdkgen-* siblings are renamed
+# engine-codegen-* and now consume `handl-plugin-codegen`.
+[patch."https://github.com/handl-lang/engine-codegen-c"]
+handl-plugin-codegen-backend-c = { path = "../engine-codegen-c" }
+[patch."https://github.com/handl-lang/engine-codegen-cli"]
+handl-plugin-codegen-cli = { path = "../engine-codegen-cli" }
+[patch."https://github.com/handl-lang/engine-codegen-file"]
+handl-plugin-codegen-emitter-file = { path = "../engine-codegen-file" }
+[patch."https://github.com/handl-lang/engine-codegen-python"]
+handl-plugin-codegen-emitter-python = { path = "../engine-codegen-python" }
+[patch."https://github.com/handl-lang/engine-codegen-webidl"]
+handl-plugin-codegen-backend-webidl = { path = "../engine-codegen-webidl" }
 
 
 [patch."https://github.com/handl-lang/lib-comb"]
