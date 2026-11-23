@@ -1672,9 +1672,6 @@ fn lower_call(
             .ok_or_else(|| format!("call callee at {} is not a string", callee_idx))?;
 
         if let Some(entry) = env.get(name) {
-            if arg_terms.is_empty() {
-                return Ok(entry.term.clone());
-            }
             // Env-bound callee (ADR-0120 Phase 1): apply the bound term
             // via `Term::App` — `seq(pair(quote f, x), app)`. Arrow-value
             // bindings (quoted `Arr`s and bound-arrow records) are

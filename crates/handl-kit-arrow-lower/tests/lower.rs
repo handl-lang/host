@@ -434,6 +434,44 @@ fn handle_arrow_with_handler_lowers_to_term_handle() {
     );
 }
 
+/// `f()` — empty-parens application of an env-bound arrow — must lower to
+/// a real `Term::App` with *zero* argument terms, matching the eval
+/// engines' `eval.call` semantics (`proj_rest` packs `[]`, `apply_app`
+/// runs the 0-ary arrow). It must NOT return the bare bound term: the
+/// pre-ADR-0120 "empty args ⇒ referent" shortcut made `f()` a silent
+/// no-op in every compiled backend while eval actually called the arrow.
+///
+/// Arena layout:
+///   0: paren []            (the `() ~>` parameter list — zero params)
+///   1: value 42            (the body)
+///   2: function [0, 1]
+///   3: var "f"             (assign target)
+///   4: assign [3, 2]
+///   5: var "f"             (call callee)
+///   6: call [5]            (zero argument children)
+///   7: block [4, 6]
+#[test]
+fn empty_parens_call_lowers_to_zero_arg_app() {
+    let mut ast = Ast::new();
+    ast.push(with_children("paren", vec![]));
+    ast.push(value_node(json!(42)));
+    ast.push(with_children("function", vec![0, 1]));
+    ast.push(var_node("f"));
+    ast.push(with_children("assign", vec![3, 2]));
+    ast.push(var_node("f"));
+    ast.push(with_children("call", vec![5]));
+    ast.push(with_children("block", vec![4, 6]));
+
+    let term = lower_ast(&ast, &Language::new(), AstRef::new(7)).expect("lower should succeed");
+    match &term {
+        Term::App { args, .. } => assert!(
+            args.is_empty(),
+            "f() must apply with zero args, got {args:?}"
+        ),
+        other => panic!("f() must lower to Term::App, got {other:?}"),
+    }
+}
+
 /// ADR-0123 acceptance: a language that **renames** its binder kind must lower
 /// unchanged.
 ///
