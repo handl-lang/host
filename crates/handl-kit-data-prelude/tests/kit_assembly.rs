@@ -124,10 +124,10 @@ fn assemble_canonical_runtime_config_is_pratt_tree_walk() {
 
 #[test]
 fn assemble_canonical_into_runtime_binds_engines() {
-    use hnl_engine_exec_tree_walk::TreeWalkEngine;
-    use hnl_engine_lex_pattern::DataLexerEngine;
-    use hnl_engine_parse_pratt::PrattEngine;
     use handl_runtime::{EngineRegistry, Runtime};
+    use hnl_exec_tree_walk::TreeWalkEngine;
+    use hnl_tool_lex_pattern::DataLexerEngine;
+    use hnl_tool_parse_pratt::PrattEngine;
     use std::rc::Rc;
     let kit = handl_kit_data_prelude::assemble().unwrap();
     let mut reg = EngineRegistry::new();

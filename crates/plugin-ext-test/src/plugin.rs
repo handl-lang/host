@@ -39,7 +39,7 @@ use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
     PluginContext,
 };
-use hnl_engine_test::{self as engine, TestKitSource};
+use hnl_tool_test::{self as engine, TestKitSource};
 
 /// Capability id served by [`TestPlugin`].
 pub const TEST_CAPABILITY: &str = "test";
@@ -232,7 +232,7 @@ fn run_test(
     };
     // `.hnl` source coverage (opt-in `coverage` payload flag): the merged
     // per-worker report as JSON. Line numbers are prepared-source
-    // coordinates — see `hnl_engine_exec::coverage` docs.
+    // coordinates — see `hnl_exec::coverage` docs.
     let coverage_json = config
         .coverage
         .as_ref()

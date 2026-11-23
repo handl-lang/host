@@ -35,14 +35,14 @@ interprets it.
 
 The same `Term` graph is interpreted by interchangeable **eval
 engines**, all implementing the `EvalEngine` contract from
-`hnl-engine-exec` (the [`engine-exec`
-repo](https://github.com/handl-lang/engine-exec)):
+`hnl-exec` (the [`exec`
+repo](https://github.com/handl-lang/exec)):
 
 | engine | repo | what it does |
 | --- | --- | --- |
-| tree-walk | [`engine-exec-tree-walk`](https://github.com/handl-lang/engine-exec-tree-walk) | The **reference interpreter** — walks the `Term` graph directly against the shared native-op table. It is the oracle every other eval engine must agree with. |
-| bytecode | [`engine-exec-bytecode`](https://github.com/handl-lang/engine-exec-bytecode) | Compiles schemes to a stack-VM bytecode and interprets that — faster dispatch, identical results (its conformance suite compares against tree-walk). |
-| cranelift | [`engine-exec-cranelift`](https://github.com/handl-lang/engine-exec-cranelift) | Compiles schemes to native code through Cranelift — in-process JIT or an object file for a standalone binary. Arrow bodies it does not cover fall back to the reference interpreter; that fallback is the one documented cross-engine dependency. |
+| tree-walk | [`exec-tree-walk`](https://github.com/handl-lang/exec-tree-walk) | The **reference interpreter** — walks the `Term` graph directly against the shared native-op table. It is the oracle every other eval engine must agree with. |
+| bytecode | [`exec-bytecode`](https://github.com/handl-lang/exec-bytecode) | Compiles schemes to a stack-VM bytecode and interprets that — faster dispatch, identical results (its conformance suite compares against tree-walk). |
+| cranelift | [`exec-cranelift`](https://github.com/handl-lang/exec-cranelift) | Compiles schemes to native code through Cranelift — in-process JIT or an object file for a standalone binary. Arrow bodies it does not cover fall back to the reference interpreter; that fallback is the one documented cross-engine dependency. |
 
 The invariant across all three: **value-for-value agreement with the
 tree-walk oracle**. An engine may change speed, never meaning — the
@@ -52,12 +52,12 @@ property: the `Language` data and the `Term` schemes are identical
 either way.
 
 Eval is not the only operation with swappable engines. The same
-pattern holds one level up — `engine-transform-rewrite` interprets
+pattern holds one level up — `tool-transform-rewrite` interprets
 `transforms` fragments as guarded rewrite rules (conditions like
 `KindAt`/`PayloadEq`/`AttrEq`/`SameAttr` decide whether a rule may
-fire), `engine-typecheck` typechecks against the `types` schemes (with
+fire), `tool-typecheck` typechecks against the `types` schemes (with
 a normalization-based engine in a private repo alongside the contract
-crate's bootstrap checker), and `engine-fmt`/`engine-lint` render and
+crate's bootstrap checker), and `tool-fmt`/`tool-lint` render and
 lint the AST. None of them is "the" definition of the language — the
 `Language` data is.
 

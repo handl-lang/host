@@ -4,7 +4,7 @@ use handl_plugin_ext_diag::Severity;
 #[test]
 fn canonical_lsp_validates_clean() {
     let lang = language_from_yaml().expect("canonical language assembles");
-    let diags = hnl_engine_transform::validate::validate_lsp(&lang);
+    let diags = hnl_tool_transform::validate::validate_lsp(&lang);
     let errors: Vec<_> = diags
         .iter()
         .filter(|d| d.severity == Severity::Error)

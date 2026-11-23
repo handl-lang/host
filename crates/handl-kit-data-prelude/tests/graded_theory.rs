@@ -9,10 +9,10 @@
 
 use handl_kit_data_prelude;
 use handl_language::{Ast, AstNode, Language, Source};
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::{EngineRegistry, Runtime};
+use hnl_exec_tree_walk::TreeWalkEngine;
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use std::rc::Rc;
 
 /// Assemble the full canonical kit and return its language.
@@ -226,7 +226,7 @@ fn dim_arrow_parses() {
 // These run through the real lexer, so the *byte-span adjacency* rule is
 // exercised end to end (hand-built token streams cannot prove that).
 
-/// `f<a>` parses to a `dimension` node (covered raw in `hnl-engine-parse-pratt`)
+/// `f<a>` parses to a `dimension` node (covered raw in `hnl-tool-parse-pratt`)
 /// and the desugar pass lowers it to the application `f(a)`: the returned AST
 /// is post-desugar, so the node is a `call` with the same children.
 #[test]

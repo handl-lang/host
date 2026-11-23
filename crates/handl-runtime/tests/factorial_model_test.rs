@@ -24,7 +24,7 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use hnl_engine::{ArrSource, AstNode, Model, ModelCtx, TermData};
-use hnl_engine_exec_tree_walk::ValueModel;
+use hnl_exec_tree_walk::ValueModel;
 use serde_json::json;
 
 /// Install the canonical default language once per test binary.
@@ -67,7 +67,7 @@ fn handl_model() -> HandlModel {
 /// Build the pure Rust tree-walk `ValueModel` (the exec model).
 fn rust_model() -> ValueModel {
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(TagModule));
-    ValueModel::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
+    ValueModel::new(hnl_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
 }
 
 /// Evaluate `term` through both the Rust exec model and the Handl arrow

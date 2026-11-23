@@ -67,11 +67,11 @@ behind the contracts live in the `engine-*` repos.
 
 | Operation | Marker | `RuleAcceptor` | Notes |
 | --- | --- | --- | --- |
-| `Format` | `handl_platform::Format` | `BasicFormatter` accepts `Box<dyn FormatBehavior>` | canonical formatter is `handl-plugin-ext-fmt` / `hnl-engine-fmt` |
-| `Lint` | `handl_platform::Lint` | `BasicLinter` accepts `Box<dyn LintBehavior>` | canonical linter is `handl-plugin-ext-lint` / `hnl-engine-lint` |
+| `Format` | `handl_platform::Format` | `BasicFormatter` accepts `Box<dyn FormatBehavior>` | canonical formatter is `handl-plugin-ext-fmt` / `hnl-tool-fmt` |
+| `Lint` | `handl_platform::Lint` | `BasicLinter` accepts `Box<dyn LintBehavior>` | canonical linter is `handl-plugin-ext-lint` / `hnl-tool-lint` |
 | `Build` | `handl_platform::Build` | `BasicBuilder` accepts `Box<dyn BuildBehavior>` | |
 | `Compile` | `handl_platform::Compile` | `BasicCompiler` accepts `Box<dyn CompileBehavior>` | targets live in the `compile-*` repos |
-| `Eval` | `handl_platform::Eval` | `BasicEvaluator` accepts `Arc<dyn EvalBehavior>` (+ `contribute_exec_control`) | engines in `engine-exec*` |
+| `Eval` | `handl_platform::Eval` | `BasicEvaluator` accepts `Arc<dyn EvalBehavior>` (+ `contribute_exec_control`) | engines in `exec*` |
 | `Load` | `plugin-load` | — | plugin-manifest loading capability |
 | `Refine` | `plugin-ext-refinement` | — | refinement/type-inference surface |
 
@@ -79,7 +79,7 @@ Toolchain entry points such as `fmt`, `lint`, `typecheck`, `test`, and
 `compile` are **capabilities** served by `handl-plugin-ext-*` plugins
 (`FmtPlugin`, `LintPlugin`, `TypecheckPlugin`, `TestPlugin`, …) — not
 `Operation` markers. The lex/parse/transform engine abstractions are
-`hnl-engine-lex`, `hnl-engine-parse`, and `hnl-engine-transform`.
+`hnl-tool-lex`, `hnl-tool-parse`, and `hnl-tool-transform`.
 
 ## Common plugin kinds
 

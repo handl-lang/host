@@ -1,6 +1,6 @@
 use handl_language::{Ast, AstRef, Language};
 use hnl_engine::Term;
-use hnl_engine_typecheck::TypecheckReport;
+use hnl_tool_typecheck::TypecheckReport;
 
 /// The input to a [`Compiler`](crate::Compiler).
 #[derive(Debug, Clone)]

@@ -7,7 +7,7 @@
 //! time (ADR-0094 §6, `handl-language`), and the `desugar.*` native
 //! rewrites (`while`, `do-while`, `for`, `nullish`, `opt-chain`, `data`,
 //! `match`) live in
-//! `hnl-engine-transform-rewrite::native::desugar` behind the
+//! `hnl-tool-transform-rewrite::native::desugar` behind the
 //! `NativeRewrite` registry — consulted as a fallback for kinds with no
 //! declarative rule, preserving the legacy ordering.
 //!
@@ -28,15 +28,15 @@
 //!   typing rules by design — so `lex → parse → desugar → typecheck`
 //!   was an integration bug, not the intended pipeline.
 //!
-//! The bootstrap `check_module` in `hnl-engine-typecheck` parses
+//! The bootstrap `check_module` in `hnl-tool-typecheck` parses
 //! directly (without desugar) due to a cyclic dependency constraint
-//! (`hnl-engine-typecheck` cannot depend on `handl-runtime`). This is
+//! (`hnl-tool-typecheck` cannot depend on `handl-runtime`). This is
 //! a known limitation: the bootstrap checker does not handle `data`
 //! declarations. The runtime pipeline (`Kit`/`Runtime`) is the
 //! recommended path for typechecking `data` declarations.
 
 use handl_language::{Ast, AstRef, LangError, Language};
-use hnl_engine_transform_rewrite::RewriteEngine;
+use hnl_tool_transform_rewrite::RewriteEngine;
 use serde_json::Value;
 
 /// Apply the `"desugar"` transform pass to an [`Ast`].
@@ -91,7 +91,7 @@ pub fn normalize_family_records(ast: &mut Ast) {
 /// ```
 ///
 /// `desugar.data` wants the internal shape `data { children: [type, ctors] }`
-/// (`hnl_engine_transform_rewrite::native::desugar::parse_data_payload`).
+/// (`hnl_tool_transform_rewrite::native::desugar::parse_data_payload`).
 /// This pass rewrites **in place** — the record's first `assign` node becomes
 /// the `data` node and the `alt` node becomes the constructor list — so the
 /// arena keeps its "root is last" convention (no nodes are pushed).
@@ -259,11 +259,7 @@ fn splice_decl_blocks(lang: &Language, ast: &mut Ast) {
                 }
                 spliced.push(entry.clone());
             }
-            if changed {
-                Some(spliced)
-            } else {
-                None
-            }
+            if changed { Some(spliced) } else { None }
         };
         if let Some(children) = new_children {
             if let Some(node) = ast.get_mut(AstRef::new(i)) {

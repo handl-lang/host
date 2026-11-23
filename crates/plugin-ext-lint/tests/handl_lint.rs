@@ -6,7 +6,7 @@
 use handl_language::{Ast, AstNode, AstRef, AstShapeDef, Language, LintCheck, LintRuleDef, Span};
 use handl_plugin_ext_lint::HandlNativeLint;
 use handl_plugin_lib_handl::HandlModule;
-use hnl_engine_lint::{LintEngine, NativeLintRegistry};
+use hnl_tool_lint::{LintEngine, NativeLintRegistry};
 use serde_json::json;
 
 /// A trivial .hnl lint module: `check` reports one hit (with a fix),
@@ -128,7 +128,7 @@ fn handl_lint_resolver_declines_non_handl_names() {
     // name is declined by the resolver and errors as unregistered.
     let mut reg = test_registry();
     reg.register("test.always", |_ctx| {
-        Ok(vec![hnl_engine_lint::NativeHit::named(
+        Ok(vec![hnl_tool_lint::NativeHit::named(
             "map",
             Span { start: 0, end: 0 },
         )])

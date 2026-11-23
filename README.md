@@ -74,7 +74,7 @@ error; unknown command exits `2` listing the loaded commands.
   - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
 - `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `codegen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `hnl-engine-*` engine — see ADR-0085.
 - `crates/plugin-exec-cache` / `plugin-compile` — the exec result cache and the compiler contribution point; the back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`) live in the **`compile-*`** repos.
-- `crates/plugin-codegen` (+ `plugin-ext-codegen`) — the codegen contract and `hnl codegen` command surface over the `hnl-engine-codegen` kernel; back ends/emitters live in the **`engine-codegen-*`** repos (`engine-codegen`, `-c`, `-webidl`, `-cli`, `-file`, `-python`).
+- `crates/plugin-codegen` (+ `plugin-ext-codegen`) — the codegen contract and `hnl codegen` command surface over the `hnl-tool-codegen` kernel; back ends/emitters live in the **`tool-codegen-*`** repos (`tool-codegen`, `-c`, `-webidl`, `-cli`, `-file`, `-python`).
 - `crates/plugin-lib-*` — standard library, native ops, and utility libraries.
 - `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-native` — applier composition and the native loader; `plugin-module` — module plumbing.
 - `crates/host-*` — `host-tooling` (the shared tooling/LSP host contract). `host-cli` + `plugin-ext-cli` moved to the **`host-cli`** repo; `host-lsp` + `plugin-lsp` + `plugin-lsp-std` + `plugin-ext-lsp` moved to the **`host-lsp`** repo (ADR-0128 Phase 8, repos renamed ADR-0149).

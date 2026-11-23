@@ -20,7 +20,7 @@ use handl_runtime::artifact_lint::{check_exec_artifact, lint_exec_artifact, rule
 use handl_runtime::exec_erasure_pass::{
     EXEC_ERASURE_PASS, apply_exec_erasure, prepare_exec_artifact,
 };
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_exec_tree_walk::TreeWalkEngine;
 use serde_json::json;
 
 fn node(kind: &str, payload: Value) -> AstNode {

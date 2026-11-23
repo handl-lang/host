@@ -7,7 +7,7 @@
 //! a typed [`IrModule`], an [`Emitter<I>`] renders it to a desired
 //! [`Change`] set with **no side effects**, and
 //! [`CodegenRegistry::run`] reconciles that set against the output
-//! directory through the `hnl-engine-codegen` kernel (`FsStore` +
+//! directory through the `hnl-tool-codegen` kernel (`FsStore` +
 //! `Engine::apply` — manifest + journal under `.handl/codegen/`).
 //!
 //! `sdkgen` survives only as the *domain/IR* name — [`SdkgenModule`],
@@ -25,7 +25,7 @@ pub use registry::{
 
 // The kernel surface registrants implement against — re-exported so
 // target modules only depend on this crate.
-pub use hnl_engine_codegen::{
+pub use hnl_tool_codegen::{
     ApplyOptions, ApplyReport, ArtifactRef, ArtifactStat, Change, CodegenError, ContentHash,
     EmitContext, Emitter, Engine, FsStore, IrKind, IrModule, Manifest, MemoryStore, OnError, Plan,
     PlanAction, PlanEntry, RevertReport, RunMeta, Source, StoreError,
@@ -103,7 +103,7 @@ impl IrModule for SdkgenModule {
 /// spec document — the python target's spec-driven generation — so the
 /// registry's spec hook becomes a normal `Source`/`Emitter` pairing
 /// instead of an IR-free bypass. The `hnl` renderer lives in
-/// `engine-codegen-python` (`handl-plugin-codegen-emitter-python`); this
+/// `tool-codegen-python` (`handl-plugin-codegen-emitter-python`); this
 /// crate defines the IR + [`Source`]/[`Emitter`] surface only.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SpecModule {

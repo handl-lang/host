@@ -2,16 +2,16 @@
 
 A target is registration code plus data — no branch is added to
 `plugin-ext-codegen`'s dispatch. The worked example is the **cli**
-target (`github.com/handl-lang/engine-codegen-cli`), which ships a
+target (`github.com/handl-lang/tool-codegen-cli`), which ships a
 backend and an emitter in one crate.
 
 ## Steps
 
 1. **New repo.** Clone the layout of an existing target repo
-   (`engine-codegen-*`). Name the crate
+   (`tool-codegen-*`). Name the crate
    `handl-plugin-codegen-backend-<x>` for a source or
    `handl-plugin-codegen-emitter-<x>` for an output channel — one repo
-   may ship both (`engine-codegen-cli` does: source `cli`, emitter
+   may ship both (`tool-codegen-cli` does: source `cli`, emitter
    `hnl-cli`).
 
 2. **Implement the kernel traits.** A source implements
@@ -54,7 +54,7 @@ backend and an emitter in one crate.
      `--include`/`--exclude` become source/emitter state — config files
      load here, not in `parse`, so `docs` passes and spec inputs can
      reload the same config without a constructed source
-     (`engine-codegen-c`'s `CBackend::apply_docs_with` is the pattern).
+     (`tool-codegen-c`'s `CBackend::apply_docs_with` is the pattern).
    - Sources/emitters canonicalize output with `req.lang`
      (`Arc<Language>` captured at `make` time); never link
      `handl-kit-data-prelude` from a target repo, and never let
@@ -64,8 +64,8 @@ backend and an emitter in one crate.
      `I` that doesn't match its emitter `I` is a compile error.
    - `docs` is an optional post-parse pass
      `fn(&CodegenRequest, &mut SdkgenModule)` — doc-source layering
-     belongs there (`engine-codegen-c`'s man pages,
-     `engine-codegen-webidl`'s MDN), not in `parse`. It applies to
+     belongs there (`tool-codegen-c`'s man pages,
+     `tool-codegen-webidl`'s MDN), not in `parse`. It applies to
      `SdkgenModule` IR only.
    - `spec_input` is an optional escape hatch for inputs that are not
      the source's native format (`matches(path)` → `run(req)`); it

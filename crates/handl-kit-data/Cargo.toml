@@ -18,6 +18,6 @@ serde_yaml = { workspace = true }
 toml = { workspace = true }
 
 [dev-dependencies]
-hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
-hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
-hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
+hnl-tool-lex-pattern = { git = "https://github.com/handl-lang/tool-lex-pattern", branch = "main" }
+hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt", branch = "main" }
+hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", branch = "main" }

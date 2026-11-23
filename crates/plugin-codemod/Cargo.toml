@@ -12,12 +12,12 @@ handl-language = { workspace = true }
 # HandlNativeRewrite/HandlModule pair lint natives use (ADR-0094/0097).
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 # The codemod spec model + CodemodEngine (plan → edits + Change set).
-hnl-engine-codemod = { workspace = true }
+hnl-tool-codemod = { workspace = true }
 # The desired-state lifecycle kernel the command half drives
 # (FsStore/Engine plan-apply-revert, manifest + journal).
-hnl-engine-codegen = { workspace = true }
+hnl-tool-codegen = { workspace = true }
 # NativeRewrite/RewriteCtx/ChainedRewrite — the rewrite resolver seam.
-hnl-engine-transform = { workspace = true }
+hnl-tool-transform = { workspace = true }
 glob = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

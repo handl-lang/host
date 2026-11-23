@@ -1,19 +1,19 @@
-name: handl-plugin-engine-test
-path: crates/plugin-engine-test/Cargo.toml
+name: handl-plugin-tool-test
+path: crates/plugin-tool-test/Cargo.toml
 purpose: Bootstrap test runner (ADR-0089).
 api:
-- name: handl-plugin-engine-test
+- name: handl-plugin-tool-test
   kind: module
-  file: crates/plugin-engine-test/Cargo.toml
+  file: crates/plugin-tool-test/Cargo.toml
   line: 1
-  module: handl-plugin-engine-test
+  module: handl-plugin-tool-test
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-engine-exec-tree-walk
-- handl-plugin-engine-lex-pattern
-- handl-plugin-engine-parse
-- handl-plugin-engine-parse-pratt
+- handl-plugin-exec-tree-walk
+- handl-plugin-tool-lex-pattern
+- handl-plugin-tool-parse
+- handl-plugin-tool-parse-pratt
 - handl-plugin-exec-cache
 - handl-plugin-ext-diag
 - handl-plugin-ext-refinement
@@ -27,10 +27,10 @@ deps:
 - handl-kit-canonical
 notes: ''
 verify:
-- crates/plugin-engine-test/Cargo.toml
+- crates/plugin-tool-test/Cargo.toml
 provenance:
   files:
-  - crates/plugin-engine-test/Cargo.toml
+  - crates/plugin-tool-test/Cargo.toml
   hashes:
   - 028fbb8cb8d14b8a0fd431e7580f1ce8748ceb21
   commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0

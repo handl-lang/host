@@ -45,7 +45,7 @@
 use std::collections::HashSet;
 
 use handl_language::{Ast, AstNode, ChildSeparator, LangError, Language, Tokens};
-use hnl_engine_parse::ParserRequest;
+use hnl_tool_parse::ParserRequest;
 use rustc_hash::FxHashMap;
 
 use crate::ParseEngineDyn;

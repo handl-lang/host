@@ -9,7 +9,7 @@ api:
   module: handl-plugin-ext-test
 deps:
 - handl-platform
-- handl-plugin-engine-test
+- handl-plugin-tool-test
 - handl-plugin-lib-scheduler
 - serde_json
 - handl-kit-canonical

@@ -331,11 +331,11 @@ fn full_kit_runtime_binds_engines() {
     // The full language must bind to the data lexer, Pratt parser, and
     // tree-walk eval engine without error. The typecheck engine is selected
     // by the manifest's `runtime.typecheck` field and is tested in the
-    // `hnl-engine-typecheck-nbe` and `kit-canonical` test suites.
-    use hnl_engine_exec_tree_walk::TreeWalkEngine;
-    use hnl_engine_lex_pattern::DataLexerEngine;
-    use hnl_engine_parse_pratt::PrattEngine;
+    // `hnl-tool-typecheck-nbe` and `kit-canonical` test suites.
     use handl_runtime::{EngineRegistry, Runtime};
+    use hnl_exec_tree_walk::TreeWalkEngine;
+    use hnl_tool_lex_pattern::DataLexerEngine;
+    use hnl_tool_parse_pratt::PrattEngine;
     use std::rc::Rc;
     let kit = handl_kit_data_prelude::assemble().expect("full kit assembles");
     let eval_len = kit.lang().eval.len();

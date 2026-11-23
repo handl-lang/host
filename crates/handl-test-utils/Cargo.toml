@@ -10,8 +10,8 @@ repository.workspace = true
 handl-platform = { path = "../platform" }
 handl-plugin-module = { path = "../plugin-module" }
 handl-language = { workspace = true }
-hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
-hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
+hnl-tool-parse = { git = "https://github.com/handl-lang/tool-parse", branch = "main" }
+hnl-exec = { git = "https://github.com/handl-lang/exec", branch = "main" }
 serde_json = { workspace = true }
 
 [dev-dependencies]

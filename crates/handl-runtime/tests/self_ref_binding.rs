@@ -18,11 +18,11 @@
 
 use handl_language::Source;
 use handl_runtime::Runtime;
-use hnl_engine_exec_bytecode::BytecodeEngine;
-use hnl_engine_exec_cranelift::CraneliftEngine;
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_exec_bytecode::BytecodeEngine;
+use hnl_exec_cranelift::CraneliftEngine;
+use hnl_exec_tree_walk::TreeWalkEngine;
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use serde_json::json;
 
 fn canonical_lang() -> handl_language::Language {
@@ -90,7 +90,7 @@ fn self_recursion_at_depth() {
 /// (tree-walk `eval_node_inner`/`apply_app`, bytecode
 /// `exec_node_inner`/`apply_app`, cranelift `eval_child_node`, the
 /// `Term` interpreter, and `try_pattern`/`nat_ctor_depth` in
-/// `hnl-engine-exec`) now run under `stacker::maybe_grow`.
+/// `hnl-exec`) now run under `stacker::maybe_grow`.
 #[test]
 fn self_recursion_deep_does_not_overflow() {
     run_all(

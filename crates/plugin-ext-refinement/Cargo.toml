@@ -15,9 +15,9 @@ handl-platform = { path = "../platform" }
 handl-plugin-ext-detect = { path = "../plugin-ext-detect" }
 handl-language = { workspace = true }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
-hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
-hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
-hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
+hnl-tool-lex-pattern = { git = "https://github.com/handl-lang/tool-lex-pattern", branch = "main" }
+hnl-tool-parse = { git = "https://github.com/handl-lang/tool-parse", branch = "main" }
+hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt", branch = "main" }
 handl-plugin-lib-handl = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

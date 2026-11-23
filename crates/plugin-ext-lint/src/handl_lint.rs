@@ -91,14 +91,14 @@
 //! [`LintCheck::Native`]: handl_language::LintCheck::Native
 //! [`HandlFunction`]: handl_plugin_lib_handl::HandlFunction
 //! [`HandlNativeRewrite`]: handl_plugin_lib_handl::HandlNativeRewrite
-//! [`NativeLintRegistry`]: hnl_engine_lint::NativeLintRegistry
+//! [`NativeLintRegistry`]: hnl_tool_lint::NativeLintRegistry
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use handl_language::{Ast, AstNode, AstRef, LangError, Span};
 use handl_platform::{EvalContext, Module};
-use hnl_engine_lint::{LintCtx, LintFixOut, NativeHit, NativeLintFn, NativeLintResolver};
+use hnl_tool_lint::{LintCtx, LintFixOut, NativeHit, NativeLintFn, NativeLintResolver};
 use serde_json::Value;
 
 use handl_plugin_lib_handl::{HANDL_PREFIX, HandlModule};

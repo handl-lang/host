@@ -10,7 +10,7 @@ categories = ["development-tools"]
 
 [dependencies]
 handl-language = { workspace = true }
-hnl-engine-transform = { workspace = true }
+hnl-tool-transform = { workspace = true }
 handl-plugin-ext-diag = { workspace = true }
 serde_yaml = { workspace = true }
 # Serialized `Language` snapshot cache (see `language_from_yaml`).

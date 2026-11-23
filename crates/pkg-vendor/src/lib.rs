@@ -189,9 +189,11 @@ mod tests {
         let out = root.join("out");
         std::fs::create_dir_all(&out).unwrap();
         let dest = vendor_into(&pkg, &out).unwrap();
-        assert!(module_file(&dest, "b")
-            .unwrap()
-            .ends_with("src/b/index.hnl"));
+        assert!(
+            module_file(&dest, "b")
+                .unwrap()
+                .ends_with("src/b/index.hnl")
+        );
         assert!(module_file(&dest, "zzz").is_err());
         let _ = std::fs::remove_dir_all(&root);
     }

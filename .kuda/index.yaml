@@ -21,19 +21,19 @@ modules:
 - handl-plugin-applier-bootstrap
 - handl-plugin-applier-default
 - handl-plugin-compile
-- handl-plugin-engine-exec
-- handl-plugin-engine-exec-bytecode
-- handl-plugin-engine-exec-tree-walk
-- handl-plugin-engine-fmt
-- handl-plugin-engine-lex
-- handl-plugin-engine-lex-pattern
-- handl-plugin-engine-lint
-- handl-plugin-engine-parse
-- handl-plugin-engine-parse-pratt
-- handl-plugin-engine-test
-- handl-plugin-engine-transform
-- handl-plugin-engine-transform-rewrite
-- handl-plugin-engine-typecheck
+- handl-plugin-exec
+- handl-plugin-exec-bytecode
+- handl-plugin-exec-tree-walk
+- handl-plugin-tool-fmt
+- handl-plugin-tool-lex
+- handl-plugin-tool-lex-pattern
+- handl-plugin-tool-lint
+- handl-plugin-tool-parse
+- handl-plugin-tool-parse-pratt
+- handl-plugin-tool-test
+- handl-plugin-tool-transform
+- handl-plugin-tool-transform-rewrite
+- handl-plugin-tool-typecheck
 - handl-plugin-exec-cache
 - handl-plugin-ext-compile
 - handl-plugin-ext-detect
@@ -66,19 +66,19 @@ modules:
 - plugin-applier-bootstrap
 - plugin-applier-default
 - plugin-compile
-- plugin-engine-exec
-- plugin-engine-exec-bytecode
-- plugin-engine-exec-tree-walk
-- plugin-engine-fmt
-- plugin-engine-lex
-- plugin-engine-lex-pattern
-- plugin-engine-lint
-- plugin-engine-parse
-- plugin-engine-parse-pratt
-- plugin-engine-test
-- plugin-engine-transform
-- plugin-engine-transform-rewrite
-- plugin-engine-typecheck
+- plugin-exec
+- plugin-exec-bytecode
+- plugin-exec-tree-walk
+- plugin-tool-fmt
+- plugin-tool-lex
+- plugin-tool-lex-pattern
+- plugin-tool-lint
+- plugin-tool-parse
+- plugin-tool-parse-pratt
+- plugin-tool-test
+- plugin-tool-transform
+- plugin-tool-transform-rewrite
+- plugin-tool-typecheck
 - plugin-exec-cache
 - plugin-ext-compile
 - plugin-ext-detect
@@ -117,7 +117,7 @@ provenance:
   - crates/platform/Cargo.toml
   - crates/plugin-ext-sdkgen/Cargo.toml
   - crates/plugin-applier-default/Cargo.toml
-  - crates/plugin-engine-lex/Cargo.toml
+  - crates/plugin-tool-lex/Cargo.toml
   - crates/plugin-lib-scheduler/Cargo.toml
   - crates/plugin-ext-compile/Cargo.toml
   - crates/plugin-loader-native/Cargo.toml
@@ -125,36 +125,36 @@ provenance:
   - crates/plugin-ext-typecheck/Cargo.toml
   - crates/plugin-ext-lint/Cargo.toml
   - crates/plugin-sdkgen-emitter-file/Cargo.toml
-  - crates/plugin-engine-exec/Cargo.toml
-  - crates/plugin-engine-transform-rewrite/Cargo.toml
+  - crates/plugin-exec/Cargo.toml
+  - crates/plugin-tool-transform-rewrite/Cargo.toml
   - crates/handl-kit-arrow-lower/Cargo.toml
-  - crates/plugin-engine-lint/Cargo.toml
+  - crates/plugin-tool-lint/Cargo.toml
   - crates/plugin-applier-bootstrap/Cargo.toml
   - crates/ext-tests/Cargo.toml
   - crates/plugin-ext-eval/Cargo.toml
-  - crates/plugin-engine-lex-pattern/Cargo.toml
+  - crates/plugin-tool-lex-pattern/Cargo.toml
   - crates/plugin-applier/Cargo.toml
-  - crates/plugin-engine-transform/Cargo.toml
-  - crates/plugin-engine-test/Cargo.toml
+  - crates/plugin-tool-transform/Cargo.toml
+  - crates/plugin-tool-test/Cargo.toml
   - crates/handl-kit-data/Cargo.toml
   - crates/bench/Cargo.toml
   - crates/plugin-ext-test/Cargo.toml
   - crates/plugin-ext-kit/Cargo.toml
-  - crates/plugin-engine-fmt/Cargo.toml
+  - crates/plugin-tool-fmt/Cargo.toml
   - crates/platform-tests/Cargo.toml
   - crates/plugin-ext-refinement/Cargo.toml
-  - crates/plugin-engine-typecheck/Cargo.toml
+  - crates/plugin-tool-typecheck/Cargo.toml
   - crates/plugin-exec-cache/Cargo.toml
-  - crates/plugin-engine-exec-bytecode/Cargo.toml
-  - crates/plugin-engine-parse-pratt/Cargo.toml
+  - crates/plugin-exec-bytecode/Cargo.toml
+  - crates/plugin-tool-parse-pratt/Cargo.toml
   - crates/plugin-sdkgen/Cargo.toml
   - crates/plugin-ext-plugin/Cargo.toml
   - crates/plugin-lib-handl/Cargo.toml
-  - crates/plugin-engine-exec-tree-walk/Cargo.toml
+  - crates/plugin-exec-tree-walk/Cargo.toml
   - crates/plugin-ext-fmt/Cargo.toml
   - crates/plugin-compile/Cargo.toml
   - crates/plugin-ext-diag/Cargo.toml
-  - crates/plugin-engine-parse/Cargo.toml
+  - crates/plugin-tool-parse/Cargo.toml
   - crates/plugin-ext-detect/Cargo.toml
   - crates/handl-runtime/Cargo.toml
   - crates/plugin-module/Cargo.toml
@@ -185,7 +185,7 @@ provenance:
   - crates/plugin-ext-sdkgen/src/lib.rs
   - crates/plugin-applier-default/src/lib_tests.rs
   - crates/plugin-applier-default/src/lib.rs
-  - crates/plugin-engine-lex/src/lib.rs
+  - crates/plugin-tool-lex/src/lib.rs
   - crates/plugin-lib-scheduler/src/lib.rs
   - crates/plugin-ext-compile/src/request.rs
   - crates/plugin-ext-compile/src/tests.rs
@@ -201,47 +201,47 @@ provenance:
   - crates/plugin-sdkgen-emitter-file/tests/emit_webidl.rs
   - crates/plugin-sdkgen-emitter-file/tests/emit_clock.rs
   - crates/plugin-sdkgen-emitter-file/src/lib.rs
-  - crates/plugin-engine-exec/src/pattern_match.rs
-  - crates/plugin-engine-exec/src/native_ops.rs
-  - crates/plugin-engine-exec/src/lib.rs
-  - crates/plugin-engine-transform-rewrite/benches/transform.rs
-  - crates/plugin-engine-transform-rewrite/tests/desugar_parity.rs
-  - crates/plugin-engine-transform-rewrite/tests/engine.rs
-  - crates/plugin-engine-transform-rewrite/src/step.rs
-  - crates/plugin-engine-transform-rewrite/src/dispatch.rs
-  - crates/plugin-engine-transform-rewrite/src/condition.rs
-  - crates/plugin-engine-transform-rewrite/src/walk.rs
-  - crates/plugin-engine-transform-rewrite/src/lib.rs
-  - crates/plugin-engine-transform-rewrite/src/native/desugar.rs
-  - crates/plugin-engine-transform-rewrite/src/native/mod.rs
+  - crates/plugin-exec/src/pattern_match.rs
+  - crates/plugin-exec/src/native_ops.rs
+  - crates/plugin-exec/src/lib.rs
+  - crates/plugin-tool-transform-rewrite/benches/transform.rs
+  - crates/plugin-tool-transform-rewrite/tests/desugar_parity.rs
+  - crates/plugin-tool-transform-rewrite/tests/engine.rs
+  - crates/plugin-tool-transform-rewrite/src/step.rs
+  - crates/plugin-tool-transform-rewrite/src/dispatch.rs
+  - crates/plugin-tool-transform-rewrite/src/condition.rs
+  - crates/plugin-tool-transform-rewrite/src/walk.rs
+  - crates/plugin-tool-transform-rewrite/src/lib.rs
+  - crates/plugin-tool-transform-rewrite/src/native/desugar.rs
+  - crates/plugin-tool-transform-rewrite/src/native/mod.rs
   - crates/handl-kit-arrow-lower/tests/lower.rs
   - crates/handl-kit-arrow-lower/src/lib.rs
-  - crates/plugin-engine-lint/src/module.rs
-  - crates/plugin-engine-lint/src/native.rs
-  - crates/plugin-engine-lint/src/lib.rs
+  - crates/plugin-tool-lint/src/module.rs
+  - crates/plugin-tool-lint/src/native.rs
+  - crates/plugin-tool-lint/src/lib.rs
   - crates/plugin-applier-bootstrap/src/lib_tests.rs
   - crates/plugin-applier-bootstrap/src/lib.rs
   - crates/ext-tests/tests/e2e.rs
   - crates/ext-tests/src/lib.rs
   - crates/plugin-ext-eval/src/adapters.rs
   - crates/plugin-ext-eval/src/lib.rs
-  - crates/plugin-engine-lex-pattern/tests/integration.rs
-  - crates/plugin-engine-lex-pattern/src/lib.rs
+  - crates/plugin-tool-lex-pattern/tests/integration.rs
+  - crates/plugin-tool-lex-pattern/src/lib.rs
   - crates/plugin-applier/src/lib.rs
-  - crates/plugin-engine-transform/src/request.rs
-  - crates/plugin-engine-transform/src/native.rs
-  - crates/plugin-engine-transform/src/output.rs
-  - crates/plugin-engine-transform/src/validate.rs
-  - crates/plugin-engine-transform/src/source.rs
-  - crates/plugin-engine-transform/src/lib.rs
-  - crates/plugin-engine-test/tests/runner.rs
-  - crates/plugin-engine-test/src/events.rs
-  - crates/plugin-engine-test/src/runner.rs
-  - crates/plugin-engine-test/src/report.rs
-  - crates/plugin-engine-test/src/config.rs
-  - crates/plugin-engine-test/src/lib.rs
-  - crates/plugin-engine-test/src/provider.rs
-  - crates/plugin-engine-test/src/framework/mod.rs
+  - crates/plugin-tool-transform/src/request.rs
+  - crates/plugin-tool-transform/src/native.rs
+  - crates/plugin-tool-transform/src/output.rs
+  - crates/plugin-tool-transform/src/validate.rs
+  - crates/plugin-tool-transform/src/source.rs
+  - crates/plugin-tool-transform/src/lib.rs
+  - crates/plugin-tool-test/tests/runner.rs
+  - crates/plugin-tool-test/src/events.rs
+  - crates/plugin-tool-test/src/runner.rs
+  - crates/plugin-tool-test/src/report.rs
+  - crates/plugin-tool-test/src/config.rs
+  - crates/plugin-tool-test/src/lib.rs
+  - crates/plugin-tool-test/src/provider.rs
+  - crates/plugin-tool-test/src/framework/mod.rs
   - crates/handl-kit-data/src/library_registry.rs
   - crates/handl-kit-data/src/tests.rs
   - crates/handl-kit-data/src/lib.rs
@@ -255,11 +255,11 @@ provenance:
   - crates/plugin-ext-test/src/plugin.rs
   - crates/plugin-ext-test/src/lib.rs
   - crates/plugin-ext-kit/src/lib.rs
-  - crates/plugin-engine-fmt/src/token.rs
-  - crates/plugin-engine-fmt/src/post_process.rs
-  - crates/plugin-engine-fmt/src/tests.rs
-  - crates/plugin-engine-fmt/src/lib.rs
-  - crates/plugin-engine-fmt/src/layout.rs
+  - crates/plugin-tool-fmt/src/token.rs
+  - crates/plugin-tool-fmt/src/post_process.rs
+  - crates/plugin-tool-fmt/src/tests.rs
+  - crates/plugin-tool-fmt/src/lib.rs
+  - crates/plugin-tool-fmt/src/layout.rs
   - crates/platform-tests/tests/integration.rs
   - crates/platform-tests/tests/wiring.rs
   - crates/platform-tests/tests/e2e.rs
@@ -294,17 +294,17 @@ provenance:
   - crates/plugin-ext-refinement/src/loader.rs
   - crates/plugin-ext-refinement/src/lib.rs
   - crates/plugin-ext-refinement/src/backtrack_tests.rs
-  - crates/plugin-engine-typecheck/tests/bootstrap.rs
-  - crates/plugin-engine-typecheck/src/bootstrap.rs
-  - crates/plugin-engine-typecheck/src/lib.rs
+  - crates/plugin-tool-typecheck/tests/bootstrap.rs
+  - crates/plugin-tool-typecheck/src/bootstrap.rs
+  - crates/plugin-tool-typecheck/src/lib.rs
   - crates/plugin-exec-cache/src/lib.rs
-  - crates/plugin-engine-exec-bytecode/tests/bytecode_conformance.rs
-  - crates/plugin-engine-exec-bytecode/src/compile.rs
-  - crates/plugin-engine-exec-bytecode/src/instr.rs
-  - crates/plugin-engine-exec-bytecode/src/vm.rs
-  - crates/plugin-engine-exec-bytecode/src/lib.rs
-  - crates/plugin-engine-parse-pratt/tests/parse_conformance.rs
-  - crates/plugin-engine-parse-pratt/src/lib.rs
+  - crates/plugin-exec-bytecode/tests/bytecode_conformance.rs
+  - crates/plugin-exec-bytecode/src/compile.rs
+  - crates/plugin-exec-bytecode/src/instr.rs
+  - crates/plugin-exec-bytecode/src/vm.rs
+  - crates/plugin-exec-bytecode/src/lib.rs
+  - crates/plugin-tool-parse-pratt/tests/parse_conformance.rs
+  - crates/plugin-tool-parse-pratt/src/lib.rs
   - crates/plugin-sdkgen/tests/round_trip.rs
   - crates/plugin-sdkgen/src/targets.rs
   - crates/plugin-sdkgen/src/lib.rs
@@ -321,15 +321,15 @@ provenance:
   - crates/plugin-lib-handl/src/transform.rs
   - crates/plugin-lib-handl/src/model.rs
   - crates/plugin-lib-handl/src/lib.rs
-  - crates/plugin-engine-exec-tree-walk/tests/eval_conformance.rs
-  - crates/plugin-engine-exec-tree-walk/tests/grade_dispatch.rs
-  - crates/plugin-engine-exec-tree-walk/tests/graded_e2e.rs
-  - crates/plugin-engine-exec-tree-walk/tests/eval_error_span.rs
-  - crates/plugin-engine-exec-tree-walk/tests/adr0081_cross_language.rs
-  - crates/plugin-engine-exec-tree-walk/tests/path_transport.rs
-  - crates/plugin-engine-exec-tree-walk/tests/with_handle_e2e.rs
-  - crates/plugin-engine-exec-tree-walk/tests/rewrite_law.rs
-  - crates/plugin-engine-exec-tree-walk/src/lib.rs
+  - crates/plugin-exec-tree-walk/tests/eval_conformance.rs
+  - crates/plugin-exec-tree-walk/tests/grade_dispatch.rs
+  - crates/plugin-exec-tree-walk/tests/graded_e2e.rs
+  - crates/plugin-exec-tree-walk/tests/eval_error_span.rs
+  - crates/plugin-exec-tree-walk/tests/adr0081_cross_language.rs
+  - crates/plugin-exec-tree-walk/tests/path_transport.rs
+  - crates/plugin-exec-tree-walk/tests/with_handle_e2e.rs
+  - crates/plugin-exec-tree-walk/tests/rewrite_law.rs
+  - crates/plugin-exec-tree-walk/src/lib.rs
   - crates/plugin-ext-fmt/tests/idempotence.rs
   - crates/plugin-ext-fmt/tests/golden.rs
   - crates/plugin-ext-fmt/src/plugin.rs
@@ -347,7 +347,7 @@ provenance:
   - crates/plugin-compile/src/value_abi.rs
   - crates/plugin-compile/src/value_abi/tests.rs
   - crates/plugin-ext-diag/src/lib.rs
-  - crates/plugin-engine-parse/src/lib.rs
+  - crates/plugin-tool-parse/src/lib.rs
   - crates/plugin-ext-detect/src/lib.rs
   - crates/handl-runtime/tests/runtime_pipeline.rs
   - crates/handl-runtime/tests/factorial_model_test.rs

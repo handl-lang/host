@@ -1,7 +1,7 @@
 //! `handl-plugin-codemod` — the host-side codemod wiring (P-002 /
 //! PL-004 T-085).
 //!
-//! `hnl-engine-codemod` is the pure engine: it consumes a validated
+//! `hnl-tool-codemod` is the pure engine: it consumes a validated
 //! [`CodemodSpec`], per-target [`Language`] data, glob-resolved
 //! [`TargetArtifacts`], and injected resolver/provider seams, and
 //! produces a [`CodemodPlan`] — edits plus a materialized
@@ -33,8 +33,8 @@
 //! [`CodemodRuleProvider::engine_contexts`]) but ships **no concrete
 //! engine providers**: `requires: [typecheck]` with nothing registered
 //! is an honest `EngineUnavailable` diagnostic governed by the rule's
-//! `on_engine_error` (the engine-codemod crate documents the same
-//! boundary — `hnl-engine-typecheck` pulls host deps the engine must
+//! `on_engine_error` (the tool-codemod crate documents the same
+//! boundary — `hnl-tool-typecheck` pulls host deps the engine must
 //! not see).
 
 use std::collections::BTreeMap;
@@ -44,15 +44,15 @@ use std::sync::Arc;
 use glob::Pattern;
 use handl_language::{AstRef, LangError, Language};
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
-use hnl_engine_codegen::{ArtifactRef, ArtifactStore, RESERVED_PREFIX};
-use hnl_engine_codemod::{
+use hnl_tool_codegen::{ArtifactRef, ArtifactStore, RESERVED_PREFIX};
+use hnl_tool_codemod::{
     CodemodEngine, EngineContextProvider, EngineContextReport, EngineContextRequest,
     LanguageResolver, SpecIssue, StaticLanguageResolver, TargetArtifacts,
 };
-use hnl_engine_transform::native::{ChainedRewrite, NativeRewrite, RewriteCtx};
+use hnl_tool_transform::native::{ChainedRewrite, NativeRewrite, RewriteCtx};
 
 /// A named native rewrite function — the `Fn` half of
-/// `hnl_engine_transform::native::NativeRewriteRegistry::register`,
+/// `hnl_tool_transform::native::NativeRewriteRegistry::register`,
 /// behind `Arc` so registries and providers can be cloned into every
 /// per-run engine.
 pub type NativeRewriteFn =
@@ -168,14 +168,14 @@ impl EngineContextProvider for ArcEngineContext {
     fn provide(
         &self,
         req: &EngineContextRequest<'_>,
-    ) -> Result<EngineContextReport, hnl_engine_codemod::EngineContextError> {
+    ) -> Result<EngineContextReport, hnl_tool_codemod::EngineContextError> {
         self.0.provide(req)
     }
 }
 
 /// The host-side codemod configuration: language map, rewrite
 /// resolvers, rule providers, and engine contexts — everything
-/// `hnl-engine-codemod` takes as injected seams, in one reusable
+/// `hnl-tool-codemod` takes as injected seams, in one reusable
 /// builder.
 ///
 /// Cheap to clone-configure; [`Codemod::engine`] borrows both the
@@ -436,7 +436,7 @@ pub fn resolve_targets(
 /// Re-export the engine surface hosts drive — spec types, plan
 /// output, and the `CodemodEngine`/resolver traits — so consumers
 /// depend on one crate.
-pub use hnl_engine_codemod::{
+pub use hnl_tool_codemod::{
     CodemodDiagnostic, CodemodEdit, CodemodPlan, CodemodRewrite, CodemodRule, CodemodSpec,
     CodemodStats, CodemodTarget, DiagnosticKind, EngineErrorPolicy, RuleScope, SpecError,
     UnparseMode,

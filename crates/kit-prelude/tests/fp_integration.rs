@@ -9,7 +9,7 @@
 use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, AstRef};
 use handl_runtime::desugar_pass;
-use hnl_engine_parse::{ParserEngine, ParserRequest};
+use hnl_tool_parse::{ParserEngine, ParserRequest};
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
@@ -631,7 +631,7 @@ fn data_parses_from_source_to_data_node() {
         .expect("lex must succeed");
 
     // Parse WITHOUT desugar by calling the Pratt engine directly.
-    let pratt = hnl_engine_parse_pratt::PrattEngine::new();
+    let pratt = hnl_tool_parse_pratt::PrattEngine::new();
     let req = ParserRequest::new(tokens);
     let ast = pratt
         .parse(kit.runtime().lang(), &req)
@@ -949,7 +949,7 @@ fn data_vec_parses_and_desugars_from_source() {
 #[test]
 fn match_motive_parses_to_three_children() {
     let kit = kit();
-    let pratt = hnl_engine_parse_pratt::PrattEngine::new();
+    let pratt = hnl_tool_parse_pratt::PrattEngine::new();
     let src = "match v return (i) ~> Type with { a: 1 }";
     let tokens = kit.lex(src).expect("lex must succeed");
     let ast = pratt

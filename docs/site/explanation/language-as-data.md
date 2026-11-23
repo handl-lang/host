@@ -34,13 +34,13 @@ fragment set is published as data in
 ## Engines dispatch on data
 
 The `engine-*` crates are **generic machinery**: each is an abstraction
-crate for one operation — `hnl-engine-lex`, `hnl-engine-parse`,
-`hnl-engine-transform`, `hnl-engine-exec`, `hnl-engine-typecheck` — plus
+crate for one operation — `hnl-tool-lex`, `hnl-tool-parse`,
+`hnl-tool-transform`, `hnl-exec`, `hnl-tool-typecheck` — plus
 concrete engines: three interchangeable eval backends
-(`hnl-engine-exec-tree-walk` the reference interpreter,
-`hnl-engine-exec-bytecode` the stack VM, `hnl-engine-exec-cranelift`
+(`hnl-exec-tree-walk` the reference interpreter,
+`hnl-exec-bytecode` the stack VM, `hnl-exec-cranelift`
 the JIT), the rule-interpreting transform engine
-(`hnl-engine-transform-rewrite`), and the `fmt`/`lint`/`typecheck`
+(`hnl-tool-transform-rewrite`), and the `fmt`/`lint`/`typecheck`
 toolchain engines. They share one rule:
 
 > Dispatch on node kind via `Language` data — never a hardcoded `match`

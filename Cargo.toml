@@ -158,28 +158,28 @@ handl-plugin-compile-dot = { git = "https://github.com/handl-lang/compile-dot", 
 handl-plugin-compile-sexp = { git = "https://github.com/handl-lang/compile-sexp", branch = "main" }
 handl-test-utils = { path = "crates/handl-test-utils" }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
-hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
-hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
-hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
-hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
-hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
-hnl-engine-typecheck-nbe = { git = "https://github.com/handl-lang/engine-typecheck-nbe", branch = "main" }
-hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
-hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
-hnl-engine-test = { git = "https://github.com/handl-lang/engine-test", branch = "main" }
-handl-kit-test = { git = "https://github.com/handl-lang/engine-test", branch = "main" }
+hnl-tool-lex = { git = "https://github.com/handl-lang/tool-lex", branch = "main" }
+hnl-tool-lex-pattern = { git = "https://github.com/handl-lang/tool-lex-pattern", branch = "main" }
+hnl-tool-parse = { git = "https://github.com/handl-lang/tool-parse", branch = "main" }
+hnl-exec = { git = "https://github.com/handl-lang/exec", branch = "main" }
+hnl-tool-typecheck = { git = "https://github.com/handl-lang/tool-typecheck", branch = "main" }
+hnl-tool-typecheck-nbe = { git = "https://github.com/handl-lang/tool-typecheck-nbe", branch = "main" }
+hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt", branch = "main" }
+hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", branch = "main" }
+hnl-tool-test = { git = "https://github.com/handl-lang/tool-test", branch = "main" }
+handl-kit-test = { git = "https://github.com/handl-lang/tool-test", branch = "main" }
 handl-ext = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-lib-comb = { git = "https://github.com/handl-lang/lib-comb", branch = "main" }
-hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
-hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/engine-exec-cranelift", branch = "main" }
-hnl-engine-fmt = { git = "https://github.com/handl-lang/engine-fmt", branch = "main" }
-hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
+hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branch = "main" }
+hnl-exec-cranelift = { git = "https://github.com/handl-lang/exec-cranelift", branch = "main" }
+hnl-tool-fmt = { git = "https://github.com/handl-lang/tool-fmt", branch = "main" }
+hnl-tool-lint = { git = "https://github.com/handl-lang/tool-lint", branch = "main" }
 # PL-004 Phase 0/1: the desired-state codegen kernel lives in the
-# `engine-codegen` repo. Git dep — the sibling checkout wins via the
+# `tool-codegen` repo. Git dep — the sibling checkout wins via the
 # `[patch]` entry below (T-079 repo wiring).
-hnl-engine-codegen = { git = "https://github.com/handl-lang/engine-codegen", branch = "main" }
-hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform", branch = "main" }
-hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
+hnl-tool-codegen = { git = "https://github.com/handl-lang/tool-codegen", branch = "main" }
+hnl-tool-transform = { git = "https://github.com/handl-lang/tool-transform", branch = "main" }
+hnl-tool-transform-rewrite = { git = "https://github.com/handl-lang/tool-transform-rewrite", branch = "main" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-kit-data = { path = "crates/handl-kit-data" }
 handl-kit-core = { path = "crates/handl-kit-core" }
@@ -204,7 +204,7 @@ handl-plugin-ext-codegen = { path = "crates/plugin-ext-codegen" }
 handl-run = { path = "crates/run" }
 # PL-004 T-085/T-086: the codemod engine — git dep; the sibling
 # checkout wins via the `[patch]` entry below (T-079 repo wiring).
-hnl-engine-codemod = { git = "https://github.com/handl-lang/engine-codemod", branch = "main" }
+hnl-tool-codemod = { git = "https://github.com/handl-lang/tool-codemod", branch = "main" }
 handl-plugin-codemod = { path = "crates/plugin-codemod" }
 handl-plugin-ext-codemod = { path = "crates/plugin-ext-codemod" }
 
@@ -238,57 +238,59 @@ serde_json = "1"
 #   cargo check --workspace
 # dev-link: begin
 [patch."https://github.com/handl-lang/compile-dot"]
-handl-plugin-compile-dot = { path = "../engine-compile-dot/modules/compile-dot" }
+handl-plugin-compile-dot = { path = "../tool-compile-dot/modules/compile-dot" }
 [patch."https://github.com/handl-lang/compile-handl"]
-handl-plugin-compile-handl = { path = "../engine-compile-handl/modules/compile-handl" }
+handl-plugin-compile-handl = { path = "../tool-compile-handl/modules/compile-handl" }
 [patch."https://github.com/handl-lang/compile-js"]
-handl-plugin-compile-js = { path = "../engine-compile-js" }
+handl-plugin-compile-js = { path = "../tool-compile-js" }
 [patch."https://github.com/handl-lang/compile-llvm"]
-handl-plugin-compile-llvm = { path = "../engine-compile-llvm" }
+handl-plugin-compile-llvm = { path = "../tool-compile-llvm" }
 [patch."https://github.com/handl-lang/compile-sexp"]
-handl-plugin-compile-sexp = { path = "../engine-compile-sexp/modules/compile-sexp" }
+handl-plugin-compile-sexp = { path = "../tool-compile-sexp/modules/compile-sexp" }
 [patch."https://github.com/handl-lang/compile-term"]
-handl-plugin-compile-term = { path = "../engine-compile-term/modules/compile-term" }
+handl-plugin-compile-term = { path = "../tool-compile-term/modules/compile-term" }
 [patch."https://github.com/handl-lang/engine"]
 hnl-engine = { path = "../engine" }
-[patch."https://github.com/handl-lang/engine-exec"]
-hnl-engine-exec = { path = "../engine-exec" }
-[patch."https://github.com/handl-lang/engine-exec-bytecode"]
-hnl-engine-exec-bytecode = { path = "../engine-exec-bytecode" }
-[patch."https://github.com/handl-lang/engine-exec-cranelift"]
-hnl-engine-exec-cranelift = { path = "../engine-exec-cranelift" }
-[patch."https://github.com/handl-lang/engine-exec-tree-walk"]
-hnl-engine-exec-tree-walk = { path = "../engine-exec-tree-walk" }
-[patch."https://github.com/handl-lang/engine-fmt"]
-hnl-engine-fmt = { path = "../engine-fmt" }
-[patch."https://github.com/handl-lang/engine-lex"]
-hnl-engine-lex = { path = "../engine-lex" }
-[patch."https://github.com/handl-lang/engine-lex-pattern"]
-hnl-engine-lex-pattern = { path = "../engine-lex-pattern" }
-[patch."https://github.com/handl-lang/engine-lint"]
-hnl-engine-lint = { path = "../engine-lint" }
+[patch."https://github.com/handl-lang/exec"]
+hnl-exec = { path = "../exec" }
+[patch."https://github.com/handl-lang/exec-bytecode"]
+hnl-exec-bytecode = { path = "../exec-bytecode" }
+[patch."https://github.com/handl-lang/exec-cranelift"]
+hnl-exec-cranelift = { path = "../exec-cranelift" }
+[patch."https://github.com/handl-lang/exec-tree-walk"]
+hnl-exec-tree-walk = { path = "../exec-tree-walk" }
+[patch."https://github.com/handl-lang/tool-fmt"]
+hnl-tool-fmt = { path = "../tool-fmt" }
+[patch."https://github.com/handl-lang/tool-lex"]
+hnl-tool-lex = { path = "../tool-lex" }
+[patch."https://github.com/handl-lang/tool-lex-pattern"]
+hnl-tool-lex-pattern = { path = "../tool-lex-pattern" }
+[patch."https://github.com/handl-lang/tool-lint"]
+hnl-tool-lint = { path = "../tool-lint" }
 # PL-004: the codegen kernel resolves from the sibling checkout.
-[patch."https://github.com/handl-lang/engine-codegen"]
-hnl-engine-codegen = { path = "../engine-codegen" }
+[patch."https://github.com/handl-lang/tool-codegen"]
+hnl-tool-codegen = { path = "../tool-codegen" }
 # PL-004 T-085/T-086: the codemod engine resolves from the sibling
-# checkout, same convention as engine-codegen above.
-[patch."https://github.com/handl-lang/engine-codemod"]
-hnl-engine-codemod = { path = "../engine-codemod" }
-[patch."https://github.com/handl-lang/engine-parse"]
-hnl-engine-parse = { path = "../engine-parse" }
-[patch."https://github.com/handl-lang/engine-parse-pratt"]
-hnl-engine-parse-pratt = { path = "../engine-parse-pratt" }
-[patch."https://github.com/handl-lang/engine-test"]
-hnl-engine-test = { path = "../engine-test" }
-handl-kit-test = { path = "../engine-test/crates/kit-test" }
-[patch."https://github.com/handl-lang/engine-transform"]
-hnl-engine-transform = { path = "../engine-transform" }
-[patch."https://github.com/handl-lang/engine-transform-rewrite"]
-hnl-engine-transform-rewrite = { path = "../engine-transform-rewrite" }
-[patch."https://github.com/handl-lang/engine-typecheck"]
-hnl-engine-typecheck = { path = "../engine-typecheck" }
-[patch."https://github.com/handl-lang/engine-typecheck-nbe"]
-hnl-engine-typecheck-nbe = { path = "../engine-typecheck-nbe" }
+# checkout, same convention as tool-codegen above.
+[patch."https://github.com/handl-lang/tool-codemod"]
+hnl-tool-codemod = { path = "../tool-codemod" }
+[patch."https://github.com/handl-lang/tool-parse"]
+hnl-tool-parse = { path = "../tool-parse" }
+[patch."https://github.com/handl-lang/tool-parse-pratt"]
+hnl-tool-parse-pratt = { path = "../tool-parse-pratt" }
+[patch."https://github.com/handl-lang/tool-test"]
+hnl-tool-test = { path = "../tool-test" }
+handl-kit-test = { path = "../tool-test/crates/kit-test" }
+[patch."https://github.com/handl-lang/tool-watch"]
+hnl-tool-watch = { path = "../tool-watch" }
+[patch."https://github.com/handl-lang/tool-transform"]
+hnl-tool-transform = { path = "../tool-transform" }
+[patch."https://github.com/handl-lang/tool-transform-rewrite"]
+hnl-tool-transform-rewrite = { path = "../tool-transform-rewrite" }
+[patch."https://github.com/handl-lang/tool-typecheck"]
+hnl-tool-typecheck = { path = "../tool-typecheck" }
+[patch."https://github.com/handl-lang/tool-typecheck-nbe"]
+hnl-tool-typecheck-nbe = { path = "../tool-typecheck-nbe" }
 [patch."https://github.com/handl-lang/kit-core"]
 # T-123 Phase A: `handl-kit-core` is a workspace member now — external kits
 # (kit-stdlib, kit-prelude, kit-ffi, …) that still declare the git dep
@@ -427,18 +429,18 @@ handl-plugin-lib-serialize-toml-c = { path = "../lib-serialize-toml-c" }
 handl-plugin-lib-serialize-yaml-c = { path = "../lib-serialize-yaml-c" }
 [patch."https://github.com/handl-lang/lib-transform"]
 handl-lib-transform = { path = "../lib-transform" }
-# PL-004 T-075: the engine-sdkgen-* siblings are renamed
-# engine-codegen-* and now consume `handl-plugin-codegen`.
-[patch."https://github.com/handl-lang/engine-codegen-c"]
-handl-plugin-codegen-backend-c = { path = "../engine-codegen-c" }
-[patch."https://github.com/handl-lang/engine-codegen-cli"]
-handl-plugin-codegen-cli = { path = "../engine-codegen-cli" }
-[patch."https://github.com/handl-lang/engine-codegen-file"]
-handl-plugin-codegen-emitter-file = { path = "../engine-codegen-file" }
-[patch."https://github.com/handl-lang/engine-codegen-python"]
-handl-plugin-codegen-emitter-python = { path = "../engine-codegen-python" }
-[patch."https://github.com/handl-lang/engine-codegen-webidl"]
-handl-plugin-codegen-backend-webidl = { path = "../engine-codegen-webidl" }
+# PL-004 T-075: the tool-codegen-* siblings are renamed
+# tool-codegen-* and now consume `handl-plugin-codegen`.
+[patch."https://github.com/handl-lang/tool-codegen-c"]
+handl-plugin-codegen-backend-c = { path = "../tool-codegen-c" }
+[patch."https://github.com/handl-lang/tool-codegen-cli"]
+handl-plugin-codegen-cli = { path = "../tool-codegen-cli" }
+[patch."https://github.com/handl-lang/tool-codegen-file"]
+handl-plugin-codegen-emitter-file = { path = "../tool-codegen-file" }
+[patch."https://github.com/handl-lang/tool-codegen-python"]
+handl-plugin-codegen-emitter-python = { path = "../tool-codegen-python" }
+[patch."https://github.com/handl-lang/tool-codegen-webidl"]
+handl-plugin-codegen-backend-webidl = { path = "../tool-codegen-webidl" }
 
 
 [patch."https://github.com/handl-lang/lib-comb"]

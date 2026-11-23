@@ -29,8 +29,8 @@ use std::sync::Once;
 
 use handl_kit_prelude::Kit;
 use handl_platform::ModuleLookup;
-use hnl_engine_exec::{EvalEngine, EvalRequest};
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
+use hnl_exec::{EvalEngine, EvalRequest};
+use hnl_exec_tree_walk::TreeWalkEngine;
 use serde_json::json;
 
 /// Point the stage-ops at the fixture endpoint for every eval in this

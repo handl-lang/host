@@ -1,5 +1,5 @@
 //! `hnl codemod` CLI extension (PL-004 T-086) — the declarative codemod
-//! command surface over `hnl-engine-codemod` + the `hnl-engine-codegen`
+//! command surface over `hnl-tool-codemod` + the `hnl-tool-codegen`
 //! lifecycle kernel.
 //!
 //! # Command surface
@@ -39,7 +39,7 @@ use std::path::{Path, PathBuf};
 
 use handl_language::Language;
 use handl_plugin_codemod::{Codemod, CodemodSpec, resolve_targets};
-use hnl_engine_codegen::{
+use hnl_tool_codegen::{
     ApplyOptions, ApplyReport, ArtifactStore, Engine, FsStore, Manifest, RevertReport, RunMeta,
     journal_ref,
 };
@@ -422,8 +422,8 @@ fn plan_json(plan: &handl_plugin_codemod::CodemodPlan) -> String {
         .map(|c| ChangeJson {
             artifact: c.artifact().to_string(),
             op: match c {
-                hnl_engine_codegen::Change::Put { .. } => "put",
-                hnl_engine_codegen::Change::Delete { .. } => "delete",
+                hnl_tool_codegen::Change::Put { .. } => "put",
+                hnl_tool_codegen::Change::Delete { .. } => "delete",
             },
             before_hash: c.before_hash().map(|h| h.to_hex()),
             after_hash: c.after_hash().map(|h| h.to_hex()),

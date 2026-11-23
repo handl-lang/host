@@ -1,4 +1,4 @@
-//! mlopt change-set manifest → `hnl-engine-codegen` apply bridge
+//! mlopt change-set manifest → `hnl-tool-codegen` apply bridge
 //! (PL-004 T-093).
 //!
 //! mlopt's emit side (`mlopt.emit.emit_changes` →
@@ -41,7 +41,7 @@
 //! runs on the term/module *before* `emit_changes` renders the
 //! manifest, so by the time this shim sees a manifest the artifact
 //! is already verified-or-declined. The kernel's
-//! [`hnl_engine_codegen::Emitter::verify`] hook — `verify(&self, ir,
+//! [`hnl_tool_codegen::Emitter::verify`] hook — `verify(&self, ir,
 //! changes) -> Result<(), CodegenError>` seeing both IR and desired
 //! state — is the slot for a *consumer-side* gate if a Rust emitter
 //! ever materializes mlopt terms directly (e.g. a `kit-mlopt` native
@@ -57,13 +57,13 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use base64::Engine as _;
-use hnl_engine_codegen::change::Change;
-use hnl_engine_codegen::engine::{ApplyOptions, ApplyReport, Engine, RunMeta};
-use hnl_engine_codegen::error::CodegenError;
-use hnl_engine_codegen::manifest::Manifest;
-use hnl_engine_codegen::plan::Plan;
-use hnl_engine_codegen::store::{ArtifactStore, FsStore};
-use hnl_engine_codegen::types::{ArtifactRef, ContentHash};
+use hnl_tool_codegen::change::Change;
+use hnl_tool_codegen::engine::{ApplyOptions, ApplyReport, Engine, RunMeta};
+use hnl_tool_codegen::error::CodegenError;
+use hnl_tool_codegen::manifest::Manifest;
+use hnl_tool_codegen::plan::Plan;
+use hnl_tool_codegen::store::{ArtifactStore, FsStore};
+use hnl_tool_codegen::types::{ArtifactRef, ContentHash};
 use serde_json::Value;
 
 /// `manifest.json` file name inside a manifest dir (mlopt

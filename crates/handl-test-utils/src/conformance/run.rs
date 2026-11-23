@@ -1,7 +1,7 @@
 //! Harness functions that run the conformance corpus against any engine.
 
 use handl_language::Ast;
-use hnl_engine_exec::{EvalEngine, EvalRequest};
+use hnl_exec::{EvalEngine, EvalRequest};
 
 use super::corpus::{eval_corpus, parse_corpus};
 
@@ -59,10 +59,10 @@ pub fn run_eval_conformance(engine: &dyn EvalEngine) -> Result<(), String> {
 /// # Errors
 ///
 /// Returns an error if any case fails.
-pub fn run_parse_conformance<E: hnl_engine_parse::ParserEngine>(engine: &E) -> Result<(), String> {
+pub fn run_parse_conformance<E: hnl_tool_parse::ParserEngine>(engine: &E) -> Result<(), String> {
     let corpus = parse_corpus();
     for case in &corpus {
-        let req = hnl_engine_parse::ParserRequest::new(case.tokens.clone());
+        let req = hnl_tool_parse::ParserRequest::new(case.tokens.clone());
         let result = engine.parse(&case.lang, &req);
         match result {
             Ok(ast) => {

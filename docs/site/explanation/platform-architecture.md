@@ -19,12 +19,12 @@ kernel/                        # the Language schema + shared values
                                #   (ops, prim, prim-handl)
 engine/                        # hnl-engine — engine-side helpers over the calculus
 engine-*/                      # generic engines — one repo per operation
-  engine-lex, engine-lex-pattern
-  engine-parse, engine-parse-pratt
-  engine-transform, engine-transform-rewrite
-  engine-exec, engine-exec-tree-walk, engine-exec-bytecode,
-  engine-exec-cranelift
-  engine-fmt, engine-lint, engine-typecheck
+  tool-lex, tool-lex-pattern
+  tool-parse, tool-parse-pratt
+  tool-transform, tool-transform-rewrite
+  exec, exec-tree-walk, exec-bytecode,
+  exec-cranelift
+  tool-fmt, tool-lint, tool-typecheck
 host/                          # the platform workspace
   crates/platform              #   handl-platform — contracts + DefaultHost
   crates/plugin-ext-*          #   operation contract surfaces

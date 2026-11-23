@@ -480,9 +480,9 @@ deps:
 - serde_json
 - serde_yaml
 - toml
-- handl-plugin-engine-exec-tree-walk
-- handl-plugin-engine-lex-pattern
-- handl-plugin-engine-parse-pratt
+- handl-plugin-exec-tree-walk
+- handl-plugin-tool-lex-pattern
+- handl-plugin-tool-parse-pratt
 - handl_platform
 - handl_language
 - handl_runtime

@@ -4,7 +4,7 @@
 //! Re-exports the platform `Lint` operation machinery ([`BasicLinter`], the
 //! generic rule/capability registry) and runs the rule set declared in
 //! `lang.lints` of the injected [`Language`] through the data-driven
-//! [`LintEngine`] in `hnl-engine-lint`. The canonical rule set lives in
+//! [`LintEngine`] in `hnl-tool-lint`. The canonical rule set lives in
 //! `handl-kit-data-prelude`'s `lints.yaml`; the host supplies the language
 //! via [`LintContext`] (ADR-0128 §"The 0.8 seam") — this crate keeps no
 //! normal dependency on the canonical kit.
@@ -49,8 +49,8 @@ use std::sync::Arc;
 
 use handl_language::LangError;
 use handl_plugin_ext_diag::{Diagnostic, Fix, Severity, Span};
-use hnl_engine_codegen::{ApplyOptions, ArtifactRef, ArtifactStore, Engine, FsStore, RunMeta};
-use hnl_engine_lint::{
+use hnl_tool_codegen::{ApplyOptions, ArtifactRef, ArtifactStore, Engine, FsStore, RunMeta};
+use hnl_tool_lint::{
     DiagnosticLevel, FixpointOutcome, LintDiagnostic, LintEngine, LintFixError, LintFixOut,
     NativeHit, NativeLintResolver, canonical_lint_natives,
 };
@@ -151,8 +151,8 @@ pub fn lint_source_with_prelude(
     let diags = lint_engine(ctx.resolver.clone()).lint_source(
         ctx.lang(),
         src,
-        &hnl_engine_lex_pattern::DataLexerEngine,
-        &hnl_engine_parse_pratt::PrattEngine::new(),
+        &hnl_tool_lex_pattern::DataLexerEngine,
+        &hnl_tool_parse_pratt::PrattEngine::new(),
     )?;
     let mut out: Vec<Diagnostic> = diags
         .iter()
@@ -173,12 +173,12 @@ fn scope_diagnostics_with_language(
     src: &str,
     prelude: &HashSet<String>,
 ) -> Vec<Diagnostic> {
-    match hnl_engine_typecheck::check_module_with_prelude(
+    match hnl_tool_typecheck::check_module_with_prelude(
         lang,
         src,
         prelude,
-        &hnl_engine_lex_pattern::DataLexerEngine,
-        &hnl_engine_parse_pratt::PrattEngine::new(),
+        &hnl_tool_lex_pattern::DataLexerEngine,
+        &hnl_tool_parse_pratt::PrattEngine::new(),
     ) {
         Ok(report) => report
             .diagnostics
@@ -222,7 +222,7 @@ pub fn fix_source(ctx: &LintContext, src: &str) -> Result<String, LintError> {
 /// Apply fixable diagnostics to source text, with a host-supplied wire
 /// prelude for `unbound-wire` (see [`lint_source_with_prelude`]).
 ///
-/// The fixpoint itself lives in `hnl-engine-lint`
+/// The fixpoint itself lives in `hnl-tool-lint`
 /// ([`LintEngine::fix_source`], PL-004 T-091): each round's fix batch is
 /// selected by the whole-file-fix-subsumes policy and spliced in
 /// descending byte order; lint failures propagate as honest errors
@@ -260,8 +260,8 @@ fn fix_outcome(ctx: &LintContext, src: &str) -> Result<FixpointOutcome, LintErro
         .fix_source(
             ctx.lang(),
             src,
-            &hnl_engine_lex_pattern::DataLexerEngine,
-            &hnl_engine_parse_pratt::PrattEngine::new(),
+            &hnl_tool_lex_pattern::DataLexerEngine,
+            &hnl_tool_parse_pratt::PrattEngine::new(),
             MAX_FIX_ITERATIONS,
         )
         .map_err(|e| match e {
@@ -280,7 +280,7 @@ pub struct LintFileFix {
     /// `true` when at least one fix round produced a journaled write.
     pub changed: bool,
     /// The shared journal run id (`lint-fix-…`) — pass to
-    /// `hnl_engine_codegen::Engine::revert` to undo every round.
+    /// `hnl_tool_codegen::Engine::revert` to undo every round.
     /// `None` when the file was already clean.
     pub run_id: Option<String>,
     /// Fix rounds the fixpoint ran (0 = already clean).
@@ -295,11 +295,11 @@ pub struct LintFileFix {
 /// `root` is the [`FsStore`] root and `artifact` a validated
 /// root-relative path — **not** a process-CWD-relative path, which is
 /// what makes this safe to call for files anywhere under the project.
-/// Each fixpoint round's `hnl_engine_lint::FixHit`s become
-/// `hnl_engine_codemod::ByteEdit`s whose offsets
+/// Each fixpoint round's `hnl_tool_lint::FixHit`s become
+/// `hnl_tool_codemod::ByteEdit`s whose offsets
 /// are valid against the store's *current* content (the previous
 /// round's applied state), so every round plans through
-/// [`hnl_engine_codemod::CodemodEngine::plan_byte_edits`] and applies
+/// [`hnl_tool_codemod::CodemodEngine::plan_byte_edits`] and applies
 /// through [`Engine::apply`] under one shared `lint-fix` run id. The
 /// write is journaled and atomic, drift-checked (`before_hash`), and
 /// `Engine::revert(run_id)` restores the original — replacing the old
@@ -358,16 +358,16 @@ pub fn fix_file_with_prelude(
     meta.new_run_id();
     let run_id = meta.run_id.clone();
 
-    let codemod = hnl_engine_codemod::CodemodEngine::new(&store);
+    let codemod = hnl_tool_codemod::CodemodEngine::new(&store);
     let lifecycle = Engine::new(&store);
     let opts = ApplyOptions::default();
     let mut edits = 0usize;
 
     for round in &outcome.rounds {
-        let byte_edits: Vec<hnl_engine_codemod::ByteEdit> = round
+        let byte_edits: Vec<hnl_tool_codemod::ByteEdit> = round
             .iter()
             .map(|h| {
-                hnl_engine_codemod::ByteEdit::new(
+                hnl_tool_codemod::ByteEdit::new(
                     h.rule.clone(),
                     h.fix.start,
                     h.fix.end,

@@ -1,19 +1,19 @@
-name: handl-plugin-engine-exec-bytecode
-path: crates/plugin-engine-exec-bytecode/Cargo.toml
+name: handl-plugin-exec-bytecode
+path: crates/plugin-exec-bytecode/Cargo.toml
 purpose: The **bytecode eval engine** for the eval operation (ADR-0044 §4, §7).
 api:
-- name: handl-plugin-engine-exec-bytecode
+- name: handl-plugin-exec-bytecode
   kind: module
-  file: crates/plugin-engine-exec-bytecode/Cargo.toml
+  file: crates/plugin-exec-bytecode/Cargo.toml
   line: 1
-  module: handl-plugin-engine-exec-bytecode
+  module: handl-plugin-exec-bytecode
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-engine-exec
-- handl-plugin-engine-exec-tree-walk
-- handl-plugin-engine-transform
-- handl-plugin-engine-transform-rewrite
+- handl-plugin-exec
+- handl-plugin-exec-tree-walk
+- handl-plugin-tool-transform
+- handl-plugin-tool-transform-rewrite
 - handl-runtime
 - handl-value
 - plugin-engine
@@ -24,10 +24,10 @@ deps:
 - serde_json
 notes: ''
 verify:
-- crates/plugin-engine-exec-bytecode/Cargo.toml
+- crates/plugin-exec-bytecode/Cargo.toml
 provenance:
   files:
-  - crates/plugin-engine-exec-bytecode/Cargo.toml
+  - crates/plugin-exec-bytecode/Cargo.toml
   hashes:
   - 6654956467f9fb1e29be692897178ddebbef13b7
   commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0

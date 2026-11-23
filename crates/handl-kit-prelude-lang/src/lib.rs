@@ -145,7 +145,10 @@ fn snapshot_path(key: u64) -> Option<std::path::PathBuf> {
     let base = std::env::var_os("HOME")
         .map(|h| std::path::PathBuf::from(h).join(".cache"))
         .unwrap_or_else(std::env::temp_dir);
-    Some(base.join("handl-lang").join(format!("language-{key:016x}.bin")))
+    Some(
+        base.join("handl-lang")
+            .join(format!("language-{key:016x}.bin")),
+    )
 }
 
 fn load_snapshot(key: u64) -> Option<Language> {
@@ -158,7 +161,9 @@ fn load_snapshot(key: u64) -> Option<Language> {
 /// snapshot (nextest spawns test processes in parallel). Best-effort: a
 /// failed store just means the next caller parses YAML again.
 fn store_snapshot(key: u64, lang: &Language) {
-    let Some(path) = snapshot_path(key) else { return };
+    let Some(path) = snapshot_path(key) else {
+        return;
+    };
     let Some(dir) = path.parent() else { return };
     if std::fs::create_dir_all(dir).is_err() {
         return;
@@ -272,7 +277,7 @@ pub fn merge_lang_fragments(
     // fail the merge; warnings (unknown target kinds, potential `Fixpoint`
     // cycles, `Native` rules pending a wired registry) do not — shapes and
     // registries may legitimately arrive from other fragments or engines.
-    let diags = hnl_engine_transform::validate::validate_transforms(&lang);
+    let diags = hnl_tool_transform::validate::validate_transforms(&lang);
     let errors: Vec<String> = diags
         .iter()
         .filter(|d| d.severity == handl_plugin_ext_diag::Severity::Error)
@@ -320,7 +325,7 @@ pub fn merge_lsp(lang: &mut Language, lsp_yaml: &str) -> Result<(), LangError> {
     }
 
     // ADR-0100: LSP surface validation runs at Language build.
-    let lsp_diags = hnl_engine_transform::validate::validate_lsp(lang);
+    let lsp_diags = hnl_tool_transform::validate::validate_lsp(lang);
     let lsp_errors: Vec<String> = lsp_diags
         .iter()
         .filter(|d| d.severity == handl_plugin_ext_diag::Severity::Error)

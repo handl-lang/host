@@ -11,12 +11,12 @@ use handl_plugin_codemod::{
     Codemod, CodemodRule, CodemodRuleProvider, CodemodSpec, CodemodTarget, RuleScope,
     resolve_targets,
 };
-use hnl_engine_codegen::{ArtifactRef, ArtifactStore, MemoryStore};
-use hnl_engine_codemod::{
+use hnl_tool_codegen::{ArtifactRef, ArtifactStore, MemoryStore};
+use hnl_tool_codemod::{
     CodemodRewrite, EngineContextError, EngineContextProvider, EngineContextReport,
     EngineContextRequest, EngineErrorPolicy, TargetArtifacts, UnparseMode,
 };
-use hnl_engine_transform::native::RewriteCtx;
+use hnl_tool_transform::native::RewriteCtx;
 use serde_json::json;
 
 fn lang() -> Language {

@@ -10,9 +10,9 @@ api:
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-engine-lex-pattern
-- handl-plugin-engine-parse
-- handl-plugin-engine-parse-pratt
+- handl-plugin-tool-lex-pattern
+- handl-plugin-tool-parse
+- handl-plugin-tool-parse-pratt
 - handl-plugin-ext-detect
 - handl-plugin-lib-handl
 - plugin-engine

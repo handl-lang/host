@@ -7,10 +7,10 @@
 
 use handl_language::{LangError, Source, Value};
 use handl_runtime::Runtime;
-use hnl_engine_exec::{EvalEngine, ImportResolver};
-use hnl_engine_exec_cranelift::CraneliftEngine;
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_exec::{EvalEngine, ImportResolver};
+use hnl_exec_cranelift::CraneliftEngine;
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use serde_json::json;
 use std::rc::Rc;
 
@@ -26,7 +26,7 @@ fn make_runtime() -> Runtime {
     let kit = handl_kit_data_prelude::assemble().expect("canonical kit assembles");
     let lang = kit.lang().clone();
 
-    let eval_engine: Box<dyn hnl_engine_exec::EvalEngine> =
+    let eval_engine: Box<dyn hnl_exec::EvalEngine> =
         CraneliftEngine::new().with_import_resolver(Rc::new(StubResolver));
 
     Runtime::new(lang)

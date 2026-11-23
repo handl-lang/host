@@ -10,10 +10,10 @@
 use handl_kit_data::{DataKit, DataKitManifest};
 use handl_kit_data_prelude;
 use handl_language::LangError;
-use hnl_engine_exec_bytecode::BytecodeEngine;
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
-use hnl_engine_parse_pratt::PrattEngine;
 use handl_runtime::{EngineRegistry, RuntimeConfig};
+use hnl_exec_bytecode::BytecodeEngine;
+use hnl_exec_tree_walk::TreeWalkEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use std::rc::Rc;
 
 /// Build a registry with pratt parse + tree-walk/bytecode eval (the engines
@@ -32,8 +32,7 @@ fn canonical_lang() -> handl_language::Language {
 }
 
 fn manifest_with_eval(eval: &str) -> DataKitManifest {
-    DataKitManifest::new()
-        .with_runtime(RuntimeConfig::new().with_parse("pratt").with_eval(eval))
+    DataKitManifest::new().with_runtime(RuntimeConfig::new().with_parse("pratt").with_eval(eval))
 }
 
 #[test]
@@ -41,7 +40,8 @@ fn swap_eval_to_bytecode_succeeds() {
     let reg = handl_kit_data_prelude::registry();
     let registry = test_registry();
     let manifest = manifest_with_eval("bytecode");
-    let kit = DataKit::assemble(&manifest, &reg, canonical_lang()).expect("assembly should succeed");
+    let kit =
+        DataKit::assemble(&manifest, &reg, canonical_lang()).expect("assembly should succeed");
     // Assembly succeeds — the Language is built regardless of engine choice.
     assert!(kit.lang().tokens.len() > 0);
     // Building the runtime succeeds: bytecode is now available.
@@ -86,8 +86,7 @@ fn no_eval_engine_leaves_eval_unbound() {
     // builds but eval dispatch returns NotImplemented (no eval engine bound).
     let reg = handl_kit_data_prelude::registry();
     let registry = test_registry();
-    let manifest =
-        DataKitManifest::new().with_runtime(RuntimeConfig::new().with_parse("pratt"));
+    let manifest = DataKitManifest::new().with_runtime(RuntimeConfig::new().with_parse("pratt"));
     let kit = DataKit::assemble(&manifest, &reg, canonical_lang()).unwrap();
     let rt = kit
         .into_runtime(&registry, None)

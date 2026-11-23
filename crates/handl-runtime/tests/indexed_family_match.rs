@@ -8,9 +8,9 @@
 use handl_kit_prelude::Kit;
 use handl_language::{Ast, AstNode, AstRef};
 use handl_runtime::desugar_pass::apply_desugar;
-use hnl_engine_lex_pattern::lex;
-use hnl_engine_parse::{ParserEngine, ParserRequest};
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_tool_lex_pattern::lex;
+use hnl_tool_parse::{ParserEngine, ParserRequest};
+use hnl_tool_parse_pratt::PrattEngine;
 use serde_json::json;
 
 /// Parse `src` without running the desugar pass, so `data` declarations remain

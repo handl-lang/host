@@ -9,7 +9,7 @@ keywords = ["handl", "kit", "prelude"]
 categories = ["development-tools"]
 
 # ADR-0128 §0.5/§0.9: the cranelift exec engine and the FFI surface are
-# Cargo features, not hard links — `hnl-engine-exec-cranelift` and
+# Cargo features, not hard links — `hnl-exec-cranelift` and
 # `handl-plugin-ffi` pull 14 cranelift crates + libloading into every
 # consumer (the LSP host, `plugin-compile-js`, parse-only embedders).
 # `default = ["cranelift", "ffi"]` keeps today's behavior; consumers opt
@@ -27,7 +27,7 @@ categories = ["development-tools"]
 
 [features]
 default = ["cranelift", "ffi"]
-cranelift = ["dep:hnl-engine-exec-cranelift"]
+cranelift = ["dep:hnl-exec-cranelift"]
 ffi = ["handl-kit-ffi/ffi"]
 
 [dependencies]
@@ -43,15 +43,15 @@ handl-runtime = { workspace = true }
 handl-language = { workspace = true }
 handl-platform = { workspace = true }
 handl-kit-data = { workspace = true }
-hnl-engine-exec = { workspace = true }
-hnl-engine-lex-pattern = { workspace = true }
-hnl-engine-parse = { workspace = true }
-hnl-engine-parse-pratt = { workspace = true }
-hnl-engine-exec-tree-walk = { workspace = true }
-hnl-engine-exec-bytecode = { workspace = true }
-hnl-engine-exec-cranelift = { workspace = true, optional = true }
-hnl-engine-typecheck = { workspace = true }
-hnl-engine-typecheck-nbe = { workspace = true }
+hnl-exec = { workspace = true }
+hnl-tool-lex-pattern = { workspace = true }
+hnl-tool-parse = { workspace = true }
+hnl-tool-parse-pratt = { workspace = true }
+hnl-exec-tree-walk = { workspace = true }
+hnl-exec-bytecode = { workspace = true }
+hnl-exec-cranelift = { workspace = true, optional = true }
+hnl-tool-typecheck = { workspace = true }
+hnl-tool-typecheck-nbe = { workspace = true }
 handl-plugin-ext-diag = { workspace = true }
 handl-plugin-ext-lint = { workspace = true }
 handl-plugin-lib-stdlib = { workspace = true }

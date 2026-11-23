@@ -18,10 +18,10 @@ use std::rc::Rc;
 
 use handl_language::Source;
 use handl_runtime::{ModuleLoader, Runtime};
-use hnl_engine_exec::ImportResolver;
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_exec::ImportResolver;
+use hnl_exec_tree_walk::TreeWalkEngine;
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use serde_json::json;
 
 /// A unique temp directory for this test process's module fixtures.
@@ -405,29 +405,36 @@ fn coverage_reports_file_lines() {
     // Install before `resolve_import` — resolution may eagerly load (and
     // evaluate) the module, and coverage only registers while a session
     // is active on this thread.
-    let session = hnl_engine_exec::coverage::CoverageSession::new();
+    let session = hnl_exec::coverage::CoverageSession::new();
     session.install_local();
     loader
         .resolve_import("mod.hnl")
         .map_err(|e| format!("resolve_import: {e}"))
         .unwrap();
     let value = rt
-        .run(&Source::new(r#"do { from "mod.hnl" import answer; answer }"#))
+        .run(&Source::new(
+            r#"do { from "mod.hnl" import answer; answer }"#,
+        ))
         .map_err(|e| format!("eval: {e}"))
         .expect("module must evaluate");
     assert_eq!(value, json!(42));
     let report = session.report();
-    hnl_engine_exec::coverage::CoverageSession::uninstall_local();
+    hnl_exec::coverage::CoverageSession::uninstall_local();
 
     let s = report
         .sources
         .iter()
-        .find(|s| {
-            s.origin
-                .as_deref()
-                .is_some_and(|o| o.ends_with("mod.hnl"))
-        })
-        .unwrap_or_else(|| panic!("module coverage source registered; sources: {:?}", report.sources.iter().map(|s|(s.name.clone(),s.origin.clone(),s.file_line_hits.is_some())).collect::<Vec<_>>())) ;
+        .find(|s| s.origin.as_deref().is_some_and(|o| o.ends_with("mod.hnl")))
+        .unwrap_or_else(|| {
+            panic!(
+                "module coverage source registered; sources: {:?}",
+                report
+                    .sources
+                    .iter()
+                    .map(|s| (s.name.clone(), s.origin.clone(), s.file_line_hits.is_some()))
+                    .collect::<Vec<_>>()
+            )
+        });
     assert!(s.line_map.is_some(), "{s:?}");
     let hits = s.file_line_hits.as_ref().expect("file-line hits");
     // Hits resolve to file lines 3 (`base := 40`) and 6 (`answer := …`)

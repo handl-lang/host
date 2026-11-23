@@ -80,24 +80,24 @@
 
 mod char_module;
 pub mod model;
-mod str_handl;
 pub mod op_registry;
+mod str_handl;
 pub mod transform;
-pub use char_module::{CharModule, CHAR_OPS};
-pub use model::{term_to_value, HandlModel, HandlModelAdapter, HandlModelEngine};
+pub use char_module::{CHAR_OPS, CharModule};
+pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
-pub use transform::{HandlNativeRewrite, HANDL_PREFIX, KEEP_KEY};
+pub use transform::{HANDL_PREFIX, HandlNativeRewrite, KEEP_KEY};
 
 /// Re-export of the engine's [`ImportResolver`] trait so `.hnl` library
 /// builders (e.g. `plugin-lib-stdlib`) can supply an import resolver
-/// without taking a direct `hnl-engine-exec` dependency.
-pub use hnl_engine_exec::ImportResolver;
+/// without taking a direct `hnl-exec` dependency.
+pub use hnl_exec::ImportResolver;
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use handl_language::Source;
 use handl_platform::{
@@ -2463,20 +2463,20 @@ fn build_runtime(
     let mut registry = EngineRegistry::new();
     registry.register_lex(
         "data",
-        Box::new(hnl_engine_lex_pattern::DataLexerEngine::new()),
+        Box::new(hnl_tool_lex_pattern::DataLexerEngine::new()),
     );
-    registry.register_parse("pratt", hnl_engine_parse_pratt::PrattEngine::new());
+    registry.register_parse("pratt", hnl_tool_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()),
+        Box::new(hnl_exec_tree_walk::TreeWalkEngine::new()),
     );
     registry.register_eval(
         "bytecode",
-        Box::new(hnl_engine_exec_bytecode::BytecodeEngine::new()),
+        Box::new(hnl_exec_bytecode::BytecodeEngine::new()),
     );
     registry.register_compile(
         "bytecode",
-        Box::new(hnl_engine_exec_bytecode::BytecodeCompileEngine::new()),
+        Box::new(hnl_exec_bytecode::BytecodeCompileEngine::new()),
     );
     let registry = Rc::new(registry);
 
@@ -2721,11 +2721,11 @@ impl Function for HandlFunction {
                 // coordinates — `self.source` is already transform output
                 // (`analyze_source`), not necessarily the file on disk.
                 let cov_text = format!("({})", self.source);
-                let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
-                    hnl_engine_exec::coverage::CoverageSource {
+                let cov_source = hnl_exec::coverage::CoverageSession::register(
+                    hnl_exec::coverage::CoverageSource {
                         name: format!("{}.hnl", self.module_name),
                         text: cov_text,
-                        decls: hnl_engine_exec::coverage::scan_decls(&self.source)
+                        decls: hnl_exec::coverage::scan_decls(&self.source)
                             .into_iter()
                             .map(|mut d| {
                                 d.start += 1;
@@ -2744,7 +2744,7 @@ impl Function for HandlFunction {
                     },
                 );
                 let cov_guard =
-                    cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
+                    cov_source.and_then(hnl_exec::coverage::CoverageSession::push_source);
                 let v = runtime
                     .eval_shared_with_call_args(&src_ast, &[])
                     .map_err(errf);
@@ -2778,7 +2778,7 @@ impl Function for HandlFunction {
         // registered source — so its own node hits are dropped via an
         // opaque frame. Arrow bodies applied inside still attribute
         // correctly through mint-time `body_def` provenance.
-        let cov_guard = hnl_engine_exec::coverage::CoverageSession::push_opaque();
+        let cov_guard = hnl_exec::coverage::CoverageSession::push_opaque();
         let result = runtime.eval_shared_with_call_args(&ast, &call_args);
         drop(cov_guard);
         result.map_err(errf)
@@ -3263,7 +3263,7 @@ impl HandlModule {
     /// (`"tree-walk"`, `"bytecode"`).
     ///
     /// `"bytecode"` runs module bodies on the bytecode VM
-    /// (`hnl_engine_exec_bytecode::BytecodeEngine`): the
+    /// (`hnl_exec_bytecode::BytecodeEngine`): the
     /// per-call record construction and function bodies compile to
     /// instructions once per eval instead of paying tree-walk scheme
     /// dispatch per node — measured ~100-400× faster on eval-heavy
@@ -3483,11 +3483,11 @@ impl HandlModule {
         // `HandlFunction` path registers, so hits merge into that source
         // (the trailing `.name` projection lands past the text end and is
         // dropped by the bounds check in `record_node_span`).
-        let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
-            hnl_engine_exec::coverage::CoverageSource {
+        let cov_source = hnl_exec::coverage::CoverageSession::register(
+            hnl_exec::coverage::CoverageSource {
                 name: format!("{}.hnl", self.name),
                 text: format!("({})", self.source),
-                decls: hnl_engine_exec::coverage::scan_decls(&self.source)
+                decls: hnl_exec::coverage::scan_decls(&self.source)
                     .into_iter()
                     .map(|mut d| {
                         d.start += 1;
@@ -3505,7 +3505,7 @@ impl HandlModule {
             },
         );
         let cov_guard =
-            cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
+            cov_source.and_then(hnl_exec::coverage::CoverageSession::push_source);
         let result = runtime.eval_shared_with_call_args(&ast, &[]);
         drop(cov_guard);
         result.ok()
@@ -3569,8 +3569,7 @@ pub use str_handl::STR_HANDL_HNL;
 /// installed through [`install_loader`], every `.hnl` text transform
 /// (declaration/comment stripping, export transformation, import/
 /// capability/tag parsing, tag expansion) is evaluated in handl.
-const LOADER_HNL: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/lib-loader/src/index.hnl"));
+const LOADER_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-loader/src/index.hnl"));
 
 /// The record field names exposed by `loader.hnl`.
 pub const LOADER_FUNCS: &[&str] = &[

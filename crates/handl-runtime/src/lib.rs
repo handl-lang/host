@@ -17,9 +17,9 @@
 //! match. The host populates an [`EngineRegistry`] — a name→engine map — and
 //! [`Runtime::from_registry`] resolves the [`RuntimeConfig`] names against it.
 //! `handl-runtime` names **no** engine impl crate; the engine impls
-//! (`hnl-engine-lex-pattern`, `hnl-engine-parse-pratt`,
-//! `hnl-engine-exec-tree-walk`, `hnl-engine-exec-bytecode`,
-//! `hnl-engine-exec-cranelift`) are deps of the **host**, which registers
+//! (`hnl-tool-lex-pattern`, `hnl-tool-parse-pratt`,
+//! `hnl-exec-tree-walk`, `hnl-exec-bytecode`,
+//! `hnl-exec-cranelift`) are deps of the **host**, which registers
 //! them. Adding an engine = register it; no `handl-runtime` edit.
 //!
 //! [`RuntimeConfig`] carries engine names as strings (e.g. `"pratt"`,
@@ -45,7 +45,7 @@
 //! and runs it. The non-serializable artifact never crosses the trait
 //! boundary; only the serializable handle does. The `CompileEngine` /
 //! `CompiledArtifact` impls live in the engine crates
-//! (`hnl-engine-exec-bytecode`, `hnl-engine-exec-cranelift`), not here.
+//! (`hnl-exec-bytecode`, `hnl-exec-cranelift`), not here.
 //!
 //! ## Dyn-compatibility note
 //!
@@ -79,14 +79,14 @@ use handl_kit_arrow_lower::lower_ast;
 use handl_language::{Ast, AstRef, LangError, Language, Source, Tokens, Value};
 use handl_value::{TaggedValue, tagged_to_value};
 use hnl_engine::term_interpreter::interpret_with_handlers;
-use hnl_engine_exec::{EvalEngine, EvalRequest, ImportResolver};
-use hnl_engine_lex::{LexerEngine, LexerRequest};
-use hnl_engine_parse::{ParserEngine, ParserRequest};
+use hnl_exec::{EvalEngine, EvalRequest, ImportResolver};
+use hnl_tool_lex::{LexerEngine, LexerRequest};
+use hnl_tool_parse::{ParserEngine, ParserRequest};
 /// Re-export [`TypecheckResult`] so downstream mock [`RuntimeHandle`]
 /// implementations can name it without a direct dependency on
-/// `hnl-engine-typecheck` (ADR-0054).
-pub use hnl_engine_typecheck::{TypecheckDiagnostic, TypecheckResult};
-use hnl_engine_typecheck::{TypecheckEngine, TypecheckRequest};
+/// `hnl-tool-typecheck` (ADR-0054).
+pub use hnl_tool_typecheck::{TypecheckDiagnostic, TypecheckResult};
+use hnl_tool_typecheck::{TypecheckEngine, TypecheckRequest};
 use rustc_hash::FxHashMap;
 
 // ---------------------------------------------------------------------------
@@ -112,8 +112,8 @@ pub struct CompiledHandle {
 /// A compiled artifact — engine-specific, non-serializable, held in the
 /// [`COMPILED_REGISTRY`] behind a trait object.
 ///
-/// Each compile engine (`hnl-engine-exec-bytecode`,
-/// `hnl-engine-exec-cranelift`) produces its own impl carrying the
+/// Each compile engine (`hnl-exec-bytecode`,
+/// `hnl-exec-cranelift`) produces its own impl carrying the
 /// compiled artifact plus the `Language` and `Ast` it was compiled from
 /// (needed to execute: the bytecode VM lazily compiles child nodes using
 /// `lang` + `ast`; the cranelift helpers read `ast` node payloads and `lang`
@@ -147,8 +147,8 @@ pub trait CompiledArtifact {
 
 /// A compile engine — produces [`CompiledArtifact`] impls from an [`Ast`].
 ///
-/// Impl live in the engine crates (`hnl-engine-exec-bytecode`,
-/// `hnl-engine-exec-cranelift`), not in `handl-runtime`. The runtime
+/// Impl live in the engine crates (`hnl-exec-bytecode`,
+/// `hnl-exec-cranelift`), not in `handl-runtime`. The runtime
 /// looks one up by target name in the [`EngineRegistry`] and calls
 /// `compile` to obtain a `Box<dyn CompiledArtifact>`.
 pub trait CompileEngine {
@@ -1818,9 +1818,7 @@ impl ModuleLoader {
         let file_line_map: Vec<Option<u32>> = prepared
             .line_map
             .into_iter()
-            .map(|l| {
-                l.and_then(|sl| strip_map.get(sl as usize - 1).copied().flatten())
-            })
+            .map(|l| l.and_then(|sl| strip_map.get(sl as usize - 1).copied().flatten()))
             .collect();
         // Coverage (opt-in, `hnl test --coverage`): register the *prepared*
         // source — the exact text the parser sees — so span hits during
@@ -1828,13 +1826,13 @@ impl ModuleLoader {
         // coordinates, but both prep stages attach a provenance map, so
         // the report also resolves hits to file lines (`fileLineHits`).
         // No-op when no session is installed on this thread.
-        let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
-            hnl_engine_exec::coverage::CoverageSource::new(resolved, src.clone())
+        let cov_source = hnl_exec::coverage::CoverageSession::register(
+            hnl_exec::coverage::CoverageSource::new(resolved, src.clone())
                 .with_origin(resolved)
                 .with_file_lines(file_line_map, Some(origin_lines)),
         );
         let _cov_guard =
-            cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
+            cov_source.and_then(hnl_exec::coverage::CoverageSession::push_source);
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);
@@ -1945,20 +1943,15 @@ impl ModuleLoader {
     /// `map[i]` is the file line (1-based) that produced output line
     /// `i + 1`, or `None` when that line was generated (lowered
     /// host-import bindings attribute to the declaration's line).
-    fn strip_module_decl_lines(
-        &self,
-        src: &str,
-        resolved: &str,
-    ) -> (String, Vec<Option<u32>>) {
+    fn strip_module_decl_lines(&self, src: &str, resolved: &str) -> (String, Vec<Option<u32>>) {
         let mut line_starts = vec![0usize];
         for (i, b) in src.bytes().enumerate() {
             if b == b'\n' {
                 line_starts.push(i + 1);
             }
         }
-        let line_of = |off: usize| -> u32 {
-            line_starts.partition_point(|&s| s <= off).max(1) as u32
-        };
+        let line_of =
+            |off: usize| -> u32 { line_starts.partition_point(|&s| s <= off).max(1) as u32 };
         let mut pieces: Vec<(String, Option<u32>)> = Vec::new();
         for &(seg_start, seg_end) in &module_prep::top_level_segment_spans(src) {
             let seg = &src[seg_start..seg_end];
@@ -1967,8 +1960,7 @@ impl ModuleLoader {
             // the declaration keyword's own line is after any leading
             // whitespace-only lines inside the segment.
             let seg_line = Some(line_of(seg_start));
-            let decl_line =
-                Some(line_of(seg_start + (seg.len() - seg.trim_start().len())));
+            let decl_line = Some(line_of(seg_start + (seg.len() - seg.trim_start().len())));
             let push_kept = |pieces: &mut Vec<(String, Option<u32>)>| {
                 pieces.push((seg.to_string(), seg_line));
             };
@@ -2016,7 +2008,7 @@ impl ModuleLoader {
             push_kept(&mut pieces);
         }
         let mut out = String::new();
-        let mut map = hnl_engine_exec::coverage::OriginLineMap::new();
+        let mut map = hnl_exec::coverage::OriginLineMap::new();
         for (i, (text, line)) in pieces.iter().enumerate() {
             if i > 0 {
                 out.push('\n');
@@ -2204,8 +2196,8 @@ mod tests {
     use handl_platform::{EvalContext, Function, Module, ModuleLookup};
     use handl_plugin_module::ModuleRegistry;
     use hnl_engine::TermData;
-    use hnl_engine_lex::Lexer;
-    use hnl_engine_parse::{Parser, ParserContext};
+    use hnl_tool_lex::Lexer;
+    use hnl_tool_parse::{Parser, ParserContext};
     use serde_json::{Value, json};
 
     // -----------------------------------------------------------------------
@@ -2357,11 +2349,11 @@ mod tests {
     /// `CompileEngine` trait). Compile-engine registration is tested in
     /// `kit-canonical` instead.
     fn default_registry() -> Rc<EngineRegistry> {
-        use hnl_engine_exec_bytecode::BytecodeEngine;
-        use hnl_engine_exec_cranelift::CraneliftEngine;
-        use hnl_engine_exec_tree_walk::TreeWalkEngine;
-        use hnl_engine_lex_pattern::DataLexerEngine;
-        use hnl_engine_parse_pratt::PrattEngine;
+        use hnl_exec_bytecode::BytecodeEngine;
+        use hnl_exec_cranelift::CraneliftEngine;
+        use hnl_exec_tree_walk::TreeWalkEngine;
+        use hnl_tool_lex_pattern::DataLexerEngine;
+        use hnl_tool_parse_pratt::PrattEngine;
         let mut reg = EngineRegistry::new();
         reg.register_lex("data", Box::new(DataLexerEngine::new()));
         reg.register_parse("pratt", PrattEngine::new());
@@ -2537,7 +2529,7 @@ mod tests {
     #[test]
     fn eval_only_runtime_lex_returns_error_eval_works() {
         let rt = Runtime::new(arith_lang())
-            .with_eval_engine(Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()));
+            .with_eval_engine(Box::new(hnl_exec_tree_walk::TreeWalkEngine::new()));
         // lex returns NotImplemented (no lex engine).
         assert_eq!(
             rt.lex(&Source::new("1 + 2")).unwrap_err(),
@@ -2860,7 +2852,7 @@ mod tests {
     fn operation_markers_are_accessible() {
         let _ = Lexer;
         let _ = Parser;
-        let _ = hnl_engine_exec::Eval;
+        let _ = hnl_exec::Eval;
     }
 
     // -----------------------------------------------------------------------
@@ -2900,7 +2892,7 @@ mod tests {
         // StubParse overrides parse(), so its expression() method is never
         // called through the normal dispatch path. Call it directly to
         // verify the trait impl is correct and cover those lines.
-        use hnl_engine_parse::ParserEngine as _;
+        use hnl_tool_parse::ParserEngine as _;
         let engine = StubParse;
         let lang = Language::new();
         let toks = vec![Token {
@@ -3025,7 +3017,7 @@ mod tests {
                 _lang: &Language,
                 _req: &TypecheckRequest,
             ) -> Result<TypecheckResult, LangError> {
-                use hnl_engine_typecheck::TypecheckDiagnostic;
+                use hnl_tool_typecheck::TypecheckDiagnostic;
                 Ok(TypecheckResult {
                     typ: json!(null),
                     diagnostics: vec![TypecheckDiagnostic {

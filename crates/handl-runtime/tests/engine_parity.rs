@@ -20,12 +20,12 @@ use std::collections::HashMap;
 
 use handl_language::{AstRef, LangError, Source, Value};
 use handl_runtime::Runtime;
-use hnl_engine_exec::EvalEngine;
-use hnl_engine_exec_bytecode::BytecodeEngine;
-use hnl_engine_exec_cranelift::CraneliftEngine;
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_exec::EvalEngine;
+use hnl_exec_bytecode::BytecodeEngine;
+use hnl_exec_cranelift::CraneliftEngine;
+use hnl_exec_tree_walk::TreeWalkEngine;
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use serde_json::json;
 
 fn canonical_lang() -> handl_language::Language {
@@ -217,7 +217,7 @@ fn logical_and_or_short_circuit() {
     // `&&`/`||` produce Bool, not operand values.
     assert_parity("true && (41 + 1 == 42)", json!(true));
     // Truthiness: `0`/`""`/`null`/`false` are falsy; everything else —
-    // including `[]` — is truthy (`is_truthy` in `hnl-engine-exec`).
+    // including `[]` — is truthy (`is_truthy` in `hnl-exec`).
     assert_parity("1 && 2", json!(true));
     assert_parity("\"\" || \"x\"", json!(true));
     assert_parity("null || false", json!(false));
@@ -702,7 +702,7 @@ fn tag_mint_producers_deleted_error_everywhere() {
 //
 // `perform(op, arg)` mints the runtime `IO` former
 // `{"__former__": <type.io sym>, "indices": [{op: arg}]}` — a host
-// function on the `io` module (`hnl_engine_exec::io::IoModule`), reached
+// function on the `io` module (`hnl_exec::io::IoModule`), reached
 // through `call_host` → the module registry on every engine. Under
 // `handle … with <h>` the `handle_dyn`/`Handle` interpretation
 // (`interpret_io_former`) reads the sig record's op names and replaces
@@ -710,7 +710,7 @@ fn tag_mint_producers_deleted_error_everywhere() {
 
 fn runtime_with_io(engine: Box<dyn EvalEngine>) -> Runtime {
     let modules: std::rc::Rc<dyn handl_platform::ModuleLookup> = std::rc::Rc::new(
-        handl_plugin_module::ModuleRegistry::new().with(hnl_engine_exec::io::IoModule::new()),
+        handl_plugin_module::ModuleRegistry::new().with(hnl_exec::io::IoModule::new()),
     );
     let engine = engine.with_modules(modules);
     Runtime::new(canonical_lang())

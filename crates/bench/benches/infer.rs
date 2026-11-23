@@ -5,7 +5,7 @@
 //! ParseCache}` — a crate that is gone. Inference now lives in the `.hnl`
 //! model behind `Kit::typecheck_with_prelude` (ADR-0105), which is a
 //! *different* entry point from the `typecheck` bench's
-//! `hnl-engine-typecheck::check_module` (the bootstrap checker), so the two
+//! `hnl-tool-typecheck::check_module` (the bootstrap checker), so the two
 //! benches do not overlap.
 //!
 //! `infer_cached` measured reuse of previously-computed inference state. The

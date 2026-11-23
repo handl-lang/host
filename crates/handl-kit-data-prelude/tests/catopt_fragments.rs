@@ -92,7 +92,9 @@ fn catopt_full_bank_loads() {
     // creates one cannot be resolved by an engine.
     for kind in ["catopt:const", "catopt:var", "catopt:data"] {
         assert!(
-            lang.ast.get_by_id(&format!("ast.{}", kind.replace(':', "."))).is_some(),
+            lang.ast
+                .get_by_id(&format!("ast.{}", kind.replace(':', ".")))
+                .is_some(),
             "leaf shape for {kind} must be declared"
         );
     }
@@ -112,7 +114,7 @@ fn catopt_full_bank_loads() {
 // exactly the associativity law.
 
 use handl_language::{Ast, AstNode, AstRef};
-use hnl_engine_transform_rewrite::RewriteEngine;
+use hnl_tool_transform_rewrite::RewriteEngine;
 
 fn cnode(kind: &str, children: &[usize]) -> AstNode {
     AstNode::new(kind).with_payload(serde_json::json!({ "children": children }))
@@ -208,4 +210,3 @@ fn catopt_root_eliminating_law_returns_the_subterm() {
         ast.len()
     );
 }
-

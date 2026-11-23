@@ -132,8 +132,7 @@ pub fn get_module(
 /// name. Shared with [`KitResolver`] so a `.hnl` module built as a
 /// dependency and the same module registered at kit-assembly time share
 /// one [`Arc`] and one per-thread runtime cache.
-static HANDL_MODULE_CACHE: OnceLock<RwLock<HashMap<String, Arc<HandlModule>>>> =
-    OnceLock::new();
+static HANDL_MODULE_CACHE: OnceLock<RwLock<HashMap<String, Arc<HandlModule>>>> = OnceLock::new();
 
 /// Get a `.hnl` [`HandlModule`] from the cache or build it once.
 ///
@@ -141,10 +140,7 @@ static HANDL_MODULE_CACHE: OnceLock<RwLock<HashMap<String, Arc<HandlModule>>>> =
 /// `analyze_source` can run a nested eval whose module resolution
 /// re-enters this cache — holding the lock across `builder()` would
 /// deadlock on the same thread.
-pub fn get_handl_module(
-    name: &str,
-    builder: impl FnOnce() -> HandlModule,
-) -> Arc<HandlModule> {
+pub fn get_handl_module(name: &str, builder: impl FnOnce() -> HandlModule) -> Arc<HandlModule> {
     let cache = HANDL_MODULE_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
     if let Some(m) = cache.read().expect("handl module cache").get(name) {
         return Arc::clone(m);
@@ -345,10 +341,7 @@ fn register_handl(
 /// Built-in `.hnl` modules are prepared with the bootstrap transforms;
 /// routing them through the process-wide self-hosted loader would recurse
 /// into loader construction and make repeated kit construction hang.
-pub fn build_registry(
-    selected: Option<&HashSet<String>>,
-    eval_name: &'static str,
-) -> KitModules {
+pub fn build_registry(selected: Option<&HashSet<String>>, eval_name: &'static str) -> KitModules {
     handl_plugin_lib_handl::with_loader_disabled(|| {
         let mut stdlib_registry = ModuleRegistry::new();
         let mut handl_modules = HandlModules::new();
@@ -357,10 +350,8 @@ pub fn build_registry(
         // `MODULE_TABLE` docs): flat-name module lookup returns the first
         // module exposing a local function name, so kit registration order
         // decides precedence for colliding local names (`sym` before `ffi`).
-        let entries: Vec<(&'static str, ModuleCtor)> = module_table()
-            .read()
-            .expect("module table")
-            .clone();
+        let entries: Vec<(&'static str, ModuleCtor)> =
+            module_table().read().expect("module table").clone();
 
         let want = |name: &str| selected.map(|s| s.contains(name)).unwrap_or(true);
         let resolver = KitResolver;
@@ -659,9 +650,11 @@ impl Function for TypeTy {
             1,
             args.len()
         )))?;
-        Ok(handl_value::type_link(&handl_value::TaggedValue::from(v.clone()))
-            .map(|t| handl_value::tagged_to_value(&t))
-            .unwrap_or(Value::Null))
+        Ok(
+            handl_value::type_link(&handl_value::TaggedValue::from(v.clone()))
+                .map(|t| handl_value::tagged_to_value(&t))
+                .unwrap_or(Value::Null),
+        )
     }
 }
 
@@ -774,8 +767,7 @@ mod tests {
     fn ensure_lang() {
         if handl_plugin_lib_handl::default_language().is_none() {
             let _ = handl_plugin_lib_handl::install_default_language(
-                handl_kit_data_prelude::language_from_yaml()
-                    .expect("canonical language assembles"),
+                handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles"),
             );
         }
     }

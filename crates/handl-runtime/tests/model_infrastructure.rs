@@ -24,7 +24,7 @@ use hnl_engine::{
     ArrSource, AstNode, CompositeDataModel, CompositeModel, Model, ModelCtx, ModelData, TermData,
     is_hott_tag,
 };
-use hnl_engine_exec_tree_walk::ValueModel;
+use hnl_exec_tree_walk::ValueModel;
 use serde_json::json;
 
 /// Convert a `TermData` back to `Term` for passing to `Model::run` (which
@@ -77,7 +77,7 @@ fn handl_model() -> HandlModel {
 /// Build the pure Rust `ValueModel` (bootstrap engine).
 fn rust_model() -> ValueModel {
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(TagModule));
-    ValueModel::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
+    ValueModel::new(hnl_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
 }
 
 /// Build the composite model: `ValueModel` (primary) + `HandlModelAdapter`

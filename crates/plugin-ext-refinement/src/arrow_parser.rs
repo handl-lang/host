@@ -42,8 +42,8 @@ use std::collections::{HashMap, HashSet};
 
 use handl_language::{Ast, AstNode, Language, Term, Value};
 use hnl_engine::{ArrSource, RewriteWitness, TermData};
-use hnl_engine_parse::{ParserEngine, ParserRequest};
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_tool_parse::{ParserEngine, ParserRequest};
+use hnl_tool_parse_pratt::PrattEngine;
 
 // ============================================================================
 // Public API
@@ -1152,7 +1152,7 @@ fn try_parse_simple_rec(lang: &Language, src: &str) -> Option<Term> {
 
 /// Parse a single arrow expression using the data-driven lexer + Pratt parser.
 fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Term, String> {
-    let tokens = hnl_engine_lex_pattern::lex(lang, src).map_err(|e| format!("lex error: {}", e))?;
+    let tokens = hnl_tool_lex_pattern::lex(lang, src).map_err(|e| format!("lex error: {}", e))?;
 
     if tokens.0.is_empty() {
         return Err("no tokens produced by lexer".to_string());

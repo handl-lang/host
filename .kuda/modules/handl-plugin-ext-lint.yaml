@@ -10,8 +10,8 @@ api:
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-engine-lint
-- handl-plugin-engine-typecheck
+- handl-plugin-tool-lint
+- handl-plugin-tool-typecheck
 - handl-plugin-ext-diag
 - handl-plugin-ext-fmt
 - serde_json

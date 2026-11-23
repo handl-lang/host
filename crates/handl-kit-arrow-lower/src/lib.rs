@@ -3815,7 +3815,7 @@ fn op_target_name(term: &Term) -> Option<&str> {
 }
 
 /// The bound name of a binding's `target` child. Mirrors the checker's
-/// scope-pass resolution (engine-typecheck `binding_target_name`) so the
+/// scope-pass resolution (tool-typecheck `binding_target_name`) so the
 /// lowered `Term` binds the same names the exec engines do: a bare `var`
 /// payload is the name; wrappers delegate by role — `field`/`callee`
 /// first (a field-access target binds the *field*, a `call` target the

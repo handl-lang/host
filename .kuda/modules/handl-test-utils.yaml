@@ -385,8 +385,8 @@ api:
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-engine-exec
-- handl-plugin-engine-parse
+- handl-plugin-exec
+- handl-plugin-tool-parse
 - handl-plugin-module
 - serde_json
 - serde_json

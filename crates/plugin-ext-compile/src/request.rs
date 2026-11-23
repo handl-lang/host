@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use handl_language::{Ast, AstNode, AstRef, Language, Span};
 use handl_plugin_compile::{CompileError, CompilerInput};
 use hnl_engine::Term;
-use hnl_engine_typecheck::TypecheckReport;
+use hnl_tool_typecheck::TypecheckReport;
 use serde_json::Value;
 
 /// A parsed `hnl compile <target> <file>` invocation.

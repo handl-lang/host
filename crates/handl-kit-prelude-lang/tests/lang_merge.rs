@@ -117,10 +117,8 @@ fn desugar_field_still_lowers_into_transforms() {
       - !Keep 0
       - !Keep 1
 "#;
-    let lang = merge_lang_fragments(
-        "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]",
-    )
-    .unwrap();
+    let lang =
+        merge_lang_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]").unwrap();
     let rules = lang.transforms_for("desugar", "sugared");
     assert_eq!(rules.len(), 1);
     assert_eq!(rules[0].id, "transform.desugar.sugared");
@@ -133,7 +131,7 @@ fn canonical_transforms_validate_clean() {
     // `Language` build (see `merge_lang_fragments`); the canonical kit must
     // produce zero Error-severity diagnostics.
     let lang = language_from_yaml().unwrap();
-    let diags = hnl_engine_transform::validate::validate_transforms(&lang);
+    let diags = hnl_tool_transform::validate::validate_transforms(&lang);
     let errors: Vec<_> = diags
         .iter()
         .filter(|d| d.severity == handl_plugin_ext_diag::Severity::Error)
@@ -156,10 +154,8 @@ fn merge_rejects_invalid_transform_rules() {
     children:
       - !Keep 7
 "#;
-    let err = merge_lang_fragments(
-        "[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]",
-    )
-    .unwrap_err();
+    let err =
+        merge_lang_fragments("[]", "[]", "[]", "[]", ast_yaml, "[]", "[]", "[]", "[]").unwrap_err();
     assert!(
         format!("{err}").contains("transform rule validation failed"),
         "expected validation failure, got: {err}"

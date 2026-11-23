@@ -3,7 +3,7 @@
 `hnl codegen` is the plugin domain that turns a foreign API description —
 a C header, a WebIDL spec, a tool's `--help` tree — into Handl
 port/adapter packages (ADR-0107), reconciled through the
-`hnl-engine-codegen` desired-state kernel (P-001 / PL-004). This
+`hnl-tool-codegen` desired-state kernel (P-001 / PL-004). This
 directory documents the framework itself: the IR, the traits, the
 target registry, and the CLI. Per-backend reference lives in the target
 repos; usage walkthroughs live in their READMEs.
@@ -26,13 +26,13 @@ The pre-PL-004 name `sdkgen` survives only as the *domain/IR* name —
 | `handl-plugin-codegen` | `host` (`crates/plugin-codegen`) | `SdkgenModule`/`SpecModule` IR, `CodegenRegistry`, `CodegenRequest`, `DocSource`, `http_get`, kernel re-exports |
 | `handl-plugin-ext-codegen` | `host` (`crates/plugin-ext-codegen`) | `codegen_command` — argv → `CodegenRequest` → `registry.run`/`plan`/`destroy`/`revert` |
 | `hnl-ext-codegen` | `ext-codegen` | ADR-0149 cdylib packaging the command for the dumb `hnl` host |
-| `hnl-engine-codegen` | `engine-codegen` | The lifecycle kernel: `IrModule`/`Source`/`Emitter` traits, `Change` sets, `ArtifactStore`/`FsStore`, `Engine` plan/apply/destroy/revert, manifest + journal |
-| `handl-plugin-codegen-backend-c` | `engine-codegen-c` | C header backend (`Source<SdkgenModule>`, libclang) |
-| `handl-plugin-codegen-backend-webidl` | `engine-codegen-webidl` | WebIDL backend |
-| `handl-plugin-codegen-cli` | `engine-codegen-cli` | CLI backend + `hnl-cli` emitter |
-| `handl-plugin-codegen-emitter-file` | `engine-codegen-file` | `hnl-file` emitter — `.hnl` port/adapter files |
-| `handl-plugin-codegen-emitter-python` | `engine-codegen-python` | `python` emitter — ctypes projection, plus the spec-input path |
-| `hnl-engine-fmt` | `engine-fmt` | The `fmt` target — `FmtSource`/`FmtEmitter` over the token-stream `FmtModule` IR (PL-004 T-090) |
+| `hnl-tool-codegen` | `tool-codegen` | The lifecycle kernel: `IrModule`/`Source`/`Emitter` traits, `Change` sets, `ArtifactStore`/`FsStore`, `Engine` plan/apply/destroy/revert, manifest + journal |
+| `handl-plugin-codegen-backend-c` | `tool-codegen-c` | C header backend (`Source<SdkgenModule>`, libclang) |
+| `handl-plugin-codegen-backend-webidl` | `tool-codegen-webidl` | WebIDL backend |
+| `handl-plugin-codegen-cli` | `tool-codegen-cli` | CLI backend + `hnl-cli` emitter |
+| `handl-plugin-codegen-emitter-file` | `tool-codegen-file` | `hnl-file` emitter — `.hnl` port/adapter files |
+| `handl-plugin-codegen-emitter-python` | `tool-codegen-python` | `python` emitter — ctypes projection, plus the spec-input path |
+| `hnl-tool-fmt` | `tool-fmt` | The `fmt` target — `FmtSource`/`FmtEmitter` over the token-stream `FmtModule` IR (PL-004 T-090) |
 
 ## The pipeline
 
@@ -152,8 +152,8 @@ Sources and emitters are stored **type-erased** (`AnySource` /
 
 A missing source/emitter id is a *link-time* error message ("needs
 source `x`, which is not linked in"), not a compile-time dep — the
-`python` target composes source `c` without `engine-codegen-python`
-ever crate-depending on `engine-codegen-c`.
+`python` target composes source `c` without `tool-codegen-python`
+ever crate-depending on `tool-codegen-c`.
 
 `CodegenRequest` carries everything factories need from argv: `spec`,
 `source_url`, `output`, `target`, `include`/`exclude`, `config`,
@@ -175,8 +175,8 @@ sources (man7.org, MDN) and by `--from-url`.
 
 | Target | Backend repo doc | Emitter |
 | --- | --- | --- |
-| `c` | [engine-codegen-c](https://github.com/handl-lang/engine-codegen-c/blob/main/docs/index.md) | `hnl-file` ([engine-codegen-file](https://github.com/handl-lang/engine-codegen-file/blob/main/docs/index.md)) |
-| `webidl` | [engine-codegen-webidl](https://github.com/handl-lang/engine-codegen-webidl/blob/main/docs/index.md) | `hnl-file` |
-| `python` | source `c` | `python` ([engine-codegen-python](https://github.com/handl-lang/engine-codegen-python/blob/main/docs/index.md)) |
-| `cli` | [engine-codegen-cli](https://github.com/handl-lang/engine-codegen-cli/blob/main/docs/clispec.md) | `hnl-cli` ([emission](https://github.com/handl-lang/engine-codegen-cli/blob/main/docs/emission.md)) |
-| `fmt` | — (token-stream IR, no foreign spec) | `fmt` ([engine-fmt](https://github.com/handl-lang/engine-fmt)) |
+| `c` | [tool-codegen-c](https://github.com/handl-lang/tool-codegen-c/blob/main/docs/index.md) | `hnl-file` ([tool-codegen-file](https://github.com/handl-lang/tool-codegen-file/blob/main/docs/index.md)) |
+| `webidl` | [tool-codegen-webidl](https://github.com/handl-lang/tool-codegen-webidl/blob/main/docs/index.md) | `hnl-file` |
+| `python` | source `c` | `python` ([tool-codegen-python](https://github.com/handl-lang/tool-codegen-python/blob/main/docs/index.md)) |
+| `cli` | [tool-codegen-cli](https://github.com/handl-lang/tool-codegen-cli/blob/main/docs/clispec.md) | `hnl-cli` ([emission](https://github.com/handl-lang/tool-codegen-cli/blob/main/docs/emission.md)) |
+| `fmt` | — (token-stream IR, no foreign spec) | `fmt` ([tool-fmt](https://github.com/handl-lang/tool-fmt)) |

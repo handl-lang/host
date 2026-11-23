@@ -18,7 +18,7 @@ use handl_plugin_lib_stdlib as stdlib;
 use handl_plugin_lib_tag::TagModule;
 use handl_plugin_module::{ModuleLookup, ModuleRegistry};
 use hnl_engine::{ArrSource, AstNode, CompositeModel, Model, ModelCtx, TermData, is_hott_tag};
-use hnl_engine_exec_tree_walk::ValueModel;
+use hnl_exec_tree_walk::ValueModel;
 use serde_json::json;
 
 /// Install the canonical default language once per test binary.
@@ -61,7 +61,7 @@ fn handl_adapter() -> HandlModelAdapter {
 /// Build the pure Rust `ValueModel` (the bootstrap engine).
 fn rust_model() -> ValueModel {
     let modules: Rc<dyn ModuleLookup> = Rc::new(ModuleRegistry::new().with(TagModule));
-    ValueModel::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
+    ValueModel::new(hnl_exec_tree_walk::TreeWalkEngine::new().with_modules(modules))
 }
 
 /// Build the composite model: `ValueModel` (primary) + `HandlModelAdapter`

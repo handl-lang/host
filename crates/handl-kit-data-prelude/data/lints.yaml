@@ -68,7 +68,7 @@
 # `TransformCondition` vocabulary cannot express — the same reason
 # `desugar.data` stays a named native (ADR-0094). Implementations are
 # registered by the host (`scope.*`/`naming-convention`/`source.missing-module-doc`
-# ship in `hnl-engine-lint`'s canonical native registry; `source.fmt` is
+# ship in `hnl-tool-lint`'s canonical native registry; `source.fmt` is
 # registered by `plugin-ext-lint`, which owns the formatter dependency).
 
 - id: lint.scope.unbound-wire

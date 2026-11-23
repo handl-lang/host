@@ -9,7 +9,8 @@
 #![allow(clippy::type_complexity)]
 
 /// The aggregator index (`str` re-exporting every arrow).
-pub const STR_HANDL_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/index.hnl"));
+pub const STR_HANDL_HNL: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/index.hnl"));
 
 /// The record field names exposed by `str-handl.hnl`.
 pub const STR_HANDL_FUNCS: &[&str] = &[
@@ -66,63 +67,99 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     // -- internal/ generic list helpers (no `char`) -------------------------
     (
         "rev",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/rev.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/rev.hnl"
+        )),
         &["rev"],
     ),
     (
         "len",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/len.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/len.hnl"
+        )),
         &["len"],
     ),
     (
         "head",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/head.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/head.hnl"
+        )),
         &["head"],
     ),
     (
         "drop",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/drop.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/drop.hnl"
+        )),
         &["drop"],
     ),
     (
         "member",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/member.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/member.hnl"
+        )),
         &["member"],
     ),
     (
         "prefix_match",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/prefix_match.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/prefix_match.hnl"
+        )),
         &["prefix_match"],
     ),
     (
         "take",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/take.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/take.hnl"
+        )),
         &["take"],
     ),
     (
         "append",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/append.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/append.hnl"
+        )),
         &["append"],
     ),
     (
         "last",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/last.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/last.hnl"
+        )),
         &["last"],
     ),
     (
         "find_idx",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/find_idx.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/find_idx.hnl"
+        )),
         &["find_idx"],
     ),
     // -- internal/ string helpers (over `char`) -----------------------------
     (
         "capitalize_first",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/capitalize_first.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/capitalize_first.hnl"
+        )),
         &["capitalize_first"],
     ),
     (
         "pad_to",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/pad_to.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/pad_to.hnl"
+        )),
         &["pad_to"],
     ),
     // -- internal/ callback-invoking helpers --------------------------------
@@ -131,22 +168,34 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     // come after every other internal row (see `STR_HANDL_CALLBACK_SCOPE`).
     (
         "map",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/map.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/map.hnl"
+        )),
         &["map"],
     ),
     (
         "all",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/all.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/all.hnl"
+        )),
         &["all"],
     ),
     (
         "drop_while",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/drop_while.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/drop_while.hnl"
+        )),
         &["drop_while"],
     ),
     (
         "split_words",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/internal/split_words.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/internal/split_words.hnl"
+        )),
         &["split_words"],
     ),
     // -- `str` contract arrows (one file per arrow) -------------------------
@@ -192,7 +241,10 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "trim_start",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/trim_start.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/trim_start.hnl"
+        )),
         &["trim_start"],
     ),
     (
@@ -202,7 +254,10 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "trim_matches",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/trim_matches.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/trim_matches.hnl"
+        )),
         &["trim_matches"],
     ),
     (
@@ -237,42 +292,66 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "is_numeric",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/is_numeric.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/is_numeric.hnl"
+        )),
         &["is_numeric"],
     ),
     (
         "is_alphanumeric",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/is_alphanumeric.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/is_alphanumeric.hnl"
+        )),
         &["is_alphanumeric"],
     ),
     (
         "capitalize",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/capitalize.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/capitalize.hnl"
+        )),
         &["capitalize"],
     ),
     (
         "title_case",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/title_case.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/title_case.hnl"
+        )),
         &["title_case"],
     ),
     (
         "snake_case",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/snake_case.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/snake_case.hnl"
+        )),
         &["snake_case"],
     ),
     (
         "camel_case",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/camel_case.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/camel_case.hnl"
+        )),
         &["camel_case"],
     ),
     (
         "pascal_case",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/pascal_case.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/pascal_case.hnl"
+        )),
         &["pascal_case"],
     ),
     (
         "kebab_case",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/kebab_case.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/kebab_case.hnl"
+        )),
         &["kebab_case"],
     ),
     (
@@ -282,7 +361,10 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "starts_with",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/starts_with.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/starts_with.hnl"
+        )),
         &["starts_with"],
     ),
     (
@@ -307,12 +389,18 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "levenshtein",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/levenshtein.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/levenshtein.hnl"
+        )),
         &["levenshtein"],
     ),
     (
         "similarity",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/similarity.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/similarity.hnl"
+        )),
         &["similarity"],
     ),
     (
@@ -327,7 +415,10 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "replace_first",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/replace_first.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/replace_first.hnl"
+        )),
         &["replace_first"],
     ),
     (
@@ -342,12 +433,18 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "strip_prefix",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/strip_prefix.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/strip_prefix.hnl"
+        )),
         &["strip_prefix"],
     ),
     (
         "strip_suffix",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/strip_suffix.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/strip_suffix.hnl"
+        )),
         &["strip_suffix"],
     ),
     (
@@ -357,7 +454,10 @@ pub const STR_HANDL_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "split_whitespace",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-str-handl/src/split_whitespace.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-str-handl/src/split_whitespace.hnl"
+        )),
         &["split_whitespace"],
     ),
     (

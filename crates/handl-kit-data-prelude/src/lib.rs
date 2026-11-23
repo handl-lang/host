@@ -71,7 +71,10 @@ pub fn language_from_dir(dir: &Path) -> Result<Language, LangError> {
     let mut lang = handl_kit_prelude_lang::language_from_dir(dir)?;
 
     for (name, merge) in [
-        ("lints.yaml", handl_kit_prelude_lang::merge_lints as fn(&mut Language, &str) -> Result<(), LangError>),
+        (
+            "lints.yaml",
+            handl_kit_prelude_lang::merge_lints as fn(&mut Language, &str) -> Result<(), LangError>,
+        ),
         ("lsp.yaml", handl_kit_prelude_lang::merge_lsp),
     ] {
         match std::fs::read_to_string(dir.join(name)) {

@@ -12,22 +12,22 @@ handl-platform = { path = "../platform" }
 handl-value = { workspace = true }
 handl-kit-arrow-lower = { path = "../handl-kit-arrow-lower" }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
-hnl-engine-lex = { git = "https://github.com/handl-lang/engine-lex", branch = "main" }
-hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
-hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
-hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
-hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
+hnl-tool-lex = { git = "https://github.com/handl-lang/tool-lex", branch = "main" }
+hnl-tool-parse = { git = "https://github.com/handl-lang/tool-parse", branch = "main" }
+hnl-exec = { git = "https://github.com/handl-lang/exec", branch = "main" }
+hnl-tool-typecheck = { git = "https://github.com/handl-lang/tool-typecheck", branch = "main" }
+hnl-tool-transform-rewrite = { git = "https://github.com/handl-lang/tool-transform-rewrite", branch = "main" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 rustc-hash = "2"
 
 [dev-dependencies]
 serde_json = { workspace = true }
-hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
-hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
-hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
-hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
-hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/engine-exec-cranelift", branch = "main" }
+hnl-tool-lex-pattern = { git = "https://github.com/handl-lang/tool-lex-pattern", branch = "main" }
+hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt", branch = "main" }
+hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", branch = "main" }
+hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branch = "main" }
+hnl-exec-cranelift = { git = "https://github.com/handl-lang/exec-cranelift", branch = "main" }
 handl-plugin-module = { path = "../plugin-module" }
 handl-kit-data-prelude = { workspace = true }
 handl-kit-prelude = { workspace = true }

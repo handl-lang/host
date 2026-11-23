@@ -12,11 +12,11 @@ deps:
 - criterion
 - handl-kit-canonical
 - handl-kit-data-canonical
-- handl-plugin-engine-lex
-- handl-plugin-engine-lex-pattern
-- handl-plugin-engine-parse
-- handl-plugin-engine-parse-pratt
-- handl-plugin-engine-typecheck
+- handl-plugin-tool-lex
+- handl-plugin-tool-lex-pattern
+- handl-plugin-tool-parse
+- handl-plugin-tool-parse-pratt
+- handl-plugin-tool-typecheck
 - handl-value
 - serde_json
 notes: ''

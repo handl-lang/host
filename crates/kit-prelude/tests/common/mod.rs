@@ -39,23 +39,13 @@ pub fn kit_with_deps() -> Kit {
     let config = assembled.runtime_config().clone();
 
     let mut deps = HashMap::new();
-    for (name, rel) in [
-        ("intl-c", "lib-intl-c"),
-        ("rand-c", "lib-rand-c/src"),
-    ] {
+    for (name, rel) in [("intl-c", "lib-intl-c"), ("rand-c", "lib-rand-c/src")] {
         let dir = repo_root().join(rel);
         if dir.is_dir() {
             deps.insert(name.to_string(), dir);
         }
     }
 
-    Kit::build_kit(
-        lang,
-        config,
-        None,
-        deps,
-        None,
-        prelude_engine_registry(),
-    )
-    .expect("kit with lib deps must build")
+    Kit::build_kit(lang, config, None, deps, None, prelude_engine_registry())
+        .expect("kit with lib deps must build")
 }

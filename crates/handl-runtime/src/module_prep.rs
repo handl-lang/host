@@ -16,7 +16,7 @@
 //! [`LangError`] — module prep never silently drops a declaration.
 
 use handl_language::LangError;
-use hnl_engine_exec::coverage::OriginLineMap;
+use hnl_exec::coverage::OriginLineMap;
 
 /// A prepared module plus the provenance map that resolves its line
 /// numbers back to the input source's lines.
@@ -92,8 +92,7 @@ pub fn prepare_module_mapped(
 /// The 1-based line number containing byte `offset` in `src` (a byte
 /// offset need not be a char boundary — only `\n` bytes are counted).
 pub fn line_number_at(src: &str, offset: usize) -> u32 {
-    (src
-        .bytes()
+    (src.bytes()
         .take(offset.min(src.len()))
         .filter(|&b| b == b'\n')
         .count()
@@ -428,9 +427,7 @@ fn transform_export_to_object(
             line_starts.push(i + 1);
         }
     }
-    let line_of = |off: usize| -> u32 {
-        line_starts.partition_point(|&s| s <= off).max(1) as u32
-    };
+    let line_of = |off: usize| -> u32 { line_starts.partition_point(|&s| s <= off).max(1) as u32 };
     let src_ptr = src.as_ptr() as usize;
     let offset_of = |sub: &str| sub.as_ptr() as usize - src_ptr;
 
@@ -564,8 +561,7 @@ fn transform_export_to_object(
             // The binding name's line: first non-whitespace byte of the
             // pre-separator text (after the `export` keyword).
             let name_src = &rest[..sep_pos];
-            let name_off =
-                offset_of(rest) + (name_src.len() - name_src.trim_start().len());
+            let name_off = offset_of(rest) + (name_src.len() - name_src.trim_start().len());
             let stmt_line = Some(line_of(name_off));
             let rhs = rest[sep_pos + sep_len..].trim();
             let is_type_only = (sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':'))
@@ -685,26 +681,24 @@ fn transform_export_to_object(
             // Emit `{ ` lazily on the first field so an empty projection
             // contributes nothing (mirrors `record.is_empty()`).
             let mut record_open = false;
-            let mut push_field = |out: &mut PreparedOut,
-                                  name: &str,
-                                  pieces: &[Piece],
-                                  line: Option<u32>| {
-                if !seen.insert(name.to_string()) {
-                    return;
-                }
-                if !record_open {
-                    out.push("\n{ ", None);
-                    record_open = true;
-                } else {
-                    out.push(", ", None);
-                }
-                if is_bindable(name) {
-                    out.push(&format!("{name}: {name}"), line);
-                } else {
-                    out.push(&format!("\"{name}\": "), line);
-                    out.push_expr_pieces(pieces);
-                }
-            };
+            let mut push_field =
+                |out: &mut PreparedOut, name: &str, pieces: &[Piece], line: Option<u32>| {
+                    if !seen.insert(name.to_string()) {
+                        return;
+                    }
+                    if !record_open {
+                        out.push("\n{ ", None);
+                        record_open = true;
+                    } else {
+                        out.push(", ", None);
+                    }
+                    if is_bindable(name) {
+                        out.push(&format!("{name}: {name}"), line);
+                    } else {
+                        out.push(&format!("\"{name}\": "), line);
+                        out.push_expr_pieces(pieces);
+                    }
+                };
             for item in &items {
                 match item {
                     PrepItem::Bind {
@@ -786,7 +780,12 @@ fn transform_export_to_object(
                     stmt_line,
                     pieces,
                     exported,
-                } => (vec![name.as_str()], pieces.as_slice(), *stmt_line, *exported),
+                } => (
+                    vec![name.as_str()],
+                    pieces.as_slice(),
+                    *stmt_line,
+                    *exported,
+                ),
                 PrepItem::Decl { pieces, exports } => (
                     exports.iter().map(String::as_str).collect(),
                     &[],
@@ -1406,9 +1405,7 @@ fn collect_executable_import_pieces(
     is_file_spec: &dyn Fn(&str) -> bool,
     line_starts: &[usize],
 ) -> Vec<Piece> {
-    let line_of = |off: usize| -> u32 {
-        line_starts.partition_point(|&s| s <= off).max(1) as u32
-    };
+    let line_of = |off: usize| -> u32 { line_starts.partition_point(|&s| s <= off).max(1) as u32 };
     top_level_segment_spans(src)
         .iter()
         .filter_map(|&(s, e)| {
@@ -1562,9 +1559,7 @@ fn drop_all_import_pieces(
     is_file_spec: &dyn Fn(&str) -> bool,
     line_starts: &[usize],
 ) -> Vec<Piece> {
-    let line_of = |off: usize| -> u32 {
-        line_starts.partition_point(|&s| s <= off).max(1) as u32
-    };
+    let line_of = |off: usize| -> u32 { line_starts.partition_point(|&s| s <= off).max(1) as u32 };
     let mut pieces = Vec::new();
     for &(s, e) in &top_level_segment_spans(src) {
         let seg = &src[s..e];
@@ -1957,4 +1952,3 @@ mod tests {
         assert_eq!(p.line_map[g_idx], Some(6));
     }
 }
-

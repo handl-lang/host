@@ -687,9 +687,9 @@ fn kit_manifest_load_missing_file_errors_with_path() {
 #[test]
 fn into_runtime_binds_pratt_and_tree_walk() {
     use handl_runtime::EngineRegistry;
-    use hnl_engine_exec_tree_walk::TreeWalkEngine;
-    use hnl_engine_lex_pattern::DataLexerEngine;
-    use hnl_engine_parse_pratt::PrattEngine;
+    use hnl_exec_tree_walk::TreeWalkEngine;
+    use hnl_tool_lex_pattern::DataLexerEngine;
+    use hnl_tool_parse_pratt::PrattEngine;
     use std::rc::Rc;
 
     let reg = KitRegistry::new();
@@ -711,9 +711,9 @@ fn into_runtime_binds_pratt_and_tree_walk() {
 #[test]
 fn into_runtime_unknown_eval_engine_errors() {
     use handl_runtime::EngineRegistry;
-    use hnl_engine_exec_tree_walk::TreeWalkEngine;
-    use hnl_engine_lex_pattern::DataLexerEngine;
-    use hnl_engine_parse_pratt::PrattEngine;
+    use hnl_exec_tree_walk::TreeWalkEngine;
+    use hnl_tool_lex_pattern::DataLexerEngine;
+    use hnl_tool_parse_pratt::PrattEngine;
     use std::rc::Rc;
 
     let reg = KitRegistry::new();

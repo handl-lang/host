@@ -40,7 +40,7 @@ use std::path::Path;
 
 use handl_language::Language;
 
-use hnl_engine_codegen::{
+use hnl_tool_codegen::{
     ApplyOptions, ApplyReport, ArtifactStore, Change, CodegenError, EmitContext, Emitter, Engine,
     FsStore, IrKind, IrModule, Manifest, Plan, RevertReport, RunMeta, Source,
 };
@@ -282,7 +282,7 @@ pub struct CodegenEmitterDef {
 /// `Source`/`Emitter` pipeline and still writes files directly. New
 /// spec inputs should register a typed [`SpecModule`] target via
 /// [`CodegenRegistry::register_typed`] (or `source`/`emitter` ids) once
-/// `engine-codegen-python` wires its renderer — at which point this
+/// `tool-codegen-python` wires its renderer — at which point this
 /// variant is deleted.
 pub struct CodegenSpecInput {
     /// Whether this input handles `req.spec` (checked before the backend
@@ -670,7 +670,7 @@ impl CodegenRegistry {
         if let Ok(bytes) = std::fs::read(req.spec) {
             meta.source_hashes.insert(
                 req.spec.display().to_string(),
-                hnl_engine_codegen::ContentHash::of(&bytes),
+                hnl_tool_codegen::ContentHash::of(&bytes),
             );
         }
 

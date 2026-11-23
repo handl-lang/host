@@ -15,7 +15,7 @@ serde_json = { workspace = true }
 # PL-004 T-093: the desired-state apply bridge — mlopt's change-set
 # manifest (`python -m mlopt … --manifest` / `stage deliver`) is
 # reconciled through `Engine::plan`/`Engine::apply` over `FsStore`.
-hnl-engine-codegen = { workspace = true }
+hnl-tool-codegen = { workspace = true }
 base64 = { workspace = true }
 
 [dev-dependencies]

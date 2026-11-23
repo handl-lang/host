@@ -8,7 +8,7 @@ the `lint` capability, holding an injected `LintContext`
 (the host's `Language` plus its `.hnl`-rule resolver, ADR-0128 §"The 0.8
 seam"). The free functions `lint_source_with` / `check_source_with` /
 `fix_source` remain the implementation; rules are `LintRuleDef`s in
-`lang.lints` executed by the `hnl-engine-lint` engine.
+`lang.lints` executed by the `hnl-tool-lint` engine.
 
 ## Payload contract (capability `lint`)
 

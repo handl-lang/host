@@ -10,15 +10,15 @@ repository.workspace = true
 handl-platform = { path = "../platform" }
 handl-plugin-ext-diag = { path = "../plugin-ext-diag", features = ["lang-span"] }
 handl-plugin-ext-fmt = { path = "../plugin-ext-fmt" }
-hnl-engine-lint = { git = "https://github.com/handl-lang/engine-lint", branch = "main" }
+hnl-tool-lint = { git = "https://github.com/handl-lang/tool-lint", branch = "main" }
 # PL-004 T-091: `fix_file` routes lint fixes through the codemod
 # byte-splice path (`plan_byte_edits`) and the codegen lifecycle
 # (`Engine::apply`/`revert`) — journaled, drift-checked writes.
-hnl-engine-codemod = { workspace = true }
-hnl-engine-codegen = { workspace = true }
-hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
-hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-pattern", branch = "main" }
-hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
+hnl-tool-codemod = { workspace = true }
+hnl-tool-codegen = { workspace = true }
+hnl-tool-typecheck = { git = "https://github.com/handl-lang/tool-typecheck", branch = "main" }
+hnl-tool-lex-pattern = { git = "https://github.com/handl-lang/tool-lex-pattern", branch = "main" }
+hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt", branch = "main" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
 handl-language = { workspace = true }
 serde_json = { workspace = true }

@@ -11,10 +11,10 @@ fn canonical_lang() -> handl_language::Language {
     handl_kit_data_prelude::language_from_yaml().expect("canonical language assembles")
 }
 use handl_language::Source;
-use hnl_engine_lex::{LexerEngine, LexerRequest};
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse::{ParserEngine, ParserRequest};
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_tool_lex::{LexerEngine, LexerRequest};
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse::{ParserEngine, ParserRequest};
+use hnl_tool_parse_pratt::PrattEngine;
 
 fn bench_parse_only(c: &mut Criterion) {
     let lang = canonical_lang();

@@ -42,7 +42,7 @@
 //! the root-is-last Pratt convention the eval engines assume.
 
 use handl_language::{Ast, AstRef, LangError, Language};
-use hnl_engine_transform_rewrite::RewriteEngine;
+use hnl_tool_transform_rewrite::RewriteEngine;
 
 /// The transform pass erased at exec (ADR-0154 §6): rules with
 /// `pass: "exec-erasure"` in `lang.transforms` strip type-level

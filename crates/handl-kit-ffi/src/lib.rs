@@ -55,15 +55,18 @@ mod ffi_stubs {
     use serde_json::{Value as JsonValue, json};
 
     /// The reason every stub op reports.
-    const DISABLED: &str =
-        "ffi unavailable: handl-kit-ffi was built without the `ffi` feature";
+    const DISABLED: &str = "ffi unavailable: handl-kit-ffi was built without the `ffi` feature";
 
     /// Capability op stub (`ffi.call`/`ffi.bind`/`ffi.read`/`ffi.errno`):
     /// cannot fabricate a result, so it raises.
     pub struct FfiUnsupported(pub &'static str);
 
     impl Function for FfiUnsupported {
-        fn call(&self, _args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        fn call(
+            &self,
+            _args: &[JsonValue],
+            _ctx: &mut EvalContext,
+        ) -> Result<JsonValue, EvalError> {
             Err(EvalError::Other(format!("{}: {DISABLED}", self.0)))
         }
     }
@@ -74,7 +77,11 @@ mod ffi_stubs {
     pub struct FfiProbeUnsupported(pub &'static str);
 
     impl Function for FfiProbeUnsupported {
-        fn call(&self, _args: &[JsonValue], _ctx: &mut EvalContext) -> Result<JsonValue, EvalError> {
+        fn call(
+            &self,
+            _args: &[JsonValue],
+            _ctx: &mut EvalContext,
+        ) -> Result<JsonValue, EvalError> {
             Ok(json!({"__tag__": "err", "value": format!("{}: {DISABLED}", self.0)}))
         }
     }
@@ -86,10 +93,19 @@ fn ffi_op_registry() -> OpRegistry {
     let mut registry = OpRegistry::new();
     registry.register("ffi.call", std::sync::Arc::new(FfiUnsupported("ffi.call")));
     registry.register("ffi.bind", std::sync::Arc::new(FfiUnsupported("ffi.bind")));
-    registry.register("ffi.errno", std::sync::Arc::new(FfiUnsupported("ffi.errno")));
-    registry.register("ffi.load", std::sync::Arc::new(FfiProbeUnsupported("ffi.load")));
+    registry.register(
+        "ffi.errno",
+        std::sync::Arc::new(FfiUnsupported("ffi.errno")),
+    );
+    registry.register(
+        "ffi.load",
+        std::sync::Arc::new(FfiProbeUnsupported("ffi.load")),
+    );
     registry.register("ffi.read", std::sync::Arc::new(FfiUnsupported("ffi.read")));
-    registry.register("ffi.sym", std::sync::Arc::new(FfiProbeUnsupported("ffi.sym")));
+    registry.register(
+        "ffi.sym",
+        std::sync::Arc::new(FfiProbeUnsupported("ffi.sym")),
+    );
     registry
 }
 

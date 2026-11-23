@@ -15,9 +15,9 @@ use handl_kit_data_prelude;
 use handl_language::Source;
 use handl_runtime::{EngineRegistry, Runtime};
 use hnl_engine::TermData;
-use hnl_engine_exec_tree_walk::TreeWalkEngine;
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse_pratt::PrattEngine;
+use hnl_exec_tree_walk::TreeWalkEngine;
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse_pratt::PrattEngine;
 use serde_json::json;
 
 #[test]

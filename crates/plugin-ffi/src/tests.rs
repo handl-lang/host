@@ -1503,7 +1503,11 @@ fn strv_posix_spawnp_runs_true() {
     let waitpid = FfiOpFunction::new(
         "libc.so.6",
         "waitpid",
-        vec!["i32".to_string(), "out_ptr:4".to_string(), "i32".to_string()],
+        vec![
+            "i32".to_string(),
+            "out_ptr:4".to_string(),
+            "i32".to_string(),
+        ],
         "i32",
         true,
     );

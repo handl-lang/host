@@ -5,16 +5,16 @@
 use std::sync::Arc;
 
 use handl_language::{Ast, AstRef, Language, Source};
-use handl_plugin_lib_handl::transform::DESUGAR_HNL;
 use handl_plugin_lib_handl::CharModule;
+use handl_plugin_lib_handl::transform::DESUGAR_HNL;
 use handl_plugin_lib_handl::{HandlModule, HandlNativeRewrite};
 use handl_runtime::ParseEngineDyn;
-use hnl_engine_lex::{LexerEngine, LexerRequest};
-use hnl_engine_lex_pattern::DataLexerEngine;
-use hnl_engine_parse::ParserRequest;
-use hnl_engine_parse_pratt::PrattEngine;
-use hnl_engine_transform_rewrite::native::desugar_native_registry;
-use hnl_engine_transform_rewrite::RewriteEngine;
+use hnl_tool_lex::{LexerEngine, LexerRequest};
+use hnl_tool_lex_pattern::DataLexerEngine;
+use hnl_tool_parse::ParserRequest;
+use hnl_tool_parse_pratt::PrattEngine;
+use hnl_tool_transform_rewrite::RewriteEngine;
+use hnl_tool_transform_rewrite::native::desugar_native_registry;
 use serde_json::Value;
 
 fn lang() -> &'static Language {
@@ -206,7 +206,9 @@ fn data_maybe_parity() {
 
 #[test]
 fn match_nat_parity() {
-    assert_parity("Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nx :: match n { Zero: 0, Succ(p): p }");
+    assert_parity(
+        "Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nx :: match n { Zero: 0, Succ(p): p }",
+    );
 }
 
 #[test]

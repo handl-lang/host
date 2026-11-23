@@ -50,9 +50,9 @@ use handl_plugin_lib_tag::TypeRegistry;
 use handl_runtime::RuntimeFactory;
 use handl_runtime::vm_primitives::SymModule;
 use handl_runtime::{EngineRegistry, ModuleLoader, Runtime, RuntimeConfig, RuntimeFactoryImpl};
-use hnl_engine_exec::ImportResolver;
-use hnl_engine_typecheck::TypecheckEngine;
-use hnl_engine_typecheck_nbe::NbeTypecheckEngine;
+use hnl_exec::ImportResolver;
+use hnl_tool_typecheck::TypecheckEngine;
+use hnl_tool_typecheck_nbe::NbeTypecheckEngine;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -237,7 +237,7 @@ const PRELUDE_MODULES: &[(&'static str, ModuleCtor)] = &[
     // qualified `io.perform` and the flat `perform` spellings resolve
     // (ModuleRegistry's all-module function search).
     ("io", |_, _| {
-        ModuleEntry::Native(Arc::new(hnl_engine_exec::io::IoModule::new()))
+        ModuleEntry::Native(Arc::new(hnl_exec::io::IoModule::new()))
     }),
     ("sym", |_, _| {
         ModuleEntry::Native(Arc::new(SymModule::new()))
@@ -325,7 +325,7 @@ fn build_stdlib_registry(
 ///   (`greet`, `field_access`).
 ///
 /// `hnl typecheck` passes this set to
-/// [`hnl_engine_typecheck::check_module_with_prelude`] so the
+/// [`hnl_tool_typecheck::check_module_with_prelude`] so the
 /// checker's scope matches what the runtime resolves — the checker crate
 /// cannot depend on this crate (dep cycle), so the name set lives here
 /// where the wiring lives.
@@ -449,7 +449,7 @@ pub struct TypeInspection {
     pub typ: Value,
     /// Non-fatal diagnostics emitted during checking (spans already shifted
     /// to caller coordinates).
-    pub diagnostics: Vec<hnl_engine_typecheck::TypecheckDiagnostic>,
+    pub diagnostics: Vec<hnl_tool_typecheck::TypecheckDiagnostic>,
     /// `(span, synthesized type)` per checked node — span in caller source
     /// coordinates. Unordered; consumers select by containment.
     pub node_types: Vec<(Span, Value)>,
@@ -460,7 +460,7 @@ pub struct TypeInspection {
 /// with the first diagnostic's span shifted from wrapped to caller
 /// coordinates by `span_offset`.
 fn typecheck_error_diags(
-    result: &hnl_engine_typecheck::TypecheckResult,
+    result: &hnl_tool_typecheck::TypecheckResult,
     span_offset: usize,
 ) -> Result<(), LangError> {
     let error_diags: Vec<_> = result
@@ -857,9 +857,8 @@ impl CombModule {
         // resolves inside the module body. `combinators.match` is
         // variadic and `.hnl` has no splat, so `comb.match` is not
         // exposed here — call `combinators.match` directly.
-        let combinators =
-            Arc::new(stdlib::module("combinators").expect("combinators"))
-                as Arc<dyn Module + Send + Sync>;
+        let combinators = Arc::new(stdlib::module("combinators").expect("combinators"))
+            as Arc<dyn Module + Send + Sync>;
         for (name, src) in [
             ("flat_map", handl_lib_comb::FLAT_MAP_HNL),
             ("find", handl_lib_comb::FIND_HNL),
@@ -924,12 +923,12 @@ fn build_greet_runtime() -> Result<Runtime, LangError> {
     let mut registry = EngineRegistry::new();
     registry.register_lex(
         "data",
-        Box::new(hnl_engine_lex_pattern::DataLexerEngine::new()),
+        Box::new(hnl_tool_lex_pattern::DataLexerEngine::new()),
     );
-    registry.register_parse("pratt", hnl_engine_parse_pratt::PrattEngine::new());
+    registry.register_parse("pratt", hnl_tool_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()),
+        Box::new(hnl_exec_tree_walk::TreeWalkEngine::new()),
     );
     let registry = Rc::new(registry);
     Runtime::from_registry(lang, &registry, &config)
@@ -1699,7 +1698,7 @@ impl Kit {
     /// fall entirely outside `input` are dropped, the rest clamped).
     fn inspection_of(
         &self,
-        result: hnl_engine_typecheck::TypecheckResult,
+        result: hnl_tool_typecheck::TypecheckResult,
         ast: &Ast,
         input: &str,
         span_offset: usize,
@@ -1731,7 +1730,7 @@ impl Kit {
         let diagnostics = result
             .diagnostics
             .iter()
-            .map(|d| hnl_engine_typecheck::TypecheckDiagnostic {
+            .map(|d| hnl_tool_typecheck::TypecheckDiagnostic {
                 severity: d.severity.clone(),
                 message: d.message.clone(),
                 span: d.span.map(|s| Span {
@@ -1750,14 +1749,14 @@ impl Kit {
     /// Shared engine pipeline behind [`Kit::typecheck_with_prelude`] and
     /// [`Kit::inspect_with_prelude`]: lex/parse (with the `do {}` wrap),
     /// the bootstrap scope pass, then the NBE typecheck. Returns the engine
-    /// [`TypecheckResult`](hnl_engine_typecheck::TypecheckResult), the
+    /// [`TypecheckResult`](hnl_tool_typecheck::TypecheckResult), the
     /// *wrapped* [`Ast`] its `node_types` index into, and the wrapper prefix
     /// length that maps wrapped coordinates back onto `input`.
     fn typecheck_engine_result(
         &self,
         input: &str,
         extra_prelude: &std::collections::HashSet<String>,
-    ) -> Result<(hnl_engine_typecheck::TypecheckResult, Ast, usize), LangError> {
+    ) -> Result<(hnl_tool_typecheck::TypecheckResult, Ast, usize), LangError> {
         let mut prelude = prelude_wire_names();
         prelude.extend(extra_prelude.iter().cloned());
         let trimmed = input.trim_start();
@@ -1786,7 +1785,7 @@ impl Kit {
         // object global with a `__` key, which
         // `NbeTypecheckEngine::value_to_type` maps to `type.unknown`.
         let mut engine: Box<dyn TypecheckEngine> = Box::new(NbeTypecheckEngine::new(Box::new(
-            hnl_engine_exec_tree_walk::TreeWalkEngine::new(),
+            hnl_exec_tree_walk::TreeWalkEngine::new(),
         )));
         if let Some(mods) = self.runtime.modules() {
             engine = engine.with_modules(std::rc::Rc::clone(mods));
@@ -1798,12 +1797,12 @@ impl Kit {
         // source so an unbound wire reports as a *type error* — the
         // `typecheck errors:` aggregate `host-cli` maps to stdout/exit 0 —
         // even when the NBE judge aborts on the same reference.
-        let report = hnl_engine_typecheck::check_module_with_prelude(
+        let report = hnl_tool_typecheck::check_module_with_prelude(
             self.runtime.lang(),
             input,
             &prelude,
-            &hnl_engine_lex_pattern::DataLexerEngine,
-            &hnl_engine_parse_pratt::PrattEngine::new(),
+            &hnl_tool_lex_pattern::DataLexerEngine,
+            &hnl_tool_parse_pratt::PrattEngine::new(),
         )
         .map_err(|e| LangError::engine(e.to_string()))?;
         let scope_diags: Vec<_> = report
@@ -1831,7 +1830,7 @@ impl Kit {
                 None::<String>,
             ));
         }
-        let req = hnl_engine_typecheck::TypecheckRequest::new(ast.clone());
+        let req = hnl_tool_typecheck::TypecheckRequest::new(ast.clone());
         // A checker-stage failure is a reported type error (`type-errors`
         // status), not a "could not check" transport error. The checker's
         // structured span (offsets into `wrapped`, shifted back to `input`
@@ -1936,7 +1935,7 @@ impl Default for Kit {
 /// `bytecode` eval, `bytecode` compile, and the `handl` typecheck engine —
 /// plus, under the `cranelift` Cargo feature (on by default), the
 /// `cranelift` eval engine and the `native` compile engine backed by
-/// `hnl-engine-exec-cranelift`.
+/// `hnl-exec-cranelift`.
 ///
 /// The registry is the ext contract for exec engines (ADR-0128 §0.5):
 /// engines are selected *by name* through `RuntimeConfig`, never
@@ -1948,36 +1947,36 @@ pub fn prelude_engine_registry() -> EngineRegistry {
     let mut registry = EngineRegistry::new();
     registry.register_lex(
         "data",
-        Box::new(hnl_engine_lex_pattern::DataLexerEngine::new()),
+        Box::new(hnl_tool_lex_pattern::DataLexerEngine::new()),
     );
-    registry.register_parse("pratt", hnl_engine_parse_pratt::PrattEngine::new());
+    registry.register_parse("pratt", hnl_tool_parse_pratt::PrattEngine::new());
     registry.register_eval(
         "tree-walk",
-        Box::new(hnl_engine_exec_tree_walk::TreeWalkEngine::new()),
+        Box::new(hnl_exec_tree_walk::TreeWalkEngine::new()),
     );
     registry.register_eval(
         "bytecode",
-        Box::new(hnl_engine_exec_bytecode::BytecodeEngine::new()),
+        Box::new(hnl_exec_bytecode::BytecodeEngine::new()),
     );
     registry.register_compile(
         "bytecode",
-        Box::new(hnl_engine_exec_bytecode::BytecodeCompileEngine::new()),
+        Box::new(hnl_exec_bytecode::BytecodeCompileEngine::new()),
     );
     #[cfg(feature = "cranelift")]
     {
         registry.register_eval(
             "cranelift",
-            Box::new(hnl_engine_exec_cranelift::CraneliftEngine::new()),
+            Box::new(hnl_exec_cranelift::CraneliftEngine::new()),
         );
         registry.register_compile(
             "native",
-            Box::new(hnl_engine_exec_cranelift::CraneliftCompileEngine::new()),
+            Box::new(hnl_exec_cranelift::CraneliftCompileEngine::new()),
         );
     }
     registry.register_typecheck(
         "nbe",
         Box::new(NbeTypecheckEngine::new(Box::new(
-            hnl_engine_exec_tree_walk::TreeWalkEngine::new(),
+            hnl_exec_tree_walk::TreeWalkEngine::new(),
         ))),
     );
     registry
@@ -2713,13 +2712,13 @@ mod tests {
     /// Helper: parse source with the Pratt engine directly (no desugar) to
     /// inspect the pre-desugar AST.
     fn parse_raw(kit: &Kit, src: &str) -> Ast {
-        use hnl_engine_parse::ParserEngine;
-        use hnl_engine_parse_pratt::PrattEngine;
+        use hnl_tool_parse::ParserEngine;
+        use hnl_tool_parse_pratt::PrattEngine;
 
         let tokens = kit.lex(src).unwrap();
         let lang = kit.runtime().lang();
         let engine = PrattEngine::new();
-        let req = hnl_engine_parse::ParserRequest::new(tokens);
+        let req = hnl_tool_parse::ParserRequest::new(tokens);
         engine.parse(lang, &req).unwrap()
     }
 
@@ -2787,7 +2786,9 @@ mod tests {
     fn data_nat_desugars_to_block_from_source() {
         let kit = Kit::new().unwrap();
         // kit.parse applies the desugar pass.
-        let ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
+        let ast = kit
+            .parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }")
+            .unwrap();
 
         // The root should be a `block` with 4 statements (predicate + 2
         // constructors + recursor).
@@ -2840,7 +2841,9 @@ mod tests {
         let kit = Kit::new().unwrap();
 
         // Parse and desugar the data declaration.
-        let data_ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
+        let data_ast = kit
+            .parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }")
+            .unwrap();
         // The root is a block with 4 assign children.
         let data_root = data_ast.nodes().last().unwrap();
         assert_eq!(data_root.kind, "block");
@@ -2918,7 +2921,9 @@ mod tests {
         // Eval `Zero` after declaring `Nat := { Zero : Nat, Succ : (Nat) ~> Nat }`.
         // Same combining approach as data_nat_eval_succ_zero.
         let kit = Kit::new().unwrap();
-        let data_ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
+        let data_ast = kit
+            .parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }")
+            .unwrap();
         let data_root = data_ast.nodes().last().unwrap();
         let data_children: Vec<usize> = data_root
             .payload
@@ -3017,7 +3022,9 @@ mod tests {
         // to the typechecker input (i.e., no `data` nodes remain in the
         // typechecked AST — they are all desugared to `block`/`assign`).
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
+        let ast = kit
+            .parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }")
+            .unwrap();
 
         // Verify no `data` nodes remain in the desugared AST.
         for node in ast.nodes() {

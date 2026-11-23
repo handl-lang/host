@@ -403,9 +403,9 @@ pub(crate) fn marshal_call_args(
             res.byte_keep_alive.push(bytes);
             res.c_args.push(CArg::Int(ptr));
         } else if desc == "strv" {
-            let value = args.get(arg_idx).ok_or_else(|| {
-                EvalError::TypeMismatch("missing argument for strv".to_string())
-            })?;
+            let value = args
+                .get(arg_idx)
+                .ok_or_else(|| EvalError::TypeMismatch("missing argument for strv".to_string()))?;
             arg_idx += 1;
             let ptr = marshal_strv(value, &mut res)?;
             res.c_args.push(CArg::Int(ptr));
@@ -527,9 +527,9 @@ fn parse_size(kind: &str, n_str: &str) -> Result<usize, EvalError> {
 /// byte-exact, non-UTF-8 argv entries. Embedded NULs are an error, same
 /// as `cstr`.
 fn marshal_strv(value: &JsonValue, res: &mut MarshalResult) -> Result<i64, EvalError> {
-    let arr = value.as_array().ok_or_else(|| {
-        EvalError::TypeMismatch("expected list of strings for strv".to_string())
-    })?;
+    let arr = value
+        .as_array()
+        .ok_or_else(|| EvalError::TypeMismatch("expected list of strings for strv".to_string()))?;
     let base = res.keep_alive.len();
     for (i, el) in arr.iter().enumerate() {
         let bytes = if let Some(s) = el.as_str() {
@@ -539,18 +539,14 @@ fn marshal_strv(value: &JsonValue, res: &mut MarshalResult) -> Result<i64, EvalE
                 EvalError::TypeMismatch(format!("strv[{i}] must be a string or Bytes"))
             })?
         };
-        let c = CString::new(bytes).map_err(|_| {
-            EvalError::TypeMismatch(format!("embedded NUL byte in strv[{i}]"))
-        })?;
+        let c = CString::new(bytes)
+            .map_err(|_| EvalError::TypeMismatch(format!("embedded NUL byte in strv[{i}]")))?;
         res.keep_alive.push(c);
     }
     // Snapshot the pointers only after every CString is pushed: pushing
     // moves the CString boxes into the Vec but not their heap buffers, so
     // these `as_ptr()` addresses stay valid for the duration of the call.
-    let mut ptrs: Vec<*const c_char> = res.keep_alive[base..]
-        .iter()
-        .map(|c| c.as_ptr())
-        .collect();
+    let mut ptrs: Vec<*const c_char> = res.keep_alive[base..].iter().map(|c| c.as_ptr()).collect();
     ptrs.push(std::ptr::null());
     let ptr = ptrs.as_ptr() as i64;
     res.strv_keep_alive.push(ptrs);

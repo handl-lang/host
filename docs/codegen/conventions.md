@@ -64,7 +64,7 @@ adapters import `{ run, argv }` from `cli-c`.
 `Function.arg_descriptors` are strings the emitter passes to the runtime
 marshaller. Each backend defines its own subset; the union so far:
 
-**C / ffi** (`engine-codegen-c`, defined by `plugin-ffi`'s marshaller):
+**C / ffi** (`tool-codegen-c`, defined by `plugin-ffi`'s marshaller):
 
 | Descriptor | Port type | Consumes a Handl arg? | Meaning |
 | --- | --- | --- | --- |
@@ -91,7 +91,7 @@ Struct descriptors carry real layout: `name:kind@offset[:size]` with
 `@`/`:` suffixes where a bare kind can't imply width (`ptr`, `arr:`,
 `rec:`).
 
-**WebIDL / js** (`engine-codegen-webidl` → `hnl-file` `js_descriptor`):
+**WebIDL / js** (`tool-codegen-webidl` → `hnl-file` `js_descriptor`):
 
 `void`→`js_void`, `bool`→`js_boolean`, all numeric →`js_number`,
 `promise[:T]`→`js_promise`; backend-emitted `js_string`, `js_bytes`,
@@ -99,8 +99,8 @@ Struct descriptors carry real layout: `name:kind@offset[:size]` with
 `object`, `Promise`, `sequence`, `record`, nullable, union, and named
 foreign types (all port as `Handle`).
 
-**CLI** (`engine-codegen-cli` `pos:`/`opt:`/`rest:`/`meta:` — see
-[engine-codegen-cli/docs/emission.md](https://github.com/handl-lang/engine-codegen-cli/blob/main/docs/emission.md)):
+**CLI** (`tool-codegen-cli` `pos:`/`opt:`/`rest:`/`meta:` — see
+[tool-codegen-cli/docs/emission.md](https://github.com/handl-lang/tool-codegen-cli/blob/main/docs/emission.md)):
 
 `pos:<name>` positional in argv order · `opt:<kind>:<name>:<flag>` named
 option (`flag`|`string`|`int`|`strings`) · `rest:<name>` variadic tail ·
@@ -135,7 +135,7 @@ conventions coexist:
   `scripts/hnl-gate.sh` on every CI run. Committed: `specs/` +
   `src/*.test.hnl` smoke tests.
 - **Backend repos may commit output** when the generated package is
-  itself the product: `engine-codegen-webidl` tracks
+  itself the product: `tool-codegen-webidl` tracks
   `handl-packages/generated/` (389 files) so the webref-pinned SDKs are
   reviewable like any other source (ADR-0107: "generated output is
   committed").

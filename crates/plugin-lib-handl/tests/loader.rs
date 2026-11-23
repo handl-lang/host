@@ -745,8 +745,14 @@ mod bootstrap {
         // `export data …` declaration — mirrors `loader.hnl`'s `cur`
         // record (`kind: "bind" | "decl"`).
         enum Cur {
-            Bind { name: String, lines: Vec<String> },
-            Decl { lines: Vec<String>, exports: Vec<String> },
+            Bind {
+                name: String,
+                lines: Vec<String>,
+            },
+            Decl {
+                lines: Vec<String>,
+                exports: Vec<String>,
+            },
         }
         impl Cur {
             fn lines_mut(&mut self) -> &mut Vec<String> {
@@ -758,8 +764,13 @@ mod bootstrap {
         // A finalized private/do-block statement: a `name := expr`
         // assignment or a verbatim `export data …` declaration.
         enum Priv {
-            Bind { name: String, expr_lines: Vec<String> },
-            Decl { lines: Vec<String> },
+            Bind {
+                name: String,
+                expr_lines: Vec<String>,
+            },
+            Decl {
+                lines: Vec<String>,
+            },
         }
 
         let mut entries: Vec<(String, Vec<String>)> = Vec::new();

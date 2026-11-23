@@ -12,7 +12,7 @@ repository.workspace = true
 handl-language = { workspace = true }
 # The desired-state lifecycle kernel (P-001): IrModule/Source/Emitter
 # traits, Change sets, ArtifactStore, Engine plan/apply/destroy/revert.
-hnl-engine-codegen = { workspace = true }
+hnl-tool-codegen = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

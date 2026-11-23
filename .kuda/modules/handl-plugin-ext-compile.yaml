@@ -18,7 +18,7 @@ deps:
 - handl-plugin-compile-sexp
 - handl-plugin-compile-term
 - plugin-engine
-- plugin-engine-typecheck
+- plugin-tool-typecheck
 - serde_json
 - serde_json
 notes: ''

@@ -21,7 +21,7 @@ use handl_platform::{
     Function, Module, ModuleLookup, PlatformError, Plugin, PluginContext,
 };
 use handl_plugin_lib_handl::{
-    parse_cap_declarations, HandlModule, ModuleEnv, ModuleResolver, OpRegistry,
+    HandlModule, ModuleEnv, ModuleResolver, OpRegistry, parse_cap_declarations,
 };
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
 

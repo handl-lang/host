@@ -30,8 +30,7 @@ const PERLIN_FUNCS: &[&str] = &["perlin_1d", "perlin_2d", "perlin_3d"];
 // simplex module (pure Handl — ADR-0109)
 // ---------------------------------------------------------------------------
 
-const SIMPLEX_HNL: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/lib-simplex/src/simplex.hnl"));
+const SIMPLEX_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-simplex/src/simplex.hnl"));
 const SIMPLEX_FUNCS: &[&str] = &["simplex_2d", "simplex_3d"];
 
 fn build_perlin_module() -> HandlModule {
@@ -51,7 +50,10 @@ const JSON_FUNCS: &[&str] = &["stringify", "parse", "json"];
 const JSON_SOURCES: &[(&str, &str, &[&str])] = &[
     (
         "helpers",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-json/src/internal/helpers.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-json/src/internal/helpers.hnl"
+        )),
         &["ws_p", "num_p", "alpha_p", "slen", "take", "drop", "esc"],
     ),
     (
@@ -147,7 +149,13 @@ const IP_SOURCES: &[(&str, &str, &[&str])] = &[
     (
         "cidr",
         include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/cidr.hnl")),
-        &["cidr_parse", "cidr_format", "contains", "network", "broadcast"],
+        &[
+            "cidr_parse",
+            "cidr_format",
+            "contains",
+            "network",
+            "broadcast",
+        ],
     ),
     (
         "socket",
@@ -169,13 +177,15 @@ fn build_ip_module() -> HandlModule {
         std::sync::Arc::new(KitResolver),
     )))
 }
-const URL_RFC_HNL: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl"));
+const URL_RFC_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/index.hnl"));
 const URL_RFC_FUNCS: &[&str] = &["parse", "url_rfc"];
 const URL_RFC_SOURCES: &[(&str, &str, &[&str])] = &[
     (
         "slist",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-url-rfc/src/internal/slist.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-url-rfc/src/internal/slist.hnl"
+        )),
         &["slen", "take", "drop", "s_slice", "s_len"],
     ),
     (
@@ -245,7 +255,10 @@ const TAR_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
     (
         "headerb",
-        include_str!(concat!(env!("OUT_DIR"), "/lib-tar/src/internal/headerb.hnl")),
+        include_str!(concat!(
+            env!("OUT_DIR"),
+            "/lib-tar/src/internal/headerb.hnl"
+        )),
         &["header", "block"],
     ),
     (
