@@ -45,7 +45,9 @@
 //! argument — the pipeline script sets the record's `out` field
 //! between `verify` and `deliver` (e.g. an object-spread update
 //! `r ~> {...r, "out": "delivered.hnl"}`), and `deliver` re-runs the
-//! real `lower(verify=True)` gate before writing the `.hnl` artifact.
+//! real `lower(verify=True)` gate before emitting the `.hnl` artifact
+//! as a change-set manifest (v4 records — `manifest`/`changes` on the
+//! record; applying is the `hnl codegen apply` shim's job, T-093).
 //! `MLOPT_PIPELINE_CMD` still lets a host point at any conforming
 //! command (the test suite uses a fixture script).
 //!
@@ -89,7 +91,7 @@ use serde_json::Value;
 /// while a *higher* `v` is refused loudly — the kit never guesses at
 /// a schema it does not know. Bump this when the kit learns a newer
 /// record schema; it must never run ahead of what it validates.
-const RECORD_SCHEMA_VERSION: i64 = 3;
+const RECORD_SCHEMA_VERSION: i64 = 4;
 
 /// Validate a record's `v` field — the tolerant reader, kit side.
 ///
@@ -514,9 +516,9 @@ mod tests {
 
     #[test]
     fn record_schema_pin_is_validated() {
-        // `vok` emits `"v": 3` — the current pin passes through.
+        // `vok` emits `"v": 4` — the current pin passes through.
         let out = call_with("vok", Value::Null).unwrap();
-        assert_eq!(out["v"], 3);
+        assert_eq!(out["v"], 4);
 
         // A newer schema is a loud error on the OUTPUT side.
         let err = call_with("vfuture", Value::Null).unwrap_err();
