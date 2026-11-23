@@ -18,6 +18,7 @@
 - [ ] T-122 kit selection via .handl.toml (no hnl.hnl): kit = name-or-path key, walk UP from file dir to find nearest .handl.toml containing kit; fallback ~/.config/handl/.handl.toml; explicit --kit flag wins; REPLACE semantics (project kit replaces global, not union); extends/layering later; merges into existing dep map alongside .handl.toml deps · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-123 Fold kit-core crate into host workspace (module table/resolver/caches substrate) · created:2026-11-23
 - [ ] T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23
+- [ ] T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
