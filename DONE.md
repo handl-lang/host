@@ -25,3 +25,4 @@
 - T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23 · done:2026-11-23
 - T-126 Fold kit-prelude facade + kit-eqsat data crate into host · created:2026-11-23 · done:2026-11-23
 - T-128 engine-watch: Rust fs-event engine (inotify) + lib-watch .hnl contract/binding · created:2026-11-23 · done:2026-11-23
+- T-131 lib-log contract + lib-log-c + lib-log-js backends · created:2026-11-23 · done:2026-11-23
