@@ -28,6 +28,7 @@
 - [ ] T-132 lib-mock spies/stubs + coverage phase for engine-test parity · created:2026-11-23
 - [ ] T-133 lib-concurrent-js: concurrent.Run over MessageChannel/setTimeout/Atomics (isomorphic runtime) · created:2026-11-23
 - [ ] T-134 sdkgen-webidl: fix empty field names for unresolvable attribute types (NotRestoredReasons bug) · created:2026-11-23
+- [ ] T-135 engine-test+ext-test: push watch commits (engine-test first, then ext-test) · created:2026-11-23
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
