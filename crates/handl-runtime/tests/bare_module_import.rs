@@ -4,7 +4,7 @@
 //!
 //! This is the seam the ADR-0128 item-7 / Phase 5 `.hnl` moves depend on: the
 //! `web`/`-c` package cluster imports itself through relative paths
-//! (`from "../generated/libc-c-linux-x86_64/socket" import { socket }`),
+//! (`from "../generated/libc/socket" import { socket }`),
 //! which forces a sibling-checkout layout across repos. Rewriting those specs
 //! to bare names (`from "libc" import socket`) only works if the module chain
 //! supplies the bindings — which is what this test locks down.

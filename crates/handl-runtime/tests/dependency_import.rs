@@ -85,7 +85,7 @@ fn dependency_name_specs_resolve_inside_the_dep_dir() {
     let root = scratch_dir("names");
     let project = root.join("project");
     let dep_ws = root.join("vendor/ws-c");
-    let dep_libc = root.join("vendor/libc-c-linux-x86_64");
+    let dep_libc = root.join("vendor/libc");
     std::fs::create_dir_all(&project).unwrap();
     std::fs::create_dir_all(&dep_ws).unwrap();
     std::fs::create_dir_all(&dep_libc).unwrap();
@@ -139,7 +139,7 @@ fn dependency_name_specs_resolve_inside_the_dep_dir() {
 fn dep_package_internal_relative_imports_still_resolve() {
     let root = scratch_dir("nested");
     let project = root.join("project");
-    let dep = root.join("vendor/libc-c-linux-x86_64");
+    let dep = root.join("vendor/libc");
     std::fs::create_dir_all(&project).unwrap();
     std::fs::create_dir_all(&dep).unwrap();
 
@@ -178,7 +178,7 @@ fn dependency_names_shadow_same_named_relative_dirs() {
     let root = scratch_dir("shadow");
     let project = root.join("project");
     let local = project.join("libc");
-    let vendored = root.join("vendor/libc-c-linux-x86_64");
+    let vendored = root.join("vendor/libc");
     std::fs::create_dir_all(&local).unwrap();
     std::fs::create_dir_all(&vendored).unwrap();
 

@@ -1,6 +1,6 @@
 //! Regression: the sdkgen port/adapter `_c` split — the adapter spec
-//! `uchar_c` (`icu-uc-c-linux-x86_64/uchar_c.hnl`) contains
-//! `from "../icu-uc/uchar" import { UCharType78, … }`, which
+//! `uchar_c` (`icu-uc/icu-uc-c-linux-x86_64/uchar_c.hnl`) contains
+//! `from "../uchar" import { UCharType78, … }`, which
 //! basename-normalizes to `uchar` — now the *port* spec row, not the
 //! adapter itself. Resolution must succeed; only the `ffi.call` leaf may
 //! still fail (no `ffi` module under the default table resolver, and no

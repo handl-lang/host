@@ -60,7 +60,7 @@ pub const MODULES: &[(&'static str, ModuleCtor)] = &[
     // `lib-otlp-std`'s HTTP exporter registry). `funcs: &[]` — the record
     // is cap/op decls only; `ops` exposes each op under its local name.
     // `icu_*` — sdkgen-generated ICU4C adapter modules that `intl_c`/`unicode_c`
-    // reach via `from "../generated/icu-*-linux-x86_64/<mod>"` path imports
+    // reach via `from "../generated/icu*/icu*-linux-x86_64/<mod>_c"` path imports
     // (basename-normalized in `packages.rs`). Registered so `call_host`
     // `ucol.ucol_open_78`-style wires resolve in the outer registry.
     ("ucol", |r, e| {

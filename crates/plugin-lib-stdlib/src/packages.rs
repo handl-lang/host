@@ -787,7 +787,7 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     // ── icu_c_* — sdkgen-generated ICU4C adapter modules (i18n) ────────
     // Table-only modules: `intl_c` reaches them via
-    // `from "../generated/icu-c-linux-x86_64/<mod>_c" import * as <mod>`,
+    // `from "../generated/icu/icu-c-linux-x86_64/<mod>_c" import * as <mod>`,
     // which basename-normalizes to these `*_c` names in the module table.
     // Not contributed by any package — they are intl_c's internal FFI
     // surface. Each adapter's own `from "../icu/<mod>" import` resolves
@@ -796,7 +796,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ucol_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/ucol_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/ucol_c.hnl"
         )),
         funcs: &[
             "ucol_close_78",
@@ -825,7 +825,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "unum_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/unum_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/unum_c.hnl"
         )),
         funcs: &[
             "unum_close_78",
@@ -851,7 +851,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "upluralrules_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/upluralrules_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/upluralrules_c.hnl"
         )),
         funcs: &[
             "uplrules_close_78",
@@ -867,7 +867,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ureldatefmt_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/ureldatefmt_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/ureldatefmt_c.hnl"
         )),
         funcs: &[
             "ureldatefmt_close_78",
@@ -883,7 +883,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "udat_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/udat_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/udat_c.hnl"
         )),
         funcs: &[
             "udat_close_78",
@@ -900,7 +900,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ufieldpositer_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/ufieldpositer_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/ufieldpositer_c.hnl"
         )),
         funcs: &[
             "ufieldpositer_close_78",
@@ -915,7 +915,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "unumberformatter_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/unumberformatter_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/unumberformatter_c.hnl"
         )),
         funcs: &[
             "unumf_close_78",
@@ -930,7 +930,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "uformattednumber_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-c-linux-x86_64/uformattednumber_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu/icu-c-linux-x86_64/uformattednumber_c.hnl"
         )),
         funcs: &[
             "unumf_closeResult_78",
@@ -946,7 +946,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ubrk_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/ubrk_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/ubrk_c.hnl"
         )),
         funcs: &[
             "ubrk_close_78",
@@ -968,7 +968,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "uloc_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/uloc_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/uloc_c.hnl"
         )),
         funcs: &[
             "uloc_countAvailable_78",
@@ -989,7 +989,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "uldnames_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/uldnames_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/uldnames_c.hnl"
         )),
         funcs: &[
             "uldn_close_78",
@@ -1009,7 +1009,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ures_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/ures_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/ures_c.hnl"
         )),
         funcs: &[
             "ures_close_78",
@@ -1026,7 +1026,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "unorm2_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/unorm2_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/unorm2_c.hnl"
         )),
         funcs: &[
             "unorm2_getNFCInstance_78",
@@ -1041,7 +1041,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "ustring_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/ustring_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/ustring_c.hnl"
         )),
         funcs: &["u_strFoldCase_78"],
         ops: &[],
@@ -1052,7 +1052,7 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "uchar_c",
         hnl: include_str!(concat!(
             env!("OUT_DIR"),
-            "/lib-intl-c/handl-packages/generated/icu-uc-c-linux-x86_64/uchar_c.hnl"
+            "/lib-intl-c/handl-packages/generated/icu-uc/icu-uc-c-linux-x86_64/uchar_c.hnl"
         )),
         funcs: &[
             "u_charType_78",
