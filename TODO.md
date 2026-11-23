@@ -13,7 +13,6 @@
 - [ ] T-121 lib-http-route: full-URL patterns (host/port/protocol) — DEFERRED, irrelevant for origin server; revisit only if proxy/vhost use-case appears · pri:low · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-129 compile-js roadmap P0: Node e2e harness + missing prelude ops (flow/record\_merge/ctor\_name/ctor\_fields/assert) · created:2026-11-23
 - [ ] T-130 compile-js P1: signature-export + data decls + worker-entry compile convention · created:2026-11-23
-- [ ] T-135 engine-test+ext-test: push watch commits (engine-test first, then ext-test) · created:2026-11-23
 - [ ] T-136 lib-route: transport-agnostic router+pipeline extracted from http-route/http-middleware (pattern match, specificity dispatch, onion chain); unblocks CLI subcommand routing in kit-cli-app · owner:agent · created:2026-11-23 · links:P-008 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
