@@ -15,3 +15,4 @@
 - T-134 sdkgen-webidl: fix empty field names for unresolvable attribute types (NotRestoredReasons bug) · created:2026-11-23 · done:2026-11-23
 - T-136 lib-js: push 665768d docs commit after NotRestoredReasons fix · created:2026-11-23 · done:2026-11-23
 - T-127 Retire folded kit-\* GitHub repos after consumer sweep (deletion checklist) · created:2026-11-23 · done:2026-11-23
+- T-137 js.get/js.set ops: property access for JS interop (compile-js prelude + lib-js contract) — unblocks eval-free Node Worker shim · created:2026-11-23 · done:2026-11-23
