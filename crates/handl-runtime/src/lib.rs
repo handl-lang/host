@@ -1774,12 +1774,13 @@ impl ModuleLoader {
         display_path: &str,
     ) -> Result<CachedModule, LangError> {
         // Read the module source.
-        let src = std::fs::read_to_string(resolved).map_err(|e| {
+        let file_src = std::fs::read_to_string(resolved).map_err(|e| {
             LangError::engine(format!(
                 "import \"{}\": cannot read module: {}",
                 display_path, e
             ))
         })?;
+        let origin_lines = file_src.lines().count() as u32;
         // Drop module-declaration header lines that name a *host module*
         // rather than a resolvable file (`from "str" import ...`,
         // `import x from "str"`) — those resolve via the host module chain,
@@ -1788,7 +1789,7 @@ impl ModuleLoader {
         // `hnl test` apply). Path-specifier declarations are kept: they
         // are the executable import op and resolve through this loader.
         // See ADR-0096 §"Module-name imports".
-        let src = self.strip_module_decl_lines(&src, resolved);
+        let (src, strip_map) = self.strip_module_decl_lines(&file_src, resolved);
         // Canonical `.hnl` modules are prepared the same way as
         // `handl_plugin_lib_handl` does: top-level `export` declarations
         // become an object literal so multi-export modules evaluate to a
@@ -1799,7 +1800,7 @@ impl ModuleLoader {
         // lex as keyword-category tokens and can only appear as quoted
         // record keys. Resolved data-driven through this module's own
         // language (see [`Self::is_bindable_name`]).
-        let src = module_prep::prepare_module(
+        let prepared = module_prep::prepare_module_mapped(
             &src,
             &|spec: &str| self.spec_resolves_to_file(spec, resolved),
             &|name: &str| self.is_bindable_name(name),
@@ -1810,15 +1811,27 @@ impl ModuleLoader {
                 display_path, resolved, e
             ))
         })?;
+        let src = prepared.source;
+        // Compose the two prep stages' provenance maps: prepared line →
+        // decl-stripped line (`prepared.line_map`) → file line
+        // (`strip_map`). `None` survives as unmapped (generated lines).
+        let file_line_map: Vec<Option<u32>> = prepared
+            .line_map
+            .into_iter()
+            .map(|l| {
+                l.and_then(|sl| strip_map.get(sl as usize - 1).copied().flatten())
+            })
+            .collect();
         // Coverage (opt-in, `hnl test --coverage`): register the *prepared*
         // source — the exact text the parser sees — so span hits during
         // eval attribute to this module. Line numbers are prepared-source
-        // coordinates, not file lines (module prep re-serializes; see
-        // `hnl_engine_exec::coverage` docs). No-op when no session is
-        // installed on this thread.
+        // coordinates, but both prep stages attach a provenance map, so
+        // the report also resolves hits to file lines (`fileLineHits`).
+        // No-op when no session is installed on this thread.
         let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
             hnl_engine_exec::coverage::CoverageSource::new(resolved, src.clone())
-                .with_origin(resolved),
+                .with_origin(resolved)
+                .with_file_lines(file_line_map, Some(origin_lines)),
         );
         let _cov_guard =
             cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
@@ -1927,47 +1940,92 @@ impl ModuleLoader {
     /// is rewritten in place instead of deleting the whole line (which
     /// previously swallowed a same-line `export` and produced an empty
     /// module record).
-    fn strip_module_decl_lines(&self, src: &str, resolved: &str) -> String {
-        module_prep::top_level_segments(src)
-            .iter()
-            .flat_map(|seg| {
-                let trimmed = seg.trim();
-                if let Some(rest) = trimmed.strip_prefix("import") {
-                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-                        let inner = rest.trim_start();
-                        if inner.starts_with('"') || inner.starts_with('\'') {
-                            // `import "<spec>"` — keep: the executable op.
-                            return vec![seg.clone()];
-                        }
+    ///
+    /// Returns the stripped source plus an output-line → input-line map:
+    /// `map[i]` is the file line (1-based) that produced output line
+    /// `i + 1`, or `None` when that line was generated (lowered
+    /// host-import bindings attribute to the declaration's line).
+    fn strip_module_decl_lines(
+        &self,
+        src: &str,
+        resolved: &str,
+    ) -> (String, Vec<Option<u32>>) {
+        let mut line_starts = vec![0usize];
+        for (i, b) in src.bytes().enumerate() {
+            if b == b'\n' {
+                line_starts.push(i + 1);
+            }
+        }
+        let line_of = |off: usize| -> u32 {
+            line_starts.partition_point(|&s| s <= off).max(1) as u32
+        };
+        let mut pieces: Vec<(String, Option<u32>)> = Vec::new();
+        for &(seg_start, seg_end) in &module_prep::top_level_segment_spans(src) {
+            let seg = &src[seg_start..seg_end];
+            let trimmed = seg.trim();
+            // The segment's verbatim text occupies `seg_start`'s line;
+            // the declaration keyword's own line is after any leading
+            // whitespace-only lines inside the segment.
+            let seg_line = Some(line_of(seg_start));
+            let decl_line =
+                Some(line_of(seg_start + (seg.len() - seg.trim_start().len())));
+            let push_kept = |pieces: &mut Vec<(String, Option<u32>)>| {
+                pieces.push((seg.to_string(), seg_line));
+            };
+            let push_lowered = |pieces: &mut Vec<(String, Option<u32>)>| {
+                for line in self.host_import_lines(trimmed) {
+                    pieces.push((line, decl_line));
+                }
+            };
+            if let Some(rest) = trimmed.strip_prefix("import") {
+                if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                    let inner = rest.trim_start();
+                    if inner.starts_with('"') || inner.starts_with('\'') {
+                        // `import "<spec>"` — keep: the executable op.
+                        push_kept(&mut pieces);
+                    } else {
                         // `import <name> ...` — a host-module declaration;
                         // lower to `name := "name"` string bindings so the
                         // bare name dispatches through the module chain.
-                        return self.host_import_lines(trimmed);
+                        push_lowered(&mut pieces);
                     }
-                    return vec![seg.clone()];
+                } else {
+                    push_kept(&mut pieces);
                 }
-                if let Some(rest) = trimmed.strip_prefix("from") {
-                    if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-                        // `from "<spec>" import ...` — keep iff <spec>
-                        // resolves to a file (the executable import op);
-                        // otherwise lower the named imports to
-                        // `name := "spec.name"` string bindings that
-                        // dispatch through the host module chain.
-                        return match first_quoted_spec(rest) {
-                            Some(spec) if self.spec_resolves_to_file(spec, resolved) => {
-                                vec![seg.clone()]
-                            }
-                            Some(_) => self.host_import_lines(trimmed),
-                            // Unparseable declaration — keep it so the
-                            // parser reports the error.
-                            None => vec![seg.clone()],
-                        };
+                continue;
+            }
+            if let Some(rest) = trimmed.strip_prefix("from") {
+                if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
+                    // `from "<spec>" import ...` — keep iff <spec>
+                    // resolves to a file (the executable import op);
+                    // otherwise lower the named imports to
+                    // `name := "spec.name"` string bindings that
+                    // dispatch through the host module chain.
+                    match first_quoted_spec(rest) {
+                        Some(spec) if self.spec_resolves_to_file(spec, resolved) => {
+                            push_kept(&mut pieces)
+                        }
+                        Some(_) => push_lowered(&mut pieces),
+                        // Unparseable declaration — keep it so the
+                        // parser reports the error.
+                        None => push_kept(&mut pieces),
                     }
+                    continue;
                 }
-                vec![seg.clone()]
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+            }
+            push_kept(&mut pieces);
+        }
+        let mut out = String::new();
+        let mut map = hnl_engine_exec::coverage::OriginLineMap::new();
+        for (i, (text, line)) in pieces.iter().enumerate() {
+            if i > 0 {
+                out.push('\n');
+                map.push("\n", None);
+            }
+            out.push_str(text);
+            map.push(text, *line);
+        }
+        (out, map.into_vec())
     }
 
     /// Lower a host-module import declaration to `local := "spec.name"`

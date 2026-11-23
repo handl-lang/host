@@ -388,3 +388,65 @@ fn export_data_alongside_plain_exports() {
     assert_eq!(value, json!(42));
     std::fs::remove_dir_all(&root).ok();
 }
+
+/// Coverage provenance end-to-end: module prep re-serializes the source,
+/// but the registered `CoverageSource` carries a prepared-line → file-line
+/// map, so hits and declaration lines resolve to the `.hnl` file on disk
+/// — comments and blank lines included in the fixture must not shift them.
+#[test]
+fn coverage_reports_file_lines() {
+    let root = scratch_dir("coverage");
+    // File lines: 1 `--` comment, 2 blank, 3 `export base`, 4 blank,
+    // 5 `--` comment, 6 `export answer`.
+    let src = "-- module under test\n\nexport base := 40\n\n-- answer lives on line 6\nexport answer := base + 2\n";
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("mod.hnl"), src).unwrap();
+    let (loader, rt) = loader_and_runtime(root.clone());
+    // Install before `resolve_import` — resolution may eagerly load (and
+    // evaluate) the module, and coverage only registers while a session
+    // is active on this thread.
+    let session = hnl_engine_exec::coverage::CoverageSession::new();
+    session.install_local();
+    loader
+        .resolve_import("mod.hnl")
+        .map_err(|e| format!("resolve_import: {e}"))
+        .unwrap();
+    let value = rt
+        .run(&Source::new(r#"do { from "mod.hnl" import answer; answer }"#))
+        .map_err(|e| format!("eval: {e}"))
+        .expect("module must evaluate");
+    assert_eq!(value, json!(42));
+    let report = session.report();
+    hnl_engine_exec::coverage::CoverageSession::uninstall_local();
+
+    let s = report
+        .sources
+        .iter()
+        .find(|s| {
+            s.origin
+                .as_deref()
+                .is_some_and(|o| o.ends_with("mod.hnl"))
+        })
+        .unwrap_or_else(|| panic!("module coverage source registered; sources: {:?}", report.sources.iter().map(|s|(s.name.clone(),s.origin.clone(),s.file_line_hits.is_some())).collect::<Vec<_>>())) ;
+    assert!(s.line_map.is_some(), "{s:?}");
+    let hits = s.file_line_hits.as_ref().expect("file-line hits");
+    // Hits resolve to file lines 3 (`base := 40`) and 6 (`answer := …`)
+    // only — never the comment/blank/generated lines.
+    let hit_lines: Vec<u32> = hits.iter().map(|(l, _)| *l).collect();
+    assert!(hit_lines.contains(&3), "{hit_lines:?}");
+    assert!(hit_lines.contains(&6), "{hit_lines:?}");
+    assert!(
+        hit_lines.iter().all(|l| [3, 6].contains(l)),
+        "{hit_lines:?}"
+    );
+    for name in ["base", "answer"] {
+        let d = s
+            .decls
+            .iter()
+            .find(|d| d.name == name)
+            .unwrap_or_else(|| panic!("decl {name} in {s:?}"));
+        let want = if name == "base" { 3 } else { 6 };
+        assert_eq!(d.file_line, Some(want), "{name}: {d:?}");
+    }
+    std::fs::remove_dir_all(&root).ok();
+}

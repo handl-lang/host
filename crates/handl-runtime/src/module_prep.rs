@@ -16,6 +16,24 @@
 //! [`LangError`] — module prep never silently drops a declaration.
 
 use handl_language::LangError;
+use hnl_engine_exec::coverage::OriginLineMap;
+
+/// A prepared module plus the provenance map that resolves its line
+/// numbers back to the input source's lines.
+///
+/// `line_map[i]` is the 1-based line in the *input* source that prepared
+/// line `i + 1` derives from; `None` marks generated lines (the `do {`
+/// wrapper, the export projection record, erased `null` bindings, …).
+/// `origin_lines` is the input's total line count.
+#[derive(Debug)]
+pub struct PreparedModule {
+    /// The prepared source — the exact text the parser sees.
+    pub source: String,
+    /// Prepared-line → input-line provenance (see above).
+    pub line_map: Vec<Option<u32>>,
+    /// Total lines in the input source.
+    pub origin_lines: u32,
+}
 
 /// Prepare a module source for evaluation: strip comments and declarations,
 /// then rewrite top-level `export` declarations into a single object literal.
@@ -38,10 +56,48 @@ pub fn prepare_module(
     is_file_spec: &dyn Fn(&str) -> bool,
     is_bindable: &dyn Fn(&str) -> bool,
 ) -> Result<String, LangError> {
-    let src = strip_comment_lines(src);
+    prepare_module_mapped(src, is_file_spec, is_bindable).map(|p| p.source)
+}
+
+/// [`prepare_module`] plus a prepared-line → input-line provenance map
+/// (see [`PreparedModule`]). Coverage uses the map to report file lines
+/// instead of prepared-source coordinates.
+pub fn prepare_module_mapped(
+    src: &str,
+    is_file_spec: &dyn Fn(&str) -> bool,
+    is_bindable: &dyn Fn(&str) -> bool,
+) -> Result<PreparedModule, LangError> {
+    let origin_lines = src.lines().count() as u32;
+    let (src, map_comments) = strip_comment_lines_mapped(src);
     let op_names = collect_op_decl_names(&src);
-    let src = strip_declaration_lines(&src);
-    transform_export_to_object(&src, is_file_spec, &op_names, is_bindable)
+    let (src, map_decls) = strip_declaration_lines_mapped(&src);
+    let (prepared, mut map) =
+        transform_export_to_object(&src, is_file_spec, &op_names, is_bindable)?;
+    // Compose the stage maps: `map` entries are lines of the
+    // decl-stripped source — resolve each through `map_decls` (→
+    // comment-stripped line) then `map_comments` (→ original line).
+    for entry in map.iter_mut() {
+        *entry = entry.and_then(|l| {
+            let decl_line = *map_decls.get(l as usize - 1)?;
+            map_comments.get(decl_line as usize - 1).copied()
+        });
+    }
+    Ok(PreparedModule {
+        source: prepared,
+        line_map: map,
+        origin_lines,
+    })
+}
+
+/// The 1-based line number containing byte `offset` in `src` (a byte
+/// offset need not be a char boundary — only `\n` bytes are counted).
+pub fn line_number_at(src: &str, offset: usize) -> u32 {
+    (src
+        .bytes()
+        .take(offset.min(src.len()))
+        .filter(|&b| b == b'\n')
+        .count()
+        + 1) as u32
 }
 
 /// Collect the names a module source exports — the keys of the record
@@ -158,43 +214,92 @@ fn collect_op_decl_names(src: &str) -> Vec<String> {
         .collect()
 }
 
+/// Drop the lines `keep` rejects, returning the filtered text plus a
+/// map from each output line (1-based) to its input line (1-based).
+/// Line filtering is the only transformation these stages perform, so
+/// provenance is exact — this is what makes file-line coverage possible
+/// even though the *text* is re-serialized.
+fn strip_lines(src: &str, keep: impl Fn(&str) -> bool) -> (String, Vec<u32>) {
+    let mut out = String::new();
+    let mut map = Vec::new();
+    // Separator tracking must be a line count, not `out.is_empty()` —
+    // a kept *blank* line contributes no bytes, and keying on emptiness
+    // would collapse it (and desync the map from the text).
+    let mut first = true;
+    for (i, line) in src.lines().enumerate() {
+        if keep(line) {
+            if !first {
+                out.push('\n');
+            }
+            first = false;
+            out.push_str(line);
+            map.push(i as u32 + 1);
+        }
+    }
+    (out, map)
+}
+
 /// Strip `--` comment lines from a `.hnl` source.
 fn strip_comment_lines(src: &str) -> String {
-    src.lines()
-        .filter(|line| !line.trim_start().starts_with("--"))
-        .collect::<Vec<_>>()
-        .join("\n")
+    strip_comment_lines_mapped(src).0
+}
+
+/// [`strip_comment_lines`] with a output-line → input-line map.
+fn strip_comment_lines_mapped(src: &str) -> (String, Vec<u32>) {
+    strip_lines(src, |line| !line.trim_start().starts_with("--"))
 }
 
 /// Strip `cap`/`op`/`handl` declaration lines and their indented
 /// continuation lines from a `.hnl` source.
 fn strip_declaration_lines(src: &str) -> String {
-    src.lines()
-        .filter(|line| {
-            let trimmed = line.trim_start();
-            if line.starts_with(' ') || line.starts_with('\t') {
-                if trimmed.starts_with("guarantee")
-                    || trimmed.starts_with("requires")
-                    || trimmed.starts_with("termination")
+    strip_declaration_lines_mapped(src).0
+}
+
+/// [`strip_declaration_lines`] with a output-line → input-line map.
+fn strip_declaration_lines_mapped(src: &str) -> (String, Vec<u32>) {
+    strip_lines(src, |line| {
+        let trimmed = line.trim_start();
+        if line.starts_with(' ') || line.starts_with('\t') {
+            if trimmed.starts_with("guarantee")
+                || trimmed.starts_with("requires")
+                || trimmed.starts_with("termination")
+            {
+                return false;
+            }
+        }
+        for kw in ["cap", "op", "handl"] {
+            if let Some(rest) = trimmed.strip_prefix(kw) {
+                if rest.is_empty()
+                    || rest.starts_with(' ')
+                    || rest.starts_with('\t')
+                    || rest.starts_with('"')
                 {
                     return false;
                 }
             }
-            for kw in ["cap", "op", "handl"] {
-                if let Some(rest) = trimmed.strip_prefix(kw) {
-                    if rest.is_empty()
-                        || rest.starts_with(' ')
-                        || rest.starts_with('\t')
-                        || rest.starts_with('"')
-                    {
-                        return false;
-                    }
-                }
-            }
-            true
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+        }
+        true
+    })
+}
+
+/// A chunk of emitted text plus the intermediate-source line (1-based,
+/// in the post-strip source [`transform_export_to_object`] sees) its
+/// first line derives from. `None` = generated text with no source
+/// origin (the `null` erasure of type-only exports, `op`-decl string
+/// bindings whose declaration lines were stripped).
+#[derive(Clone)]
+struct Piece {
+    text: String,
+    line: Option<u32>,
+}
+
+impl Piece {
+    fn new(text: impl Into<String>, line: Option<u32>) -> Self {
+        Self {
+            text: text.into(),
+            line,
+        }
+    }
 }
 
 /// One top-level item of the prepared `do { … }` body, in source order.
@@ -205,10 +310,14 @@ fn strip_declaration_lines(src: &str) -> String {
 /// no `name := expr` surface form to rewrite into.
 enum PrepItem {
     /// `name := expr` — emitted as a do-block assignment; `exported`
-    /// names join the trailing record projection.
+    /// names join the trailing record projection. `stmt_line` is the
+    /// intermediate-source line the binding *name* sits on (the
+    /// `name :=` prefix shares the first expr line's prepared line, so
+    /// it needs its own provenance when the RHS wrapped).
     Bind {
         name: String,
-        expr_lines: Vec<String>,
+        stmt_line: Option<u32>,
+        pieces: Vec<Piece>,
         exported: bool,
     },
     /// A verbatim declaration statement (`export data F :: …` — the
@@ -217,7 +326,7 @@ enum PrepItem {
     /// and each constructor name; `F.rec` is dotted and cannot be a
     /// record field).
     Decl {
-        lines: Vec<String>,
+        pieces: Vec<Piece>,
         exports: Vec<String>,
     },
 }
@@ -225,12 +334,9 @@ enum PrepItem {
 impl PrepItem {
     /// The statement text lines accumulated so far — the continuation
     /// sink for wrapped expressions/decls.
-    fn lines_mut(&mut self) -> &mut Vec<String> {
+    fn pieces_mut(&mut self) -> &mut Vec<Piece> {
         match self {
-            PrepItem::Bind { expr_lines, .. }
-            | PrepItem::Decl {
-                lines: expr_lines, ..
-            } => expr_lines,
+            PrepItem::Bind { pieces, .. } | PrepItem::Decl { pieces, .. } => pieces,
         }
     }
 }
@@ -251,12 +357,83 @@ impl PrepItem {
 /// whole regardless of how newlines fall inside `~>`-chained `do {…}` /
 /// `if`/`else` bodies. A separator-less `export` declaration is a
 /// [`LangError`] — declarations are never dropped silently.
+/// Prepared output text plus its provenance map — every `push` records
+/// the origin line of the text's first line (see [`OriginLineMap`]).
+struct PreparedOut {
+    text: String,
+    map: OriginLineMap,
+}
+
+impl PreparedOut {
+    fn new() -> Self {
+        Self {
+            text: String::new(),
+            map: OriginLineMap::new(),
+        }
+    }
+
+    /// Append `text`; `first` is the origin line of `text`'s first line
+    /// (`None` for generated text).
+    fn push(&mut self, text: &str, first: Option<u32>) {
+        self.text.push_str(text);
+        self.map.push(text, first);
+    }
+
+    /// Append `pieces` joined by `\n` — verbatim declaration bodies.
+    fn push_pieces(&mut self, pieces: &[Piece]) {
+        for (i, p) in pieces.iter().enumerate() {
+            if i > 0 {
+                self.push("\n", None);
+            }
+            self.push(&p.text, p.line);
+        }
+    }
+
+    /// Append `pieces` joined by `\n` and `.trim()`ed — binding RHS
+    /// text. Trimming the joined string only touches the first piece's
+    /// leading edge and the last piece's trailing edge.
+    fn push_expr_pieces(&mut self, pieces: &[Piece]) {
+        let n = pieces.len();
+        for (i, p) in pieces.iter().enumerate() {
+            if i > 0 {
+                self.push("\n", None);
+            }
+            let text = if n == 1 {
+                p.text.trim()
+            } else if i == 0 {
+                p.text.trim_start()
+            } else if i == n - 1 {
+                p.text.trim_end()
+            } else {
+                p.text.as_str()
+            };
+            self.push(text, p.line);
+        }
+    }
+}
+
 fn transform_export_to_object(
     src: &str,
     is_file_spec: &dyn Fn(&str) -> bool,
     op_names: &[String],
     is_bindable: &dyn Fn(&str) -> bool,
-) -> Result<String, LangError> {
+) -> Result<(String, Vec<Option<u32>>), LangError> {
+    // Line index for provenance: piece origins are computed as
+    // `line_of(byte_offset)` where offsets come from subslice pointer
+    // arithmetic against `src` (every `rest`/`trimmed`/`rhs` below is a
+    // subslice of `src` via `seg`).
+    let mut line_starts = vec![0usize];
+    for (i, &b) in src.as_bytes().iter().enumerate() {
+        if b == b'\n' {
+            line_starts.push(i + 1);
+        }
+    }
+    let line_of = |off: usize| -> u32 {
+        line_starts.partition_point(|&s| s <= off).max(1) as u32
+    };
+    let src_ptr = src.as_ptr() as usize;
+    let offset_of = |sub: &str| sub.as_ptr() as usize - src_ptr;
+
     // Each top-level item is collected in source order. All bindings
     // become `do`-block assignments (`name := expr;`) emitted *before*
     // the object so closures can reference siblings — exported or not.
@@ -283,11 +460,17 @@ fn transform_export_to_object(
         };
     }
 
-    for seg in top_level_segments(src) {
+    for &(seg_start, seg_end) in &top_level_segment_spans(src) {
+        let seg = &src[seg_start..seg_end];
+        let seg_line = line_of(seg_start);
         let trimmed = seg.trim();
         if trimmed.is_empty() {
             continue;
         }
+        // A segment may open with a whitespace-only first line — the
+        // trimmed statement's first line is `trimmed`'s own offset, not
+        // necessarily `seg_line`.
+        let trimmed_line = line_of(offset_of(trimmed));
         if is_import_line(trimmed) {
             finalize!();
             // Only file-resolving specs can re-export; module-name specs
@@ -298,7 +481,8 @@ fn transform_export_to_object(
                     for (name, alias) in names {
                         items.push(PrepItem::Bind {
                             name,
-                            expr_lines: vec![alias],
+                            stmt_line: Some(trimmed_line),
+                            pieces: vec![Piece::new(alias, Some(trimmed_line))],
                             exported: true,
                         });
                     }
@@ -330,7 +514,8 @@ fn transform_export_to_object(
                 for (local, expr, exported) in host_import_bindings(trimmed) {
                     items.push(PrepItem::Bind {
                         name: local,
-                        expr_lines: vec![expr],
+                        stmt_line: Some(trimmed_line),
+                        pieces: vec![Piece::new(expr, Some(trimmed_line))],
                         exported,
                     });
                 }
@@ -352,7 +537,7 @@ fn transform_export_to_object(
                     )));
                 };
                 current = Some(PrepItem::Decl {
-                    lines: vec![rest.trim().to_string()],
+                    pieces: vec![Piece::new(rest.trim(), Some(line_of(offset_of(rest))))],
                     exports,
                 });
                 tail_is_binding = true;
@@ -376,17 +561,26 @@ fn transform_export_to_object(
                     trimmed
                 )));
             }
+            // The binding name's line: first non-whitespace byte of the
+            // pre-separator text (after the `export` keyword).
+            let name_src = &rest[..sep_pos];
+            let name_off =
+                offset_of(rest) + (name_src.len() - name_src.trim_start().len());
+            let stmt_line = Some(line_of(name_off));
             let rhs = rest[sep_pos + sep_len..].trim();
             let is_type_only = (sep_len == 1 && rest.as_bytes().get(sep_pos) == Some(&b':'))
                 || is_signature_rhs(rhs);
-            let expr_start = if is_type_only { "null" } else { rhs };
-            let mut expr_lines = Vec::new();
-            if !expr_start.is_empty() {
-                expr_lines.push(expr_start.to_string());
+            let mut pieces: Vec<Piece> = Vec::new();
+            if is_type_only {
+                // `null` is generated — attribute it to the decl line.
+                pieces.push(Piece::new("null", stmt_line));
+            } else if !rhs.is_empty() {
+                pieces.push(Piece::new(rhs, Some(line_of(offset_of(rhs)))));
             }
             current = Some(PrepItem::Bind {
                 name,
-                expr_lines,
+                stmt_line,
+                pieces,
                 exported: true,
             });
             tail_is_binding = true;
@@ -399,19 +593,20 @@ fn transform_export_to_object(
             let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
             if is_valid_ident(&name) {
                 finalize!();
+                // The name starts the (already trimmed) statement.
+                let stmt_line = Some(trimmed_line);
                 let is_type_only = sep_len == 1 && trimmed.as_bytes().get(sep_pos) == Some(&b':');
-                let expr_start = if is_type_only {
-                    "null"
-                } else {
-                    trimmed[sep_pos + sep_len..].trim()
-                };
-                let mut expr_lines = Vec::new();
-                if !expr_start.is_empty() {
-                    expr_lines.push(expr_start.to_string());
+                let rhs = trimmed[sep_pos + sep_len..].trim();
+                let mut pieces: Vec<Piece> = Vec::new();
+                if is_type_only {
+                    pieces.push(Piece::new("null", stmt_line));
+                } else if !rhs.is_empty() {
+                    pieces.push(Piece::new(rhs, Some(line_of(offset_of(rhs)))));
                 }
                 current = Some(PrepItem::Bind {
                     name,
-                    expr_lines,
+                    stmt_line,
+                    pieces,
                     exported: false,
                 });
                 tail_is_binding = true;
@@ -427,7 +622,7 @@ fn transform_export_to_object(
         if current.is_none() {
             tail_is_binding = false;
         } else if let Some(item) = &mut current {
-            item.lines_mut().push(seg.clone());
+            item.pieces_mut().push(Piece::new(seg, Some(seg_line)));
         }
     }
     finalize!();
@@ -436,7 +631,9 @@ fn transform_export_to_object(
     // Emit each as an exported binding of the qualified-name *string*: a
     // string callee dispatches through `call_host` → the module chain →
     // the op's native impl, so an interface-only module's exports stay
-    // callable when it is imported as a file.
+    // callable when it is imported as a file. The `op` lines were
+    // stripped before this stage, so the bindings are fully generated —
+    // no provenance.
     for qualified in op_names {
         let local = qualified.rsplit('.').next().unwrap_or(qualified);
         if local.is_empty()
@@ -450,7 +647,8 @@ fn transform_export_to_object(
         }
         items.push(PrepItem::Bind {
             name: local.to_string(),
-            expr_lines: vec![format!("\"{qualified}\"")],
+            stmt_line: None,
+            pieces: vec![Piece::new(format!("\"{qualified}\""), None)],
             exported: true,
         });
     }
@@ -460,7 +658,7 @@ fn transform_export_to_object(
         PrepItem::Decl { exports, .. } => !exports.is_empty(),
     });
 
-    let imports = collect_executable_import_lines(src, is_file_spec);
+    let imports = collect_executable_import_pieces(src, is_file_spec, &line_starts);
 
     // No `export` declarations: the module record is *every* top-level
     // bound name. The Pratt parser reads one statement per `parse` call,
@@ -471,57 +669,69 @@ fn transform_export_to_object(
     // `name := "spec.name"` string bindings), then the record projecting
     // every bound name.
     if !has_exports {
-        let body = drop_all_import_lines(src, is_file_spec);
+        let body = drop_all_import_pieces(src, is_file_spec, &line_starts);
+        let mut out = PreparedOut::new();
+        out.push("do {\n", None);
+        for imp in &imports {
+            out.push(&imp.text, imp.line);
+            out.push("\n", None);
+        }
+        out.push_pieces(&body);
         // The projection is appended only when the module's last top-level
         // statement is a binding; a trailing `do { … }`/record literal is
         // already the module's interface value.
-        let record = if tail_is_binding {
+        if tail_is_binding {
             let mut seen = std::collections::HashSet::new();
-            let mut fields: Vec<String> = Vec::new();
-            let mut push_field = |name: &str, expr_lines: &[String]| {
+            // Emit `{ ` lazily on the first field so an empty projection
+            // contributes nothing (mirrors `record.is_empty()`).
+            let mut record_open = false;
+            let mut push_field = |out: &mut PreparedOut,
+                                  name: &str,
+                                  pieces: &[Piece],
+                                  line: Option<u32>| {
                 if !seen.insert(name.to_string()) {
                     return;
                 }
-                if is_bindable(name) {
-                    fields.push(format!("{name}: {name}"));
+                if !record_open {
+                    out.push("\n{ ", None);
+                    record_open = true;
                 } else {
-                    fields.push(format!("\"{name}\": {}", expr_lines.join("\n").trim()));
+                    out.push(", ", None);
+                }
+                if is_bindable(name) {
+                    out.push(&format!("{name}: {name}"), line);
+                } else {
+                    out.push(&format!("\"{name}\": "), line);
+                    out.push_expr_pieces(pieces);
                 }
             };
             for item in &items {
                 match item {
                     PrepItem::Bind {
-                        name, expr_lines, ..
-                    } => push_field(name, expr_lines),
-                    PrepItem::Decl { exports, .. } => {
+                        name,
+                        stmt_line,
+                        pieces,
+                        ..
+                    } => push_field(&mut out, name, pieces, *stmt_line),
+                    PrepItem::Decl { pieces, exports } => {
+                        let decl_line = pieces.first().and_then(|p| p.line);
                         for name in exports {
-                            push_field(name, &[]);
+                            push_field(&mut out, name, &[], decl_line);
                         }
                     }
                 }
             }
             for name in &import_bound {
                 if is_bindable(name) {
-                    push_field(name, &[]);
+                    push_field(&mut out, name, &[], None);
                 }
             }
-            fields.join(", ")
-        } else {
-            String::new()
-        };
-        let mut out = String::from("do {\n");
-        for imp in &imports {
-            out.push_str(imp);
-            out.push('\n');
+            if record_open {
+                out.push(" }", None);
+            }
         }
-        out.push_str(&body);
-        if !record.is_empty() {
-            out.push_str("\n{ ");
-            out.push_str(&record);
-            out.push_str(" }");
-        }
-        out.push_str("\n}");
-        return Ok(out);
+        out.push("\n}", None);
+        return Ok((out.text, out.map.into_vec()));
     }
 
     // Build the body: every binding as a do-block assignment in source
@@ -530,75 +740,79 @@ fn transform_export_to_object(
     // `export first := ...` / `from "./first" export first`) can't be a
     // `:=` target, so it gets no binding; its record field carries the
     // expression inline under a quoted key (`{ "first": __first }`).
-    let mut body = String::new();
+    let mut out = PreparedOut::new();
+    out.push("do {\n", None);
+    if !imports.is_empty() {
+        for (i, imp) in imports.iter().enumerate() {
+            if i > 0 {
+                out.push("\n", None);
+            }
+            out.push(&imp.text, imp.line);
+        }
+        out.push("\n", None);
+    }
     for item in &items {
         match item {
             PrepItem::Bind {
-                name, expr_lines, ..
+                name,
+                stmt_line,
+                pieces,
+                ..
             } => {
                 if !is_bindable(name) {
                     continue;
                 }
-                let expr = expr_lines.join("\n");
-                let expr = expr.trim();
-                body.push_str(name);
-                body.push_str(" := ");
-                body.push_str(expr);
-                body.push_str(";\n");
+                out.push(name, *stmt_line);
+                out.push(" := ", None);
+                out.push_expr_pieces(pieces);
+                out.push(";\n", None);
             }
             // `export data …` — the verbatim declaration statement; the
             // desugar pass expands it into the family/ctor/recursor
             // assigns inside this same `do` block.
-            PrepItem::Decl { lines, .. } => {
-                body.push_str(&lines.join("\n"));
-                body.push_str(";\n");
+            PrepItem::Decl { pieces, .. } => {
+                out.push_pieces(pieces);
+                out.push(";\n", None);
             }
         }
     }
-    body.push_str("{ ");
+    out.push("{ ", None);
     let mut first = true;
     for item in &items {
-        let (names, expr_lines, exported): (Vec<&str>, &[String], bool) = match item {
-            PrepItem::Bind {
-                name,
-                expr_lines,
-                exported,
-            } => (vec![name.as_str()], expr_lines, *exported),
-            PrepItem::Decl { exports, .. } => {
-                (exports.iter().map(String::as_str).collect(), &[], true)
-            }
-        };
+        let (names, pieces, stmt_line, exported): (Vec<&str>, &[Piece], Option<u32>, bool) =
+            match item {
+                PrepItem::Bind {
+                    name,
+                    stmt_line,
+                    pieces,
+                    exported,
+                } => (vec![name.as_str()], pieces.as_slice(), *stmt_line, *exported),
+                PrepItem::Decl { pieces, exports } => (
+                    exports.iter().map(String::as_str).collect(),
+                    &[],
+                    pieces.first().and_then(|p| p.line),
+                    true,
+                ),
+            };
         if !exported {
             continue;
         }
         for name in names {
             if !first {
-                body.push_str(", ");
+                out.push(", ", None);
             }
             first = false;
             if is_bindable(name) {
-                body.push_str(name);
-                body.push_str(": ");
-                body.push_str(name);
+                out.push(&format!("{name}: {name}"), stmt_line);
             } else {
-                body.push('"');
-                body.push_str(name);
-                body.push_str("\": ");
-                body.push_str(expr_lines.join("\n").trim());
+                out.push(&format!("\"{name}\": "), stmt_line);
+                out.push_expr_pieces(pieces);
             }
         }
     }
-    body.push_str(" }");
-
-    if imports.is_empty() {
-        // `bindings; { exports }` is a multi-statement body: wrap it
-        // in `do { … }` (the same trick `hnl run` uses, and the same
-        // shape `plugin-lib-handl`'s prep emits) so every binding
-        // evaluates in one scope before the export record.
-        Ok(format!("do {{\n{}\n}}", body))
-    } else {
-        Ok(format!("do {{\n{}\n{}\n}}", imports.join("\n"), body))
-    }
+    out.push(" }", None);
+    out.push("\n}", None);
+    Ok((out.text, out.map.into_vec()))
 }
 
 /// The text after the `export` keyword when `trimmed` begins an export
@@ -826,6 +1040,16 @@ fn data_decl_bound_names(decl: &str) -> Option<Vec<String>> {
 /// String literals, `--` line comments, and `/-- … --/` block comments
 /// are tracked so keywords and brackets inside them are ignored.
 pub(crate) fn top_level_segments(src: &str) -> Vec<String> {
+    top_level_segment_spans(src)
+        .iter()
+        .map(|&(s, e)| src[s..e].to_string())
+        .collect()
+}
+
+/// [`top_level_segments`] as `(start, end)` byte spans into `src` —
+/// provenance-aware callers slice `src` directly so piece origins stay
+/// exact.
+pub(crate) fn top_level_segment_spans(src: &str) -> Vec<(usize, usize)> {
     /// What the statement under construction opened with — decides which
     /// keywords are part of its own tail rather than a new statement.
     #[derive(Clone, Copy, PartialEq)]
@@ -839,7 +1063,7 @@ pub(crate) fn top_level_segments(src: &str) -> Vec<String> {
     }
 
     let bytes = src.as_bytes();
-    let mut segs: Vec<String> = Vec::new();
+    let mut segs: Vec<(usize, usize)> = Vec::new();
     let mut start = 0usize;
     let mut depth: i32 = 0;
     let mut in_str: Option<u8> = None;
@@ -851,13 +1075,13 @@ pub(crate) fn top_level_segments(src: &str) -> Vec<String> {
     // statement has consumed `from`.
     let mut tail_seen = false;
 
-    // Emit the accumulated statement `[start, $end)` when non-blank and
-    // open the next segment at `$next` with lead `$lead`.
+    // Record the accumulated statement `[start, $end)` when non-blank
+    // and open the next segment at `$next` with lead `$lead`.
     macro_rules! cut {
         ($end:expr, $next:expr, $lead:expr) => {{
             let text = &src[start..$end];
             if !text.trim().is_empty() {
-                segs.push(text.to_string());
+                segs.push((start, $end));
             }
             start = $next;
             lead = $lead;
@@ -1000,7 +1224,7 @@ pub(crate) fn top_level_segments(src: &str) -> Vec<String> {
     }
     let text = &src[start..];
     if !text.trim().is_empty() {
-        segs.push(text.to_string());
+        segs.push((start, src.len()));
     }
     segs
 }
@@ -1175,21 +1399,37 @@ fn extract_quoted_path(line: &str) -> Option<(String, &str)> {
 /// Top-level import statements whose specifier resolves to a file — the
 /// executable import op (ADR-0096). Decorative declarations
 /// (`import <name>`, module-name specs like `from "str" import …`) are
-/// excluded: the host module chain supplies those bindings.
-fn collect_executable_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> Vec<String> {
-    top_level_segments(src)
+/// excluded: the host module chain supplies those bindings. Returned as
+/// provenance-tracked [`Piece`]s (each import's segment line).
+fn collect_executable_import_pieces(
+    src: &str,
+    is_file_spec: &dyn Fn(&str) -> bool,
+    line_starts: &[usize],
+) -> Vec<Piece> {
+    let line_of = |off: usize| -> u32 {
+        line_starts.partition_point(|&s| s <= off).max(1) as u32
+    };
+    top_level_segment_spans(src)
         .iter()
-        .map(|seg| seg.trim().to_string())
-        .filter(|seg| is_import_line(seg))
-        .filter(|seg| import_line_spec(seg).map_or(false, |s| is_file_spec(&s)))
-        .map(|seg| {
-            let line = from_export_to_import(&seg)
+        .filter_map(|&(s, e)| {
+            let raw = &src[s..e];
+            let seg = raw.trim();
+            if !is_import_line(seg) {
+                return None;
+            }
+            if !import_line_spec(seg).map_or(false, |s| is_file_spec(&s)) {
+                return None;
+            }
+            // The trimmed statement's first line — a segment can open
+            // with a whitespace-only line.
+            let line = Some(line_of(s + (raw.len() - raw.trim_start().len())));
+            let text = from_export_to_import(seg)
                 .map(|(import_line, _)| import_line)
-                .unwrap_or(seg);
+                .unwrap_or_else(|| seg.to_string());
             // Inside a `do {}` block, `import <names>` trailing-tokens
             // parsing does not stop at the newline — terminate each
             // import with `;` so the following statement can't merge in.
-            format!("{};", line)
+            Some(Piece::new(format!("{text};"), line))
         })
         .collect()
 }
@@ -1310,30 +1550,42 @@ fn trailing_record_keys(text: &str) -> Vec<String> {
     }
 }
 
-/// Drop every top-level import statement: file-resolving imports are
-/// hoisted into `imports` separately (see
-/// `collect_executable_import_lines`); host-module named imports lower to
-/// `name := "spec.name"` string bindings so bare names dispatch through
-/// the module chain.
-fn drop_all_import_lines(src: &str, is_file_spec: &dyn Fn(&str) -> bool) -> String {
-    top_level_segments(src)
-        .iter()
-        .flat_map(|seg| {
-            let trimmed = seg.trim();
-            if !is_import_line(trimmed) {
-                return vec![seg.clone()];
+/// Drop every top-level import statement, as provenance-tracked
+/// [`Piece`]s: file-resolving imports are hoisted into `imports`
+/// separately (see `collect_executable_import_pieces`); host-module
+/// named imports lower to `name := "spec.name"` string bindings so bare
+/// names dispatch through the module chain. Non-import segments are
+/// kept *verbatim* (unlike the trimmed import text) so their interior
+/// lines keep exact provenance.
+fn drop_all_import_pieces(
+    src: &str,
+    is_file_spec: &dyn Fn(&str) -> bool,
+    line_starts: &[usize],
+) -> Vec<Piece> {
+    let line_of = |off: usize| -> u32 {
+        line_starts.partition_point(|&s| s <= off).max(1) as u32
+    };
+    let mut pieces = Vec::new();
+    for &(s, e) in &top_level_segment_spans(src) {
+        let seg = &src[s..e];
+        let trimmed = seg.trim();
+        if !is_import_line(trimmed) {
+            pieces.push(Piece::new(seg, Some(line_of(s))));
+            continue;
+        }
+        if import_line_spec(trimmed).map_or(false, |s| is_file_spec(&s)) {
+            continue;
+        }
+        // Generated `local := "spec.name"` bindings — attribute them to
+        // the import declaration's first (trimmed) line.
+        let decl_line = line_of(s + (seg.len() - seg.trim_start().len()));
+        for (local, expr, _) in host_import_bindings(trimmed) {
+            if is_valid_ident(&local) {
+                pieces.push(Piece::new(format!("{local} := {expr}"), Some(decl_line)));
             }
-            if import_line_spec(trimmed).map_or(false, |s| is_file_spec(&s)) {
-                return Vec::new();
-            }
-            host_import_bindings(trimmed)
-                .into_iter()
-                .filter(|(local, _, _)| is_valid_ident(local))
-                .map(|(local, expr, _)| format!("{local} := {expr}"))
-                .collect()
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
+        }
+    }
+    pieces
 }
 
 /// Local names bound by a file-resolving import statement:
@@ -1626,3 +1878,83 @@ fn strip_export_name(s: &str) -> String {
     }
     s.trim().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// File-line provenance must survive comment stripping, declaration
+    /// stripping, and the export-to-object rewrite: a fixture with `--`
+    /// comments and blank lines (which naive offset math cannot map)
+    /// resolves each prepared line to its true file line.
+    #[test]
+    fn mapped_lines_resolve_through_comments_and_blanks() {
+        // File lines: 1 `-- doc`, 2 blank, 3 `export add`, 4 blank,
+        // 5 `-- note`, 6 `helper`, 7 `export answer`.
+        let src = "-- doc\n\
+                   \n\
+                   export add := (a, b) ~> a + b\n\
+                   \n\
+                   -- note\n\
+                   helper := (x) ~> x * 2\n\
+                   export answer := add(1, 2)\n";
+        let p = prepare_module_mapped(src, &|_| false, &|_| true).expect("prep");
+        assert_eq!(p.origin_lines, 7);
+        let line_of = |needle: &str| {
+            p.source
+                .lines()
+                .position(|l| l.contains(needle))
+                .map(|i| i + 1)
+                .unwrap_or_else(|| panic!("{needle:?} not in prepared source:\n{}", p.source))
+        };
+        // The `name :=` prefix shares its line with the RHS — the map
+        // records the binding's file line.
+        assert_eq!(p.line_map[line_of("add :=") - 1], Some(3));
+        assert_eq!(p.line_map[line_of("helper :=") - 1], Some(6));
+        assert_eq!(p.line_map[line_of("answer :=") - 1], Some(7));
+        // Generated wrapper/projection lines carry no file origin.
+        assert_eq!(p.line_map[0], None, "prepared source:\n{}", p.source);
+        assert!(p.line_map.iter().any(|e| e.is_none()));
+        // No entry may point at a comment or blank file line — those
+        // lines were stripped and own no prepared text.
+        for (i, e) in p.line_map.iter().enumerate() {
+            if let Some(l) = e {
+                assert!(
+                    ![1u32, 2, 4, 5].contains(l),
+                    "prepared line {} maps to stripped file line {}",
+                    i + 1,
+                    l
+                );
+            }
+        }
+        // The unmapped variant returns identical text.
+        assert_eq!(
+            prepare_module(src, &|_| false, &|_| true).expect("prep"),
+            p.source
+        );
+    }
+
+    /// A multi-line export RHS keeps per-line provenance: each prepared
+    /// line of the wrapped expression maps to the file line it came from.
+    #[test]
+    fn mapped_lines_track_multiline_rhs() {
+        // File lines: 1 `export f :=`, 2 `  (x) ~>`, 3 `    do {`,
+        // 4 `      x + 1`, 5 `    }`, 6 `export g := 2`.
+        let src = "export f :=\n  (x) ~>\n    do {\n      x + 1\n    }\nexport g := 2\n";
+        let p = prepare_module_mapped(src, &|_| false, &|_| true).expect("prep");
+        assert_eq!(p.origin_lines, 6);
+        let lines: Vec<&str> = p.source.lines().collect();
+        // Find the prepared line holding `x + 1` — it must map to file 4.
+        let idx = lines
+            .iter()
+            .position(|l| l.contains("x + 1"))
+            .expect("rhs body in prepared source");
+        assert_eq!(p.line_map[idx], Some(4), "prepared:\n{}", p.source);
+        let g_idx = lines
+            .iter()
+            .position(|l| l.contains("g :="))
+            .expect("g binding");
+        assert_eq!(p.line_map[g_idx], Some(6));
+    }
+}
+

@@ -2735,6 +2735,12 @@ impl Function for HandlFunction {
                             .collect(),
                         origin: None,
                         coordinate_space: "prepared".to_string(),
+                        // `self.source` is `analyze_source` transform
+                        // output (possibly produced by the handl
+                        // `loader.analyze` itself) and the origin file
+                        // text is not retained — no provenance map.
+                        line_map: None,
+                        origin_lines: None,
                     },
                 );
                 let cov_guard =
@@ -3491,6 +3497,11 @@ impl HandlModule {
                     .collect(),
                 origin: None,
                 coordinate_space: "prepared".to_string(),
+                // `self.source` is `analyze_source` transform output and
+                // the origin file text is not retained — no provenance
+                // map (see the `HandlFunction` registration above).
+                line_map: None,
+                origin_lines: None,
             },
         );
         let cov_guard =
