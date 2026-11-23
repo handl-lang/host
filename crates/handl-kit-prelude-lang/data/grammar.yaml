@@ -315,6 +315,19 @@
   child_shape:
     node_kind: stmt.export
     arity: 1
+    # `export <name> from "<path>"` — the re-export tail is captured into
+    # `payload.path`, mirroring `stmt.import`'s `from`-tail below. `from`
+    # is optional and `same_line` so a bare `export <name>` still parses
+    # and a following `from "…" import …` statement is never absorbed.
+    trailing_tokens:
+      - kinds:
+          - token.keyword.from
+        optional: true
+        same_line: true
+      - kinds:
+          - token.string
+        field: path
+        requires_prev_match: true
 - id: grammar.stmt-import.prefix
   token: token.keyword.import
   position: Prefix
@@ -324,6 +337,24 @@
   child_shape:
     node_kind: stmt.import
     arity: 1
+    # `import <name> from "<path>"` — the module-declaration order kept
+    # for compatibility (ADR-0096 names `from "<spec>" import <name>`
+    # canonical, but `import <name> from "<spec>"` is the dominant
+    # surface). The `from "<path>"` tail is captured into
+    # `payload.path`, the same field the `from`-form's
+    # `payload_extract` produces. `from` is optional and `same_line`:
+    # bare `import <name>` still parses, and a newline before `from`
+    # means it opens a `from "…" import …` statement instead of being
+    # absorbed into this import's tail.
+    trailing_tokens:
+      - kinds:
+          - token.keyword.from
+        optional: true
+        same_line: true
+      - kinds:
+          - token.string
+        field: path
+        requires_prev_match: true
 # `from "path" import <names> [as <alias>]` — the path is a child
 # expression and the `import ...` tail is a sequence of trailing tokens
 # (`AstShapeRef::trailing_tokens`, ADR-0053): `import` is required, then
