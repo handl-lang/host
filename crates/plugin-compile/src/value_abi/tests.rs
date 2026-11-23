@@ -20,7 +20,7 @@ fn roundtrips_null() {
 fn roundtrips_numbers() {
     roundtrip(ValueAbi::Number(Number::from(0)));
     roundtrip(ValueAbi::Number(Number::from(-42i64)));
-    roundtrip(ValueAbi::Number(Number::from_f64(3.14).unwrap()));
+    roundtrip(ValueAbi::Number(Number::from_f64(2.5).unwrap()));
 }
 
 #[test]

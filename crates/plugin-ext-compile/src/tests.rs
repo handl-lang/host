@@ -1,84 +1,12 @@
-//! Dogfood tests for the compile dispatcher (ADR-0114 Phase 14).
+//! Tests for the `hnl compile` request seam (ADR-0114 Phase 14).
+//!
+//! PL-004 T-101: the dispatcher dogfood tests went away with
+//! `CompileDispatcher` — the kernel `Emitter` path is covered by
+//! `ext-compile` and the `tool-codegen` suite.
 
 use handl_language::Language;
-#[cfg(any(feature = "js", feature = "llvm"))]
-use handl_language::{Ast, AstNode};
-#[cfg(any(feature = "js", feature = "llvm"))]
-use handl_plugin_compile::{Compiler, CompilerInput};
-#[cfg(feature = "js")]
-use handl_plugin_compile_js::{JsCompiler, JsConfig};
-#[cfg(feature = "llvm")]
-use handl_plugin_compile_llvm::{LlvmCompiler, LlvmConfig, X86_64};
-#[cfg(any(feature = "js", feature = "llvm"))]
-use hnl_engine::Term;
-#[cfg(any(feature = "js", feature = "llvm"))]
-use serde_json::{Number, Value};
 
-#[cfg(any(feature = "js", feature = "llvm"))]
-use crate::CompileDispatcher;
 use crate::CompileFileRequest;
-
-#[cfg(any(feature = "js", feature = "llvm"))]
-fn js_input(term: Term) -> CompilerInput {
-    let mut ast = Ast::new();
-    let root = ast.push(AstNode::new("module"));
-    CompilerInput::new(
-        "main = 1".to_string(),
-        ast,
-        root,
-        Language::new(),
-        term,
-        hnl_engine_typecheck::TypecheckReport::default(),
-    )
-}
-
-#[cfg(feature = "js")]
-#[test]
-fn js_compiler_emits_expected_output() {
-    let input = js_input(Term::constant(Value::Number(Number::from(42))));
-    let config = JsConfig::esm_deno();
-    let output = JsCompiler.compile(&input, &config).unwrap();
-    let js = String::from_utf8_lossy(output.primary_output().unwrap()).to_string();
-    assert!(js.contains("export default 42;"), "got: {js}");
-}
-
-#[cfg(feature = "js")]
-#[test]
-fn compile_dispatcher_js_target_contains_export() {
-    let input = js_input(Term::constant(Value::Number(Number::from(7))));
-    let config = JsConfig::esm_deno();
-    let dispatcher = CompileDispatcher::new();
-    let output = dispatcher.compile("js", input, &config).unwrap();
-    let js = String::from_utf8_lossy(output.primary_output().unwrap()).to_string();
-    assert!(js.contains("export"), "expected `export` in: {js}");
-}
-
-#[cfg(feature = "llvm")]
-#[test]
-fn compile_dispatcher_llvm_produces_object_artifact() {
-    let input = js_input(Term::constant(Value::Null));
-    let config = LlvmConfig::new(Box::new(X86_64));
-    let dispatcher = CompileDispatcher::new();
-    let output = dispatcher.compile("llvm", input, &config).unwrap();
-    assert!(
-        output.artifacts().iter().any(|a| a.name.ends_with(".o")),
-        "expected an artifact named `*.o`, got {:?}",
-        output.artifacts()
-    );
-}
-
-#[cfg(feature = "llvm")]
-#[test]
-fn llvm_compiler_alone_produces_object_artifact() {
-    let input = js_input(Term::constant(Value::Null));
-    let config = LlvmConfig::new(Box::new(X86_64));
-    let output = LlvmCompiler::new().compile(&input, &config).unwrap();
-    assert!(
-        output.artifacts().iter().any(|a| a.name.ends_with(".o")),
-        "expected an artifact named `*.o`, got {:?}",
-        output.artifacts()
-    );
-}
 
 #[test]
 fn compile_file_request_builds_input_with_root_ref() {
@@ -96,7 +24,7 @@ fn compile_file_request_builds_input_with_root_ref() {
     let ast = CompileFileRequest::build_ast(src);
     let lang = Language::new();
     let term = CompileFileRequest::root_term_for(&lang);
-    let report = hnl_engine_typecheck::TypecheckReport::default();
+    let report = hnl_tool_typecheck::TypecheckReport::default();
     let input = req.build_input(src, &ast, &lang, &term, &report);
     assert_eq!(input.root.index(), 0);
     assert_eq!(input.ast.len(), 1);

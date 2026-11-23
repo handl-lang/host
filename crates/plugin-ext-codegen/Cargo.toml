@@ -2,7 +2,7 @@
 name = "handl-plugin-ext-codegen"
 version.workspace = true
 edition.workspace = true
-description = "`hnl codegen` CLI extension (PL-004 T-076) — desired-state codegen over the hnl-engine-codegen kernel."
+description = "`hnl codegen` CLI extension (PL-004 T-076) — desired-state codegen over the hnl-tool-codegen kernel."
 license.workspace = true
 repository.workspace = true
 
@@ -16,30 +16,41 @@ c = ["dep:handl-plugin-codegen-backend-c", "dep:handl-plugin-codegen-emitter-fil
 webidl = ["dep:handl-plugin-codegen-backend-webidl", "dep:handl-plugin-codegen-emitter-file"]
 python = ["c", "dep:handl-plugin-codegen-emitter-python"]
 # The cli target (backend + `hnl-cli` emitter) lives in the
-# `engine-codegen-cli` repo; the root `[patch]` resolves the sibling
+# `tool-codegen-cli` repo; the root `[patch]` resolves the sibling
 # checkout for local dev.
 cli = ["dep:handl-plugin-codegen-cli"]
 # PL-004 T-090: the `fmt` target (`FmtSource`/`FmtEmitter` over the
-# token-stream IR) lives in `hnl-engine-fmt`; `hnl codegen fmt
+# token-stream IR) lives in `hnl-tool-fmt`; `hnl codegen fmt
 # <file.hnl> --output <dir>` is the desired-state file→file format —
 # `plan`/`--check` diffs without mutating, `apply` writes through
 # `Engine::apply` (journaled, drift-checked).
-fmt = ["dep:hnl-engine-fmt"]
+fmt = ["dep:hnl-tool-fmt"]
 
 [dependencies]
 handl-language = { workspace = true }
 # PL-004 T-076: the codegen core (`CodegenRegistry`/`CodegenRequest`,
 # the kernel lifecycle wiring) is a workspace member.
 handl-plugin-codegen = { workspace = true }
-# The target modules live in the `engine-codegen-*` repos on GitHub;
+# PL-004 T-101: `--manifest <dir>` mode — the mlopt change-set manifest
+# apply bridge (`kit_mlopt::manifest::{plan_manifest,apply_manifest}`)
+# reconciles an emitter-produced `manifest.json` + blob store through
+# `Engine::plan`/`Engine::apply` over `FsStore`. Same verbs as the
+# target surface; the manifest *is* the materialized desired state, so
+# no registry target/spec participates.
+handl-kit-mlopt = { workspace = true }
+# The target modules live in the `tool-codegen-*` repos on GitHub;
 # the root `[patch]` tables resolve the sibling checkouts for local dev
 # (ADR-0128 §Resolution).
-handl-plugin-codegen-backend-c = { git = "https://github.com/handl-lang/engine-codegen-c", branch = "main", optional = true }
-handl-plugin-codegen-backend-webidl = { git = "https://github.com/handl-lang/engine-codegen-webidl", branch = "main", optional = true }
-handl-plugin-codegen-emitter-file = { git = "https://github.com/handl-lang/engine-codegen-file", branch = "main", optional = true }
-handl-plugin-codegen-emitter-python = { git = "https://github.com/handl-lang/engine-codegen-python", branch = "main", optional = true }
-handl-plugin-codegen-cli = { git = "https://github.com/handl-lang/engine-codegen-cli", branch = "main", optional = true }
+handl-plugin-codegen-backend-c = { git = "https://github.com/handl-lang/tool-codegen-c", branch = "main", optional = true }
+handl-plugin-codegen-backend-webidl = { git = "https://github.com/handl-lang/tool-codegen-webidl", branch = "main", optional = true }
+handl-plugin-codegen-emitter-file = { git = "https://github.com/handl-lang/tool-codegen-file", branch = "main", optional = true }
+handl-plugin-codegen-emitter-python = { git = "https://github.com/handl-lang/tool-codegen-python", branch = "main", optional = true }
+handl-plugin-codegen-cli = { git = "https://github.com/handl-lang/tool-codegen-cli", branch = "main", optional = true }
 # PL-004 T-090: the `fmt` target's `Source`/`Emitter`/`register`
-# surface — the root `[patch]` resolves the sibling `engine-fmt`
+# surface — the root `[patch]` resolves the sibling `tool-fmt`
 # checkout (git remote exists; patch keeps local dev on the sibling).
-hnl-engine-fmt = { workspace = true, optional = true }
+hnl-tool-fmt = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"

@@ -2,12 +2,12 @@ use std::path::PathBuf;
 
 use handl_language::{Ast, AstNode, AstRef, Language};
 use hnl_engine::Term;
-use hnl_engine_typecheck::TypecheckReport;
+use hnl_tool_typecheck::TypecheckReport;
 use serde_json::Value;
 
 use crate::{
     Artifact, ArtifactContent, CompileError, Compiler, CompilerConfig, CompilerInput,
-    CompilerOutput, CompilerRegistry, DebugInfo, MemoryArtifactCache, Null, SourceMap, V3,
+    CompilerOutput, DebugInfo, Null, SourceMap, V3,
 };
 
 #[derive(Debug)]
@@ -129,17 +129,9 @@ fn artifact_construction() {
 }
 
 #[test]
-fn mock_compiler_and_registry() {
-    let mut registry = CompilerRegistry::new();
-    registry.register(Box::new(MockCompiler { target: "mock" }));
-
-    assert!(registry.get("missing").is_none());
-    let compiler = registry.get("mock").expect("registered mock");
+fn mock_compiler_produces_output() {
+    let compiler = MockCompiler { target: "mock" };
     assert_eq!(compiler.target(), "mock");
-
-    let targets = registry.targets();
-    assert_eq!(targets.len(), 1);
-    assert!(targets.contains(&"mock"));
 
     let input = minimal_input();
     let config = MockConfig::new("mock");
@@ -202,46 +194,6 @@ fn compiler_is_send_sync() {
     assert!(b.is_ok());
 }
 
-#[test]
-fn compile_many_returns_ordered_results() {
-    let mut registry = CompilerRegistry::new();
-    registry.register(Box::new(MockCompiler { target: "c" }));
-    registry.register(Box::new(MockCompiler { target: "js" }));
-    registry.register(Box::new(MockCompiler { target: "llvm" }));
-
-    for target in ["c", "js", "llvm"] {
-        let inputs = vec![minimal_input(), minimal_input(), minimal_input()];
-        let config = MockConfig::new(target);
-        let results = registry.compile_many(inputs, &config);
-        assert_eq!(results.len(), 3, "target {target}");
-        for (i, result) in results.iter().enumerate() {
-            let output = result
-                .as_ref()
-                .unwrap_or_else(|_| panic!("compile_many failed for {target} at {i}"));
-            assert_eq!(output.target(), target);
-            assert_eq!(output.artifacts().len(), 1);
-        }
-    }
-}
-
-#[test]
-fn compile_many_cached_returns_cached_artifacts() {
-    let mut registry = CompilerRegistry::new();
-    registry.register(Box::new(MockCompiler { target: "mock" }));
-    let mut cache = MemoryArtifactCache::new();
-    let config = MockConfig::new("mock");
-
-    let inputs = vec![minimal_input(), minimal_input()];
-    let first = registry.compile_many_cached(inputs, &config, &mut cache);
-    assert_eq!(first.len(), 2);
-    assert!(first.iter().all(|r| r.is_ok()));
-
-    let inputs2 = vec![minimal_input(), minimal_input()];
-    let second = registry.compile_many_cached(inputs2, &config, &mut cache);
-    assert_eq!(second.len(), 2);
-    assert!(second.iter().all(|r| r.is_ok()));
-    assert_eq!(
-        first[0].as_ref().unwrap().artifacts(),
-        second[0].as_ref().unwrap().artifacts()
-    );
-}
+// PL-004 T-101: the `compile_many`/`compile_many_cached` registry tests
+// went away with `CompilerRegistry` — the dispatcher that consumed it
+// was removed (the kernel `Emitter` path is the live compile route).

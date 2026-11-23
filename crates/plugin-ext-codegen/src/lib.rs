@@ -1,5 +1,5 @@
 //! `hnl codegen` CLI extension (PL-004 T-076) — the desired-state
-//! codegen command surface over the `hnl-engine-codegen` kernel.
+//! codegen command surface over the `hnl-tool-codegen` kernel.
 //!
 //! This crate is a lookup over the [`CodegenRegistry`]: each linked
 //! target module (`c`, `webidl`, `python`, `cli`, `fmt`, …) registers its own
@@ -13,7 +13,20 @@
 //!
 //! ```text
 //! hnl codegen [plan|apply|destroy|revert] <target> [<spec> | --from-url <url>] --output <dir> [flags]
+//! hnl codegen [plan|apply] --manifest <dir> [--output <root>] [--check|--dry-run]
 //! ```
+//!
+//! The second form (PL-004 T-101) applies an mlopt change-set manifest —
+//! `manifest.json` + a `blobs/` store as produced by `python -m mlopt
+//! export --manifest` / `stage deliver` / `kernel-lower
+//! --manifest-dir` — through the same `Engine::plan`/`Engine::apply`
+//! lifecycle via `handl_kit_mlopt::manifest`. The manifest is already
+//! materialized desired state, so no registry `<target>`/`<spec>`
+//! participates; `--output` is the `FsStore` root the artifact refs
+//! resolve under (default: the process cwd — apply from the emitter's
+//! cwd and `out` paths land where they pointed). `plan` is the
+//! verify/dry-run half; `destroy`/`revert` stay target-only for now
+//! (manifest-owned staleness already reconciles inside `apply`).
 //!
 //! The lifecycle verb defaults to `apply` (the pre-PL-004 `sdkgen`
 //! behaviour): `plan` materializes the desired [`Change`] set and diffs
@@ -25,8 +38,8 @@
 
 use handl_language::Language;
 use handl_plugin_codegen::{
-    ApplyReport, CodegenRegistry, CodegenRequest, CodegenTargetError, Plan, PlanAction,
-    RevertReport, SpecModule, http_get,
+    ApplyOptions, ApplyReport, CodegenRegistry, CodegenRequest, CodegenTargetError, Plan,
+    PlanAction, RevertReport, SpecModule, http_get,
 };
 use std::path::{Path, PathBuf};
 
@@ -85,7 +98,7 @@ pub fn linked_targets() -> CodegenRegistry {
     // `--check`/`plan` exits 1 on drift, `apply` writes via
     // `Engine::apply` (journaled under `.handl/codegen/`).
     #[cfg(feature = "fmt")]
-    hnl_engine_fmt::register(&mut registry);
+    hnl_tool_fmt::register(&mut registry);
     registry
 }
 
@@ -97,7 +110,7 @@ pub fn linked_targets() -> CodegenRegistry {
 pub fn codegen_command(lang: &Language, args: &[String]) -> i32 {
     let registry = linked_targets();
     let usage = format!(
-        "usage: hnl codegen [plan|apply|destroy|revert] <{}> [<spec> | --from-url <url>] --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>] [--source-url <url>] [--emit-spec <path|->] [--cache-dir <dir>] [--check|--dry-run] [--run <id>]",
+        "usage: hnl codegen [plan|apply|destroy|revert] <{}> [<spec> | --from-url <url>] --output <dir> [--target <triple>] [--include <glob>] [--exclude <glob>] [--config <yaml>] [--source-url <url>] [--emit-spec <path|->] [--cache-dir <dir>] [--check|--dry-run] [--run <id>]\n       hnl codegen [plan|apply] --manifest <dir> [--output <root>] [--check|--dry-run]",
         registry.target_names().join("|")
     );
     if args.is_empty() {
@@ -127,6 +140,7 @@ pub fn codegen_command(lang: &Language, args: &[String]) -> i32 {
     let mut emit_spec: Option<String> = None;
     let mut cache_dir: Option<String> = None;
     let mut run_id: Option<String> = None;
+    let mut manifest_dir: Option<String> = None;
     let mut check = false;
 
     let mut i = 0;
@@ -177,6 +191,14 @@ pub fn codegen_command(lang: &Language, args: &[String]) -> i32 {
                 i += 1;
                 run_id = rest.get(i).map(String::to_string);
             }
+            "--manifest" => {
+                i += 1;
+                // Change-set manifest mode (T-101): the input is an
+                // mlopt `manifest.json` + blob store — already
+                // materialized desired state — not a spec for a
+                // registry target. Dispatched before target lookup.
+                manifest_dir = rest.get(i).map(String::to_string);
+            }
             "--check" | "--dry-run" | "--plan" => {
                 if rest[i] == "--check" {
                     check = true;
@@ -195,6 +217,40 @@ pub fn codegen_command(lang: &Language, args: &[String]) -> i32 {
             s => positionals.push(s.to_string()),
         }
         i += 1;
+    }
+
+    // Manifest mode (T-101): `--manifest <dir>` swaps the input kind —
+    // no `<target>`/`<spec>` positionals and none of the spec-side
+    // flags apply. `--output` is the FsStore root (default cwd, see
+    // `kit_mlopt::manifest` module docs).
+    if let Some(dir) = manifest_dir {
+        if !positionals.is_empty() {
+            eprintln!("codegen: --manifest takes no <target>/<spec> positionals");
+            return 2;
+        }
+        if !verb.needs_spec() {
+            eprintln!(
+                "codegen: --manifest is only valid for apply/plan (got {})",
+                verb_name(verb)
+            );
+            return 2;
+        }
+        if target.is_some()
+            || include.is_some()
+            || exclude.is_some()
+            || config_path.is_some()
+            || from_url.is_some()
+            || source_url_flag.is_some()
+            || emit_spec.is_some()
+            || cache_dir.is_some()
+            || run_id.is_some()
+        {
+            eprintln!(
+                "codegen: --manifest takes no --target/--include/--exclude/--config/--from-url/--source-url/--emit-spec/--cache-dir/--run"
+            );
+            return 2;
+        }
+        return run_manifest(verb, &dir, output.as_deref(), check);
     }
 
     // Positionals: `<target>` always; `<spec>` only for apply/plan —
@@ -363,6 +419,46 @@ pub fn codegen_command(lang: &Language, args: &[String]) -> i32 {
             }
             Err(e) => report_error(&e),
         },
+    }
+}
+
+/// Manifest mode (T-101): reconcile an mlopt change-set manifest
+/// (`manifest.json` + `blobs/`) through the kernel lifecycle via
+/// `handl_kit_mlopt::manifest`. `root` is the `FsStore` root —
+/// `--output` on the command line, `None` → process cwd (the emitter's
+/// `out` paths are cwd-relative; apply from the same cwd they were
+/// emitted in). Only `apply`/`plan` reach here — `run_manifest`'s
+/// callers reject the store-side verbs earlier.
+fn run_manifest(verb: Verb, manifest_dir: &str, root: Option<&str>, check: bool) -> i32 {
+    let dir = Path::new(manifest_dir);
+    let root = root.map(Path::new);
+    match verb {
+        Verb::Plan => match handl_kit_mlopt::manifest::plan_manifest(dir, root) {
+            Ok(plan) => {
+                print_plan(&plan);
+                if check && !plan.is_clean() { 1 } else { 0 }
+            }
+            Err(e) => {
+                eprintln!("codegen: {e}");
+                1
+            }
+        },
+        Verb::Apply => {
+            match handl_kit_mlopt::manifest::apply_manifest(dir, root, &ApplyOptions::default()) {
+                Ok(report) => {
+                    print_apply_report("apply", "manifest", &report);
+                    if report.clean() { 0 } else { 1 }
+                }
+                Err(e) => {
+                    eprintln!("codegen: {e}");
+                    1
+                }
+            }
+        }
+        Verb::Destroy | Verb::Revert => {
+            eprintln!("codegen: --manifest is only valid for apply/plan");
+            2
+        }
     }
 }
 

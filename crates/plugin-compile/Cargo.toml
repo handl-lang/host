@@ -9,7 +9,10 @@ repository.workspace = true
 [dependencies]
 handl-language = { workspace = true }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
-hnl-engine-typecheck.workspace = true
-rayon = { workspace = true }
+hnl-tool-typecheck.workspace = true
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+# `compiler_is_send_sync` exercises the trait object under `rayon::join`.
+rayon = { workspace = true }
