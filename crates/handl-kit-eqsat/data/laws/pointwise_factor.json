@@ -1,0 +1,170 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Hadamard distributivity: c ⊙ (x+y) = c⊙x + c⊙y — the elementwise product distributes over the additive monoid.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "c"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "y"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "distribute_mul_add",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "y"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Factor a shared elementwise factor (reverse distributivity) — c⊙x + c⊙y = c⊙(x+y); what the carrier fold chains consume.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "y"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "factor_mul_add",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "c"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "y"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  }
+]

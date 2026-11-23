@@ -1,0 +1,14 @@
+[package]
+name = "handl-kit-mlopt"
+version.workspace = true
+edition.workspace = true
+description = "mlopt kit — meta-tier pipeline stage-ops (lift/search/verify) as a native `pipeline` module, backed by `python -m mlopt stage <name>` over a JSON stdin/stdout protocol."
+license.workspace = true
+repository.workspace = true
+keywords = ["handl", "kit", "mlopt"]
+categories = ["development-tools"]
+
+[dependencies]
+handl-kit-core = { workspace = true }
+handl-platform = { workspace = true }
+serde_json = { workspace = true }

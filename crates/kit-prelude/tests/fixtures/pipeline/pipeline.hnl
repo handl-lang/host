@@ -1,0 +1,9 @@
+-- pipeline -- ADR-0175 run-layer spike: meta-tier stage-ops as a .hnl package.
+-- Each stage is an arrow (Value -> Value); `a >>> f` applies f to a,
+-- so the pipeline record is just the first argument.
+
+export lift := (model) ~> { "stage": "lift", "model": model, "ir": "term(" + model + ")", "ok": true }
+
+export search := (state) ~> { "stage": "search", "model": state.model, "candidates": 3, "best": state.ir, "ok": state.ok }
+
+export verify := (state) ~> { "stage": "verify", "model": state.model, "verified": state.ok, "ok": state.ok }

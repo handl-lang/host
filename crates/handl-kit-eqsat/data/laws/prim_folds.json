@@ -1,0 +1,7433 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v201"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v472"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "mvar": "v484"
+                        },
+                        {
+                          "mvar": "v485"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "mvar": "v307"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_03889d8fe1",
+    "rhs": {
+      "op": "synop_03889d8fe1",
+      "args": [
+        {
+          "mvar": "v201"
+        },
+        {
+          "mvar": "v472"
+        },
+        {
+          "mvar": "v484"
+        },
+        {
+          "mvar": "v485"
+        },
+        {
+          "mvar": "v307"
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "mvar": "v267"
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v347"
+                    },
+                    {
+                      "mvar": "v348"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "mvar": "v216"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_2b8cfd1c90",
+    "rhs": {
+      "op": "synop_2b8cfd1c90",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v267"
+        },
+        {
+          "mvar": "v347"
+        },
+        {
+          "mvar": "v348"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v201"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v472"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "op": "mul",
+                          "args": [
+                            {
+                              "mvar": "v509"
+                            },
+                            {
+                              "mvar": "v510"
+                            }
+                          ],
+                          "attrs": null
+                        },
+                        {
+                          "mvar": "v485"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "mvar": "v307"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_39f76b66f8",
+    "rhs": {
+      "op": "synop_39f76b66f8",
+      "args": [
+        {
+          "mvar": "v201"
+        },
+        {
+          "mvar": "v472"
+        },
+        {
+          "mvar": "v509"
+        },
+        {
+          "mvar": "v510"
+        },
+        {
+          "mvar": "v485"
+        },
+        {
+          "mvar": "v307"
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v345"
+                    },
+                    {
+                      "mvar": "v346"
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "mvar": "v268"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "op": "unsqueeze",
+              "args": [
+                {
+                  "mvar": "v355"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "a97"
+                  }
+                }
+              }
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_4c5296b3ba",
+    "rhs": {
+      "op": "synop_4c5296b3ba",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v345"
+        },
+        {
+          "mvar": "v346"
+        },
+        {
+          "mvar": "v268"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v355"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a97": {
+            "bind": "a97"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "mvar": "v13"
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "op": "unsqueeze",
+              "args": [
+                {
+                  "mvar": "v419"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "lit": -1
+                  }
+                }
+              }
+            },
+            {
+              "op": "unsqueeze",
+              "args": [
+                {
+                  "op": "select",
+                  "args": [
+                    {
+                      "op": "linear",
+                      "args": [
+                        {
+                          "mvar": "v633"
+                        },
+                        {
+                          "mvar": "v634"
+                        },
+                        {
+                          "mvar": "v635"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "lit": 1
+                      },
+                      "index": {
+                        "bind": "a155"
+                      }
+                    }
+                  }
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "a75"
+                  }
+                }
+              }
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_4c657cb2c0",
+    "rhs": {
+      "op": "synop_4c657cb2c0",
+      "args": [
+        {
+          "mvar": "v13"
+        },
+        {
+          "mvar": "v419"
+        },
+        {
+          "mvar": "v633"
+        },
+        {
+          "mvar": "v634"
+        },
+        {
+          "mvar": "v635"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a155": {
+            "bind": "a155"
+          },
+          "a75": {
+            "bind": "a75"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v345"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "mvar": "v362"
+                        },
+                        {
+                          "mvar": "v363"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "mvar": "v268"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "mvar": "v216"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_4f8fefdd38",
+    "rhs": {
+      "op": "synop_4f8fefdd38",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v345"
+        },
+        {
+          "mvar": "v362"
+        },
+        {
+          "mvar": "v363"
+        },
+        {
+          "mvar": "v268"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v201"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v472"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "mvar": "v492"
+                        },
+                        {
+                          "mvar": "v493"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v480"
+                    },
+                    {
+                      "mvar": "v481"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_5147826430",
+    "rhs": {
+      "op": "synop_5147826430",
+      "args": [
+        {
+          "mvar": "v201"
+        },
+        {
+          "mvar": "v472"
+        },
+        {
+          "mvar": "v492"
+        },
+        {
+          "mvar": "v493"
+        },
+        {
+          "mvar": "v480"
+        },
+        {
+          "mvar": "v481"
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v733"
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "mvar": "v749"
+                    },
+                    {
+                      "op": "mul",
+                      "args": [
+                        {
+                          "mvar": "v771"
+                        },
+                        {
+                          "mvar": "v772"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v739"
+                },
+                {
+                  "mvar": "v740"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_571fb768b0",
+    "rhs": {
+      "op": "synop_571fb768b0",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v733"
+        },
+        {
+          "mvar": "v749"
+        },
+        {
+          "mvar": "v771"
+        },
+        {
+          "mvar": "v772"
+        },
+        {
+          "mvar": "v739"
+        },
+        {
+          "mvar": "v740"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v345"
+                    },
+                    {
+                      "mvar": "v346"
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v358"
+                    },
+                    {
+                      "mvar": "v359"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "mvar": "v216"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_5e58f26875",
+    "rhs": {
+      "op": "synop_5e58f26875",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v345"
+        },
+        {
+          "mvar": "v346"
+        },
+        {
+          "mvar": "v358"
+        },
+        {
+          "mvar": "v359"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v733"
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "op": "mul",
+                      "args": [
+                        {
+                          "mvar": "v791"
+                        },
+                        {
+                          "mvar": "v792"
+                        }
+                      ],
+                      "attrs": null
+                    },
+                    {
+                      "op": "mul",
+                      "args": [
+                        {
+                          "mvar": "v801"
+                        },
+                        {
+                          "mvar": "v802"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v138"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_629f9ef13b",
+    "rhs": {
+      "op": "synop_629f9ef13b",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v733"
+        },
+        {
+          "mvar": "v791"
+        },
+        {
+          "mvar": "v792"
+        },
+        {
+          "mvar": "v801"
+        },
+        {
+          "mvar": "v802"
+        },
+        {
+          "mvar": "v138"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v733"
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "op": "mul",
+                      "args": [
+                        {
+                          "mvar": "v769"
+                        },
+                        {
+                          "mvar": "v770"
+                        }
+                      ],
+                      "attrs": null
+                    },
+                    {
+                      "mvar": "v750"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v739"
+                },
+                {
+                  "mvar": "v740"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_62d36aefdb",
+    "rhs": {
+      "op": "synop_62d36aefdb",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v733"
+        },
+        {
+          "mvar": "v769"
+        },
+        {
+          "mvar": "v770"
+        },
+        {
+          "mvar": "v750"
+        },
+        {
+          "mvar": "v739"
+        },
+        {
+          "mvar": "v740"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v201"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v472"
+                    },
+                    {
+                      "mvar": "v473"
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v480"
+                    },
+                    {
+                      "mvar": "v481"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_6c709f774a",
+    "rhs": {
+      "op": "synop_6c709f774a",
+      "args": [
+        {
+          "mvar": "v201"
+        },
+        {
+          "mvar": "v472"
+        },
+        {
+          "mvar": "v473"
+        },
+        {
+          "mvar": "v480"
+        },
+        {
+          "mvar": "v481"
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v733"
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "mvar": "v743"
+                    },
+                    {
+                      "op": "mul",
+                      "args": [
+                        {
+                          "mvar": "v793"
+                        },
+                        {
+                          "mvar": "v794"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v138"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_889d740672",
+    "rhs": {
+      "op": "synop_889d740672",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v733"
+        },
+        {
+          "mvar": "v743"
+        },
+        {
+          "mvar": "v793"
+        },
+        {
+          "mvar": "v794"
+        },
+        {
+          "mvar": "v138"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v733"
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "op": "mul",
+                      "args": [
+                        {
+                          "mvar": "v791"
+                        },
+                        {
+                          "mvar": "v792"
+                        }
+                      ],
+                      "attrs": null
+                    },
+                    {
+                      "mvar": "v744"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v138"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_93e57c595e",
+    "rhs": {
+      "op": "synop_93e57c595e",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v733"
+        },
+        {
+          "mvar": "v791"
+        },
+        {
+          "mvar": "v792"
+        },
+        {
+          "mvar": "v744"
+        },
+        {
+          "mvar": "v138"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "mvar": "v267"
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v347"
+                    },
+                    {
+                      "mvar": "v348"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "op": "unsqueeze",
+              "args": [
+                {
+                  "mvar": "v370"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "a101"
+                  }
+                }
+              }
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_976f9836d7",
+    "rhs": {
+      "op": "synop_976f9836d7",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v267"
+        },
+        {
+          "mvar": "v347"
+        },
+        {
+          "mvar": "v348"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v370"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a101": {
+            "bind": "a101"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v201"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v472"
+                    },
+                    {
+                      "mvar": "v473"
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v480"
+                    },
+                    {
+                      "op": "unsqueeze",
+                      "args": [
+                        {
+                          "mvar": "v500"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "a128"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_98a002d64b",
+    "rhs": {
+      "op": "synop_98a002d64b",
+      "args": [
+        {
+          "mvar": "v201"
+        },
+        {
+          "mvar": "v472"
+        },
+        {
+          "mvar": "v473"
+        },
+        {
+          "mvar": "v480"
+        },
+        {
+          "mvar": "v500"
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a128": {
+            "bind": "a128"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v733"
+                },
+                {
+                  "op": "add",
+                  "args": [
+                    {
+                      "mvar": "v749"
+                    },
+                    {
+                      "mvar": "v750"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v739"
+                },
+                {
+                  "mvar": "v740"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_b246dcb838",
+    "rhs": {
+      "op": "synop_b246dcb838",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v733"
+        },
+        {
+          "mvar": "v749"
+        },
+        {
+          "mvar": "v750"
+        },
+        {
+          "mvar": "v739"
+        },
+        {
+          "mvar": "v740"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "mvar": "v224"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "mvar": "v216"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_bb8c54c201",
+    "rhs": {
+      "op": "synop_bb8c54c201",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v224"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v201"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v472"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "mvar": "v484"
+                        },
+                        {
+                          "op": "mul",
+                          "args": [
+                            {
+                              "mvar": "v511"
+                            },
+                            {
+                              "mvar": "v512"
+                            }
+                          ],
+                          "attrs": null
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "mvar": "v307"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_d5b128282a",
+    "rhs": {
+      "op": "synop_d5b128282a",
+      "args": [
+        {
+          "mvar": "v201"
+        },
+        {
+          "mvar": "v472"
+        },
+        {
+          "mvar": "v484"
+        },
+        {
+          "mvar": "v511"
+        },
+        {
+          "mvar": "v512"
+        },
+        {
+          "mvar": "v307"
+        },
+        {
+          "mvar": "v14"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "mvar": "v267"
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v347"
+                    },
+                    {
+                      "op": "unsqueeze",
+                      "args": [
+                        {
+                          "mvar": "v381"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "a103"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "mvar": "v216"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_f08a53f9a0",
+    "rhs": {
+      "op": "synop_f08a53f9a0",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v267"
+        },
+        {
+          "mvar": "v347"
+        },
+        {
+          "mvar": "v381"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a103": {
+            "bind": "a103"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v345"
+                    },
+                    {
+                      "mvar": "v346"
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "mvar": "v268"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "mvar": "v216"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_f3290a1163",
+    "rhs": {
+      "op": "synop_f3290a1163",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v345"
+        },
+        {
+          "mvar": "v346"
+        },
+        {
+          "mvar": "v268"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v485"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v834"
+                    },
+                    {
+                      "op": "synop_bb8c54c201",
+                      "args": [
+                        {
+                          "mvar": "v1066"
+                        },
+                        {
+                          "op": "add",
+                          "args": [
+                            {
+                              "op": "mul",
+                              "args": [
+                                {
+                                  "mvar": "v4809"
+                                },
+                                {
+                                  "mvar": "v4810"
+                                }
+                              ],
+                              "attrs": null
+                            },
+                            {
+                              "op": "mul",
+                              "args": [
+                                {
+                                  "mvar": "v4873"
+                                },
+                                {
+                                  "mvar": "v4874"
+                                }
+                              ],
+                              "attrs": null
+                            }
+                          ],
+                          "attrs": null
+                        },
+                        {
+                          "mvar": "v1068"
+                        },
+                        {
+                          "mvar": "v1069"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v886"
+                    },
+                    {
+                      "mvar": "v887"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v477"
+            },
+            {
+              "mvar": "v478"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop2_35bbd03301",
+    "rhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v485"
+        },
+        {
+          "mvar": "v834"
+        },
+        {
+          "mvar": "v1066"
+        },
+        {
+          "mvar": "v4809"
+        },
+        {
+          "mvar": "v4810"
+        },
+        {
+          "mvar": "v4873"
+        },
+        {
+          "mvar": "v4874"
+        },
+        {
+          "mvar": "v1068"
+        },
+        {
+          "mvar": "v1069"
+        },
+        {
+          "mvar": "v886"
+        },
+        {
+          "mvar": "v887"
+        },
+        {
+          "mvar": "v477"
+        },
+        {
+          "mvar": "v478"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v485"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v834"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "op": "mul",
+                          "args": [
+                            {
+                              "mvar": "v1114"
+                            },
+                            {
+                              "op": "synop_bb8c54c201",
+                              "args": [
+                                {
+                                  "mvar": "v1364"
+                                },
+                                {
+                                  "mvar": "v1365"
+                                },
+                                {
+                                  "mvar": "v1366"
+                                },
+                                {
+                                  "mvar": "v1367"
+                                }
+                              ],
+                              "attrs": null
+                            }
+                          ],
+                          "attrs": null
+                        },
+                        {
+                          "op": "mul",
+                          "args": [
+                            {
+                              "mvar": "v1175"
+                            },
+                            {
+                              "mvar": "v1176"
+                            }
+                          ],
+                          "attrs": null
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v886"
+                    },
+                    {
+                      "mvar": "v887"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v477"
+            },
+            {
+              "mvar": "v478"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop2_d46808a970",
+    "rhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v485"
+        },
+        {
+          "mvar": "v834"
+        },
+        {
+          "mvar": "v1114"
+        },
+        {
+          "mvar": "v1364"
+        },
+        {
+          "mvar": "v1365"
+        },
+        {
+          "mvar": "v1366"
+        },
+        {
+          "mvar": "v1367"
+        },
+        {
+          "mvar": "v1175"
+        },
+        {
+          "mvar": "v1176"
+        },
+        {
+          "mvar": "v886"
+        },
+        {
+          "mvar": "v887"
+        },
+        {
+          "mvar": "v477"
+        },
+        {
+          "mvar": "v478"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_f3290a1163",
+          "args": [
+            {
+              "mvar": "v713"
+            },
+            {
+              "mvar": "v714"
+            },
+            {
+              "mvar": "v715"
+            },
+            {
+              "mvar": "v716"
+            },
+            {
+              "mvar": "v717"
+            },
+            {
+              "mvar": "v718"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_04df5fd446",
+    "rhs": {
+      "op": "synop3_04df5fd446",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v713"
+        },
+        {
+          "mvar": "v714"
+        },
+        {
+          "mvar": "v715"
+        },
+        {
+          "mvar": "v716"
+        },
+        {
+          "mvar": "v717"
+        },
+        {
+          "mvar": "v718"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "mvar": "v451"
+            },
+            {
+              "mvar": "v452"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_083e9c241f",
+    "rhs": {
+      "op": "synop3_083e9c241f",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v451"
+        },
+        {
+          "mvar": "v452"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_2b8cfd1c90",
+          "args": [
+            {
+              "mvar": "v485"
+            },
+            {
+              "mvar": "v486"
+            },
+            {
+              "mvar": "v487"
+            },
+            {
+              "mvar": "v488"
+            },
+            {
+              "mvar": "v489"
+            },
+            {
+              "mvar": "v490"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_0ca31bf1e5",
+    "rhs": {
+      "op": "synop3_0ca31bf1e5",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v485"
+        },
+        {
+          "mvar": "v486"
+        },
+        {
+          "mvar": "v487"
+        },
+        {
+          "mvar": "v488"
+        },
+        {
+          "mvar": "v489"
+        },
+        {
+          "mvar": "v490"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop_5e58f26875",
+      "args": [
+        {
+          "mvar": "v115"
+        },
+        {
+          "mvar": "v116"
+        },
+        {
+          "op": "synop2_d46808a970",
+          "args": [
+            {
+              "mvar": "v4044"
+            },
+            {
+              "mvar": "v4045"
+            },
+            {
+              "mvar": "v4046"
+            },
+            {
+              "mvar": "v4047"
+            },
+            {
+              "mvar": "v4048"
+            },
+            {
+              "mvar": "v4049"
+            },
+            {
+              "mvar": "v4050"
+            },
+            {
+              "mvar": "v4051"
+            },
+            {
+              "mvar": "v4052"
+            },
+            {
+              "mvar": "v4053"
+            },
+            {
+              "mvar": "v4054"
+            },
+            {
+              "mvar": "v4055"
+            },
+            {
+              "mvar": "v4056"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v118"
+        },
+        {
+          "mvar": "v119"
+        },
+        {
+          "mvar": "v120"
+        },
+        {
+          "mvar": "v121"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_0fa19d1ff8",
+    "rhs": {
+      "op": "synop3_0fa19d1ff8",
+      "args": [
+        {
+          "mvar": "v115"
+        },
+        {
+          "mvar": "v116"
+        },
+        {
+          "mvar": "v4044"
+        },
+        {
+          "mvar": "v4045"
+        },
+        {
+          "mvar": "v4046"
+        },
+        {
+          "mvar": "v4047"
+        },
+        {
+          "mvar": "v4048"
+        },
+        {
+          "mvar": "v4049"
+        },
+        {
+          "mvar": "v4050"
+        },
+        {
+          "mvar": "v4051"
+        },
+        {
+          "mvar": "v4052"
+        },
+        {
+          "mvar": "v4053"
+        },
+        {
+          "mvar": "v4054"
+        },
+        {
+          "mvar": "v4055"
+        },
+        {
+          "mvar": "v4056"
+        },
+        {
+          "mvar": "v118"
+        },
+        {
+          "mvar": "v119"
+        },
+        {
+          "mvar": "v120"
+        },
+        {
+          "mvar": "v121"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "mvar": "v599"
+            },
+            {
+              "mvar": "v600"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_1850a07696",
+    "rhs": {
+      "op": "synop3_1850a07696",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v599"
+        },
+        {
+          "mvar": "v600"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_f3290a1163",
+          "args": [
+            {
+              "mvar": "v565"
+            },
+            {
+              "mvar": "v566"
+            },
+            {
+              "mvar": "v567"
+            },
+            {
+              "mvar": "v568"
+            },
+            {
+              "mvar": "v569"
+            },
+            {
+              "mvar": "v570"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_207ef0ddb7",
+    "rhs": {
+      "op": "synop3_207ef0ddb7",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v565"
+        },
+        {
+          "mvar": "v566"
+        },
+        {
+          "mvar": "v567"
+        },
+        {
+          "mvar": "v568"
+        },
+        {
+          "mvar": "v569"
+        },
+        {
+          "mvar": "v570"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_bb8c54c201",
+          "args": [
+            {
+              "mvar": "v548"
+            },
+            {
+              "mvar": "v549"
+            },
+            {
+              "mvar": "v550"
+            },
+            {
+              "mvar": "v551"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_21b9729f32",
+    "rhs": {
+      "op": "synop3_21b9729f32",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v548"
+        },
+        {
+          "mvar": "v549"
+        },
+        {
+          "mvar": "v550"
+        },
+        {
+          "mvar": "v551"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "mvar": "v451"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1722"
+                },
+                {
+                  "mvar": "v1723"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_24c5153e5e",
+    "rhs": {
+      "op": "synop3_24c5153e5e",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v451"
+        },
+        {
+          "mvar": "v1722"
+        },
+        {
+          "mvar": "v1723"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1681"
+                },
+                {
+                  "mvar": "v1682"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1752"
+                },
+                {
+                  "mvar": "v1753"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_2fcad5e803",
+    "rhs": {
+      "op": "synop3_2fcad5e803",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v1681"
+        },
+        {
+          "mvar": "v1682"
+        },
+        {
+          "mvar": "v1752"
+        },
+        {
+          "mvar": "v1753"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_bb8c54c201",
+          "args": [
+            {
+              "mvar": "v696"
+            },
+            {
+              "mvar": "v697"
+            },
+            {
+              "mvar": "v698"
+            },
+            {
+              "mvar": "v699"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_304457cd8d",
+    "rhs": {
+      "op": "synop3_304457cd8d",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v696"
+        },
+        {
+          "mvar": "v697"
+        },
+        {
+          "mvar": "v698"
+        },
+        {
+          "mvar": "v699"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "mvar": "v599"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2224"
+                },
+                {
+                  "mvar": "v2225"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_39dbcda988",
+    "rhs": {
+      "op": "synop3_39dbcda988",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v599"
+        },
+        {
+          "mvar": "v2224"
+        },
+        {
+          "mvar": "v2225"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_2b8cfd1c90",
+          "args": [
+            {
+              "mvar": "v633"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v3272"
+                },
+                {
+                  "mvar": "v3273"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v635"
+            },
+            {
+              "mvar": "v636"
+            },
+            {
+              "mvar": "v637"
+            },
+            {
+              "mvar": "v638"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_426efb3fb1",
+    "rhs": {
+      "op": "synop3_426efb3fb1",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v633"
+        },
+        {
+          "mvar": "v3272"
+        },
+        {
+          "mvar": "v3273"
+        },
+        {
+          "mvar": "v635"
+        },
+        {
+          "mvar": "v636"
+        },
+        {
+          "mvar": "v637"
+        },
+        {
+          "mvar": "v638"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_5e58f26875",
+          "args": [
+            {
+              "mvar": "v523"
+            },
+            {
+              "mvar": "v524"
+            },
+            {
+              "mvar": "v525"
+            },
+            {
+              "mvar": "v526"
+            },
+            {
+              "mvar": "v527"
+            },
+            {
+              "mvar": "v528"
+            },
+            {
+              "mvar": "v529"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_42bb04032d",
+    "rhs": {
+      "op": "synop3_42bb04032d",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v523"
+        },
+        {
+          "mvar": "v524"
+        },
+        {
+          "mvar": "v525"
+        },
+        {
+          "mvar": "v526"
+        },
+        {
+          "mvar": "v527"
+        },
+        {
+          "mvar": "v528"
+        },
+        {
+          "mvar": "v529"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2183"
+                },
+                {
+                  "op": "synop_bb8c54c201",
+                  "args": [
+                    {
+                      "mvar": "v2453"
+                    },
+                    {
+                      "mvar": "v2454"
+                    },
+                    {
+                      "mvar": "v2455"
+                    },
+                    {
+                      "mvar": "v2456"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2254"
+                },
+                {
+                  "mvar": "v2255"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_42f015e162",
+    "rhs": {
+      "op": "synop3_42f015e162",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v2183"
+        },
+        {
+          "mvar": "v2453"
+        },
+        {
+          "mvar": "v2454"
+        },
+        {
+          "mvar": "v2455"
+        },
+        {
+          "mvar": "v2456"
+        },
+        {
+          "mvar": "v2254"
+        },
+        {
+          "mvar": "v2255"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_5e58f26875",
+          "args": [
+            {
+              "mvar": "v671"
+            },
+            {
+              "mvar": "v672"
+            },
+            {
+              "mvar": "v673"
+            },
+            {
+              "mvar": "v674"
+            },
+            {
+              "mvar": "v675"
+            },
+            {
+              "mvar": "v676"
+            },
+            {
+              "mvar": "v677"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_490109134e",
+    "rhs": {
+      "op": "synop3_490109134e",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v671"
+        },
+        {
+          "mvar": "v672"
+        },
+        {
+          "mvar": "v673"
+        },
+        {
+          "mvar": "v674"
+        },
+        {
+          "mvar": "v675"
+        },
+        {
+          "mvar": "v676"
+        },
+        {
+          "mvar": "v677"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop_5e58f26875",
+      "args": [
+        {
+          "mvar": "v115"
+        },
+        {
+          "mvar": "v116"
+        },
+        {
+          "op": "synop2_35bbd03301",
+          "args": [
+            {
+              "mvar": "v4031"
+            },
+            {
+              "mvar": "v4032"
+            },
+            {
+              "mvar": "v4033"
+            },
+            {
+              "mvar": "v4034"
+            },
+            {
+              "mvar": "v4035"
+            },
+            {
+              "mvar": "v4036"
+            },
+            {
+              "mvar": "v4037"
+            },
+            {
+              "mvar": "v4038"
+            },
+            {
+              "mvar": "v4039"
+            },
+            {
+              "mvar": "v4040"
+            },
+            {
+              "mvar": "v4041"
+            },
+            {
+              "mvar": "v4042"
+            },
+            {
+              "mvar": "v4043"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v118"
+        },
+        {
+          "mvar": "v119"
+        },
+        {
+          "mvar": "v120"
+        },
+        {
+          "mvar": "v121"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_4a015e46ce",
+    "rhs": {
+      "op": "synop3_4a015e46ce",
+      "args": [
+        {
+          "mvar": "v115"
+        },
+        {
+          "mvar": "v116"
+        },
+        {
+          "mvar": "v4031"
+        },
+        {
+          "mvar": "v4032"
+        },
+        {
+          "mvar": "v4033"
+        },
+        {
+          "mvar": "v4034"
+        },
+        {
+          "mvar": "v4035"
+        },
+        {
+          "mvar": "v4036"
+        },
+        {
+          "mvar": "v4037"
+        },
+        {
+          "mvar": "v4038"
+        },
+        {
+          "mvar": "v4039"
+        },
+        {
+          "mvar": "v4040"
+        },
+        {
+          "mvar": "v4041"
+        },
+        {
+          "mvar": "v4042"
+        },
+        {
+          "mvar": "v4043"
+        },
+        {
+          "mvar": "v118"
+        },
+        {
+          "mvar": "v119"
+        },
+        {
+          "mvar": "v120"
+        },
+        {
+          "mvar": "v121"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_bb8c54c201",
+          "args": [
+            {
+              "mvar": "v548"
+            },
+            {
+              "op": "synop_bb8c54c201",
+              "args": [
+                {
+                  "mvar": "v840"
+                },
+                {
+                  "mvar": "v841"
+                },
+                {
+                  "mvar": "v842"
+                },
+                {
+                  "mvar": "v843"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v550"
+            },
+            {
+              "mvar": "v551"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_4b31b4501a",
+    "rhs": {
+      "op": "synop3_4b31b4501a",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v548"
+        },
+        {
+          "mvar": "v840"
+        },
+        {
+          "mvar": "v841"
+        },
+        {
+          "mvar": "v842"
+        },
+        {
+          "mvar": "v843"
+        },
+        {
+          "mvar": "v550"
+        },
+        {
+          "mvar": "v551"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "synop2_d46808a970",
+          "args": [
+            {
+              "mvar": "v336"
+            },
+            {
+              "mvar": "v337"
+            },
+            {
+              "mvar": "v338"
+            },
+            {
+              "mvar": "v339"
+            },
+            {
+              "mvar": "v340"
+            },
+            {
+              "mvar": "v341"
+            },
+            {
+              "mvar": "v342"
+            },
+            {
+              "mvar": "v343"
+            },
+            {
+              "mvar": "v344"
+            },
+            {
+              "mvar": "v345"
+            },
+            {
+              "mvar": "v346"
+            },
+            {
+              "mvar": "v347"
+            },
+            {
+              "mvar": "v348"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_4cdc06b88f",
+    "rhs": {
+      "op": "synop3_4cdc06b88f",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v336"
+        },
+        {
+          "mvar": "v337"
+        },
+        {
+          "mvar": "v338"
+        },
+        {
+          "mvar": "v339"
+        },
+        {
+          "mvar": "v340"
+        },
+        {
+          "mvar": "v341"
+        },
+        {
+          "mvar": "v342"
+        },
+        {
+          "mvar": "v343"
+        },
+        {
+          "mvar": "v344"
+        },
+        {
+          "mvar": "v345"
+        },
+        {
+          "mvar": "v346"
+        },
+        {
+          "mvar": "v347"
+        },
+        {
+          "mvar": "v348"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_6c709f774a",
+          "args": [
+            {
+              "mvar": "v530"
+            },
+            {
+              "mvar": "v531"
+            },
+            {
+              "mvar": "v532"
+            },
+            {
+              "mvar": "v533"
+            },
+            {
+              "mvar": "v534"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2937"
+                },
+                {
+                  "mvar": "v2938"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_4cf8732640",
+    "rhs": {
+      "op": "synop3_4cf8732640",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v530"
+        },
+        {
+          "mvar": "v531"
+        },
+        {
+          "mvar": "v532"
+        },
+        {
+          "mvar": "v533"
+        },
+        {
+          "mvar": "v534"
+        },
+        {
+          "mvar": "v2937"
+        },
+        {
+          "mvar": "v2938"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_f3290a1163",
+          "args": [
+            {
+              "mvar": "v565"
+            },
+            {
+              "mvar": "v566"
+            },
+            {
+              "mvar": "v567"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v3133"
+                },
+                {
+                  "mvar": "v3134"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v569"
+            },
+            {
+              "mvar": "v570"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_50a12a0158",
+    "rhs": {
+      "op": "synop3_50a12a0158",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v565"
+        },
+        {
+          "mvar": "v566"
+        },
+        {
+          "mvar": "v567"
+        },
+        {
+          "mvar": "v3133"
+        },
+        {
+          "mvar": "v3134"
+        },
+        {
+          "mvar": "v569"
+        },
+        {
+          "mvar": "v570"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1681"
+                },
+                {
+                  "op": "synop_bb8c54c201",
+                  "args": [
+                    {
+                      "mvar": "v1951"
+                    },
+                    {
+                      "mvar": "v1952"
+                    },
+                    {
+                      "mvar": "v1953"
+                    },
+                    {
+                      "mvar": "v1954"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1752"
+                },
+                {
+                  "mvar": "v1753"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_531bb1872b",
+    "rhs": {
+      "op": "synop3_531bb1872b",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v1681"
+        },
+        {
+          "mvar": "v1951"
+        },
+        {
+          "mvar": "v1952"
+        },
+        {
+          "mvar": "v1953"
+        },
+        {
+          "mvar": "v1954"
+        },
+        {
+          "mvar": "v1752"
+        },
+        {
+          "mvar": "v1753"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1681"
+                },
+                {
+                  "op": "synop_bb8c54c201",
+                  "args": [
+                    {
+                      "mvar": "v1827"
+                    },
+                    {
+                      "mvar": "v1828"
+                    },
+                    {
+                      "mvar": "v1829"
+                    },
+                    {
+                      "mvar": "v1830"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v452"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_543ad6d861",
+    "rhs": {
+      "op": "synop3_543ad6d861",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v1681"
+        },
+        {
+          "mvar": "v1827"
+        },
+        {
+          "mvar": "v1828"
+        },
+        {
+          "mvar": "v1829"
+        },
+        {
+          "mvar": "v1830"
+        },
+        {
+          "mvar": "v452"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_6c709f774a",
+          "args": [
+            {
+              "mvar": "v530"
+            },
+            {
+              "mvar": "v531"
+            },
+            {
+              "mvar": "v532"
+            },
+            {
+              "mvar": "v533"
+            },
+            {
+              "mvar": "v534"
+            },
+            {
+              "mvar": "v535"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_970223f613",
+    "rhs": {
+      "op": "synop3_970223f613",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v530"
+        },
+        {
+          "mvar": "v531"
+        },
+        {
+          "mvar": "v532"
+        },
+        {
+          "mvar": "v533"
+        },
+        {
+          "mvar": "v534"
+        },
+        {
+          "mvar": "v535"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2183"
+                },
+                {
+                  "mvar": "v2184"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2254"
+                },
+                {
+                  "mvar": "v2255"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_9b8631df70",
+    "rhs": {
+      "op": "synop3_9b8631df70",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v2183"
+        },
+        {
+          "mvar": "v2184"
+        },
+        {
+          "mvar": "v2254"
+        },
+        {
+          "mvar": "v2255"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "synop_2b8cfd1c90",
+          "args": [
+            {
+              "mvar": "v485"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2687"
+                },
+                {
+                  "mvar": "v2688"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v487"
+            },
+            {
+              "mvar": "v488"
+            },
+            {
+              "mvar": "v489"
+            },
+            {
+              "mvar": "v490"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_acc3c38681",
+    "rhs": {
+      "op": "synop3_acc3c38681",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v485"
+        },
+        {
+          "mvar": "v2687"
+        },
+        {
+          "mvar": "v2688"
+        },
+        {
+          "mvar": "v487"
+        },
+        {
+          "mvar": "v488"
+        },
+        {
+          "mvar": "v489"
+        },
+        {
+          "mvar": "v490"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_bb8c54c201",
+          "args": [
+            {
+              "mvar": "v696"
+            },
+            {
+              "op": "synop_bb8c54c201",
+              "args": [
+                {
+                  "mvar": "v969"
+                },
+                {
+                  "mvar": "v970"
+                },
+                {
+                  "mvar": "v971"
+                },
+                {
+                  "mvar": "v972"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v698"
+            },
+            {
+              "mvar": "v699"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_c79a6fe687",
+    "rhs": {
+      "op": "synop3_c79a6fe687",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v696"
+        },
+        {
+          "mvar": "v969"
+        },
+        {
+          "mvar": "v970"
+        },
+        {
+          "mvar": "v971"
+        },
+        {
+          "mvar": "v972"
+        },
+        {
+          "mvar": "v698"
+        },
+        {
+          "mvar": "v699"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2183"
+                },
+                {
+                  "op": "synop_bb8c54c201",
+                  "args": [
+                    {
+                      "mvar": "v2329"
+                    },
+                    {
+                      "mvar": "v2330"
+                    },
+                    {
+                      "mvar": "v2331"
+                    },
+                    {
+                      "mvar": "v2332"
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v600"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_d5452c1c56",
+    "rhs": {
+      "op": "synop3_d5452c1c56",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v2183"
+        },
+        {
+          "mvar": "v2329"
+        },
+        {
+          "mvar": "v2330"
+        },
+        {
+          "mvar": "v2331"
+        },
+        {
+          "mvar": "v2332"
+        },
+        {
+          "mvar": "v600"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_f3290a1163",
+          "args": [
+            {
+              "mvar": "v713"
+            },
+            {
+              "mvar": "v714"
+            },
+            {
+              "mvar": "v715"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v3718"
+                },
+                {
+                  "mvar": "v3719"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v717"
+            },
+            {
+              "mvar": "v718"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_d8a399f647",
+    "rhs": {
+      "op": "synop3_d8a399f647",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v713"
+        },
+        {
+          "mvar": "v714"
+        },
+        {
+          "mvar": "v715"
+        },
+        {
+          "mvar": "v3718"
+        },
+        {
+          "mvar": "v3719"
+        },
+        {
+          "mvar": "v717"
+        },
+        {
+          "mvar": "v718"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_6c709f774a",
+          "args": [
+            {
+              "mvar": "v678"
+            },
+            {
+              "mvar": "v679"
+            },
+            {
+              "mvar": "v680"
+            },
+            {
+              "mvar": "v681"
+            },
+            {
+              "mvar": "v682"
+            },
+            {
+              "mvar": "v683"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_e8abc00db0",
+    "rhs": {
+      "op": "synop3_e8abc00db0",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v678"
+        },
+        {
+          "mvar": "v679"
+        },
+        {
+          "mvar": "v680"
+        },
+        {
+          "mvar": "v681"
+        },
+        {
+          "mvar": "v682"
+        },
+        {
+          "mvar": "v683"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_2b8cfd1c90",
+          "args": [
+            {
+              "mvar": "v633"
+            },
+            {
+              "mvar": "v634"
+            },
+            {
+              "mvar": "v635"
+            },
+            {
+              "mvar": "v636"
+            },
+            {
+              "mvar": "v637"
+            },
+            {
+              "mvar": "v638"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_ed5918edde",
+    "rhs": {
+      "op": "synop3_ed5918edde",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v633"
+        },
+        {
+          "mvar": "v634"
+        },
+        {
+          "mvar": "v635"
+        },
+        {
+          "mvar": "v636"
+        },
+        {
+          "mvar": "v637"
+        },
+        {
+          "mvar": "v638"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "synop_6c709f774a",
+          "args": [
+            {
+              "mvar": "v678"
+            },
+            {
+              "mvar": "v679"
+            },
+            {
+              "mvar": "v680"
+            },
+            {
+              "mvar": "v681"
+            },
+            {
+              "mvar": "v682"
+            },
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v3522"
+                },
+                {
+                  "mvar": "v3523"
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_efb0c0d7ce",
+    "rhs": {
+      "op": "synop3_efb0c0d7ce",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v678"
+        },
+        {
+          "mvar": "v679"
+        },
+        {
+          "mvar": "v680"
+        },
+        {
+          "mvar": "v681"
+        },
+        {
+          "mvar": "v682"
+        },
+        {
+          "mvar": "v3522"
+        },
+        {
+          "mvar": "v3523"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_35bbd03301",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v1681"
+                },
+                {
+                  "mvar": "v1682"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v452"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_f28f7ffd1a",
+    "rhs": {
+      "op": "synop3_f28f7ffd1a",
+      "args": [
+        {
+          "mvar": "v207"
+        },
+        {
+          "mvar": "v208"
+        },
+        {
+          "mvar": "v209"
+        },
+        {
+          "mvar": "v210"
+        },
+        {
+          "mvar": "v1681"
+        },
+        {
+          "mvar": "v1682"
+        },
+        {
+          "mvar": "v452"
+        },
+        {
+          "mvar": "v212"
+        },
+        {
+          "mvar": "v213"
+        },
+        {
+          "mvar": "v214"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v216"
+        },
+        {
+          "mvar": "v217"
+        },
+        {
+          "mvar": "v218"
+        },
+        {
+          "mvar": "v219"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "synop2_d46808a970",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "op": "add",
+          "args": [
+            {
+              "op": "mul",
+              "args": [
+                {
+                  "mvar": "v2183"
+                },
+                {
+                  "mvar": "v2184"
+                }
+              ],
+              "attrs": null
+            },
+            {
+              "mvar": "v600"
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_f9c72e0a8f",
+    "rhs": {
+      "op": "synop3_f9c72e0a8f",
+      "args": [
+        {
+          "mvar": "v220"
+        },
+        {
+          "mvar": "v221"
+        },
+        {
+          "mvar": "v222"
+        },
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v2183"
+        },
+        {
+          "mvar": "v2184"
+        },
+        {
+          "mvar": "v600"
+        },
+        {
+          "mvar": "v225"
+        },
+        {
+          "mvar": "v226"
+        },
+        {
+          "mvar": "v227"
+        },
+        {
+          "mvar": "v228"
+        },
+        {
+          "mvar": "v229"
+        },
+        {
+          "mvar": "v230"
+        },
+        {
+          "mvar": "v231"
+        },
+        {
+          "mvar": "v232"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "mul",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "op": "synop2_35bbd03301",
+          "args": [
+            {
+              "mvar": "v323"
+            },
+            {
+              "mvar": "v324"
+            },
+            {
+              "mvar": "v325"
+            },
+            {
+              "mvar": "v326"
+            },
+            {
+              "mvar": "v327"
+            },
+            {
+              "mvar": "v328"
+            },
+            {
+              "mvar": "v329"
+            },
+            {
+              "mvar": "v330"
+            },
+            {
+              "mvar": "v331"
+            },
+            {
+              "mvar": "v332"
+            },
+            {
+              "mvar": "v333"
+            },
+            {
+              "mvar": "v334"
+            },
+            {
+              "mvar": "v335"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop3_fbbba382fc",
+    "rhs": {
+      "op": "synop3_fbbba382fc",
+      "args": [
+        {
+          "mvar": "v10"
+        },
+        {
+          "mvar": "v323"
+        },
+        {
+          "mvar": "v324"
+        },
+        {
+          "mvar": "v325"
+        },
+        {
+          "mvar": "v326"
+        },
+        {
+          "mvar": "v327"
+        },
+        {
+          "mvar": "v328"
+        },
+        {
+          "mvar": "v329"
+        },
+        {
+          "mvar": "v330"
+        },
+        {
+          "mvar": "v331"
+        },
+        {
+          "mvar": "v332"
+        },
+        {
+          "mvar": "v333"
+        },
+        {
+          "mvar": "v334"
+        },
+        {
+          "mvar": "v335"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "add",
+      "args": [
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v223"
+            },
+            {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v345"
+                    },
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "mvar": "v375"
+                        },
+                        {
+                          "op": "mul",
+                          "args": [
+                            {
+                              "mvar": "v404"
+                            },
+                            {
+                              "mvar": "v405"
+                            }
+                          ],
+                          "attrs": null
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": null
+                },
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "mvar": "v358"
+                    },
+                    {
+                      "op": "unsqueeze",
+                      "args": [
+                        {
+                          "mvar": "v1132"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "a123"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "attrs": null
+                }
+              ],
+              "attrs": null
+            }
+          ],
+          "attrs": null
+        },
+        {
+          "op": "mul",
+          "args": [
+            {
+              "mvar": "v215"
+            },
+            {
+              "op": "unsqueeze",
+              "args": [
+                {
+                  "op": "select",
+                  "args": [
+                    {
+                      "op": "linear",
+                      "args": [
+                        {
+                          "mvar": "v1256"
+                        },
+                        {
+                          "mvar": "v1257"
+                        },
+                        {
+                          "mvar": "v1258"
+                        }
+                      ],
+                      "attrs": null
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "lit": 1
+                      },
+                      "index": {
+                        "bind": "a320"
+                      }
+                    }
+                  }
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "a123"
+                  }
+                }
+              }
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_6ed0a07c7d",
+    "rhs": {
+      "op": "synop_6ed0a07c7d",
+      "args": [
+        {
+          "mvar": "v223"
+        },
+        {
+          "mvar": "v345"
+        },
+        {
+          "mvar": "v375"
+        },
+        {
+          "mvar": "v404"
+        },
+        {
+          "mvar": "v405"
+        },
+        {
+          "mvar": "v358"
+        },
+        {
+          "mvar": "v1132"
+        },
+        {
+          "mvar": "v215"
+        },
+        {
+          "mvar": "v1256"
+        },
+        {
+          "mvar": "v1257"
+        },
+        {
+          "mvar": "v1258"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a123": {
+            "bind": "a123"
+          },
+          "a320": {
+            "bind": "a320"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "detach_",
+      "args": [
+        {
+          "op": "contiguous",
+          "args": [
+            {
+              "mvar": "v269"
+            }
+          ],
+          "attrs": null
+        }
+      ],
+      "attrs": null
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_0b304215b3",
+    "rhs": {
+      "op": "synop_0b304215b3",
+      "args": [
+        {
+          "mvar": "v269"
+        }
+      ],
+      "attrs": null
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "",
+    "lhs": {
+      "op": "transpose",
+      "args": [
+        {
+          "op": "reshape",
+          "args": [
+            {
+              "mvar": "v50"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "shape": {
+                "bind": "a12"
+              }
+            }
+          }
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "a5"
+          },
+          "dim1": {
+            "bind": "a6"
+          }
+        }
+      }
+    },
+    "missing_hooks": [],
+    "name": "prim:synop_f0576b5150",
+    "rhs": {
+      "op": "synop_f0576b5150",
+      "args": [
+        {
+          "mvar": "v50"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "a12": {
+            "bind": "a12"
+          },
+          "a5": {
+            "bind": "a5"
+          },
+          "a6": {
+            "bind": "a6"
+          }
+        }
+      }
+    },
+    "serializable": true,
+    "tags": [],
+    "version": 2
+  }
+]

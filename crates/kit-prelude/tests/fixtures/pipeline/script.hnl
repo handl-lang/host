@@ -1,0 +1,3 @@
+from "./pipeline.hnl" import { lift, search, verify }
+
+lift("demo.torch") >>> search >>> verify

@@ -1,0 +1,17 @@
+[package]
+name = "handl-kit-eqsat"
+version.workspace = true
+edition.workspace = true
+description = "kit-eqsat — the eqsat law/cost corpus as kit data (ADR-0175 kit layer / ADR-0177 §1): LAW_FORMAT=2 records embedded from data/laws/*.json, exposed as static JSON for any search-engine consumer."
+license.workspace = true
+repository.workspace = true
+# Git-install only: https://github.com/handl-lang/kit-eqsat (no crates.io).
+publish = false
+keywords = ["handl", "kit", "eqsat"]
+categories = ["development-tools"]
+
+[dependencies]
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

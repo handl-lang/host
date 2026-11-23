@@ -45,6 +45,10 @@ members = [
   "crates/handl-kit-server",
   "crates/handl-kit-ffi",
   "crates/handl-kit-lang",
+  "crates/kit-prelude",
+  "crates/kit-mlopt",
+  "crates/hnl-ext-mlopt",
+  "crates/handl-kit-eqsat",
   "crates/plugin-ffi",
   "crates/plugin-compile",
   "crates/handl-runtime",
@@ -97,11 +101,16 @@ handl-plugin-ext-plugin = { path = "crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "crates/plugin-ext-refinement" }
 handl-plugin-ext-test = { path = "crates/plugin-ext-test" }
 handl-plugin-ext-typecheck = { path = "crates/plugin-ext-typecheck" }
-# ADR-0128 Phase 11: `handl-kit-prelude` lives in the `kit-prelude`
-# repo; local development resolves it from the sibling checkout via the
-# `[patch]` tables below. `handl-kit-data-prelude` and
-# `handl-kit-prelude-lang` folded into this workspace (T-124 Phase B).
-handl-kit-prelude = { git = "https://github.com/handl-lang/kit-prelude", branch = "main" }
+# ADR-0128 Phase 11 / T-126 Phase D: `handl-kit-prelude` (+ `handl-kit-mlopt`,
+# `hnl-ext-mlopt`) folded into this workspace from the `kit-prelude` repo.
+# `handl-kit-data-prelude` and `handl-kit-prelude-lang` folded in at T-124
+# Phase B.
+handl-kit-prelude = { path = "crates/kit-prelude" }
+handl-kit-mlopt = { path = "crates/kit-mlopt" }
+hnl-ext-mlopt = { path = "crates/hnl-ext-mlopt" }
+# T-126 Phase D: `handl-kit-eqsat` (the eqsat law/cost data corpus) folded
+# in from the `kit-eqsat` repo.
+handl-kit-eqsat = { path = "crates/handl-kit-eqsat" }
 # ADR-0128 Phase 3: the stdlib crates live in the `stdlib` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
@@ -151,9 +160,13 @@ hnl-engine-lex-pattern = { git = "https://github.com/handl-lang/engine-lex-patte
 hnl-engine-parse = { git = "https://github.com/handl-lang/engine-parse", branch = "main" }
 hnl-engine-exec = { git = "https://github.com/handl-lang/engine-exec", branch = "main" }
 hnl-engine-typecheck = { git = "https://github.com/handl-lang/engine-typecheck", branch = "main" }
+hnl-engine-typecheck-nbe = { git = "https://github.com/handl-lang/engine-typecheck-nbe", branch = "main" }
 hnl-engine-parse-pratt = { git = "https://github.com/handl-lang/engine-parse-pratt", branch = "main" }
 hnl-engine-exec-tree-walk = { git = "https://github.com/handl-lang/engine-exec-tree-walk", branch = "main" }
 hnl-engine-test = { git = "https://github.com/handl-lang/engine-test", branch = "main" }
+handl-kit-test = { git = "https://github.com/handl-lang/engine-test", branch = "main" }
+handl-ext = { git = "https://github.com/handl-lang/kernel", branch = "main" }
+handl-lib-comb = { git = "https://github.com/handl-lang/lib-comb", branch = "main" }
 hnl-engine-exec-bytecode = { git = "https://github.com/handl-lang/engine-exec-bytecode", branch = "main" }
 hnl-engine-exec-cranelift = { git = "https://github.com/handl-lang/engine-exec-cranelift", branch = "main" }
 hnl-engine-fmt = { git = "https://github.com/handl-lang/engine-fmt", branch = "main" }
@@ -320,9 +333,18 @@ handl-value = { path = "../kernel/crates/handl-value" }
 handl-lib-ops = { path = "../kernel/crates/ops" }
 handl-lib-prim = { path = "../kernel/crates/prim" }
 handl-lib-prim-handl = { path = "../kernel/crates/prim-handl" }
+handl-ext = { path = "../kernel/crates/handl-ext" }
 [patch."https://github.com/handl-lang/kit-prelude"]
-handl-kit-prelude = { path = "../kit-prelude/crates/kit-prelude" }
+# T-126 Phase D: all three kit-prelude crates are workspace members now —
+# external consumers that still declare the kit-prelude git deps resolve
+# to these members until the consumer-repoint sweep.
+handl-kit-prelude = { path = "crates/kit-prelude" }
+handl-kit-mlopt = { path = "crates/kit-mlopt" }
+hnl-ext-mlopt = { path = "crates/hnl-ext-mlopt" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
+
+[patch."https://github.com/handl-lang/kit-eqsat"]
+handl-kit-eqsat = { path = "crates/handl-kit-eqsat" }
 # T-124 Phase B: `handl-kit-prelude-lang` and `handl-kit-data-prelude` are
 # workspace members now — external kits that still declare the git deps
 # resolve to these members until the consumer-repoint sweep.

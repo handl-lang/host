@@ -1,0 +1,6309 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map abs: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "abs",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_abs",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "abs",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for abs — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "abs",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_abs",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "abs",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map abs: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "abs",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_abs_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "abs",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for abs — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "abs",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_abs_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "abs",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map exp: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "exp",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_exp",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "exp",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for exp — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "exp",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_exp",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "exp",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map exp: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "exp",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_exp_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "exp",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for exp — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "exp",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_exp_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "exp",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map gelu: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "gelu",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_gelu",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "gelu",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for gelu — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "gelu",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_gelu",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "gelu",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map gelu: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "gelu",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_gelu_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "gelu",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for gelu — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "gelu",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_gelu_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "gelu",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map log: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "log",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_log",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "log",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for log — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "log",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_log",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "log",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map log: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "log",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_log_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "log",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for log — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "log",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_log_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "log",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map neg: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "neg",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_neg",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "neg",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for neg — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "neg",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_neg",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "neg",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map neg: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "neg",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_neg_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "neg",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for neg — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "neg",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_neg_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "neg",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map relu: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "relu",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_relu",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "relu",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for relu — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "relu",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_relu",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "relu",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map relu: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "relu",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_relu_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "relu",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for relu — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "relu",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_relu_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "relu",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map rsqrt: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "rsqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_rsqrt",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "rsqrt",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for rsqrt — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "rsqrt",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_rsqrt",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "rsqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map rsqrt: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "rsqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_rsqrt_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "rsqrt",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for rsqrt — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "rsqrt",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_rsqrt_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "rsqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map sigmoid: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sigmoid",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_sigmoid",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sigmoid",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for sigmoid — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sigmoid",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_sigmoid",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sigmoid",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map sigmoid: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sigmoid",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_sigmoid_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sigmoid",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for sigmoid — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sigmoid",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_sigmoid_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sigmoid",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map silu: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "silu",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_silu",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "silu",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for silu — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "silu",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_silu",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "silu",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map silu: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "silu",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_silu_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "silu",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for silu — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "silu",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_silu_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "silu",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map sqrt: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_sqrt",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sqrt",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for sqrt — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sqrt",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_sqrt",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map sqrt: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_sqrt_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sqrt",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for sqrt — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sqrt",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_sqrt_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map square: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "square",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_square",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "square",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for square — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "square",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_square",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "square",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map square: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "square",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_square_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "square",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for square — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "square",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_square_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "square",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map tanh: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "tanh",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_tanh",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "tanh",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for tanh — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "tanh",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_tanh",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "tanh",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose commutes with the pointwise map tanh: T·f(x) = f(T·x) — naturality of the elementwise action.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "tanh",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_tanh_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "tanh",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-distinct",
+      "x",
+      "D0",
+      "D1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: f(T·x) = T·f(x) for tanh — hoist the layout change back out.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "tanh",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_tanh_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "tanh",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over add: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_add",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for add.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_add",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over add: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_add_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for add.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_add_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over div: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "div",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_div",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "div",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for div.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "div",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_div",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "div",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over div: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "div",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_div_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "div",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for div.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "div",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_div_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "div",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over mul: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_mul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for mul.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_mul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over mul: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_mul_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for mul.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_mul_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over sub: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_sub",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sub",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for sub.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sub",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_sub",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose distributes over sub: T·(a ⊙ b) = T·a ⊙ T·b — same-rank broadcast commutes with relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_push_sub_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sub",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank-eq",
+        "a",
+        "b"
+      ],
+      [
+        "axes-distinct",
+        "a",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Inverse: T·a ⊙ T·b = T·(a ⊙ b) for sub.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sub",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_pull_sub_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-eq",
+      "x",
+      "I0",
+      "I1",
+      "O0",
+      "O1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose is an involution per axis pair: T₂∘T₁ = id when both swap the same axes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "I0"
+              },
+              "dim1": {
+                "bind": "I1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "O0"
+          },
+          "dim1": {
+            "bind": "O1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_transpose_dd",
+    "rhs": {
+      "mvar": "x"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-eq",
+      "x",
+      "I0",
+      "I1",
+      "O0",
+      "O1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose is an involution per axis pair: T₂∘T₁ = id when both swap the same axes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "I0"
+              },
+              "dim1": {
+                "bind": "I1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_transpose_bd",
+    "rhs": {
+      "mvar": "x"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-eq",
+      "x",
+      "I0",
+      "I1",
+      "O0",
+      "O1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose is an involution per axis pair: T₂∘T₁ = id when both swap the same axes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "O0"
+          },
+          "dim1": {
+            "bind": "O1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_transpose_db",
+    "rhs": {
+      "mvar": "x"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "axes-eq",
+      "x",
+      "I0",
+      "I1",
+      "O0",
+      "O1"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Transpose is an involution per axis pair: T₂∘T₁ = id when both swap the same axes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_transpose_bb",
+    "rhs": {
+      "mvar": "x"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "A",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "B",
+        ">=",
+        2
+      ],
+      [
+        "axes-last2",
+        [
+          "mm-out",
+          "A",
+          "B"
+        ],
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "(A@B).mT = B.mT @ A.mT — the output's last-two swap folds into per-operand transposes (the BLAS NT/TN flag read, batched).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_matmul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": -2,
+              "dim1": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": -2,
+              "dim1": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "A",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "B",
+        ">=",
+        2
+      ],
+      [
+        "axes-last2",
+        [
+          "mm-out",
+          "A",
+          "B"
+        ],
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Bare ``t()`` spelling of the product-transpose law — an implicit last-two swap.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "transpose_matmul_bare",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": -2,
+              "dim1": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": -2,
+              "dim1": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "axes-last2",
+        "P",
+        "P0",
+        "P1"
+      ],
+      [
+        "axes-last2",
+        "Q",
+        "Q0",
+        "Q1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "P.mT @ Q.mT = (Q@P).mT — hoist the product's last-two swap outward, dropping both operand transposes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "P0"
+              },
+              "dim1": {
+                "bind": "P1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "Q0"
+              },
+              "dim1": {
+                "bind": "Q1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "matmul_transpose_rev_dd",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            },
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "lit": {
+          "dim0": -2,
+          "dim1": -1
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "axes-last2",
+        "P",
+        "P0",
+        "P1"
+      ],
+      [
+        "axes-last2",
+        "Q",
+        "Q0",
+        "Q1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "P.mT @ Q.mT = (Q@P).mT — hoist the product's last-two swap outward, dropping both operand transposes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "P0"
+              },
+              "dim1": {
+                "bind": "P1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "matmul_transpose_rev_db",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            },
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "lit": {
+          "dim0": -2,
+          "dim1": -1
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "axes-last2",
+        "P",
+        "P0",
+        "P1"
+      ],
+      [
+        "axes-last2",
+        "Q",
+        "Q0",
+        "Q1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "P.mT @ Q.mT = (Q@P).mT — hoist the product's last-two swap outward, dropping both operand transposes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "Q0"
+              },
+              "dim1": {
+                "bind": "Q1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "matmul_transpose_rev_bd",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            },
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "lit": {
+          "dim0": -2,
+          "dim1": -1
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "axes-last2",
+        "P",
+        "P0",
+        "P1"
+      ],
+      [
+        "axes-last2",
+        "Q",
+        "Q0",
+        "Q1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "P.mT @ Q.mT = (Q@P).mT — hoist the product's last-two swap outward, dropping both operand transposes.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "matmul_transpose_rev_bb",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "Q"
+            },
+            {
+              "mvar": "P"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "lit": {
+          "dim0": -2,
+          "dim1": -1
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        1
+      ],
+      [
+        "dim-compat",
+        "x",
+        -1,
+        "W",
+        1
+      ],
+      [
+        "axes-last2",
+        "W",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "matmul(x, W.mT) ≡ linear(x, W): F.linear IS the BLAS-NT call — W stays in (out, in) storage and no transpose materialises.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_from_matmul_t",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        1
+      ],
+      [
+        "dim-compat",
+        "x",
+        -1,
+        "W",
+        1
+      ],
+      [
+        "axes-last2",
+        "W",
+        "D0",
+        "D1"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Bare-t() spelling of the NT bridge: x @ W.t() = linear(x, W) — the exported form of ``x @ W.t()``.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_from_matmul_t_bare",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        1
+      ],
+      [
+        "dim-compat",
+        "x",
+        -1,
+        "W",
+        1
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse NT bridge — exposes the weight's implicit transpose so the migration laws can move it.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_to_matmul_t",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": -2,
+              "dim1": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "layout"
+    ],
+    "version": 2
+  }
+]

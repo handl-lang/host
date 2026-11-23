@@ -397,6 +397,7 @@ dependencies = [
  "once_cell",
  "oorandom",
  "plotters",
+ "rayon",
  "regex",
  "serde",
  "serde_derive",
@@ -653,6 +654,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-ext"
+version = "0.1.0"
+dependencies = [
+ "libloading",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "handl-ext-tests"
 version = "0.1.0"
 dependencies = [
@@ -740,6 +751,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-kit-eqsat"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "handl-kit-ffi"
 version = "0.1.0"
 dependencies = [
@@ -778,6 +796,7 @@ dependencies = [
 name = "handl-kit-prelude"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "handl-kit-core",
  "handl-kit-data",
  "handl-kit-data-prelude",
@@ -809,6 +828,7 @@ dependencies = [
  "libc",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]
@@ -1072,6 +1092,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-compile",
  "handl-plugin-ext-diag",
+ "handl-runtime",
  "hnl-engine",
  "hnl-engine-lex-pattern",
  "hnl-engine-parse",
@@ -1900,6 +1921,14 @@ version = "0.1.0"
 source = "git+https://github.com/handl-lang/engine-watch?branch=main#5d3cce98269332b8a9943dcc9f80b93a884e03ef"
 dependencies = [
  "notify",
+]
+
+[[package]]
+name = "hnl-ext-mlopt"
+version = "0.1.0"
+dependencies = [
+ "handl-ext",
+ "handl-kit-mlopt",
 ]
 
 [[package]]
@@ -3307,10 +3336,6 @@ name = "compile-triton"
 version = "0.0.1"
 
 [[patch.unused]]
-name = "handl-ext"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "handl-plugin-applier-bootstrap"
 version = "0.1.0"
 
@@ -3320,10 +3345,6 @@ version = "0.1.0"
 
 [[patch.unused]]
 name = "handl-kit-pkg"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-kit-eqsat"
 version = "0.1.0"
 
 [[patch.unused]]

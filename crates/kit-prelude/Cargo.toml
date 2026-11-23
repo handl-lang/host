@@ -1,0 +1,78 @@
+[package]
+name = "handl-kit-prelude"
+version.workspace = true
+edition.workspace = true
+description = "Prelude kit — the canonical ambient layer: Kit facade + ambient modules, composed over the kit-* crates."
+license.workspace = true
+repository.workspace = true
+keywords = ["handl", "kit", "prelude"]
+categories = ["development-tools"]
+
+# ADR-0128 §0.5/§0.9: the cranelift exec engine and the FFI surface are
+# Cargo features, not hard links — `hnl-engine-exec-cranelift` and
+# `handl-plugin-ffi` pull 14 cranelift crates + libloading into every
+# consumer (the LSP host, `plugin-compile-js`, parse-only embedders).
+# `default = ["cranelift", "ffi"]` keeps today's behavior; consumers opt
+# out with `default-features = false` and can still wire an exec engine
+# through the `EngineRegistry` contract (`Kit::new_with_registry` /
+# `runtime_for_lang_with_registry`). With `ffi` off the `ffi` module stays
+# resolvable — its ops become stubs that raise a clear "not compiled in"
+# error (`ffi.load`/`ffi.sym` keep their non-raising `{__tag__: "err"}`
+# probe contract so dependent packages degrade gracefully).
+#
+# `cranelift` does not imply `ffi`: enabling `cranelift` alone still
+# builds `handl-plugin-ffi` transitively (the engine's own FFI
+# marshalling), but the `ffi` handl module only wires the real ops under
+# the `ffi` feature.
+
+[features]
+default = ["cranelift", "ffi"]
+cranelift = ["dep:hnl-engine-exec-cranelift"]
+ffi = ["handl-kit-ffi/ffi"]
+
+[dependencies]
+handl-kit-core = { workspace = true }
+handl-kit-stdlib = { workspace = true }
+handl-kit-server = { workspace = true }
+handl-kit-test = { workspace = true }
+handl-kit-ffi = { workspace = true }
+handl-kit-mlopt = { workspace = true }
+handl-kit-lang = { workspace = true }
+handl-kit-data-prelude = { workspace = true }
+handl-runtime = { workspace = true }
+handl-language = { workspace = true }
+handl-platform = { workspace = true }
+handl-kit-data = { workspace = true }
+hnl-engine-exec = { workspace = true }
+hnl-engine-lex-pattern = { workspace = true }
+hnl-engine-parse = { workspace = true }
+hnl-engine-parse-pratt = { workspace = true }
+hnl-engine-exec-tree-walk = { workspace = true }
+hnl-engine-exec-bytecode = { workspace = true }
+hnl-engine-exec-cranelift = { workspace = true, optional = true }
+hnl-engine-typecheck = { workspace = true }
+hnl-engine-typecheck-nbe = { workspace = true }
+handl-plugin-ext-diag = { workspace = true }
+handl-plugin-ext-lint = { workspace = true }
+handl-plugin-lib-stdlib = { workspace = true }
+handl-plugin-lib-handl = { workspace = true }
+
+handl-lib-comb = { workspace = true }
+handl-plugin-lib-tag = { workspace = true }
+handl-plugin-module = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# `dladdr` resolves which loaded image (the `hnl_ext_*` cdylib or the
+# exe) contains `prelude_wire_names` — the wire-prelude cache key must
+# track that artifact, not the shared `hnl` host exe (see lib.rs).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3"
+
+[[bench]]
+name = "perf"
+harness = false

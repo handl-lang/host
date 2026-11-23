@@ -1,0 +1,8008 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "and",
+        [
+          "rank-eq",
+          "a",
+          "b"
+        ],
+        [
+          "rank",
+          "a",
+          ">=",
+          1
+        ],
+        [
+          "shape-eq",
+          "a",
+          "b"
+        ]
+      ],
+      [
+        "and",
+        [
+          "rank",
+          "a",
+          ">=",
+          2
+        ],
+        [
+          "rank",
+          "b",
+          ">=",
+          2
+        ],
+        [
+          "dim-eq",
+          "a",
+          -2,
+          "b",
+          -2
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Distributivity of linear maps over addition (bilinearity).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "W"
+        },
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "distribute_matmul_over_add",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "and",
+        [
+          "rank-eq",
+          "a",
+          "b"
+        ],
+        [
+          "rank",
+          "a",
+          ">=",
+          1
+        ],
+        [
+          "shape-eq",
+          "a",
+          "b"
+        ]
+      ],
+      [
+        "and",
+        [
+          "rank",
+          "a",
+          ">=",
+          2
+        ],
+        [
+          "rank",
+          "b",
+          ">=",
+          2
+        ],
+        [
+          "dim-eq",
+          "a",
+          -2,
+          "b",
+          -2
+        ]
+      ]
+    ],
+    "derivation": [
+      "distribute_matmul_over_add"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Factoring common linear maps (reverse distributivity).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "factor_matmul",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "W"
+        },
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "and",
+        [
+          "rank-eq",
+          "W",
+          "W2"
+        ],
+        [
+          "rank",
+          "W",
+          ">=",
+          1
+        ],
+        [
+          "shape-eq",
+          "W",
+          "W2"
+        ]
+      ],
+      [
+        "and",
+        [
+          "rank",
+          "W",
+          ">=",
+          2
+        ],
+        [
+          "rank",
+          "W2",
+          ">=",
+          2
+        ],
+        [
+          "dim-eq",
+          "W",
+          -2,
+          "W2",
+          -2
+        ]
+      ]
+    ],
+    "derivation": [
+      "distribute_matmul_over_add"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Merge shared-input projections: x@W1 + x@W2 = x@(W1+W2).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "weight_factor_matmul",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive",
+      "redundant"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "and",
+        [
+          "rank-eq",
+          "W",
+          "W2"
+        ],
+        [
+          "rank",
+          "W",
+          ">=",
+          1
+        ],
+        [
+          "shape-eq",
+          "W",
+          "W2"
+        ]
+      ],
+      [
+        "and",
+        [
+          "rank",
+          "W",
+          ">=",
+          2
+        ],
+        [
+          "rank",
+          "W2",
+          ">=",
+          2
+        ],
+        [
+          "dim-eq",
+          "W",
+          -2,
+          "W2",
+          -2
+        ]
+      ]
+    ],
+    "derivation": [
+      "distribute_matmul_over_add"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse weight merge (lets eqsat weigh fused vs split forms).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "weight_distribute_matmul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive",
+      "redundant"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "and",
+        [
+          "rank-eq",
+          "W",
+          "W2"
+        ],
+        [
+          "rank",
+          "W",
+          ">=",
+          1
+        ],
+        [
+          "shape-eq",
+          "W",
+          "W2"
+        ]
+      ],
+      [
+        "and",
+        [
+          "rank",
+          "W",
+          ">=",
+          2
+        ],
+        [
+          "rank",
+          "W2",
+          ">=",
+          2
+        ],
+        [
+          "dim-eq",
+          "W",
+          -1,
+          "W2",
+          -1
+        ]
+      ]
+    ],
+    "derivation": [
+      "weight_distribute_linear"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Merge shared-input nn.Linears: linear(x,W1)+linear(x,W2) = linear(x, W1+W2)  (transpose distributes over +).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "weight_factor_linear",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "and",
+        [
+          "rank-eq",
+          "W",
+          "W2"
+        ],
+        [
+          "rank",
+          "W",
+          ">=",
+          1
+        ],
+        [
+          "shape-eq",
+          "W",
+          "W2"
+        ]
+      ],
+      [
+        "and",
+        [
+          "rank",
+          "W",
+          ">=",
+          2
+        ],
+        [
+          "rank",
+          "W2",
+          ">=",
+          2
+        ],
+        [
+          "dim-eq",
+          "W",
+          -1,
+          "W2",
+          -1
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Expand a merged nn.Linear so eqsat can compare both forms.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "weight_distribute_linear",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W2"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Bilinearity: linear maps distribute over addition in BOTH slots.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "right_distribute_matmul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Factor a shared right-weight (the slot `x @ W` uses).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "right_factor_matmul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Factor a shared right-hand nn.Linear weight.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "right_factor_linear",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Compose stacked nn.Linears: fused weight is B @ A (transposes flip the product order).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "B"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "assoc_linear",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "B"
+            },
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse linear composition: linear(x, B@A) = linear(linear(x, A), B) (eqsat weighs fused vs split).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "B"
+            },
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "assoc_linear_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "B"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "A",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "B",
+        "==",
+        2
+      ],
+      [
+        "dim-eq",
+        "B",
+        1,
+        "A",
+        0
+      ],
+      [
+        "rank",
+        "b1",
+        "==",
+        1
+      ],
+      [
+        "dim-eq",
+        "b1",
+        0,
+        "A",
+        0
+      ],
+      [
+        "or",
+        [
+          "scalar",
+          "b2"
+        ],
+        [
+          "and",
+          [
+            "rank",
+            "b2",
+            "==",
+            1
+          ],
+          [
+            "dim-eq",
+            "b2",
+            0,
+            "B",
+            0
+          ]
+        ]
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        1
+      ],
+      [
+        "dim-eq",
+        "x",
+        -1,
+        "A",
+        1
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Affine-map composition: (B,b2)∘(A,b1) = (BA, B·b1 + b2).  Fused weight is B @ A (same transpose flip as assoc_linear); the fused bias is spelled linear(x, BA, B·b1) + b2 so both B-products fold at compile time — one GEMM plus one broadcast add at runtime.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "b1"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "B"
+        },
+        {
+          "mvar": "b2"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "assoc_linear_bias",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "B"
+                },
+                {
+                  "mvar": "A"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "matmul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "B"
+                },
+                {
+                  "mvar": "b1"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "matmul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "b2"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "A",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "B",
+        "==",
+        2
+      ],
+      [
+        "dim-eq",
+        "B",
+        1,
+        "A",
+        0
+      ],
+      [
+        "rank",
+        "b1",
+        "==",
+        1
+      ],
+      [
+        "dim-eq",
+        "b1",
+        0,
+        "A",
+        0
+      ],
+      [
+        "or",
+        [
+          "scalar",
+          "b2"
+        ],
+        [
+          "and",
+          [
+            "rank",
+            "b2",
+            "==",
+            1
+          ],
+          [
+            "dim-eq",
+            "b2",
+            0,
+            "B",
+            0
+          ]
+        ]
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        1
+      ],
+      [
+        "dim-eq",
+        "x",
+        -1,
+        "A",
+        1
+      ]
+    ],
+    "derivation": [
+      "assoc_linear_bias"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse affine composition (eqsat weighs fused vs split).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "B"
+                },
+                {
+                  "mvar": "A"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "matmul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "B"
+                },
+                {
+                  "mvar": "b1"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "matmul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "b2"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "assoc_linear_bias_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "b1"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "B"
+        },
+        {
+          "mvar": "b2"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Naturality: scalar multiplication commutes with linear maps.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "W"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "naturality_scalar",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse naturality: pull scalar into the matmul's input.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "naturality_scalar_rev",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "W"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Associativity of composition in a category: (f∘g)∘h = f∘(g∘h).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "A"
+        },
+        {
+          "args": [
+            {
+              "mvar": "B"
+            },
+            {
+              "mvar": "C"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "assoc_matmul",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "C"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse associativity: f∘(g∘h) = (f∘g)∘h.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "C"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "assoc_matmul_rev",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "A"
+        },
+        {
+          "args": [
+            {
+              "mvar": "B"
+            },
+            {
+              "mvar": "C"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise add when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_add_r",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise add when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_add_l",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "c"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise div when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "div",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_div_r",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "div",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise div when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "div",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_div_l",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "c"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "div",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise mul when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_mul_r",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise mul when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_mul_l",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "c"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise sub when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_sub_r",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sub",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "scalar",
+      "c"
+    ],
+    "derivation": [
+      "naturality_scalar"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "split commutes with pointwise sub when the other operand is scalar: the partition reads the same elementwise grid; the scalar accompanies every block unchanged.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "c"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          },
+          "sizes": {
+            "bind": "SZ"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "split",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "split_scalar_sub_l",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "c"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              },
+              "sizes": {
+                "bind": "SZ"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "split",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sub",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "shape-compat",
+        "A",
+        "B"
+      ],
+      [
+        "rank",
+        "A",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "B",
+        ">=",
+        2
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Product universal property: <f,g> = (f x g) . Delta.  Two projections of the same input are ONE GEMM into V x V, then project.  (Fused SwiGLU gate/up — MergedColumnParallelLinear.)",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "mvar": "A"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "linear",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "silu",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "swiglu_fuse",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "A"
+                        },
+                        {
+                          "mvar": "B"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim": 0
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "concat",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "lit": {
+                  "chunks": 2,
+                  "dim": -1,
+                  "index": 0
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "chunk",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "silu",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "args": [
+                    {
+                      "mvar": "A"
+                    },
+                    {
+                      "mvar": "B"
+                    }
+                  ],
+                  "attrs": {
+                    "lit": {
+                      "dim": 0
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "concat",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "linear",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "chunks": 2,
+              "dim": -1,
+              "index": 1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "chunk",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion",
+      "subsumed"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "shape-compat",
+        "A",
+        "B"
+      ],
+      [
+        "rank",
+        "A",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "B",
+        ">=",
+        2
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Pairing without a gate nonlinearity: mul(<pi1 f>, <pi2 g>) recovers the parallel-product form.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "A"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "parallel_mul_fuse",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "args": [
+                    {
+                      "mvar": "A"
+                    },
+                    {
+                      "mvar": "B"
+                    }
+                  ],
+                  "attrs": {
+                    "lit": {
+                      "dim": 0
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "concat",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "linear",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "chunks": 2,
+              "dim": -1,
+              "index": 0
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "chunk",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "args": [
+                    {
+                      "mvar": "A"
+                    },
+                    {
+                      "mvar": "B"
+                    }
+                  ],
+                  "attrs": {
+                    "lit": {
+                      "dim": 0
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "concat",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "linear",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "chunks": 2,
+              "dim": -1,
+              "index": 1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "chunk",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion",
+      "subsumed"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Triple pairing <q,k,v> : X -> V^3 — three projections of the same input are ONE GEMM into the product space, then three zero-cost chunk projections.  (Fused QKV.)",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "mvar": "Q"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "mvar": "K"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "mvar": "V"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "qkv_fuse",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "args": [
+                            {
+                              "args": [
+                                {
+                                  "mvar": "Q"
+                                },
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "lit": {
+                                  "dim": 0
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "concat",
+                              "source": "native"
+                            },
+                            {
+                              "mvar": "V"
+                            }
+                          ],
+                          "attrs": {
+                            "lit": {
+                              "dim": 0
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "concat",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "linear",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "lit": {
+                      "chunks": 3,
+                      "dim": -1,
+                      "index": 0
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "chunk",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "args": [
+                            {
+                              "args": [
+                                {
+                                  "mvar": "Q"
+                                },
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "lit": {
+                                  "dim": 0
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "concat",
+                              "source": "native"
+                            },
+                            {
+                              "mvar": "V"
+                            }
+                          ],
+                          "attrs": {
+                            "lit": {
+                              "dim": 0
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "concat",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "linear",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "lit": {
+                      "chunks": 3,
+                      "dim": -1,
+                      "index": 1
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "chunk",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "args": [
+                            {
+                              "args": [
+                                {
+                                  "mvar": "Q"
+                                },
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "lit": {
+                                  "dim": 0
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "concat",
+                              "source": "native"
+                            },
+                            {
+                              "mvar": "V"
+                            }
+                          ],
+                          "attrs": {
+                            "lit": {
+                              "dim": 0
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "concat",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "linear",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "lit": {
+                      "chunks": 3,
+                      "dim": -1,
+                      "index": 2
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "chunk",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion",
+      "subsumed"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": {
+      "SZ": [
+        "tuple",
+        [
+          "leaf-dim",
+          "Q",
+          0
+        ],
+        [
+          "leaf-dim",
+          "K",
+          0
+        ],
+        [
+          "leaf-dim",
+          "V",
+          0
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "Asymmetric triple pairing: the same product law as qkv_fuse, but the three projections have different output dims — one GEMM, three uneven split views.  (GQA fused QKV.)",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "mvar": "Q"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S1"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "mvar": "K"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S2"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "mvar": "V"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "linear",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S3"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "enable_gqa": {
+            "bind": "G"
+          },
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "qkv_fuse_asym",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "args": [
+                            {
+                              "args": [
+                                {
+                                  "mvar": "Q"
+                                },
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "lit": {
+                                  "dim": 0
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "concat",
+                              "source": "native"
+                            },
+                            {
+                              "mvar": "V"
+                            }
+                          ],
+                          "attrs": {
+                            "lit": {
+                              "dim": 0
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "concat",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "linear",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "lit": -1
+                      },
+                      "index": {
+                        "lit": 0
+                      },
+                      "sizes": {
+                        "bind": "SZ"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "split",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S1"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "args": [
+                            {
+                              "args": [
+                                {
+                                  "mvar": "Q"
+                                },
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "lit": {
+                                  "dim": 0
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "concat",
+                              "source": "native"
+                            },
+                            {
+                              "mvar": "V"
+                            }
+                          ],
+                          "attrs": {
+                            "lit": {
+                              "dim": 0
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "concat",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "linear",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "lit": -1
+                      },
+                      "index": {
+                        "lit": 1
+                      },
+                      "sizes": {
+                        "bind": "SZ"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "split",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S2"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "args": [
+                            {
+                              "args": [
+                                {
+                                  "mvar": "Q"
+                                },
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "lit": {
+                                  "dim": 0
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "concat",
+                              "source": "native"
+                            },
+                            {
+                              "mvar": "V"
+                            }
+                          ],
+                          "attrs": {
+                            "lit": {
+                              "dim": 0
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "concat",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "linear",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "lit": -1
+                      },
+                      "index": {
+                        "lit": 2
+                      },
+                      "sizes": {
+                        "bind": "SZ"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "split",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "S3"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "enable_gqa": {
+            "bind": "G"
+          },
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion",
+      "subsumed"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "mm-shape-ok",
+        "x",
+        [
+          "transpose-out",
+          "W",
+          null,
+          null
+        ]
+      ],
+      [
+        "rank",
+        "W",
+        "<=",
+        2
+      ],
+      [
+        "shaped",
+        "c"
+      ],
+      [
+        "rank",
+        "W",
+        ">=",
+        1
+      ],
+      [
+        "or",
+        [
+          "scalar",
+          "c"
+        ],
+        [
+          "and",
+          [
+            "dim-eq",
+            "c",
+            -1,
+            "W",
+            -1
+          ],
+          [
+            "ones-but-last",
+            "c"
+          ]
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Channel scale is a right diagonal: (xD)W = x(DW).  Folds the norm's affine gain into the weight at compile time.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_channel_scale",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "symmetry"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "mm-shape-ok",
+        "x",
+        [
+          "transpose-out",
+          "W",
+          null,
+          null
+        ]
+      ],
+      [
+        "rank",
+        "W",
+        "<=",
+        2
+      ],
+      [
+        "shaped",
+        "c"
+      ],
+      [
+        "rank",
+        "W",
+        ">=",
+        1
+      ],
+      [
+        "or",
+        [
+          "scalar",
+          "c"
+        ],
+        [
+          "and",
+          [
+            "dim-eq",
+            "c",
+            -1,
+            "W",
+            -1
+          ],
+          [
+            "ones-but-last",
+            "c"
+          ]
+        ]
+      ]
+    ],
+    "derivation": [
+      "linear_channel_scale"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse channel-scale fold (eqsat compares both forms).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_channel_scale_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "symmetry"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "or",
+        [
+          "scalar",
+          "r"
+        ],
+        [
+          "dim-eq-const",
+          "r",
+          -1,
+          1
+        ]
+      ],
+      [
+        "bcast-into",
+        "r",
+        [
+          "mm-out",
+          "x",
+          [
+            "transpose-out",
+            "W",
+            null,
+            null
+          ]
+        ]
+      ],
+      [
+        "rank",
+        "W",
+        "<=",
+        2
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Row scale is a left diagonal: commutes through the linear map to the output (naturality of scalar action).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "r"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_row_scale",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "r"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "symmetry"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "or",
+        [
+          "scalar",
+          "r"
+        ],
+        [
+          "dim-eq-const",
+          "r",
+          -1,
+          1
+        ]
+      ],
+      [
+        "bcast-into",
+        "r",
+        [
+          "mm-out",
+          "x",
+          [
+            "transpose-out",
+            "W",
+            null,
+            null
+          ]
+        ]
+      ],
+      [
+        "rank",
+        "W",
+        "<=",
+        2
+      ]
+    ],
+    "derivation": [
+      "linear_row_scale"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse row-scale hoist (eqsat compares both forms).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "r"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_row_scale_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "r"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "W"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "expansive",
+      "symmetry"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "mm-shape-ok",
+          "x",
+          [
+            "transpose-out",
+            "W",
+            null,
+            null
+          ]
+        ],
+        [
+          "rank",
+          "W",
+          "<=",
+          2
+        ],
+        [
+          "shaped",
+          "c"
+        ],
+        [
+          "rank",
+          "W",
+          ">=",
+          1
+        ],
+        [
+          "or",
+          [
+            "scalar",
+            "c"
+          ],
+          [
+            "and",
+            [
+              "dim-eq",
+              "c",
+              -1,
+              "W",
+              -1
+            ],
+            [
+              "ones-but-last",
+              "c"
+            ]
+          ]
+        ]
+      ],
+      [
+        "and",
+        [
+          "or",
+          [
+            "scalar",
+            "c"
+          ],
+          [
+            "dim-eq-const",
+            "c",
+            -1,
+            1
+          ]
+        ],
+        [
+          "bcast-into",
+          "c",
+          [
+            "mm-out",
+            "x",
+            [
+              "transpose-out",
+              "W",
+              null,
+              null
+            ]
+          ]
+        ],
+        [
+          "rank",
+          "W",
+          "<=",
+          2
+        ]
+      ]
+    ],
+    "derivation": [
+      "linear_channel_scale_rev",
+      "linear_row_scale"
+    ],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "linear(x, W∘c) = c·linear(x, W) — a channel scale folded into the weight migrates through the linear map and re-emerges as a row scale on the output (channel_scale_rev then row_scale, fused into one premise-guarded step).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "c"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_channel_to_row_scale",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "c"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "categorical"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "q",
+        "==",
+        4
+      ],
+      [
+        "rank",
+        "k",
+        "==",
+        4
+      ],
+      [
+        "rank",
+        "v",
+        "==",
+        4
+      ],
+      [
+        "repeat-chain",
+        "k",
+        "UDk",
+        "ESk",
+        "RSk"
+      ],
+      [
+        "repeat-chain",
+        "v",
+        "UDv",
+        "ESv",
+        "RSv"
+      ],
+      [
+        "attr-eq-attr",
+        "ESk",
+        "ESv"
+      ],
+      [
+        "repeat-heads",
+        "q",
+        "k",
+        "UDk",
+        "ESk"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "The diagonal is natural: unsqueeze->expand->reshape copies each kv head r times (repeat_kv).  SDPA implements that copy inside the kernel via enable_gqa — pushing Delta into the consumer deletes the materialisation entirely.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "q"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "k"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "UDk"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "unsqueeze",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "shape": {
+                        "bind": "ESk"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "expand",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "RSk"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "v"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "UDv"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "unsqueeze",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "shape": {
+                        "bind": "ESv"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "expand",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "RSv"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "bind": "D"
+          },
+          "is_causal": {
+            "bind": "C"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "gqa_absorb_repeat",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "q"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "k"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "v"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim0": 1,
+              "dim1": 2
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "bind": "D"
+          },
+          "enable_gqa": {
+            "lit": true
+          },
+          "is_causal": {
+            "bind": "C"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "M"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "M"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "float",
+        [
+          "const",
+          "S"
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(qk^T s + m) v is sdpa — the additive mask is the kernel's attn_mask argument.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "Q"
+                        },
+                        {
+                          "args": [
+                            {
+                              "mvar": "K"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim0": {
+                                "bind": "TD1"
+                              },
+                              "dim1": {
+                                "bind": "TD2"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "transpose",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "matmul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "M"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "add",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_addmul",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "mvar": "M"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "MK"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "MK"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-cmp",
+        "F",
+        "<",
+        -1e+30
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "float",
+        [
+          "const",
+          "S"
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "masked_fill(m, -inf) before softmax is a boolean attn_mask — logical_not turns the fill-mask into SDPA's keep-mask.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "Q"
+                        },
+                        {
+                          "args": [
+                            {
+                              "mvar": "K"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim0": {
+                                "bind": "TD1"
+                              },
+                              "dim1": {
+                                "bind": "TD2"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "transpose",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "matmul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "MK"
+                },
+                {
+                  "mvar": "F"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "masked_fill",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_masked_fillmul",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "args": [
+            {
+              "mvar": "MK"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "logical_not",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "M"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "M"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "float",
+        [
+          "const",
+          "S"
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(qk^T s + m) v is sdpa — the additive mask is the kernel's attn_mask argument.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "Q"
+                            },
+                            {
+                              "args": [
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "fields": {
+                                  "dim0": {
+                                    "bind": "TD1"
+                                  },
+                                  "dim1": {
+                                    "bind": "TD2"
+                                  }
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "transpose",
+                              "source": "native"
+                            }
+                          ],
+                          "attrs": null,
+                          "dim": null,
+                          "lit": null,
+                          "op": "matmul",
+                          "source": "native"
+                        },
+                        {
+                          "mvar": "S"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "M"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "add",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "SD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "softmax",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "p": {
+                "bind": "DP"
+              },
+              "train": {
+                "bind": "DT"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "dropout",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_addmul_drop",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "mvar": "M"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "MK"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "MK"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-cmp",
+        "F",
+        "<",
+        -1e+30
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "float",
+        [
+          "const",
+          "S"
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "masked_fill(m, -inf) before softmax is a boolean attn_mask — logical_not turns the fill-mask into SDPA's keep-mask.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "Q"
+                            },
+                            {
+                              "args": [
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "fields": {
+                                  "dim0": {
+                                    "bind": "TD1"
+                                  },
+                                  "dim1": {
+                                    "bind": "TD2"
+                                  }
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "transpose",
+                              "source": "native"
+                            }
+                          ],
+                          "attrs": null,
+                          "dim": null,
+                          "lit": null,
+                          "op": "matmul",
+                          "source": "native"
+                        },
+                        {
+                          "mvar": "S"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "MK"
+                    },
+                    {
+                      "mvar": "F"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "masked_fill",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "SD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "softmax",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "p": {
+                "bind": "DP"
+              },
+              "train": {
+                "bind": "DT"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "dropout",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_masked_fillmul_drop",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "args": [
+            {
+              "mvar": "MK"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "logical_not",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "M"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "M"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "recip",
+        [
+          "float",
+          [
+            "const",
+            "S"
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(qk^T s + m) v is sdpa — the additive mask is the kernel's attn_mask argument.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "Q"
+                        },
+                        {
+                          "args": [
+                            {
+                              "mvar": "K"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim0": {
+                                "bind": "TD1"
+                              },
+                              "dim1": {
+                                "bind": "TD2"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "transpose",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "matmul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "div",
+                  "source": "native"
+                },
+                {
+                  "mvar": "M"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "add",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_adddiv",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "mvar": "M"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "MK"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "MK"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-cmp",
+        "F",
+        "<",
+        -1e+30
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "recip",
+        [
+          "float",
+          [
+            "const",
+            "S"
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "masked_fill(m, -inf) before softmax is a boolean attn_mask — logical_not turns the fill-mask into SDPA's keep-mask.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "Q"
+                        },
+                        {
+                          "args": [
+                            {
+                              "mvar": "K"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim0": {
+                                "bind": "TD1"
+                              },
+                              "dim1": {
+                                "bind": "TD2"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "transpose",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "matmul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "div",
+                  "source": "native"
+                },
+                {
+                  "mvar": "MK"
+                },
+                {
+                  "mvar": "F"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "masked_fill",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_masked_filldiv",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "args": [
+            {
+              "mvar": "MK"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "logical_not",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "M"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "M"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "recip",
+        [
+          "float",
+          [
+            "const",
+            "S"
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(qk^T s + m) v is sdpa — the additive mask is the kernel's attn_mask argument.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "Q"
+                            },
+                            {
+                              "args": [
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "fields": {
+                                  "dim0": {
+                                    "bind": "TD1"
+                                  },
+                                  "dim1": {
+                                    "bind": "TD2"
+                                  }
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "transpose",
+                              "source": "native"
+                            }
+                          ],
+                          "attrs": null,
+                          "dim": null,
+                          "lit": null,
+                          "op": "matmul",
+                          "source": "native"
+                        },
+                        {
+                          "mvar": "S"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "div",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "M"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "add",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "SD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "softmax",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "p": {
+                "bind": "DP"
+              },
+              "train": {
+                "bind": "DT"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "dropout",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_adddiv_drop",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "mvar": "M"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "MK"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "MK"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-cmp",
+        "F",
+        "<",
+        -1e+30
+      ],
+      [
+        "const-num",
+        "S"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "recip",
+        [
+          "float",
+          [
+            "const",
+            "S"
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "masked_fill(m, -inf) before softmax is a boolean attn_mask — logical_not turns the fill-mask into SDPA's keep-mask.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "Q"
+                            },
+                            {
+                              "args": [
+                                {
+                                  "mvar": "K"
+                                }
+                              ],
+                              "attrs": {
+                                "fields": {
+                                  "dim0": {
+                                    "bind": "TD1"
+                                  },
+                                  "dim1": {
+                                    "bind": "TD2"
+                                  }
+                                }
+                              },
+                              "dim": null,
+                              "lit": null,
+                              "op": "transpose",
+                              "source": "native"
+                            }
+                          ],
+                          "attrs": null,
+                          "dim": null,
+                          "lit": null,
+                          "op": "matmul",
+                          "source": "native"
+                        },
+                        {
+                          "mvar": "S"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "div",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "MK"
+                    },
+                    {
+                      "mvar": "F"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "masked_fill",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "SD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "softmax",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "p": {
+                "bind": "DP"
+              },
+              "train": {
+                "bind": "DT"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "dropout",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_masked_filldiv_drop",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "args": [
+            {
+              "mvar": "MK"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "logical_not",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "concrete",
+          "K"
+        ],
+        [
+          "attr-type",
+          "TD1",
+          "int"
+        ],
+        [
+          "attr-type",
+          "TD2",
+          "int"
+        ],
+        [
+          "axes-last2",
+          "K",
+          "TD1",
+          "TD2"
+        ]
+      ],
+      [
+        "and",
+        [
+          "shaped",
+          [
+            "mm-out",
+            "Q",
+            [
+              "transpose-out",
+              "K",
+              "TD1",
+              "TD2"
+            ]
+          ]
+        ],
+        [
+          "shaped",
+          "M"
+        ],
+        [
+          "axis",
+          [
+            "bcast",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ],
+            "M"
+          ],
+          "SD",
+          -1
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": 1.0
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(qk^T s + m) v is sdpa — the additive mask is the kernel's attn_mask argument.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim0": {
+                            "bind": "TD1"
+                          },
+                          "dim1": {
+                            "bind": "TD2"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "M"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "add",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_add",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "mvar": "M"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "MK"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "MK"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-cmp",
+        "F",
+        "<",
+        -1e+30
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": 1.0
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "masked_fill(m, -inf) before softmax is a boolean attn_mask — logical_not turns the fill-mask into SDPA's keep-mask.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim0": {
+                            "bind": "TD1"
+                          },
+                          "dim1": {
+                            "bind": "TD2"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "MK"
+                },
+                {
+                  "mvar": "F"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "masked_fill",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_masked_fill",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "args": [
+            {
+              "mvar": "MK"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "logical_not",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "concrete",
+          "K"
+        ],
+        [
+          "attr-type",
+          "TD1",
+          "int"
+        ],
+        [
+          "attr-type",
+          "TD2",
+          "int"
+        ],
+        [
+          "axes-last2",
+          "K",
+          "TD1",
+          "TD2"
+        ]
+      ],
+      [
+        "and",
+        [
+          "shaped",
+          [
+            "mm-out",
+            "Q",
+            [
+              "transpose-out",
+              "K",
+              "TD1",
+              "TD2"
+            ]
+          ]
+        ],
+        [
+          "shaped",
+          "M"
+        ],
+        [
+          "axis",
+          [
+            "bcast",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ],
+            "M"
+          ],
+          "SD",
+          -1
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": 1.0
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(qk^T s + m) v is sdpa — the additive mask is the kernel's attn_mask argument.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "Q"
+                        },
+                        {
+                          "args": [
+                            {
+                              "mvar": "K"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim0": {
+                                "bind": "TD1"
+                              },
+                              "dim1": {
+                                "bind": "TD2"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "transpose",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "matmul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "M"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "add",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "SD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "softmax",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "p": {
+                "bind": "DP"
+              },
+              "train": {
+                "bind": "DT"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "dropout",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_add_drop",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "mvar": "M"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "shaped",
+            "MK"
+          ],
+          [
+            "axis",
+            [
+              "bcast",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "MK"
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "const-cmp",
+        "F",
+        "<",
+        -1e+30
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": 1.0
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "masked_fill(m, -inf) before softmax is a boolean attn_mask — logical_not turns the fill-mask into SDPA's keep-mask.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "Q"
+                        },
+                        {
+                          "args": [
+                            {
+                              "mvar": "K"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim0": {
+                                "bind": "TD1"
+                              },
+                              "dim1": {
+                                "bind": "TD2"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "transpose",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "matmul",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "MK"
+                    },
+                    {
+                      "mvar": "F"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "masked_fill",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "SD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "softmax",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "p": {
+                "bind": "DP"
+              },
+              "train": {
+                "bind": "DT"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "dropout",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_masked_fill_drop",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        },
+        {
+          "args": [
+            {
+              "mvar": "MK"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "logical_not",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "concrete",
+            "K"
+          ],
+          [
+            "attr-type",
+            "TD1",
+            "int"
+          ],
+          [
+            "attr-type",
+            "TD2",
+            "int"
+          ],
+          [
+            "axes-last2",
+            "K",
+            "TD1",
+            "TD2"
+          ]
+        ],
+        [
+          "and",
+          [
+            "shaped",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ]
+          ],
+          [
+            "axis",
+            [
+              "mm-out",
+              "Q",
+              [
+                "transpose-out",
+                "K",
+                "TD1",
+                "TD2"
+              ]
+            ],
+            "SD",
+            -1
+          ]
+        ]
+      ],
+      [
+        "rank",
+        "Q",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "V",
+        ">=",
+        2
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": 1.0
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(q kᵀ) v is sdpa(q, k, v, scale=1) — the mask-free spelled attention is one fused kernel (the add/masked_fill family's empty-mask row).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "Q"
+                },
+                {
+                  "args": [
+                    {
+                      "mvar": "K"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim0": {
+                        "bind": "TD1"
+                      },
+                      "dim1": {
+                        "bind": "TD2"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "transpose",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "matmul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_nomask",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "and",
+            [
+              "concrete",
+              "K"
+            ],
+            [
+              "attr-type",
+              "TD1",
+              "int"
+            ],
+            [
+              "attr-type",
+              "TD2",
+              "int"
+            ],
+            [
+              "axes-last2",
+              "K",
+              "TD1",
+              "TD2"
+            ]
+          ],
+          [
+            "and",
+            [
+              "shaped",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ]
+            ],
+            [
+              "axis",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "SD",
+              -1
+            ]
+          ]
+        ],
+        [
+          "const-num",
+          "S"
+        ]
+      ],
+      [
+        "rank",
+        "Q",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "V",
+        ">=",
+        2
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "recip",
+        [
+          "float",
+          [
+            "const",
+            "S"
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(q kᵀ / s) v is sdpa(q, k, v, scale=1/s) — the mask-free spelled form with the decomposed pre-softmax scale.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim0": {
+                            "bind": "TD1"
+                          },
+                          "dim1": {
+                            "bind": "TD2"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "div",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_div_nomask",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "and",
+        [
+          "and",
+          [
+            "and",
+            [
+              "concrete",
+              "K"
+            ],
+            [
+              "attr-type",
+              "TD1",
+              "int"
+            ],
+            [
+              "attr-type",
+              "TD2",
+              "int"
+            ],
+            [
+              "axes-last2",
+              "K",
+              "TD1",
+              "TD2"
+            ]
+          ],
+          [
+            "and",
+            [
+              "shaped",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ]
+            ],
+            [
+              "axis",
+              [
+                "mm-out",
+                "Q",
+                [
+                  "transpose-out",
+                  "K",
+                  "TD1",
+                  "TD2"
+                ]
+              ],
+              "SD",
+              -1
+            ]
+          ]
+        ],
+        [
+          "const-num",
+          "S"
+        ]
+      ],
+      [
+        "rank",
+        "Q",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "V",
+        ">=",
+        2
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "SC": [
+        "float",
+        [
+          "const",
+          "S"
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "softmax(q kᵀ · s) v is sdpa(q, k, v, scale=s) — the mul spelling of the mask-free scaled fold, and the re-fusion half of the sdpa_expand pair (the mediating inverse for the expand/fold critical pair, the silu_fold analogue).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim0": {
+                            "bind": "TD1"
+                          },
+                          "dim1": {
+                            "bind": "TD2"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "SD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_fold_mul_nomask",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "fusion"
+    ],
+    "version": 2
+  }
+]

@@ -1,0 +1,737 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "attr-is",
+        "TR",
+        false
+      ],
+      [
+        "concrete",
+        "x"
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "x",
+        "<=",
+        6
+      ],
+      [
+        "concrete",
+        "rm"
+      ],
+      [
+        "rank",
+        "rm",
+        "==",
+        1
+      ],
+      [
+        "dim-eq",
+        "x",
+        1,
+        "rm",
+        0
+      ],
+      [
+        "shape-eq",
+        "rv",
+        "rm"
+      ],
+      [
+        "shape-eq",
+        "w",
+        "rm"
+      ],
+      [
+        "shape-eq",
+        "b",
+        "rm"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "$leaf:EPS": [
+        "attr",
+        "EP"
+      ],
+      "CH": [
+        "concat",
+        [
+          "tuple",
+          1
+        ],
+        [
+          "shape",
+          "rm"
+        ],
+        [
+          "take",
+          [
+            "tuple",
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            "sub",
+            [
+              "len",
+              [
+                "shape",
+                "x"
+              ]
+            ],
+            2
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "batch_norm(x, γ, β, μ, σ²) IS γ·((x−μ)·rsqrt(σ²+ε)) + β in eval mode — the fused kernel's spelled work, exposed so weight-space laws can fold the per-channel affine into a neighbouring conv.  Fused member stays cheapest under extraction (priced 4 < ~7 expanded passes).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "w"
+        },
+        {
+          "mvar": "b"
+        },
+        {
+          "mvar": "rm"
+        },
+        {
+          "mvar": "rv"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "cudnn_enabled": {
+            "bind": "CU"
+          },
+          "eps": {
+            "bind": "EP"
+          },
+          "momentum": {
+            "bind": "M"
+          },
+          "training": {
+            "bind": "TR"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "batch_norm",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "batch_norm_expand",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "w"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "CH"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "x"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "rm"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "shape": {
+                            "bind": "CH"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "reshape",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "sub",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "rv"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "shape": {
+                                "bind": "CH"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "reshape",
+                          "source": "native"
+                        },
+                        {
+                          "mvar": "EPS"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "add",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "rsqrt",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "shape": {
+                "bind": "CH"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "reshape",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "simplification"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "attr-is",
+        "TR",
+        false
+      ],
+      [
+        "concrete",
+        "x"
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "x",
+        "<=",
+        6
+      ],
+      [
+        "concrete",
+        "rm"
+      ],
+      [
+        "rank",
+        "rm",
+        "==",
+        1
+      ],
+      [
+        "dim-eq",
+        "x",
+        1,
+        "rm",
+        0
+      ],
+      [
+        "shape-eq",
+        "rv",
+        "rm"
+      ],
+      [
+        "shape-eq",
+        "w",
+        "rm"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "$leaf:EPS": [
+        "attr",
+        "EP"
+      ],
+      "CH": [
+        "concat",
+        [
+          "tuple",
+          1
+        ],
+        [
+          "shape",
+          "rm"
+        ],
+        [
+          "take",
+          [
+            "tuple",
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            "sub",
+            [
+              "len",
+              [
+                "shape",
+                "x"
+              ]
+            ],
+            2
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "batch_norm(x, γ, μ, σ²) IS γ·((x−μ)·rsqrt(σ²+ε)) in eval mode — the bias-free export arity (the lone mid operand reads as weight).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "w"
+        },
+        {
+          "mvar": "rm"
+        },
+        {
+          "mvar": "rv"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "cudnn_enabled": {
+            "bind": "CU"
+          },
+          "eps": {
+            "bind": "EP"
+          },
+          "momentum": {
+            "bind": "M"
+          },
+          "training": {
+            "bind": "TR"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "batch_norm",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "batch_norm_expand_nobias",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "w"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "shape": {
+                "bind": "CH"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "reshape",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "args": [
+                    {
+                      "mvar": "rm"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "shape": {
+                        "bind": "CH"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "reshape",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "sub",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "rv"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "shape": {
+                            "bind": "CH"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "reshape",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "EPS"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "add",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "rsqrt",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "simplification"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "attr-is",
+        "TR",
+        false
+      ],
+      [
+        "concrete",
+        "x"
+      ],
+      [
+        "rank",
+        "x",
+        ">=",
+        2
+      ],
+      [
+        "rank",
+        "x",
+        "<=",
+        6
+      ],
+      [
+        "concrete",
+        "rm"
+      ],
+      [
+        "rank",
+        "rm",
+        "==",
+        1
+      ],
+      [
+        "dim-eq",
+        "x",
+        1,
+        "rm",
+        0
+      ],
+      [
+        "shape-eq",
+        "rv",
+        "rm"
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "$leaf:EPS": [
+        "attr",
+        "EP"
+      ],
+      "CH": [
+        "concat",
+        [
+          "tuple",
+          1
+        ],
+        [
+          "shape",
+          "rm"
+        ],
+        [
+          "take",
+          [
+            "tuple",
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            "sub",
+            [
+              "len",
+              [
+                "shape",
+                "x"
+              ]
+            ],
+            2
+          ]
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "batch_norm(x, μ, σ²) IS (x−μ)·rsqrt(σ²+ε) in eval mode — the affine-free export arity.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "rm"
+        },
+        {
+          "mvar": "rv"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "cudnn_enabled": {
+            "bind": "CU"
+          },
+          "eps": {
+            "bind": "EP"
+          },
+          "momentum": {
+            "bind": "M"
+          },
+          "training": {
+            "bind": "TR"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "batch_norm",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "batch_norm_expand_plain",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "rm"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "CH"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "reshape",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "rv"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "shape": {
+                        "bind": "CH"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "reshape",
+                  "source": "native"
+                },
+                {
+                  "mvar": "EPS"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "add",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "rsqrt",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "simplification"
+    ],
+    "version": 2
+  }
+]

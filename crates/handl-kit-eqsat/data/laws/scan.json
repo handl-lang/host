@@ -1,0 +1,1884 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "recurrence step is affine-map application",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "aff_lift",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "apply",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "compose step with the preceding map",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "f"
+                },
+                {
+                  "mvar": "h"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "apply",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "aff_lift_step",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "A"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "apply",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "affine application unfolds",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "apply",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "aff_unlift",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "composition is sequential application",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "g"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "apply",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "aff_compose_unfold",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "f"
+        },
+        {
+          "args": [
+            {
+              "mvar": "g"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "apply",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "apply",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "affine composition is associative",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "g"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "aff_compose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "aff_assoc",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "f"
+        },
+        {
+          "args": [
+            {
+              "mvar": "g"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_compose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "aff_compose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "affine composition is associative",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "f"
+        },
+        {
+          "args": [
+            {
+              "mvar": "g"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_compose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "aff_compose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "aff_assoc_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "g"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "aff_compose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "op-in",
+        "h",
+        [
+          "add",
+          "sub",
+          "apply",
+          "applyd"
+        ]
+      ],
+      [
+        "leaf",
+        "h"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "diagonal recurrence step is diagonal-affine application: a⊙h + x = (aff_diag(a,x))(h)",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "op-in",
+        "h",
+        [
+          "add",
+          "sub",
+          "apply",
+          "applyd"
+        ]
+      ],
+      [
+        "leaf",
+        "h"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "mul-order variant of affd_lift (canonicalised terms put the state operand first)",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "h"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_swap",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "op-in",
+        "h",
+        [
+          "add",
+          "sub",
+          "apply",
+          "applyd"
+        ]
+      ],
+      [
+        "leaf",
+        "h"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "add-order variant of affd_lift (state-mul in the second add slot)",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_post",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "op-in",
+        "h",
+        [
+          "add",
+          "sub",
+          "apply",
+          "applyd"
+        ]
+      ],
+      [
+        "leaf",
+        "h"
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "remaining operand position of affd_lift",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "h"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_post_swap",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "compose step with the preceding map",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "f"
+                },
+                {
+                  "mvar": "h"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "applyd",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_step",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "a"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff_diag",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "mul-order variant of affd_lift_step",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "f"
+                },
+                {
+                  "mvar": "h"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "applyd",
+              "source": "native"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_step_swap",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "a"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff_diag",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "add-order variant of affd_lift_step",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "args": [
+                {
+                  "mvar": "f"
+                },
+                {
+                  "mvar": "h"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "applyd",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_step_post",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "a"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff_diag",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "remaining operand position of affd_lift_step",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "f"
+                },
+                {
+                  "mvar": "h"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "applyd",
+              "source": "native"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_step_post_swap",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "a"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff_diag",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "op-in",
+        "h",
+        [
+          "add",
+          "sub",
+          "apply",
+          "applyd"
+        ]
+      ],
+      [
+        "and",
+        [
+          "leaf",
+          "h"
+        ],
+        [
+          "not",
+          [
+            "const",
+            "h"
+          ]
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "US": [
+        "bcast",
+        "h",
+        "x"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "Unit introduction: pure accumulation h + x IS the diagonal affine map with a ≡ 1 — applyd(aff_diag(1, x), h).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "h"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_unit",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "const": 1.0
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "US"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "expand",
+              "source": "native"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "op-in",
+        "h",
+        [
+          "add",
+          "sub",
+          "apply",
+          "applyd"
+        ]
+      ],
+      [
+        "and",
+        [
+          "leaf",
+          "h"
+        ],
+        [
+          "not",
+          [
+            "const",
+            "h"
+          ]
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": {
+      "US": [
+        "bcast",
+        "h",
+        "x"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "add-order variant of affd_lift_unit (state operand in the second add slot)",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_unit_post",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "const": 1.0
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "shape": {
+                    "bind": "US"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "expand",
+              "source": "native"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": {
+      "US": [
+        "bcast",
+        "h",
+        "x"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "compose a unit (pure-accumulation) step with the preceding map — the h ↦ h + x analogue of affd_lift_step",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "applyd",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_unit_step",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "const": 1.0
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "shape": {
+                        "bind": "US"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "expand",
+                  "source": "native"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff_diag",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": {
+      "US": [
+        "bcast",
+        "h",
+        "x"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "add-order variant of affd_lift_unit_step",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "applyd",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_lift_unit_step_post",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "const": 1.0
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "shape": {
+                        "bind": "US"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "expand",
+                  "source": "native"
+                },
+                {
+                  "mvar": "x"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "aff_diag",
+              "source": "native"
+            },
+            {
+              "mvar": "f"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "diagonal-affine application unfolds",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "x"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "aff_diag",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_unlift",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "a"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "x"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "composition is sequential application",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "g"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_compose_unfold",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "f"
+        },
+        {
+          "args": [
+            {
+              "mvar": "g"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "applyd",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "applyd",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "diagonal-affine composition is associative",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "g"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "affd_compose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_assoc",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "f"
+        },
+        {
+          "args": [
+            {
+              "mvar": "g"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "affd_compose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "diagonal-affine composition is associative",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "f"
+        },
+        {
+          "args": [
+            {
+              "mvar": "g"
+            },
+            {
+              "mvar": "h"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "affd_compose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "affd_assoc_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "f"
+            },
+            {
+              "mvar": "g"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "affd_compose",
+          "source": "native"
+        },
+        {
+          "mvar": "h"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "affd_compose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "scan"
+    ],
+    "version": 2
+  }
+]

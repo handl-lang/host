@@ -1,0 +1,18 @@
+[package]
+name = "hnl-ext-mlopt"
+version.workspace = true
+edition.workspace = true
+description = "`hnl mlopt optimize|export|doctor|models` — the mlopt product commands as a dynamic `hnl` extension (ADR-0149), forwarding to `python -m mlopt` via handl-kit-mlopt."
+license.workspace = true
+repository.workspace = true
+keywords = ["handl", "mlopt", "cli"]
+categories = ["development-tools"]
+
+[lib]
+# `cdylib` is the shipped artifact (`libhnl_ext_mlopt.{so,dylib,dll}`);
+# `rlib` keeps `cargo test` statically linked (ADR-0149 §Consequences).
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+handl-ext = { workspace = true }
+handl-kit-mlopt = { workspace = true }

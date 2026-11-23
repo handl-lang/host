@@ -1,0 +1,5451 @@
+[
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "scalar",
+        "a"
+      ],
+      [
+        "and",
+        [
+          "dim-eq-const",
+          "a",
+          -1,
+          1
+        ],
+        [
+          "bcast-into",
+          "a",
+          "x"
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Rotary is linear in x: rope(a·x) = a·rope(x) for a pair-constant factor — a scalar or per-row broadcast rides outside the whole elementwise chain.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I1D"
+                      },
+                      "end": {
+                        "bind": "I1E"
+                      },
+                      "start": {
+                        "bind": "I1A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "C"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I2D"
+                      },
+                      "end": {
+                        "bind": "I2E"
+                      },
+                      "start": {
+                        "bind": "I2A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I2D"
+                      },
+                      "end": {
+                        "bind": "I2E"
+                      },
+                      "start": {
+                        "bind": "I2A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "C"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I1D"
+                      },
+                      "end": {
+                        "bind": "I1E"
+                      },
+                      "start": {
+                        "bind": "I1A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "CD"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "concat",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "rope_cat_scale_out",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I1D"
+                          },
+                          "end": {
+                            "bind": "I1E"
+                          },
+                          "start": {
+                            "bind": "I1A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "C"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I2D"
+                          },
+                          "end": {
+                            "bind": "I2E"
+                          },
+                          "start": {
+                            "bind": "I2A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "sub",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I2D"
+                          },
+                          "end": {
+                            "bind": "I2E"
+                          },
+                          "start": {
+                            "bind": "I2A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "C"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I1D"
+                          },
+                          "end": {
+                            "bind": "I1E"
+                          },
+                          "start": {
+                            "bind": "I1A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "add",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "CD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "concat",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "scalar",
+        "a"
+      ],
+      [
+        "and",
+        [
+          "dim-eq-const",
+          "a",
+          -1,
+          1
+        ],
+        [
+          "bcast-into",
+          "a",
+          "x"
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse: push a uniform factor inside the rotary so the view/weight laws can route it into a projection.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I1D"
+                          },
+                          "end": {
+                            "bind": "I1E"
+                          },
+                          "start": {
+                            "bind": "I1A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "C"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I2D"
+                          },
+                          "end": {
+                            "bind": "I2E"
+                          },
+                          "start": {
+                            "bind": "I2A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "sub",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I2D"
+                          },
+                          "end": {
+                            "bind": "I2E"
+                          },
+                          "start": {
+                            "bind": "I2A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "C"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I1D"
+                          },
+                          "end": {
+                            "bind": "I1E"
+                          },
+                          "start": {
+                            "bind": "I1A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    },
+                    {
+                      "mvar": "S"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "mul",
+                  "source": "native"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "add",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "CD"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "concat",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "rope_cat_scale_in",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I1D"
+                      },
+                      "end": {
+                        "bind": "I1E"
+                      },
+                      "start": {
+                        "bind": "I1A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "C"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I2D"
+                      },
+                      "end": {
+                        "bind": "I2E"
+                      },
+                      "start": {
+                        "bind": "I2A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "sub",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I2D"
+                      },
+                      "end": {
+                        "bind": "I2E"
+                      },
+                      "start": {
+                        "bind": "I2A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "C"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I1D"
+                      },
+                      "end": {
+                        "bind": "I1E"
+                      },
+                      "start": {
+                        "bind": "I1A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "CD"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "concat",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "scalar",
+        "a"
+      ],
+      [
+        "and",
+        [
+          "dim-eq-const",
+          "a",
+          -1,
+          1
+        ],
+        [
+          "bcast-into",
+          "a",
+          "x"
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "x·cos + rotate_half(x)·sin is also x-linear: a uniform factor rides out of the HF spelling.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "mvar": "a"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "mvar": "C"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "x"
+                            },
+                            {
+                              "mvar": "a"
+                            }
+                          ],
+                          "attrs": null,
+                          "dim": null,
+                          "lit": null,
+                          "op": "mul",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I2D"
+                          },
+                          "end": {
+                            "bind": "I2E"
+                          },
+                          "start": {
+                            "bind": "I2A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "neg",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I1D"
+                      },
+                      "end": {
+                        "bind": "I1E"
+                      },
+                      "start": {
+                        "bind": "I1A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "CD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "concat",
+              "source": "native"
+            },
+            {
+              "mvar": "S"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "rope_rh_scale_out",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "mvar": "C"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "x"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim": {
+                                "bind": "I2D"
+                              },
+                              "end": {
+                                "bind": "I2E"
+                              },
+                              "start": {
+                                "bind": "I2A"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "slice",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "neg",
+                      "source": "native"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I1D"
+                          },
+                          "end": {
+                            "bind": "I1E"
+                          },
+                          "start": {
+                            "bind": "I1A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "CD"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "concat",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "or",
+      [
+        "scalar",
+        "a"
+      ],
+      [
+        "and",
+        [
+          "dim-eq-const",
+          "a",
+          -1,
+          1
+        ],
+        [
+          "bcast-into",
+          "a",
+          "x"
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse: push a uniform factor inside the rotate-half spelling.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "mvar": "C"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "x"
+                            }
+                          ],
+                          "attrs": {
+                            "fields": {
+                              "dim": {
+                                "bind": "I2D"
+                              },
+                              "end": {
+                                "bind": "I2E"
+                              },
+                              "start": {
+                                "bind": "I2A"
+                              }
+                            }
+                          },
+                          "dim": null,
+                          "lit": null,
+                          "op": "slice",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "neg",
+                      "source": "native"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I1D"
+                          },
+                          "end": {
+                            "bind": "I1E"
+                          },
+                          "start": {
+                            "bind": "I1A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "CD"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "concat",
+                  "source": "native"
+                },
+                {
+                  "mvar": "S"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "add",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "rope_rh_scale_in",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "x"
+                },
+                {
+                  "mvar": "a"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            },
+            {
+              "mvar": "C"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "args": [
+                            {
+                              "mvar": "x"
+                            },
+                            {
+                              "mvar": "a"
+                            }
+                          ],
+                          "attrs": null,
+                          "dim": null,
+                          "lit": null,
+                          "op": "mul",
+                          "source": "native"
+                        }
+                      ],
+                      "attrs": {
+                        "fields": {
+                          "dim": {
+                            "bind": "I2D"
+                          },
+                          "end": {
+                            "bind": "I2E"
+                          },
+                          "start": {
+                            "bind": "I2A"
+                          }
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "slice",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "neg",
+                  "source": "native"
+                },
+                {
+                  "args": [
+                    {
+                      "args": [
+                        {
+                          "mvar": "x"
+                        },
+                        {
+                          "mvar": "a"
+                        }
+                      ],
+                      "attrs": null,
+                      "dim": null,
+                      "lit": null,
+                      "op": "mul",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": {
+                    "fields": {
+                      "dim": {
+                        "bind": "I1D"
+                      },
+                      "end": {
+                        "bind": "I1E"
+                      },
+                      "start": {
+                        "bind": "I1A"
+                      }
+                    }
+                  },
+                  "dim": null,
+                  "lit": null,
+                  "op": "slice",
+                  "source": "native"
+                }
+              ],
+              "attrs": {
+                "fields": {
+                  "dim": {
+                    "bind": "CD"
+                  }
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "concat",
+              "source": "native"
+            },
+            {
+              "mvar": "S"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "add",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "R",
+        "==",
+        2
+      ],
+      [
+        "dim-compat",
+        "R",
+        0,
+        "W",
+        0
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "(xWᵀ)R = x(RᵀW)ᵀ — a constant right-multiply absorbs into the projection weight (rotary-by-matmul included).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "R"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_mm_absorb",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "R"
+                }
+              ],
+              "attrs": {
+                "lit": {
+                  "dim0": -2,
+                  "dim1": -1
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "transpose",
+              "source": "native"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "R",
+        "==",
+        2
+      ],
+      [
+        "dim-compat",
+        "R",
+        0,
+        "W",
+        0
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse absorb — eqsat weighs the folded weight against a runtime right-multiply.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "R"
+                }
+              ],
+              "attrs": {
+                "lit": {
+                  "dim0": -2,
+                  "dim1": -1
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "transpose",
+              "source": "native"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_mm_absorb_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "R"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "R",
+        "==",
+        2
+      ],
+      [
+        "dim-compat",
+        "R",
+        0,
+        "W",
+        0
+      ],
+      [
+        "rank",
+        "b",
+        "==",
+        1
+      ],
+      [
+        "dim-compat",
+        "b",
+        0,
+        "W",
+        0
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Affine right-multiply absorb: (xWᵀ + b)R = x(RᵀW)ᵀ + bR — the fused bias is the matvec b@R, both products compile-time.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "R"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_mm_absorb_bias",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "R"
+                }
+              ],
+              "attrs": {
+                "lit": {
+                  "dim0": -2,
+                  "dim1": -1
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "transpose",
+              "source": "native"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            },
+            {
+              "mvar": "R"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "rank",
+        "W",
+        "==",
+        2
+      ],
+      [
+        "rank",
+        "R",
+        "==",
+        2
+      ],
+      [
+        "dim-compat",
+        "R",
+        0,
+        "W",
+        0
+      ],
+      [
+        "rank",
+        "b",
+        "==",
+        1
+      ],
+      [
+        "dim-compat",
+        "b",
+        0,
+        "W",
+        0
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse biased absorb (eqsat weighs fused vs split).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "mvar": "R"
+                }
+              ],
+              "attrs": {
+                "lit": {
+                  "dim0": -2,
+                  "dim1": -1
+                }
+              },
+              "dim": null,
+              "lit": null,
+              "op": "transpose",
+              "source": "native"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "b"
+            },
+            {
+              "mvar": "R"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_mm_absorb_bias_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "b"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "R"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "shaped",
+        "s"
+      ],
+      [
+        "mm-shape-ok",
+        "A",
+        "B"
+      ],
+      [
+        "or",
+        [
+          "scalar",
+          "s"
+        ],
+        [
+          "and",
+          [
+            "dim-eq-const",
+            "s",
+            -1,
+            1
+          ],
+          [
+            "bcast-into",
+            "s",
+            [
+              "mm-out",
+              "A",
+              "B"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Row-uniform scale slides out of a matmul's left operand: (s·A)@B = s·(A@B) — the left mirror of naturality_scalar.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "s"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "B"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "naturality_scalar_left",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "s"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "and",
+      [
+        "shaped",
+        "s"
+      ],
+      [
+        "mm-shape-ok",
+        "A",
+        "B"
+      ],
+      [
+        "or",
+        [
+          "scalar",
+          "s"
+        ],
+        [
+          "and",
+          [
+            "dim-eq-const",
+            "s",
+            -1,
+            1
+          ],
+          [
+            "bcast-into",
+            "s",
+            [
+              "mm-out",
+              "A",
+              "B"
+            ]
+          ]
+        ]
+      ]
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse: s·(A@B) = (s·A)@B — pushes a score scale into the left factor, where the view/weight laws route it to Wq.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "B"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "matmul",
+          "source": "native"
+        },
+        {
+          "mvar": "s"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "naturality_scalar_left_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "A"
+            },
+            {
+              "mvar": "s"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "mvar": "B"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "s"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform scale folds into the weight: s·(xWᵀ) = x(sW)ᵀ — the runtime mul becomes a compile-time weight mul.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "s"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_out_scale",
+    "rhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "s"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "fusion"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "s"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform fold — eqsat compares weight-folded vs runtime-scaled forms.",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "x"
+        },
+        {
+          "args": [
+            {
+              "mvar": "W"
+            },
+            {
+              "mvar": "s"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "linear",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "linear_out_scale_rev",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "x"
+            },
+            {
+              "mvar": "W"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "linear",
+          "source": "native"
+        },
+        {
+          "mvar": "s"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into transpose: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_transpose",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of transpose — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim0": {
+            "bind": "D0"
+          },
+          "dim1": {
+            "bind": "D1"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "transpose",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_transpose",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim0": {
+                "bind": "D0"
+              },
+              "dim1": {
+                "bind": "D1"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "transpose",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into reshape: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "shape": {
+                "bind": "SH"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "reshape",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_reshape",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "shape": {
+            "bind": "SH"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "reshape",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of reshape — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "shape": {
+            "bind": "SH"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "reshape",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_reshape",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "shape": {
+                "bind": "SH"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "reshape",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into slice: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "end": {
+                "bind": "E"
+              },
+              "start": {
+                "bind": "A"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "slice",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_slice",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "end": {
+            "bind": "E"
+          },
+          "start": {
+            "bind": "A"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "slice",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of slice — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "end": {
+            "bind": "E"
+          },
+          "start": {
+            "bind": "A"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "slice",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_slice",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "end": {
+                "bind": "E"
+              },
+              "start": {
+                "bind": "A"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "slice",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into slice_step: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "end": {
+                "bind": "E"
+              },
+              "start": {
+                "bind": "A"
+              },
+              "step": {
+                "bind": "P"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "slice",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_slice_step",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "end": {
+            "bind": "E"
+          },
+          "start": {
+            "bind": "A"
+          },
+          "step": {
+            "bind": "P"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "slice",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of slice_step — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "end": {
+            "bind": "E"
+          },
+          "start": {
+            "bind": "A"
+          },
+          "step": {
+            "bind": "P"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "slice",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_slice_step",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "end": {
+                "bind": "E"
+              },
+              "start": {
+                "bind": "A"
+              },
+              "step": {
+                "bind": "P"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "slice",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into unbind: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "unbind",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_unbind",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "unbind",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of unbind — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "unbind",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_unbind",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "unbind",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into chunk: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "chunks": {
+                "bind": "N"
+              },
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "chunk",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_chunk",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "chunks": {
+            "bind": "N"
+          },
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "chunk",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of chunk — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "chunks": {
+            "bind": "N"
+          },
+          "dim": {
+            "bind": "D"
+          },
+          "index": {
+            "bind": "I"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "chunk",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_chunk",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "chunks": {
+                "bind": "N"
+              },
+              "dim": {
+                "bind": "D"
+              },
+              "index": {
+                "bind": "I"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "chunk",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into flatten: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "start_dim": {
+                "bind": "F0"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "flatten",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_flatten",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "start_dim": {
+            "bind": "F0"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "flatten",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of flatten — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "start_dim": {
+            "bind": "F0"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "flatten",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_flatten",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "start_dim": {
+                "bind": "F0"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "flatten",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into flatten2: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "end_dim": {
+                "bind": "F1"
+              },
+              "start_dim": {
+                "bind": "F0"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "flatten",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_flatten2",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "end_dim": {
+            "bind": "F1"
+          },
+          "start_dim": {
+            "bind": "F0"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "flatten",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of flatten2 — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "end_dim": {
+            "bind": "F1"
+          },
+          "start_dim": {
+            "bind": "F0"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "flatten",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_flatten2",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "end_dim": {
+                "bind": "F1"
+              },
+              "start_dim": {
+                "bind": "F0"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "flatten",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into unsqueeze: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "unsqueeze",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_unsqueeze",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "unsqueeze",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of unsqueeze — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "unsqueeze",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_unsqueeze",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "unsqueeze",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor commutes into squeeze: a·view(t) = view(a·t) — the elementwise-constant scale rides through any relayout.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "squeeze",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_squeeze",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "squeeze",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse uniform commutation out of squeeze — factors a shared scale back to the view's output.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "squeeze",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_squeeze",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "squeeze",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor distributes into concat: a·cat(u,v) = cat(a·u, a·v).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "t2"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "concat",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_concat",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "t2"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "concat",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse: shared uniform factors out of concat.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "t2"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "concat",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_concat",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "t2"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "concat",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Uniform factor distributes into stack: a·cat(u,v) = cat(a·u, a·v).",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "t2"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "stack",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_in_stack",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "t2"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "stack",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": [
+      "uniform",
+      "a"
+    ],
+    "derivation": [],
+    "dspec": null,
+    "error_bound": null,
+    "kind": "law",
+    "law": "Reverse: shared uniform factors out of stack.",
+    "lhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        },
+        {
+          "args": [
+            {
+              "mvar": "t2"
+            },
+            {
+              "mvar": "a"
+            }
+          ],
+          "attrs": null,
+          "dim": null,
+          "lit": null,
+          "op": "mul",
+          "source": "native"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dim": {
+            "bind": "D"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "stack",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "scale_out_stack",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "mvar": "t1"
+            },
+            {
+              "mvar": "t2"
+            }
+          ],
+          "attrs": {
+            "fields": {
+              "dim": {
+                "bind": "D"
+              }
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "stack",
+          "source": "native"
+        },
+        {
+          "mvar": "a"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "mul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention",
+      "expansive"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "rsqrt",
+        [
+          "dim",
+          "Q",
+          -1
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v) IS softmax(q@kᵀ/√d)@v with the implicit scale minted as mul(q@kᵀ, 1/√d_head) — the fused op's decomposed form, exposed for the interior laws (refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "rsqrt",
+        [
+          "dim",
+          "Q",
+          -1
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v) IS softmax(q@kᵀ/√d)@v with the implicit scale minted as mul(q@kᵀ, 1/√d_head) — the fused op's decomposed form, exposed for the interior laws (refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "lit": 0.0
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_d",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "rsqrt",
+        [
+          "dim",
+          "Q",
+          -1
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v) IS softmax(q@kᵀ/√d)@v with the implicit scale minted as mul(q@kᵀ, 1/√d_head) — the fused op's decomposed form, exposed for the interior laws (refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "lit": 0.0
+          },
+          "is_causal": {
+            "lit": false
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_dc",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "rsqrt",
+        [
+          "dim",
+          "Q",
+          -1
+        ]
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v) IS softmax(q@kᵀ/√d)@v with the implicit scale minted as mul(q@kᵀ, 1/√d_head) — the fused op's decomposed form, exposed for the interior laws (refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "lit": 0.0
+          },
+          "enable_gqa": {
+            "lit": false
+          },
+          "is_causal": {
+            "lit": false
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_dcg",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "attr",
+        "SC"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v, scale=s) IS matmul(softmax(mul(q @ kᵀ, s), dim=-1), v) — the kernel's definition, expanded so the interior becomes a redex for the scale-migration and spelled-attention laws (the decompose half of the expand/fold pair; refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_s",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "attr",
+        "SC"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v, scale=s) IS matmul(softmax(mul(q @ kᵀ, s), dim=-1), v) — the kernel's definition, expanded so the interior becomes a redex for the scale-migration and spelled-attention laws (the decompose half of the expand/fold pair; refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "lit": 0.0
+          },
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_ds",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "attr",
+        "SC"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v, scale=s) IS matmul(softmax(mul(q @ kᵀ, s), dim=-1), v) — the kernel's definition, expanded so the interior becomes a redex for the scale-migration and spelled-attention laws (the decompose half of the expand/fold pair; refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "lit": 0.0
+          },
+          "is_causal": {
+            "lit": false
+          },
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_dcs",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  },
+  {
+    "bound_norm": "spectral",
+    "cert": null,
+    "cond": null,
+    "derivation": [
+      "sdpa_fold_mul_nomask"
+    ],
+    "dspec": {
+      "$leaf:SC0": [
+        "attr",
+        "SC"
+      ]
+    },
+    "error_bound": null,
+    "kind": "law",
+    "law": "sdpa(q, k, v, scale=s) IS matmul(softmax(mul(q @ kᵀ, s), dim=-1), v) — the kernel's definition, expanded so the interior becomes a redex for the scale-migration and spelled-attention laws (the decompose half of the expand/fold pair; refolds through sdpa_fold_mul_nomask / sdpa_fold_nomask).",
+    "lhs": {
+      "args": [
+        {
+          "mvar": "Q"
+        },
+        {
+          "mvar": "K"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": {
+        "fields": {
+          "dropout_p": {
+            "lit": 0.0
+          },
+          "enable_gqa": {
+            "lit": false
+          },
+          "is_causal": {
+            "lit": false
+          },
+          "scale": {
+            "bind": "SC"
+          }
+        }
+      },
+      "dim": null,
+      "lit": null,
+      "op": "sdpa",
+      "source": "native"
+    },
+    "missing_hooks": [],
+    "name": "sdpa_expand_dcgs",
+    "rhs": {
+      "args": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [
+                    {
+                      "mvar": "Q"
+                    },
+                    {
+                      "args": [
+                        {
+                          "mvar": "K"
+                        }
+                      ],
+                      "attrs": {
+                        "lit": {
+                          "dim0": -2,
+                          "dim1": -1
+                        }
+                      },
+                      "dim": null,
+                      "lit": null,
+                      "op": "transpose",
+                      "source": "native"
+                    }
+                  ],
+                  "attrs": null,
+                  "dim": null,
+                  "lit": null,
+                  "op": "matmul",
+                  "source": "native"
+                },
+                {
+                  "mvar": "SC0"
+                }
+              ],
+              "attrs": null,
+              "dim": null,
+              "lit": null,
+              "op": "mul",
+              "source": "native"
+            }
+          ],
+          "attrs": {
+            "lit": {
+              "dim": -1
+            }
+          },
+          "dim": null,
+          "lit": null,
+          "op": "softmax",
+          "source": "native"
+        },
+        {
+          "mvar": "V"
+        }
+      ],
+      "attrs": null,
+      "dim": null,
+      "lit": null,
+      "op": "matmul",
+      "source": "native"
+    },
+    "serializable": true,
+    "tags": [
+      "attention"
+    ],
+    "version": 2
+  }
+]
