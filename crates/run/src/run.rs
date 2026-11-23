@@ -42,6 +42,12 @@ pub struct RunOptions {
     /// `HANDL_RUN_DEPTH` override — `None` reads the env var. Tests use
     /// this to exercise the cap without mutating process env.
     pub depth: Option<u32>,
+    /// Write child streams to this process's stdout/stderr *live* while
+    /// recording them in the report (default `true`). `false` captures
+    /// only — for embedders (the `hnl` extension ABI) that return the
+    /// streams through their own response channel and must keep the
+    /// process streams clean (e.g. for `--json` output).
+    pub echo: bool,
 }
 
 impl Default for RunOptions {
@@ -50,6 +56,7 @@ impl Default for RunOptions {
             cache: CacheMode::Enabled,
             toolchain: Toolchain::detect(),
             depth: None,
+            echo: true,
         }
     }
 }
@@ -267,8 +274,8 @@ impl Runner {
                 CacheCheck::Hit { entry, meta } => {
                     let restored = cache::restore_missing_outputs(pkg, &entry)?;
                     let (stdout, stderr) = cache::read_streams(&entry);
-                    emit_record(&stdout, true, out_stdout)?;
-                    emit_record(&stderr, false, out_stderr)?;
+                    emit_record(&stdout, true, out_stdout, self.options.echo)?;
+                    emit_record(&stderr, false, out_stderr, self.options.echo)?;
                     if task.outputs.as_ref().is_none_or(|o| o.is_empty()) {
                         messages.push(format!(
                             "cache hit: {} (streams only — no outputs declared)",
@@ -345,30 +352,38 @@ impl Runner {
             None => pkg.dir.clone(),
         };
         let outcome = exec::exec_segments(&segments, &cwd, depth)?;
-        emit_record(&outcome.stdout, true, out_stdout)?;
-        emit_record(&outcome.stderr, false, out_stderr)?;
+        emit_record(&outcome.stdout, true, out_stdout, self.options.echo)?;
+        emit_record(&outcome.stderr, false, out_stderr, self.options.echo)?;
         Ok(outcome)
     }
 }
 
-/// Write captured bytes to the real stdout/stderr *and* append them to
-/// the report buffer — used both for live echo of a miss-run's streams
-/// and for replaying a hit's recorded streams.
-fn emit_record(bytes: &[u8], stdout: bool, buf: &mut Vec<u8>) -> Result<(), RunError> {
+/// Write captured bytes to the real stdout/stderr (when `echo`) *and*
+/// append them to the report buffer — used both for live echo of a
+/// miss-run's streams and for replaying a hit's recorded streams.
+/// `echo: false` (see [`RunOptions::echo`]) records without writing.
+fn emit_record(
+    bytes: &[u8],
+    stdout: bool,
+    buf: &mut Vec<u8>,
+    echo: bool,
+) -> Result<(), RunError> {
     if bytes.is_empty() {
         return Ok(());
     }
-    let result = if stdout {
-        std::io::stdout().lock().write_all(bytes)
-    } else {
-        std::io::stderr().lock().write_all(bytes)
-    };
-    result.map_err(|e| {
-        RunError::io(format!(
-            "cannot write {}: {e}",
-            if stdout { "stdout" } else { "stderr" }
-        ))
-    })?;
+    if echo {
+        let result = if stdout {
+            std::io::stdout().lock().write_all(bytes)
+        } else {
+            std::io::stderr().lock().write_all(bytes)
+        };
+        result.map_err(|e| {
+            RunError::io(format!(
+                "cannot write {}: {e}",
+                if stdout { "stdout" } else { "stderr" }
+            ))
+        })?;
+    }
     buf.extend_from_slice(bytes);
     Ok(())
 }
