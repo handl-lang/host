@@ -458,6 +458,7 @@ impl CodegenRegistry {
             })?;
             docs(req, m).map_err(CodegenTargetError::Failed)?;
         }
+        emit_spec_dump(&module)?;
         emit_diagnostics(&module);
 
         let emitter_def = self.emitters.get(target.emitter).ok_or_else(|| {
@@ -495,6 +496,7 @@ impl CodegenRegistry {
         {
             m.source = req.source_url.map(str::to_string);
         }
+        emit_spec_dump(&module)?;
         emit_diagnostics(&module);
         let changes = typed
             .emitter
@@ -566,6 +568,30 @@ impl CodegenRegistry {
 fn read_prior_manifest(store: &FsStore, target: &str) -> Option<Manifest> {
     let bytes = store.read(&Manifest::artifact_ref(target)).ok()??;
     serde_json::from_slice(&bytes).ok()
+}
+
+/// Surface a [`SdkgenModule::spec_dump`] the source asked for
+/// (`--emit-spec`/`emit_spec:`): write the canonical spec to `dest`,
+/// or stdout for `"-"`. This is a request-level side effect — the
+/// destination is an arbitrary path outside the artifact store, so it
+/// cannot be a `Change` (P-001 inventory §3).
+fn emit_spec_dump(module: &ErasedModule) -> Result<(), CodegenTargetError> {
+    let Some(m) = module.downcast_ref::<SdkgenModule>() else {
+        return Ok(());
+    };
+    let Some(dump) = &m.spec_dump else {
+        return Ok(());
+    };
+    if dump.dest == "-" {
+        print!("{}", dump.yaml);
+        return Ok(());
+    }
+    std::fs::write(&dump.dest, &dump.yaml).map_err(|e| {
+        CodegenTargetError::Failed(format!(
+            "failed to write emitted spec `{}`: {e}",
+            dump.dest
+        ))
+    })
 }
 
 /// Surface per-family diagnostics on stderr — the observable behavior

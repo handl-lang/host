@@ -20,13 +20,14 @@ mod registry;
 pub use registry::{
     AnyEmitter, AnySource, CodegenEmitterDef, CodegenRegistry, CodegenRequest, CodegenSourceDef,
     CodegenTarget, CodegenTargetError, CodegenTypedTarget, ErasedModule, emit_context,
+    erase_emitter, erase_source,
 };
 
 // The kernel surface registrants implement against — re-exported so
 // target modules only depend on this crate.
 pub use hnl_engine_codegen::{
     ApplyOptions, ApplyReport, ArtifactRef, ArtifactStat, Change, CodegenError, ContentHash,
-    EmitContext, Emitter, FsStore, IrKind, IrModule, Manifest, MemoryStore, OnError, Plan,
+    EmitContext, Emitter, Engine, FsStore, IrKind, IrModule, Manifest, MemoryStore, OnError, Plan,
     RevertReport, RunMeta, Source, StoreError,
 };
 
@@ -69,7 +70,27 @@ pub struct SdkgenModule {
     /// name and must share one module scope.
     #[serde(default)]
     pub per_record_files: bool,
+    /// Resolved-spec dump requested via `--emit-spec`/`emit_spec:` —
+    /// the cli backend's "probe then hand-tune" payload (PL-004:
+    /// `Source::parse` must not write it, so it travels on the IR and
+    /// [`CodegenRegistry::run`] writes it as a request-level side
+    /// effect, like `--from-url` fetches).
+    #[serde(default)]
+    pub spec_dump: Option<SpecDump>,
     pub diagnostics: Vec<String>,
+}
+
+/// A resolved input-spec dump the source asks the registry to surface:
+/// `yaml` is the canonical serialization, `dest` the requested output
+/// (`"-"` = stdout, anything else a filesystem path — deliberately
+/// *not* an [`ArtifactRef`]: emit-spec destinations are arbitrary
+/// request-level paths outside the store root).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpecDump {
+    /// Canonical spec text (e.g. `CliSpec::dump()`).
+    pub yaml: String,
+    /// Requested destination: a path, or `"-"` for stdout.
+    pub dest: String,
 }
 
 impl IrModule for SdkgenModule {
