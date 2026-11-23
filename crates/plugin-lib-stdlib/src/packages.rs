@@ -785,7 +785,7 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &["available", "icu_version"],
         registry: None,
     },
-    // ── icu_c_* — sdkgen-generated ICU4C adapter modules (i18n) ────────
+    // ── icu_c_* — codegen-generated ICU4C adapter modules (i18n) ────────
     // Table-only modules: `intl_c` reaches them via
     // `from "../generated/icu/icu-c-linux-x86_64/<mod>_c" import * as <mod>`,
     // which basename-normalizes to these `*_c` names in the module table.
@@ -941,7 +941,7 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
-    // ── icu_uc_*_c — sdkgen-generated ICU4C adapter modules (common) ──
+    // ── icu_uc_*_c — codegen-generated ICU4C adapter modules (common) ──
     ModuleSpec {
         name: "ubrk_c",
         hnl: include_str!(concat!(
@@ -1075,7 +1075,7 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         registry: None,
     },
-    // ── icu_* — sdkgen-generated ICU4C port specs (contract) ──────────
+    // ── icu_* — codegen-generated ICU4C port specs (contract) ──────────
     // The `*_c` adapters' `from "../<lib>/<mod>" import { <Sig>*78 }`
     // lines basename-resolve to these rows (the port keeps the bare
     // name, the impl the `_c` suffix — the `uchar` self-import split).

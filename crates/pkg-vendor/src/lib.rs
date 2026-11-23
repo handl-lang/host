@@ -4,7 +4,7 @@
 //! `plugin-lib-stdlib`) cannot load its `.hnl` at runtime. Instead its `build.rs`
 //! calls [`vendor`] once, which copies the package (`pkg.hnl` + `src/**/*.hnl`)
 //! — plus any `handl-packages/**/*.hnl` payload (e.g. `lib-intl-c`'s
-//! sdkgen-generated ICU port/adapter sources, which table specs embed
+//! codegen-generated ICU port/adapter sources, which table specs embed
 //! directly) — into `OUT_DIR/<package>` and prints `cargo:rerun-if-changed`.
 //! The crate then embeds the vendored file with
 //! `include_str!(concat!(env!("OUT_DIR"), "/lib-x/src/index.hnl"))`.

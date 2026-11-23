@@ -1,6 +1,6 @@
 //! Contract crate for the `hnl compile` plugin architecture (ADR-0114).
 //!
-//! PL-004 T-101: this crate is the *contract* the six `compile-*` target
+//! PL-004 T-101: this crate is the *contract* the six `tool-compile-*` target
 //! repos implement against — [`CompilerInput`], [`CompilerOutput`],
 //! [`Artifact`], [`CompilerConfig`], and the [`Compiler`] trait (each
 //! target repo implements it alongside its kernel `Emitter` impl).

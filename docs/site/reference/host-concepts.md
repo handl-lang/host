@@ -63,14 +63,14 @@ through `load`, `[options]` through `option/set`, and excludes through
 `handl-platform` ships the built-in operation markers and their `Basic*`
 acceptors; each `handl-plugin-ext-*` crate is the published capability
 surface that wires a contract into the capability system. The engines
-behind the contracts live in the `engine-*` repos.
+behind the contracts live in the `tool-*`/`exec-*`/`engine-*` repos.
 
 | Operation | Marker | `RuleAcceptor` | Notes |
 | --- | --- | --- | --- |
 | `Format` | `handl_platform::Format` | `BasicFormatter` accepts `Box<dyn FormatBehavior>` | canonical formatter is `handl-plugin-ext-fmt` / `hnl-tool-fmt` |
 | `Lint` | `handl_platform::Lint` | `BasicLinter` accepts `Box<dyn LintBehavior>` | canonical linter is `handl-plugin-ext-lint` / `hnl-tool-lint` |
 | `Build` | `handl_platform::Build` | `BasicBuilder` accepts `Box<dyn BuildBehavior>` | |
-| `Compile` | `handl_platform::Compile` | `BasicCompiler` accepts `Box<dyn CompileBehavior>` | targets live in the `compile-*` repos |
+| `Compile` | `handl_platform::Compile` | `BasicCompiler` accepts `Box<dyn CompileBehavior>` | targets live in the `tool-compile-*` repos |
 | `Eval` | `handl_platform::Eval` | `BasicEvaluator` accepts `Arc<dyn EvalBehavior>` (+ `contribute_exec_control`) | engines in `exec*` |
 | `Load` | `plugin-load` | — | plugin-manifest loading capability |
 | `Refine` | `plugin-ext-refinement` | — | refinement/type-inference surface |

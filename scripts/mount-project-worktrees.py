@@ -10,7 +10,8 @@ Idempotent. Dry-run by default; `--apply` performs the changes and pushes.
 
 Usage:
     python3 scripts/mount-project-worktrees.py --root ../.. --dry-run
-    python3 scripts/mount-project-worktrees.py --root ../.. --apply --only engine-*
+    python3 scripts/mount-project-worktrees.py --root ../.. --apply            # all repos
+    python3 scripts/mount-project-worktrees.py --root ../.. --apply --only "tool-*"   # one family
 """
 
 from __future__ import annotations
@@ -115,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--root", type=Path, required=True, help="org checkout root")
     ap.add_argument("--apply", action="store_true", help="perform and push")
     ap.add_argument("--dry-run", action="store_true", help="report only (default)")
-    ap.add_argument("--only", default="*", help="glob on repo name, e.g. 'engine-*'")
+    ap.add_argument("--only", default="*", help="glob on repo name, e.g. 'tool-*'")
     args = ap.parse_args(argv)
 
     root = args.root.resolve()

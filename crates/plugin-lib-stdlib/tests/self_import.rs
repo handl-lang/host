@@ -1,4 +1,4 @@
-//! Regression: the sdkgen port/adapter `_c` split — the adapter spec
+//! Regression: the codegen port/adapter `_c` split — the adapter spec
 //! `uchar_c` (`icu-uc/icu-uc-c-linux-x86_64/uchar_c.hnl`) contains
 //! `from "../uchar" import { UCharType78, … }`, which
 //! basename-normalizes to `uchar` — now the *port* spec row, not the

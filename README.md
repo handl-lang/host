@@ -19,7 +19,7 @@
 - `crates/handl-kit-*` — kit data assembly (`handl-kit-data`, `handl-kit-arrow-lower`); the canonical language data lives in `kit-prelude-lang` / `kit-data-prelude` and the ready-made `Kit` wrapper in `kit-prelude`.
 - `crates/handl-runtime` — runtime coordination, desugaring, and eval-engine dispatch.
 - `crates/plugin-ext-*` — capability-contract surfaces and default rule-acceptor plugins: `diag`, `detect`, `fmt`, `lint`, `kit`, `eval`, `refinement`, `compile`, `plugin`, `codegen`, `test`, `typecheck`. The `hnl` *commands* they back live in the `ext-*` repos as dynamic cdylibs (ADR-0149); `cli`/`lsp` moved to their host repos in ADR-0128 Phase 8.
-- `hnl-engine` / `hnl-engine-*` — the engine substrate and concrete tooling engines (`lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform`, `exec`, `codegen`, …) live in the sibling **`engine*`** repos; consumed as `main`-floating git deps.
+- `hnl-engine` — the engine substrate (arrow-calculus `Term`/`Model`); the concrete engines split across the sibling **`engine*`**/**`tool-*`**/`**`exec-*`** repos: `tool-*` instruments (`lex`, `parse`, `fmt`, `lint`, `typecheck`, `test`, `transform`, `watch`, `codegen`, `codemod`, `compile-*`), `exec-*` eval backends (`exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`) and `engine-eqsat` — all consumed as `main`-floating git deps.
 - `crates/plugin-lib-*` — standard-library-style native/runtime modules (`stdlib`, `handl`, `scheduler`, `tag`; the `lib-*` ports live in their own repos).
 - `crates/plugin-applier-*` / `plugin-load*` — composition resolution (`applier`, `applier-bootstrap`, `applier-default`) and the plugin loaders (`plugin-load`, `plugin-loader-native`).
 - `crates/host-*` — `host-tooling` (semantic tokens and LSP helpers); the end-user hosts moved out in ADR-0128 Phase 8 — `host-cli` (`hnl`) lives in the sibling **`host-cli`** repo, `host-lsp` (LSP server) in **`host-lsp`**.
@@ -67,13 +67,13 @@ error; unknown command exits `2` listing the loaded commands.
 
 - `crates/handl-*` — language core: `handl-kit-data`, `handl-kit-arrow-lower`, `handl-runtime`, `handl-test-utils`. (`handl-language`, `handl-value`, `handl-defining-handl` and the `handl-lib-*` packages moved to **`kernel`**; the canonical kit/data crates live in the **`kit-*`** repos.)
 - `crates/platform` — core platform contract (`Plugin`, `Capability`, `DefaultHost`, `Kit`); `crates/platform-tests` — its integration tests.
-- `hnl-engine` / `crates/hnl-engine-*` — the generic engine substrate and concrete engines, all data-driven off `Language`, moved to the sibling **`engine*`** repos:
+- `hnl-engine` / `hnl-tool-*` / `hnl-exec-*` — the engine substrate and the concrete engines, all data-driven off `Language`, moved to the sibling **`engine*`**/**`tool-*`**/`**`exec-*`** repos:
   - front end — `lex`, `lex-pattern`, `parse`, `parse-pratt`
   - tooling — `fmt`, `lint`, `typecheck` (NBE engine + bootstrap scope checker), `test`
   - transforms — `transform`, `transform-rewrite`
   - execution — `exec`, `exec-tree-walk`, `exec-bytecode`, `exec-cranelift`
-- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `codegen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `hnl-engine-*` engine — see ADR-0085.
-- `crates/plugin-exec-cache` / `plugin-compile` — the exec result cache and the compiler contribution point; the back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`) live in the **`compile-*`** repos.
+- `crates/plugin-ext-*` — capability contracts and the default provider per category (`diag`, `detect`, `fmt`, `lint`, `typecheck`, `test`, `eval`, `refinement`, `compile`, `kit`, `plugin`, `codegen`; `cli`/`lsp` moved to their host repos). The tooling four (`fmt`/`lint`/`typecheck`/`test`) are thin `Plugin` adapters over their `hnl-tool-*` engine — see ADR-0085.
+- `crates/plugin-exec-cache` / `plugin-compile` — the exec result cache and the compiler contribution point; the back ends (`dot`, `js`, `llvm`, `sexp`, `term`, `handl`) live in the **`tool-compile-*`** repos.
 - `crates/plugin-codegen` (+ `plugin-ext-codegen`) — the codegen contract and `hnl codegen` command surface over the `hnl-tool-codegen` kernel; back ends/emitters live in the **`tool-codegen-*`** repos (`tool-codegen`, `-c`, `-webidl`, `-cli`, `-file`, `-python`).
 - `crates/plugin-lib-*` — standard library, native ops, and utility libraries.
 - `crates/plugin-applier-*` / `plugin-load*` / `plugin-loader-native` — applier composition and the native loader; `plugin-module` — module plumbing.

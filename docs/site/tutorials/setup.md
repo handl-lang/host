@@ -63,7 +63,7 @@ the tutorials builds on it.
 
 The `hnl` CLI, the editor extensions, the curated kits, and most of the
 standard library are not yet released. The toolchain *engines* are
-public — the whole `engine-*` family (`tool-fmt`, `tool-lint`,
+public — the whole operation layer (`tool-fmt`, `tool-lint`,
 `tool-typecheck`, the exec backends, and the rest) is usable as
 git-dependency crates — and a handful of `lib-*` packages are public
 language packages. What you can build today without them is a host

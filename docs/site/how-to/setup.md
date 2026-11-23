@@ -50,7 +50,7 @@ serde_json = "1"
 
 The `hnl` CLI, editor extensions, the curated kits, and most of the
 standard library are not yet released. The toolchain *engines* are
-public, though — the whole `engine-*` family (`tool-fmt`,
+public, though — the whole operation layer (`tool-fmt`,
 `tool-lint`, `tool-typecheck`, and the exec backends) is usable as
 git-dependency crates — and a handful of `lib-*` packages
 (`lib-char`, `lib-char-native`, `lib-desugar`, `lib-loader`,

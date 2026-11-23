@@ -16,6 +16,6 @@ This crate does **not** ship a capability plugin. It provides:
 PL-004 T-101: the feature-gated `CompileDispatcher`/`linked_targets`
 registry over the legacy `Compiler` trait objects is removed — the `hnl
 compile` CLI (`ext-compile`) routes each target's kernel `Emitter` impl
-through `hnl-tool-codegen`'s `Engine` directly. The six `compile-*`
+through `hnl-tool-codegen`'s `Engine` directly. The six `tool-compile-*`
 target crates still implement the `Compiler` trait in
 `handl-plugin-compile` alongside their `Emitter` impls.

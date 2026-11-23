@@ -8,7 +8,7 @@ title: Handl Language
 a data-driven language engine, and a plugin-composed host.
 
 The published pieces today are the machinery — the `kernel` schema and
-values, the whole `engine`/`engine-*` operation family (lex, parse,
+values, the whole `engine`/`tool-*`/`exec-*` operation layer (lex, parse,
 transform, exec — tree-walk, bytecode, and Cranelift — plus the
 `fmt`/`lint`/`typecheck` toolchain engines), the `host` platform
 workspace, the canonical `kit-prelude-lang` language data, and
@@ -21,7 +21,7 @@ development.
 | layer | what it is | where |
 | --- | --- | --- |
 | **Kernel** | The `Term` arrow calculus (`engine`/`hnl-engine`), the `Language` data schema, and the tagged `Value` model | [`kernel`](https://github.com/handl-lang/kernel), [`engine`](https://github.com/handl-lang/engine) |
-| **Engines** | Generic, data-driven machinery for lex, parse, transform, typecheck, exec, fmt, and lint — dispatch on `Language` data, never on hardcoded constructs; interchangeable eval backends (tree-walk, bytecode, Cranelift) | [`engine-*`](https://github.com/handl-lang) |
+| **Engines** | Generic, data-driven machinery for lex, parse, transform, typecheck, exec, fmt, and lint — dispatch on `Language` data, never on hardcoded constructs; interchangeable eval backends (tree-walk, bytecode, Cranelift) | [`tool-*`/`exec-*`/`engine-*`](https://github.com/handl-lang) |
 | **Platform** | `handl-platform` contracts — `Plugin`/`DefaultHost`/`Operation`/`Behavior`/`RuleAcceptor`/`Contribution` primitives, hosts, kits, options, capability dispatch, and the `plugin-ext-*` operation surfaces | [`host`](https://github.com/handl-lang/host) |
 | **Language data** | The canonical eval-path `Language` as YAML fragments | [`kit-prelude-lang`](https://github.com/handl-lang/kit-prelude-lang) |
 

@@ -8,7 +8,7 @@
 //! `Emitter` impl through `hnl-tool-codegen`'s `Engine` directly, so the
 //! dispatcher had no consumers left. [`CompileFileRequest`] stays: it is
 //! the argv parser `ext-compile` still uses. The `Compiler` trait itself
-//! remains in `handl-plugin-compile` — the six `compile-*` target repos
+//! remains in `handl-plugin-compile` — the six `tool-compile-*` target repos
 //! still implement it alongside their `Emitter` impls.
 
 pub mod request;

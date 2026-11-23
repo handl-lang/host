@@ -18,13 +18,15 @@ kernel/                        # the Language schema + shared values
   handl-lib-*                  #   remaining floor substrate packages
                                #   (ops, prim, prim-handl)
 engine/                        # hnl-engine — engine-side helpers over the calculus
-engine-*/                      # generic engines — one repo per operation
+tool-*/                        # on-demand toolchain instruments — one repo per operation
   tool-lex, tool-lex-pattern
   tool-parse, tool-parse-pratt
   tool-transform, tool-transform-rewrite
+  tool-fmt, tool-lint, tool-typecheck
+exec-*/                         # execution backends — one repo per interpreter
   exec, exec-tree-walk, exec-bytecode,
   exec-cranelift
-  tool-fmt, tool-lint, tool-typecheck
+engine-eqsat/                  # the e-graph search engine (stays engine-*)
 host/                          # the platform workspace
   crates/platform              #   handl-platform — contracts + DefaultHost
   crates/plugin-ext-*          #   operation contract surfaces
@@ -42,7 +44,7 @@ host-tensor/                   # dense n-d tensor functions for runtimes
 | --- | --- |
 | `kernel` | The `Language` data schema, the `Term`/`Model` calculus (`handl-calculus`), the op ABI (`handl-ops`), and the shared value model. `handl-language` defines the fragment schema and re-exports the `Term` kernel; `handl-value` provides `TaggedValue` (including the tensor scalar); `handl-lib-*` are the remaining floor substrate packages — the rest of the floor libs live in their own `lib-*` repos. Self-contained: no `engine`/`host` deps. |
 | `engine` (`hnl-engine`) | Engine-side helpers over the arrow calculus — the `Term`/`Model` data itself lives in the kernel's `handl-calculus`. |
-| `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`, `typecheck`) plus concrete engines — the tree-walk reference interpreter, the bytecode VM, the Cranelift JIT, the rewrite engine, and the `fmt`/`lint`/`typecheck` toolchain engines. Generic: they dispatch on `Language` data, never on hardcoded constructs. |
+| `tool-*` / `exec-*` / `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `typecheck`) plus concrete engines — the tree-walk reference interpreter, the bytecode VM, the Cranelift JIT, the rewrite engine, and the `fmt`/`lint`/`typecheck` toolchain instruments. `tool-*` are the on-demand toolchain instruments, `exec-*` the execution backends, and `engine-*` is now only the genuine engines (`engine` calculus helpers, `engine-eqsat` search). Generic: they dispatch on `Language` data, never on hardcoded constructs. |
 | `handl-platform` | The composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`), `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
 | `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `codegen`, `test`, `typecheck`). |
 | `handl-plugin-applier-*` | Read `.handl.toml` into a `HostConfig` and apply it — `ApplierFactory` / `DefaultApplierPlugin` register kits, plugins, options, and excludes through capabilities. |
@@ -55,7 +57,7 @@ host-tensor/                   # dense n-d tensor functions for runtimes
 ## What is not published
 
 The layer above the contracts is only partly public. Public today: the
-kernel, the `engine`/`engine-*` family (the whole operation surface —
+kernel, the `engine`/`tool-*`/`exec-*` layer (the whole operation surface —
 lex, parse, transform, exec, fmt, lint, typecheck — minus the private
 NBE typecheck engine and the test runner), the platform workspace,
 `kit-prelude-lang`, `host-tensor`, and a handful of `lib-*` packages
@@ -68,7 +70,7 @@ the `ext-*` command extensions, the curated `kit-*` kits, and most of the
 contracts they plug into are public, most of the implementations are not.
 Two newer repos are also still private: `engine-eqsat`, the e-graph
 **search** interpretation over kernel `Term`s (ADR-0174 phase P2), and
-`compile-cuda`, a `compile-*` emitter lowering `lib-kernel-ir` terms to
+`tool-compile-cuda`, a `tool-compile-*` emitter lowering `lib-kernel-ir` terms to
 CUDA C++.
 
 ## The product repos
@@ -103,7 +105,7 @@ interpretations emit runnable artifacts.** Concretely:
 - `engine-eqsat` is the e-graph search interpretation — saturation and
   extraction as one more engine beside tree-walk, bytecode and
   Cranelift, over the same kernel `Term`, not a second IR.
-- `compile-*` emitters lower `Term`s to targets; `compile-cuda` is the
+- `tool-compile-*` emitters lower `Term`s to targets; `tool-compile-cuda` is the
   first CUDA backend, emitting real CUDA C++ from `lib-kernel-ir`
   terms and declining uncovered ops by name.
 - Pipelines are themselves terms: `lift >>> search >>> verify >>>

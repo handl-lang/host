@@ -27,7 +27,7 @@ abstract: |
   `conflicts`/`targets`/`exclusive`/`ast_kinds` declarations into a
   checked `ResolvedComposition`.  Above the kernel, the engines are
   data-driven machinery — one abstraction crate per operation in
-  the public `engine-*` family, dispatching on `Language` data —
+  the public `tool-*`/`exec-*` operation layer, dispatching on `Language` data —
   and everything a program can do, down to garbage collection and
   sandboxing, is a property of the loaded composition rather than a
   flag in a runtime.
@@ -100,7 +100,7 @@ Concretely, the paper describes:
 - @sec-kits — kits and configuration: `Kit`/`KitManifest`,
   `HostConfig`/`.handl.toml`, and `OptionsPlugin`/`ResolvedOptions`;
 - @sec-engines — the engines as data-driven machinery in the
-  `engine-*` family, bound by name through `handl-runtime`'s
+  `tool-*`/`exec-*` layer, bound by name through `handl-runtime`'s
   `EngineRegistry`;
 - @sec-tensor — `host-tensor`, a worked example of a capability
   surface composed entirely through the plugin model;
@@ -366,7 +366,7 @@ Dispatch is uniform: `run` lifts the request payload into an `AstNode`
 whose `kind` selects which registered rules `apply`.  These `Basic*`
 acceptors are the *contribution seam* — the place per-kind rules land
 — not the canonical toolchain engines; the actual pipelines are the
-data-driven `engine-*` layer bound over `Language` (@sec-engines).
+data-driven `tool-*`/`exec-*` layer bound over `Language` (@sec-engines).
 The two exist for different reasons and the crate documents the seam
 honestly: acceptors compose Rust behavior per node kind; engines
 interpret `Language` data wholesale.
@@ -546,23 +546,23 @@ loader host.
 
 # Engines as data-driven machinery {#sec-engines}
 
-The `engine-*` layer is the platform's second half: for each stage of
+The `tool-*`/`exec-*` layer is the platform's second half: for each stage of
 the language pipeline there is an **abstraction crate** — the
 operation marker, the request type, the engine trait — and a
 **concrete engine** that interprets `Language` data.  All are public
-repos in the same family, and all obey the kernel's rule: dispatch on
+repos in the same layer, and all obey the kernel's rule: dispatch on
 `Language` data, never a hardcoded kind match.
 
 || Crate | Contract | Concrete engines |
 ||---|---|---|
-|| `hnl-engine-lex` | `Lexer` marker; `LexerRequest{source, options}`; `LexerEngine::lex(&self, lang, &req) -> Result<Tokens, LangError>` | `hnl-engine-lex-pattern` — tokenizes via `LexerRuleDef` fragments |
-|| `hnl-engine-parse` | `Parser` marker; `ParserRequest{tokens, options}`; `ParserEngine::{expression(ctx, rbp), parse(lang, &req)}`; `ParserContext` token cursor | `hnl-engine-parse-pratt` — a Pratt engine over `lang.grammar` |
-|| `hnl-engine-transform` | `Transform` marker; `TransformRequest`/`TransformMode`/`TransformOutput`; `TransformEngine::{transform, find_matches}`; `RuleSource`, the `NativeRewrite` seam | rewrite engines interpret `lang.transforms` |
-|| `hnl-engine-exec` | `Eval` marker; `EvalRequest{ast, options}`; `EvalEngine::eval(&self, lang, &req) -> Result<Value, LangError>` + `with_modules`/`with_global` wiring | `hnl-engine-exec-tree-walk` — the reference interpreter |
+|| `hnl-tool-lex` | `Lexer` marker; `LexerRequest{source, options}`; `LexerEngine::lex(&self, lang, &req) -> Result<Tokens, LangError>` | `hnl-tool-lex-pattern` — tokenizes via `LexerRuleDef` fragments |
+|| `hnl-tool-parse` | `Parser` marker; `ParserRequest{tokens, options}`; `ParserEngine::{expression(ctx, rbp), parse(lang, &req)}`; `ParserContext` token cursor | `hnl-tool-parse-pratt` — a Pratt engine over `lang.grammar` |
+|| `hnl-tool-transform` | `Transform` marker; `TransformRequest`/`TransformMode`/`TransformOutput`; `TransformEngine::{transform, find_matches}`; `RuleSource`, the `NativeRewrite` seam | rewrite engines interpret `lang.transforms` |
+|| `hnl-exec` | `Eval` marker; `EvalRequest{ast, options}`; `EvalEngine::eval(&self, lang, &req) -> Result<Value, LangError>` + `with_modules`/`with_global` wiring | `hnl-exec-tree-walk` — the reference interpreter |
 
 : The staged engine contracts. {#tbl-engines}
 
-`hnl-engine-exec-tree-walk` deserves one sentence: it is the reference
+`hnl-exec-tree-walk` deserves one sentence: it is the reference
 `Model` — it looks up `lang.eval[node.kind]`, obtains the
 `EvalSchemeDef`'s `Term`, and walks the term graph directly,
 including the arrow-value record form (`{"__arrow__": true, …}`),
@@ -661,7 +661,7 @@ this design operationalises:
 3. **Evaluation is an operation, not a subsystem.**  There is no `VM`
    alongside the operation system; `Vm` is a generic pairing of a
    `CallableLookup` and an environment.
-4. **A language is data; engines dispatch on it.**  The `engine-*`
+4. **A language is data; engines dispatch on it.**  The `tool-*`/`exec-*`
    contracts take `&Language`; a renamed-kind language runs untouched.
 5. **Kit-level properties are composition facts.**  Sandboxing is
    "which plugins are loaded"; GC is "which plugin provides it";
@@ -699,7 +699,7 @@ What is *proven* by the tree: a binary that depends only on
 `handl-platform` builds a working tool (`docs/site/tutorials`), the
 deferred-contribution and resolution paths are unit-tested in the
 crate, and the full pipeline — a `Language` assembled from
-`kit-prelude-lang` fragments, interpreted by `engine-*` engines,
+`kit-prelude-lang` fragments, interpreted by `tool-*`/`exec-*` engines,
 extended by `host-tensor` modules — is exercised end to end.
 
 Honest boundaries, stated rather than elided:

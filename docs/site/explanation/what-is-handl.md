@@ -4,7 +4,7 @@ handl is a **platform for building languages** — a closed arrow-calculus
 kernel, a data-driven engine layer, and a composable plugin host.
 
 The published pieces today are the machinery — the `kernel` schema and
-values, the `engine`/`engine-*` operation family, the `host` platform
+values, the `engine`/`tool-*`/`exec-*` operation layer, the `host` platform
 workspace, `kit-prelude-lang`, and `host-tensor`. The `hnl` CLI, the
 `ext-*` extensions, the curated `kit-*` kits, and most of the standard
 library are still in development.

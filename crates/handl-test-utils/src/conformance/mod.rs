@@ -1,6 +1,6 @@
 //! # Conformance test harness
 //!
-//! Shared conformance test infrastructure for `hnl-engine-*` engines
+//! Shared conformance test infrastructure for `hnl-tool-*`/`hnl-exec-*` engines
 //! (ADR-0044 testing strategy). Contains:
 //!
 //! - [`corpus`] — `(Language, Ast, expected Value)` and

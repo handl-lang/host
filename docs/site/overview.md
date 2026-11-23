@@ -3,7 +3,7 @@
 handl is a **composable language platform**. A single `Plugin` trait unifies libraries, targets, operations, and rules. A `DefaultHost` registers plugins from one or more kits, runs `load` — a single registration-order `contribute` pass with deferred-rule retries — and then executes capabilities on demand through `run`.
 
 This page covers the published platform layers. The machinery is public:
-the `kernel` schema and values, the `engine`/`engine-*` operation family,
+the `kernel` schema and values, the `engine`/`tool-*`/`exec-*` operation layer,
 the `host` platform workspace, `kit-prelude-lang`, and `host-tensor`. The
 `hnl` CLI, the `ext-*` extensions, the curated `kit-*` kits, and most of
 the standard library are not yet released.

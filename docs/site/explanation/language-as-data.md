@@ -33,7 +33,7 @@ fragment set is published as data in
 
 ## Engines dispatch on data
 
-The `engine-*` crates are **generic machinery**: each is an abstraction
+The `tool-*`/`exec-*` crates are **generic machinery**: each is an abstraction
 crate for one operation — `hnl-tool-lex`, `hnl-tool-parse`,
 `hnl-tool-transform`, `hnl-exec`, `hnl-tool-typecheck` — plus
 concrete engines: three interchangeable eval backends
@@ -80,8 +80,8 @@ The engine layer is deliberately small:
 - **Calculus** — the six-combinator vocabulary lives in `hnl-engine`
   (the [`engine` repo](https://github.com/handl-lang/engine)); see
   [The arrow calculus kernel](./arrow-calculus-kernel).
-- **Engines** — the generic dispatch machinery lives in the `engine-*`
-  repos.
+- **Engines** — the generic dispatch machinery lives in the `tool-*`/`exec-*`
+  repos (plus the `engine`/`engine-eqsat` engines).
 - **Host** — composition, kits, options, and capabilities live in the
   [platform](./platform-architecture).
 
