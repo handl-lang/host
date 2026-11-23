@@ -1,7 +1,7 @@
 +++
 id = "ADR-0175"
 title = "ADR-0175: The dissolution map — every repo finds its layer, mlopt becomes a kit"
-status = "accepted"
+status = "done"
 priority = "high"
 +++
 

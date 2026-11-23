@@ -1,7 +1,7 @@
 +++
 id = "ADR-0174"
 title = "ADR-0174: The end-state architecture — one Term, many interpretations, verified delivery"
-status = "accepted"
+status = "done"
 priority = "high"
 +++
 

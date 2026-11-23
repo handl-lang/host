@@ -1,7 +1,7 @@
 +++
 id = "ADR-0173"
 title = "ADR-0173: Term attrs are op metadata, program sharing is derived-form data, and non-finite floats are a codec tag"
-status = "accepted"
+status = "done"
 priority = "high"
 +++
 

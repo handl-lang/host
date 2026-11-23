@@ -1,7 +1,7 @@
 +++
 id = "ADR-0177"
 title = "ADR-0177: engine-eqsat search contracts — laws, guards, and costs as kit data"
-status = "accepted"
+status = "done"
 priority = "high"
 +++
 

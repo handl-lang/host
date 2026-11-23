@@ -1,7 +1,7 @@
 +++
 id = "ADR-0178"
 title = "ADR-0178: P3 codec consolidation and mlopt_core.ir demotion — sequencing"
-status = "accepted"
+status = "done"
 priority = "high"
 +++
 
