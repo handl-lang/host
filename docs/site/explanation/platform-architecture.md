@@ -44,7 +44,7 @@ host-tensor/                   # dense n-d tensor functions for runtimes
 | `engine` (`hnl-engine`) | Engine-side helpers over the arrow calculus — the `Term`/`Model` data itself lives in the kernel's `handl-calculus`. |
 | `engine-*` | One abstraction crate per operation (`lex`, `parse`, `transform`, `exec`, `typecheck`) plus concrete engines — the tree-walk reference interpreter, the bytecode VM, the Cranelift JIT, the rewrite engine, and the `fmt`/`lint`/`typecheck` toolchain engines. Generic: they dispatch on `Language` data, never on hardcoded constructs. |
 | `handl-platform` | The composition primitives (`Plugin`, `Operation`, `Behavior`, `RuleAcceptor`, `Contribution`), `DefaultHost`, `PluginRegistry`, `Capability`/`CapabilityRequest`, `Kit`/`KitManifest`, `HostConfig`, `OptionsPlugin`, and the built-in operation contracts (`Format`, `Lint`, `Build`, `Compile`, `Eval`). |
-| `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `sdkgen`, `test`, `typecheck`). |
+| `handl-plugin-ext-*` | Published capability **contract surfaces** and default `RuleAcceptor` plugins (`diag`, `detect`, `fmt`, `lint`, `eval`, `kit`, `compile`, `plugin`, `refinement`, `codegen`, `test`, `typecheck`). |
 | `handl-plugin-applier-*` | Read `.handl.toml` into a `HostConfig` and apply it — `ApplierFactory` / `DefaultApplierPlugin` register kits, plugins, options, and excludes through capabilities. |
 | `handl-plugin-load*` | Plugin loaders — manifests, and the native cdylib loader. |
 | `handl-plugin-lib-*` | Library plugins that register native/runtime modules (`stdlib`, `handl`, `scheduler`, `tag`, …). |
