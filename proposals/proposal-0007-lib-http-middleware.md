@@ -1,3 +1,13 @@
++++
+id = "P-007"
+title = "lib-http-middleware: request-scoped pipeline"
+status = "done"
+created = "2026-11-23"
+priority = "med"
+labels = ["http","middleware"]
+task = "T-120"
++++
+
 # P-007 — lib-http-middleware: request-scoped pipeline
 
 ***Status:** approved · **New repo:** `lib-http-middleware` · **Task:** T-120

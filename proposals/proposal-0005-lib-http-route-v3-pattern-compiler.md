@@ -1,3 +1,13 @@
++++
+id = "P-005"
+title = "lib-http-route v3: pattern compiler"
+status = "done"
+created = "2026-11-23"
+priority = "med"
+labels = ["http","routing"]
+task = "T-118"
++++
+
 # P-005 — lib-http-route v3: Remix-style pattern compiler
 
 ***Status:** approved · **Repo:** `lib-http-route` · **Task:** T-118

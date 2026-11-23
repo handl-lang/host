@@ -1,3 +1,13 @@
++++
+id = "P-006"
+title = "lib-http-route: resources()/resource() REST generators"
+status = "done"
+created = "2026-11-23"
+priority = "med"
+labels = ["http","routing"]
+task = "T-119"
++++
+
 # P-006 — lib-http-route: `resources()`/`resource()` REST generators
 
 ***Status:** approved · **Repo:** `lib-http-route` · **Task:** T-119
