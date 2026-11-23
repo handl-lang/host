@@ -26,6 +26,7 @@
 - [ ] T-132 lib-mock spies/stubs + coverage phase for engine-test parity · created:2026-11-23
 - [ ] T-133 lib-concurrent-js: concurrent.Run over MessageChannel/setTimeout/Atomics (isomorphic runtime) · created:2026-11-23
 - [ ] T-135 engine-test+ext-test: push watch commits (engine-test first, then ext-test) · created:2026-11-23
+- [ ] T-137 js.get/js.set ops: property access for JS interop (compile-js prelude + lib-js contract) — unblocks eval-free Node Worker shim · created:2026-11-23
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
