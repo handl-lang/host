@@ -15,7 +15,6 @@
 - [ ] T-119 lib-http-route v3: resources()/resource() REST route generators (index/show/create/edit/update/destroy, only:, param:) · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-120 lib-http-middleware: request-scoped context through handlers (auth, sessions, CSRF, CORS, logging) — separate lib, not route's job · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-121 lib-http-route: full-URL patterns (host/port/protocol) — DEFERRED, irrelevant for origin server; revisit only if proxy/vhost use-case appears · pri:low · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
-- [ ] T-122 kit selection via .handl.toml (no hnl.hnl): kit = name-or-path key, walk UP from file dir to find nearest .handl.toml containing kit; fallback ~/.config/handl/.handl.toml; explicit --kit flag wins; REPLACE semantics (project kit replaces global, not union); extends/layering later; merges into existing dep map alongside .handl.toml deps · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
 - [ ] T-123 Fold kit-core crate into host workspace (module table/resolver/caches substrate) · created:2026-11-23
 - [ ] T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23
 - [ ] T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23
