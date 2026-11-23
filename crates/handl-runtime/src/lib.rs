@@ -1806,6 +1806,18 @@ impl ModuleLoader {
                 display_path, resolved, e
             ))
         })?;
+        // Coverage (opt-in, `hnl test --coverage`): register the *prepared*
+        // source — the exact text the parser sees — so span hits during
+        // eval attribute to this module. Line numbers are prepared-source
+        // coordinates, not file lines (module prep re-serializes; see
+        // `hnl_engine_exec::coverage` docs). No-op when no session is
+        // installed on this thread.
+        let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
+            hnl_engine_exec::coverage::CoverageSource::new(resolved, src.clone())
+                .with_origin(resolved),
+        );
+        let _cov_guard =
+            cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
         let source = Source::new(&src);
         let toks = {
             let req = LexerRequest::new(source);

@@ -2359,9 +2359,37 @@ impl Function for HandlFunction {
                         parsed
                     }
                 };
+                // Coverage (opt-in): the module record eval parses
+                // `({source})` — spans index that wrapped text, so the
+                // registered source is the wrapped string and declaration
+                // ranges (scanned on the inner source) shift by one byte
+                // for the `(` prefix. Line numbers are prepared-source
+                // coordinates — `self.source` is already transform output
+                // (`analyze_source`), not necessarily the file on disk.
+                let cov_text = format!("({})", self.source);
+                let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
+                    hnl_engine_exec::coverage::CoverageSource {
+                        name: format!("{}.hnl", self.module_name),
+                        text: cov_text,
+                        decls: hnl_engine_exec::coverage::scan_decls(&self.source)
+                            .into_iter()
+                            .map(|mut d| {
+                                d.start += 1;
+                                d.end += 1;
+                                d
+                            })
+                            .collect(),
+                        origin: None,
+                        coordinate_space: "prepared".to_string(),
+                    },
+                );
+                let cov_guard =
+                    cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
                 let v = runtime
                     .eval_shared_with_call_args(&src_ast, &[])
-                    .map_err(errf)?;
+                    .map_err(errf);
+                drop(cov_guard);
+                let v = v?;
                 MODULE_VALUE_CACHE.with(|c| c.borrow_mut().insert(module_id, v.clone()));
                 v
             }
@@ -2384,9 +2412,16 @@ impl Function for HandlFunction {
         }
         // Arrows in the result are self-contained (`body_def` + `binds`,
         // ADR-0106) — no home-frame registration needed.
-        runtime
-            .eval_shared_with_call_args(&ast, &call_args)
-            .map_err(errf)
+        //
+        // Coverage (opt-in): the applied form `__mod.f(__arg_0, …)` is
+        // synthetic — its spans index a generated string, not any
+        // registered source — so its own node hits are dropped via an
+        // opaque frame. Arrow bodies applied inside still attribute
+        // correctly through mint-time `body_def` provenance.
+        let cov_guard = hnl_engine_exec::coverage::CoverageSession::push_opaque();
+        let result = runtime.eval_shared_with_call_args(&ast, &call_args);
+        drop(cov_guard);
+        result.map_err(errf)
     }
 }
 
@@ -3083,7 +3118,32 @@ impl HandlModule {
                 parsed
             }
         };
-        runtime.eval_shared_with_call_args(&ast, &[]).ok()
+        // Coverage (opt-in): `({source}).name` re-evaluates the module
+        // record — its node spans index the same `({source})` prefix the
+        // `HandlFunction` path registers, so hits merge into that source
+        // (the trailing `.name` projection lands past the text end and is
+        // dropped by the bounds check in `record_node_span`).
+        let cov_source = hnl_engine_exec::coverage::CoverageSession::register(
+            hnl_engine_exec::coverage::CoverageSource {
+                name: format!("{}.hnl", self.name),
+                text: format!("({})", self.source),
+                decls: hnl_engine_exec::coverage::scan_decls(&self.source)
+                    .into_iter()
+                    .map(|mut d| {
+                        d.start += 1;
+                        d.end += 1;
+                        d
+                    })
+                    .collect(),
+                origin: None,
+                coordinate_space: "prepared".to_string(),
+            },
+        );
+        let cov_guard =
+            cov_source.and_then(hnl_engine_exec::coverage::CoverageSession::push_source);
+        let result = runtime.eval_shared_with_call_args(&ast, &[]);
+        drop(cov_guard);
+        result.ok()
     }
 }
 

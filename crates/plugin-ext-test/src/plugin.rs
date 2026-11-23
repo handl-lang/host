@@ -126,6 +126,10 @@ fn run_test(
         .get("cache")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let use_coverage = payload
+        .get("coverage")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     let report_kind = payload
         .get("report")
         .and_then(|v| v.as_str())
@@ -187,6 +191,9 @@ fn run_test(
         };
         config = config.with_cache(cache);
     }
+    if use_coverage {
+        config = config.with_coverage(engine::coverage::CoverageSession::new());
+    }
 
     let report = engine::run_with_config(source, &plan, &mut config);
 
@@ -223,7 +230,14 @@ fn run_test(
     } else {
         "ok"
     };
-    Ok(CapabilityResponse(serde_json::json!({
+    // `.hnl` source coverage (opt-in `coverage` payload flag): the merged
+    // per-worker report as JSON. Line numbers are prepared-source
+    // coordinates — see `hnl_engine_exec::coverage` docs.
+    let coverage_json = config
+        .coverage
+        .as_ref()
+        .map(|session| session.report().to_json());
+    let mut response = serde_json::json!({
         "status": status,
         "summary": {
             "total": summary.total,
@@ -234,7 +248,11 @@ fn run_test(
         "report": rendered,
         "parseErrors": parse_errors,
         "warnings": warnings,
-    })))
+    });
+    if let Some(cov) = coverage_json {
+        response["coverage"] = cov;
+    }
+    Ok(CapabilityResponse(response))
 }
 
 /// Read the required `paths` array of strings.
