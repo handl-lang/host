@@ -2726,7 +2726,7 @@ mod tests {
     #[test]
     fn data_nat_parses_to_data_node_with_alt_tree() {
         let kit = Kit::new().unwrap();
-        let ast = parse_raw(&kit, "data Nat :: Zero | Succ(Nat)");
+        let ast = parse_raw(&kit, "Nat := { Zero : Nat, Succ : (Nat) ~> Nat }");
 
         // The last node should be a `data` node.
         let root = ast.nodes().last().unwrap();
@@ -2761,20 +2761,33 @@ mod tests {
             .unwrap();
         assert_eq!(left.kind, "var");
         assert_eq!(left.payload, serde_json::json!("Zero"));
-        // Right child: call(Succ, Nat)
+        // Right child: type-annot(call(Succ, Nat), Nat) — the record
+        // lowering wraps an argumented ctor's declared result once; the
+        // ctor leaf under `subject` is the `call`.
         let right = ast
             .get(handl_language::AstRef::new(
                 alt_children[1].as_u64().unwrap() as usize,
             ))
             .unwrap();
-        assert_eq!(right.kind, "call");
+        assert_eq!(right.kind, "type-annot");
+        let ta_children = right
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .unwrap();
+        let subject = ast
+            .get(handl_language::AstRef::new(
+                ta_children[0].as_u64().unwrap() as usize,
+            ))
+            .unwrap();
+        assert_eq!(subject.kind, "call");
     }
 
     #[test]
     fn data_nat_desugars_to_block_from_source() {
         let kit = Kit::new().unwrap();
         // kit.parse applies the desugar pass.
-        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
 
         // The root should be a `block` with 4 statements (predicate + 2
         // constructors + recursor).
@@ -2804,7 +2817,7 @@ mod tests {
     #[test]
     fn data_bool_desugars_from_source() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Bool :: True | False").unwrap();
+        let ast = kit.parse("Bool := { True : Bool, False : Bool }").unwrap();
 
         let root = ast.nodes().last().unwrap();
         assert_eq!(root.kind, "block");
@@ -2815,7 +2828,7 @@ mod tests {
 
     #[test]
     fn data_nat_eval_succ_zero() {
-        // End-to-end: parse `data Nat :: Zero | Succ(Nat)` and `Succ(Zero)`,
+        // End-to-end: parse `Nat := { Zero : Nat, Succ : (Nat) ~> Nat }` and `Succ(Zero)`,
         // desugar, and eval to get a tagged value.
         //
         // The Pratt parser parses one statement per call, so we parse the
@@ -2827,7 +2840,7 @@ mod tests {
         let kit = Kit::new().unwrap();
 
         // Parse and desugar the data declaration.
-        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
         // The root is a block with 4 assign children.
         let data_root = data_ast.nodes().last().unwrap();
         assert_eq!(data_root.kind, "block");
@@ -2884,21 +2897,28 @@ mod tests {
 
         // Evaluate the combined AST.
         let val = kit.runtime().eval(&combined).unwrap();
-        // Succ(Zero) should produce {"tag": "Succ", "nat": {"tag": "Zero"}}
-        // (arg name "nat" is derived from the lowercased type name "Nat").
-        let obj = val.as_object().expect("expected object result");
-        assert_eq!(obj.get("tag"), Some(&serde_json::json!("Succ")));
-        let pred = obj.get("nat").expect("expected 'nat' field");
-        let pred_obj = pred.as_object().expect("expected nested object");
-        assert_eq!(pred_obj.get("tag"), Some(&serde_json::json!("Zero")));
+        // ADR-0152: ctor values are `{"__ctor__": {"__sym__": {"name": …}},
+        // …}` objects — identity is the seeded ctor sym (seed
+        // `data.Nat.Succ`), not a `"tag"` string. The arg name "nat" is
+        // derived from the lowercased type name "Nat".
+        let sym_name = |v: &serde_json::Value| {
+            v.get("__ctor__")
+                .and_then(|c| c.get("__sym__"))
+                .and_then(|s| s.get("name"))
+                .and_then(|n| n.as_str())
+                .map(str::to_string)
+        };
+        assert_eq!(sym_name(&val).as_deref(), Some("Succ"));
+        let pred = val.get("nat").expect("expected 'nat' field");
+        assert_eq!(sym_name(pred).as_deref(), Some("Zero"));
     }
 
     #[test]
     fn data_nat_eval_zero() {
-        // Eval `Zero` after declaring `data Nat :: Zero | Succ(Nat)`.
+        // Eval `Zero` after declaring `Nat := { Zero : Nat, Succ : (Nat) ~> Nat }`.
         // Same combining approach as data_nat_eval_succ_zero.
         let kit = Kit::new().unwrap();
-        let data_ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let data_ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
         let data_root = data_ast.nodes().last().unwrap();
         let data_children: Vec<usize> = data_root
             .payload
@@ -2940,8 +2960,13 @@ mod tests {
         combined.push(AstNode::new("block").with_payload(block_payload));
 
         let val = kit.runtime().eval(&combined).unwrap();
-        let obj = val.as_object().expect("expected object result");
-        assert_eq!(obj.get("tag"), Some(&serde_json::json!("Zero")));
+        // ADR-0152 `__ctor__` sym object — see data_nat_eval_succ_zero.
+        let sym_name = val
+            .get("__ctor__")
+            .and_then(|c| c.get("__sym__"))
+            .and_then(|s| s.get("name"))
+            .and_then(|n| n.as_str());
+        assert_eq!(sym_name, Some("Zero"));
     }
 
     #[test]
@@ -2981,7 +3006,7 @@ mod tests {
 
     #[test]
     fn data_desugar_visible_to_typechecker() {
-        // Parse `data Nat :: Zero | Succ(Nat)` from source. The desugar pass
+        // Parse `Nat := { Zero : Nat, Succ : (Nat) ~> Nat }` from source. The desugar pass
         // runs at parse time (Runtime::parse), so the typechecker should see
         // the desugared `Nat` predicate. We verify by typechecking a module
         // that includes the data declaration — the typechecker input is the
@@ -2992,7 +3017,7 @@ mod tests {
         // to the typechecker input (i.e., no `data` nodes remain in the
         // typechecked AST — they are all desugared to `block`/`assign`).
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("data Nat :: Zero | Succ(Nat)").unwrap();
+        let ast = kit.parse("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }").unwrap();
 
         // Verify no `data` nodes remain in the desugared AST.
         for node in ast.nodes() {

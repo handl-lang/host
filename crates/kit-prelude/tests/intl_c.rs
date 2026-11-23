@@ -18,14 +18,14 @@ use std::sync::OnceLock;
 
 /// One `Kit::eval` that loads `intl-c` once and runs every contract op,
 /// returning a `{ name: result }` record of raw outputs. Results are the
-/// backend's `{__tag__: "ok", value}` / `{__tag__: "err", msg}` values.
+/// backend's nominal `ok v` / `err msg` `__ctor__` results (ADR-0152).
 fn results() -> &'static Value {
     static RESULTS: OnceLock<Value> = OnceLock::new();
     RESULTS.get_or_init(|| {
         let kit = Kit::new().expect("kit must build");
         let src = r#"do {
   from "../../../lib-intl-c/src" import * as intl_c
-  val := (r) ~> if tag.tag_of(r) == "ok" { tag.untag(r).value } else { { __err__: tag.untag(r).value } }
+  val := (r) ~> match r { ok(_): r.value, err(_): { __err__: r.value }, _: { __err__: "unexpected result" } }
   if intl_c.available {
     {
       available: intl_c.available,

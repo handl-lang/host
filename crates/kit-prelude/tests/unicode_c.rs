@@ -17,16 +17,21 @@
 //! loads and `available` is false — the table-backed ops raise, so the
 //! value checks are gated on `available`.
 
-use handl_kit_prelude::{Kit, prelude_wire_names};
+use handl_kit_prelude::prelude_wire_names;
 use serde_json::Value;
 use std::sync::OnceLock;
+
+mod common;
 
 /// One `Kit::eval` that loads `unicode_c` once and runs every contract op,
 /// returning a `{ name: result }` record of plain values.
 fn results() -> &'static Value {
     static RESULTS: OnceLock<Value> = OnceLock::new();
     RESULTS.get_or_init(|| {
-        let kit = Kit::new().expect("kit must build");
+        // `unicode-c` reaches the generated `icu-uc-c` adapters through
+        // its `intl-c` package dep — the kit needs the dep map `hnl`'s
+        // manifest resolution would supply (`Kit::new` wires none).
+        let kit = common::kit_with_deps();
         let src = r#"do {
   from "../../../lib-unicode-c/src" import * as u
   if u.available {

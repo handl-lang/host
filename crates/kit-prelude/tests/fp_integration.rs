@@ -16,9 +16,10 @@ use serde_json::json;
 // json — Prim op: parse a JSON template from payload
 // ---------------------------------------------------------------------------
 
-/// Bug #1: constructing `Succ(Zero)` via a `data` declaration must produce
-/// `{"tag": "Succ", "pred": {"tag": "Zero"}}` — the `pred` field holds the
-/// argument's value, not the literal string "pred".
+/// Bug #1: constructing `Succ(Zero)` via a `data` declaration must produce a
+/// `__ctor__` value whose `pred` field holds the argument's *value* (the
+/// `Zero` ctor object), not the literal string "pred". (ADR-0152: ctor
+/// identity is the `__ctor__.__sym__` nominal, not a `"tag"` string.)
 #[test]
 fn data_constructor_substitutes_arg_value() {
     let kit = kit();
@@ -51,10 +52,23 @@ fn data_constructor_substitutes_arg_value() {
         .runtime()
         .eval(&desugared)
         .expect("Succ(Zero) must eval");
+    let sym_name = |v: &serde_json::Value| {
+        v.get("__ctor__")
+            .and_then(|c| c.get("__sym__"))
+            .and_then(|s| s.get("name"))
+            .and_then(|n| n.as_str())
+            .map(str::to_string)
+    };
     assert_eq!(
-        result,
-        json!({"tag": "Succ", "pred": {"tag": "Zero"}}),
-        "pred field must hold the evaluated argument, not the string \"pred\""
+        sym_name(&result).as_deref(),
+        Some("Succ"),
+        "result must be the Succ ctor object, got: {result}"
+    );
+    let pred = result.get("pred").expect("pred field must be present");
+    assert_eq!(
+        sym_name(pred).as_deref(),
+        Some("Zero"),
+        "pred field must hold the evaluated Zero argument, not the string \"pred\": {result}"
     );
 }
 
@@ -613,7 +627,7 @@ fn data_strict_positivity_violation_raises_error() {
 fn data_parses_from_source_to_data_node() {
     let kit = kit();
     let tokens = kit
-        .lex("data Nat :: Zero | Succ(Nat)")
+        .lex("Nat := { Zero : Nat, Succ : (Nat) ~> Nat }")
         .expect("lex must succeed");
 
     // Parse WITHOUT desugar by calling the Pratt engine directly.
@@ -671,12 +685,23 @@ fn data_parses_from_source_to_data_node() {
     assert_eq!(left.kind, "var");
     assert_eq!(left.payload, json!("Zero"));
 
-    // Right: call(var("Succ"), var("Nat"))
+    // Right: type-annot(call(var("Succ"), var("Nat")), var("Nat")) — the
+    // result annotation wraps the constructor leaf exactly once.
     let right = ast
         .get(AstRef::new(alt_children[1].as_u64().unwrap() as usize))
         .unwrap();
-    assert_eq!(right.kind, "call");
-    let call_children = right
+    assert_eq!(right.kind, "type-annot");
+    let ta_children = right
+        .payload
+        .get("children")
+        .and_then(|c| c.as_array())
+        .unwrap();
+    assert_eq!(ta_children.len(), 2);
+    let call = ast
+        .get(AstRef::new(ta_children[0].as_u64().unwrap() as usize))
+        .unwrap();
+    assert_eq!(call.kind, "call");
+    let call_children = call
         .payload
         .get("children")
         .and_then(|c| c.as_array())
@@ -694,10 +719,11 @@ fn data_parses_from_source_to_data_node() {
     assert_eq!(arg.payload, json!("Nat"));
 }
 
-/// Phase 1: Parse `data Nat = Zero | Succ(pred : Nat)` from source, run the
+/// Phase 1: Parse `Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }` (the
+/// ADR-0158 record spelling; `data Nat :: …` is retired) from source, run the
 /// desugar pass (which `Runtime::parse` does automatically), then evaluate
 /// `Succ(Zero)` in the scope of the desugared block and verify the result is
-/// `{"tag": "Succ", "pred": {"tag": "Zero"}}`.
+/// the `__ctor__` object whose `pred` field is the `Zero` ctor object.
 ///
 /// This is the first end-to-end `data` test from surface syntax: source
 /// string → lex → parse → desugar → eval. The explicit arg name `pred : Nat`
@@ -710,7 +736,7 @@ fn data_end_to_end_succ_zero() {
     // Parse (lex + parse + desugar) the data declaration from source.
     // Runtime::parse applies the desugar pass automatically.
     let mut ast = kit
-        .parse("data Nat :: Zero | Succ(pred : Nat)")
+        .parse("Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }")
         .expect("parse must succeed");
 
     // The root should be a `block` (desugared from `data`).
@@ -737,10 +763,23 @@ fn data_end_to_end_succ_zero() {
     append_child_to_block(&mut ast, block_idx, call);
 
     let result = kit.runtime().eval(&ast).expect("Succ(Zero) must eval");
+    let sym_name = |v: &serde_json::Value| {
+        v.get("__ctor__")
+            .and_then(|c| c.get("__sym__"))
+            .and_then(|s| s.get("name"))
+            .and_then(|n| n.as_str())
+            .map(str::to_string)
+    };
     assert_eq!(
-        result,
-        json!({"tag": "Succ", "pred": {"tag": "Zero"}}),
-        "Succ(Zero) from surface syntax must yield {{tag: Succ, pred: {{tag: Zero}}}}"
+        sym_name(&result).as_deref(),
+        Some("Succ"),
+        "Succ(Zero) from surface syntax must yield the Succ __ctor__ object, got: {result}"
+    );
+    let pred = result.get("pred").expect("pred field must be present");
+    assert_eq!(
+        sym_name(pred).as_deref(),
+        Some("Zero"),
+        "pred must hold the Zero ctor object: {result}"
     );
 }
 
@@ -754,7 +793,7 @@ fn data_explicit_arg_names_from_source() {
 
     // Parse with explicit arg name: Just(value : Nat)
     let ast = kit
-        .parse("data Maybe :: Nothing | Just(value : Nat)")
+        .parse("Maybe := { Nothing : Maybe, Just : (value : Nat) ~> Maybe }")
         .expect("parse must succeed");
 
     // The root should be a `block` (desugared from `data`).
@@ -807,7 +846,7 @@ fn data_typecheck_sees_desugared_block() {
     // Parse+desugar the data declaration. The desugar pass runs at parse
     // time (Runtime::parse), producing a `block` of assignments.
     let ast = kit
-        .parse("data Nat :: Zero | Succ(pred : Nat)")
+        .parse("Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }")
         .expect("parse must succeed");
 
     // Verify the root is a `block` (desugared), not a `data` node.
@@ -837,7 +876,7 @@ fn data_typecheck_sees_desugared_block() {
 #[test]
 fn data_vec_parses_and_desugars_from_source() {
     let kit = kit();
-    let src = "data Vec(n : Nat, a : Type) :: Nil | Cons(a, Vec(n - 1, a))";
+    let src = "Vec<n : Nat, a : Type> := { Nil : Vec, Cons : (a, Vec(n - 1, a)) ~> Vec }";
     let ast = kit
         .parse(src)
         .expect("Vec declaration must parse and desugar");
@@ -867,11 +906,10 @@ fn data_vec_parses_and_desugars_from_source() {
             .unwrap()
     };
 
-    // Vec predicate is a `(n, a, __v) -> loop(...)` function: it keeps
-    // the family's declared arity so `Vec(n, a, v)` binds positionally,
-    // and reconstructs the flat `__in` tuple `[n, a, __v]` as the fold
-    // machine's loop input (ADR-0120 Phase 1 — `Term::Loop` feedback, no
-    // self-application).
+    // Vec's former is a `(n, a) -> {"__former__": …, "indices": [n, a]}`
+    // function (ADR-0152): it keeps the family's declared arity so
+    // `Vec(n, a)` binds positionally and produces the canonical
+    // family-application object.
     let pred = assign_value(0);
     assert_eq!(pred.kind, "function");
     let pred_params = pred
@@ -879,17 +917,17 @@ fn data_vec_parses_and_desugars_from_source() {
         .get("params")
         .and_then(|p| p.as_array())
         .unwrap();
-    assert_eq!(pred_params, json!(["n", "a", "__v"]).as_array().unwrap());
+    assert_eq!(pred_params, json!(["n", "a"]).as_array().unwrap());
     let pred_body = pred.payload.get("body").and_then(|b| b.as_u64()).unwrap() as usize;
     assert_eq!(
         ast.get(AstRef::new(pred_body)).unwrap().kind,
-        "loop",
-        "predicate body must be the fold machine's `loop` node"
+        "object",
+        "former body must be the `__former__`/`indices` object"
     );
 
-    // Nil is a nullary constructor (literal object).
+    // Nil is a nullary constructor — a nominal `__ctor__` object literal.
     let nil = assign_value(1);
-    assert_eq!(nil.kind, "lit");
+    assert_eq!(nil.kind, "object");
 
     // Cons is a function with two arguments.
     let cons = assign_value(2);

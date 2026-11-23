@@ -6,8 +6,13 @@
 
 use handl_kit_prelude::Kit;
 
+mod common;
+
 fn eval_noise_c(input: &str) -> serde_json::Value {
-    let kit = Kit::new().expect("kit must build");
+    // `noise-c` imports `rand-c` as a package dep (`pkg.hnl` `deps:`);
+    // the kit needs the dep map for the spec to resolve to
+    // `lib-rand-c/src/index.hnl`.
+    let kit = common::kit_with_deps();
     let src = format!(
         "do {{\n  from \"../../../lib-noise-c/src\" import {{ perlin_1d, perlin_2d, perlin_3d, simplex_2d, simplex_3d }};\n  {}\n}}",
         input
