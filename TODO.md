@@ -11,7 +11,6 @@
 - [ ] T-115 host-tensor family decision — discuss: lib-\* must be all .hnl; python interop via tool-sdkgen-python; host-tensor (rust+py tensor stack) doesn't fit kit-\*/lib-\* targets · owner:human:luis · created:2026-11-22 · #decision · links:P-001,P-002 · epic:weekend-2026-11-20
 - [ ] T-116 scale .hnl-only migration: ~30 const-only lib-\* repos — recipe proven on lib-hello/lib-tag (P-002); per-repo: find \*\_HNL consumers, swap to pkg-vendor include\_str\!, drop patch entries, delete crate shim · pri:high · owner:agent · created:2026-11-22 · epic:weekend-2026-11-20
 - [ ] T-121 lib-http-route: full-URL patterns (host/port/protocol) — DEFERRED, irrelevant for origin server; revisit only if proxy/vhost use-case appears · pri:low · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20
-- [ ] T-123 Fold kit-core crate into host workspace (module table/resolver/caches substrate) · created:2026-11-23
 - [ ] T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23
 - [ ] T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23
 - [ ] T-126 Fold kit-prelude facade + kit-eqsat data crate into host · created:2026-11-23
