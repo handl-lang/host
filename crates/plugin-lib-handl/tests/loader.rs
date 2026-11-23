@@ -1028,6 +1028,41 @@ fn nameless_export_fails_loudly() {
     );
 }
 
+/// `export data F := { C : R, … }` / `export data F :: C0 | C1(…)` —
+/// the bootstrap prep keeps the declaration verbatim and projects the
+/// family plus each constructor name (mirrors
+/// `handl_runtime::module_prep`). Exercised through the bootstrap path
+/// (`with_loader_disabled`) — the `.hnl` loader's own
+/// `transform_export_to_object` does not know `export data` yet.
+#[test]
+fn export_data_decl_transforms() {
+    ensure_lang();
+    for src in [
+        "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
+        "export data Nat :: Zero | Succ(n : Nat)\n",
+    ] {
+        let out = handl_plugin_lib_handl::with_loader_disabled(|| transform_export_to_object(src));
+        assert!(
+            out.contains("data Nat"),
+            "decl must survive verbatim, got:\n{out}"
+        );
+        for name in ["Nat: Nat", "Zero: Zero", "Succ: Succ"] {
+            assert!(
+                out.contains(name),
+                "record must project `{name}`, got:\n{out}"
+            );
+        }
+    }
+    // `export data_transfer := …` is an ordinary binding, not a decl.
+    let out = handl_plugin_lib_handl::with_loader_disabled(|| {
+        transform_export_to_object("export data_transfer := 5\n")
+    });
+    assert!(
+        out.contains("data_transfer: data_transfer"),
+        "identifier starting with `data` must stay a binding, got:\n{out}"
+    );
+}
+
 /// End-to-end: a `.hnl` module whose exports share a line with an import
 /// statement (or each other) binds and applies correctly through
 /// `HandlModule` — the regression is a silently-`{}` module record.

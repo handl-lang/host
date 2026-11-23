@@ -159,6 +159,45 @@ fn flow_quoted_arrows_compose_to_value() {
     assert_lowered("do {\n  f := (n) ~> n + 1\n  g := (x) ~> (f >>> f)(x)\n  g(1)\n}");
 }
 
+/// `inc >>> dbl` where both operands are names the compile-time env
+/// cannot see — module consts in a per-statement lowering (the JS
+/// backend's module env), host functions, or `op`-decl signatures.
+/// They lower to lazy `Op{name, []}` references that *denote values*,
+/// so the node must dispatch through `Op{flow}` — the `eval.flow`
+/// value-level compose/apply — not `Seq`. Under `Seq`, a backend that
+/// evaluates a bare `Op{name, []}` to the referenced arrow value (the
+/// JS `__opRef`/module-binding path) yields `dbl` alone:
+/// `comp(5) = 10` where eval's `Arrow{first, second}` gives `12`.
+#[test]
+fn flow_lazy_op_refs_dispatch_op_flow() {
+    let rt = runtime();
+    for src in ["inc >>> dbl", "do {\n  inc >>> dbl\n}"] {
+        let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
+        let ast = rt.parse(&toks).expect("parse+desugar must succeed");
+        let root = AstRef::new(ast.len() - 1);
+        let term = lower_ast(&ast, rt.lang(), root)
+            .unwrap_or_else(|e| panic!("lower_ast declined {src:?}: {e}"));
+        let handl_language::Term::Op { name, args, .. } = &term else {
+            panic!("expected Op{{flow}} dispatch for {src:?}, got {term:?}");
+        };
+        assert_eq!(name, "flow", "{src:?}");
+        assert_eq!(args.len(), 2, "{src:?}");
+    }
+    // A *value* lhs still sequences: `5 >>> inc` applies the rhs op
+    // reference to the lhs output (`Seq[5, Op{inc}]`), matching
+    // `eval.flow`'s apply arm.
+    let rt = runtime();
+    let src = "5 >>> inc";
+    let toks = rt.lex(&Source::new(src)).expect("lex must succeed");
+    let ast = rt.parse(&toks).expect("parse+desugar must succeed");
+    let root = AstRef::new(ast.len() - 1);
+    let term = lower_ast(&ast, rt.lang(), root).expect("must lower");
+    assert!(
+        matches!(term, handl_language::Term::Seq { .. }),
+        "value-lhs >>> must stay Seq, got {term:?}"
+    );
+}
+
 /// The composite value itself is an `Arrow`-tagged record in both the
 /// interpreter and the engine (the field payloads differ — serialized
 /// `Term`s vs `__arrow__` closures — so only the tag is compared).

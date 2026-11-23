@@ -893,6 +893,37 @@ mod bootstrap {
             .join("\n")
     }
 
+    /// One top-level item of the prepared `do { … }` body, in source
+    /// order. Mirrors `handl_runtime::module_prep::PrepItem`.
+    enum PrepItem {
+        /// `name := expr` — emitted as a do-block assignment; `exported`
+        /// names join the trailing record projection.
+        Bind {
+            name: String,
+            expr_lines: Vec<String>,
+            exported: bool,
+        },
+        /// A verbatim declaration statement (`export data F :: …`).
+        /// `exports` lists the bound names that join the module record.
+        Decl {
+            lines: Vec<String>,
+            exports: Vec<String>,
+        },
+    }
+
+    impl PrepItem {
+        /// The statement text lines accumulated so far — the
+        /// continuation sink for wrapped expressions/decls.
+        fn lines_mut(&mut self) -> &mut Vec<String> {
+            match self {
+                PrepItem::Bind { expr_lines, .. }
+                | PrepItem::Decl {
+                    lines: expr_lines, ..
+                } => expr_lines,
+            }
+        }
+    }
+
     /// Transform top-level `export name = expr` declarations into an object
     /// literal `{ name: expr, ... }` so the source evaluates to a record of
     /// exported functions.
@@ -918,25 +949,29 @@ mod bootstrap {
     /// If no `export` statements are found and there are no imports, the
     /// source is returned unchanged (the existing object-literal form is
     /// preserved).
+    ///
+    /// `export data F :: …` declarations are preserved verbatim and
+    /// export the family/constructor names they bind — mirrors
+    /// `handl_runtime::module_prep::transform_export_to_object`.
     pub(super) fn transform_export_to_object(src: &str) -> String {
-        // Collect (name, expr_lines, exported) triples in source order.
-        // All bindings become `do`-block assignments (`name := expr;`)
-        // emitted *before* the object so closures can reference siblings
-        // — exported or not. The object literal projects the exported
-        // names — mirrors `handl_runtime::module_prep`.
-        let mut bindings: Vec<(String, Vec<String>, bool)> = Vec::new();
-        let mut current: Option<(String, Vec<String>, bool)> = None;
+        // Collect items in source order. All bindings become
+        // `do`-block assignments (`name := expr;`) emitted *before* the
+        // object so closures can reference siblings — exported or not.
+        // The object literal projects the exported names — mirrors
+        // `handl_runtime::module_prep`.
+        let mut items: Vec<PrepItem> = Vec::new();
+        let mut current: Option<PrepItem> = None;
         // Whether the module's last top-level statement is a binding.
         // When it is not (a trailing `do { … }` or record literal) the
         // body's own value is the module record and no name projection
         // is appended — mirrors `handl_runtime::module_prep`.
         let mut tail_is_binding = true;
 
-        // Finalize `current` into the ordered binding list.
+        // Finalize `current` into the ordered item list.
         macro_rules! finalize {
             () => {
                 if let Some(entry) = current.take() {
-                    bindings.push(entry);
+                    items.push(entry);
                 }
             };
         }
@@ -953,7 +988,11 @@ mod bootstrap {
                 finalize!();
                 if let Some((_, names)) = from_export_to_import(trimmed) {
                     for (name, alias) in names {
-                        bindings.push((name, vec![alias], true));
+                        items.push(PrepItem::Bind {
+                            name,
+                            expr_lines: vec![alias],
+                            exported: true,
+                        });
                     }
                 }
                 continue;
@@ -961,6 +1000,17 @@ mod bootstrap {
             if let Some(rest) = export_decl_rest(trimmed) {
                 // Flush the previous entry.
                 finalize!();
+                // `export data F :: …` — a family declaration, not a
+                // `name := expr` binding: keep the decl verbatim and
+                // export the names it binds (mirrors `module_prep`).
+                if is_data_decl_rest(rest) {
+                    current = Some(PrepItem::Decl {
+                        lines: vec![rest.trim().to_string()],
+                        exports: data_decl_bound_names(rest),
+                    });
+                    tail_is_binding = true;
+                    continue;
+                }
                 // Find the binding separator (`::`, `:=`, or legacy `=`).
                 let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
                     // Never drop an export declaration silently — a module
@@ -984,7 +1034,11 @@ mod bootstrap {
                 if !expr_start.is_empty() {
                     expr_lines.push(expr_start.to_string());
                 }
-                current = Some((name, expr_lines, true));
+                current = Some(PrepItem::Bind {
+                    name,
+                    expr_lines,
+                    exported: true,
+                });
                 tail_is_binding = true;
                 continue;
             }
@@ -1007,7 +1061,11 @@ mod bootstrap {
                     if !expr_start.is_empty() {
                         expr_lines.push(expr_start.to_string());
                     }
-                    current = Some((name, expr_lines, false));
+                    current = Some(PrepItem::Bind {
+                        name,
+                        expr_lines,
+                        exported: false,
+                    });
                     tail_is_binding = true;
                     continue;
                 }
@@ -1019,18 +1077,21 @@ mod bootstrap {
             // continues the current binding's expression verbatim.
             if current.is_none() {
                 tail_is_binding = false;
-            } else if let Some((_, lines, _)) = &mut current {
-                lines.push(seg.clone());
+            } else if let Some(item) = &mut current {
+                item.lines_mut().push(seg.clone());
             }
         }
         finalize!();
 
-        let has_exports = bindings.iter().any(|(_, _, exported)| *exported);
+        let has_exports = items.iter().any(|item| match item {
+            PrepItem::Bind { exported, .. } => *exported,
+            PrepItem::Decl { exports, .. } => !exports.is_empty(),
+        });
 
         let imports = collect_import_lines(src);
 
         if !has_exports {
-            if imports.is_empty() && bindings.is_empty() {
+            if imports.is_empty() && items.is_empty() {
                 return src.to_string();
             }
             // No `export` declarations: the module record is *every*
@@ -1061,8 +1122,17 @@ mod bootstrap {
                         fields.push(format!("\"{name}\": {}", expr_lines.join("\n").trim()));
                     }
                 };
-                for (name, expr_lines, _) in &bindings {
-                    push_field(name, expr_lines);
+                for item in &items {
+                    match item {
+                        PrepItem::Bind {
+                            name, expr_lines, ..
+                        } => push_field(name, expr_lines),
+                        PrepItem::Decl { exports, .. } => {
+                            for name in exports {
+                                push_field(name, &[]);
+                            }
+                        }
+                    }
                 }
                 for seg in top_level_segments(src) {
                     let trimmed = seg.trim();
@@ -1101,38 +1171,63 @@ mod bootstrap {
         // inline for names that cannot be a `:=` target (a keyword like
         // `first`) — mirrors `handl_runtime::module_prep`.
         let mut prelude = String::new();
-        for (name, expr_lines, _) in &bindings {
-            if !is_bindable_name(name) {
-                continue;
+        for item in &items {
+            match item {
+                PrepItem::Bind {
+                    name, expr_lines, ..
+                } => {
+                    if !is_bindable_name(name) {
+                        continue;
+                    }
+                    prelude.push_str(name);
+                    prelude.push_str(" := ");
+                    prelude.push_str(expr_lines.join("\n").trim());
+                    prelude.push_str(";\n");
+                }
+                // `export data …` — the verbatim declaration statement;
+                // the desugar pass expands it into the family/ctor/
+                // recursor assigns (mirrors `module_prep`).
+                PrepItem::Decl { lines, .. } => {
+                    prelude.push_str(&lines.join("\n"));
+                    prelude.push_str(";\n");
+                }
             }
-            prelude.push_str(name);
-            prelude.push_str(" := ");
-            prelude.push_str(expr_lines.join("\n").trim());
-            prelude.push_str(";\n");
         }
         let mut record = String::from("{ ");
         let mut first = true;
-        for (name, expr_lines, exported) in &bindings {
+        for item in &items {
+            let (names, expr_lines, exported): (Vec<&str>, &[String], bool) = match item {
+                PrepItem::Bind {
+                    name,
+                    expr_lines,
+                    exported,
+                } => (vec![name.as_str()], expr_lines, *exported),
+                PrepItem::Decl { exports, .. } => {
+                    (exports.iter().map(String::as_str).collect(), &[], true)
+                }
+            };
             if !exported {
                 continue;
             }
-            if !first {
-                record.push_str(", ");
-            }
-            first = false;
-            if is_bindable_name(name) {
-                record.push_str(name);
-                record.push_str(": ");
-                record.push_str(name);
-            } else {
-                // Always quote record keys for non-bindable names: an
-                // export name may be a keyword (`first`, `export`) that
-                // lexes as `token.keyword.*`, not an identifier —
-                // `is_valid_ident` is only a shape check.
-                record.push('"');
-                record.push_str(name);
-                record.push_str("\": ");
-                record.push_str(expr_lines.join("\n").trim());
+            for name in names {
+                if !first {
+                    record.push_str(", ");
+                }
+                first = false;
+                if is_bindable_name(name) {
+                    record.push_str(name);
+                    record.push_str(": ");
+                    record.push_str(name);
+                } else {
+                    // Always quote record keys for non-bindable names: an
+                    // export name may be a keyword (`first`, `export`) that
+                    // lexes as `token.keyword.*`, not an identifier —
+                    // `is_valid_ident` is only a shape check.
+                    record.push('"');
+                    record.push_str(name);
+                    record.push_str("\": ");
+                    record.push_str(expr_lines.join("\n").trim());
+                }
             }
         }
         record.push_str(" }");
@@ -1438,6 +1533,265 @@ mod bootstrap {
     /// `handl_runtime::module_prep`'s `is_bindable`.
     fn is_bindable_name(name: &str) -> bool {
         is_valid_ident(name) && !NON_BINDABLE.contains(&name)
+    }
+
+    /// Whether `rest` (the text after `export`) opens a `data` family
+    /// declaration — the `data` keyword followed by the family name.
+    /// `export data_transfer := …` is an ordinary binding and
+    /// `export data := …` binds the name `data`; neither is a
+    /// declaration. Mirrors `handl_runtime::module_prep`.
+    fn is_data_decl_rest(rest: &str) -> bool {
+        let rest = rest.trim_start();
+        let Some(after) = rest.strip_prefix("data") else {
+            return false;
+        };
+        match after.chars().next() {
+            Some(c) if c.is_alphanumeric() || c == '_' => return false,
+            _ => {}
+        }
+        after
+            .trim_start()
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphabetic() || c == '_')
+    }
+
+    /// Skip a balanced `open…close` group at the start of `s`, returning
+    /// the remainder. `None` when the group never closes. Mirrors
+    /// `handl_runtime::module_prep`.
+    fn skip_balanced<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
+        if !s.starts_with(open) {
+            return Some(s);
+        }
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        for (i, c) in s.char_indices() {
+            if let Some(q) = in_str {
+                if c as u32 == q as u32 {
+                    in_str = None;
+                }
+                continue;
+            }
+            match c {
+                '"' | '\'' => in_str = Some(c as u8),
+                _ if c == open => depth += 1,
+                _ if c == close => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(&s[i + c.len_utf8()..]);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// The interior of the balanced `open…close` group at the start of
+    /// `s` (which must begin with `open`). `None` when the group never
+    /// closes. Mirrors `handl_runtime::module_prep`.
+    fn balanced_inner<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
+        if !s.starts_with(open) {
+            return None;
+        }
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        for (i, c) in s.char_indices() {
+            if let Some(q) = in_str {
+                if c as u32 == q as u32 {
+                    in_str = None;
+                }
+                continue;
+            }
+            match c {
+                '"' | '\'' => in_str = Some(c as u8),
+                _ if c == open => depth += 1,
+                _ if c == close => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(&s[open.len_utf8()..i]);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// Split `s` at commas at bracket depth zero (strings respected).
+    /// Mirrors `handl_runtime::module_prep::split_top_commas`.
+    fn split_top_commas(s: &str) -> Vec<&str> {
+        let bytes = s.as_bytes();
+        let mut items = Vec::new();
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        let mut start = 0usize;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+            } else {
+                match c {
+                    b'"' | b'\'' => in_str = Some(c),
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    b',' if depth == 0 => {
+                        items.push(&s[start..i]);
+                        start = i + 1;
+                    }
+                    _ => {}
+                }
+            }
+            i += 1;
+        }
+        items.push(&s[start..]);
+        items
+    }
+
+    /// Split `s` at `sep` characters at bracket depth zero (strings
+    /// respected) — the `|` constructor separator of a `data F :: …`
+    /// arm list. Mirrors `handl_runtime::module_prep::split_top_level`.
+    fn split_top_level(s: &str, sep: char) -> Vec<&str> {
+        let bytes = s.as_bytes();
+        let sep = sep as u8;
+        let mut items = Vec::new();
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        let mut start = 0usize;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+            } else {
+                match c {
+                    b'"' | b'\'' => in_str = Some(c),
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ if c == sep && depth == 0 => {
+                        items.push(&s[start..i]);
+                        start = i + 1;
+                    }
+                    _ => {}
+                }
+            }
+            i += 1;
+        }
+        items.push(&s[start..]);
+        items
+    }
+
+    /// The field key of a `name : value` record entry — an identifier
+    /// followed by a depth-zero `:` that is not `::`. Mirrors
+    /// `handl_runtime::module_prep::record_field_key`.
+    fn record_field_key(item: &str) -> Option<String> {
+        let item = item.trim();
+        let bytes = item.as_bytes();
+        let mut depth = 0i32;
+        let mut in_str: Option<u8> = None;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if let Some(q) = in_str {
+                if c == b'\\' {
+                    i += 1;
+                } else if c == q {
+                    in_str = None;
+                }
+            } else {
+                match c {
+                    b'"' | b'\'' => in_str = Some(c),
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    b':' if depth == 0 => {
+                        if bytes.get(i + 1) == Some(&b':') {
+                            return None;
+                        }
+                        let key = item[..i].trim();
+                        return is_valid_ident(key).then(|| key.to_string());
+                    }
+                    _ => {}
+                }
+            }
+            i += 1;
+        }
+        None
+    }
+
+    /// The leading identifier of a constructor arm (`C1(x : T)` → `C1`).
+    /// Mirrors `handl_runtime::module_prep::ctor_arm_name`.
+    fn ctor_arm_name(arm: &str) -> Option<String> {
+        let arm = arm.trim_start();
+        let end = arm
+            .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(arm.len());
+        let name = &arm[..end];
+        is_valid_ident(name).then(|| name.to_string())
+    }
+
+    /// The names a `data` declaration binds, for the module record: the
+    /// family name plus each constructor name (`F.rec` is dotted and
+    /// cannot be a record field). `decl` is the full `data …` text
+    /// (keyword included). Panics when no family name is recognizable —
+    /// a prep must never silently drop the declaration. Mirrors
+    /// `handl_runtime::module_prep::data_decl_bound_names`.
+    fn data_decl_bound_names(decl: &str) -> Vec<String> {
+        let mut s = decl
+            .trim_start()
+            .strip_prefix("data")
+            .expect("data_decl_bound_names: decl must start with `data`")
+            .trim_start();
+        let fam_end = s
+            .find(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .unwrap_or(s.len());
+        let family = &s[..fam_end];
+        assert!(
+            is_valid_ident(family),
+            "module prep: cannot read the family name of `export data` declaration: {decl}"
+        );
+        let mut names = vec![family.to_string()];
+        s = s[fam_end..].trim_start();
+        if s.starts_with('<') {
+            s = skip_balanced(s, '<', '>').unwrap_or("").trim_start();
+        } else if s.starts_with('(') {
+            s = skip_balanced(s, '(', ')').unwrap_or("").trim_start();
+        }
+        if let Some(ctors) = s.strip_prefix("::") {
+            for arm in split_top_level(ctors, '|') {
+                if let Some(name) = ctor_arm_name(arm) {
+                    if !names.iter().any(|n| *n == name) {
+                        names.push(name);
+                    }
+                }
+            }
+        } else {
+            let rhs = s
+                .strip_prefix(":=")
+                .or_else(|| s.strip_prefix('='))
+                .unwrap_or("")
+                .trim_start();
+            if rhs.starts_with('{') {
+                if let Some(inner) = balanced_inner(rhs, '{', '}') {
+                    for entry in split_top_commas(inner) {
+                        if let Some(key) = record_field_key(entry) {
+                            if is_valid_ident(&key) && !names.iter().any(|n| *n == key) {
+                                names.push(key);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        names
     }
 
     /// Returns true if the line is an import declaration (`import ...` or

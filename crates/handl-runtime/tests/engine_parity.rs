@@ -18,7 +18,7 @@
 
 use std::collections::HashMap;
 
-use handl_language::{LangError, Source, Value};
+use handl_language::{AstRef, LangError, Source, Value};
 use handl_runtime::Runtime;
 use hnl_engine_exec::EvalEngine;
 use hnl_engine_exec_bytecode::BytecodeEngine;
@@ -846,6 +846,46 @@ fn perform_acc_state_threading() {
         assert_eq!(got["__pair__"][0], json!(1), "{name} result");
         assert_eq!(got["__pair__"][1], json!(1), "{name} final state");
     }
+}
+
+/// T-007c / ADR-0158: `handle … with … acc s0` — `ast.handle` declares
+/// the optional `acc` role and the AST engines thread `(payload, s)`
+/// through it, but `Term::Handle` (kernel `handl-calculus`) carries
+/// only `body`/`target`/`impl_`. The lowerer must therefore *decline*
+/// rather than silently drop the accumulator seed.
+///
+/// The `acc` clause is currently unreachable from surface syntax —
+/// `acc` is deliberately not a reserved keyword (see
+/// `data/lexer_rules.yaml`: reserving it broke the handl-authored
+/// desugar pass; a contextual match is TODO) — so this builds the
+/// 3-child `handle` node by hand, the shape a fixed parser will emit.
+#[test]
+fn handle_acc_clause_declines_lowering() {
+    use handl_language::{Ast, AstNode};
+
+    let mut ast = Ast::new();
+    ast.push(AstNode::new("value").with_payload(json!(1))); // 0: body
+    ast.push(
+        AstNode::new("object").with_payload(json!({ "children": [] })), // 1: impl `{}`
+    );
+    ast.push(AstNode::new("value").with_payload(json!(0))); // 2: acc seed
+    ast.push(
+        AstNode::new("handle").with_payload(json!({ "children": [0, 1, 2] })), // 3
+    );
+    let rt = tree_walk();
+    let err = handl_kit_arrow_lower::lower_ast(&ast, rt.lang(), AstRef::new(3))
+        .expect_err("handle with an `acc` clause must decline lowering");
+    assert!(
+        err.contains("acc"),
+        "decline should name the acc clause: {err}"
+    );
+    // The same node at arity 2 (no `acc` child) still lowers.
+    let mut ast2 = Ast::new();
+    ast2.push(AstNode::new("value").with_payload(json!(1)));
+    ast2.push(AstNode::new("object").with_payload(json!({ "children": [] })));
+    ast2.push(AstNode::new("handle").with_payload(json!({ "children": [0, 1] })));
+    handl_kit_arrow_lower::lower_ast(&ast2, rt.lang(), AstRef::new(2))
+        .expect("handle without `acc` must still lower");
 }
 
 /// ADR-0158 `return` clause: `h["return"](r)` applies to the arrow's

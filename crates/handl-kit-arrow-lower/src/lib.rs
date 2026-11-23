@@ -2052,6 +2052,23 @@ fn lower_handle(
         let body = lower_node(ast, lang, body_idx, env, params)?;
         op_target_name(&body).unwrap_or_default().to_string()
     };
+    // ADR-0158 `acc` clause: `handle f with h acc s0` — the optional
+    // accumulator seed has no slot in `Term::Handle` (the kernel variant
+    // carries only `body`/`target`/`impl_`), so the honest move is a
+    // decline: the AST engines thread `(payload, s)` state across
+    // dispatches and must keep handling this shape until the calculus
+    // grows an accumulator field.
+    if lang
+        .child_role_index_for(node, "acc")
+        .ok()
+        .flatten()
+        .is_some()
+    {
+        return Err(format!(
+            "handle at {} has an `acc` clause the arrow lowering cannot represent",
+            node_index(node)
+        ));
+    }
     let impl_ = unquote_term(lower_node(ast, lang, impl_idx, env, params)?);
     let body = lower_node(ast, lang, body_idx, env, params)?;
     Ok(Term::handle(body, target, impl_))
@@ -3922,17 +3939,24 @@ fn binding_denotes_value(term: &Term) -> bool {
 
 /// Whether a `flow`/`axis_flow` left operand *denotes* an arrow value —
 /// a quoted `Arr` (serialized `Term` payload, the function-literal
-/// lowering) or an `Op{flow}` dispatch, whose result may be arrow-like.
-/// For those, `Seq[l, r]` is not the honest reading: it runs the
-/// composite on the ambient input instead of producing it wherever the
-/// node's value escapes the pipeline (bound name, call callee, function
-/// return). `Op{flow}` — the `eval.flow` value dispatch — composes when
-/// both operands evaluate arrow-like and applies otherwise, matching
-/// the engines for both outcomes.
+/// lowering), an `Op{flow}` dispatch, whose result may be arrow-like,
+/// or a lazy op reference `Op{name, []}` (an unbound/`op`-declared name —
+/// a module const, host function, or signature op the runtime resolves
+/// to a first-class value). For those, `Seq[l, r]` is not the honest
+/// reading: it runs the composite on the ambient input instead of
+/// producing it wherever the node's value escapes the pipeline (bound
+/// name, call callee, function return) — and in backends where a bare
+/// `Op{name, []}` evaluates to the *referenced value* rather than
+/// applying it (the JS `__opRef`/module-binding path), `Seq` yields
+/// `r` alone (`inc >>> dbl` → `dbl`, `comp(5) = 10` vs eval's `12`).
+/// `Op{flow}` — the `eval.flow` value dispatch — evaluates both
+/// operands on the input, composing to `Arrow{first, second}` when
+/// both are arrow-like and applying otherwise, matching the engines
+/// for both outcomes.
 fn flow_lhs_is_arrow_value(t: &Term) -> bool {
     match t {
         Term::Arr { value, .. } => serde_json::from_value::<Term>(value.clone()).is_ok(),
-        Term::Op { name, .. } => name == "flow",
+        Term::Op { name, .. } => name == "flow" || is_lazy_op_ref(t),
         _ => false,
     }
 }

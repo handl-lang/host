@@ -300,3 +300,91 @@ fn separatorless_export_is_a_loud_error() {
     );
     std::fs::remove_dir_all(&root).ok();
 }
+
+/// `export data F := { C : R, … }` — the canonical family-record
+/// declaration under `export` — must behave like the `data` declaration
+/// plus exports of the family *and* each constructor. The declaration is
+/// preserved verbatim inside the prepared `do` block (the desugar pass
+/// expands it into the former/ctor/recursor assigns there) and the
+/// record projects `F`, `Zero`, `Succ`, … — previously the `export`
+/// bound a bogus `data F` name and the family residue failed.
+#[test]
+fn export_data_record_exports_family_and_ctors() {
+    let root = scratch_dir("export-data-record");
+    let src = "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nexport two := Succ(Succ(Zero))\n";
+
+    // Name seeding sees every bound name.
+    let names = handl_runtime::module_prep::module_export_names(src);
+    for name in ["Nat", "Zero", "Succ", "two"] {
+        assert!(
+            names.iter().any(|n| n == name),
+            "missing export {name}: {names:?}"
+        );
+    }
+
+    // The ctor values cross the module boundary as data — `match`
+    // dispatches on them importer-side via the `C()`/`C(x)` call-pattern
+    // forms (bare `Zero:` is a binder pattern, and *applying* a ctor
+    // arrow cross-module is a separate pre-existing limitation, so the
+    // interesting value is minted inside the module).
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import two, Zero, Succ; match two { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } } }"#,
+    )
+    .expect("export data module must evaluate");
+    assert_eq!(value, json!(2), "two = Succ(Succ(Zero))");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// `export data F :: C0 | C1(…)` — the retired `::` constructor spelling
+/// still parses (the `data` keyword is a stray leading token the desugar
+/// pass tolerates), so `export data` must carry it verbatim and export
+/// the family plus each constructor arm's name.
+#[test]
+fn export_data_colon_form_exports_family_and_ctors() {
+    let root = scratch_dir("export-data-colon");
+    let src = "export data Nat :: Zero | Succ(n : Nat)\nexport one := Succ(Zero)\n";
+
+    let names = handl_runtime::module_prep::module_export_names(src);
+    for name in ["Nat", "Zero", "Succ", "one"] {
+        assert!(
+            names.iter().any(|n| n == name),
+            "missing export {name}: {names:?}"
+        );
+    }
+
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import one, Zero, Succ; match one { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } } }"#,
+    )
+    .expect("export data :: module must evaluate");
+    assert_eq!(value, json!(1), "one = Succ(Zero)");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// `export data` mixed with ordinary exports keeps source order: the
+/// decl's assigns bind before the sibling binding that references them.
+#[test]
+fn export_data_alongside_plain_exports() {
+    let root = scratch_dir("export-data-mixed");
+    let src = "export double : Number ~> Number = n ~> n * 2\nexport data Wrap := { Mk : (x : Number) ~> Wrap, Empty : Wrap }\nexport wrapped := Mk(21)\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import wrapped, Mk, Empty; match wrapped { Mk(x): x, _: 0 } }"#,
+    )
+    .expect("mixed export data module must evaluate");
+    // `wrapped` is `Mk(21)` — matching extracts the payload.
+    assert_eq!(value, json!(21));
+    // `double` still exports and evaluates.
+    let value = run(
+        &root,
+        "export double : Number ~> Number = n ~> n * 2\n",
+        r#"do { from "mod.hnl" import double; double(21) }"#,
+    )
+    .expect("plain export still works");
+    assert_eq!(value, json!(42));
+    std::fs::remove_dir_all(&root).ok();
+}

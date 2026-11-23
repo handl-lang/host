@@ -324,6 +324,20 @@ fn object_patterns() {
 }
 
 #[test]
+fn object_pattern_bare_var_child_binds_nothing() {
+    // `{x}` — the parser emits a bare `var` child, not an `entry`.
+    // `try_object_pattern` ignores non-entry children, and the lowerer
+    // mirrors it ("Other children are ignored"), so the pattern is the
+    // *empty* object pattern: it matches any object and binds nothing.
+    // Field punning (`{x}` ≡ `{x: x}`) is not a language feature —
+    // T-007b, wontfix by eval semantics.
+    assert_lowered(r#"match { "a": 1 } { {x}: "obj", _: "no" }"#);
+    assert_lowered(r#"match 5 { {x}: "obj", _: "no" }"#);
+    // The spelled-out entry form does bind.
+    assert_lowered(r#"match { "x": 7 } { {x: x}: x, _: 0 }"#);
+}
+
+#[test]
 fn tag_record_patterns() {
     // `{_tag: "Some", value: x}` — the `nullish`/`opt-chain` desugar
     // shape, plus quoted keys routed through the general entries path.
