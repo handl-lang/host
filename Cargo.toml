@@ -38,6 +38,7 @@ members = [
   "crates/host-tooling",
   "crates/handl-test-utils",
   "crates/handl-kit-arrow-lower",
+  "crates/handl-kit-core",
   "crates/plugin-compile",
   "crates/handl-runtime",
   "crates/handl-kit-data",
@@ -153,6 +154,7 @@ hnl-engine-transform = { git = "https://github.com/handl-lang/engine-transform",
 hnl-engine-transform-rewrite = { git = "https://github.com/handl-lang/engine-transform-rewrite", branch = "main" }
 handl-runtime = { path = "crates/handl-runtime" }
 handl-kit-data = { path = "crates/handl-kit-data" }
+handl-kit-core = { path = "crates/handl-kit-core" }
 handl-kit-data-prelude = { git = "https://github.com/handl-lang/kit-data-prelude", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-sdkgen = { path = "crates/plugin-sdkgen" }
@@ -233,7 +235,10 @@ hnl-engine-typecheck = { path = "../engine-typecheck" }
 [patch."https://github.com/handl-lang/engine-typecheck-nbe"]
 hnl-engine-typecheck-nbe = { path = "../engine-typecheck-nbe" }
 [patch."https://github.com/handl-lang/kit-core"]
-handl-kit-core = { path = "../kit-core/crates/kit-core" }
+# T-123 Phase A: `handl-kit-core` is a workspace member now — external kits
+# (kit-stdlib, kit-prelude, kit-ffi, …) that still declare the git dep
+# resolve to this member until the consumer-repoint sweep.
+handl-kit-core = { path = "crates/handl-kit-core" }
 
 [patch."https://github.com/handl-lang/kit-stdlib"]
 handl-kit-stdlib = { path = "../kit-stdlib/crates/kit-stdlib" }
@@ -344,16 +349,16 @@ handl-plugin-lib-serialize-toml-c = { path = "../lib-serialize-toml-c" }
 handl-plugin-lib-serialize-yaml-c = { path = "../lib-serialize-yaml-c" }
 [patch."https://github.com/handl-lang/lib-transform"]
 handl-lib-transform = { path = "../lib-transform" }
-[patch."https://github.com/handl-lang/sdkgen-c"]
-handl-plugin-sdkgen-backend-c = { path = "../tool-sdkgen-c" }
-[patch."https://github.com/handl-lang/sdkgen-cli"]
-handl-plugin-sdkgen-cli = { path = "../tool-sdkgen-cli" }
-[patch."https://github.com/handl-lang/sdkgen-file"]
-handl-plugin-sdkgen-emitter-file = { path = "../tool-sdkgen-file" }
-[patch."https://github.com/handl-lang/sdkgen-python"]
-handl-plugin-sdkgen-emitter-python = { path = "../tool-sdkgen-python" }
-[patch."https://github.com/handl-lang/sdkgen-webidl"]
-handl-plugin-sdkgen-backend-webidl = { path = "../tool-sdkgen-webidl" }
+[patch."https://github.com/handl-lang/engine-sdkgen-c"]
+handl-plugin-sdkgen-backend-c = { path = "../engine-sdkgen-c" }
+[patch."https://github.com/handl-lang/engine-sdkgen-cli"]
+handl-plugin-sdkgen-cli = { path = "../engine-sdkgen-cli" }
+[patch."https://github.com/handl-lang/engine-sdkgen-file"]
+handl-plugin-sdkgen-emitter-file = { path = "../engine-sdkgen-file" }
+[patch."https://github.com/handl-lang/engine-sdkgen-python"]
+handl-plugin-sdkgen-emitter-python = { path = "../engine-sdkgen-python" }
+[patch."https://github.com/handl-lang/engine-sdkgen-webidl"]
+handl-plugin-sdkgen-backend-webidl = { path = "../engine-sdkgen-webidl" }
 
 
 [patch."https://github.com/handl-lang/lib-comb"]
