@@ -46,10 +46,11 @@
 //! between `verify` and `deliver` (e.g. an object-spread update
 //! `r ~> {...r, "out": "delivered.hnl"}`), and `deliver` re-runs the
 //! real `lower(verify=True)` gate before emitting the `.hnl` artifact
-//! as a change-set manifest (v4 records — `manifest`/`changes` on the
-//! record; applying is the `hnl codegen apply` shim's job, T-093).
-//! `MLOPT_PIPELINE_CMD` still lets a host point at any conforming
-//! command (the test suite uses a fixture script).
+//! as a change-set manifest (v5 records — `manifest`/`changes` on the
+//! record; the [`manifest`] module is the apply side: it reconciles
+//! the manifest through `hnl-engine-codegen`'s `Engine::apply`/
+//! `FsStore`, T-093). `MLOPT_PIPELINE_CMD` still lets a host point at
+//! any conforming command (the test suite uses a fixture script).
 //!
 //! ## CLI command surface
 //!
@@ -80,6 +81,10 @@ use handl_kit_core::{KitResolver, ModuleCtor, ModuleEntry};
 use handl_platform::{EvalContext, EvalError, Function, Module};
 use serde_json::Value;
 
+/// The change-set manifest apply bridge (PL-004 T-093): mlopt's
+/// `manifest.json` + blob store → `hnl-engine-codegen` `Engine`.
+pub mod manifest;
+
 // ---------------------------------------------------------------------------
 // Record schema pin — the `v` field every pipeline record carries
 // ---------------------------------------------------------------------------
@@ -91,7 +96,11 @@ use serde_json::Value;
 /// while a *higher* `v` is refused loudly — the kit never guesses at
 /// a schema it does not know. Bump this when the kit learns a newer
 /// record schema; it must never run ahead of what it validates.
-const RECORD_SCHEMA_VERSION: i64 = 4;
+/// v5 (mlopt side): manifest blob/change hashes are BLAKE3-256 — the
+/// kernel's `ContentHash` algorithm — so [`manifest::apply_manifest`]
+/// digest checks compare directly; v4 manifests carry `blake2b-256`
+/// stand-in digests the shim refuses.
+const RECORD_SCHEMA_VERSION: i64 = 5;
 
 /// Validate a record's `v` field — the tolerant reader, kit side.
 ///
