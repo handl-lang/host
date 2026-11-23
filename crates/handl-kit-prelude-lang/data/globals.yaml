@@ -1,0 +1,10 @@
+# Ambient global value bindings — seeded into every runtime built from this
+# language (see `Language::globals` and `Runtime::from_registry_with_resolver`).
+#
+# `true`/`false` are the canonical booleans. They are *values*, not keywords:
+# the `bool` package (`handl-packages/utils/bool.hnl`) exports the same names
+# so `from "bool" import true, false` resolves to the identical values, and
+# the ambient bindings here keep the bare names working in every scope
+# (including `match` patterns, where a bound name compares by equality).
+true: true
+false: false

@@ -1,0 +1,27 @@
+[package]
+name = "handl-kit-data-prelude"
+version.workspace = true
+edition.workspace = true
+description = "The **data-driven canonical kit** — the ADR-0044 §6 end state."
+license.workspace = true
+repository.workspace = true
+keywords = ["handl", "kit", "data"]
+categories = ["development-tools"]
+
+[dependencies]
+handl-kit-prelude-lang = { workspace = true }
+handl-language = { workspace = true }
+handl-kit-data = { workspace = true }
+serde_yaml = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+hnl-engine-transform = { workspace = true }
+handl-plugin-ext-diag = { workspace = true }
+handl-runtime = { workspace = true }
+hnl-engine-lex-pattern = { workspace = true }
+hnl-engine-parse-pratt = { workspace = true }
+hnl-engine-exec-tree-walk = { workspace = true }
+hnl-engine-exec-bytecode = { workspace = true }
+hnl-engine-exec-cranelift = { workspace = true }
+hnl-engine-transform-rewrite = { workspace = true }

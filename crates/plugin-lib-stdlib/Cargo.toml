@@ -42,7 +42,7 @@ toml = "0.8"
 url = "2"
 
 [dev-dependencies]
-handl-kit-data-prelude = { git = "https://github.com/handl-lang/kit-data-prelude", branch = "main" }
+handl-kit-data-prelude = { workspace = true }
 handl-language = { workspace = true }
 handl-platform = { path = "../platform" }
 handl-runtime = { path = "../handl-runtime" }

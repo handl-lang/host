@@ -1,0 +1,8 @@
+while { base: 2, exp: 10, acc: 1 } {
+  [base, exp, acc] ~> if exp == 0
+    return acc
+  else if exp % 2 == 0
+    { { state: { base: base * base, exp: exp / 2, acc: acc } } }
+  else
+    { { state: { base: base * base, exp: exp / 2, acc: acc * base } } }
+}

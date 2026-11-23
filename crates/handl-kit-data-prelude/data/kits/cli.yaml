@@ -1,0 +1,7 @@
+# The cli kit: canonical language plus OS, data-format, and utility modules.
+extends: prelude
+modules:
+  - module-runtime
+  - utils
+  - cmp
+  - collections

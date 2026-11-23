@@ -1,0 +1,61 @@
+# The canonical language kit.
+#
+# Loaded by `handl_kit_data_prelude::manifest()`: no fragment sources — the
+# canonical `Language` enters `DataKit::assemble` directly as `base_language`
+# (see `assemble()`). Runtime engine selection only.
+# No library modules — the canonical kit is the language only.
+fragments: []
+runtime:
+  lex: data
+  parse: pratt
+  eval: tree-walk
+  typecheck: nbe
+modules: []
+
+# The base module set the kit registry builds (module-level names;
+# dispatch kind per name is a substrate concern — table/custom/native).
+base_modules:
+  - bool
+  - math
+  - prim
+  - cmp
+  - bytes
+  - obj
+  - error
+  - typeof
+  - option
+  - result
+  - combinators
+  - parse
+  - encoding
+  - serialize
+  - json
+  - base64
+  - hex
+  - tar
+  - url_rfc
+  - kv_map
+  - url_whatwg
+  - entropy
+  - crypto
+  - intl_c
+  - unicode_c
+  - str
+  - type
+  - sym
+  - io
+  - ffi
+  - perlin
+  - simplex
+  - test
+  - snapshot
+  - assert
+  - rand
+  - char
+  - tag
+  - transform
+  - comb
+  - ip
+  - collections
+  - pipeline
+

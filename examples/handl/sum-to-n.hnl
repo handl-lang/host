@@ -1,0 +1,6 @@
+while { n: 100, acc: 0 } {
+  [n, acc] ~> if n == 0
+    return acc
+  else
+    { { state: { n: n - 1, acc: acc + n } } }
+}

@@ -1,0 +1,5 @@
+# The stdlib kit: hello plus the general-purpose stdlib modules.
+extends: hello
+modules:
+  - utils
+  - collections
