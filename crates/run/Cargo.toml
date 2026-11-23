@@ -1,0 +1,16 @@
+[package]
+name = "handl-run"
+version.workspace = true
+edition.workspace = true
+description = "The `hnl run <script>` task runner (P-003): pkg.hnl script resolution, dependsOn scheduling, argv execution, and the fingerprinted `.handl/cache/run/` store."
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+handl-platform = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+glob = { workspace = true }
+thiserror = { workspace = true }

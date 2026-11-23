@@ -31,17 +31,14 @@ handl-language = { workspace = true }
 # PL-004 T-076: the codegen core (`CodegenRegistry`/`CodegenRequest`,
 # the kernel lifecycle wiring) is a workspace member.
 handl-plugin-codegen = { workspace = true }
-# The target modules live in the `engine-codegen-*` repos. Their git
-# remotes do not exist yet (local-only, same situation as
-# `hnl-engine-codegen` above), so these are path deps for now — flip
-# back to `git = "https://github.com/handl-lang/engine-codegen-*",
-# branch = "main"` (the root `[patch]` tables already point at the
-# sibling checkouts) once the remotes are pushed.
-handl-plugin-codegen-backend-c = { path = "../../../engine-codegen-c", optional = true }
-handl-plugin-codegen-backend-webidl = { path = "../../../engine-codegen-webidl", optional = true }
-handl-plugin-codegen-emitter-file = { path = "../../../engine-codegen-file", optional = true }
-handl-plugin-codegen-emitter-python = { path = "../../../engine-codegen-python", optional = true }
-handl-plugin-codegen-cli = { path = "../../../engine-codegen-cli", optional = true }
+# The target modules live in the `engine-codegen-*` repos on GitHub;
+# the root `[patch]` tables resolve the sibling checkouts for local dev
+# (ADR-0128 §Resolution).
+handl-plugin-codegen-backend-c = { git = "https://github.com/handl-lang/engine-codegen-c", branch = "main", optional = true }
+handl-plugin-codegen-backend-webidl = { git = "https://github.com/handl-lang/engine-codegen-webidl", branch = "main", optional = true }
+handl-plugin-codegen-emitter-file = { git = "https://github.com/handl-lang/engine-codegen-file", branch = "main", optional = true }
+handl-plugin-codegen-emitter-python = { git = "https://github.com/handl-lang/engine-codegen-python", branch = "main", optional = true }
+handl-plugin-codegen-cli = { git = "https://github.com/handl-lang/engine-codegen-cli", branch = "main", optional = true }
 # PL-004 T-090: the `fmt` target's `Source`/`Emitter`/`register`
 # surface — the root `[patch]` resolves the sibling `engine-fmt`
 # checkout (git remote exists; patch keeps local dev on the sibling).

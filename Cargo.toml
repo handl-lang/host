@@ -57,6 +57,7 @@ members = [
   "crates/plugin-ext-codegen",
   "crates/plugin-codemod",
   "crates/plugin-ext-codemod",
+  "crates/run",
 ]
 resolver = "3"
 
@@ -198,6 +199,9 @@ handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", bra
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-codegen = { path = "crates/plugin-codegen" }
 handl-plugin-ext-codegen = { path = "crates/plugin-ext-codegen" }
+# P-003: the `hnl run <script>` task runner — consumed by ext-eval's
+# `run` command dispatch (script names vs `.hnl` files).
+handl-run = { path = "crates/run" }
 # PL-004 T-085/T-086: the codemod engine — git dep; the sibling
 # checkout wins via the `[patch]` entry below (T-079 repo wiring).
 hnl-engine-codemod = { git = "https://github.com/handl-lang/engine-codemod", branch = "main" }
@@ -344,6 +348,7 @@ handl-plugin-lib-tag = { path = "../host/crates/plugin-lib-tag" }
 handl-plugin-load = { path = "../host/crates/plugin-load" }
 handl-plugin-loader-native = { path = "../host/crates/plugin-loader-native" }
 handl-plugin-module = { path = "../host/crates/plugin-module" }
+handl-run = { path = "../host/crates/run" }
 # PL-004 Phase 1/T-076: `handl-plugin-codegen` (renamed from
 # plugin-sdkgen) and `handl-plugin-ext-codegen` (renamed from
 # plugin-ext-sdkgen) are workspace members now. `handl-plugin-sdkgen`

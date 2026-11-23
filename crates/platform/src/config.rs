@@ -314,6 +314,30 @@ pub fn discover_manifest_dir(start: &Path) -> Option<std::path::PathBuf> {
         .map(Path::to_path_buf)
 }
 
+/// Walk up from `start` (a file or directory) looking for a `pkg.hnl`
+/// package manifest; return the directory that contains it.
+///
+/// The `pkg.hnl` counterpart of [`discover_manifest_dir`]: `pkg.hnl` is
+/// the handl-native package manifest (`modules`/`deps`/`scripts`), so
+/// package-local surfaces — the `hnl run <script>` task runner — resolve
+/// it by the same walk-up convention. Like [`resolve_pkg_dependencies`],
+/// a malformed `pkg.hnl` is the caller's lenient-scan problem, not this
+/// function's: discovery only answers *where* the nearest manifest is.
+pub fn discover_pkg_dir(start: &Path) -> Option<std::path::PathBuf> {
+    let start_dir = if start.is_file() {
+        start.parent().map(Path::to_path_buf)
+    } else {
+        Some(start.to_path_buf())
+    };
+    let start_dir = start_dir
+        .and_then(|p| std::fs::canonicalize(p).ok())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    start_dir
+        .ancestors()
+        .find(|dir| dir.join("pkg.hnl").is_file())
+        .map(Path::to_path_buf)
+}
+
 /// A `.handl.toml` `kit = "<spec>"` selection discovered on disk (T-122).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscoveredKit {
@@ -1135,20 +1159,56 @@ fn pkg_key_at(src: &str, key: &str) -> Option<usize> {
     None
 }
 
-/// The text between the braces of the `deps:` table in a `pkg.hnl` source.
+/// Strip `--` line comments from `pkg.hnl` source, string-aware: a `--`
+/// inside a `"…"` literal is content, not a comment — script commands
+/// like `"hnl codegen plan --check"` depend on it. The pre-string-aware
+/// per-line `find("--")` truncation used by the older scanners would
+/// cut those commands in half.
+fn pkg_strip_comments(src: &str) -> String {
+    let mut out = String::with_capacity(src.len());
+    let mut in_str = false;
+    let mut escaped = false;
+    let mut chars = src.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_str {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_str = true;
+                out.push(c);
+            }
+            '-' if chars.peek() == Some(&'-') => {
+                chars.next();
+                for c2 in chars.by_ref() {
+                    if c2 == '\n' {
+                        out.push('\n');
+                        break;
+                    }
+                }
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// The text between the braces of a top-level `key: { … }` table in a
+/// `pkg.hnl` source.
 ///
 /// Line comments (`--`) are stripped first; the scan is brace-balanced and
 /// string-aware, so `"branch:main"` values cannot confuse it.
-fn pkg_deps_body(src: &str) -> Option<String> {
-    let src: String = src
-        .lines()
-        .map(|line| match line.find("--") {
-            Some(i) => &line[..i],
-            None => line,
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let deps_at = pkg_key_at(&src, "deps")?;
+fn pkg_brace_body(src: &str, key: &str) -> Option<String> {
+    let src = pkg_strip_comments(src);
+    let deps_at = pkg_key_at(&src, key)?;
     let open = src[deps_at..].find('{')? + deps_at;
     let mut depth = 0usize;
     let mut in_str = false;
@@ -1184,6 +1244,11 @@ fn pkg_deps_body(src: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// The text between the braces of the `deps:` table in a `pkg.hnl` source.
+fn pkg_deps_body(src: &str) -> Option<String> {
+    pkg_brace_body(src, "deps")
 }
 
 /// `(name, spec)` pairs from the body of a `pkg.hnl` `deps` table.
@@ -1381,6 +1446,334 @@ fn pkg_list_body(src: &str, key: &str) -> Option<String> {
     let open = clean[at..].find('[')? + at;
     let close = clean[open..].find(']')? + open;
     Some(clean[open + 1..close].to_string())
+}
+
+// ---------------------------------------------------------------------------
+// pkg.hnl `scripts:` — the `hnl run <name>` task-runner manifest (P-003)
+//
+// A script value has three forms:
+//
+// - `"cmd line"` — one command line (whitespace-split argv, `&&` separates
+//   sequential commands);
+// - `["cmd1", "cmd2"]` — sequential command lines;
+// - `{ run: …, dependsOn: […], cache: bool, inputs/outputs/env: […], cwd }`
+//   — a cacheable task.
+//
+// Like the rest of the `pkg_*` family the scan is lenient: comments are
+// stripped, strings are escape-aware, and a missing or malformed table
+// yields an empty vec rather than an error.
+// ---------------------------------------------------------------------------
+
+/// A `scripts:` entry of `pkg.hnl`, parsed into its value form.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PkgScriptValue {
+    /// `"cmd line"` — a single command line.
+    Command(String),
+    /// `["cmd1", "cmd2"]` — sequential command lines.
+    Commands(Vec<String>),
+    /// `{ run: …, … }` — a task that may declare `dependsOn`/`cache`/
+    /// `inputs`/`outputs`/`env`/`cwd`.
+    Task(PkgScriptTask),
+}
+
+/// The object form of a `pkg.hnl` script — a runnable task with optional
+/// caching and dependency declarations.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PkgScriptTask {
+    /// `run` — one command line (string) or several (array), in order.
+    pub run: Vec<String>,
+    /// `dependsOn` — names of sibling scripts that must run first.
+    pub depends_on: Vec<String>,
+    /// `cache` — `None` when undeclared (the runner defaults tasks to
+    /// cached; scripts/arrays never cache).
+    pub cache: Option<bool>,
+    /// `inputs` — glob list fingerprinted into the cache key; `None`
+    /// when undeclared (the runner substitutes its own default).
+    pub inputs: Option<Vec<String>>,
+    /// `outputs` — glob list of artifacts restored from / snapshotted
+    /// into the cache entry; `None`/empty disables file restoration.
+    pub outputs: Option<Vec<String>>,
+    /// `env` — environment variable names additionally fingerprinted.
+    pub env: Vec<String>,
+    /// `cwd` — working directory relative to the package root.
+    pub cwd: Option<String>,
+}
+
+/// One named entry of a `pkg.hnl` `scripts` table.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PkgScript {
+    /// The script name — a bare identifier or quoted string.
+    pub name: String,
+    /// The parsed value form.
+    pub value: PkgScriptValue,
+}
+
+/// The `scripts` table of a `pkg.hnl` source, in declaration order.
+///
+/// Empty when the table is absent or malformed — the same leniency
+/// [`pkg_dep_specs`] applies (a bad manifest must not break an unrelated
+/// build). Entries whose value parses to none of the three forms are
+/// dropped.
+pub fn pkg_scripts(src: &str) -> Vec<PkgScript> {
+    pkg_brace_body(src, "scripts")
+        .map(|body| pkg_script_entries(&body))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(name, value)| {
+            parse_pkg_script_value(&value).map(|v| PkgScript { name, value: v })
+        })
+        .collect()
+}
+
+/// `(name, raw-value)` pairs from the body of a `pkg.hnl` `scripts`
+/// table.
+///
+/// Entries are comma-separated at depth zero; unlike [`pkg_dep_entries`]
+/// the value is kept verbatim (it may be a string, an array, or a nested
+/// record) for [`parse_pkg_script_value`] to interpret.
+fn pkg_script_entries(body: &str) -> Vec<(String, String)> {
+    split_hnl_entries(body)
+        .into_iter()
+        .filter_map(|entry| hnl_field_split(&entry))
+        .map(|(k, v)| {
+            let key = k.trim().trim_matches('"').trim().to_string();
+            (key, v)
+        })
+        .filter(|(k, _)| !k.is_empty())
+        .collect()
+}
+
+/// Split a record/array body into its top-level comma-separated entries,
+/// honoring strings and nested `()`/`[]`/`{}` — the depth-aware half of
+/// [`pkg_dep_entries`] generalized to keep raw text.
+fn split_hnl_entries(body: &str) -> Vec<String> {
+    let mut entries = Vec::new();
+    let mut depth = 0i32;
+    let mut in_str = false;
+    let mut escaped = false;
+    let mut current = String::new();
+    for c in body.chars() {
+        if in_str {
+            current.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_str = true;
+                current.push(c);
+            }
+            '{' | '(' | '[' => {
+                depth += 1;
+                current.push(c);
+            }
+            '}' | ')' | ']' => {
+                depth -= 1;
+                current.push(c);
+            }
+            ',' if depth == 0 => {
+                entries.push(std::mem::take(&mut current));
+            }
+            _ => current.push(c),
+        }
+    }
+    entries.push(current);
+    entries
+        .into_iter()
+        .map(|e| e.trim().to_string())
+        .filter(|e| !e.is_empty())
+        .collect()
+}
+
+/// Split one `key: value` entry at the first `:` outside a string —
+/// returns `(key, value)` both trimmed, or `None` when no separator.
+fn hnl_field_split(entry: &str) -> Option<(String, String)> {
+    let mut in_str = false;
+    let mut escaped = false;
+    for (i, c) in entry.char_indices() {
+        if in_str {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => in_str = true,
+            ':' => {
+                return Some((
+                    entry[..i].trim().to_string(),
+                    entry[i + 1..].trim().to_string(),
+                ));
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// The inner text of a `[…]`/`{…}` literal occupying `text`'s first
+/// non-whitespace char — string-aware and nesting-aware. `None` on an
+/// unterminated literal.
+fn hnl_inner(text: &str) -> Option<&str> {
+    let t = text.trim_start();
+    let (open, close) = match t.as_bytes().first()? {
+        b'[' => ('[', ']'),
+        b'{' => ('{', '}'),
+        _ => return None,
+    };
+    let mut depth = 0i32;
+    let mut in_str = false;
+    let mut escaped = false;
+    for (i, c) in t.char_indices() {
+        if in_str {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => in_str = true,
+            _ if c == open => depth += 1,
+            _ if c == close => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&t[1..i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Parse a `"…"` string literal, unescaping `\"`, `\\`, `\n`, `\t`,
+/// `\r`; other escapes keep the escaped char. `None` when `text` is not
+/// a well-formed quoted literal.
+fn hnl_string_literal(text: &str) -> Option<String> {
+    let t = text.trim();
+    let inner = t.strip_prefix('"')?;
+    let mut out = String::new();
+    let mut chars = inner.chars();
+    let mut closed = false;
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => {
+                closed = true;
+                break;
+            }
+            '\\' => match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some(other) => out.push(other),
+                None => return None,
+            },
+            _ => out.push(c),
+        }
+    }
+    if !closed || !chars.as_str().trim().is_empty() {
+        return None;
+    }
+    Some(out)
+}
+
+/// String elements of a `[…]` list body (the text *inside* the brackets),
+/// in order. Non-string elements are skipped — the same leniency the
+/// `pkg_*` scanners apply everywhere.
+fn hnl_string_list(body: &str) -> Vec<String> {
+    split_hnl_entries(body)
+        .into_iter()
+        .filter_map(|e| hnl_string_literal(&e))
+        .collect()
+}
+
+/// A string-or-list-of-strings value (`"x"` → `vec!["x"]`, `["a","b"]`
+/// → both) for the task fields `dependsOn`/`inputs`/`outputs`/`env`.
+fn hnl_string_or_list(text: &str) -> Vec<String> {
+    let t = text.trim();
+    if let Some(inner) = hnl_inner(t) {
+        if t.trim_start().starts_with('[') {
+            return hnl_string_list(inner);
+        }
+        // A `{…}` is not a string list — ignore it.
+        return Vec::new();
+    }
+    hnl_string_literal(t).into_iter().collect()
+}
+
+/// Command lines of a task's `run` field — a string becomes one line,
+/// an array its elements in order.
+fn hnl_command_lines(text: &str) -> Vec<String> {
+    let t = text.trim();
+    if t.trim_start().starts_with('[') {
+        return hnl_inner(t).map(hnl_string_list).unwrap_or_default();
+    }
+    hnl_string_literal(t).into_iter().collect()
+}
+
+/// Parse one `scripts:` value into its [`PkgScriptValue`] form.
+///
+/// `None` when the value is empty or a task record without a usable
+/// `run` — the entry is then dropped by [`pkg_scripts`].
+fn parse_pkg_script_value(text: &str) -> Option<PkgScriptValue> {
+    let t = text.trim();
+    if t.is_empty() {
+        return None;
+    }
+    if t.starts_with('"') {
+        return hnl_string_literal(t).map(PkgScriptValue::Command);
+    }
+    if t.starts_with('[') {
+        let inner = hnl_inner(t)?;
+        return Some(PkgScriptValue::Commands(hnl_string_list(inner)));
+    }
+    if t.starts_with('{') {
+        let inner = hnl_inner(t)?;
+        let mut task = PkgScriptTask::default();
+        for entry in split_hnl_entries(inner) {
+            let Some((k, v)) = hnl_field_split(&entry) else {
+                continue;
+            };
+            match k.trim().trim_matches('"').trim() {
+                "run" => task.run = hnl_command_lines(&v),
+                "dependsOn" => task.depends_on = hnl_string_or_list(&v),
+                "inputs" => task.inputs = Some(hnl_string_or_list(&v)),
+                "outputs" => task.outputs = Some(hnl_string_or_list(&v)),
+                "env" => task.env = hnl_string_or_list(&v),
+                "cache" => {
+                    task.cache = match v.trim() {
+                        "true" => Some(true),
+                        "false" => Some(false),
+                        _ => None,
+                    };
+                }
+                "cwd" => task.cwd = hnl_string_literal(&v),
+                // Unknown keys are ignored — forward-compatible with
+                // schema growth (same posture as `deps` spec parsing).
+                _ => {}
+            }
+        }
+        if task.run.is_empty() {
+            return None;
+        }
+        return Some(PkgScriptValue::Task(task));
+    }
+    // Bare text — lenient: treat it as a command line.
+    Some(PkgScriptValue::Command(t.to_string()))
 }
 
 /// Quoted-string list entries of a `[ … ]` body, in order — the shared
@@ -1799,6 +2192,158 @@ vendored = { path = "../lib-vendored" }
         assert!(pkg_dep_specs("{ modules: [\"cli\"] }").is_empty());
         assert!(pkg_dep_specs("").is_empty());
         assert!(pkg_dep_specs("{ deps: { math: ").is_empty());
+    }
+
+    /// `pkg_scripts` reads the `scripts` table in all three value forms —
+    /// string, array, and task record — with comments and nested
+    /// records/arrays intact.
+    #[test]
+    fn pkg_scripts_reads_all_value_forms() {
+        let src = r#"{ name: "curl",
+  -- a comment mentioning scripts: { fake: "x" } must not shadow
+  scripts: {
+    gate: "hnl codegen plan --check",
+    regen: "hnl codegen c specs/curl.h --output generated/curl",
+    test: ["hnl test src", "cargo test -p curl-sys"],
+    ci: {
+      run: "bash ci.sh",
+      dependsOn: ["gate", "regen"],
+      cache: true,
+      inputs: ["src/**", "specs/**", "pkg.hnl"],
+      outputs: ["generated/**"],
+      env: ["CURL_HOME"],
+      cwd: "src"        -- trailing comment
+    },
+    "quoted-name": "echo hi && echo bye"
+  }
+}"#;
+        let scripts = pkg_scripts(src);
+        assert_eq!(scripts.len(), 5);
+
+        assert_eq!(
+            scripts[0],
+            PkgScript {
+                name: "gate".into(),
+                value: PkgScriptValue::Command("hnl codegen plan --check".into()),
+            }
+        );
+        assert_eq!(
+            scripts[2],
+            PkgScript {
+                name: "test".into(),
+                value: PkgScriptValue::Commands(vec![
+                    "hnl test src".into(),
+                    "cargo test -p curl-sys".into(),
+                ]),
+            }
+        );
+        let PkgScriptValue::Task(task) = &scripts[3].value else {
+            panic!("ci must be a task");
+        };
+        assert_eq!(task.run, vec!["bash ci.sh".to_string()]);
+        assert_eq!(
+            task.depends_on,
+            vec!["gate".to_string(), "regen".to_string()]
+        );
+        assert_eq!(task.cache, Some(true));
+        assert_eq!(
+            task.inputs.as_deref(),
+            Some(
+                &[
+                    "src/**".to_string(),
+                    "specs/**".to_string(),
+                    "pkg.hnl".to_string()
+                ][..]
+            )
+        );
+        assert_eq!(
+            task.outputs.as_deref(),
+            Some(&["generated/**".to_string()][..])
+        );
+        assert_eq!(task.env, vec!["CURL_HOME".to_string()]);
+        assert_eq!(task.cwd.as_deref(), Some("src"));
+        assert_eq!(scripts[3].name, "ci");
+        assert_eq!(scripts[4].name, "quoted-name");
+    }
+
+    /// Task records tolerate unknown keys, single-string list fields,
+    /// and `run` as an array; entries with no usable `run` are dropped.
+    #[test]
+    fn pkg_scripts_task_leniency() {
+        let src = r#"{ scripts: {
+            a: { run: ["one", "two"], futureKey: { nested: [1, 2] } },
+            b: { run: "solo", dependsOn: "a", inputs: "src/**" },
+            c: { dependsOn: ["a"] },
+            d: { run: [] }
+        } }"#;
+        let scripts = pkg_scripts(src);
+        assert_eq!(scripts.len(), 2);
+        let PkgScriptValue::Task(a) = &scripts[0].value else {
+            panic!()
+        };
+        assert_eq!(a.run, vec!["one".to_string(), "two".to_string()]);
+        let PkgScriptValue::Task(b) = &scripts[1].value else {
+            panic!()
+        };
+        assert_eq!(b.run, vec!["solo".to_string()]);
+        assert_eq!(b.depends_on, vec!["a".to_string()]);
+        assert_eq!(b.inputs.as_deref(), Some(&["src/**".to_string()][..]));
+        assert_eq!(b.cache, None);
+    }
+
+    /// String escapes and commas inside strings survive the entry split.
+    #[test]
+    fn pkg_scripts_string_escapes() {
+        let src = r#"{ scripts: { s: "echo \"a,b\" \\ path", t: ["x, y", "z"] } }"#;
+        let scripts = pkg_scripts(src);
+        assert_eq!(scripts.len(), 2);
+        assert_eq!(
+            scripts[0].value,
+            PkgScriptValue::Command("echo \"a,b\" \\ path".into())
+        );
+        assert_eq!(
+            scripts[1].value,
+            PkgScriptValue::Commands(vec!["x, y".into(), "z".into()])
+        );
+    }
+
+    /// Absent or malformed `scripts` tables are leniently empty.
+    #[test]
+    fn pkg_scripts_is_lenient() {
+        assert!(pkg_scripts("{ modules: [\"cli\"] }").is_empty());
+        assert!(pkg_scripts("").is_empty());
+        assert!(pkg_scripts("{ scripts: { gate: ").is_empty());
+        // `scripts:` inside a string value must not shadow the real key.
+        assert!(pkg_scripts("{ description: \"scripts: { x: 1 }\" }").is_empty());
+    }
+
+    /// `discover_pkg_dir` walks up to the nearest `pkg.hnl`.
+    #[test]
+    fn discover_pkg_dir_walks_up() {
+        let root = std::env::temp_dir().join(format!("hnl-pkgdir-{}", std::process::id()));
+        let proj = root.join("repo");
+        let nested = proj.join("src/deep");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(proj.join("pkg.hnl"), "{ modules: [\"m\"] }").unwrap();
+
+        assert_eq!(
+            discover_pkg_dir(&nested).unwrap(),
+            std::fs::canonicalize(&proj).unwrap()
+        );
+        // A file start resolves to its parent directory first.
+        let file = proj.join("src/index.hnl");
+        std::fs::write(&file, "").unwrap();
+        assert_eq!(
+            discover_pkg_dir(&file).unwrap(),
+            std::fs::canonicalize(&proj).unwrap()
+        );
+
+        let bare = std::env::temp_dir().join(format!("hnl-pkgdir-bare-{}", std::process::id()));
+        std::fs::create_dir_all(&bare).unwrap();
+        assert!(discover_pkg_dir(&bare).is_none());
+
+        std::fs::remove_dir_all(&root).ok();
+        std::fs::remove_dir_all(&bare).ok();
     }
 
     /// `.handl.toml` wins; `pkg.hnl` only fills names it does not declare.
