@@ -186,27 +186,27 @@ fn assert_parity(src: &str) {
 
 #[test]
 fn data_nat_parity() {
-    assert_parity("data Nat :: Zero | Succ(pred : Nat)");
+    assert_parity("Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }");
 }
 
 #[test]
 fn data_bool_parity() {
-    assert_parity("data Bool :: True | False");
+    assert_parity("Bool := { True : Bool, False : Bool }");
 }
 
 #[test]
 fn data_three_ctors_parity() {
-    assert_parity("data RGB :: R | G | B");
+    assert_parity("RGB := { R : RGB, G : RGB, B : RGB }");
 }
 
 #[test]
 fn data_maybe_parity() {
-    assert_parity("data Maybe :: Nothing | Just(x : Nat)");
+    assert_parity("Maybe := { Nothing : Maybe, Just : (x : Nat) ~> Maybe }");
 }
 
 #[test]
 fn match_nat_parity() {
-    assert_parity("data Nat :: Zero | Succ(pred : Nat)\nx :: match n { Zero: 0, Succ(p): p }");
+    assert_parity("Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nx :: match n { Zero: 0, Succ(p): p }");
 }
 
 #[test]

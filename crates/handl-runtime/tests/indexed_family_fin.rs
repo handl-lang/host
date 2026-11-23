@@ -144,8 +144,12 @@ fn fin_indexed_family_membership_and_match() {
 fn fin_indexed_family_membership_and_match_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
-    let nat_src = "data Nat :: Zero | Succ(Nat)";
-    let fin_src = "data Fin(n: Nat) :: FZ : Fin(n) | FS(i: Fin(n - 1)) : Fin(n)";
+    // ADR-0158: record spelling — `data F :: …` is retired.
+    let nat_src = "Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }";
+    let fin_src = "Fin<n : Nat> := {
+        FZ : Fin(n),
+        FS : (i : Fin(n - 1)) ~> Fin(n)
+    }";
 
     let mut combined = Ast::new();
     let mut children: Vec<usize> = Vec::new();

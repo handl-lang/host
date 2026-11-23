@@ -130,9 +130,14 @@ fn vec_indexed_family_membership_and_recursor() {
 fn vec_indexed_family_membership_and_recursor_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
-    let nat_src = "data Nat :: Zero | Succ(Nat)";
-    let vec_src = "data Vec(n: Nat, a: Type) :: VNil : Vec(0, a)
-                                       | VCons(x: a, xs: Vec(n - 1, a)) : Vec(n, a)";
+    // ADR-0158: the `data F :: …` spelling is retired; the record form
+    // `F<params> := { C : R, … }` is canonical and lowers to the same
+    // internal `data` node.
+    let nat_src = "Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }";
+    let vec_src = "Vec<n : Nat, a : Type> := {
+        VNil : Vec(0, a),
+        VCons : (x : a, xs : Vec(n - 1, a)) ~> Vec(n, a)
+    }";
 
     // Build a single AST containing both data declarations and the test body.
     let mut combined = Ast::new();

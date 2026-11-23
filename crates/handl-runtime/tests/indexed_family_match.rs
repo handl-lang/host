@@ -145,9 +145,12 @@ fn vec_indexed_family_match_with_and_without_motive() {
 fn vec_indexed_family_match_with_and_without_motive_impl() {
     let kit = Kit::new().expect("kit must assemble");
 
-    let nat_src = "data Nat :: Zero | Succ(Nat)";
-    let vec_src = "data Vec(n: Nat, a: Type) :: VNil : Vec(0, a)
-                                       | VCons(x: a, xs: Vec(n - 1, a)) : Vec(n, a)";
+    // ADR-0158: record spelling — `data F :: …` is retired.
+    let nat_src = "Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }";
+    let vec_src = "Vec<n : Nat, a : Type> := {
+        VNil : Vec(0, a),
+        VCons : (x : a, xs : Vec(n - 1, a)) ~> Vec(n, a)
+    }";
 
     let match_src = |name, v, n| {
         format!("{name} :: match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}")

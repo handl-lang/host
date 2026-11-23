@@ -940,7 +940,7 @@ fn perform_multishot_resume() {
 fn ctor_object_match_dispatches_on_sym() {
     assert_parity(
         "do {
-          data Opt2(a : Type) :: Nope | Jx(x : a)
+          Opt2<a : Type> := { Nope : Opt2, Jx : (x : a) ~> Opt2 }
           match Jx(9) { Jx(x): 111, Nope: 222 }
         }",
         json!(111),
@@ -949,7 +949,7 @@ fn ctor_object_match_dispatches_on_sym() {
     // only the `Nope` ctor.
     assert_parity(
         "do {
-          data Opt2(a : Type) :: Nope | Jx(x : a)
+          Opt2<a : Type> := { Nope : Opt2, Jx : (x : a) ~> Opt2 }
           match Nope { Jx(x): 111, Nope: 222 }
         }",
         json!(222),
@@ -962,7 +962,7 @@ fn ctor_object_match_dispatches_on_sym() {
 fn nat_tower_binary_add() {
     assert_parity(
         "do {
-          data Nat :: Zero | Succ(pred : Nat)
+          Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
           Succ(Zero) + Succ(Zero)
         }",
         json!(2),
@@ -1013,8 +1013,8 @@ fn self_recursive_arrow_without_data_types() {
 
 const SRC: &str = 
 "do {
-          data Nat :: Zero | Succ(pred : Nat)
-          data Vec(n : Nat, a : Type) :: VNil : Vec<0, a> | VCons(x : a, xs : Vec<n, a>) : Vec<n + 1, a>
+          Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
+          Vec<n : Nat, a : Type> := { VNil : Vec<0, a>, VCons : (x : a, xs : Vec<n, a>) ~> Vec<n + 1, a> }
           vsum<n> : Vec<n, Nat> ~> Nat = v ~> match v { VNil: Zero, VCons(x, xs): Succ(vsum(xs)) }
           toNum : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + toNum(p) }
           toNum(vsum(VCons(Zero, VCons(Zero, VNil))))
