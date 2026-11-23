@@ -22,3 +22,4 @@
 - T-120 lib-http-middleware: request-scoped context through handlers (auth, sessions, CSRF, CORS, logging) — separate lib, not route's job · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20 · done:2026-11-23
 - T-123 Fold kit-core crate into host workspace (module table/resolver/caches substrate) · created:2026-11-23 · done:2026-11-23
 - T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23 · done:2026-11-23
+- T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23 · done:2026-11-23
