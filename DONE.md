@@ -13,3 +13,4 @@
 - T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-22
 - T-122 kit selection via .handl.toml (no hnl.hnl): kit = name-or-path key, walk UP from file dir to find nearest .handl.toml containing kit; fallback ~/.config/handl/.handl.toml; explicit --kit flag wins; REPLACE semantics (project kit replaces global, not union); extends/layering later; merges into existing dep map alongside .handl.toml deps · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20 · done:2026-11-23
 - T-134 sdkgen-webidl: fix empty field names for unresolvable attribute types (NotRestoredReasons bug) · created:2026-11-23 · done:2026-11-23
+- T-136 lib-js: push 665768d docs commit after NotRestoredReasons fix · created:2026-11-23 · done:2026-11-23
