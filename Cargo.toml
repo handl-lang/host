@@ -54,7 +54,7 @@ members = [
   "crates/handl-runtime",
   "crates/handl-kit-data",
   "crates/plugin-codegen",
-  "crates/plugin-ext-sdkgen",
+  "crates/plugin-ext-codegen",
 ]
 resolver = "3"
 
@@ -197,7 +197,7 @@ handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main"
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-codegen = { path = "crates/plugin-codegen" }
-handl-plugin-ext-sdkgen = { path = "crates/plugin-ext-sdkgen" }
+handl-plugin-ext-codegen = { path = "crates/plugin-ext-codegen" }
 
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/lib-lang-compile", branch = "main" }
@@ -324,7 +324,7 @@ handl-plugin-ext-kit = { path = "../host/crates/plugin-ext-kit" }
 handl-plugin-ext-lint = { path = "../host/crates/plugin-ext-lint" }
 handl-plugin-ext-plugin = { path = "../host/crates/plugin-ext-plugin" }
 handl-plugin-ext-refinement = { path = "../host/crates/plugin-ext-refinement" }
-handl-plugin-ext-sdkgen = { path = "../host/crates/plugin-ext-sdkgen" }
+handl-plugin-ext-codegen = { path = "../host/crates/plugin-ext-codegen" }
 handl-plugin-ext-test = { path = "../host/crates/plugin-ext-test" }
 handl-plugin-ext-typecheck = { path = "../host/crates/plugin-ext-typecheck" }
 handl-plugin-lib-handl = { path = "../host/crates/plugin-lib-handl" }
@@ -333,11 +333,10 @@ handl-plugin-lib-tag = { path = "../host/crates/plugin-lib-tag" }
 handl-plugin-load = { path = "../host/crates/plugin-load" }
 handl-plugin-loader-native = { path = "../host/crates/plugin-loader-native" }
 handl-plugin-module = { path = "../host/crates/plugin-module" }
-# PL-004 Phase 1: `handl-plugin-codegen` (renamed from plugin-sdkgen)
-# is a workspace member now. `handl-plugin-sdkgen` deliberately has no
-# entry — `plugin-ext-sdkgen` and the unmigrated engine-sdkgen-*
-# siblings still consume the pre-rename crate from git main until the
-# T-075/T-076 migration wave.
+# PL-004 Phase 1/T-076: `handl-plugin-codegen` (renamed from
+# plugin-sdkgen) and `handl-plugin-ext-codegen` (renamed from
+# plugin-ext-sdkgen) are workspace members now. `handl-plugin-sdkgen`
+# deliberately has no entry — the pre-rename crate is gone.
 handl-plugin-codegen = { path = "../host/crates/plugin-codegen" }
 [patch."https://github.com/handl-lang/kernel"]
 handl-calculus = { path = "../kernel/crates/handl-calculus" }

@@ -738,24 +738,7 @@ dependencies = [
  "handl-kit-data-prelude",
  "handl-language",
  "handl-ops",
- "handl-pkg-vendor 0.1.0",
- "handl-platform",
- "handl-plugin-ext-lint",
- "handl-plugin-lib-handl",
- "handl-plugin-lib-stdlib",
- "handl-plugin-module",
- "handl-value",
- "serde_json",
-]
-
-[[package]]
-name = "handl-kit-core"
-version = "0.1.0"
-source = "git+https://github.com/handl-lang/host?branch=main#95246b4966ecf58031140feee198dd79c5216250"
-dependencies = [
- "handl-language",
- "handl-ops",
- "handl-pkg-vendor 0.1.0 (git+https://github.com/handl-lang/host?branch=main)",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-ext-lint",
  "handl-plugin-lib-handl",
@@ -812,10 +795,10 @@ dependencies = [
 name = "handl-kit-ffi"
 version = "0.1.0"
 dependencies = [
- "handl-kit-core 0.1.0",
- "handl-pkg-vendor 0.1.0",
+ "handl-kit-core",
+ "handl-pkg-vendor",
  "handl-platform",
- "handl-plugin-ffi 0.1.0",
+ "handl-plugin-ffi",
  "handl-plugin-lib-handl",
  "serde_json",
 ]
@@ -838,7 +821,7 @@ dependencies = [
 name = "handl-kit-mlopt"
 version = "0.1.0"
 dependencies = [
- "handl-kit-core 0.1.0",
+ "handl-kit-core",
  "handl-platform",
  "serde_json",
 ]
@@ -848,7 +831,7 @@ name = "handl-kit-prelude"
 version = "0.1.0"
 dependencies = [
  "criterion",
- "handl-kit-core 0.1.0",
+ "handl-kit-core",
  "handl-kit-data",
  "handl-kit-data-prelude",
  "handl-kit-ffi",
@@ -897,7 +880,7 @@ dependencies = [
 name = "handl-kit-server"
 version = "0.1.0"
 dependencies = [
- "handl-kit-core 0.1.0",
+ "handl-kit-core",
  "handl-kit-data",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-otlp-std",
@@ -908,12 +891,12 @@ dependencies = [
 name = "handl-kit-stdlib"
 version = "0.1.0"
 dependencies = [
- "handl-kit-core 0.1.0",
+ "handl-kit-core",
  "handl-kit-data",
  "handl-lib-base64",
  "handl-lib-hex",
  "handl-lib-serialize",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-kv-hashmap",
@@ -924,8 +907,8 @@ dependencies = [
 name = "handl-kit-test"
 version = "0.1.0"
 dependencies = [
- "handl-kit-core 0.1.0 (git+https://github.com/handl-lang/host?branch=main)",
- "handl-pkg-vendor 0.1.0",
+ "handl-kit-core",
+ "handl-pkg-vendor",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
  "handl-plugin-lib-tag",
@@ -1075,14 +1058,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-pkg-vendor"
-version = "0.1.0"
-source = "git+https://github.com/handl-lang/host?branch=main#95246b4966ecf58031140feee198dd79c5216250"
-dependencies = [
- "handl-platform",
-]
-
-[[package]]
 name = "handl-platform"
 version = "0.1.0"
 dependencies = [
@@ -1123,6 +1098,63 @@ dependencies = [
  "serde_yaml",
  "tempfile",
  "ureq",
+]
+
+[[package]]
+name = "handl-plugin-codegen-backend-c"
+version = "0.1.0"
+dependencies = [
+ "clang-sys",
+ "flate2",
+ "glob",
+ "handl-plugin-codegen",
+ "heck",
+ "serde",
+ "serde_yaml",
+ "target-lexicon",
+]
+
+[[package]]
+name = "handl-plugin-codegen-backend-webidl"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-codegen",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+]
+
+[[package]]
+name = "handl-plugin-codegen-cli"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-codegen",
+ "handl-plugin-ext-fmt",
+ "heck",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+]
+
+[[package]]
+name = "handl-plugin-codegen-emitter-file"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-codegen",
+ "handl-plugin-ext-fmt",
+]
+
+[[package]]
+name = "handl-plugin-codegen-emitter-python"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-codegen",
+ "serde",
+ "serde_json",
+ "serde_yaml",
 ]
 
 [[package]]
@@ -1168,6 +1200,7 @@ dependencies = [
  "handl-plugin-ext-diag",
  "handl-runtime",
  "hnl-engine",
+ "hnl-engine-codegen",
  "hnl-engine-lex-pattern",
  "hnl-engine-parse",
  "hnl-engine-parse-pratt",
@@ -1182,6 +1215,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-compile",
  "hnl-engine",
+ "hnl-engine-codegen",
  "hnl-engine-typecheck",
  "serde_json",
 ]
@@ -1212,6 +1246,19 @@ version = "0.1.0"
 dependencies = [
  "handl-platform",
  "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-ext-codegen"
+version = "0.1.0"
+dependencies = [
+ "handl-language",
+ "handl-plugin-codegen",
+ "handl-plugin-codegen-backend-c",
+ "handl-plugin-codegen-backend-webidl",
+ "handl-plugin-codegen-cli",
+ "handl-plugin-codegen-emitter-file",
+ "handl-plugin-codegen-emitter-python",
 ]
 
 [[package]]
@@ -1316,7 +1363,7 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-data-prelude",
  "handl-language",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-ext-detect",
  "handl-plugin-lib-char-native",
@@ -1328,19 +1375,6 @@ dependencies = [
  "serde",
  "serde_json",
  "z3",
-]
-
-[[package]]
-name = "handl-plugin-ext-sdkgen"
-version = "0.1.0"
-dependencies = [
- "handl-language",
- "handl-plugin-sdkgen",
- "handl-plugin-sdkgen-backend-c",
- "handl-plugin-sdkgen-backend-webidl",
- "handl-plugin-sdkgen-cli",
- "handl-plugin-sdkgen-emitter-file",
- "handl-plugin-sdkgen-emitter-python",
 ]
 
 [[package]]
@@ -1378,25 +1412,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-ffi"
-version = "0.1.0"
-source = "git+https://github.com/handl-lang/host?branch=main#95246b4966ecf58031140feee198dd79c5216250"
-dependencies = [
- "cranelift",
- "cranelift-jit",
- "cranelift-module",
- "handl-platform",
- "handl-value",
- "libloading",
- "serde_json",
-]
-
-[[package]]
 name = "handl-plugin-lib-char-native"
 version = "0.1.0"
 dependencies = [
  "handl-ops",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "serde_json",
 ]
 
@@ -1407,7 +1427,7 @@ dependencies = [
  "handl-kit-data-prelude",
  "handl-language",
  "handl-ops",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-char-native",
  "handl-plugin-lib-stdlib",
@@ -1584,7 +1604,7 @@ dependencies = [
  "handl-lib-transform",
  "handl-lib-type",
  "handl-ops",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-otlp-c",
@@ -1611,7 +1631,7 @@ name = "handl-plugin-lib-tag"
 version = "0.1.0"
 dependencies = [
  "handl-language",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
  "serde_json",
@@ -1654,72 +1674,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-sdkgen"
-version = "0.1.0"
-source = "git+https://github.com/handl-lang/host?branch=main#95246b4966ecf58031140feee198dd79c5216250"
-dependencies = [
- "handl-language",
- "serde",
- "ureq",
-]
-
-[[package]]
-name = "handl-plugin-sdkgen-backend-c"
-version = "0.1.0"
-dependencies = [
- "clang-sys",
- "flate2",
- "glob",
- "handl-plugin-sdkgen",
- "heck",
- "serde",
- "serde_yaml",
- "target-lexicon",
-]
-
-[[package]]
-name = "handl-plugin-sdkgen-backend-webidl"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-sdkgen",
- "serde",
- "serde_json",
- "serde_yaml",
-]
-
-[[package]]
-name = "handl-plugin-sdkgen-cli"
-version = "0.1.0"
-dependencies = [
- "handl-language",
- "handl-plugin-ext-fmt",
- "handl-plugin-sdkgen",
- "heck",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
-]
-
-[[package]]
-name = "handl-plugin-sdkgen-emitter-file"
-version = "0.1.0"
-dependencies = [
- "handl-language",
- "handl-plugin-ext-fmt",
- "handl-plugin-sdkgen",
-]
-
-[[package]]
-name = "handl-plugin-sdkgen-emitter-python"
-version = "0.1.0"
-dependencies = [
- "handl-plugin-sdkgen",
- "serde",
- "serde_yaml",
-]
-
-[[package]]
 name = "handl-runtime"
 version = "0.1.0"
 dependencies = [
@@ -1727,7 +1681,7 @@ dependencies = [
  "handl-kit-data-prelude",
  "handl-kit-prelude",
  "handl-language",
- "handl-pkg-vendor 0.1.0",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-plugin-lib-stdlib",
@@ -1867,7 +1821,7 @@ dependencies = [
  "cranelift-object",
  "handl-language",
  "handl-platform",
- "handl-plugin-ffi 0.1.0 (git+https://github.com/handl-lang/host?branch=main)",
+ "handl-plugin-ffi",
  "handl-runtime",
  "handl-value",
  "hnl-engine",
@@ -1958,6 +1912,7 @@ dependencies = [
  "handl-plugin-lib-handl",
  "handl-plugin-lib-scheduler",
  "handl-runtime",
+ "hnl-engine-exec",
  "hnl-engine-exec-tree-walk",
  "hnl-engine-lex-pattern",
  "hnl-engine-parse",

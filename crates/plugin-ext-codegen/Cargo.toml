@@ -1,0 +1,38 @@
+[package]
+name = "handl-plugin-ext-codegen"
+version.workspace = true
+edition.workspace = true
+description = "`hnl codegen` CLI extension (PL-004 T-076) — desired-state codegen over the hnl-engine-codegen kernel."
+license.workspace = true
+repository.workspace = true
+
+# PL-004: each target is a feature — the host opts repo modules in on
+# its own manifest (ADR-0128 §0.1). `python` implies `c`: the `python`
+# target record names backend `c` (resolved through the registry, not a
+# crate dep); `python-spec` ships inside the python module.
+[features]
+default = ["c", "webidl", "python", "cli"]
+c = ["dep:handl-plugin-codegen-backend-c", "dep:handl-plugin-codegen-emitter-file"]
+webidl = ["dep:handl-plugin-codegen-backend-webidl", "dep:handl-plugin-codegen-emitter-file"]
+python = ["c", "dep:handl-plugin-codegen-emitter-python"]
+# The cli target (backend + `hnl-cli` emitter) lives in the
+# `engine-codegen-cli` repo; the root `[patch]` resolves the sibling
+# checkout for local dev.
+cli = ["dep:handl-plugin-codegen-cli"]
+
+[dependencies]
+handl-language = { workspace = true }
+# PL-004 T-076: the codegen core (`CodegenRegistry`/`CodegenRequest`,
+# the kernel lifecycle wiring) is a workspace member.
+handl-plugin-codegen = { workspace = true }
+# The target modules live in the `engine-codegen-*` repos. Their git
+# remotes do not exist yet (local-only, same situation as
+# `hnl-engine-codegen` above), so these are path deps for now — flip
+# back to `git = "https://github.com/handl-lang/engine-codegen-*",
+# branch = "main"` (the root `[patch]` tables already point at the
+# sibling checkouts) once the remotes are pushed.
+handl-plugin-codegen-backend-c = { path = "../../../engine-codegen-c", optional = true }
+handl-plugin-codegen-backend-webidl = { path = "../../../engine-codegen-webidl", optional = true }
+handl-plugin-codegen-emitter-file = { path = "../../../engine-codegen-file", optional = true }
+handl-plugin-codegen-emitter-python = { path = "../../../engine-codegen-python", optional = true }
+handl-plugin-codegen-cli = { path = "../../../engine-codegen-cli", optional = true }
