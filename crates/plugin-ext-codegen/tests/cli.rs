@@ -61,6 +61,17 @@ fn plan_flag_rejects_store_verbs() {
 }
 
 #[test]
+fn fmt_target_is_registered_and_plans() {
+    // PL-004 T-090: the `fmt` target (hnl-engine-fmt's `register`) is
+    // linked by default — `plan fmt` on a missing spec reaches the
+    // pipeline and fails as `Failed` (exit 1), not `Usage` (exit 2).
+    assert_eq!(
+        run(&["plan", "fmt", "/nonexistent/file.hnl", "--output", "/tmp/o"]),
+        1
+    );
+}
+
+#[test]
 fn plan_verb_reaches_the_pipeline() {
     // A missing spec file fails inside materialize (exit 1) — proving
     // `plan` routed through `CodegenRegistry::plan`, not usage (2).

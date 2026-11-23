@@ -1275,6 +1275,7 @@ dependencies = [
  "handl-plugin-codegen-cli",
  "handl-plugin-codegen-emitter-file",
  "handl-plugin-codegen-emitter-python",
+ "hnl-engine-fmt",
 ]
 
 [[package]]

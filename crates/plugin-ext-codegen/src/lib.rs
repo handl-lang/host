@@ -2,10 +2,10 @@
 //! codegen command surface over the `hnl-engine-codegen` kernel.
 //!
 //! This crate is a lookup over the [`CodegenRegistry`]: each linked
-//! target module (`c`, `webidl`, `python`, `cli`, …) registers its own
+//! target module (`c`, `webidl`, `python`, `cli`, `fmt`, …) registers its own
 //! backend, emitter, doc pass, and spec input — there is no per-target
 //! `match` here. Hosts opt targets in through this crate's Cargo
-//! features (`c`, `webidl`, `python`, `cli`; all on by default), each
+//! features (`c`, `webidl`, `python`, `cli`, `fmt`; all on by default), each
 //! feature enabling one repo module's dependency (ADR-0128 §"Registration:
 //! link-time first").
 //!
@@ -79,6 +79,13 @@ pub fn linked_targets() -> CodegenRegistry {
     handl_plugin_codegen_emitter_python::register(&mut registry);
     #[cfg(feature = "cli")]
     handl_plugin_codegen_cli::register(&mut registry);
+    // PL-004 T-090: the `fmt` target — `FmtSource`/`FmtEmitter` over the
+    // token-stream `FmtModule` IR. `hnl codegen fmt <file.hnl> --output
+    // <dir>` formats file→file through the same plan/apply lifecycle:
+    // `--check`/`plan` exits 1 on drift, `apply` writes via
+    // `Engine::apply` (journaled under `.handl/codegen/`).
+    #[cfg(feature = "fmt")]
+    hnl_engine_fmt::register(&mut registry);
     registry
 }
 
