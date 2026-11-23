@@ -19,7 +19,6 @@
 - [ ] T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23
 - [ ] T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23
 - [ ] T-126 Fold kit-prelude facade + kit-eqsat data crate into host · created:2026-11-23
-- [ ] T-127 Retire folded kit-\* GitHub repos after consumer sweep (deletion checklist) · created:2026-11-23
 - [ ] T-128 engine-watch: Rust fs-event engine (inotify) + lib-watch .hnl contract/binding · created:2026-11-23
 - [ ] T-129 compile-js roadmap P0: Node e2e harness + missing prelude ops (flow/record\_merge/ctor\_name/ctor\_fields/assert) · created:2026-11-23
 - [ ] T-130 compile-js P1: signature-export + data decls + worker-entry compile convention · created:2026-11-23

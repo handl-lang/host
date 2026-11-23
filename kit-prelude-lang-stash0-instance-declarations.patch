@@ -1,0 +1,174 @@
+diff --git a/crates/handl-kit-prelude-lang/data/ast.yaml b/crates/handl-kit-prelude-lang/data/ast.yaml
+index 4a7f528..d5b6d17 100644
+--- a/crates/handl-kit-prelude-lang/data/ast.yaml
++++ b/crates/handl-kit-prelude-lang/data/ast.yaml
+@@ -1373,6 +1373,33 @@
+       - children
+       - name
+     type: object
++# `instance` — instance declaration (phase-3 WS-A, ADR-0106 §11).
++# `instance <C(i⃗)> := <dict>` registers `dict` as the dictionary value
++# for the constraint former application `C(i⃗)`. Two named children:
++#   0. `constraint` — the constraint type expression (`Eq Nat`, a
++#      `call`/`index_app`/`var` node elaborating to a
++#      `type.family_app{head, args}`).
++#   1. `dict` — the dictionary value expression (a record literal or
++#      constructor application). The dict is *runtime* data — the
++#      evidence-argument erasure class — so `eval.instance` projects
++#      (evaluates) this child.
++- id: ast.instance
++  node_kind: instance
++  children:
++    - role: constraint
++    - role: dict
++  payload_schema:
++    properties:
++      children:
++        description: positional children [constraint_expr, dict_expr]
++        items:
++          type: integer
++        maxItems: 2
++        minItems: 2
++        type: array
++    required:
++      - children
++    type: object
+ # `alt` — constructor alternative node created by `|` pipe infix
+ # (ADR-0082). Two children: `left` and `right`. The desugar pass walks
+ # the `alt` tree to collect all constructors from a `data` declaration.
+diff --git a/crates/handl-kit-prelude-lang/data/eval.yaml b/crates/handl-kit-prelude-lang/data/eval.yaml
+index ac1e987..86bd483 100644
+--- a/crates/handl-kit-prelude-lang/data/eval.yaml
++++ b/crates/handl-kit-prelude-lang/data/eval.yaml
+@@ -381,6 +381,18 @@
+     args: []
+     source: Native
+     lit: 0
++# `instance` — instance declaration (phase-3 WS-A). The dictionary IS
++# the runtime-relevant data (evidence args are the "kept implicit"
++# erasure class — not erased like type indices), so the scheme
++# evaluates and returns the `dict` child; the `constraint` child is a
++# type expression and is never evaluated.
++- id: eval.instance
++  node_kind: instance
++  scheme: !Op
++    name: proj_child
++    args: []
++    source: Native
++    lit: 1
+ # A dimension evaluates as **application of its target to the dimension
+ # arguments**: `f<X>` means `f(X)`, with the children laid out exactly like a
+ # `call` ([target, args...]). This is the reading ADR-0106 §12 gives the
+diff --git a/crates/handl-kit-prelude-lang/data/grammar.yaml b/crates/handl-kit-prelude-lang/data/grammar.yaml
+index f623634..8f52542 100644
+--- a/crates/handl-kit-prelude-lang/data/grammar.yaml
++++ b/crates/handl-kit-prelude-lang/data/grammar.yaml
+@@ -758,6 +758,32 @@
+         field: name
+     child_separators:
+       - !Required token.bind
++# `instance <C(i⃗)> := <dict>` — instance declaration (phase-3 WS-A,
++# ADR-0106 §11): registers `dict` as the dictionary value for the
++# constraint former application `C(i⃗)`. The first child is a type
++# expression parsed at rbp 6 so it stops before the `:=` separator
++# (same trick as `data`'s `::`); the second child is the dictionary
++# value expression. `synth_instance` elaborates the constraint to a
++# `type.family_app{head, args}` — unbound index variables in the
++# constraint implicitly generalize as rigid index vars (`instance
++# Eq (List a)` is the generic-instance shape) — enforces coherence
++# (no two instances may declare unifiable index shapes for one head),
++# checks the dict, and registers `(head, args) ↦ dict` in the
++# context's instance table.
++- id: grammar.instance.prefix
++  token: token.keyword.instance
++  position: Prefix
++  binding_power:
++    - 6
++    - 0
++  child_shape:
++    node_kind: instance
++    arity: 2
++    child_binding_powers:
++      - 6
++      - 0
++    child_separators:
++      - !Required token.colon_equal
+ # `type` — v0.1 type namespace (ADR-0074: "type.Str / type.Int / etc.
+ # namespace"). `type` is a keyword, but it is used as a namespace identifier
+ # in type expressions (`type.number`, `type.bool`, `type.string`, ...). It is
+diff --git a/crates/handl-kit-prelude-lang/data/lexer_rules.yaml b/crates/handl-kit-prelude-lang/data/lexer_rules.yaml
+index 2e38e13..2fc89d0 100644
+--- a/crates/handl-kit-prelude-lang/data/lexer_rules.yaml
++++ b/crates/handl-kit-prelude-lang/data/lexer_rules.yaml
+@@ -312,6 +312,11 @@
+   pattern: !Literal
+     text: in
+   priority: 15
++- id: lex.keyword.instance
++  token_kind: token.keyword.instance
++  pattern: !Literal
++    text: instance
++  priority: 15
+ - id: lex.keyword.infer
+   token_kind: token.keyword.infer
+   pattern: !Literal
+diff --git a/crates/handl-kit-prelude-lang/data/tokens.yaml b/crates/handl-kit-prelude-lang/data/tokens.yaml
+index 747984e..4518394 100644
+--- a/crates/handl-kit-prelude-lang/data/tokens.yaml
++++ b/crates/handl-kit-prelude-lang/data/tokens.yaml
+@@ -197,6 +197,10 @@
+   label: in
+   category: keyword
+   doc: "**Iterator binding — used with `for`** `in`\n\n```\nfor `x` in `coll` { `body` }\n```"
++- id: token.keyword.instance
++  label: instance
++  category: keyword
++  doc: "**Instance declaration — register a dictionary for a constraint former** `instance`\n\n```\ninstance `Eq` `Nat` := `dict`\n```"
+ - id: token.keyword.infer
+   label: infer
+   category: keyword
+diff --git a/crates/handl-kit-prelude-lang/data/types.yaml b/crates/handl-kit-prelude-lang/data/types.yaml
+index 1aeda8c..5810664 100644
+--- a/crates/handl-kit-prelude-lang/data/types.yaml
++++ b/crates/handl-kit-prelude-lang/data/types.yaml
+@@ -2500,6 +2500,24 @@
+     args: []
+     source: Judgment
+ 
++# `instance <C(i⃗)> := <dict>` — instance declaration (phase-3 WS-A,
++# ADR-0106 §11). The `synth_instance` judgment elaborates the constraint
++# child to a `type.family_app{head, index-args}` (unbound index vars
++# implicitly generalize), enforces *coherence* — a second instance for
++# the same head with unifiable index shape is a declaration-time error —
++# checks the dictionary expression, binds it in Γ *at the constraint
++# type* under a generated name (the dict's `type` link IS the declared
++# former application), and registers `(head, args) ↦ dict-name` in the
++# context's instance table. Implicit `type.pi` domains whose head has
++# registered instances resolve by search at call sites (see
++# `synth_call`'s implicit-binder drain). Returns `type.unit`.
++- id: type.instance
++  node_kind: instance
++  synth: !Op
++    name: synth_instance
++    args: []
++    source: Judgment
++
+ # ---------------------------------------------------------------------------
+ # Graded-theory declarations (ADR-0098/0100)
+ # ---------------------------------------------------------------------------
+diff --git a/crates/handl-kit-prelude-lang/tests/lang_merge.rs b/crates/handl-kit-prelude-lang/tests/lang_merge.rs
+index 214142a..309b0a0 100644
+--- a/crates/handl-kit-prelude-lang/tests/lang_merge.rs
++++ b/crates/handl-kit-prelude-lang/tests/lang_merge.rs
+@@ -18,8 +18,9 @@ fn types_yaml_loads() {
+     // (ADR-0120 Phase 2) + `type.family`/`type.data`/`type.loop`
+     // (ADR-0120 Phase 4 dependent structure).
+     // +3 `type.cell_id`/`type.cell_comp_v`/`type.cell_comp_h` (ADR-0120
+-    // globular cell algebra) + `type.index_app` (phase-2 WS-C).
+-    assert_eq!(lang.types.len(), 86);
++    // globular cell algebra) + `type.index_app` (phase-2 WS-C) +
++    // `type.instance` (phase-3 WS-A instance declarations).
++    assert_eq!(lang.types.len(), 87);
+     // The `value` kind (literals) must have a rule.
+     assert!(lang.types.get_by_identity("value").is_some());
+     // Spot-check a few meaningful rules.
