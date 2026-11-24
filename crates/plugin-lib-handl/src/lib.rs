@@ -149,6 +149,24 @@ fn normalize_import_name(path: &str) -> &str {
     p.rsplit('/').next().unwrap_or(p)
 }
 
+/// The local (in-module) name an op is exposed under — [`HandlModule::with_ops`]
+/// keys `op_functions` by it.
+///
+/// The op name minus the `"<module>."` prefix when present, else the
+/// segment after the last `.`. Two-level atoms (`"math.abs"` in module
+/// `"math"`) yield `"abs"` either way; namespaced ops with extra segments
+/// (`"ffi.rust.resolve"` in module `"ffi"`) yield `"rust.resolve"` — the
+/// [`ModuleLookup`] split-once fallback (`module "ffi"`, function
+/// `"rust.resolve"`) then resolves the full qualified callee, matching how
+/// `field_access`'s string-join evaluates `ffi.rust.resolve(...)`.
+fn op_local_name<'a>(module_name: &'a str, op_name: &'a str) -> &'a str {
+    let prefix = format!("{module_name}.");
+    match op_name.strip_prefix(&prefix) {
+        Some(rest) if !rest.is_empty() => rest,
+        _ => op_name.rsplit('.').next().unwrap_or(op_name),
+    }
+}
+
 /// The default [`ImportResolver`] used by a [`HandlModule`] runtime.
 ///
 /// A `.hnl` import statement is evaluated by the runtime (`prim_import`),
@@ -3371,16 +3389,21 @@ impl HandlModule {
     /// [`OpRegistry`].
     ///
     /// Each op name (e.g. `"base64.encode"`) is exposed as a callable
-    /// [`OpFunction`] under its local name — the segment after the last `.`
-    /// in the op name (e.g. `"encode"`). This allows the module to be looked
+    /// [`OpFunction`] under its local name — the op name minus the module
+    /// prefix when present (`"ffi.rust.resolve"` in module `"ffi"` →
+    /// `"rust.resolve"`, P-013 T-152), else the segment after the last `.`
+    /// (e.g. `"encode"`). This allows the module to be looked
     /// up via `ModuleLookup::lookup("base64.encode")` (the module name
-    /// `"base64"` + the local name `"encode"`).
+    /// `"base64"` + the local name `"encode"`); a namespaced op like
+    /// `"ffi.rust.resolve"` resolves as module `"ffi"` + local
+    /// `"rust.resolve"` — the `field_access` string-join makes
+    /// `ffi.rust.resolve(...)` evaluate to exactly that callee.
     ///
     /// Op functions are merged with the regular record-field functions; if a
     /// name collision occurs, the op function takes precedence.
     pub fn with_ops(mut self, op_names: &[&str], registry: Arc<OpRegistry>) -> Self {
         for &op_name in op_names {
-            let local_name = op_name.rsplit('.').next().unwrap_or(op_name);
+            let local_name = op_local_name(&self.name, op_name);
             // P-013 T-148: attach the `op "name" : Sig` declaration's
             // interpreted type value so the atom is self-describing —
             // `ModuleLookup::lookup_type_signature`/`lookup_module_exports`

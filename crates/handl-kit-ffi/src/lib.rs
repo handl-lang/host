@@ -9,6 +9,9 @@
 use handl_kit_core::{KitResolver, ModuleCtor, ModuleEntry, build_type_module};
 use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
+mod resolve;
+pub use resolve::FfiRustResolve;
+
 #[cfg(feature = "ffi")]
 use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno, FfiLoad, FfiRead, FfiSym};
 
@@ -27,7 +30,34 @@ const FFI_OPS: &[&str] = &[
     "ffi.load",
     "ffi.read",
     "ffi.sym",
+    // P-013 T-152: `ffi.rust.resolve("mod.fn")` → `{fn, sig}` arrow —
+    // dynamic host-atom resolution, the rust-side mirror of the C `ffi`
+    // module's role for foreign symbols. Exposed under local name
+    // `rust.resolve` (module-prefix strip in `with_ops`).
+    "ffi.rust.resolve",
 ];
+
+/// The declared signature `ffi.rust.resolve` carries (P-013 T-148):
+/// `String ~> Value` — atom name in, callable arrow value out.
+fn rust_resolve_sig() -> Option<serde_json::Value> {
+    handl_plugin_lib_handl::sig_to_type_value("String ~> Value")
+}
+
+/// Register `ffi.rust.resolve` — feature-independent (it resolves *handl*
+/// atoms, not C symbols), so both the real and stub registries carry it.
+fn register_rust_resolve(registry: &mut OpRegistry) {
+    match rust_resolve_sig() {
+        Some(sig) => registry.register_with_sig(
+            "ffi.rust.resolve",
+            std::sync::Arc::new(FfiRustResolve::new()),
+            sig,
+        ),
+        None => registry.register(
+            "ffi.rust.resolve",
+            std::sync::Arc::new(FfiRustResolve::new()),
+        ),
+    }
+}
 
 #[cfg(feature = "ffi")]
 fn ffi_op_registry() -> OpRegistry {
@@ -38,6 +68,7 @@ fn ffi_op_registry() -> OpRegistry {
     registry.register("ffi.load", std::sync::Arc::new(FfiLoad));
     registry.register("ffi.read", std::sync::Arc::new(FfiRead));
     registry.register("ffi.sym", std::sync::Arc::new(FfiSym));
+    register_rust_resolve(&mut registry);
     registry
 }
 
@@ -106,6 +137,7 @@ fn ffi_op_registry() -> OpRegistry {
         "ffi.sym",
         std::sync::Arc::new(FfiProbeUnsupported("ffi.sym")),
     );
+    register_rust_resolve(&mut registry);
     registry
 }
 

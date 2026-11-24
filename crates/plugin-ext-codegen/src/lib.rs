@@ -2,10 +2,10 @@
 //! codegen command surface over the `hnl-tool-codegen` kernel.
 //!
 //! This crate is a lookup over the [`CodegenRegistry`]: each linked
-//! target module (`c`, `webidl`, `python`, `cli`, `fmt`, …) registers its own
+//! target module (`c`, `webidl`, `python`, `cli`, `fmt`, `ffi`, …) registers its own
 //! backend, emitter, doc pass, and spec input — there is no per-target
 //! `match` here. Hosts opt targets in through this crate's Cargo
-//! features (`c`, `webidl`, `python`, `cli`, `fmt`; all on by default), each
+//! features (`c`, `webidl`, `python`, `cli`, `fmt`, `ffi`; all on by default), each
 //! feature enabling one repo module's dependency (ADR-0128 §"Registration:
 //! link-time first").
 //!
@@ -99,6 +99,10 @@ pub fn linked_targets() -> CodegenRegistry {
     // `Engine::apply` (journaled under `.handl/codegen/`).
     #[cfg(feature = "fmt")]
     hnl_tool_fmt::register(&mut registry);
+    // P-013 T-152: the `typescript` target — `atoms.yaml` → typed
+    // external-client bindings over an injected `AtomTransport`.
+    #[cfg(feature = "ffi")]
+    handl_plugin_codegen_ffi::register(&mut registry);
     registry
 }
 

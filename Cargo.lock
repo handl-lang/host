@@ -848,6 +848,7 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ffi",
  "handl-plugin-lib-handl",
+ "handl-value",
  "serde_json",
 ]
 
@@ -1209,6 +1210,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-codegen-ffi"
+version = "0.1.0"
+dependencies = [
+ "handl-plugin-codegen",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-codemod"
 version = "0.1.0"
 dependencies = [
@@ -1256,6 +1266,7 @@ dependencies = [
  "handl-plugin-codegen-cli",
  "handl-plugin-codegen-emitter-file",
  "handl-plugin-codegen-emitter-python",
+ "handl-plugin-codegen-ffi",
  "hnl-tool-fmt",
  "serde_json",
  "tempfile",

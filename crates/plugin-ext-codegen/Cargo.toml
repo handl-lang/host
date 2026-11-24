@@ -11,7 +11,7 @@ repository.workspace = true
 # target record names backend `c` (resolved through the registry, not a
 # crate dep); `python-spec` ships inside the python module.
 [features]
-default = ["c", "webidl", "python", "cli", "fmt"]
+default = ["c", "webidl", "python", "cli", "fmt", "ffi"]
 c = ["dep:handl-plugin-codegen-backend-c", "dep:handl-plugin-codegen-emitter-file"]
 webidl = ["dep:handl-plugin-codegen-backend-webidl", "dep:handl-plugin-codegen-emitter-file"]
 python = ["c", "dep:handl-plugin-codegen-emitter-python"]
@@ -25,6 +25,10 @@ cli = ["dep:handl-plugin-codegen-cli"]
 # `plan`/`--check` diffs without mutating, `apply` writes through
 # `Engine::apply` (journaled, drift-checked).
 fmt = ["dep:hnl-tool-fmt"]
+# P-013 T-152 §6: the `ffi`/`typescript` target — `atoms.yaml` spec →
+# typed external-client bindings. Lives in the `tool-codegen-ffi`
+# repo; the root `[patch]` resolves the sibling checkout.
+ffi = ["dep:handl-plugin-codegen-ffi"]
 
 [dependencies]
 handl-language = { workspace = true }
@@ -50,6 +54,10 @@ handl-plugin-codegen-cli = { git = "https://github.com/handl-lang/tool-codegen-c
 # surface — the root `[patch]` resolves the sibling `tool-fmt`
 # checkout (git remote exists; patch keeps local dev on the sibling).
 hnl-tool-fmt = { workspace = true, optional = true }
+# P-013 T-152: `atoms.yaml` source + TypeScript emitter — external
+# clients can't reach `ffi.rust.resolve`, so the atom-spec IDL drives
+# generated bindings for them (the internal runtime needs no codegen).
+handl-plugin-codegen-ffi = { git = "https://github.com/handl-lang/tool-codegen-ffi", branch = "main", optional = true }
 
 [dev-dependencies]
 serde_json = "1"

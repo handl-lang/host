@@ -270,6 +270,10 @@ hnl-tool-lint = { path = "../tool-lint" }
 # PL-004: the codegen kernel resolves from the sibling checkout.
 [patch."https://github.com/handl-lang/tool-codegen"]
 hnl-tool-codegen = { path = "../tool-codegen" }
+# P-013 T-152: the atoms.yaml source + TypeScript emitter (external
+# client bindings) resolve from the sibling checkout.
+[patch."https://github.com/handl-lang/tool-codegen-ffi"]
+handl-plugin-codegen-ffi = { path = "../tool-codegen-ffi" }
 # PL-004 T-085/T-086: the codemod engine resolves from the sibling
 # checkout, same convention as tool-codegen above.
 [patch."https://github.com/handl-lang/tool-codemod"]
