@@ -31,6 +31,17 @@ Design decisions (fixed): `I` sort with `i0`/`i1` + dim vars; faces `Φ` = `i=0`
 3. `glue A, φ, T̂` keyword former unusable in production files — children scope-checked as term wires → unbound; `Glue(...)`/`isFibrant(...)`/`unglue(...)` call forms work in type position only. Unbound-wire scope pass issue.
 4. Univalence smoke pending NBE-P4 landing + cdylib rebuild; `Equiv(Bool,Nat)` record checking looked flaky in probes.
 
+## Design insights (recorded from design discussion — future work candidates)
+
+The everything-is-data architecture compounds beyond the type theory itself:
+
+- **One formalism, three roles** — program, proof, and rewrite rule are all cells/terms in the same calculus; laws are executable data.
+- **Shared compute across the typecheck/runtime boundary** — types and terms share the same `Term` evaluator (`eval.yaml` schemes are data). Typechecking already *runs* computations (normalizing `Vec(2,Bool)` evaluates indices); since the graphs are identical, the checker's normalization cache can seed runtime evaluation — the typechecker acts as a demand-driven partial evaluator whose cache the runtime inherits. TS/Coq can't do this: their checkers and runtimes are different machines.
+- **Proofs as replayable rewrite scripts** — `transport_term_`/`subst_index_` substitution along a `Path` witness is the same rewrite a compiler performs; the witness IS the script.
+- **Grades mark the cache boundary** — `~[effects]~>` rows type exactly which computations are pure; pure graded arrows are safe to share across the typecheck/runtime cache boundary, effects stay effectful. Purity is *checked*, not guessed.
+- **Judgments as cacheable/parallelizable data** — `synth` results are values: memoize `(node, env) → type`, shard unification/match-arm checking across workers, ship precomputed signatures between repos. Serializability makes distributed typechecking a data problem, not a systems problem.
+- **Caveats**: normalization must terminate (same totality question as `loop`/`rec`); proof-irrelevant parts erase anyway — but surviving index computations and type families are exactly the expensive pure work worth caching.
+
 ## Known issues / follow-ups
 
 - `dependent_structure.rs`: 14 pre-existing failures (`unbound variable: data` — retired keyword), unrelated.
