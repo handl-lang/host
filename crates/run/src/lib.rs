@@ -5,7 +5,10 @@
 //! names walking up from cwd, topo-sorts `dependsOn`, executes argv
 //! (no shell), and caches object-form tasks under
 //! `.handl/cache/run/<key>/` with fingerprinted inputs, named miss
-//! reasons, output-drift refusal, and stream replay.
+//! reasons, output-drift refusal, and stream replay. The default input
+//! scope is strict (P-003 v2): all `git ls-files` files under the
+//! package root plus `pkg.hnl` `deps` trees — undeclared reads cannot
+//! go stale; `inputs:` narrows to exactly the declared globs.
 //!
 //! Plain library, no ext ABI — `plugin-ext-eval`'s `hnl run` command
 //! consumes it for the script-name dispatch (the file-execution path is
@@ -42,7 +45,10 @@ pub mod sched;
 /// Script/task model and argv splitting.
 pub mod script;
 
-pub use cache::{CacheCheck, EntryMeta, InputRecord, MissReason, Toolchain, check, entry_key};
+pub use cache::{
+    CACHE_SCHEMA_VERSION, CacheCheck, EntryMeta, InputRecord, MissReason, Toolchain, check,
+    check_noticed, entry_key,
+};
 pub use error::RunError;
 pub use exec::{
     DEPTH_ENV, ExecOutcome, HNL_ENV, MAX_RUN_DEPTH, current_depth, depth_env_for, exec_segments,

@@ -48,8 +48,12 @@ pub struct Task {
     /// Whether this task participates in the cache (default `true`;
     /// `cache: false` opts out per-task).
     pub cache: bool,
-    /// Declared `inputs` globs; `None` → the runner's default input set
-    /// (module sources + `pkg.hnl`).
+    /// Declared `inputs` globs; `None` → the v2 default input scope
+    /// (P-003): every `git ls-files` file under the package root plus
+    /// `pkg.hnl` `deps` trees when inside a git work tree, else module
+    /// sources + `pkg.hnl`. `Some` — even `[]` — means *exactly* those
+    /// globs: the narrowing escape hatch for big repos and the only way
+    /// to fingerprint gitignored files.
     pub inputs: Option<Vec<String>>,
     /// Declared `outputs` globs; `None`/empty → streams-only caching
     /// (no file restoration).

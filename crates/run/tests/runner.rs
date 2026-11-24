@@ -387,10 +387,13 @@ fn default_inputs_cover_pkg_hnl_and_module_sources() {
 }
 
 #[test]
-fn undeclared_reads_hit_stale_documented_gap() {
-    // P-003 known v1 gap, pinned: a command reading a file that is not
-    // in `inputs:` (and not a module source/pkg.hnl) demonstrably hits
-    // stale. `bash ci.sh` is the canonical case; `cat` stands in.
+fn undeclared_reads_hit_stale_outside_git_documented_gap() {
+    // P-003 v2 residual gap, pinned: the git-`ls-files` default scope
+    // closes the stale-hit hole *inside* a work tree, but a package
+    // outside git still falls back to declared/module inputs — a
+    // command reading an undeclared file (`cat` stands in for
+    // `bash ci.sh`) demonstrably hits stale there. Inside git the same
+    // scenario misses — see `git_default_busts_on_undeclared_file_change`.
     let dir = pkg_dir("stale");
     std::fs::write(dir.join("seed.txt"), "v1\n").unwrap();
     let pkg = write_pkg(&dir, r#"{ scripts: { t: { run: "cat seed.txt" } } }"#);
@@ -557,6 +560,202 @@ fn discover_finds_nearest_pkg_hnl() {
     let pkg = PkgScripts::discover(&nested).expect("discovers pkg.hnl");
     assert_eq!(pkg.dir, std::fs::canonicalize(&dir).unwrap());
     assert!(pkg.get("s").is_some());
+}
+
+// ---------------------------------------------------------------------
+// P-003 v2: git-scoped default inputs
+// ---------------------------------------------------------------------
+
+/// `git init -q` a scratch dir; returns `false` when git is unavailable
+/// (the git-scope tests then skip rather than fail on git-less hosts).
+fn git_init(dir: &Path) -> bool {
+    std::process::Command::new("git")
+        .arg("init")
+        .arg("-q")
+        .arg(dir)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+#[test]
+fn git_default_busts_on_undeclared_file_change() {
+    // The v1 gap, closed: a command reading a file that is NOT in
+    // `inputs:` (and not a module source) must miss when it changes —
+    // inside a git work tree the default scope is every ls-files file.
+    let base = pkg_dir("gitbust");
+    let dir = base.join("pkg");
+    std::fs::create_dir_all(&dir).unwrap();
+    if !git_init(&base) {
+        eprintln!("git unavailable — skipping git-scope test");
+        return;
+    }
+    std::fs::write(dir.join("seed.txt"), "v1\n").unwrap();
+    let pkg = write_pkg(&dir, r#"{ scripts: { t: { run: "cat seed.txt" } } }"#);
+    let r = runner();
+
+    let rep1 = r.run(&pkg, "t", &[]).unwrap();
+    assert_eq!(rep1.stdout, b"v1\n");
+
+    std::fs::write(dir.join("seed.txt"), "v2\n").unwrap();
+    let rep2 = r.run(&pkg, "t", &[]).unwrap();
+    assert!(matches!(rep2.tasks[0].status, TaskStatus::Ran { .. }));
+    let reason = miss_reason(&rep2);
+    assert!(
+        reason.contains("seed.txt") && reason.contains("modified"),
+        "{reason}"
+    );
+    assert_eq!(rep2.stdout, b"v2\n", "re-executed, not a stale replay");
+
+    // And it re-cached: next run hits.
+    let rep3 = r.run(&pkg, "t", &[]).unwrap();
+    assert!(matches!(rep3.tasks[0].status, TaskStatus::CacheHit { .. }));
+    assert_eq!(rep3.stdout, b"v2\n");
+}
+
+#[test]
+fn git_default_covers_new_untracked_files() {
+    // `--others --exclude-standard`: a file that was never `git add`ed
+    // still busts the cache (added → miss, removed → miss).
+    let base = pkg_dir("gitnew");
+    let dir = base.join("pkg");
+    std::fs::create_dir_all(&dir).unwrap();
+    if !git_init(&base) {
+        eprintln!("git unavailable — skipping git-scope test");
+        return;
+    }
+    let pkg = write_pkg(&dir, r#"{ scripts: { t: { run: "echo ok" } } }"#);
+    let r = runner();
+    r.run(&pkg, "t", &[]).unwrap();
+    let rep = r.run(&pkg, "t", &[]).unwrap();
+    assert!(matches!(rep.tasks[0].status, TaskStatus::CacheHit { .. }));
+
+    std::fs::write(dir.join("brand-new.txt"), "x\n").unwrap();
+    let rep = r.run(&pkg, "t", &[]).unwrap();
+    let reason = miss_reason(&rep);
+    assert!(reason.contains("added"), "{reason}");
+    assert!(reason.contains("brand-new.txt"), "{reason}");
+}
+
+#[test]
+fn declared_inputs_still_narrow_inside_git() {
+    // The perf escape hatch: `inputs:` means *exactly* those globs —
+    // undeclared files stay unfingerprinted even in a git repo.
+    let base = pkg_dir("gitnarrow");
+    let dir = base.join("pkg");
+    std::fs::create_dir_all(&dir).unwrap();
+    if !git_init(&base) {
+        eprintln!("git unavailable — skipping git-scope test");
+        return;
+    }
+    std::fs::write(dir.join("a.txt"), "a\n").unwrap();
+    std::fs::write(dir.join("b.txt"), "b1\n").unwrap();
+    let pkg = write_pkg(
+        &dir,
+        r#"{ scripts: { t: { run: "cat a.txt", inputs: ["a.txt"] } } }"#,
+    );
+    let r = runner();
+    r.run(&pkg, "t", &[]).unwrap();
+
+    // b.txt is not an input → changing it must NOT bust.
+    std::fs::write(dir.join("b.txt"), "b2\n").unwrap();
+    let rep = r.run(&pkg, "t", &[]).unwrap();
+    assert!(matches!(rep.tasks[0].status, TaskStatus::CacheHit { .. }));
+
+    // a.txt is → it does.
+    std::fs::write(dir.join("a.txt"), "a2\n").unwrap();
+    let rep = r.run(&pkg, "t", &[]).unwrap();
+    assert!(miss_reason(&rep).contains("a.txt"), "{}", miss_reason(&rep));
+}
+
+#[test]
+fn dep_tree_files_bust_the_cache() {
+    // `pkg.hnl` `deps` → sibling `lib-<name>` checkouts are fingerprinted
+    // too: a dep source change must miss even though the dep lives
+    // outside the package root.
+    let base = pkg_dir("gitdep");
+    let app = base.join("app");
+    let dep = base.join("lib-helper");
+    std::fs::create_dir_all(&app).unwrap();
+    std::fs::create_dir_all(&dep).unwrap();
+    if !git_init(&base) {
+        eprintln!("git unavailable — skipping git-scope test");
+        return;
+    }
+    std::fs::write(dep.join("pkg.hnl"), r#"{ name: "helper" }"#).unwrap();
+    std::fs::write(dep.join("data.txt"), "dep-v1\n").unwrap();
+    let pkg = write_pkg(
+        &app,
+        r#"{ deps: { helper: "branch:main" },
+             scripts: { t: { run: "cat ../lib-helper/data.txt" } } }"#,
+    );
+    let r = runner();
+
+    let rep1 = r.run(&pkg, "t", &[]).unwrap();
+    assert_eq!(rep1.stdout, b"dep-v1\n");
+
+    std::fs::write(dep.join("data.txt"), "dep-v2\n").unwrap();
+    let rep2 = r.run(&pkg, "t", &[]).unwrap();
+    assert!(matches!(rep2.tasks[0].status, TaskStatus::Ran { .. }));
+    let reason = miss_reason(&rep2);
+    assert!(reason.contains("data.txt"), "{reason}");
+    assert_eq!(rep2.stdout, b"dep-v2\n");
+}
+
+#[test]
+fn non_git_fallback_warns_once_and_still_caches() {
+    // Outside a git work tree the default falls back to v1 semantics
+    // (pkg.hnl + module sources) with a one-shot warning.
+    let dir = pkg_dir("nogitwarn");
+    let pkg = write_pkg(&dir, r#"{ scripts: { t: { run: "echo ok" } } }"#);
+    let r = runner();
+
+    let rep1 = r.run(&pkg, "t", &[]).unwrap();
+    assert!(
+        rep1.messages
+            .iter()
+            .any(|m| m.contains("not inside a git work tree")),
+        "{:?}",
+        rep1.messages
+    );
+
+    let rep2 = r.run(&pkg, "t", &[]).unwrap();
+    assert!(matches!(rep2.tasks[0].status, TaskStatus::CacheHit { .. }));
+    assert!(
+        !rep2
+            .messages
+            .iter()
+            .any(|m| m.contains("not inside a git work tree")),
+        "warns once per directory: {:?}",
+        rep2.messages
+    );
+}
+
+#[test]
+fn entries_from_an_older_schema_miss() {
+    // v1→v2: the key prefix already separates old entries; a meta.json
+    // whose recorded version disagrees is a named miss, never a hit.
+    let dir = pkg_dir("schema");
+    let pkg = write_pkg(
+        &dir,
+        r#"{ scripts: { t: { run: "echo ok", inputs: [] } } }"#,
+    );
+    let r = runner();
+    r.run(&pkg, "t", &[]).unwrap();
+    assert_eq!(cache_entries(&dir).len(), 1);
+
+    let meta_path = cache_entries(&dir)[0].join("meta.json");
+    let mut meta: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&meta_path).unwrap()).unwrap();
+    meta["version"] = serde_json::json!(1);
+    std::fs::write(&meta_path, serde_json::to_string(&meta).unwrap()).unwrap();
+
+    let rep = r.run(&pkg, "t", &[]).unwrap();
+    assert!(
+        miss_reason(&rep).contains("schema"),
+        "{}",
+        miss_reason(&rep)
+    );
 }
 
 /// Serializes env-mutating tests (edition 2024 `set_var` is unsafe).

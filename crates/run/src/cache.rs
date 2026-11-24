@@ -23,6 +23,36 @@
 //! observable contract — hit/miss verdicts, named culprits, drift
 //! refusal — is identical.)
 //!
+//! ## Input scope (P-003 v2 — strict by default)
+//!
+//! What counts as an *input* is decided per task:
+//!
+//! - **`inputs:` declared** — exactly those globs, nothing else. This
+//!   is the narrowing escape hatch for big repos *and* the only way to
+//!   fingerprint gitignored files (e.g. `generated/**`).
+//! - **`inputs:` absent, package inside a git work tree** — every file
+//!   `git ls-files --cached --others --exclude-standard` reports under
+//!   the package root (tracked *and* untracked-but-not-ignored), minus
+//!   `.handl/cache/`, **plus every `pkg.hnl` `deps` tree's files the
+//!   same way** (sibling `lib-<name>` checkouts, transitively). An
+//!   undeclared read — `bash ci.sh`, `Cargo.toml`, a sibling repo —
+//!   can no longer go stale silently.
+//! - **`inputs:` absent, no git work tree** — falls back to the v1
+//!   default (module sources + `pkg.hnl`) and emits a one-shot
+//!   `warning:` notice; dep trees are still covered.
+//!
+//! In the non-declared scopes the task's declared `outputs` globs are
+//! subtracted from the input set: an output is produced, not read, and
+//! leaving it in would turn every regenerate into a self-inflicted
+//! miss (and break restore-missing-outputs for unignored files).
+//!
+//! Boundaries, honestly: untracked *ignored* files (`target/`,
+//! `node_modules`, gitignored `generated/`) are not fingerprinted —
+//! declare them in `inputs:`; `.handl.toml` `[dependencies]`/`[patch]`
+//! dirs and package-cache git deps are not covered (only `pkg.hnl`
+//! `deps` → sibling `lib-<name>`); nested git repos/submodules appear
+//! only as their outer-repo listing.
+//!
 //! **Hit** restores each declared `outputs` blob only when the current
 //! file is missing; an existing file that differs is *drift* → miss,
 //! never a silent clobber. Then recorded streams replay and the
@@ -30,14 +60,18 @@
 //! entry is snapshotted via tmp-dir + rename. Failures are never
 //! cached; a corrupt entry is treated as a miss and overwritten.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::sync::{Mutex, OnceLock};
 use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+use handl_platform::config::resolve_pkg_dependencies;
 
 use crate::error::RunError;
 use crate::exec::ExecOutcome;
@@ -88,6 +122,9 @@ pub enum MissReason {
     EnvChanged(String),
     /// The hnl host or ext-eval version changed.
     ToolchainChanged,
+    /// The entry was written under a different cache schema — v2 keys
+    /// already keep v1 entries apart, this guards future bumps.
+    SchemaChanged,
     /// A file matching `inputs` is new since the recorded run.
     InputAdded(String),
     /// A recorded input no longer matches the globs.
@@ -106,6 +143,7 @@ impl std::fmt::Display for MissReason {
             MissReason::ArgsChanged => write!(f, "args changed"),
             MissReason::EnvChanged(name) => write!(f, "env '{name}' changed"),
             MissReason::ToolchainChanged => write!(f, "toolchain changed"),
+            MissReason::SchemaChanged => write!(f, "cache schema changed"),
             MissReason::InputAdded(p) => write!(f, "input '{p}' added"),
             MissReason::InputRemoved(p) => write!(f, "input '{p}' removed"),
             MissReason::InputModified(p) => write!(f, "input '{p}' modified"),
@@ -161,12 +199,18 @@ pub struct InputRecord {
     pub sha256: String,
 }
 
+/// Cache-entry schema version — bumped when input-scope semantics or
+/// the meta layout change. v2 = the git-`ls-files` default input scope
+/// (P-003 v2); v1 entries live under `…/v1` keys and simply never
+/// match, so no silent reuse of a stale-semantics hit is possible.
+pub const CACHE_SCHEMA_VERSION: u32 = 2;
+
 /// The cache key for one (script, args) pair — sha256 hex of the
 /// normalized definition. See the module docs for the deviation note on
 /// what is *not* hashed into the key.
 pub fn entry_key(script_name: &str, task: &Task, args: &[String]) -> String {
     let mut h = Sha256::new();
-    h.update(b"handl-run/run-cache/v1\n");
+    h.update(format!("handl-run/run-cache/v{CACHE_SCHEMA_VERSION}\n").as_bytes());
     h.update(format!("name={script_name}\n"));
     h.update(format!("args={}\n", args.len()));
     for a in args {
@@ -223,10 +267,10 @@ fn expand_globs(pkg_dir: &Path, globs: &[String]) -> Result<BTreeMap<String, Pat
     Ok(out)
 }
 
-/// The default input set when `inputs` is undeclared: the package's own
-/// module sources (every existing [`pkg_module_candidates`] file) plus
-/// `pkg.hnl` itself — the documented v1 default (dep trees and non-`.hnl`
-/// reads are *not* covered; declare them in `inputs:`).
+/// The v1 default input set — module sources (every existing
+/// [`pkg_module_candidates`] file) plus `pkg.hnl` itself. Under v2 this
+/// is only the *fallback* for directories outside a git work tree (and
+/// for non-git dep trees); the git scope covers everything tracked.
 fn default_input_globs(pkg: &PkgScripts) -> Vec<String> {
     use handl_platform::config::pkg_module_candidates;
     let mut globs = Vec::new();
@@ -241,13 +285,234 @@ fn default_input_globs(pkg: &PkgScripts) -> Vec<String> {
     globs
 }
 
-/// The current input set for a task: display key → absolute path.
-fn input_files(pkg: &PkgScripts, task: &Task) -> Result<BTreeMap<String, PathBuf>, RunError> {
-    let globs = match &task.inputs {
-        Some(globs) => globs.clone(),
-        None => default_input_globs(pkg),
-    };
-    expand_globs(&pkg.dir, &globs)
+/// The resolved input set for one task plus runner notices.
+struct InputScan {
+    /// Display key → absolute path (see [`display_key`]).
+    files: BTreeMap<String, PathBuf>,
+    /// One-shot warnings (currently only the non-git fallback).
+    notices: Vec<String>,
+}
+
+/// `git ls-files -z --cached --others --exclude-standard` under `dir`,
+/// as absolute paths — tracked *and* untracked-but-not-ignored files,
+/// minus `.handl/cache/` (generated state that must never be an
+/// input). `None` when `dir` is not inside a git work tree or `git`
+/// is unavailable — the caller falls back.
+fn git_files(dir: &Path) -> Option<Vec<PathBuf>> {
+    let dir = std::fs::canonicalize(dir).ok()?;
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(&dir)
+        .args([
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let mut files = Vec::new();
+    for rec in out.stdout.split(|b| *b == 0) {
+        if rec.is_empty() {
+            continue;
+        }
+        // `-z` output is unquoted; non-UTF-8 names degrade to lossy
+        // (the display key is a String either way).
+        let rel = String::from_utf8_lossy(rec).replace('\\', "/");
+        if rel == ".handl/cache" || rel.starts_with(".handl/cache/") {
+            continue;
+        }
+        let abs = dir.join(&rel);
+        // `--cached` lists tracked files deleted from the worktree —
+        // skip them so they surface as `InputRemoved` in the manifest
+        // diff instead of a stat error.
+        if abs.is_file() {
+            files.push(abs);
+        }
+    }
+    Some(files)
+}
+
+/// Whether `dir` sits inside a git work tree — memoized per directory
+/// (work-tree-ness does not change within a process; the file *list*
+/// deliberately is not memoized).
+fn in_git_work_tree(dir: &Path) -> bool {
+    static PROBE: OnceLock<Mutex<HashMap<PathBuf, bool>>> = OnceLock::new();
+    let probe = PROBE.get_or_init(|| Mutex::new(HashMap::new()));
+    let key = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+    if let Ok(map) = probe.lock()
+        && let Some(v) = map.get(&key)
+    {
+        return *v;
+    }
+    let inside = Command::new("git")
+        .arg("-C")
+        .arg(&key)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .map(|o| o.status.success() && o.stdout.starts_with(b"true"))
+        .unwrap_or(false);
+    if let Ok(mut map) = probe.lock() {
+        map.insert(key, inside);
+    }
+    inside
+}
+
+/// The one-shot fallback warning — at most one notice per directory
+/// per process, no matter how many tasks scan it.
+fn fallback_notice(dir: &Path, role: &str) -> Option<String> {
+    static NOTICED: OnceLock<Mutex<BTreeSet<PathBuf>>> = OnceLock::new();
+    let noticed = NOTICED.get_or_init(|| Mutex::new(BTreeSet::new()));
+    let key = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+    let mut guard = noticed.lock().ok()?;
+    if !guard.insert(key.clone()) {
+        return None;
+    }
+    Some(format!(
+        "warning: {role} {} is not inside a git work tree (or git is unavailable) — \
+         cache inputs cover only pkg.hnl + module sources there; undeclared file reads \
+         can go stale (declare `inputs:` or run inside git)",
+        key.display()
+    ))
+}
+
+/// `pkg.hnl` `deps` → sibling `lib-<name>` checkouts, transitively —
+/// the same convention [`resolve_pkg_dependencies`] applies, closed
+/// breadth-first over each dep's own `pkg.hnl` (visited-set bounded, so
+/// dep cycles terminate). Only directories that exist are returned,
+/// canonicalized and deduplicated.
+fn dep_dirs(pkg_dir: &Path) -> Vec<PathBuf> {
+    let canon = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    let root = canon(pkg_dir);
+    let mut seen: HashSet<PathBuf> = HashSet::from([root.clone()]);
+    let mut queue: VecDeque<PathBuf> = VecDeque::from([root]);
+    let mut out = Vec::new();
+    while let Some(dir) = queue.pop_front() {
+        let Ok(deps) = resolve_pkg_dependencies(&dir) else {
+            continue;
+        };
+        for (_name, dep) in deps {
+            if !dep.is_dir() {
+                continue;
+            }
+            let dep = canon(&dep);
+            if seen.insert(dep.clone()) {
+                out.push(dep.clone());
+                queue.push_back(dep);
+            }
+        }
+    }
+    out
+}
+
+/// Insert `abs` under its display key, and — when `pkg.hnl` exists at
+/// `root` — make sure the manifest itself is always an input (it can
+/// be gitignored in exotic layouts; the def hash does not cover
+/// non-script keys like `modules`/`deps`).
+fn insert_root_files(
+    files: &mut BTreeMap<String, PathBuf>,
+    pkg_dir: &Path,
+    root: &Path,
+    paths: impl IntoIterator<Item = PathBuf>,
+) {
+    for abs in paths {
+        files.insert(display_key(pkg_dir, &abs), abs);
+    }
+    let manifest = root.join("pkg.hnl");
+    if manifest.is_file() {
+        files.insert(display_key(pkg_dir, &manifest), manifest);
+    }
+}
+
+/// The current input set for a task: display key → absolute path,
+/// plus one-shot notices. See the module docs for the v2 scope rules.
+fn scan_inputs(pkg: &PkgScripts, task: &Task) -> Result<InputScan, RunError> {
+    // `inputs:` declared → exactly those globs. The narrowing escape
+    // hatch for big repos, and the only way to fingerprint ignored
+    // files (e.g. `generated/**`).
+    if let Some(globs) = &task.inputs {
+        return Ok(InputScan {
+            files: expand_globs(&pkg.dir, globs)?,
+            notices: Vec::new(),
+        });
+    }
+
+    let pkg_base = std::fs::canonicalize(&pkg.dir).unwrap_or_else(|_| pkg.dir.clone());
+    let mut files = BTreeMap::new();
+    let mut notices = Vec::new();
+
+    // The package's own files.
+    match git_files(&pkg_base) {
+        Some(own) => insert_root_files(&mut files, &pkg_base, &pkg_base, own),
+        None => {
+            if let Some(n) = fallback_notice(&pkg_base, "package root") {
+                notices.push(n);
+            }
+            let globs = default_input_globs(pkg);
+            for (k, p) in expand_globs(&pkg.dir, &globs)? {
+                files.insert(k, p);
+            }
+        }
+    }
+
+    // Dep trees: `pkg.hnl` `deps` → sibling `lib-<name>` checkouts,
+    // transitively. Each dep is fingerprinted by the same rule —
+    // git-tracked files when it is a work tree, else its own
+    // `pkg.hnl` + module sources. Keys outside the package are `@/abs`.
+    for dep in dep_dirs(&pkg_base) {
+        match git_files(&dep) {
+            Some(dep_files) => insert_root_files(&mut files, &pkg_base, &dep, dep_files),
+            None => {
+                if let Some(n) = fallback_notice(&dep, "dependency") {
+                    notices.push(n);
+                }
+                if let Some(dep_pkg) = PkgScripts::load(&dep) {
+                    let globs = default_input_globs(&dep_pkg);
+                    for (_k, p) in expand_globs(&dep, &globs)? {
+                        files.insert(display_key(&pkg_base, &p), p);
+                    }
+                    let manifest = dep.join("pkg.hnl");
+                    if manifest.is_file() {
+                        files.insert(display_key(&pkg_base, &manifest), manifest);
+                    }
+                }
+            }
+        }
+    }
+
+    // Declared outputs are produced, not read — subtract them so an
+    // unignored output file cannot self-bust the cache or break
+    // restore-missing-outputs. (`inputs:`-declared scope is exempt:
+    // there the user named the exact set.)
+    if let Some(globs) = &task.outputs
+        && !globs.is_empty()
+    {
+        for (_k, p) in expand_globs(&pkg.dir, globs)? {
+            files.remove(&display_key(&pkg_base, &p));
+        }
+    }
+
+    Ok(InputScan { files, notices })
+}
+
+/// Early fallback notice for `check_noticed`: when `inputs:` is
+/// undeclared and the package root is not a git work tree, the notice
+/// is emitted even on misses that return before the input scan
+/// (NoEntry/Corrupt/Args/Env/Toolchain). Dep-level notices still
+/// surface from [`scan_inputs`] on the input stage.
+fn early_notices(pkg: &PkgScripts, task: &Task) -> Vec<String> {
+    if task.inputs.is_some() {
+        return Vec::new();
+    }
+    let base = std::fs::canonicalize(&pkg.dir).unwrap_or_else(|_| pkg.dir.clone());
+    if in_git_work_tree(&base) {
+        return Vec::new();
+    }
+    fallback_notice(&base, "package root").into_iter().collect()
 }
 
 /// mtime+size of `path` (the pre-filter half of [`InputRecord`]).
@@ -302,10 +567,8 @@ fn env_manifest(task: &Task) -> BTreeMap<String, Option<String>> {
         .collect()
 }
 
-/// Look up the cache entry for `(pkg, script, task, args)`.
-///
-/// `script_name`/`args` only feed the key; `task` supplies the def,
-/// inputs, outputs, env, and cwd that are validated.
+/// Look up the cache entry for `(pkg, script, task, args)` — the
+/// notice-free half of [`check_noticed`].
 ///
 /// # Errors
 ///
@@ -319,54 +582,93 @@ pub fn check(
     args: &[String],
     toolchain: &Toolchain,
 ) -> Result<CacheCheck, RunError> {
+    Ok(check_noticed(pkg, script_name, task, args, toolchain)?.0)
+}
+
+/// [`check`] plus one-shot notices about how the input set was
+/// resolved — currently the non-git fallback warning (P-003 v2). The
+/// `Runner` merges these into the run/plan report.
+///
+/// # Errors
+///
+/// Same as [`check`].
+pub fn check_noticed(
+    pkg: &PkgScripts,
+    script_name: &str,
+    task: &Task,
+    args: &[String],
+    toolchain: &Toolchain,
+) -> Result<(CacheCheck, Vec<String>), RunError> {
     let key = entry_key(script_name, task, args);
     let entry = cache_root(&pkg.dir).join(&key);
     let meta_path = entry.join("meta.json");
+    // The non-git fallback warning applies even to early misses — the
+    // probe is memoized and cheap.
+    let mut notices = early_notices(pkg, task);
     if !meta_path.is_file() {
-        return Ok(CacheCheck::Miss(MissReason::NoEntry));
+        return Ok((CacheCheck::Miss(MissReason::NoEntry), notices));
     }
     let meta: EntryMeta = match fs::read_to_string(&meta_path)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
     {
         Some(m) => m,
-        None => return Ok(CacheCheck::Miss(MissReason::CorruptEntry)),
+        None => return Ok((CacheCheck::Miss(MissReason::CorruptEntry), notices)),
     };
+    if meta.version != CACHE_SCHEMA_VERSION {
+        return Ok((CacheCheck::Miss(MissReason::SchemaChanged), notices));
+    }
 
     // args → env → toolchain → inputs → output drift, in spec order.
     if meta.args != args {
-        return Ok(CacheCheck::Miss(MissReason::ArgsChanged));
+        return Ok((CacheCheck::Miss(MissReason::ArgsChanged), notices));
     }
     let current_env = env_manifest(task);
     for (name, recorded) in &meta.env {
         match current_env.get(name) {
             Some(v) if v == recorded => {}
-            _ => return Ok(CacheCheck::Miss(MissReason::EnvChanged(name.clone()))),
+            _ => {
+                return Ok((
+                    CacheCheck::Miss(MissReason::EnvChanged(name.clone())),
+                    notices,
+                ));
+            }
         }
     }
     // Names present now but absent from the manifest also count.
     for name in current_env.keys() {
         if !meta.env.contains_key(name) {
-            return Ok(CacheCheck::Miss(MissReason::EnvChanged(name.clone())));
+            return Ok((
+                CacheCheck::Miss(MissReason::EnvChanged(name.clone())),
+                notices,
+            ));
         }
     }
     if meta.toolchain != *toolchain {
-        return Ok(CacheCheck::Miss(MissReason::ToolchainChanged));
+        return Ok((CacheCheck::Miss(MissReason::ToolchainChanged), notices));
     }
 
     // Inputs: union of current and recorded keys, sorted — first
     // culprit wins, deterministically.
-    let current = input_files(pkg, task)?;
+    let scan = scan_inputs(pkg, task)?;
+    notices.extend(scan.notices);
+    let current = scan.files;
     let mut keys: Vec<&String> = current.keys().chain(meta.inputs.keys()).collect();
     keys.sort();
     keys.dedup();
     for key in keys {
         match (current.get(key), meta.inputs.get(key)) {
             (Some(_), None) => {
-                return Ok(CacheCheck::Miss(MissReason::InputAdded(key.clone())));
+                return Ok((
+                    CacheCheck::Miss(MissReason::InputAdded(key.clone())),
+                    notices,
+                ));
             }
             (None, Some(_)) => {
-                return Ok(CacheCheck::Miss(MissReason::InputRemoved(key.clone())));
+                return Ok((
+                    CacheCheck::Miss(MissReason::InputRemoved(key.clone())),
+                    notices,
+                ));
             }
             (Some(path), Some(recorded)) => {
                 // mtime/size pre-filter: unchanged stat ⇒ unchanged
@@ -379,7 +681,10 @@ pub fn check(
                 }
                 let now = record_input(path)?;
                 if now.sha256 != recorded.sha256 {
-                    return Ok(CacheCheck::Miss(MissReason::InputModified(key.clone())));
+                    return Ok((
+                        CacheCheck::Miss(MissReason::InputModified(key.clone())),
+                        notices,
+                    ));
                 }
             }
             (None, None) => {}
@@ -403,13 +708,13 @@ pub fn check(
                     .zip(fs::read(&current_path).ok())
                     .is_some_and(|(a, b)| a == b);
                 if !same {
-                    return Ok(CacheCheck::Miss(MissReason::OutputDrifted(rel)));
+                    return Ok((CacheCheck::Miss(MissReason::OutputDrifted(rel)), notices));
                 }
             }
         }
     }
 
-    Ok(CacheCheck::Hit { entry, meta })
+    Ok((CacheCheck::Hit { entry, meta }, notices))
 }
 
 /// Restore cached outputs that are *missing* on disk. Drift was already
@@ -455,7 +760,9 @@ pub fn restore_missing_outputs(pkg: &PkgScripts, entry: &Path) -> Result<Vec<Str
 /// # Errors
 ///
 /// Filesystem failures — the caller treats store failure as a warning,
-/// never a run failure.
+/// never a run failure. On success returns the input-scope notices
+/// (the non-git fallback warning) so the caller can surface them —
+/// store is the only scan on the first-run path.
 pub fn store(
     pkg: &PkgScripts,
     script: &Script,
@@ -463,7 +770,7 @@ pub fn store(
     args: &[String],
     toolchain: &Toolchain,
     outcome: &ExecOutcome,
-) -> Result<(), RunError> {
+) -> Result<Vec<String>, RunError> {
     debug_assert_eq!(outcome.code, 0, "failures are never cached");
     let key = entry_key(&script.name, task, args);
     let root = cache_root(&pkg.dir);
@@ -472,12 +779,13 @@ pub fn store(
 
     // Fresh input manifest — every file hashed (store is rare; the
     // pre-filter only pays on lookup).
+    let scan = scan_inputs(pkg, task)?;
     let mut inputs = BTreeMap::new();
-    for (k, path) in input_files(pkg, task)? {
-        inputs.insert(k, record_input(&path)?);
+    for (k, path) in &scan.files {
+        inputs.insert(k.clone(), record_input(path)?);
     }
     let meta = EntryMeta {
-        version: 1,
+        version: CACHE_SCHEMA_VERSION,
         script: script.name.clone(),
         args: args.to_vec(),
         code: outcome.code,
@@ -543,7 +851,7 @@ pub fn store(
             entry.display()
         ))
     })?;
-    Ok(())
+    Ok(scan.notices)
 }
 
 /// Nanosecond-ish suffix for tmp dir uniqueness within a process.

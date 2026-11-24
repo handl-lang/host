@@ -150,6 +150,8 @@ pub struct PlanReport {
     pub order: Vec<String>,
     /// Per-task verdicts in execution order.
     pub tasks: Vec<PlannedTask>,
+    /// One-shot input-scope notices (the non-git fallback warning).
+    pub notices: Vec<String>,
 }
 
 impl Runner {
@@ -241,11 +243,13 @@ impl Runner {
             script: name.to_string(),
             order: order.clone(),
             tasks: Vec::new(),
+            notices: Vec::new(),
         };
         for task_name in &order {
             let script = pkg.get(task_name).expect("resolve_order validated");
             let script_args: &[String] = if task_name == name { args } else { &[] };
-            let verdict = self.plan_one(pkg, script, script_args)?;
+            let (verdict, notices) = self.plan_one(pkg, script, script_args)?;
+            report.notices.extend(notices);
             report.tasks.push(PlannedTask {
                 name: task_name.clone(),
                 verdict,
@@ -270,7 +274,10 @@ impl Runner {
         let cacheable = self.options.cache == CacheMode::Enabled && task.is_some_and(|t| t.cache);
 
         if let (Some(task), true) = (task, cacheable) {
-            match cache::check(pkg, &script.name, task, args, &self.options.toolchain)? {
+            let (check, notices) =
+                cache::check_noticed(pkg, &script.name, task, args, &self.options.toolchain)?;
+            messages.extend(notices);
+            match check {
                 CacheCheck::Hit { entry, meta } => {
                     let restored = cache::restore_missing_outputs(pkg, &entry)?;
                     let (stdout, stderr) = cache::read_streams(&entry);
@@ -292,11 +299,20 @@ impl Runner {
                     messages.push(format!("cache miss: {reason}, executing"));
                     let outcome =
                         self.exec_script(pkg, script, args, depth, out_stdout, out_stderr)?;
-                    if outcome.code == 0
-                        && let Err(e) =
-                            cache::store(pkg, script, task, args, &self.options.toolchain, &outcome)
-                    {
-                        messages.push(format!("warning: cannot write cache entry: {e}"));
+                    if outcome.code == 0 {
+                        match cache::store(
+                            pkg,
+                            script,
+                            task,
+                            args,
+                            &self.options.toolchain,
+                            &outcome,
+                        ) {
+                            Ok(notices) => messages.extend(notices),
+                            Err(e) => {
+                                messages.push(format!("warning: cannot write cache entry: {e}"));
+                            }
+                        }
                     }
                     return Ok((
                         TaskStatus::Ran { code: outcome.code },
@@ -318,19 +334,22 @@ impl Runner {
         pkg: &PkgScripts,
         script: &Script,
         args: &[String],
-    ) -> Result<PlanVerdict, RunError> {
+    ) -> Result<(PlanVerdict, Vec<String>), RunError> {
         let cacheable =
             self.options.cache == CacheMode::Enabled && script.task().is_some_and(|t| t.cache);
         let Some(task) = script.task() else {
-            return Ok(PlanVerdict::Uncached);
+            return Ok((PlanVerdict::Uncached, Vec::new()));
         };
         if !cacheable {
-            return Ok(PlanVerdict::Uncached);
+            return Ok((PlanVerdict::Uncached, Vec::new()));
         }
-        match cache::check(pkg, &script.name, task, args, &self.options.toolchain)? {
-            CacheCheck::Hit { .. } => Ok(PlanVerdict::Hit),
-            CacheCheck::Miss(reason) => Ok(PlanVerdict::Miss(reason.to_string())),
-        }
+        let (check, notices) =
+            cache::check_noticed(pkg, &script.name, task, args, &self.options.toolchain)?;
+        let verdict = match check {
+            CacheCheck::Hit { .. } => PlanVerdict::Hit,
+            CacheCheck::Miss(reason) => PlanVerdict::Miss(reason.to_string()),
+        };
+        Ok((verdict, notices))
     }
 
     /// Build segments, execute them, and echo the captured streams to
@@ -362,12 +381,7 @@ impl Runner {
 /// append them to the report buffer — used both for live echo of a
 /// miss-run's streams and for replaying a hit's recorded streams.
 /// `echo: false` (see [`RunOptions::echo`]) records without writing.
-fn emit_record(
-    bytes: &[u8],
-    stdout: bool,
-    buf: &mut Vec<u8>,
-    echo: bool,
-) -> Result<(), RunError> {
+fn emit_record(bytes: &[u8], stdout: bool, buf: &mut Vec<u8>, echo: bool) -> Result<(), RunError> {
     if bytes.is_empty() {
         return Ok(());
     }
