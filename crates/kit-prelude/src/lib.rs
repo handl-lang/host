@@ -210,6 +210,15 @@ const PRELUDE_MODULES: &[(&'static str, ModuleCtor)] = &[
                 .with_eval_engine(e),
         )
     }),
+    // `proc` — process identity atoms (P-012): `proc.argv`/`proc.exit`/
+    // `proc.pid` host ops from `plugin-lib-stdlib`'s `ops/process.rs`.
+    ("proc", |r, e| {
+        ModuleEntry::Handl(
+            stdlib::module_with("proc", Arc::new(*r))
+                .expect("proc")
+                .with_eval_engine(e),
+        )
+    }),
     // `fn` is an unbound-identifier alias for `combinators` — a
     // resolver-only row (not in `base_modules`, so registry builds skip it
     // unless `selected` is `None`).

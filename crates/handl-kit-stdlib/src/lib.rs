@@ -381,6 +381,7 @@ pub fn populate_libraries(reg: &mut handl_kit_data::LibraryRegistry) {
         "bytes",
         "ip",
         "archive-tar",
+        "proc",
     ] {
         reg.register(name, move || {
             stdlib::library(name).unwrap_or_else(|| panic!("unknown stdlib package '{name}'"))
