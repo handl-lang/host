@@ -9,13 +9,31 @@ priority = "med"
 title: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Elimination of Per-Library Rust
 type: adr
 date: 2026-09-03
-updated: 2026-10-29
+updated: 2026-11-24
 status: accepted
 status_note: |-
   Accepted. Builds on [ADR-0069 — Arrow-Native Modules](./0069-arrow-native-modules.md),
   [ADR-0052 — Scheme IR Contracts](./0052-scheme-ir-contracts.md),
   [ADR-0068 — Predicates as Types](./0068-predicates-as-types.md),
   and [ADR-0051 — FFI Rust Binding Facade](./0051-ffi-rust-binding-facade.md).
+
+  **Partially superseded by
+  [P-013 — Atoms as arrows: atom-spec IDL + spec-driven runtime +
+  scoped deps](../proposals/proposal-0013-atoms-as-arrows-ffi-codegen.md)
+  (T-148–T-152, 2026-11-24):** Decision §4's `cap`/`op`/`handle`
+  declaration forms are replaced by the `atoms.yaml` atom-spec IDL —
+  one spec per lib (`{ name, sig, impl, total }` per atom) consumed
+  directly by spec-driven registries (`registry_from_atoms` /
+  `ModuleSpec::Atoms`) — plus `ffi.rust.resolve` for dynamic
+  atom-name → `{fn, sig}` arrow resolution and the `tool-codegen-ffi`
+  TypeScript emitter for external clients that cannot reach the
+  in-process resolver. `handle "…"` is deleted outright (dead — the
+  Rust name was never resolved); `cap "…"` is deleted (unenforced
+  plugin metadata); `op "name" : Sig` survives only as the
+  transitional file-import string-callee until the T-151 decl
+  migration covers port files. The remainder of this ADR — the
+  stdlib-as-handl migration, axioms, the phase plan, and native
+  bodies over direct C/POSIX FFI — stands.
 ---
 
 # ADR-0077: Stdlib Migration to Handl — `op` Declarations, Axioms, and the Elimination of Per-Library Rust
