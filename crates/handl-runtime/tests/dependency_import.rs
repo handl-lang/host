@@ -263,6 +263,110 @@ fn patch_bridges_a_git_dependency_to_a_sibling_checkout() {
     std::fs::remove_dir_all(&root).ok();
 }
 
+/// `pkg.hnl`-declared HandlModules are first-class import targets: a dep
+/// dir whose `pkg.hnl` lists `modules:` resolves `from "dep/<module>"`
+/// through the ADR-0160 `src/` layout (`src/<module>/index.hnl`,
+/// `src/<module>.hnl`), and a single-module package's bare `from "dep"`
+/// resolves its primary module — matching the codemod/kit tooling.
+#[test]
+fn pkg_hnl_modules_resolve_through_the_dep_dir() {
+    let root = scratch_dir("pkg-modules");
+    let project = root.join("project");
+    let dep_multi = root.join("vendor/multi");
+    let dep_single = root.join("vendor/single");
+    std::fs::create_dir_all(&project).unwrap();
+    std::fs::create_dir_all(dep_multi.join("src/foo")).unwrap();
+    std::fs::create_dir_all(dep_multi.join("src/bar")).unwrap();
+    std::fs::create_dir_all(dep_single.join("src")).unwrap();
+
+    // Multi-module package: `modules:` names map to `src/<name>/index.hnl`
+    // (canonical) with `src/<name>.hnl` as the legacy fallback.
+    std::fs::write(
+        dep_multi.join("pkg.hnl"),
+        "{ name: \"multi\", modules: [\"foo\", \"bar\"] }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dep_multi.join("src/foo/index.hnl"),
+        "export f := (x) ~> x + 1\n",
+    )
+    .unwrap();
+    std::fs::write(dep_multi.join("src/bar.hnl"), "export g := (x) ~> x * 3\n").unwrap();
+
+    // Single-module package: the bare dep name resolves the primary
+    // module (`src/index.hnl` per ADR-0160).
+    std::fs::write(
+        dep_single.join("pkg.hnl"),
+        "{ name: \"single\", modules: [\"main\"] }\n",
+    )
+    .unwrap();
+    std::fs::write(dep_single.join("src/index.hnl"), "export h := (x) ~> x - 2\n").unwrap();
+
+    std::fs::write(
+        project.join("consumer.hnl"),
+        concat!(
+            "from \"multi/foo\" import f\n",
+            "from \"multi/bar\" import g\n",
+            "from \"single\" import h\n",
+            "export go := (x) ~> h(g(f(x)))\n",
+        ),
+    )
+    .unwrap();
+
+    let deps = HashMap::from([
+        ("multi".to_string(), dep_multi.clone()),
+        ("single".to_string(), dep_single.clone()),
+    ]);
+    let (loader, rt) = loader_and_runtime(project.clone(), deps);
+
+    let value = loader
+        .resolve_import("consumer.hnl")
+        .expect("pkg.hnl module specs must resolve through the deps table");
+    let Value::Object(obj) = &value else {
+        panic!("module record should be an object, got {value}");
+    };
+    assert!(obj.contains_key("go"), "module should export `go`: {value}");
+
+    // `h(g(f(3)))` = `(3 + 1) * 3 - 2` = 10.
+    let value = rt
+        .run(&Source::new(
+            r#"do { from "consumer.hnl" import go; go(3) }"#,
+        ))
+        .expect("pkg.hnl module imports must reach the dep files");
+    assert_eq!(value, json!(10));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// A relative specifier that lands inside a `pkg.hnl` package dir resolves
+/// the same way: `./pkg/<module>` maps through the package's `modules:`
+/// table, so in-repo package dirs behave like `[dependencies]` entries.
+#[test]
+fn relative_pkg_hnl_module_specs_resolve() {
+    let root = scratch_dir("rel-pkg-modules");
+    let project = root.join("project");
+    let pkg = project.join("pkg");
+    std::fs::create_dir_all(pkg.join("src/util")).unwrap();
+
+    std::fs::write(pkg.join("pkg.hnl"), "{ modules: [\"util\"] }\n").unwrap();
+    std::fs::write(pkg.join("src/util/index.hnl"), "export u := (x) ~> x + 7\n").unwrap();
+    std::fs::write(
+        project.join("consumer.hnl"),
+        "from \"./pkg/util\" import u\nexport go := (x) ~> u(x)\n",
+    )
+    .unwrap();
+
+    let (_loader, rt) = loader_and_runtime(project.clone(), HashMap::new());
+    let value = rt
+        .run(&Source::new(
+            r#"do { from "consumer.hnl" import go; go(1) }"#,
+        ))
+        .expect("./pkg/<module> must resolve through the package's pkg.hnl");
+    assert_eq!(value, json!(8));
+
+    std::fs::remove_dir_all(&root).ok();
+}
+
 /// The missing-sibling half of the bridge: a committed `[patch]` whose
 /// directory does not exist is inert — a git dep then resolves to its
 /// `~/.handl/pkg/<name>` package-cache slot (the dir the fetch hook

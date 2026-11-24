@@ -1784,6 +1784,158 @@ pub fn pkg_module_candidates(modules: &[String], entry: Option<&str>, module: &s
     out
 }
 
+// ---------------------------------------------------------------------------
+// pkg.hnl-aware import specifier resolution
+//
+// `pkg.hnl` `modules:`/`entry` (ADR-0160) make a package directory's
+// module names first-class import targets: `from "dep/mod"` resolves
+// `mod` through the dep's manifest (`src/mod/index.hnl`,
+// `src/mod.hnl`, or the single-module `src/index.hnl`/`entry`) instead of
+// treating the dep dir as a flat `.hnl` namespace. The same layout applies
+// when a relative specifier lands inside a package dir
+// (`from "./pkg/mod"`).
+//
+// These helpers are the shared half every import-resolution site calls —
+// `ModuleLoader` (eval), the `hnl run`/`typecheck`/`lint`/`compile`
+// prelude mirrors, and `hnl test`'s import preamble — so a specifier
+// resolves identically in each.
+// ---------------------------------------------------------------------------
+
+/// The file an already-joined import candidate resolves to: a directory
+/// yields `index.hnl` or `<dir>/<name>.hnl`, a bare name tries
+/// `<path>.hnl`, and an existing file resolves to itself. `spec` is the
+/// original specifier — only its `.hnl` suffix is consulted.
+pub fn import_file_candidate(joined: &Path, spec: &str) -> Option<PathBuf> {
+    if joined.is_dir() {
+        let index = joined.join("index.hnl");
+        if index.is_file() {
+            return Some(index);
+        }
+        if let Some(name) = joined.file_name().and_then(|s| s.to_str()) {
+            let main = joined.join(format!("{name}.hnl"));
+            if main.is_file() {
+                return Some(main);
+            }
+        }
+    }
+    if !spec.ends_with(".hnl") {
+        let with_ext = joined.with_extension("hnl");
+        if with_ext.is_file() {
+            return Some(with_ext);
+        }
+    }
+    if joined.is_file() {
+        Some(joined.to_path_buf())
+    } else {
+        None
+    }
+}
+
+/// Resolve `spec` — the `/`-separated tail *inside* package dir `pkg_dir`
+/// (`""` for the package itself) — through `pkg_dir`'s `pkg.hnl`
+/// `modules:`/`entry` mapping (ADR-0160), then its `src/` layout.
+///
+/// - `""` → the package's primary module: the single declared `modules:`
+///   entry (its `entry` override honored via [`pkg_module_candidates`]).
+///   Multi-module packages are ambiguous at the bare name and yield
+///   `None`.
+/// - `"<module>"` naming a declared module → the ADR-0160 candidates,
+///   first existing file wins.
+/// - anything else → the `src/`-relative path: `dep/math/sqrt` resolves
+///   `src/math/sqrt.hnl`, and an undeclared single-segment name
+///   (`dep/sqrt`) resolves `src/sqrt.hnl` — the flat `src/` namespace
+///   single-module packages already use for intra-package imports.
+///
+/// Returns `None` when `pkg_dir` has no `pkg.hnl` or no candidate exists —
+/// callers then apply their literal resolution.
+pub fn package_spec_file(pkg_dir: &Path, spec: &str) -> Option<PathBuf> {
+    let manifest = std::fs::read_to_string(pkg_dir.join("pkg.hnl")).ok()?;
+    let modules = pkg_modules(&manifest);
+    let entry = pkg_entry(&manifest);
+    let spec = spec.trim_matches('/');
+    if spec.is_empty() {
+        // Bare package specifier → the primary module. Only a
+        // single-module package has an unambiguous one.
+        if modules.len() != 1 {
+            return None;
+        }
+        return pkg_module_candidates(&modules, entry.as_deref(), &modules[0])
+            .into_iter()
+            .map(|rel| pkg_dir.join(rel))
+            .find(|p| p.is_file());
+    }
+    let (head, tail) = spec.split_once('/').unwrap_or((spec, ""));
+    let module_key = head.strip_suffix(".hnl").unwrap_or(head);
+    if tail.is_empty() && modules.iter().any(|m| m == module_key) {
+        // `dep/<module>` names a declared pkg.hnl module → its canonical
+        // `src/` file (ADR-0160 candidate order).
+        return pkg_module_candidates(&modules, entry.as_deref(), module_key)
+            .into_iter()
+            .map(|rel| pkg_dir.join(rel))
+            .find(|p| p.is_file());
+    }
+    // Otherwise the tail is a `src/`-relative path inside the package.
+    import_file_candidate(&pkg_dir.join("src").join(spec), spec)
+}
+
+/// Resolve a dependency specifier's remainder inside `dep_dir`: the dir's
+/// `pkg.hnl` package layout first — dep names are package abstractions,
+/// not paths — then the literal `<dep_dir>/<rest>` file candidate (the
+/// pre-pkg.hnl behavior, kept as fallback). `rest` is the specifier tail
+/// after the dep name (`""` for a bare dep name).
+pub fn dep_spec_file(dep_dir: &Path, rest: &str) -> Option<PathBuf> {
+    package_spec_file(dep_dir, rest).or_else(|| {
+        let joined = if rest.is_empty() {
+            dep_dir.to_path_buf()
+        } else {
+            dep_dir.join(rest)
+        };
+        import_file_candidate(&joined, rest)
+    })
+}
+
+/// Resolve `spec` under `base` for non-dep specifiers: the literal file
+/// candidate first (explicit/relative paths keep filesystem semantics),
+/// then the `pkg.hnl` package layout reachable through `spec`'s own
+/// directory prefixes — `./pkg/mod` resolves `mod` inside `./pkg`'s
+/// manifest when `./pkg` is a package, and `./pkg` alone resolves the
+/// package's primary module when it has no root `index.hnl`.
+///
+/// Prefix dirs are tried deepest-first so a nested package shadows its
+/// parent; prefixes made only of `.`/`..` segments are skipped (they name
+/// the base itself, not a package inside the spec). An absolute `spec`
+/// resolves against `/` — [`Path::join`] semantics preserved.
+pub fn relative_spec_file(base: &Path, spec: &str) -> Option<PathBuf> {
+    let (base, spec) = match spec.strip_prefix('/') {
+        Some(stripped) => (Path::new("/"), stripped),
+        None => (base, spec),
+    };
+    let joined = base.join(spec);
+    if let Some(f) = import_file_candidate(&joined, spec) {
+        return Some(f);
+    }
+    // Package prefixes of `spec`, deepest first: `a/b/c` tries package
+    // dir `a/b/c` (tail `""`), then `a/b` (tail `c`), then `a`
+    // (tail `b/c`). `.` segments carry no path meaning and `..`-only
+    // prefixes name ancestors of the base, not packages inside it.
+    let segs: Vec<&str> = spec
+        .split('/')
+        .filter(|s| !s.is_empty() && *s != ".")
+        .collect();
+    for i in (1..=segs.len()).rev() {
+        let dir_segs = &segs[..i];
+        if dir_segs.iter().all(|s| *s == "..") {
+            continue;
+        }
+        let pkg_dir = base.join(dir_segs.join("/"));
+        let tail = segs[i..].join("/");
+        if let Some(f) = package_spec_file(&pkg_dir, &tail) {
+            return Some(f);
+        }
+    }
+    None
+}
+
 /// Split a `pkg.hnl` dep spec (`branch:main`, `rev:abc`, `tag:v1`) into
 /// `(kind, value)`. Unknown or empty specs fall back to `("branch", "main")`.
 pub fn dep_spec_ref(spec: &str) -> (&'static str, String) {
@@ -3608,6 +3760,134 @@ vendored = { path = "../lib-vendored" }
             Some("src/list/index.hnl")
         );
         assert_eq!(pkg_module_path(&many, None, "nope"), None);
+    }
+
+    // -- pkg.hnl-aware import specifier resolution -------------------------
+
+    /// A scratch package dir: `pkg.hnl` with `modules`/`entry` plus the
+    /// given `(rel path, contents)` files under it.
+    fn scratch_pkg(tag: &str, manifest: &str, files: &[(&str, &str)]) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("hnl-pkgspec-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("pkg.hnl"), manifest).unwrap();
+        for (rel, src) in files {
+            let path = dir.join(rel);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(path, src).unwrap();
+        }
+        dir
+    }
+
+    /// `package_spec_file` maps a declared module name to its ADR-0160
+    /// `src/` file, the bare spec to the single-module primary, and an
+    /// undeclared tail to the flat `src/` namespace.
+    #[test]
+    fn package_spec_file_maps_modules_and_src_layout() {
+        // Single-module package, legacy `src/<module>.hnl` shape.
+        let one = scratch_pkg(
+            "one",
+            "{ modules: [\"foo\"] }\n",
+            &[("src/foo.hnl", "export f := (x) ~> x\n")],
+        );
+        assert_eq!(
+            package_spec_file(&one, "foo").unwrap(),
+            one.join("src/foo.hnl")
+        );
+        // Bare spec → the primary module (same candidates, `src/index.hnl`
+        // absent so `src/foo.hnl` wins).
+        assert_eq!(
+            package_spec_file(&one, "").unwrap(),
+            one.join("src/foo.hnl")
+        );
+        // Undeclared tail → flat `src/` path.
+        std::fs::write(one.join("src/helper.hnl"), "export h := (x) ~> x\n").unwrap();
+        assert_eq!(
+            package_spec_file(&one, "helper").unwrap(),
+            one.join("src/helper.hnl")
+        );
+        assert_eq!(package_spec_file(&one, "nope"), None);
+        let _ = std::fs::remove_dir_all(&one);
+
+        // Multi-module package → `src/<module>/index.hnl`.
+        let many = scratch_pkg(
+            "many",
+            "{ modules: [\"a\", \"b\"] }\n",
+            &[
+                ("src/a/index.hnl", "export fa := (x) ~> x\n"),
+                ("src/b/index.hnl", "export fb := (x) ~> x\n"),
+            ],
+        );
+        assert_eq!(
+            package_spec_file(&many, "b").unwrap(),
+            many.join("src/b/index.hnl")
+        );
+        // Bare spec is ambiguous for a multi-module package.
+        assert_eq!(package_spec_file(&many, ""), None);
+        let _ = std::fs::remove_dir_all(&many);
+
+        // No pkg.hnl → not a package.
+        let flat = scratch_pkg("flat", "", &[("foo.hnl", "export f := (x) ~> x\n")]);
+        assert_eq!(package_spec_file(&flat, "foo"), None);
+        let _ = std::fs::remove_dir_all(&flat);
+    }
+
+    /// `dep_spec_file` prefers the pkg.hnl layout and falls back to the
+    /// literal dep-dir path — the pre-pkg.hnl resolution.
+    #[test]
+    fn dep_spec_file_prefers_pkg_layout_then_literal() {
+        let pkg = scratch_pkg(
+            "dep",
+            "{ modules: [\"foo\"] }\n",
+            &[("src/foo.hnl", "export f := (x) ~> x\n")],
+        );
+        assert_eq!(dep_spec_file(&pkg, "foo").unwrap(), pkg.join("src/foo.hnl"));
+        // A root-level file still resolves when the package layout misses.
+        std::fs::write(pkg.join("root.hnl"), "export r := (x) ~> x\n").unwrap();
+        assert_eq!(
+            dep_spec_file(&pkg, "root.hnl").unwrap(),
+            pkg.join("root.hnl")
+        );
+        let _ = std::fs::remove_dir_all(&pkg);
+    }
+
+    /// `relative_spec_file` keeps literal resolution first, then finds a
+    /// package through the spec's own directory prefixes.
+    #[test]
+    fn relative_spec_file_finds_package_prefixes() {
+        let root = std::env::temp_dir().join(format!("hnl-relpkg-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let proj = root.join("proj");
+        let pkg = proj.join("mypkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::create_dir_all(pkg.join("src/foo")).unwrap();
+        std::fs::write(pkg.join("pkg.hnl"), "{ modules: [\"foo\", \"bar\"] }\n").unwrap();
+        std::fs::write(pkg.join("src/foo/index.hnl"), "export f := (x) ~> x\n").unwrap();
+        std::fs::write(pkg.join("src/bar.hnl"), "export b := (x) ~> x\n").unwrap();
+
+        // `./mypkg/foo` → declared module `foo` → `src/foo/index.hnl`.
+        assert_eq!(
+            relative_spec_file(&proj, "./mypkg/foo").unwrap(),
+            pkg.join("src/foo/index.hnl")
+        );
+        // `./mypkg/bar` → `bar` IS declared → candidates:
+        // `src/bar/index.hnl` missing → `src/bar.hnl`.
+        assert_eq!(
+            relative_spec_file(&proj, "mypkg/bar").unwrap(),
+            pkg.join("src/bar.hnl")
+        );
+        // `./mypkg` alone → multi-module → ambiguous → None (literal also
+        // misses: no root index.hnl).
+        assert_eq!(relative_spec_file(&proj, "./mypkg"), None);
+        // Literal still wins: a real file under proj resolves directly.
+        std::fs::write(proj.join("plain.hnl"), "export p := (x) ~> x\n").unwrap();
+        assert_eq!(
+            relative_spec_file(&proj, "plain").unwrap(),
+            proj.join("plain.hnl")
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

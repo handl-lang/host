@@ -1628,7 +1628,24 @@ impl ModuleLoader {
     ///    first tries `<path>.hnl` (so `from "./clock_gettime"` loads
     ///    `clock_gettime.hnl`) before falling through to host-module
     ///    resolution.
+    /// 5. **Package modules.** A dependency dir or spec prefix that
+    ///    contains `pkg.hnl` resolves through its `modules:`/`entry`
+    ///    mapping and `src/` layout ([`handl_platform::package_spec_file`],
+    ///    [`handl_platform::relative_spec_file`]) — pkg.hnl-declared
+    ///    HandlModules are first-class import targets, matching the
+    ///    codemod/kit tooling.
     fn resolve_path(&self, path: &str) -> Result<String, LangError> {
+        // pkg.hnl first-class: dep dirs and spec prefixes that are
+        // packages resolve through their `modules:`/`src/` layout before
+        // the literal filesystem candidates below. `package_spec_hit`
+        // mirrors [`ModuleLoader::resolve_spec_to_file`], so the
+        // declaration strip/keep decisions agree with eval.
+        if let Some(hit) = self.package_spec_hit(path) {
+            let resolved = std::fs::canonicalize(&hit)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| hit.to_string_lossy().into_owned());
+            return Ok(resolved);
+        }
         let (first, rest) = match path.split_once('/') {
             Some((f, r)) => (f, Some(r)),
             None => (path, None),
@@ -2087,11 +2104,52 @@ impl ModuleLoader {
             .unwrap_or(false)
     }
 
+    /// The pkg.hnl half of [`ModuleLoader::resolve_path`] /
+    /// [`ModuleLoader::resolve_spec_to_file`]: a dep-name spec consults
+    /// the dep dir's `pkg.hnl` `modules:`/`src/` layout
+    /// ([`handl_platform::package_spec_file`]); any other spec consults
+    /// package dirs reachable through its own `/`-separated prefixes
+    /// under the same bases `resolve_path` uses
+    /// ([`handl_platform::relative_spec_file`], which tries the literal
+    /// candidate first). Returns the file the package layout names, or
+    /// `None` to fall through to literal resolution.
+    fn package_spec_hit(&self, path: &str) -> Option<PathBuf> {
+        if Path::new(path).is_absolute() {
+            return handl_platform::relative_spec_file(
+                Path::new("/"),
+                path.trim_start_matches('/'),
+            );
+        }
+        let (first, rest) = match path.split_once('/') {
+            Some((f, r)) => (f, Some(r)),
+            None => (path, None),
+        };
+        if let Some(dep_dir) = self.dependencies.get(first) {
+            // Dep names are package abstractions: the pkg.hnl layout
+            // wins over literal paths inside the dep dir; a miss falls
+            // through to the literal `<dep_dir>/<rest>` candidates.
+            let tail = rest.filter(|r| !r.is_empty()).unwrap_or("");
+            return handl_platform::package_spec_file(dep_dir, tail);
+        }
+        let bases: Vec<PathBuf> = vec![
+            self.dir_stack.borrow().last().cloned(),
+            self.module_root.clone(),
+            std::env::current_dir().ok(),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        bases
+            .iter()
+            .find_map(|base| handl_platform::relative_spec_file(base, path))
+    }
+
     /// Whether `spec` resolves to an existing file, using the same bases as
     /// [`ModuleLoader::resolve_path`]: a `[dependencies]` first segment
     /// resolves inside the package directory; otherwise the directory of
     /// the module being loaded (`resolved`'s parent), then the module
-    /// root, then the process working directory.
+    /// root, then the process working directory. Package (`pkg.hnl`)
+    /// resolution applies exactly as in [`ModuleLoader::resolve_path`].
     ///
     /// A directory is considered to resolve to a file when it contains an
     /// `index.hnl`; a bare path with no `.hnl` extension resolves to a file
@@ -2102,18 +2160,25 @@ impl ModuleLoader {
 
     /// Resolve `spec` against the same bases as [`ModuleLoader::resolve_path`]
     /// and return the first matching file path (a file, a directory's
-    /// `index.hnl`, or a `<path>.hnl` for a bare name). Returns `None` when
-    /// the spec names a host module rather than a file.
+    /// `index.hnl`, a `<path>.hnl` for a bare name, or a `pkg.hnl` package
+    /// module). Returns `None` when the spec names a host module rather
+    /// than a file.
     fn resolve_spec_to_file(&self, spec: &str, resolved: &str) -> Option<PathBuf> {
-        let spec_path = Path::new(spec);
-        if spec_path.is_absolute() {
-            return Self::file_candidate(spec_path, spec);
+        if Path::new(spec).is_absolute() {
+            return handl_platform::relative_spec_file(
+                Path::new("/"),
+                spec.trim_start_matches('/'),
+            );
         }
         let (first, rest) = match spec.split_once('/') {
             Some((f, r)) => (f, Some(r)),
             None => (spec, None),
         };
         if let Some(dep_dir) = self.dependencies.get(first) {
+            let tail = rest.filter(|r| !r.is_empty()).unwrap_or("");
+            if let Some(f) = handl_platform::package_spec_file(dep_dir, tail) {
+                return Some(f);
+            }
             let joined = match rest {
                 Some(r) if !r.is_empty() => dep_dir.join(r),
                 _ => dep_dir.clone(),
@@ -2125,12 +2190,10 @@ impl ModuleLoader {
             self.module_root.clone(),
             std::env::current_dir().ok(),
         ];
-        for base in bases.into_iter().flatten() {
-            if let Some(cand) = Self::file_candidate(&base.join(spec), spec) {
-                return Some(cand);
-            }
-        }
-        None
+        bases
+            .into_iter()
+            .flatten()
+            .find_map(|base| handl_platform::relative_spec_file(&base, spec))
     }
 
     /// Return a concrete file path for a joined import candidate: a
