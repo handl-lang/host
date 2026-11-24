@@ -490,6 +490,57 @@ pub trait ModuleLookup: 'static {
     }
 }
 
+/// Elide arguments that merely inhabit `type.unit` domains of the op's
+/// declared signature (T-153).
+///
+/// `f()` and `f(null)` coincide: a `Unit ~> T` atom declares "no
+/// information", and `null` is the unit sort's sole inhabitant, so a
+/// leading `null` argument filling a `type.unit` domain is dropped
+/// before the host [`Function`] sees the call — `Unit ~> T` impls were
+/// written expecting zero runtime args for that slot (the same
+/// convention the zero-arg call already follows by passing `[]`).
+///
+/// Applies to tagged `{"__tag__": "type.function"}` signature values
+/// only; it peels repeatedly so `Unit ~> A ~> T` drops a leading `null`
+/// and continues into the codomain. Domains spelled `type.null` keep
+/// their argument — an explicit null domain is a deliberate contract,
+/// not the unit placeholder. Ops without a registered signature (or a
+/// non-`type.function` one) pass `args` through untouched.
+pub fn elide_unit_args(modules: &dyn ModuleLookup, name: &str, args: Vec<Value>) -> Vec<Value> {
+    let Some(sig) = modules.lookup_type_signature(name) else {
+        return args;
+    };
+    elide_unit_args_in_sig(&sig, args)
+}
+
+/// The signature-walking half of [`elide_unit_args`], split out so the
+/// peel logic is testable without a [`ModuleLookup`] impl.
+fn elide_unit_args_in_sig(sig: &Value, mut args: Vec<Value>) -> Vec<Value> {
+    let mut sig = sig;
+    loop {
+        if sig.get("__tag__").and_then(Value::as_str) != Some("type.function") {
+            break;
+        }
+        let param_is_unit = sig
+            .get("param")
+            .and_then(|p| p.get("__tag__"))
+            .and_then(Value::as_str)
+            == Some("type.unit");
+        let first_is_null = args.first().is_some_and(Value::is_null);
+        if !(param_is_unit && first_is_null) {
+            break;
+        }
+        args.remove(0);
+        match sig.get("body") {
+            Some(body) => sig = body,
+            // A `type.function` without a `body` is malformed — stop
+            // peeling rather than borrow a temporary.
+            None => break,
+        }
+    }
+    args
+}
+
 // ---------------------------------------------------------------------------
 // HandlerClause (effect handlers)
 // ---------------------------------------------------------------------------
@@ -1984,6 +2035,54 @@ mod tests {
             }
             self.0.function(qualified_name)
         }
+    }
+
+    /// T-153: `elide_unit_args_in_sig` drops a leading `null` that fills
+    /// a `type.unit` domain, peels nested unit domains, and leaves every
+    /// other shape untouched.
+    #[test]
+    fn elide_unit_args_peels_unit_domains() {
+        let unit = serde_json::json!({"__tag__":"type.unit","__registry__":"handl.canonical"});
+        let null_ty = serde_json::json!({"__tag__":"type.null","__registry__":"handl.canonical"});
+        let num = serde_json::json!({"__tag__":"type.number","__registry__":"handl.canonical"});
+        let function = |p: Value, b: Value| serde_json::json!({"__tag__":"type.function","__registry__":"handl.canonical","param":p,"body":b});
+
+        // `Unit ~> Number`, called `f(null)` → `[]`.
+        let sig = function(unit.clone(), num.clone());
+        assert_eq!(
+            elide_unit_args_in_sig(&sig, vec![Value::Null]),
+            Vec::<Value>::new()
+        );
+        // `f()` already passes `[]` — unchanged.
+        assert_eq!(elide_unit_args_in_sig(&sig, vec![]), Vec::<Value>::new());
+        // `f(5)` — a non-null arg is never elided.
+        assert_eq!(
+            elide_unit_args_in_sig(&sig, vec![serde_json::json!(5)]),
+            vec![serde_json::json!(5)]
+        );
+        // `Unit ~> Number ~> Bool`, `f(null, 5)` → `[5]`.
+        let sig2 = function(
+            unit.clone(),
+            function(
+                num.clone(),
+                serde_json::json!({"__tag__":"type.bool","__registry__":"handl.canonical"}),
+            ),
+        );
+        assert_eq!(
+            elide_unit_args_in_sig(&sig2, vec![Value::Null, serde_json::json!(5)]),
+            vec![serde_json::json!(5)]
+        );
+        // A `type.null` domain keeps its argument.
+        let sig3 = function(null_ty, num);
+        assert_eq!(
+            elide_unit_args_in_sig(&sig3, vec![Value::Null]),
+            vec![Value::Null]
+        );
+        // Non-function signatures pass through.
+        assert_eq!(
+            elide_unit_args_in_sig(&unit, vec![Value::Null]),
+            vec![Value::Null]
+        );
     }
 
     /// A minimal single-threaded future executor for tests.
