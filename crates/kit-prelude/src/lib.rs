@@ -1645,6 +1645,35 @@ impl Kit {
         Ok(result.typ)
     }
 
+    /// Typecheck `input` like [`Kit::typecheck_with_prelude`], but lex,
+    /// parse, scope-check, and judge under a caller-supplied [`Language`]
+    /// instead of the kit's canonical one.
+    ///
+    /// This is the seam for fragment-merged languages — e.g. the ADR-0089
+    /// test-language fragment (`hnl_tool_test::test_language`), which
+    /// `hnl typecheck` applies to `*.test.hnl` sources so `assert` /
+    /// `test`-kind declarations check under the same grammar `hnl test`
+    /// evals them with. Node kinds the fragment declares but `types.yaml`
+    /// has no rule for degrade to `type.unknown` + a warning (the
+    /// checker's documented fallback), so test declarations themselves
+    /// check clean while their bodies still scope-check.
+    ///
+    /// # Errors
+    ///
+    /// Same contract as [`Kit::typecheck_with_prelude`]: parse/scope-pass
+    /// failures and `error`-severity diagnostics surface as `Err`.
+    pub fn typecheck_with_language(
+        &self,
+        input: &str,
+        extra_prelude: &std::collections::HashSet<String>,
+        lang: &Language,
+    ) -> Result<Value, LangError> {
+        let (result, _ast, span_offset) =
+            self.typecheck_engine_result_for_lang(input, extra_prelude, lang)?;
+        typecheck_error_diags(&result, span_offset)?;
+        Ok(result.typ)
+    }
+
     /// Typecheck `input` like [`Kit::typecheck_with_prelude`], but return a
     /// [`TypeInspection`] — the full engine result plus per-node synthesized
     /// types keyed by spans in **caller source coordinates** (the `do {}`
@@ -1757,6 +1786,26 @@ impl Kit {
         input: &str,
         extra_prelude: &std::collections::HashSet<String>,
     ) -> Result<(hnl_tool_typecheck::TypecheckResult, Ast, usize), LangError> {
+        self.typecheck_engine_result_for_lang(input, extra_prelude, self.runtime.lang())
+    }
+
+    /// The [`Kit::typecheck_engine_result`] pipeline over a caller-supplied
+    /// [`Language`] — the seam [`Kit::typecheck_with_language`] uses for
+    /// fragment-merged languages (e.g. the ADR-0089 test-language fragment
+    /// for `*.test.hnl` sources, where `assert`/`test` are keywords the
+    /// canonical grammar does not declare).
+    ///
+    /// The canonical path (`lang` is the kit's own language) reuses the
+    /// kit runtime for lex/parse — contextual-keyword retokenization
+    /// included. A foreign language gets a purpose-built runtime via
+    /// [`runtime_for_lang`] carrying the same module chain, so host-fn
+    /// and module-signature lookup behave identically.
+    fn typecheck_engine_result_for_lang(
+        &self,
+        input: &str,
+        extra_prelude: &std::collections::HashSet<String>,
+        lang: &Language,
+    ) -> Result<(hnl_tool_typecheck::TypecheckResult, Ast, usize), LangError> {
         let mut prelude = prelude_wire_names();
         prelude.extend(extra_prelude.iter().cloned());
         let trimmed = input.trim_start();
@@ -1778,7 +1827,30 @@ impl Kit {
         // is authored against source shapes (`data`, `match`, `type-annot`),
         // while desugar output mints rule-less internal nodes (`lit`
         // `__sym__` payloads, `__former__` objects).
-        let ast = self.parse_raw(&wrapped)?;
+        //
+        // Lex/parse run under `lang`: the canonical path reuses the kit
+        // runtime (contextual-keyword retokenization included); a
+        // caller-supplied language gets a purpose-built runtime carrying
+        // the same module chain.
+        let foreign_rt;
+        let rt: &Runtime = if std::ptr::eq(lang, self.runtime.lang()) {
+            self.runtime()
+        } else {
+            let mut built = runtime_for_lang(lang.clone())?;
+            if let Some(modules) = self.runtime.modules() {
+                built = built.with_modules(Rc::clone(modules));
+            }
+            if let Some(resolver) = self.runtime.import_resolver() {
+                built = built.with_import_resolver(Rc::clone(resolver));
+            }
+            if let Some(root) = self.runtime.module_root() {
+                built = built.with_module_root(root.to_path_buf());
+            }
+            foreign_rt = built;
+            &foreign_rt
+        };
+        let tokens = rt.lex(&Source::new(&wrapped))?;
+        let ast = rt.parse_raw(&tokens)?;
         // A fresh NBE engine wired to the kit's module chain (host-fn +
         // module-signature lookup), then seeded with the wire/spliced
         // names as `type.unknown` globals — the unknown marker is an
@@ -1787,7 +1859,7 @@ impl Kit {
         let mut engine: Box<dyn TypecheckEngine> = Box::new(NbeTypecheckEngine::new(Box::new(
             hnl_exec_tree_walk::TreeWalkEngine::new(),
         )));
-        if let Some(mods) = self.runtime.modules() {
+        if let Some(mods) = rt.modules() {
             engine = engine.with_modules(std::rc::Rc::clone(mods));
         }
         for name in &prelude {
@@ -1798,7 +1870,7 @@ impl Kit {
         // `typecheck errors:` aggregate `host-cli` maps to stdout/exit 0 —
         // even when the NBE judge aborts on the same reference.
         let report = hnl_tool_typecheck::check_module_with_prelude(
-            self.runtime.lang(),
+            lang,
             input,
             &prelude,
             &hnl_tool_lex_pattern::DataLexerEngine,
@@ -1836,7 +1908,7 @@ impl Kit {
         // structured span (offsets into `wrapped`, shifted back to `input`
         // coordinates) rides the error so `hnl typecheck` / the LSP can
         // render `file:line:col`; `message` stays prefix-clean.
-        let result = engine.typecheck(self.runtime.lang(), &req).map_err(|e| {
+        let result = engine.typecheck(lang, &req).map_err(|e| {
             let (message, span) = match &e {
                 LangError::Engine { message, span, .. } => (message.clone(), *span),
                 other => (other.to_string(), None),

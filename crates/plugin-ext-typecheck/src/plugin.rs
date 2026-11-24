@@ -3,13 +3,18 @@
 //! ## Payload contract (capability `typecheck`)
 //!
 //! ```json
-//! { "source": "<text>", "prelude": ["str", "map"] }
+//! { "source": "<text>", "prelude": ["str", "map"], "language": "test" }
 //! ```
 //!
 //! - `source` (required, string) — the text to check.
 //! - `prelude` (optional, array of strings) — extra names to seed into module
 //!   scope before unbound-wire detection, on top of the kit's canonical wire
 //!   names. Omitted = the canonical set alone.
+//! - `language` (optional, string) — a language tag forwarded verbatim to the
+//!   injected checker: `""`/absent = the kit's canonical language; `"test"`
+//!   asks the host to check under the ADR-0089 test-language fragment (the
+//!   grammar `hnl test` evals `*.test.hnl` sources with). The plugin is
+//!   tag-agnostic — it does not interpret the value.
 //!
 //! ## Response
 //!
@@ -36,8 +41,9 @@ use handl_platform::{
 /// Capability id served by [`TypecheckPlugin`].
 pub const TYPECHECK_CAPABILITY: &str = "typecheck";
 
-/// The typechecker this plugin adapts: `(source, extra_prelude)` → the
-/// synthesized [`Value`] type or a [`LangError`].
+/// The typechecker this plugin adapts: `(source, extra_prelude, language)` →
+/// the synthesized [`Value`] type or a [`LangError`]. `language` is the
+/// payload's optional tag (`""` = canonical); the host interprets it.
 ///
 /// Injected at construction (ADR-0128 §"The 0.8 seam"): `Plugin` requires
 /// `Send + Sync` and a `Kit` is `!Sync`, so the host owns the kit — in a
@@ -45,7 +51,8 @@ pub const TYPECHECK_CAPABILITY: &str = "typecheck";
 /// closure that reads it. The plugin is then a pure adapter: it carries no
 /// `handl-kit-canonical` type, and the crate keeps no normal dependency on
 /// the canonical kit.
-pub type TypecheckFn = dyn Fn(&str, &HashSet<String>) -> Result<Value, LangError> + Send + Sync;
+pub type TypecheckFn =
+    dyn Fn(&str, &HashSet<String>, &str) -> Result<Value, LangError> + Send + Sync;
 
 /// Adapts an injected typechecker to the capability contract.
 pub struct TypecheckPlugin {
@@ -119,8 +126,19 @@ impl Plugin for TypecheckPlugin {
                 ));
             }
         };
+        // `language` is an optional tag forwarded verbatim (`""` when
+        // absent); a present non-string is a malformed request.
+        let language = match request.payload.get("language") {
+            None | Some(serde_json::Value::Null) => "",
+            Some(serde_json::Value::String(s)) => s.as_str(),
+            Some(_) => {
+                return Err(PlatformError::InvalidMetadata(
+                    "typecheck: `language` must be a string".into(),
+                ));
+            }
+        };
 
-        let outcome = (self.check)(source, &prelude);
+        let outcome = (self.check)(source, &prelude, language);
         let response = match outcome {
             Ok(typ) => serde_json::json!({ "status": "ok", "type": format!("{typ}") }),
             Err(err) => {
@@ -169,7 +187,7 @@ mod tests {
 
     /// The canonical `typecheck` capability, bound to the thread-cached kit.
     fn canonical_check() -> Arc<TypecheckFn> {
-        Arc::new(|src, prelude| {
+        Arc::new(|src, prelude, _language| {
             KIT.with(|cell| {
                 let mut slot = cell.borrow_mut();
                 if slot.is_none() {
