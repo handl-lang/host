@@ -32,6 +32,9 @@ handl-lib-bytes = { git = "https://github.com/handl-lang/lib-bytes", branch = "m
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-plugin-lib-serialize-toml-c = { git = "https://github.com/handl-lang/lib-serialize-toml-c", branch = "main" }
 handl-plugin-lib-serialize-yaml-c = { git = "https://github.com/handl-lang/lib-serialize-yaml-c", branch = "main" }
+# `tag` module impls (P-013 T-151): `ops::tag::tag_impls` keys the
+# `lib-tag/atoms.yaml` spec into `plugin-lib-tag`'s pub `Function` impls.
+handl-plugin-lib-tag = { workspace = true }
 base64 = "0.22"
 tar = "0.4"
 hex = "0.4"
@@ -49,7 +52,6 @@ handl-platform = { path = "../platform" }
 handl-runtime = { path = "../handl-runtime" }
 hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", branch = "main" }
 handl-plugin-lib-handl = { path = "../plugin-lib-handl" }
-handl-plugin-lib-tag = { git = "https://github.com/handl-lang/host", branch = "main" }
 handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 # Test-only: `tests/base64.rs`/`tests/hex.rs` exercise the shell crates' Rust
 # op impls (`ops::*`, `*_op_registry`) — the packages themselves are pure

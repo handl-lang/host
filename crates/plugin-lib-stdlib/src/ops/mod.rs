@@ -7,9 +7,11 @@
 //! crates — only the `Module`/`Plugin` boilerplate was dropped.
 
 pub mod collections;
+pub mod kernel_impls;
 pub mod math;
 pub mod process;
 pub mod strs;
+pub mod tag;
 pub mod toml;
 pub mod yaml;
 

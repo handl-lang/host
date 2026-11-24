@@ -5,8 +5,9 @@
 //! that cannot be expressed as pure handl arrows without losing the exact
 //! `TypeMismatch` error messages the tests rely on. The `op`/`handl`
 //! declaration form (ADR-0077 Phase 2) declares the interface in
-//! `str.hnl`; these impls provide the logic and are registered in an
-//! [`OpRegistry`](handl_plugin_lib_handl::OpRegistry).
+//! `str.hnl`; these impls provide the logic and are keyed into the
+//! `lib-utils/atoms.yaml` `modules.str` spec by [`strs_impls`] (P-013
+//! T-151).
 
 use handl_platform::{EvalContext, EvalError, Function};
 
@@ -967,103 +968,61 @@ impl Function for WordWrap {
     }
 }
 
-use handl_plugin_lib_handl::OpRegistry;
 use std::sync::Arc;
 
-pub const STR_OPS: &[&str] = &[
-    "str.upper",
-    "str.lower",
-    "str.trim",
-    "str.trim_start",
-    "str.trim_end",
-    "str.trim_matches",
-    "str.reverse",
-    "str.length",
-    "str.concat",
-    "str.is_empty",
-    "str.equals",
-    "str.is_alpha",
-    "str.is_numeric",
-    "str.is_alphanumeric",
-    "str.capitalize",
-    "str.title_case",
-    "str.snake_case",
-    "str.camel_case",
-    "str.pascal_case",
-    "str.kebab_case",
-    "str.contains",
-    "str.starts_with",
-    "str.ends_with",
-    "str.count",
-    "str.find",
-    "str.rfind",
-    "str.levenshtein",
-    "str.similarity",
-    "str.split",
-    "str.join",
-    "str.replace",
-    "str.replace_first",
-    "str.repeat",
-    "str.char_at",
-    "str.slice",
-    "str.pad_left",
-    "str.pad_right",
-    "str.strip_prefix",
-    "str.strip_suffix",
-    "str.lines",
-    "str.split_at",
-    "str.split_whitespace",
-    "str.truncate",
-    "str.slugify",
-    "str.word_wrap",
-];
-
-pub fn str_op_registry() -> OpRegistry {
-    let mut registry = OpRegistry::new();
-    registry.register("str.upper", Arc::new(Upper));
-    registry.register("str.lower", Arc::new(Lower));
-    registry.register("str.trim", Arc::new(Trim));
-    registry.register("str.trim_start", Arc::new(TrimStart));
-    registry.register("str.trim_end", Arc::new(TrimEnd));
-    registry.register("str.trim_matches", Arc::new(TrimMatches));
-    registry.register("str.reverse", Arc::new(Reverse));
-    registry.register("str.length", Arc::new(Length));
-    registry.register("str.concat", Arc::new(Concat));
-    registry.register("str.is_empty", Arc::new(IsEmpty));
-    registry.register("str.equals", Arc::new(Equals));
-    registry.register("str.is_alpha", Arc::new(IsAlpha));
-    registry.register("str.is_numeric", Arc::new(IsNumeric));
-    registry.register("str.is_alphanumeric", Arc::new(IsAlphanumeric));
-    registry.register("str.capitalize", Arc::new(Capitalize));
-    registry.register("str.title_case", Arc::new(TitleCase));
-    registry.register("str.snake_case", Arc::new(SnakeCase));
-    registry.register("str.camel_case", Arc::new(CamelCase));
-    registry.register("str.pascal_case", Arc::new(PascalCase));
-    registry.register("str.kebab_case", Arc::new(KebabCase));
-    registry.register("str.contains", Arc::new(Contains));
-    registry.register("str.starts_with", Arc::new(StartsWith));
-    registry.register("str.ends_with", Arc::new(EndsWith));
-    registry.register("str.count", Arc::new(Count));
-    registry.register("str.find", Arc::new(Find));
-    registry.register("str.rfind", Arc::new(RFind));
-    registry.register("str.levenshtein", Arc::new(Levenshtein));
-    registry.register("str.similarity", Arc::new(Similarity));
-    registry.register("str.split", Arc::new(Split));
-    registry.register("str.join", Arc::new(Join));
-    registry.register("str.replace", Arc::new(Replace));
-    registry.register("str.replace_first", Arc::new(ReplaceFirst));
-    registry.register("str.repeat", Arc::new(Repeat));
-    registry.register("str.char_at", Arc::new(CharAt));
-    registry.register("str.slice", Arc::new(Slice));
-    registry.register("str.pad_left", Arc::new(PadLeft));
-    registry.register("str.pad_right", Arc::new(PadRight));
-    registry.register("str.strip_prefix", Arc::new(StripPrefix));
-    registry.register("str.strip_suffix", Arc::new(StripSuffix));
-    registry.register("str.lines", Arc::new(Lines));
-    registry.register("str.split_at", Arc::new(SplitAt));
-    registry.register("str.split_whitespace", Arc::new(SplitWhitespace));
-    registry.register("str.truncate", Arc::new(Truncate));
-    registry.register("str.slugify", Arc::new(Slugify));
-    registry.register("str.word_wrap", Arc::new(WordWrap));
-    registry
+/// The `impl:` table `lib-utils/atoms.yaml` (`modules.str`) keys into —
+/// `impl` name → `Function` impl (P-013 T-151). The atoms spec (45
+/// `str.*` atoms with sigs) plus this table fully determine the module's
+/// `handl_plugin_lib_handl::OpRegistry`;
+/// [`crate::atoms::registry_from_atoms`] does the merge. Replaces the
+/// hand-wired `STR_OPS`/`str_op_registry` — adding an atom is one yaml
+/// line + one impl fn + one row here.
+pub fn strs_impls() -> Vec<(&'static str, Arc<dyn Function + Send + Sync>)> {
+    vec![
+        ("str_upper", Arc::new(Upper)),
+        ("str_lower", Arc::new(Lower)),
+        ("str_trim", Arc::new(Trim)),
+        ("str_trim_start", Arc::new(TrimStart)),
+        ("str_trim_end", Arc::new(TrimEnd)),
+        ("str_trim_matches", Arc::new(TrimMatches)),
+        ("str_reverse", Arc::new(Reverse)),
+        ("str_length", Arc::new(Length)),
+        ("str_concat", Arc::new(Concat)),
+        ("str_is_empty", Arc::new(IsEmpty)),
+        ("str_equals", Arc::new(Equals)),
+        ("str_is_alpha", Arc::new(IsAlpha)),
+        ("str_is_numeric", Arc::new(IsNumeric)),
+        ("str_is_alphanumeric", Arc::new(IsAlphanumeric)),
+        ("str_capitalize", Arc::new(Capitalize)),
+        ("str_title_case", Arc::new(TitleCase)),
+        ("str_snake_case", Arc::new(SnakeCase)),
+        ("str_camel_case", Arc::new(CamelCase)),
+        ("str_pascal_case", Arc::new(PascalCase)),
+        ("str_kebab_case", Arc::new(KebabCase)),
+        ("str_contains", Arc::new(Contains)),
+        ("str_starts_with", Arc::new(StartsWith)),
+        ("str_ends_with", Arc::new(EndsWith)),
+        ("str_count", Arc::new(Count)),
+        ("str_find", Arc::new(Find)),
+        ("str_rfind", Arc::new(RFind)),
+        ("str_levenshtein", Arc::new(Levenshtein)),
+        ("str_similarity", Arc::new(Similarity)),
+        ("str_split", Arc::new(Split)),
+        ("str_join", Arc::new(Join)),
+        ("str_replace", Arc::new(Replace)),
+        ("str_replace_first", Arc::new(ReplaceFirst)),
+        ("str_repeat", Arc::new(Repeat)),
+        ("str_char_at", Arc::new(CharAt)),
+        ("str_slice", Arc::new(Slice)),
+        ("str_pad_left", Arc::new(PadLeft)),
+        ("str_pad_right", Arc::new(PadRight)),
+        ("str_strip_prefix", Arc::new(StripPrefix)),
+        ("str_strip_suffix", Arc::new(StripSuffix)),
+        ("str_lines", Arc::new(Lines)),
+        ("str_split_at", Arc::new(SplitAt)),
+        ("str_split_whitespace", Arc::new(SplitWhitespace)),
+        ("str_truncate", Arc::new(Truncate)),
+        ("str_slugify", Arc::new(Slugify)),
+        ("str_word_wrap", Arc::new(WordWrap)),
+    ]
 }

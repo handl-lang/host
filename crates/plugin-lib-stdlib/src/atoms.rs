@@ -59,7 +59,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use handl_platform::Function;
+use handl_platform::{EvalContext, EvalError, Function};
 use handl_plugin_lib_handl::{OpRegistry, sig_to_type_value};
 use serde::Deserialize;
 
@@ -68,6 +68,16 @@ pub type AtomImpl = (&'static str, Arc<dyn Function + Send + Sync>);
 
 /// A module's impl table — what `ops::<mod>::*_impls()` returns.
 pub type ImplTable = fn() -> Vec<AtomImpl>;
+
+/// One kernel-side `impl:` table entry: spec key → the kernel
+/// [`handl_ops::Op`] impl. Used by [`registry_from_atoms_kernel`] for
+/// modules whose atoms live in `handl-lib-*`/`lib-*` crates (which speak
+/// the kernel op ABI, not the host `Function` trait).
+pub type KernelAtomImpl = (&'static str, Arc<dyn handl_ops::Op>);
+
+/// A module's kernel impl table — what `ops::kernel_impls::*_impls()`
+/// returns (P-013 T-151).
+pub type KernelImplTable = fn() -> Vec<KernelAtomImpl>;
 
 #[derive(Debug, Deserialize)]
 struct RawSpec {
@@ -166,6 +176,62 @@ pub fn registry_from_atoms(atoms: &[AtomDecl], impls: &[AtomImpl]) -> Result<OpR
                     atom.name, atom.impl_key
                 )
             })?;
+        match &atom.sig {
+            Some(text) => {
+                let sig = sig_to_type_value(text).ok_or_else(|| {
+                    format!("atoms.yaml: atom `{}`: unparseable sig `{text}`", atom.name)
+                })?;
+                registry.register_with_sig(&atom.name, func, sig);
+            }
+            None => registry.register(&atom.name, func),
+        }
+    }
+    Ok(registry)
+}
+
+// ---------------------------------------------------------------------------
+// Kernel-op variant (P-013 T-151)
+// ---------------------------------------------------------------------------
+
+/// Presents a kernel [`handl_ops::Op`] as a host [`Function`] — the same
+/// adaptation [`handl_plugin_lib_handl::OpRegistry::import_kernel`] applies
+/// internally, re-stated here (that adapter is private to
+/// `plugin-lib-handl`) so spec-driven modules can attach per-atom sigs via
+/// [`OpRegistry::register_with_sig`] — something `import_kernel` cannot do.
+struct KernelOpFn(Arc<dyn handl_ops::Op>);
+
+impl Function for KernelOpFn {
+    fn call(&self, args: &[serde_json::Value], ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
+        self.0.call(args, ctx).map_err(EvalError::from)
+    }
+}
+
+/// Build an [`OpRegistry`] from atom declarations + a **kernel** impl
+/// table (`handl_ops::Op` impls from `handl-lib-*`/`lib-*` crates).
+///
+/// Identical contract to [`registry_from_atoms`] — same spec/impl drift and
+/// sig-parse errors — except each impl is adapted through [`KernelOpFn`]
+/// and the atom's `sig` is attached with [`OpRegistry::register_with_sig`],
+/// so `RegistrySource::KernelAtoms` modules get the same T-148 typed-op
+/// surface as host-side `Atoms` modules (the old `import_kernel` path
+/// carried no signatures).
+pub fn registry_from_atoms_kernel(
+    atoms: &[AtomDecl],
+    impls: &[KernelAtomImpl],
+) -> Result<OpRegistry, String> {
+    let mut registry = OpRegistry::new();
+    for atom in atoms {
+        let op = impls
+            .iter()
+            .find(|(key, _)| *key == atom.impl_key)
+            .map(|(_, op)| Arc::clone(op))
+            .ok_or_else(|| {
+                format!(
+                    "atoms.yaml: atom `{}`: no impl `{}` in table",
+                    atom.name, atom.impl_key
+                )
+            })?;
+        let func: Arc<dyn Function + Send + Sync> = Arc::new(KernelOpFn(op));
         match &atom.sig {
             Some(text) => {
                 let sig = sig_to_type_value(text).ok_or_else(|| {

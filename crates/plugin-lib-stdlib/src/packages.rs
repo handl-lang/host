@@ -78,6 +78,31 @@ pub enum RegistrySource {
         /// The module's impl table (`ops::<mod>::*_impls`).
         impls: ImplTable,
     },
+    /// Spec-driven over the **kernel** op ABI (P-013 T-151): `atoms.yaml`
+    /// text + a `handl_ops::Op` impl table — for modules whose atoms live
+    /// in `handl-lib-*`/`lib-*` crates (kernel `Op`s, not host
+    /// `Function`s). Each op is adapted to a host `Function` at registry
+    /// build time and still gets its spec `sig` attached (the old
+    /// `import_kernel` path carried none).
+    KernelAtoms {
+        /// Vendored `atoms.yaml` (`include_str!` of `OUT_DIR/lib-x/atoms.yaml`).
+        spec: &'static str,
+        /// The module's kernel impl table (`ops::kernel_impls::*_impls`).
+        impls: atoms::KernelImplTable,
+    },
+}
+
+impl RegistrySource {
+    /// The vendored `atoms.yaml` text for spec-driven sources
+    /// (`Atoms`/`KernelAtoms`); `None` for `Host`/`Kernel`.
+    pub fn atoms_yaml(&self) -> Option<&'static str> {
+        match self {
+            RegistrySource::Atoms { spec, .. } | RegistrySource::KernelAtoms { spec, .. } => {
+                Some(spec)
+            }
+            RegistrySource::Host(_) | RegistrySource::Kernel(_) => None,
+        }
+    }
 }
 
 /// One row of the package table: a named library contributing one or more
@@ -179,33 +204,46 @@ pub static MODULES: &[ModuleSpec] = &[
             impls: ops::math::math_impls,
         }),
     },
+    // T-151: spec-driven — `lib-utils/atoms.yaml` (`modules.str`, 45
+    // atoms) + `strs_impls()` replace `STR_OPS`/`str_op_registry`.
     ModuleSpec {
         name: "str",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/str.hnl")),
         funcs: &[],
-        ops: ops::strs::STR_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Host(ops::strs::str_op_registry)),
+        registry: Some(RegistrySource::Atoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/atoms.yaml")),
+            impls: ops::strs::strs_impls,
+        }),
     },
+    // T-151: spec-driven over the kernel op ABI — `lib-comb/atoms.yaml`
+    // (16 `combinators.*` atoms) + `combinators_impls()` replace
+    // `COMBINATORS_OPS`/`combinators_op_registry`.
     ModuleSpec {
         name: "combinators",
         hnl: handl_lib_comb::COMBINATORS_HNL,
         funcs: &[],
-        ops: handl_lib_comb::COMBINATORS_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(
-            handl_lib_comb::combinators_op_registry,
-        )),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-comb/atoms.yaml")),
+            impls: ops::kernel_impls::combinators_impls,
+        }),
     },
+    // T-151: spec-driven over the kernel op ABI — `lib-transform/atoms.yaml`
+    // (3 `transform.*` atoms) + `transform_impls()` replace
+    // `TRANSFORM_OPS`/`transform_op_registry`.
     ModuleSpec {
         name: "transform",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-transform/src/index.hnl")),
         funcs: &[],
-        ops: handl_lib_transform::TRANSFORM_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(
-            handl_lib_transform::transform_op_registry,
-        )),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-transform/atoms.yaml")),
+            impls: ops::kernel_impls::transform_impls,
+        }),
     },
     ModuleSpec {
         name: "typeof",
@@ -228,13 +266,18 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &["None"],
         registry: None,
     },
+    // T-151: spec-driven over the kernel op ABI — `lib-mood/atoms.yaml`
+    // (6 `mood.*` atoms) + `mood_impls()` replace `MOOD_OPS`/`mood_op_registry`.
     ModuleSpec {
         name: "mood",
         hnl: handl_lib_mood::MOOD_HNL,
         funcs: &[],
-        ops: handl_lib_mood::MOOD_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(handl_lib_mood::mood_op_registry)),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-mood/atoms.yaml")),
+            impls: ops::kernel_impls::mood_impls,
+        }),
     },
     ModuleSpec {
         name: "encoding",
@@ -248,13 +291,18 @@ pub static MODULES: &[ModuleSpec] = &[
     // Byte-buffer primitives for the `Bytes` scalar type — the only
     // .hnl-side constructor (previously only FFI `out_buf` produced them).
     // Ops-only module: every function is an irreducible atom.
+    // T-151: spec-driven over the kernel op ABI — `lib-bytes/atoms.yaml`
+    // (8 `bytes.*` atoms) + `bytes_impls()` replace `BYTES_OPS`/`bytes_op_registry`.
     ModuleSpec {
         name: "bytes",
         hnl: handl_lib_bytes::BYTES_HNL,
         funcs: &[],
-        ops: handl_lib_bytes::BYTES_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(handl_lib_bytes::bytes_op_registry)),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-bytes/atoms.yaml")),
+            impls: ops::kernel_impls::bytes_impls,
+        }),
     },
     // ── datetime (pure handl, formerly plugin-lib-datetime Rust crate) ──────
     // Moved to handl-packages/datetime/ as pure handl over math/str/char/typeof.
@@ -391,6 +439,9 @@ pub static MODULES: &[ModuleSpec] = &[
     // from `ops::toml`/`ops::yaml` into their own `-c` crates. The
     // `serialize` contract's `toml()`/`yaml()` producers build serializer
     // records whose arrow fields call these ops.
+    // T-151: spec-driven over the kernel op ABI — `lib-serialize-toml-c/
+    // atoms.yaml` (2 `toml_c.*` atoms) + `toml_c_impls()` replace
+    // `TOML_C_OPS`/`toml_c_op_registry`.
     ModuleSpec {
         name: "toml_c",
         hnl: include_str!(concat!(
@@ -398,12 +449,19 @@ pub static MODULES: &[ModuleSpec] = &[
             "/lib-serialize-toml-c/src/index.hnl"
         )),
         funcs: &[],
-        ops: handl_plugin_lib_serialize_toml_c::TOML_C_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(
-            handl_plugin_lib_serialize_toml_c::toml_c_op_registry,
-        )),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(
+                env!("OUT_DIR"),
+                "/lib-serialize-toml-c/atoms.yaml"
+            )),
+            impls: ops::kernel_impls::toml_c_impls,
+        }),
     },
+    // T-151: spec-driven over the kernel op ABI — `lib-serialize-yaml-c/
+    // atoms.yaml` (2 `yaml_c.*` atoms) + `yaml_c_impls()` replace
+    // `YAML_C_OPS`/`yaml_c_op_registry`.
     ModuleSpec {
         name: "yaml_c",
         hnl: include_str!(concat!(
@@ -411,11 +469,15 @@ pub static MODULES: &[ModuleSpec] = &[
             "/lib-serialize-yaml-c/src/index.hnl"
         )),
         funcs: &[],
-        ops: handl_plugin_lib_serialize_yaml_c::YAML_C_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(
-            handl_plugin_lib_serialize_yaml_c::yaml_c_op_registry,
-        )),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(
+                env!("OUT_DIR"),
+                "/lib-serialize-yaml-c/atoms.yaml"
+            )),
+            impls: ops::kernel_impls::yaml_c_impls,
+        }),
     },
     // ── url parsers (former plugin-lib-url-{rfc,whatwg}) ───────────────
     ModuleSpec {
@@ -438,13 +500,18 @@ pub static MODULES: &[ModuleSpec] = &[
         registry: None,
     },
     // ── cmp (former plugin-lib-cmp) ────────────────────────────────────
+    // T-151: spec-driven over the kernel op ABI — `lib-cmp/atoms.yaml`
+    // (20 `cmp.*` atoms) + `cmp_impls()` replace `CMP_OPS`/`cmp_op_registry`.
     ModuleSpec {
         name: "cmp",
         hnl: handl_lib_cmp::CMP_HNL,
         funcs: &[],
-        ops: handl_lib_cmp::CMP_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(handl_lib_cmp::cmp_op_registry)),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-cmp/atoms.yaml")),
+            impls: ops::kernel_impls::cmp_impls,
+        }),
     },
     // ── collections (former plugin-lib-collections) ────────────────────
     // Sequential containers: the whole non-nullary surface is pure handl
@@ -698,13 +765,36 @@ pub static MODULES: &[ModuleSpec] = &[
     // `.hnl` module that needs to fail loudly resolves `error` through the
     // global lookup (or registers the module in its ambient chain) and calls
     // `error.raise(msg)`.
+    // T-151: spec-driven over the kernel op ABI — `lib-error/atoms.yaml`
+    // (2 `error.*` atoms) + `error_impls()` replace
+    // `ERROR_OPS`/`error_op_registry`.
     ModuleSpec {
         name: "error",
         hnl: handl_lib_error::ERROR_HNL,
         funcs: &[],
-        ops: handl_lib_error::ERROR_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(handl_lib_error::error_op_registry)),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-error/atoms.yaml")),
+            impls: ops::kernel_impls::error_impls,
+        }),
+    },
+    // ── tag (ADR-0055 tagged-value inspection) ─────────────────────────
+    // T-151: spec-driven — `lib-tag/atoms.yaml` (4 `tag.*` inspection
+    // atoms) + `tag_impls()` replace the resolver-fallback path
+    // (`TAG_OPS`/`tag_op_registry` in `plugin-lib-tag`, which stays for
+    // kit-canonical's direct `TagModule`/`TagLibraryPlugin` use). The
+    // `__tag__` mint producers remain deleted (ADR-0152 §Migration).
+    ModuleSpec {
+        name: "tag",
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-tag/src/index.hnl")),
+        funcs: &[],
+        ops: &[],
+        values: &[],
+        registry: Some(RegistrySource::Atoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-tag/atoms.yaml")),
+            impls: ops::tag::tag_impls,
+        }),
     },
     // ── arrow_iter (former plugin-lib-arrow-iter) ──────────────────────
     // Declaration-only module: the `while`/`for`/`fix` derived forms are
@@ -2069,10 +2159,10 @@ fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
             ))),
         );
     }
-    // P-013 T-149: spec-driven modules get their arrow fields from
+    // P-013 T-149/T-151: spec-driven modules get their arrow fields from
     // `atoms.yaml` — names and sigs come from the spec (the `.hnl`
     // `op` decls are the fallback while T-151 hasn't removed them).
-    if let Some(RegistrySource::Atoms { spec: yaml, .. }) = spec.registry {
+    if let Some(yaml) = spec.registry.and_then(|s| s.atoms_yaml()) {
         if let Ok(decls) = atoms::module_atoms(yaml, spec.name) {
             for atom in &decls {
                 let local = atom.name.rsplit('.').next().unwrap_or(atom.name.as_str());
@@ -2180,13 +2270,25 @@ fn build_module_shallow(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) ->
                 module = module.with_ops(spec.ops, Arc::new(imported));
             }
             RegistrySource::Atoms { spec: yaml, impls } => {
-                // P-013 T-149: the spec is the source of truth — op names,
-                // signatures, and the fn bindings all come from
+                // P-013 T-149/T-151: the spec is the source of truth — op
+                // names, signatures, and the fn bindings all come from
                 // `atoms.yaml` + the impl table. `spec.ops` is unused on
                 // this path (migrated rows leave it empty).
                 let decls = atoms::module_atoms(yaml, spec.name)
                     .unwrap_or_else(|e| panic!("module '{}': atoms spec: {e}", spec.name));
                 let registry = atoms::registry_from_atoms(&decls, &impls())
+                    .unwrap_or_else(|e| panic!("module '{}': atoms registry: {e}", spec.name));
+                let names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
+                module = module.with_ops(&names, Arc::new(registry));
+            }
+            RegistrySource::KernelAtoms { spec: yaml, impls } => {
+                // P-013 T-151: same spec-driven contract as `Atoms`, but
+                // the impl table holds kernel `handl_ops::Op`s from
+                // `handl-lib-*`/`lib-*` crates — adapted to host
+                // `Function`s (with sigs) by `registry_from_atoms_kernel`.
+                let decls = atoms::module_atoms(yaml, spec.name)
+                    .unwrap_or_else(|e| panic!("module '{}': atoms spec: {e}", spec.name));
+                let registry = atoms::registry_from_atoms_kernel(&decls, &impls())
                     .unwrap_or_else(|e| panic!("module '{}': atoms registry: {e}", spec.name));
                 let names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
                 module = module.with_ops(&names, Arc::new(registry));
@@ -2322,7 +2424,7 @@ impl PackagePlugin {
         // `Plugin::capabilities`.
         for name in package_module_names(spec) {
             if let Some(mspec) = module_spec(name) {
-                if let Some(RegistrySource::Atoms { spec: yaml, .. }) = mspec.registry {
+                if let Some(yaml) = mspec.registry.and_then(|s| s.atoms_yaml()) {
                     if let Ok(decls) = atoms::module_atoms(yaml, name) {
                         for atom in decls {
                             let id = CapabilityId::from(atom.name.as_str());
