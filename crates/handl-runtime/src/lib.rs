@@ -1508,6 +1508,11 @@ pub struct ModuleLoader {
     /// that directory (`import "arrows/transform/map.hnl"` →
     /// `<deps["arrows"]>/transform/map.hnl`).
     dependencies: HashMap<String, PathBuf>,
+    /// `pkg.hnl` dep scopes (P-013 T-150): import-name → declared surface.
+    /// A spec whose first segment names a scoped dep exposes only the
+    /// declared modules/`module.field` atoms — see
+    /// [`handl_platform::PkgDepScope`]. Empty = every dep whole-surface.
+    dep_scopes: HashMap<String, handl_platform::PkgDepScope>,
     /// Directory stack for nested imports: while a module is being
     /// evaluated, its own directory is the resolution base for relative
     /// import paths inside it.
@@ -1556,6 +1561,7 @@ impl ModuleLoader {
             eval_engine: RefCell::new(None),
             module_root,
             dependencies: HashMap::new(),
+            dep_scopes: HashMap::new(),
             dir_stack: RefCell::new(Vec::new()),
             cache: RefCell::new(HashMap::new()),
             loading: RefCell::new(HashSet::new()),
@@ -1569,6 +1575,18 @@ impl ModuleLoader {
     /// [`ModuleLoader::resolve_path`] for the resolution semantics.
     pub fn with_dependencies(mut self, deps: HashMap<String, PathBuf>) -> Self {
         self.dependencies = deps;
+        self
+    }
+
+    /// Declare `pkg.hnl` dep scopes (P-013 T-150): import-name →
+    /// [`handl_platform::PkgDepScope`], typically
+    /// [`handl_platform::discover_dep_scopes`] of the consuming package.
+    /// A spec whose first segment names a scoped dep resolves only the
+    /// declared modules/`module.field` atoms — the cache keeps the full
+    /// record and the scope filters per call, so the same file imported
+    /// through a scoped and an unscoped name both behave correctly.
+    pub fn with_dep_scopes(mut self, scopes: HashMap<String, handl_platform::PkgDepScope>) -> Self {
+        self.dep_scopes = scopes;
         self
     }
 
@@ -1712,8 +1730,9 @@ impl ModuleLoader {
                 path
             ))
         })?;
+        let bindings = self.scoped_bindings(path, &module.bindings)?;
         engine_rc
-            .seal_module_value(&module.ast, &self.lang, tagged_to_value(&module.bindings))
+            .seal_module_value(&module.ast, &self.lang, tagged_to_value(&bindings))
             .map_err(|e| LangError::engine(format!("import \"{}\": seal error: {}", path, e)))
     }
 
@@ -1730,7 +1749,30 @@ impl ModuleLoader {
     ///
     /// Returns [`LangError`] as [`load_module`](Self::load_module).
     pub fn load_module_tagged(&self, path: &str) -> Result<Rc<TaggedValue>, LangError> {
-        Ok(Rc::clone(&self.load_module_cached(path)?.bindings))
+        let module = self.load_module_cached(path)?;
+        self.scoped_bindings(path, &module.bindings)
+    }
+
+    /// Apply the `pkg.hnl` dep scope `path`'s specifier declares
+    /// (P-013 T-150): the cached bindings record filtered to the
+    /// `module.field` exports the scope exposes. A spec naming a module
+    /// the scope excludes is an error — the dep simply does not provide
+    /// it to this consumer.
+    fn scoped_bindings(
+        &self,
+        path: &str,
+        bindings: &Rc<TaggedValue>,
+    ) -> Result<Rc<TaggedValue>, LangError> {
+        let Some((scope, dep, module)) = handl_platform::dep_spec_scope(&self.dep_scopes, path)
+        else {
+            return Ok(Rc::clone(bindings));
+        };
+        if !scope.allows_module(&module) {
+            return Err(LangError::engine(format!(
+                "import \"{path}\": dep `{dep}` scope excludes module `{module}`"
+            )));
+        }
+        Ok(handl_platform::scope_tagged_bindings(bindings, scope, &module))
     }
 
     /// Resolve `path`, consult the cache/cycle detector, and load the module

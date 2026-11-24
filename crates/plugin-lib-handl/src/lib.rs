@@ -2925,6 +2925,54 @@ impl ModuleEnv {
         })
     }
 
+    /// [`from_manifest`](Self::from_manifest) over scope-carrying deps
+    /// ([`handl_platform::PkgDep`], P-013 T-150): each dep resolves
+    /// through `resolver` as usual, and a dep whose `pkg.hnl` entry
+    /// declares `modules:`/`atoms:` is wrapped in
+    /// [`pkg::ScopedModule`] so the env exposes only the declared
+    /// surface — the eval env record and `lookup_module_exports`
+    /// (typecheck's `type.module_sig`) see exactly the same atoms.
+    ///
+    /// Same missing-dep contract as [`from_manifest`](Self::from_manifest):
+    /// every declared name must resolve or the whole call errors.
+    pub fn from_scoped_manifest(
+        deps: &[handl_platform::PkgDep],
+        resolver: &dyn ModuleResolver,
+    ) -> Result<Self, handl_language::LangError> {
+        let mut dependencies = Vec::with_capacity(deps.len());
+        let mut missing: Vec<String> = Vec::new();
+        for dep in deps {
+            match resolver.resolve(&dep.name) {
+                Some(module) => {
+                    let module: Arc<dyn Module + Send + Sync> = if dep.scope.is_unrestricted() {
+                        module
+                    } else {
+                        Arc::new(pkg::ScopedModule::new(
+                            module,
+                            dep.name.clone(),
+                            dep.scope.clone(),
+                        ))
+                    };
+                    dependencies.push(module);
+                }
+                None => missing.push(format!("`{}` (spec \"{}\")", dep.name, dep.spec)),
+            }
+        }
+        if !missing.is_empty() {
+            return Err(handl_language::LangError::engine(format!(
+                "from_scoped_manifest: unresolved deps: {}",
+                missing.join(", ")
+            )));
+        }
+        Ok(Self {
+            dependencies,
+            global_lookup: None,
+            import_resolver: None,
+            default_env: None,
+            env_id: allocate_env_id(),
+        })
+    }
+
     /// [`from_manifest`](Self::from_manifest) over a `pkg.hnl` source:
     /// the `deps` table is parsed by [`handl_platform::pkg_dep_specs`] —
     /// the same lenient scan [`resolve_pkg_dependencies`] uses, so no
@@ -2942,7 +2990,10 @@ impl ModuleEnv {
         src: &str,
         resolver: &dyn ModuleResolver,
     ) -> Result<Self, handl_language::LangError> {
-        Self::from_manifest(&handl_platform::pkg_dep_specs(src), resolver)
+        // P-013 T-150: the scope-carrying parse — record-form deps wrap
+        // their resolved module in `ScopedModule`; the legacy string form
+        // yields an unrestricted scope and behaves exactly as before.
+        Self::from_scoped_manifest(&handl_platform::pkg_dep_scopes(src), resolver)
     }
 
     /// This env's identity (ADR-0156): stable across `clone`, fresh for

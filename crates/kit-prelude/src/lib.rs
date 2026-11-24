@@ -1257,6 +1257,34 @@ impl Kit {
         modules: Option<Vec<String>>,
         registry: EngineRegistry,
     ) -> Result<Self, LangError> {
+        Self::build_kit_with_dep_scopes(
+            lang,
+            config,
+            module_root,
+            dependencies,
+            HashMap::new(),
+            modules,
+            registry,
+        )
+    }
+
+    /// [`Kit::build_kit`] plus `dep_scopes` — the `pkg.hnl` `deps`
+    /// atom/module surface restrictions (P-013 T-150) wired into the
+    /// [`ModuleLoader`]: an import specifier whose first segment names a
+    /// scoped dep resolves only the declared `module.field` exports.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LangError`] if engine binding fails.
+    pub fn build_kit_with_dep_scopes(
+        lang: Language,
+        config: RuntimeConfig,
+        module_root: Option<PathBuf>,
+        dependencies: HashMap<String, PathBuf>,
+        dep_scopes: HashMap<String, handl_platform::PkgDepScope>,
+        modules: Option<Vec<String>>,
+        registry: EngineRegistry,
+    ) -> Result<Self, LangError> {
         // ADR-0128 §"The 0.8 seam": `plugin-lib-handl` (stays in platform)
         // no longer links `handl-kit-data-prelude` — its lazily-built
         // `HandlModule` bridge runtimes resolve the host-installed default
@@ -1402,7 +1430,8 @@ impl Kit {
                     .box_clone(),
                 module_root.clone(),
             )
-            .with_dependencies(dependencies),
+            .with_dependencies(dependencies)
+            .with_dep_scopes(dep_scopes),
         );
         // The loader evals module sources with the kit's configured eval
         // engine (`runtime.eval` in the manifest) — a `.hnl` lib never picks

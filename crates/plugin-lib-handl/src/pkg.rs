@@ -541,6 +541,108 @@ impl ModuleResolver for PackageResolver {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Scoped dep modules (P-013 T-150)
+// ---------------------------------------------------------------------------
+
+/// A [`Module`] view of `inner` restricted to a `pkg.hnl` `deps` scope —
+/// the env-side half of atom/module-scoped deps.
+///
+/// `function`/`functions`/`value_names`/`value`/`bindings_tagged` all
+/// expose only the declared surface, so every consumer of the module sees
+/// exactly the scope: the eval env record [`dep_env_globals`](crate)
+/// materializes (record fields come from `functions()`/`bindings_tagged()`),
+/// `call_host` leaf dispatch (`function(name)` returns `None` for a
+/// scoped-out atom), and `ModuleRegistry::lookup_module_exports` — the
+/// typecheck `type.module_sig` surface — which enumerates `functions()`.
+///
+/// Atom qualifiers (`module.field`) are matched against both the dep name
+/// and the resolved module's own `name()`: `deps: { utils: { atoms:
+/// ["math.abs"] } }` scopes the `math` module a `utils` package resolves
+/// to, while `deps: { mri: { atoms: ["mri.parse"] } }` scopes `mri`
+/// itself.
+pub struct ScopedModule {
+    inner: Arc<dyn Module + Send + Sync>,
+    /// The `pkg.hnl` `deps` key this module was resolved for.
+    dep_name: String,
+    scope: handl_platform::PkgDepScope,
+}
+
+impl ScopedModule {
+    /// Wrap `inner` (resolved for dep `dep_name`) in `scope`.
+    pub fn new(
+        inner: Arc<dyn Module + Send + Sync>,
+        dep_name: String,
+        scope: handl_platform::PkgDepScope,
+    ) -> Self {
+        Self {
+            inner,
+            dep_name,
+            scope,
+        }
+    }
+
+    /// Whether export `field` is inside the scope — matched under either
+    /// the dep name or the module's own name (see the struct docs).
+    fn allows_field(&self, field: &str) -> bool {
+        self.scope.allows_field(self.inner.name(), field)
+            || self.scope.allows_field(&self.dep_name, field)
+    }
+}
+
+impl Module for ScopedModule {
+    fn name(&self) -> &str {
+        self.inner.name()
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn handl_platform::Function> {
+        if self.allows_field(name) {
+            self.inner.function(name)
+        } else {
+            None
+        }
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn handl_platform::Function)> {
+        self.inner
+            .functions()
+            .into_iter()
+            .filter(|(name, _)| self.allows_field(name))
+            .collect()
+    }
+
+    fn value_names(&self) -> Vec<String> {
+        self.inner
+            .value_names()
+            .into_iter()
+            .filter(|name| self.allows_field(name))
+            .collect()
+    }
+
+    fn value(&self, name: &str) -> Option<serde_json::Value> {
+        if self.allows_field(name) {
+            self.inner.value(name)
+        } else {
+            None
+        }
+    }
+
+    fn bindings_tagged(&self) -> Option<std::rc::Rc<handl_value::TaggedValue>> {
+        self.inner.bindings_tagged().map(|rc| {
+            use handl_value::TaggedValue;
+            let TaggedValue::Obj(map) = rc.as_ref() else {
+                return rc;
+            };
+            if self.scope.is_unrestricted() {
+                return rc;
+            }
+            let mut filtered = (**map).clone();
+            filtered.retain(|k, _| self.allows_field(k.as_ref()));
+            std::rc::Rc::new(TaggedValue::Obj(std::rc::Rc::new(filtered)))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

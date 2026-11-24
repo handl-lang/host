@@ -315,6 +315,7 @@ fn const_arrow(result: &str) -> handl_value::TaggedValue {
         ))),
         binds: Default::default(),
         handlers: Default::default(),
+        sig: None,
     }
 }
 

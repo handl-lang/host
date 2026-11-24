@@ -195,3 +195,107 @@ fn from_pkg_hnl_builds_the_env_from_a_pkg_manifest() {
     // A malformed manifest is likewise lenient (empty env, no error).
     assert!(ModuleEnv::from_pkg_hnl("{ deps: { alpha: ", &resolver).is_ok());
 }
+
+// ---------------------------------------------------------------------------
+// P-013 T-150: atom/module-scoped `deps` entries
+// ---------------------------------------------------------------------------
+
+/// A dep exposing two functions — `keep` and `drop` — for scope tests.
+struct TwoFunc {
+    name: String,
+}
+
+struct Keep;
+struct Drop;
+
+impl Function for Keep {
+    fn call(
+        &self,
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        Ok(serde_json::json!("kept"))
+    }
+}
+
+impl Function for Drop {
+    fn call(
+        &self,
+        _args: &[serde_json::Value],
+        _ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
+        Ok(serde_json::json!("dropped"))
+    }
+}
+
+impl Module for TwoFunc {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn function(&self, name: &str) -> Option<&dyn Function> {
+        match name {
+            "keep" => Some(&KEEP as &dyn Function),
+            "drop" => Some(&DROP as &dyn Function),
+            _ => None,
+        }
+    }
+
+    fn functions(&self) -> Vec<(&str, &dyn Function)> {
+        vec![("keep", &KEEP), ("drop", &DROP)]
+    }
+}
+
+static KEEP: Keep = Keep;
+static DROP: Drop = Drop;
+
+struct OneResolver;
+
+impl ModuleResolver for OneResolver {
+    fn resolve(&self, name: &str) -> Option<Arc<dyn Module + Send + Sync>> {
+        (name == "gamma").then(|| {
+            Arc::new(TwoFunc {
+                name: "gamma".to_string(),
+            }) as Arc<dyn Module + Send + Sync>
+        })
+    }
+}
+
+const GAMMA_SRC: &str = r#"from "gamma" import * as g
+export ask := (x) ~> g.keep() + ":" + x
+"#;
+
+/// A record-form dep entry wraps the resolved module in `ScopedModule`:
+/// the env exposes only the declared `module.field` atoms — the scoped-out
+/// function is absent from `functions()` (and therefore from the env
+/// record and `lookup_module_exports`), while the declared one works.
+#[test]
+fn from_pkg_hnl_scopes_dep_atoms() {
+    ensure_lang();
+    let resolver = OneResolver;
+    let pkg = r#"{ deps: { gamma: { spec: "branch:main", atoms: ["gamma.keep"] } } }"#;
+    let env = ModuleEnv::from_pkg_hnl(pkg, &resolver).expect("scoped dep resolves");
+    let m = HandlModule::new("m", GAMMA_SRC, &["ask"]).instantiate(env);
+    assert_eq!(call_ask(&m, "x"), serde_json::json!("kept:x"));
+
+    // The scoped module itself hides `drop`: `functions()` — the
+    // enumeration `ModuleRegistry::lookup_module_exports` (typecheck's
+    // `type.module_sig` surface) and `dep_env_globals` both read —
+    // yields only `keep`.
+    let inner: Arc<dyn Module + Send + Sync> = Arc::new(TwoFunc {
+        name: "gamma".to_string(),
+    });
+    let scope = handl_platform::PkgDepScope {
+        modules: vec![],
+        atoms: vec!["gamma.keep".to_string()],
+    };
+    let scoped = handl_plugin_lib_handl::pkg::ScopedModule::new(
+        inner,
+        "gamma".to_string(),
+        scope,
+    );
+    let names: Vec<&str> = scoped.functions().iter().map(|(n, _)| *n).collect();
+    assert_eq!(names, vec!["keep"], "scoped functions: {names:?}");
+    assert!(scoped.function("drop").is_none());
+    assert!(scoped.function("keep").is_some());
+}

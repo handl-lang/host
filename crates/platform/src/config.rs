@@ -1093,23 +1093,6 @@ pub fn resolve_pkg_dependencies(
     Ok(out)
 }
 
-/// `(name, spec)` pairs from a `pkg.hnl` source's `deps` table — the
-/// source-level half of [`resolve_pkg_dependencies`], sharing its scan
-/// (`pkg_deps_body`/`pkg_dep_entries`) without touching the filesystem.
-///
-/// Consumers that resolve the declared names somewhere other than the
-/// sibling-`lib-<name>` convention (e.g. building a module environment
-/// through a `ModuleResolver`) read the manifest without duplicating the
-/// brace-balanced parse. A source with no `deps` table — or a malformed
-/// one — yields an empty vec, the same leniency
-/// [`resolve_pkg_dependencies`] applies so a bad manifest can never
-/// break an unrelated build.
-pub fn pkg_dep_specs(src: &str) -> Vec<(String, String)> {
-    pkg_deps_body(src)
-        .map(|body| pkg_dep_entries(&body))
-        .unwrap_or_default()
-}
-
 /// First `key:` occurrence in comment-stripped `pkg.hnl` source.
 ///
 /// `key` must stand alone (no identifier char before it) and be followed
@@ -1304,6 +1287,247 @@ fn pkg_dep_entries(body: &str) -> Vec<(String, String)> {
     }
     push(&current);
     entries
+}
+
+// ---------------------------------------------------------------------------
+// pkg.hnl atom/module-scoped deps (P-013 T-150)
+//
+// A `deps` entry's value may be the legacy `<kind>:<ref>` spec string —
+// the whole dependency surface — or a record narrowing the surface the
+// consuming package sees (tsconfig `lib`/`types` semantics):
+//
+// ```text
+// deps: {
+//   mri:   "branch:main",                              -- whole dep (legacy)
+//   proc:  { spec: "branch:main", atoms: ["proc.argv"] },
+//   utils: { modules: ["math", "str"] },               -- whole modules only
+//   both:  { spec: "rev:abc", modules: ["math"], atoms: ["math.abs"] },
+// }
+// ```
+//
+// - `spec` (or `ref`) — the fetch spec, same grammar as the string form;
+//   absent means the local-development default (`branch:main`).
+// - `modules` — dep module names exposed whole. Module names are the
+//   second `/`-segment of an import specifier (`from "utils/math"` →
+//   module `math`); a bare dep name (`from "mri"`) scopes the dep's
+//   primary module, named after the dep.
+// - `atoms` — `module.field` exports exposed individually. When `atoms`
+//   is non-empty the allowed modules are implied by the atom qualifiers;
+//   combined with `modules`, a module must pass both gates and only the
+//   listed fields of it are exposed.
+//
+// A bare-string value naming a *module* (`deps: { "lib-utils": "math" }`,
+// the coarser form sketched in the proposal) is deliberately NOT adopted:
+// a colon-less string is already meaningful fetch-spec grammar
+// (`dep_spec_ref` defaults it to `branch:main`), so overloading it would
+// silently change resolution of existing manifests. `modules:`/`atoms:`
+// records are the unambiguous spelling.
+// ---------------------------------------------------------------------------
+
+/// The declared surface a `pkg.hnl` `deps` entry restricts a dependency
+/// to (P-013 T-150). Both lists empty = the whole dep, today's behavior.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct PkgDepScope {
+    /// Dep module names exposed whole (`modules: ["math"]`).
+    pub modules: Vec<String>,
+    /// `module.field` exports exposed individually (`atoms: ["math.abs"]`).
+    pub atoms: Vec<String>,
+}
+
+impl PkgDepScope {
+    /// Whether the scope restricts anything — `false` means the dep's
+    /// whole surface is exposed (the legacy behavior).
+    pub fn is_unrestricted(&self) -> bool {
+        self.modules.is_empty() && self.atoms.is_empty()
+    }
+
+    /// Whether `module` (a dep module name — see [`dep_spec_scope`]) is
+    /// inside the scope at all: it must pass the `modules` gate and, when
+    /// `atoms` are declared, be named by at least one atom qualifier.
+    pub fn allows_module(&self, module: &str) -> bool {
+        if !self.modules.is_empty() && !self.modules.iter().any(|m| m == module) {
+            return false;
+        }
+        self.atoms.is_empty()
+            || self
+                .atoms
+                .iter()
+                .any(|a| a.split('.').next() == Some(module))
+    }
+
+    /// Whether `module.field` is an exposed export under this scope.
+    pub fn allows_field(&self, module: &str, field: &str) -> bool {
+        if !self.allows_module(module) {
+            return false;
+        }
+        self.atoms.is_empty()
+            || self
+                .atoms
+                .iter()
+                .any(|a| a == &format!("{module}.{field}"))
+    }
+}
+
+/// One `pkg.hnl` `deps` entry with its optional surface scope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PkgDep {
+    /// The dep name — the import specifier's first `/`-segment.
+    pub name: String,
+    /// The fetch spec (`"branch:main"`, `"rev:…"`, …); empty when the
+    /// record form omits `spec`/`ref` (local-development default).
+    pub spec: String,
+    /// The declared surface restriction; unrestricted for the legacy
+    /// string form.
+    pub scope: PkgDepScope,
+}
+
+/// `(name, spec)` pairs from a `pkg.hnl` source's `deps` table — see
+/// [`pkg_dep_scopes`] for the scope-carrying form. Kept for callers that
+/// only need the fetch spec; a record value contributes its `spec`/`ref`
+/// field (empty when absent).
+pub fn pkg_dep_specs(src: &str) -> Vec<(String, String)> {
+    pkg_dep_scopes(src)
+        .into_iter()
+        .map(|d| (d.name, d.spec))
+        .collect()
+}
+
+/// Every `deps` entry of a `pkg.hnl` source with its scope — the
+/// scope-carrying half of [`pkg_dep_specs`] (P-013 T-150).
+///
+/// Same leniency: no `deps` table or a malformed one yields an empty vec.
+pub fn pkg_dep_scopes(src: &str) -> Vec<PkgDep> {
+    let Some(body) = pkg_deps_body(src) else {
+        return Vec::new();
+    };
+    pkg_dep_entries(&body)
+        .into_iter()
+        .map(|(name, value)| {
+            let value = value.trim();
+            if value.starts_with('{') {
+                let (spec, scope) = pkg_dep_scope_record(value);
+                PkgDep { name, spec, scope }
+            } else {
+                PkgDep {
+                    name,
+                    spec: value.to_string(),
+                    scope: PkgDepScope::default(),
+                }
+            }
+        })
+        .collect()
+}
+
+/// `name → scope` for the *restricted* deps of a `pkg.hnl` source — the
+/// map consumers key import specifiers against. Unrestricted entries are
+/// omitted: absence means "whole surface", so lookups stay a single
+/// `HashMap::get`.
+pub fn pkg_dep_scope_map(src: &str) -> HashMap<String, PkgDepScope> {
+    pkg_dep_scopes(src)
+        .into_iter()
+        .filter(|d| !d.scope.is_unrestricted())
+        .map(|d| (d.name, d.scope))
+        .collect()
+}
+
+/// The dep scopes declared by the `pkg.hnl` next to the `.handl.toml`
+/// [`discover_manifest_dir`] finds from `start` — the same manifest pair
+/// [`resolve_dependencies`] merges. Empty when no manifest or no
+/// `pkg.hnl` exists (or none of its deps are scoped).
+///
+/// [`discover_manifest_dir`]: crate::config::discover_manifest_dir
+/// [`resolve_dependencies`]: crate::config::resolve_dependencies
+pub fn discover_dep_scopes(start: &Path) -> HashMap<String, PkgDepScope> {
+    let Some(dir) = discover_manifest_dir(start) else {
+        return HashMap::new();
+    };
+    let Ok(src) = std::fs::read_to_string(dir.join("pkg.hnl")) else {
+        return HashMap::new();
+    };
+    pkg_dep_scope_map(&src)
+}
+
+/// Parse a record-form dep value (`{ spec: "…", modules: […], atoms: […] }`)
+/// into `(spec, scope)`. Unknown keys are ignored; a missing `spec`/`ref`
+/// yields an empty spec (the `dep_spec_ref` local-development default).
+fn pkg_dep_scope_record(value: &str) -> (String, PkgDepScope) {
+    let inner = value
+        .trim()
+        .strip_prefix('{')
+        .and_then(|v| v.strip_suffix('}'))
+        .unwrap_or(value);
+    let mut spec = String::new();
+    let mut scope = PkgDepScope::default();
+    for (key, val) in pkg_dep_entries(inner) {
+        match key.as_str() {
+            "spec" | "ref" => spec = val,
+            "modules" => scope.modules = pkg_dep_name_list(&val),
+            "atoms" => scope.atoms = pkg_dep_name_list(&val),
+            _ => {}
+        }
+    }
+    (spec, scope)
+}
+
+/// Quoted-name entries of a `[ "a", "b" ]` list value — brackets stripped,
+/// then the same lenient split [`hnl_list_entries`] applies.
+fn pkg_dep_name_list(value: &str) -> Vec<String> {
+    let v = value.trim();
+    let inner = v
+        .strip_prefix('[')
+        .and_then(|s| s.strip_suffix(']'))
+        .unwrap_or(v);
+    hnl_list_entries(inner)
+}
+
+/// The `(scope, dep name, module name)` an import specifier resolves to
+/// under `scopes`, or `None` when the spec's first segment names no
+/// *restricted* dep.
+///
+/// The first `/`-separated segment is the dep name (a `pkg.hnl` `deps`
+/// key); the second — when present — is the module inside a multi-module
+/// package (`"utils/math"` → dep `utils`, module `math`). A bare dep name
+/// (`"mri"`, `"mri/index"`) scopes the dep's primary module, named after
+/// the dep itself.
+pub fn dep_spec_scope<'a>(
+    scopes: &'a HashMap<String, PkgDepScope>,
+    spec: &str,
+) -> Option<(&'a PkgDepScope, String, String)> {
+    let (first, rest) = match spec.split_once('/') {
+        Some((f, r)) => (f, Some(r)),
+        None => (spec, None),
+    };
+    let scope = scopes.get(first)?;
+    let module = rest
+        .and_then(|r| r.split('/').next())
+        .map(|m| m.trim_end_matches(".hnl").to_string())
+        .filter(|m| !m.is_empty() && m != "index")
+        .unwrap_or_else(|| first.to_string());
+    Some((scope, first.to_string(), module))
+}
+
+/// Filter a module bindings record (`TaggedValue::Obj`) to the fields
+/// `scope` exposes for `module` — the shared half of dep scoping
+/// (P-013 T-150) used by both the `ModuleLoader` eval path and
+/// scope-wrapping `Module`s. Non-object bindings pass through unchanged
+/// (there is nothing to filter); an object keeps only the entries
+/// [`PkgDepScope::allows_field`] admits.
+pub fn scope_tagged_bindings(
+    bindings: &std::rc::Rc<handl_value::TaggedValue>,
+    scope: &PkgDepScope,
+    module: &str,
+) -> std::rc::Rc<handl_value::TaggedValue> {
+    use handl_value::TaggedValue;
+    let TaggedValue::Obj(map) = bindings.as_ref() else {
+        return std::rc::Rc::clone(bindings);
+    };
+    if scope.is_unrestricted() {
+        return std::rc::Rc::clone(bindings);
+    }
+    // Clone + retain keeps the concrete `FxHashMap` type unnameable here.
+    let mut filtered = (**map).clone();
+    filtered.retain(|k, _| scope.allows_field(module, k.as_ref()));
+    std::rc::Rc::new(TaggedValue::Obj(std::rc::Rc::new(filtered)))
 }
 
 fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
@@ -2192,6 +2416,142 @@ vendored = { path = "../lib-vendored" }
         assert!(pkg_dep_specs("{ modules: [\"cli\"] }").is_empty());
         assert!(pkg_dep_specs("").is_empty());
         assert!(pkg_dep_specs("{ deps: { math: ").is_empty());
+    }
+
+    /// P-013 T-150: record-form dep values carry `spec`/`modules`/`atoms`.
+    #[test]
+    fn pkg_dep_scopes_parses_record_values() {
+        let src = r#"{ deps: {
+            mri: "branch:main",
+            proc: { spec: "branch:main", atoms: ["proc.argv", "proc.exit"] },
+            utils: { modules: ["math", "str"] },
+            both: { spec: "rev:abc123", modules: ["math"], atoms: ["math.abs"] },
+        } }"#;
+        let deps = pkg_dep_scopes(src);
+        assert_eq!(deps.len(), 4);
+        assert_eq!(deps[0].name, "mri");
+        assert_eq!(deps[0].spec, "branch:main");
+        assert!(deps[0].scope.is_unrestricted());
+        assert_eq!(deps[1].name, "proc");
+        assert_eq!(deps[1].spec, "branch:main");
+        assert_eq!(deps[1].scope.atoms, vec!["proc.argv", "proc.exit"]);
+        assert!(deps[1].scope.modules.is_empty());
+        assert_eq!(deps[2].name, "utils");
+        assert_eq!(deps[2].spec, "");
+        assert_eq!(deps[2].scope.modules, vec!["math", "str"]);
+        assert_eq!(deps[3].spec, "rev:abc123");
+        assert_eq!(deps[3].scope.modules, vec!["math"]);
+        assert_eq!(deps[3].scope.atoms, vec!["math.abs"]);
+        // `pkg_dep_specs` keeps working: record values contribute spec.
+        assert_eq!(
+            pkg_dep_specs(src),
+            vec![
+                ("mri".to_string(), "branch:main".to_string()),
+                ("proc".to_string(), "branch:main".to_string()),
+                ("utils".to_string(), String::new()),
+                ("both".to_string(), "rev:abc123".to_string()),
+            ]
+        );
+    }
+
+    /// The scope gates: `modules` selects whole modules, `atoms` selects
+    /// `module.field` exports (implying their modules).
+    #[test]
+    fn pkg_dep_scope_gates() {
+        let atoms = PkgDepScope {
+            modules: vec![],
+            atoms: vec!["math.abs".to_string(), "math.e".to_string()],
+        };
+        assert!(atoms.allows_module("math"));
+        assert!(!atoms.allows_module("str"));
+        assert!(atoms.allows_field("math", "abs"));
+        assert!(!atoms.allows_field("math", "sin"));
+        assert!(!atoms.allows_field("str", "abs"));
+
+        let modules = PkgDepScope {
+            modules: vec!["math".to_string()],
+            atoms: vec![],
+        };
+        assert!(modules.allows_module("math"));
+        assert!(!modules.allows_module("str"));
+        // Whole-module scope exposes every field of the allowed module.
+        assert!(modules.allows_field("math", "anything"));
+        assert!(!modules.allows_field("str", "anything"));
+
+        // Both gates: module must be listed AND field atom-listed.
+        let both = PkgDepScope {
+            modules: vec!["math".to_string()],
+            atoms: vec!["math.abs".to_string()],
+        };
+        assert!(both.allows_field("math", "abs"));
+        assert!(!both.allows_field("math", "sin"));
+        assert!(!both.allows_field("str", "abs"));
+
+        assert!(PkgDepScope::default().is_unrestricted());
+        assert!(PkgDepScope {
+            modules: vec![],
+            atoms: vec![]
+        }
+        .allows_field("any", "thing"));
+    }
+
+    /// `dep_spec_scope` maps an import specifier to `(scope, dep, module)`:
+    /// first segment is the dep, second the module inside a multi-module
+    /// package, a bare dep name scopes the dep-named primary module.
+    #[test]
+    fn dep_spec_scope_maps_specifiers() {
+        let mut scopes = HashMap::new();
+        scopes.insert(
+            "utils".to_string(),
+            PkgDepScope {
+                modules: vec!["math".to_string()],
+                atoms: vec![],
+            },
+        );
+        scopes.insert(
+            "mri".to_string(),
+            PkgDepScope {
+                modules: vec![],
+                atoms: vec!["mri.parse".to_string()],
+            },
+        );
+        let (scope, dep, module) = dep_spec_scope(&scopes, "utils/math").unwrap();
+        assert_eq!(dep, "utils");
+        assert_eq!(module, "math");
+        assert!(scope.allows_module("math"));
+        let (_, dep, module) = dep_spec_scope(&scopes, "utils/str").unwrap();
+        assert_eq!((dep.as_str(), module.as_str()), ("utils", "str"));
+        let (_, dep, module) = dep_spec_scope(&scopes, "mri").unwrap();
+        assert_eq!((dep.as_str(), module.as_str()), ("mri", "mri"));
+        // Unscoped dep names and relative specs resolve to no scope.
+        assert!(dep_spec_scope(&scopes, "proc").is_none());
+        assert!(dep_spec_scope(&scopes, "./index").is_none());
+        assert!(dep_spec_scope(&scopes, "/abs/path").is_none());
+    }
+
+    /// `scope_tagged_bindings` filters an export record to the declared
+    /// `module.field` surface; unscoped bindings pass through untouched.
+    #[test]
+    fn scope_tagged_bindings_filters_fields() {
+        use handl_value::TaggedValue;
+        let bindings = std::rc::Rc::new(TaggedValue::from(serde_json::json!({
+            "abs": 1,
+            "sin": 2
+        })));
+        assert!(matches!(bindings.as_ref(), TaggedValue::Obj(_)));
+        let scope = PkgDepScope {
+            modules: vec![],
+            atoms: vec!["math.abs".to_string()],
+        };
+        let filtered = scope_tagged_bindings(&bindings, &scope, "math");
+        let TaggedValue::Obj(m) = filtered.as_ref() else {
+            panic!("expected obj");
+        };
+        assert!(m.contains_key("abs"));
+        assert!(!m.contains_key("sin"));
+        // Unrestricted scope is identity.
+        let same = scope_tagged_bindings(&bindings, &PkgDepScope::default(), "math");
+        assert!(std::rc::Rc::ptr_eq(&same, &bindings));
     }
 
     /// `pkg_scripts` reads the `scripts` table in all three value forms —

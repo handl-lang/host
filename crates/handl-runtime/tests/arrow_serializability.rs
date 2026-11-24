@@ -225,6 +225,7 @@ fn binds_resource_round_trips_lossily() {
         body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
         binds: Rc::new(binds),
         handlers: Rc::from(Vec::<TaggedValue>::new()),
+        sig: None,
     };
 
     // Serialize: the resource becomes a debug-only pointer record, no finalizer.
@@ -287,6 +288,7 @@ fn shared_binds_dedup_as_doc_local_refs() {
         body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
         binds: Rc::clone(binds),
         handlers: Rc::from(Vec::<TaggedValue>::new()),
+        sig: None,
     };
     let pair = TaggedValue::Arr(Rc::from(vec![mk_arrow(&shared), mk_arrow(&shared)]));
 
@@ -348,6 +350,7 @@ fn binds_dag_serializes_bounded() {
         body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
         binds: Rc::clone(&inner_binds),
         handlers: Rc::from(Vec::<TaggedValue>::new()),
+        sig: None,
     };
     let mut outer_map: FxHashMap<Rc<str>, TaggedValue> = FxHashMap::default();
     outer_map.insert(Rc::from("inner"), inner);
@@ -358,6 +361,7 @@ fn binds_dag_serializes_bounded() {
         body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
         binds: Rc::new(outer_map),
         handlers: Rc::from(Vec::<TaggedValue>::new()),
+        sig: None,
     };
 
     let encoded = tagged_to_value(&outer);
@@ -414,6 +418,7 @@ fn binds_ids_are_unique_across_serializations() {
             body_def: Rc::new(bare_arrow_json()["body_def"].clone().into()),
             binds: Rc::clone(binds),
             handlers: Rc::from(Vec::<TaggedValue>::new()),
+            sig: None,
         };
         tagged_to_value(&TaggedValue::Arr(Rc::from(vec![
             mk_arrow(&shared),
