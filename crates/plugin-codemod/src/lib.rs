@@ -236,6 +236,27 @@ impl Codemod {
         self
     }
 
+    /// Register every `.hnl` module a package directory declares
+    /// (`pkg.hnl` `modules:` → `src/*.hnl`) for `handl:<mod>.<fn>`
+    /// rewrite names — the package-module half of P-002's wiring: a
+    /// `codemod.yaml` living in a `lib-*` package resolves its
+    /// `handl:` rewrites against that package's own modules
+    /// (e.g. lib-codemod's `codemod` module). Intra-package `import`s
+    /// between sibling modules are wired; imports of other packages
+    /// stay unresolved (the `PackageResolver` boundary).
+    ///
+    /// # Errors
+    ///
+    /// `Err` when `pkg_dir` is not a package or a declared module
+    /// cannot be read — the CLI surfaces this as a hard error rather
+    /// than letting each `handl:` rule fail as a `RewriteError`.
+    pub fn with_package_modules(mut self, pkg_dir: &Path) -> Result<Self, LangError> {
+        for module in handl_plugin_lib_handl::pkg::handl_modules_in_dir(pkg_dir)? {
+            self.handl_modules.push(module);
+        }
+        Ok(self)
+    }
+
     /// Register a native rewrite under a bare name — reachable as
     /// `rewrite: "native:<name>"` or `rewrite: "<name>"`.
     pub fn with_native<F>(mut self, name: impl Into<String>, f: F) -> Self

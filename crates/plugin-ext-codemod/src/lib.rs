@@ -6,7 +6,8 @@
 //!
 //! ```text
 //! hnl codemod [plan|apply|revert] <spec.yaml> [--root <dir>] [--target <glob>]
-//!             [--json] [--check|--dry-run] [--run <id>] [--keep-going]
+//!             [--package <dir>] [--json] [--check|--dry-run] [--run <id>]
+//!             [--keep-going]
 //! ```
 //!
 //! - `plan` (also `--check`/`--dry-run`) — resolve `targets[].glob`,
@@ -38,7 +39,14 @@
 //! [`Codemod::with_rewrite_layer`] — the `hnl-ext-codemod` packaging
 //! passes the kit's `handl:` `.hnl` rewrite adapter
 //! (`Kit::handl_rewrite_adapter`), so `rewrite: "handl:<mod>.<fn>"`
-//! rules dispatch into kit modules. Still unwired by the CLI:
+//! rules dispatch into kit modules. On top of that the command wires
+//! **package modules** itself (P-002/T-108): when the spec names a
+//! `handl:` rewrite, the package owning the spec — `--package <dir>`
+//! when given, otherwise the nearest `pkg.hnl` walking up from the
+//! spec path — contributes every declared module via
+//! [`Codemod::with_package_modules`]. A `handl:` name no module
+//! provides stays an honest `RewriteError` diagnostic on the first
+//! match. Still unwired by the CLI:
 //!
 //! - `native:`/bare rewrite functions — there is no canonical codemod
 //!   native set; hosts register them via [`Codemod::with_native`] or a
@@ -55,7 +63,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use handl_language::Language;
-use handl_plugin_codemod::{Codemod, CodemodSpec, resolve_targets};
+use handl_plugin_codemod::{Codemod, CodemodRewrite, CodemodSpec, resolve_targets};
 use hnl_tool_codegen::{
     ApplyOptions, ApplyReport, ArtifactStore, Engine, FsStore, Manifest, RevertReport, RunMeta,
     journal_ref,
@@ -106,7 +114,7 @@ pub fn codemod_command_with(
     rewrite_layers: &[Arc<dyn NativeRewrite>],
     args: &[String],
 ) -> i32 {
-    let usage = "usage: hnl codemod [plan|apply|revert] <spec.yaml> [--root <dir>] [--target <glob>] [--json] [--check|--dry-run] [--run <id>] [--keep-going]";
+    let usage = "usage: hnl codemod [plan|apply|revert] <spec.yaml> [--root <dir>] [--target <glob>] [--package <dir>] [--json] [--check|--dry-run] [--run <id>] [--keep-going]";
     if args.is_empty() {
         eprintln!("{usage}");
         return 2;
@@ -126,6 +134,7 @@ pub fn codemod_command_with(
     let mut positionals: Vec<String> = Vec::new();
     let mut root: Option<String> = None;
     let mut target_glob: Option<String> = None;
+    let mut package: Option<String> = None;
     let mut run_id: Option<String> = None;
     let mut json = false;
     let mut check = false;
@@ -141,6 +150,10 @@ pub fn codemod_command_with(
             "--target" => {
                 i += 1;
                 target_glob = rest.get(i).map(String::to_string);
+            }
+            "--package" => {
+                i += 1;
+                package = rest.get(i).map(String::to_string);
             }
             "--run" => {
                 i += 1;
@@ -208,6 +221,7 @@ pub fn codemod_command_with(
             spec_arg.as_deref().expect("arity"),
             SpecFlags {
                 target_glob: target_glob.as_deref(),
+                package: package.as_deref(),
                 json,
                 check,
                 keep_going,
@@ -220,6 +234,10 @@ pub fn codemod_command_with(
 struct SpecFlags<'a> {
     /// `--target <glob>` artifact narrowing.
     target_glob: Option<&'a str>,
+    /// `--package <dir>` — the package whose `.hnl` modules resolve
+    /// `handl:<mod>.<fn>` rewrites; default is `pkg.hnl` discovery
+    /// walking up from the spec path.
+    package: Option<&'a str>,
     /// `--json` machine-readable plan output.
     json: bool,
     /// `--check`/`--dry-run` CI gate (plan + exit 1 on pending changes).
@@ -265,6 +283,34 @@ fn run_spec_command(
             return 1;
         }
     };
+
+    // Package modules (P-002/T-108): `handl:<mod>.<fn>` names resolve
+    // against the `.hnl` modules of the package that owns the spec —
+    // `--package <dir>` pins it, otherwise the nearest `pkg.hnl`
+    // walking up from the spec path. Only attempted when the spec
+    // names a `handl:` rewrite (or `--package` was given explicitly);
+    // no package found leaves the name to the engine's honest
+    // `RewriteError` diagnostic on the first match.
+    let pkg_dir = match flags.package {
+        Some(dir) => Some(PathBuf::from(dir)),
+        None if spec_uses_handl_rewrites(&spec) => {
+            handl_platform::discover_pkg_dir(Path::new(spec_path))
+        }
+        None => None,
+    };
+    if let Some(dir) = pkg_dir {
+        let dir = dir.canonicalize().unwrap_or(dir);
+        codemod = match codemod.with_package_modules(&dir) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!(
+                    "codemod: cannot load rewrite modules from package {}: {e}",
+                    dir.display()
+                );
+                return 1;
+            }
+        };
+    }
 
     let targets = match resolve_targets(root, &spec, flags.target_glob) {
         Ok(t) => t,
@@ -332,6 +378,19 @@ fn run_spec_command(
         }
         Verb::Revert => unreachable!(),
     }
+}
+
+/// Whether any rule names a `handl:<mod>.<fn>` rewrite — the trigger
+/// for package-module discovery. `"handl:"` is the
+/// `HandlNativeRewrite` prefix (`HANDL_PREFIX` in
+/// `handl-plugin-lib-handl`, which this crate does not link).
+fn spec_uses_handl_rewrites(spec: &CodemodSpec) -> bool {
+    spec.rules.iter().any(|rule| {
+        matches!(
+            &rule.rewrite,
+            Some(CodemodRewrite::Named(name)) if name.starts_with("handl:")
+        )
+    })
 }
 
 /// revert: `Engine::revert` on a journal run — `--run <id>` wins;

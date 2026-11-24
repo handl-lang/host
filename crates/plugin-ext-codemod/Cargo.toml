@@ -16,9 +16,15 @@ handl-plugin-codemod = { workspace = true }
 hnl-tool-codegen = { workspace = true }
 # `codemod_command_with`'s extra-rewrite-layer seam (`NativeRewrite`).
 hnl-tool-transform = { workspace = true }
+# `handl_platform::discover_pkg_dir` — walk up from the spec path for
+# the `pkg.hnl` that owns the spec's `handl:<mod>.<fn>` rewrite modules.
+handl-platform = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 handl-kit-data-prelude = { workspace = true }
+# Tests install the default language the `HandlModule` bridge runtimes
+# resolve lazily (same seam kit assembly uses).
+handl-plugin-lib-handl = { workspace = true }
 tempfile = "3"

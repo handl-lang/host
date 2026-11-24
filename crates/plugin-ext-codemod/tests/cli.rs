@@ -131,3 +131,140 @@ fn missing_spec_is_usage_error_and_bad_spec_is_failure() {
         1
     );
 }
+
+// ---------------------------------------------------------------------------
+// `handl:<mod>.<fn>` package-module wiring (P-002/T-108)
+// ---------------------------------------------------------------------------
+
+/// Install the canonical default language once per test binary — the
+/// `HandlModule` bridge runtimes `handl:` rewrites evaluate through
+/// resolve it lazily (the same seam kit assembly uses).
+fn ensure_default_language() {
+    if handl_plugin_lib_handl::default_language().is_none() {
+        let _ = handl_plugin_lib_handl::install_default_language(lang());
+    }
+}
+
+const HANDL_SPEC: &str = r#"name: pkg-del
+version: 1
+targets:
+  - language: handl
+    glob: "targets/**/*.hnl"
+    unparse: preserve
+rules:
+  - id: del
+    match: "assign"
+    rewrite: "handl:t.rewrite"
+"#;
+
+/// A package fixture: `pkg.hnl` declaring module `t` at `src/index.hnl`
+/// (the ADR-0160 single-module layout), plus `codemods/codemod.yaml`
+/// (walk-up discovery target) and `targets/a.hnl` (the rewrite input).
+struct PkgFixture {
+    _dir: tempfile::TempDir,
+    root: std::path::PathBuf,
+    spec: std::path::PathBuf,
+    source: std::path::PathBuf,
+}
+
+fn pkg_fixture() -> PkgFixture {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::create_dir_all(root.join("codemods")).unwrap();
+    std::fs::create_dir_all(root.join("targets")).unwrap();
+    std::fs::write(root.join("pkg.hnl"), "{ modules: [\"t\"] }\n").unwrap();
+    // `export`-per-file shape: `discover_funcs` exposes `rewrite`.
+    std::fs::write(
+        root.join("src/index.hnl"),
+        "export rewrite := n ~> ({ kind: \"__codemod_delete__\" })\n",
+    )
+    .unwrap();
+    let spec = root.join("codemods/codemod.yaml");
+    std::fs::write(&spec, HANDL_SPEC).unwrap();
+    let source = root.join("targets/a.hnl");
+    std::fs::write(&source, "A := 1\nB := 2\n").unwrap();
+    PkgFixture {
+        _dir: dir,
+        root,
+        spec,
+        source,
+    }
+}
+
+#[test]
+fn handl_rewrite_resolves_via_pkg_hnl_walkup() {
+    ensure_default_language();
+    let lang = lang();
+    let fx = pkg_fixture();
+    let spec = fx.spec.to_string_lossy().into_owned();
+    let root = fx.root.to_string_lossy().into_owned();
+    let original = std::fs::read_to_string(&fx.source).unwrap();
+
+    // plan → apply: the spec's `handl:t.rewrite` resolves against the
+    // package module discovered by walking up from `codemods/`.
+    assert_eq!(
+        codemod_command(&lang, &argv(&["plan", &spec, "--root", &root])),
+        0
+    );
+    assert_eq!(
+        codemod_command(&lang, &argv(&["apply", &spec, "--root", &root])),
+        0
+    );
+    let rewritten = std::fs::read_to_string(&fx.source).unwrap();
+    assert_ne!(rewritten, original, "handl: rewrite must edit the file");
+    assert!(!rewritten.contains(":="), "assigns deleted: {rewritten:?}");
+}
+
+#[test]
+fn handl_rewrite_resolves_via_package_flag() {
+    ensure_default_language();
+    let lang = lang();
+    let pkg = pkg_fixture();
+    // A spec OUTSIDE any package: walk-up finds no `pkg.hnl`, so only
+    // `--package` can wire the module.
+    let dir = tempfile::tempdir().unwrap();
+    let loose = dir.path().join("codemod.yaml");
+    std::fs::write(&loose, HANDL_SPEC).unwrap();
+    let targets = dir.path().join("targets");
+    std::fs::create_dir_all(&targets).unwrap();
+    let source = targets.join("a.hnl");
+    std::fs::write(&source, "A := 1\n").unwrap();
+
+    let spec = loose.to_string_lossy().into_owned();
+    let root = dir.path().to_string_lossy().into_owned();
+    let pkgdir = pkg.root.to_string_lossy().into_owned();
+    let _ = pkg; // keep the tempdir alive for the module source
+
+    assert_eq!(
+        codemod_command(
+            &lang,
+            &argv(&["apply", &spec, "--root", &root, "--package", &pkgdir])
+        ),
+        0
+    );
+    assert!(!std::fs::read_to_string(&source).unwrap().contains(":="));
+}
+
+#[test]
+fn handl_rewrite_without_package_is_honest_noop() {
+    ensure_default_language();
+    let lang = lang();
+    // Same spec shape but no `pkg.hnl` anywhere above it and no
+    // `--package`: the `handl:` name must NOT silently pass — the rule
+    // fails as a RewriteError diagnostic and nothing is rewritten.
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().to_path_buf();
+    std::fs::create_dir_all(root.join("targets")).unwrap();
+    let spec = root.join("codemod.yaml");
+    std::fs::write(&spec, HANDL_SPEC).unwrap();
+    let source = root.join("targets/a.hnl");
+    std::fs::write(&source, "A := 1\n").unwrap();
+
+    let spec_s = spec.to_string_lossy().into_owned();
+    assert_eq!(codemod_command(&lang, &argv(&["apply", &spec_s])), 0);
+    assert!(
+        std::fs::read_to_string(&source).unwrap().contains(":="),
+        "unresolved handl: rewrite must leave the file untouched"
+    );
+}

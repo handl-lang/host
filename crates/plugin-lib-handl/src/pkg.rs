@@ -295,6 +295,42 @@ pub fn module_from_dir(pkg_dir: &Path, name: &str) -> Result<HandlModule, LangEr
     Ok(HandlModule::new(def.name.clone(), &def.source, &funcs))
 }
 
+/// Build every module a package directory declares as a [`HandlModule`],
+/// with intra-package `import`s wired between siblings — the
+/// [`PackageResolver::from_dirs`] construction returned as concrete
+/// modules, for consumers that register them individually (e.g. the
+/// codemod `handl:<mod>.<fn>` rewrite resolver).
+///
+/// Modules are built in [`order_by_imports`] order so a module's
+/// dependencies exist before it is wired; imports naming packages
+/// *outside* this directory stay unwired (the same boundary
+/// [`PackageResolver`] documents).
+///
+/// # Errors
+///
+/// Returns [`LangError::engine`] when `pkg_dir` is not a package or a
+/// declared module's file cannot be read (via [`package_modules`]).
+pub fn handl_modules_in_dir(pkg_dir: &Path) -> Result<Vec<Arc<HandlModule>>, LangError> {
+    let defs = package_modules(pkg_dir)?;
+    let mut deps: HashMap<String, Arc<dyn Module + Send + Sync>> = HashMap::new();
+    let mut out = Vec::with_capacity(defs.len());
+    for def in order_by_imports(&defs) {
+        let funcs: Vec<&str> = def.funcs.iter().map(String::as_str).collect();
+        let mut module = HandlModule::new(def.name.clone(), &def.source, &funcs);
+        for spec in crate::import_specs(&def.source) {
+            let dep_name = normalize_module_path(&spec);
+            if let Some(dep) = deps.get(dep_name) {
+                module = module.with_dependency_arc(Arc::clone(dep));
+            }
+        }
+        let arc = Arc::new(module);
+        let dyn_arc: Arc<dyn Module + Send + Sync> = arc.clone();
+        deps.insert(def.name.clone(), dyn_arc);
+        out.push(arc);
+    }
+    Ok(out)
+}
+
 /// Describe **one** module of a package, reading only that module's file.
 ///
 /// `package_modules` is eager (it reads every module), which contradicts

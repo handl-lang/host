@@ -1267,7 +1267,9 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-data-prelude",
  "handl-language",
+ "handl-platform",
  "handl-plugin-codemod",
+ "handl-plugin-lib-handl",
  "hnl-tool-codegen",
  "hnl-tool-transform",
  "serde",
