@@ -25,8 +25,8 @@ Three Rust crates currently own typechecking:
 
 | Crate                         | Lines                 | Role                                                            |
 | ----------------------------- | --------------------- | --------------------------------------------------------------- |
-| `plugin-engine-typecheck`     | ~1,500                | `TypecheckEngine` trait + `bootstrap.rs` (scope/import checker) |
-| `plugin-engine-typecheck-nbe` | ~5,500 + 11,364 tests | NBE engine: AST walk, context, unification, dependent types     |
+| `plugin-tool-typecheck`     | ~1,500                | `TypecheckEngine` trait + `bootstrap.rs` (scope/import checker) |
+| `plugin-tool-typecheck-nbe` | ~5,500 + 11,364 tests | NBE engine: AST walk, context, unification, dependent types     |
 | `plugin-lib-lang-typecheck`   | ~229                  | Host function `typecheck.typecheck(lang, ast)`                  |
 
 `type_model.hnl` (817 lines, extended from 459) covers HoTT
@@ -117,7 +117,7 @@ typecheck engine is registered. The `HandlTypecheckEngine` adapter:
    via the tree-walk engine.
 
 This works because the tree-walk engine does not depend on the
-typechecker — it depends only on `plugin-engine-exec` (the eval
+typechecker — it depends only on `plugin-exec` (the eval
 abstraction) and `handl-language` (the `Language`/`Ast` types).
 
 ## Consequences
@@ -194,7 +194,7 @@ is not yet working end-to-end.
 ### Phase 2: Write the `HandlTypecheckEngine` adapter — COMPLETE
 
 1. `HandlTypecheckEngine` created in a new thin crate
-   `plugin-engine-typecheck-handl`:
+   `plugin-tool-typecheck-handl`:
    - `new(eval_engine: Box<dyn EvalEngine>) -> Self`
    - Embeds model source via `include_str!`
    - Loads models into `HandlModule` at construction, wiring stdlib
@@ -206,7 +206,7 @@ is not yet working end-to-end.
      `LangError::NotImplemented` (the crate always compiles)
 
 2. `TypecheckEngine` trait + `TypecheckRequest`/`Result`/`Diagnostic`
-   remain in `plugin-engine-typecheck` (not yet moved).
+   remain in `plugin-tool-typecheck` (not yet moved).
 
 **Test status:** 23 tests pass (6 unit in `lib.rs` + 14 in
 `handl_typecheck_parity.rs` + 3 in `integration.rs`).
@@ -234,8 +234,8 @@ the model failed to load because it calls `array.first`, `hash_map.get`,
 Cannot proceed until the Handl models are production-ready (full
 typechecking working end-to-end with parity against the NBE engine).
 
-1. Delete `crates/plugin-engine-typecheck-nbe/` (the NBE engine).
-2. Delete `crates/plugin-engine-typecheck/` (the bootstrap checker).
+1. Delete `crates/plugin-tool-typecheck-nbe/` (the NBE engine).
+2. Delete `crates/plugin-tool-typecheck/` (the bootstrap checker).
    - Move `TypecheckEngine` trait to `plugin-engine` or `handl-runtime`
      first.
 3. Update `kit-canonical` to use `HandlTypecheckEngine`.

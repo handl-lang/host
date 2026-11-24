@@ -48,7 +48,7 @@ infrastructure, and move/consolidate existing diagnostic code into it:
   v0.1 grammar — it serves every handl language.
 
 Migration: introduce the crate with the types above → switch `plugin-ext-fmt`,
-`plugin-ext-lint`, `plugin-engine-typecheck`, and `plugin-lib-test` to the
+`plugin-ext-lint`, `plugin-tool-typecheck`, and `plugin-lib-test` to the
 shared types (deprecating their local variants in the same PR that stops
 using them) → switch `host-cli` rendering to the shared renderer.
 

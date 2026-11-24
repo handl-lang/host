@@ -13,7 +13,7 @@ this page carries the context, tables, phases and trade-offs.
 
 ## Context — what `data` does today and why it is confusing
 
-`desugar.data` (`engine-transform-rewrite/src/native/desugar.rs`) lowers
+`desugar.data` (`tool-transform-rewrite/src/native/desugar.rs`) lowers
 `data Nat :: Zero | Succ(pred : Nat)` into a block of three kinds of
 bindings:
 

@@ -54,8 +54,8 @@ swappable.
 - One capability path, not two.
 
 ## Enforcement
-- `engine-fmt/` — the formatter engine and stage contracts.
-- `plugin-engine-fmt/` — the contract types (if separate).
+- `tool-fmt/` — the formatter engine and stage contracts.
+- `plugin-tool-fmt/` — the contract types (if separate).
 - Formatter tests and the idempotence gate.
 
 ## Design

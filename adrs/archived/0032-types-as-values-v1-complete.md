@@ -28,7 +28,7 @@ The handl language converged on a design where the type language and expression 
 4. **Membership evidence** — `x is T` produces proofs; `:` assertion binds typed names
 5. **Universe levels** — `Type_n` for each level n, with cumulative hierarchy and universe cumulativity in checking
 6. **Dependent types** — Pi (`∀`), Sigma (`∃`), and dependent pattern structures fully working
-7. **NBE typechecker** — Normalization-by-evaluation engine in `plugin-typecheck-nbe` and `plugin-engine-typecheck-nbe` with proper universe level handling
+7. **NBE typechecker** — Normalization-by-evaluation engine in `plugin-typecheck-nbe` and `plugin-tool-typecheck-nbe` with proper universe level handling
 
 ### Implementation Evidence
 
@@ -50,4 +50,4 @@ The handl language converged on a design where the type language and expression 
 
 - ADR-0032 (Remaining) for advanced features: inductive types, dependent pattern matching, tactics, proof erasure
 - ADR-0054 (Generic Typecheck Engine) for the engine architecture using this value space
-- Crates: `plugin-vm-type`, `plugin-typecheck-nbe`, `plugin-engine-typecheck-nbe`, `plugin-lib-type`
+- Crates: `plugin-vm-type`, `plugin-typecheck-nbe`, `plugin-tool-typecheck-nbe`, `plugin-lib-type`

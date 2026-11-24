@@ -82,7 +82,7 @@ Naming rule confirmed: `lib-{port}` = contract, `lib-{port}-{impl}` = backend.
 
 `lib-js` = the JS-interop contract (`call`/`invoke`/`await`/`error`, `JS` grade);
 `lib-fetch-js` = fetch over generated WebIDL + `js.await` (the precedent);
-`engine-compile-js` already targets `browser` (esm/iife/inline).
+`tool-compile-js` already targets `browser` (esm/iife/inline).
 **New libs:** DOM bindings live **inside `lib-js`** (user decision
 2026-11-22 — no separate repo): specs already exist in
 `tool-sdkgen-webidl/specs/` (`dom.idl`, `html.idl`, `websockets.idl`,
@@ -132,7 +132,7 @@ taking argv as param — spec reuses `cli.FlagSpec` shape; argv sourced via
 
 `lib-test` ships six pure-.hnl modules (`test`/`property`/`benchmark`/`fuzz`/
 `snapshot`/`assert`) — but note: these are the **in-language** test surface;
-the host `hnl test` runner (engine-test) is a separate mechanism. kit-test
+the host `hnl test` runner (tool-test) is a separate mechanism. kit-test
 curates the former.
 
 ```hnl

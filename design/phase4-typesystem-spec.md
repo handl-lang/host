@@ -39,7 +39,7 @@ coherence-first dictionary search (`synth_instance`, dependent.rs
 ~L4166+, overlap rejected at declaration); `IO(sig)` typed effects —
 `synth_handle` residual `IO(S\H) × results` (dependent.rs
 ~L6386-6530), closed-sig row-metas, `handle` dynamic-extent install on
-all three exec engines (shared `handle_dyn` op, engine-exec
+all three exec engines (shared `handle_dyn` op, exec
 native_ops.rs ~L3603, + `handler_push/pop/lookup` on `NativeOpCtx`);
 `Succ`-shape ctor index projections declared on `data` (`Vec(Succ n)
 ≡ Vec(n+1)` both directions); `eval.checked`/`reify_ast`/`quote_ast`
@@ -57,14 +57,14 @@ dependent_structure 51 + parity 46 + smoke stage green.
 
 | WS | Scope | Repo(s) | Blocks |
 |---|---|---|---|
-| A | `exists` sugar → `Sigma` (parse, elab, destructure, erasure) | `engine-parse-pratt`, `kit-prelude-lang`, `engine-transform-rewrite`, `engine-typecheck-nbe`, `lib-desugar` | — |
-| B | SMT backend behind the `IndexSolver` seam | `engine-typecheck-nbe`, `host` (driver/env wiring) | — |
-| C | Compiled-backend parity — self-recursive closures + cranelift `Term::Child` | `handl-kit-arrow-lower`, `engine-exec`, `engine-exec-bytecode`, `engine-exec-cranelift`, `host` (`handl-runtime`) | — |
-| D | Open effect rows — `IO<{ puts \| r }>` row-var machinery | `engine-typecheck-nbe`, `kit-prelude-lang`, `engine-parse-pratt` | E (shares `synth_handle`/`dependent.rs`) |
-| E | Handler-accumulator `handle … acc` (State design B) | `engine-typecheck-nbe`, `engine-exec`, `engine-exec-*`, `kit-prelude-lang` | needs D landed (same file) |
-| F | stdlib migration round 2 — `op`/`cap` decl disposition + remaining lib-* dynamic shapes | `plugin-lib-handl`, `lib-*`, `engine-typecheck-nbe` (if decls become checked) | decision 7 |
+| A | `exists` sugar → `Sigma` (parse, elab, destructure, erasure) | `tool-parse-pratt`, `kit-prelude-lang`, `tool-transform-rewrite`, `tool-typecheck-nbe`, `lib-desugar` | — |
+| B | SMT backend behind the `IndexSolver` seam | `tool-typecheck-nbe`, `host` (driver/env wiring) | — |
+| C | Compiled-backend parity — self-recursive closures + cranelift `Term::Child` | `handl-kit-arrow-lower`, `exec`, `exec-bytecode`, `exec-cranelift`, `host` (`handl-runtime`) | — |
+| D | Open effect rows — `IO<{ puts \| r }>` row-var machinery | `tool-typecheck-nbe`, `kit-prelude-lang`, `tool-parse-pratt` | E (shares `synth_handle`/`dependent.rs`) |
+| E | Handler-accumulator `handle … acc` (State design B) | `tool-typecheck-nbe`, `exec`, `exec-*`, `kit-prelude-lang` | needs D landed (same file) |
+| F | stdlib migration round 2 — `op`/`cap` decl disposition + remaining lib-* dynamic shapes | `plugin-lib-handl`, `lib-*`, `tool-typecheck-nbe` (if decls become checked) | decision 7 |
 | G | LSP v3 — workspace index, UTF-16 positions, completion/rename polish | `host-lsp` | — |
-| H | Error-quality pass — unification chains, related spans, zonk hygiene | `engine-typecheck-nbe`, `plugin-ext-diag`, `host-lsp` | — (late) |
+| H | Error-quality pass — unification chains, related spans, zonk hygiene | `tool-typecheck-nbe`, `plugin-ext-diag`, `host-lsp` | — (late) |
 | I | Quotient/HITs — design note only | `host/project` | — |
 | J | `intl_c` env fix + `lib-intl-c` conformance adapters | `kit-prelude`, `lib-intl-c` | — |
 
@@ -164,7 +164,7 @@ half the deferral noted.
   binary); a version drift changing `Unknown`↔decided flips must be
   loud — smoke files asserting an `Unknown`-boundary case guard it.
 - Kernel implications: **none** — the trait impl lives in
-  `engine-typecheck-nbe`; the index-term vocabulary (`add`/`mul`/…)
+  `tool-typecheck-nbe`; the index-term vocabulary (`add`/`mul`/…)
   is the checker's own index algebra, calculus-adjacent — fixed in
   Rust is allowed, same class as `poly_of`.
 - Exit: `HNL_INDEX_SOLVER=z3 hnl typecheck` decides a goal the builtin
@@ -201,11 +201,11 @@ path — one file, one audit.
   (c) makes recursion opt-in syntax. Honest-bound alternative if
   neither lands: make the decline *loud at run* on compiled engines
   (today it silently diverges — the worst shape).
-- **Cranelift `Term::Child`**: `engine-exec-cranelift`
+- **Cranelift `Term::Child`**: `exec-cranelift`
   compile.rs ~L1159 — `"Child" => Err(NotImplemented)` (alongside
   `Iter`, `Path`, `Equiv`). Bytecode solved the same shape:
   `EvalChild` via `lang.child_role_index_for` + a per-node compile
-  cache resolving the child's `AstRef` (engine-exec-bytecode
+  cache resolving the child's `AstRef` (exec-bytecode
   compile.rs ~L379-395, instr.rs ~L160). Cranelift's compile arm
   lacks the `lang`/`node` context — the fix ports the bytecode
   pattern: a `helper_v2_eval_child` calling back into a
@@ -218,7 +218,7 @@ path — one file, one audit.
   stay or get deleted per their fold status (`Path`/`Equiv` are dead
   arms post-ADR-0119 — delete with this pass or leave documented).
 - Scope: `handl-kit-arrow-lower` (`decline_self_reference`), the
-  three `engine-exec-*` self-call/closure paths, `with_self_ref_bind`
+  three `exec-*` self-call/closure paths, `with_self_ref_bind`
   reachability on compiled engines, cranelift compile.rs +
   `lib.rs` helpers; parity tests in `handl-runtime`.
 - Exit: `vsum`/`vmap`/`len` evaluate identically on all three engines
@@ -372,8 +372,8 @@ path — one file, one audit.
   `hnl test` can't desugar `data` and `export` inside `do {}` is an
   unbound wire — migrated libs need both to be testable.
 - Scope: `plugin-lib-handl` (strip/match decl handling per the
-  decision), `engine-typecheck-nbe` (a `stmt.op` judgment only under
-  7b), the five lib families, `engine-test`/`host-cli` data-desugar
+  decision), `tool-typecheck-nbe` (a `stmt.op` judgment only under
+  7b), the five lib families, `tool-test`/`host-cli` data-desugar
   gap.
 - Exit: the disposition lands; the five families carry whatever the
   decision prescribes — and either way, **a garbage sig stops

@@ -25,13 +25,13 @@ No code files were modified in this pass.
 
 ### Delete in Phase 1
 
-- `crates/plugin-engine-typecheck-nbe` (the NBE implementation).
+- `crates/plugin-tool-typecheck-nbe` (the NBE implementation).
 - Its `src/tests.rs` and `tests/` integration tests go with the crate.
 
 ### Keep / repurpose in Phase 1
 
-- `crates/plugin-engine-typecheck-handl` — the new default engine.
-- `crates/plugin-engine-typecheck` — keep for now because it still owns:
+- `crates/plugin-tool-typecheck-handl` — the new default engine.
+- `crates/plugin-tool-typecheck` — keep for now because it still owns:
   - the `TypecheckEngine` trait and the `TypecheckRequest`/`TypecheckResult`
     data types (used by `handl-runtime`, `kit-canonical`, `plugin-lib-lang-typecheck`,
     `plugin-ext-lint`, `host-cli`);
@@ -40,7 +40,7 @@ No code files were modified in this pass.
 
 ### Delete in Phase 2 (after scope/totality Handl models replace bootstrap)
 
-- `crates/plugin-engine-typecheck`, **only after**:
+- `crates/plugin-tool-typecheck`, **only after**:
   1. `bootstrap.rs` is replaced by `scope_model.hnl` / `totality_model.hnl`;
   2. `check_module` and `check_module_with_prelude` are removed or moved;
   3. the `TypecheckEngine` trait is relocated (see §4).
@@ -49,14 +49,14 @@ No code files were modified in this pass.
 
 ## 2. Direct and transitive dependency map
 
-### `handl-plugin-engine-typecheck-nbe`
+### `handl-plugin-tool-typecheck-nbe`
 
-**Direct dependencies** (from `crates/plugin-engine-typecheck-nbe/Cargo.toml`):
+**Direct dependencies** (from `crates/plugin-tool-typecheck-nbe/Cargo.toml`):
 
 - `handl-language`
 - `handl-platform`
-- `handl-plugin-engine-exec`
-- `handl-plugin-engine-typecheck`
+- `handl-plugin-exec`
+- `handl-plugin-tool-typecheck`
 - `plugin-engine`
 - `handl-plugin-lib-tag`
 - `serde_json`
@@ -64,19 +64,19 @@ No code files were modified in this pass.
 **Dev dependencies:**
 
 - `handl-kit-data-canonical`
-- `handl-plugin-engine-exec-tree-walk`
-- `handl-plugin-engine-lex-pattern`
-- `handl-plugin-engine-parse`
-- `handl-plugin-engine-parse-pratt`
+- `handl-plugin-exec-tree-walk`
+- `handl-plugin-tool-lex-pattern`
+- `handl-plugin-tool-parse`
+- `handl-plugin-tool-parse-pratt`
 - `handl-plugin-module`
 
 **Transitive workspace dependencies reached via the above:**
 
-- `handl-plugin-engine-lex`, `handl-plugin-engine-lex-pattern`
-- `handl-plugin-engine-parse`, `handl-plugin-engine-parse-pratt`
-- `handl-plugin-engine-exec-tree-walk`
-- `handl-plugin-engine-transform`, `handl-plugin-engine-transform-rewrite`
-- `handl-plugin-engine-lint`
+- `handl-plugin-tool-lex`, `handl-plugin-tool-lex-pattern`
+- `handl-plugin-tool-parse`, `handl-plugin-tool-parse-pratt`
+- `handl-plugin-exec-tree-walk`
+- `handl-plugin-tool-transform`, `handl-plugin-tool-transform-rewrite`
+- `handl-plugin-tool-lint`
 - `handl-plugin-lib-handl`, `handl-plugin-lib-stdlib`, `handl-plugin-module`
 - `handl-kit-data`, `handl-kit-data-canonical`, `handl-emitters`, `handl-runtime`
 - `handl-value`, `handl-test-utils` (via test setup)
@@ -84,16 +84,16 @@ No code files were modified in this pass.
 All of these continue to exist when the crate is deleted because they are used
 by other crates.
 
-### `handl-plugin-engine-typecheck`
+### `handl-plugin-tool-typecheck`
 
-**Direct dependencies** (from `crates/plugin-engine-typecheck/Cargo.toml`):
+**Direct dependencies** (from `crates/plugin-tool-typecheck/Cargo.toml`):
 
 - `handl-language`
 - `handl-platform`
 - `handl-plugin-ext-diag`
-- `handl-plugin-engine-lex-pattern`
-- `handl-plugin-engine-parse`
-- `handl-plugin-engine-parse-pratt`
+- `handl-plugin-tool-lex-pattern`
+- `handl-plugin-tool-parse`
+- `handl-plugin-tool-parse-pratt`
 - `serde_json`
 
 **Transitive dependencies:** the `handl-*` lexer/parser/emitters plus
@@ -119,7 +119,7 @@ by other crates.
 |                             |                                                            | `RuntimeConfig::typecheck` field                                              | 357                         |
 |                             |                                                            | `Runtime::typecheck` method                                                   | 835–842                     |
 |                             |                                                            | `Runtime::from_registry_with_resolver` typecheck engine resolution            | 1147–1167                   |
-| `host-cli`                  | `crates/host-cli/src/main.rs`                              | `handl-plugin-engine-typecheck` dep / `check_module_with_prelude` call        | 535–545                     |
+| `host-cli`                  | `crates/host-cli/src/main.rs`                              | `handl-plugin-tool-typecheck` dep / `check_module_with_prelude` call        | 535–545                     |
 |                             |                                                            | `typecheck_command` `--handl` flag                                            | 403–416                     |
 |                             |                                                            | `typecheck_one` `use_handl` branch                                            | 510–526                     |
 | `plugin-ext-lint`           | `crates/plugin-ext-lint/src/lib.rs`                        | `handl_plugin_engine_typecheck::check_module_with_prelude`                    | 94, 133                     |
@@ -131,7 +131,7 @@ by other crates.
 
 ## 4. Tests that depend on NBE behavior
 
-### In `crates/plugin-engine-typecheck-nbe`
+### In `crates/plugin-tool-typecheck-nbe`
 
 1. `src/tests.rs` — ~11,000 lines of NBE-specific unit tests.
    - These exercise `NbeTypecheckEngine`, `TypeModel`, registry ids, `with_pure`,
@@ -145,13 +145,13 @@ by other crates.
    - **Disposition:** delete. The concept is specific to the NBE engine.
 4. `tests/with_handle_type_e2e.rs` — handle/FFI typechecking end-to-end.
    - **Disposition:** if the Handl models already cover these cases, migrate
-     to `crates/plugin-engine-typecheck-handl/tests`; otherwise add equivalent
+     to `crates/plugin-tool-typecheck-handl/tests`; otherwise add equivalent
      `handl_typecheck_parity.rs` cases before deleting.
 
-### In `crates/plugin-engine-typecheck-nbe` but also used by the new engine
+### In `crates/plugin-tool-typecheck-nbe` but also used by the new engine
 
 The `tests/` that compare NBE to itself or to the old IR are gone. All
-**canonical behavior** must be captured in `crates/plugin-engine-typecheck-handl/tests`
+**canonical behavior** must be captured in `crates/plugin-tool-typecheck-handl/tests`
 and the `kit-canonical` / `handl-runtime` test suites.
 
 ### In `crates/kit-canonical`
@@ -186,7 +186,7 @@ and assert the synthesized type for canonical surface forms.
     Update the comment / assertion expectations if the Handl model produces
     different error diagnostics.
 
-### In `crates/plugin-engine-typecheck-handl/tests`
+### In `crates/plugin-tool-typecheck-handl/tests`
 
 - `tests/handl_typecheck_parity.rs` and `tests/integration.rs` already exercise
   the `HandlTypecheckEngine`.
@@ -197,7 +197,7 @@ and assert the synthesized type for canonical surface forms.
 
 ## 5. `TypecheckEngine` trait: keep or delete?
 
-**Decision: keep the abstraction, but move it out of `plugin-engine-typecheck`
+**Decision: keep the abstraction, but move it out of `plugin-tool-typecheck`
 in Phase 2.**
 
 Reasons to keep:
@@ -210,23 +210,23 @@ Reasons to keep:
 
 Phase 1:
 
-- Leave `TypecheckEngine` in `crates/plugin-engine-typecheck/src/lib.rs`.
+- Leave `TypecheckEngine` in `crates/plugin-tool-typecheck/src/lib.rs`.
 - Leave `bootstrap.rs` in place because `plugin-ext-lint` and the current
   `hnl typecheck` diagnostic path still need `check_module_with_prelude`.
 
 Phase 2 (after `scope_model.hnl` replaces `bootstrap.rs`):
 
 1. Move `TypecheckEngine`, `Typecheck`, `TypecheckRequest`,
-   `TypecheckResult`, `TypecheckDiagnostic` from `plugin-engine-typecheck`
+   `TypecheckResult`, `TypecheckDiagnostic` from `plugin-tool-typecheck`
    into `crates/plugin-engine/src/lib.rs` (or `crates/handl-runtime/src/lib.rs`
    if that breaks fewer imports).
 2. Update `use handl_plugin_engine_typecheck::*` statements in:
    - `crates/handl-runtime/src/lib.rs`
    - `crates/kit-canonical/src/lib.rs`
-   - `crates/plugin-engine-typecheck-handl/src/lib.rs`
+   - `crates/plugin-tool-typecheck-handl/src/lib.rs`
    - `crates/plugin-lib-lang-typecheck/src/lib.rs`
    - `crates/host-cli/src/main.rs`
-3. Delete `crates/plugin-engine-typecheck` once `check_module` is no longer
+3. Delete `crates/plugin-tool-typecheck` once `check_module` is no longer
    referenced.
 
 ---
@@ -396,7 +396,7 @@ fn typecheck_one(
 ```
 
 > Note: `TypecheckDiagnostic` does not yet carry the same fields as
-> `handl_plugin_ext_diag::Diagnostic`. Before deleting `plugin-engine-typecheck`,
+> `handl_plugin_ext_diag::Diagnostic`. Before deleting `plugin-tool-typecheck`,
 > ensure the mapping is implemented (add `span`, `severity` enum conversion, etc.)
 > or keep `check_module_with_prelude` for the CLI.
 
@@ -423,7 +423,7 @@ from the injected `RuntimeFactory`. After the canonical manifest and
 
 File: `crates/plugin-ext-lint/src/lib.rs`
 
-Phase 1: leave `handl-plugin-engine-typecheck` dependency and
+Phase 1: leave `handl-plugin-tool-typecheck` dependency and
 `check_module_with_prelude` calls untouched.
 
 Phase 2: when `scope_model.hnl` is ready, replace the Rust unbound-wire scope
@@ -438,37 +438,37 @@ request).
 ### Phase 1 — remove only the NBE crate
 
 1. `Cargo.toml` (workspace root)
-   - Remove `crates/plugin-engine-typecheck-nbe` from `[workspace].members`
+   - Remove `crates/plugin-tool-typecheck-nbe` from `[workspace].members`
      (line 102).
-   - Remove `handl-plugin-engine-typecheck-nbe = { path = "crates/plugin-engine-typecheck-nbe" }`
+   - Remove `handl-plugin-tool-typecheck-nbe = { path = "crates/plugin-tool-typecheck-nbe" }`
      from `[workspace.dependencies]` (line 241–242).
 
 2. `crates/kit-canonical/Cargo.toml`
-   - Remove `handl-plugin-engine-typecheck-nbe = { workspace = true }` (line 18).
+   - Remove `handl-plugin-tool-typecheck-nbe = { workspace = true }` (line 18).
 
-3. Delete the directory `crates/plugin-engine-typecheck-nbe`.
+3. Delete the directory `crates/plugin-tool-typecheck-nbe`.
 
 4. Run `cargo check --workspace` to regenerate `Cargo.lock`.
 
-### Phase 2 — remove `plugin-engine-typecheck` (after bootstrap replacement)
+### Phase 2 — remove `plugin-tool-typecheck` (after bootstrap replacement)
 
 1. `Cargo.toml` (workspace root)
-   - Remove `crates/plugin-engine-typecheck` from `[workspace].members`
+   - Remove `crates/plugin-tool-typecheck` from `[workspace].members`
      (line 101).
-   - Remove `handl-plugin-engine-typecheck = { path = "crates/plugin-engine-typecheck" }`
+   - Remove `handl-plugin-tool-typecheck = { path = "crates/plugin-tool-typecheck" }`
      from `[workspace.dependencies]` (line 240).
 
-2. Remove the `handl-plugin-engine-typecheck` dependency from:
+2. Remove the `handl-plugin-tool-typecheck` dependency from:
    - `crates/handl-runtime/Cargo.toml` (line 12)
    - `crates/kit-canonical/Cargo.toml` (line 17)
    - `crates/host-cli/Cargo.toml` (line 24)
    - `crates/plugin-ext-lint/Cargo.toml` (line 11)
    - `crates/plugin-lib-lang-typecheck/Cargo.toml` (line 15)
-   - `crates/plugin-engine-typecheck-handl/Cargo.toml` (line 11) —
+   - `crates/plugin-tool-typecheck-handl/Cargo.toml` (line 11) —
      this will instead depend on `plugin-engine` (or `handl-runtime`) where the
      trait was moved.
 
-3. Delete the directory `crates/plugin-engine-typecheck`.
+3. Delete the directory `crates/plugin-tool-typecheck`.
 
 4. Run `cargo check --workspace`.
 
@@ -486,13 +486,13 @@ Append the following section before the "Status" or as a new subsection under
 
 Once `hnl typecheck --handl` passes the full dogfood gate:
 
-1. Delete `crates/plugin-engine-typecheck-nbe` and all its tests.
+1. Delete `crates/plugin-tool-typecheck-nbe` and all its tests.
 2. Change the canonical kit manifest (`canonical.yaml`) to select the
    `handl` typecheck engine by default.
 3. Change `kit-canonical` to register only the `handl` engine and to expose
    `Kit::typecheck_report` for full diagnostic rendering.
 4. Change `host-cli` `hnl typecheck` to default to the Handl path.
-5. Keep `crates/plugin-engine-typecheck` until `scope_model.hnl` and
+5. Keep `crates/plugin-tool-typecheck` until `scope_model.hnl` and
    `totality_model.hnl` fully replace `bootstrap.rs`; then move the
    `TypecheckEngine` trait into `plugin-engine` and delete the crate.
 
@@ -508,7 +508,7 @@ Update the Phase 5 / implementation summary paragraph about the NBE typechecker
 (near line 37 / 48–55) to:
 
 ```markdown
-The NBE typechecker crate (`plugin-engine-typecheck-nbe`) has been deleted
+The NBE typechecker crate (`plugin-tool-typecheck-nbe`) has been deleted
 (ADR-0105 Phase 6). Typechecking is now implemented by the Handl-authored
 models in `project/design/adr0103/` (`typecheck_model.hnl`, `scope_model.hnl`,
 `totality_model.hnl`). A thin `TypecheckEngine` trait remains as the Rust
@@ -529,7 +529,7 @@ Before the branch is merged:
       diagnostics as the current NBE/bootstrap path over the dogfood corpus.
 - [ ] `hnl typecheck --handl` is now the default and the flag is either a no-op
       or removed.
-- [ ] `hnl lint` still works (because `plugin-engine-typecheck` / `bootstrap.rs`
+- [ ] `hnl lint` still works (because `plugin-tool-typecheck` / `bootstrap.rs`
       is still present in Phase 1).
 - [ ] The deleted crates are removed from `Cargo.toml` members,
       `[workspace.dependencies]`, and any consumer `Cargo.toml`.

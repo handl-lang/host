@@ -23,7 +23,7 @@ status_note: Implemented — the framework is handl; `plugin-lib-test` is delete
 2. **Migration per op**: each framework operation moves from Rust to a handl
    module, one op at a time, with parity tests.
 3. **Crate boundary**: `plugin-lib-test` is deleted; the runner
-   (`engine-test`) consumes the framework through the module chain.
+   (`tool-test`) consumes the framework through the module chain.
 4. **Relationship to ADR-0089**: the runner stays Rust; this ADR moves only the
    framework contract.
 5. **Relationship to ADR-0077**: the framework is part of the stdlib migration;
@@ -49,7 +49,7 @@ Rust.
 
 ## Enforcement
 - `handl-packages/test/` — `test.hnl` and the five modules.
-- `engine-test/` — the runner and its framework dependency.
+- `tool-test/` — the runner and its framework dependency.
 - Parity tests per migrated op.
 
 ## Design

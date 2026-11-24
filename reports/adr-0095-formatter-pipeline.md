@@ -29,7 +29,7 @@ make future features new compositions rather than surgery.**
 
 | Crate                | Role                                                                                                                                                                                     | Fate                                                                                                                        |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `plugin-engine-fmt`  | Format **engine**: staged pipeline + `NodeEmitter`, `FormattingRule`, `PostProcessRule` seams. Language-generic (ADR-0044/0041).                                                         | Gained `layout.rs`, `token.rs`, `post_process.rs`.                                                                          |
+| `plugin-tool-fmt`  | Format **engine**: staged pipeline + `NodeEmitter`, `FormattingRule`, `PostProcessRule` seams. Language-generic (ADR-0044/0041).                                                         | Gained `layout.rs`, `token.rs`, `post_process.rs`.                                                                          |
 | `plugin-ext-fmt`     | Canonical v0.1 **surface**: assemble the canonical kit, select the canonical rule set, expose `format_source` / `check_source` / `format_ast` + CLI contract + golden/idempotence tests. | `lib.rs` slimmed to a thin wrapper over the engine pipeline.                                                                |
 | `platform/format.rs` | Generic `Format` capability.                                                                                                                                                             | Doc-only: documented as the generic per-node contribution seam (cannot dispatch to the engine due to dependency direction). |
 
@@ -95,7 +95,7 @@ unchanged.
 
 ### Passing
 
-- **`plugin-engine-fmt`**: 24/24 tests pass (16 pre-existing + 8 new covering
+- **`plugin-tool-fmt`**: 24/24 tests pass (16 pre-existing + 8 new covering
   `classify_token`, `needs_space`, `indent_bias`, `FormatOptions` defaults,
   `TokenFormatter` spacing/indent/custom-rule, and every `PostProcessRule`).
 - **Dependent hosts compile**: `host-cli`, `host-lsp`, `host-tooling`,

@@ -87,9 +87,9 @@ before arrow expressions parse, which is why it is not the Pratt engine.
 | Site | Nature | Likely verdict |
 | --- | --- | --- |
 | `platform/src/resolve.rs` (`kind == "call"`) | capability matching | identity-specific; leave |
-| `plugin-engine-exec/src/pattern_match.rs` | role-less fallbacks | already `pattern_role`-driven for canonical shapes; leave |
+| `plugin-exec/src/pattern_match.rs` | role-less fallbacks | already `pattern_role`-driven for canonical shapes; leave |
 | `handl-language/src/instantiate.rs` | bootstrap shape instantiation | names canonical kinds by construction; leave |
-| `plugin-engine-typecheck-nbe/src/totality_check.rs` (`call`) | recursion detection | needs a `pattern_role: tag` for `call` patterns to close |
+| `plugin-tool-typecheck-nbe/src/totality_check.rs` (`call`) | recursion detection | needs a `pattern_role: tag` for `call` patterns to close |
 
 ## Options
 

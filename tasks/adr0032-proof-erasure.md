@@ -31,7 +31,7 @@ Status: **done**
 - Add a unit or integration test verifying that an AST containing an `erased`
   node evaluates to `Value::Null`.
   - Candidate locations:
-    `crates/plugin-engine-exec-tree-walk/src/lib.rs` tests (native `const` tests
+    `crates/plugin-exec-tree-walk/src/lib.rs` tests (native `const` tests
     already exist around line 3942),
     `crates/handl-runtime/src/lib.rs` tests, or a new
     `crates/handl-runtime/tests/proof_erasure.rs`.
@@ -41,11 +41,11 @@ Files expected to change:
 - `crates/handl-kit-data-canonical/data/ast.yaml`
 - `crates/handl-kit-data-canonical/data/eval.yaml`
 - `crates/handl-runtime/src/lib.rs` or `crates/handl-runtime/tests/proof_erasure.rs`
-  (or `crates/plugin-engine-exec-tree-walk/src/lib.rs`)
+  (or `crates/plugin-exec-tree-walk/src/lib.rs`)
 
 Verification:
 
-- `cargo test -p handl-plugin-engine-exec-tree-walk`
+- `cargo test -p handl-plugin-exec-tree-walk`
 - `cargo test -p handl-runtime`
 
 Result (completed):
@@ -60,7 +60,7 @@ Result (completed):
 - Verification run:
   - `cargo test -p handl-runtime --test erased_node` — 1 passed.
   - `cargo test -p handl-runtime` — all targets pass (120+ tests, 0 failed).
-  - `cargo test -p handl-plugin-engine-exec-tree-walk` — all pass (122 tests).
+  - `cargo test -p handl-plugin-exec-tree-walk` — all pass (122 tests).
   - `cargo test -p handl-kit-canonical` — 69 passed, **2 pre-existing
     failures** (`hello_greet_returns_canonical_greeting`,
     `hello_greet_bridge_escapes_special_chars`) that also fail with the new
@@ -72,10 +72,10 @@ Result (completed):
 
 Status: **done**
 
-- Extend `TypecheckResult` in `crates/plugin-engine-typecheck/src/lib.rs` with a
+- Extend `TypecheckResult` in `crates/plugin-tool-typecheck/src/lib.rs` with a
   new field, e.g. `pub node_types: HashMap<usize, Value>` (keyed by
   `AstRef::index()`). Keep it backward-compatible by defaulting to an empty map.
-- In `crates/plugin-engine-typecheck-nbe/src/lib.rs`:
+- In `crates/plugin-tool-typecheck-nbe/src/lib.rs`:
   - Add `node_types: HashMap<usize, Value>` to `TypecheckContext`
     (around line 3991).
   - Record the synthesized/checked `Value` for every visited `AstRef` in
@@ -84,28 +84,28 @@ Status: **done**
 - Update the existing `TypecheckResult` constructors in test stubs:
   `crates/handl-runtime/src/lib.rs` (lines 1496 and 2229) and
   `crates/plugin-lib-lang-typecheck/src/tests.rs` (line 71).
-- Add a test in `crates/plugin-engine-typecheck-nbe/src/tests.rs` that
+- Add a test in `crates/plugin-tool-typecheck-nbe/src/tests.rs` that
   typechecks a small expression and asserts `result.node_types` contains
   entries for the root and at least one child.
 
 Files expected to change:
 
-- `crates/plugin-engine-typecheck/src/lib.rs`
-- `crates/plugin-engine-typecheck-nbe/src/lib.rs`
-- `crates/plugin-engine-typecheck-nbe/src/tests.rs`
+- `crates/plugin-tool-typecheck/src/lib.rs`
+- `crates/plugin-tool-typecheck-nbe/src/lib.rs`
+- `crates/plugin-tool-typecheck-nbe/src/tests.rs`
 - `crates/handl-runtime/src/lib.rs` (test stubs)
 - `crates/plugin-lib-lang-typecheck/src/tests.rs`
 
 Verification:
 
-- `cargo test -p handl-plugin-engine-typecheck-nbe`
+- `cargo test -p handl-plugin-tool-typecheck-nbe`
 - `cargo test -p handl-runtime`
 - `cargo test -p handl-kit-canonical`
 
 Result (completed):
 
 - `TypecheckResult` gained `pub node_types: HashMap<usize, Value>`
-  (`crates/plugin-engine-typecheck/src/lib.rs`), keyed by `AstRef::index()`.
+  (`crates/plugin-tool-typecheck/src/lib.rs`), keyed by `AstRef::index()`.
 - `TypecheckContext` gained `node_types` (initialized in
   `TypecheckContext::new`); `synth_node` records the synthesized type and
   `check_node` records `expected` on the `check_scheme` branch and the
@@ -115,15 +115,15 @@ Result (completed):
   and `crates/plugin-lib-lang-typecheck/src/tests.rs` — all use
   `node_types: Default::default()`.
 - New test `node_types_populated_after_typecheck` in
-  `crates/plugin-engine-typecheck-nbe/src/tests.rs`: a `wrap{children:[0]}`
+  `crates/plugin-tool-typecheck-nbe/src/tests.rs`: a `wrap{children:[0]}`
   AST over a `lit` child; asserts `node_types[1]` (root) and
   `node_types[0]` (child) both equal `type.number`.
 - Verification run:
-  - `cargo test -p handl-plugin-engine-typecheck-nbe` — 251 + 46 tests, all
+  - `cargo test -p handl-plugin-tool-typecheck-nbe` — 251 + 46 tests, all
     pass (includes the new test).
   - `cargo test -p handl-runtime` — all targets pass (100 lib + integration
     tests, 0 failed).
-  - `cargo test -p handl-plugin-engine-exec-tree-walk` — all pass.
+  - `cargo test -p handl-plugin-exec-tree-walk` — all pass.
   - `cargo test -p handl-kit-canonical` — 69 passed, **2 pre-existing
     failures** (`hello_greet_returns_canonical_greeting`,
     `hello_greet_bridge_escapes_special_chars`,
@@ -164,11 +164,11 @@ Verification (completed):
 - `cargo test -p handl-runtime` — 130+ tests passed (including new
   `erase_pass` unit tests and the `erased_node` / `proof_erasure`
   integration tests).
-- `cargo test -p handl-plugin-engine-typecheck-nbe` — 251 + 46 passed.
-- `cargo test -p handl-plugin-engine-exec-tree-walk` — 116 + integration
+- `cargo test -p handl-plugin-tool-typecheck-nbe` — 251 + 46 passed.
+- `cargo test -p handl-plugin-exec-tree-walk` — 116 + integration
   passed.
-- `cargo test -p handl-plugin-engine-exec-bytecode` — 71 + 4 passed.
-- `cargo test -p handl-plugin-engine-exec-cranelift --lib` — 79 passed.
+- `cargo test -p handl-plugin-exec-bytecode` — 71 + 4 passed.
+- `cargo test -p handl-plugin-exec-cranelift --lib` — 79 passed.
 - `cargo test -p handl-kit-canonical` — 69 passed, 2 pre-existing failures
   (`hello_greet_returns_canonical_greeting`,
   `hello_greet_bridge_escapes_special_chars`); unrelated to erasure.
@@ -222,9 +222,9 @@ from generated constructors/recursors).
   - template for in-place AST mutation
 - `crates/handl-kit-data-canonical/data/ast.yaml`
 - `crates/handl-kit-data-canonical/data/eval.yaml`
-- `crates/plugin-engine-typecheck/src/lib.rs`
+- `crates/plugin-tool-typecheck/src/lib.rs`
   - `TypecheckResult` at line 83
-- `crates/plugin-engine-typecheck-nbe/src/lib.rs`
+- `crates/plugin-tool-typecheck-nbe/src/lib.rs`
   - `synth_node` at line 261
   - `check_node` at line 285
   - `NbeTypecheckEngine::typecheck` at line 3927
@@ -233,12 +233,12 @@ from generated constructors/recursors).
     around line 2554
   - membership proof constructor (`check_membership`, `eval_membership`) around
     line 2753
-- `crates/plugin-engine-typecheck-nbe/src/tests.rs`
+- `crates/plugin-tool-typecheck-nbe/src/tests.rs`
   - `type_refl()` at line 7118
   - `type_is_evidence()` at line 6727
 - `crates/handl-language/src/lib.rs`
   - `Value` / `TAG_VALUE_KEY` / `REGISTRY_VALUE_KEY`
-- `crates/plugin-engine-exec-tree-walk/src/lib.rs`
+- `crates/plugin-exec-tree-walk/src/lib.rs`
   - `const` native op at line 1084
 
 ## Notes / open questions

@@ -160,7 +160,7 @@ become simple closure-application helpers that `Scheme::App` calls.
 
 ## Why
 
-ADR-0058 established that eval engines should be fixed interpreters of `Language.eval` data. Dispatch is already data-driven: `eval.yaml` maps the `call` node kind to `Arr { op: "call", source: Native }`. But the **native op implementation** contains hardcoded language-specific logic in all three engines (`plugin-engine-exec-tree-walk`, `plugin-engine-exec-bytecode`, `plugin-engine-exec-cranelift`).
+ADR-0058 established that eval engines should be fixed interpreters of `Language.eval` data. Dispatch is already data-driven: `eval.yaml` maps the `call` node kind to `Arr { op: "call", source: Native }`. But the **native op implementation** contains hardcoded language-specific logic in all three engines (`plugin-exec-tree-walk`, `plugin-exec-bytecode`, `plugin-exec-cranelift`).
 
 ## Not doing
 
@@ -176,9 +176,9 @@ ADR-0058 established that eval engines should be fixed interpreters of `Language
 
 ## Enforcement
 
-- `plugin-engine-exec-tree-walk` — where this is true.
-- `plugin-engine-exec-bytecode` — where this is true.
-- `plugin-engine-exec-cranelift` — where this is true.
+- `plugin-exec-tree-walk` — where this is true.
+- `plugin-exec-bytecode` — where this is true.
+- `plugin-exec-cranelift` — where this is true.
 
 ## Design
 

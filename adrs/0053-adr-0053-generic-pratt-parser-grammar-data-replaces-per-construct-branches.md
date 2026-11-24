@@ -65,10 +65,10 @@ the transform engine.
 
 ## Enforcement
 
-- `engine-parse-pratt/` — the generic parser crate.
+- `tool-parse-pratt/` — the generic parser crate.
 - `kit-prelude-lang/crates/handl-kit-prelude-lang/data/grammar.yaml` — the
   rows that now carry the knowledge.
-- Parser tests: `tests/` in `engine-parse-pratt`.
+- Parser tests: `tests/` in `tool-parse-pratt`.
 
 ## Design
 

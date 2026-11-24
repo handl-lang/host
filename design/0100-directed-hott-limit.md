@@ -26,7 +26,7 @@ Higher directed HoTT features (higher cells, univalence-based transport, full fi
 
 ADR-0098 establishes that Handl is a category-graded arrow theory with one `Term` language and multiple `Model` interpreters. The `Term` data, `Model` trait, `sort`/`grade`/`op` declarations, and handler algebra provide the 1-categorical foundation.
 
-However, the 1-categorical view is incomplete. The platform already has `plugin-engine-transform` for rewrites, `plugin-engine-exec` for evaluation, `plugin-engine-typecheck` for typing, and will need a compiler, optimizer, and theorem prover. These are not independent tools; they are different interpretations of the same structure. The rewrites themselves should be first-class.
+However, the 1-categorical view is incomplete. The platform already has `plugin-tool-transform` for rewrites, `plugin-exec` for evaluation, `plugin-tool-typecheck` for typing, and will need a compiler, optimizer, and theorem prover. These are not independent tools; they are different interpretations of the same structure. The rewrites themselves should be first-class.
 
 The right long-term frame is a **directed homotopy type theory** (directed HoTT). In this view:
 
@@ -280,7 +280,7 @@ This ADR does not replace ADR-0098. It sits on top of it. The 1-categorical impl
 1. **Add `Term::Rewrite`.** Extend the `Term` enum with `Rewrite`.
 2. **Add `law` and `rewrite` declarations.** Extend the canonical language data with these forms.
 3. **Extend `Model` trait.** Add `rewrite` method.
-4. **Make `plugin-engine-transform` the `OptimizerModel`.** It is already a `Model` over `Term`.
+4. **Make `plugin-tool-transform` the `OptimizerModel`.** It is already a `Model` over `Term`.
 5. **Add `transport` and `equiv` surface forms.** These are 1-cell operators derived from univalence.
 6. **Add `Path` sort.** `Path(A, a, b)` is the sort of paths from `a` to `b` in `A`.
 7. **Keep the 1-categorical engine.** Do not require 2-cells for evaluation. The `ValueModel` can return `Unsupported` for `Rewrite` nodes.
@@ -289,7 +289,7 @@ This ADR does not replace ADR-0098. It sits on top of it. The 1-categorical impl
 
 ### Positive
 
-- Replaces `plugin-engine-transform` with a first-class `OptimizerModel`.
+- Replaces `plugin-tool-transform` with a first-class `OptimizerModel`.
 - Makes compiler correctness a consequence of functoriality, not a separate proof.
 - Makes `sort`/`grade`/`op`/`law`/`rewrite` all data, not engine code.
 - Gives a unified theory for evaluation, typechecking, compilation, optimization, and proof.

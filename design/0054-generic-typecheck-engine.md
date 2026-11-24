@@ -19,10 +19,10 @@ The shipped architecture realizes this for four stages:
 
 | Stage   | Abstraction crate                      | Engine crate(s)                                     | `Language` fragment               |
 | ------- | -------------------------------------- | --------------------------------------------------- | --------------------------------- |
-| lex     | `plugin-engine-lex` (`LexerEngine`)    | `plugin-engine-lex-pattern`                         | `lang.tokens`, `lang.lexer_rules` |
-| parse   | `plugin-engine-parse` (`ParserEngine`) | `plugin-engine-parse-pratt`                         | `lang.grammar`                    |
-| eval    | `plugin-engine-exec` (`EvalEngine`)    | `plugin-engine-exec-{tree-walk,bytecode,cranelift}` | `lang.eval` (`Scheme`)            |
-| compile | (in `handl-runtime`)                   | `plugin-engine-exec-{bytecode,cranelift}`           | —                                 |
+| lex     | `plugin-tool-lex` (`LexerEngine`)    | `plugin-tool-lex-pattern`                         | `lang.tokens`, `lang.lexer_rules` |
+| parse   | `plugin-tool-parse` (`ParserEngine`) | `plugin-tool-parse-pratt`                         | `lang.grammar`                    |
+| eval    | `plugin-exec` (`EvalEngine`)    | `plugin-exec-{tree-walk,bytecode,cranelift}` | `lang.eval` (`Scheme`)            |
+| compile | (in `handl-runtime`)                   | `plugin-exec-{bytecode,cranelift}`           | —                                 |
 
 The **typecheck** stage is the one exception. It is not data-driven and has no
 engine abstraction:
@@ -219,9 +219,9 @@ engine owns how closures/neutrals/metas are represented internally (as
 `ScopeStack` is internal to the eval engine); the type values it produces
 and consumes through the `Scheme` contract are tagged values.
 
-### 3. The abstraction crate — `plugin-engine-typecheck`
+### 3. The abstraction crate — `plugin-tool-typecheck`
 
-A new crate, the analog of `plugin-engine-lex`/`-parse`/`-eval`. **No engine
+A new crate, the analog of `plugin-tool-lex`/`-parse`/`-eval`. **No engine
 code lives here** — only the operation marker, request, and engine trait:
 
 ```rust
@@ -242,7 +242,7 @@ interprets it (delegating value-level computation to the eval engine and
 judgment ops to its own primitives). It names no concrete construct. This is
 the "generic engine that just works on data."
 
-### 4. NBE as the normalizer + one engine impl — `plugin-engine-typecheck-nbe`
+### 4. NBE as the normalizer + one engine impl — `plugin-tool-typecheck-nbe`
 
 The existing `plugin-typecheck-nbe` is refactored into an engine crate
 implementing `TypecheckEngine`. The NBE algorithm — `unify`, `quote`/
@@ -351,7 +351,7 @@ ops available.)
   rejection structural — a type expression that attempts an effect fails
   typecheck instead of executing. The CLI's `typecheck` command is safe by
   construction.
-- **A generic engine.** `plugin-engine-typecheck` names no construct; NBE is
+- **A generic engine.** `plugin-tool-typecheck` names no construct; NBE is
   one impl. A second engine can coexist against the same `lang.types` data,
   enabling experimentation without forking the language definition.
 - **Judgments are first-class ops.** Bidirectionality (synth/check),

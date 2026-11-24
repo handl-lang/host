@@ -33,7 +33,7 @@ compiled-engine parity, AST caching).
   crossover — merge overhead dominates. Default threshold raised to 1M
   nodes; shared-arena noted as the future lever.
 - **Formatter-preserving emitter** (`109c79f1` + `9c78787a`):
-  `plugin-engine-fmt::PreserveEmitter` — trace-driven splice: unchanged
+  `plugin-tool-fmt::PreserveEmitter` — trace-driven splice: unchanged
   subtrees copy `src[span]` verbatim, changed subtrees re-render via the
   data-driven `FormatEngine`. Powers `hnl transform --emit source` /
   `--write`; refuses on lowering passes that produce internal-form nodes.
@@ -65,7 +65,7 @@ compiled-engine parity, AST caching).
 - **ADR-0092 pure-handl test framework** (`27e299c3`, cherry-picked from
   `chore/kit-data-config-fold`): all 12 Rust handls →
   `handl-packages/test/*.hnl` (`assert`, `property`, `benchmark`, `fuzz`,
-  `snapshot`, `test`); `plugin-engine-test::framework` reduced to the
+  `snapshot`, `test`); `plugin-tool-test::framework` reduced to the
   assert-failure side-channel.
 - **Declarative desugar** (`6af2e51f` + `7760f9df`, reconciled in
   `d6708bdc`): 5 of 8 desugar natives migrated to `transforms.yaml`

@@ -12,7 +12,7 @@ host-tensor `3af18c0` (codec bin arms + `tensor.load` payload-as-wire)
 + `c488bad` (ranged safetensors streaming, committed after pass 17's
 skim), graphopt `069d7db` (hnl-run materialize + `wire.py` decode
 arm), engine-eqsat `dd4815e` (`{"Arr": …}` leaf records),
-engine-parse-pratt `50070dc` (multi-statement parse), mlopt `bd386b7`
+tool-parse-pratt `50070dc` (multi-statement parse), mlopt `bd386b7`
 (whisper decoder alias meta), and the D-1d kit-discovery state.
 
 **WIP present and not disturbed:** kernel has two uncommitted files
@@ -184,12 +184,12 @@ pass (but see P18-N2 — no bin-arm coverage there).
   `dag_output_noncanonical_arr_enode_refuses_by_name`,
   `dag_program_arr_leaves_round_trip_tree_wire`.
 
-### engine-parse-pratt `50070dc` — multi-statement parse — CLEAN
+### tool-parse-pratt `50070dc` — multi-statement parse — CLEAN
 
 - `parse()` now collects every top-level expression into a `block`
   node (`{"children": [stmt roots]}`) when >1 — byte-shape identical
   to what `do { … }` emits, and `eval_block`
-  (`engine-exec/src/native_ops.rs:947`) evaluates children in order
+  (`exec/src/native_ops.rs:947`) evaluates children in order
   in a fresh scope, last value wins — exactly the documented
   semantics. Single-statement programs are unwrapped (root = the
   expression), so scalar/expr callers are unaffected.

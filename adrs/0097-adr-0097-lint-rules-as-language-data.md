@@ -19,8 +19,8 @@ status_note: accepted
 
 ADR-0044 ("language as data") established that engines and tooling are
 generic and data-driven: a new language is a YAML fragment merged into a
-`Language`, never an engine recompile. The formatter (`plugin-engine-fmt`)
-and typechecker (`plugin-engine-typecheck` + `*-nbe`) already follow this —
+`Language`, never an engine recompile. The formatter (`plugin-tool-fmt`)
+and typechecker (`plugin-tool-typecheck` + `*-nbe`) already follow this —
 the fmt/typecheck/test split is generic engine + canonical data.
 
 The linter did not. `plugin-ext-lint` hardcoded all eight canonical rules in
@@ -31,7 +31,7 @@ Pratt AST already carries. ADR-0094's `lint` pass (`find_matches` over
 already declared in `plugin-ext-lint/data/lint_transforms.yaml` — but only
 as a pattern matcher, with the diagnostic and fix still computed in Rust.
 
-Meanwhile `plugin-engine-lint` (the generic AST lint engine) and
+Meanwhile `plugin-tool-lint` (the generic AST lint engine) and
 `plugin-ext-lint` had grown into parallel implementations that never met:
 the engine's `LintEngine::lint` served embedded hosts (`host-tooling`,
 `plugin-diag-expression`) while the ext crate reimplemented its own walk.
@@ -52,7 +52,7 @@ Lint rules are first-class `Language` data.
 
    - `check: !Match { node_kind, when? }` — node-local matching. `when` is a
      `TransformCondition`, evaluated by the _same_ evaluator the rewrite
-     engine uses (`plugin-engine-transform-rewrite::condition::matches_condition`,
+     engine uses (`plugin-tool-transform-rewrite::condition::matches_condition`,
      now public). The predicate vocabulary gains
      `!ChildPayloadEq { index?, role?, path?, value }` — "the child at
      role/index has payload `value` at `path`" — needed to test a child
@@ -69,7 +69,7 @@ Lint rules are first-class `Language` data.
    replace the node's source text with its child's); `Native` rules compute
    their own fixes.
 
-3. **Module-level engine API** in `plugin-engine-lint`:
+3. **Module-level engine API** in `plugin-tool-lint`:
    `parse_module` (the bootstrap one-statement-per-parse splitting
    convention, moved out of `plugin-ext-lint`), `LintModule`,
    `ModuleAnalysis::build` (per-statement bindings / references / arrow
@@ -78,7 +78,7 @@ Lint rules are first-class `Language` data.
    `LintEngine::lint_module` / `lint_source`. `LintDiagnostic` gains `rule`
    and `fix`. The single-AST `LintEngine::lint` built-ins are unchanged.
 
-4. **Canonical natives** ship in `plugin-engine-lint`
+4. **Canonical natives** ship in `plugin-tool-lint`
    (`canonical_lint_natives()`, wired via
    `LintEngine::with_canonical_lint_natives` — the analogue of
    `with_desugar_natives`): `scope.unbound-wire`, `scope.shadowed-binding`,
@@ -118,7 +118,7 @@ Lint rules are first-class `Language` data.
 - `.hnl`-authored lint natives landed: the same `handl:<mod>.<fn>`
   spelling ADR-0094 added for transforms works for `!Native` lint checks.
   `NativeLintRegistry` gained a generic `NativeLintResolver` fallback seam
-  (`add_resolver`, consulted on map miss — `plugin-engine-lint` stays
+  (`add_resolver`, consulted on map miss — `plugin-tool-lint` stays
   runtime-free); `handl_plugin_lib_handl::lint::HandlNativeLint` is the
   adapter mirroring `HandlNativeRewrite`: it holds `HandlModule`s, resolves
   `handl:` names, and invokes the function **once per module** with a

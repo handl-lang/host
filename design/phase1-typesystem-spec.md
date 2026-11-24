@@ -18,9 +18,9 @@ phases, in waves of ≤4 parallel workstreams.
 | WS | Scope | Repo(s) | Blocks |
 |---|---|---|---|
 | A | `Val` NbE domain + shared evaluator | `kernel` | everything |
-| B | Checker: `infer`/`check`/`conv`/metas/imports | `engine-typecheck-nbe` | D, F |
-| C | `data` → former/ctor syms + `F.rec` + `match` lowering | `engine-transform-rewrite`, `kit-prelude-lang`, `engine-typecheck-nbe` | E |
-| D | `Hom(n,·,·)` + `>>>[k]` typing, n≤2 | `kit-prelude-lang`, `engine-typecheck-nbe` | — |
+| B | Checker: `infer`/`check`/`conv`/metas/imports | `tool-typecheck-nbe` | D, F |
+| C | `data` → former/ctor syms + `F.rec` + `match` lowering | `tool-transform-rewrite`, `kit-prelude-lang`, `tool-typecheck-nbe` | E |
+| D | `Hom(n,·,·)` + `>>>[k]` typing, n≤2 | `kit-prelude-lang`, `tool-typecheck-nbe` | — |
 | E | `type.hnl` sym migration; ctor-sym values | `lib-type`, prelude | — |
 | F | exec-transform erasure + final-artifact lint | `host` (`handl-runtime`, transform passes) | — |
 
@@ -51,7 +51,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
 - **Consolidation**: delete `typecheck_model.hnl`; port its unique
   coverage first — `synth_dep_former_` (type exprs just evaluate),
   `bind_imports_`, `dependent_structure`/`axis_flow_boundaries` tests
-  → NBE tests. Delete `engine-typecheck-handl` once green;
+  → NBE tests. Delete `tool-typecheck-handl` once green;
   `Kit::typecheck_handl*` + `ext-typecheck` rewire to `typecheck`.
 - `hnl typecheck` runs NBE; bootstrap `check_module` scope rules
   (`unbound-wire`, `unbound-export`, unused-import) move to
@@ -152,7 +152,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   (`OpHandler::apply_arrow` hook for engine-owned body reduction).
   Out-of-fragment variants → `NotImplemented`. 10 tests green.
 - **2026-10-22 (cont.)** — WS-B slices 1–3 landed
-  (`engine-typecheck-nbe` commits `880b6f6`, `95e265a`, `dbf9b0d`;
+  (`tool-typecheck-nbe` commits `880b6f6`, `95e265a`, `dbf9b0d`;
   `kernel` commit `c1187b2`):
   - `checker.rs` — `Checker`: `infer`/`check`/`conv`/`subtype` over
     `Val` (Γ level-indexed; nominal parent-walk subtyping; cumulative
@@ -175,7 +175,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   tests to NBE coverage; then imports (`Sig_m`), `types.yaml` demotion,
   `hnl typecheck` NBE, scope lints.
 - **2026-10-22 (cont.)** — WS-B coverage-port *probe* (not landed):
-  `engine-typecheck-handl/tests/dependent_structure.rs` was
+  `tool-typecheck-handl/tests/dependent_structure.rs` was
   mechanically ported to `NbeTypecheckEngine` (20 tests): **1/20
   pass**. The failure inventory is the real WS-B remainder and is
   mostly WS-C-shaped: `synth_data` judgment op missing in NBE;
@@ -186,10 +186,10 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   formers + `F.rec`), not the legacy `{"tag"}` pipeline — i.e. land
   WS-C (`desugar.data` emits former/ctor syms, match lowers to `F.rec`,
   positivity in the checker), then re-run the ported suite as the
-  parity gate before deleting `engine-typecheck-handl`. The ported
+  parity gate before deleting `tool-typecheck-handl`. The ported
   file is preserved at the working-tree level only (failing until
   WS-C); `axis_flow_boundaries.rs` not yet attempted.
-- **2026-10-22 (cont.)** — WS-D first slice (`engine-typecheck-nbe`
+- **2026-10-22 (cont.)** — WS-D first slice (`tool-typecheck-nbe`
   `9c0469c`): former signatures are `FormerSig::{Tel, Pi, Hom}` —
   judgment rules as data. `Checker::new()` auto-registers `type.pi` +
   `type.hom`. `infer_hom`: `Hom(1,A,B) : Type(max(levels))`;
@@ -245,7 +245,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     own `type` links (`xs.type.indices[j]`); implicit indices
     (`MkDbl`'s `2*n`) lower to `null` (type-level only). Positivity
     stays as an early mirror; the checker owns the check.
-  - `engine-typecheck-nbe/src/dependent.rs` (new, ~2400 lines): the
+  - `tool-typecheck-nbe/src/dependent.rs` (new, ~2400 lines): the
     tagged-value port of the model's `synth_data`/`instantiate_ctor_`/
     `refine_scrutinee_`/`synth_match_arms`/`synth_transport`/`synth_j`
     fragment. `synth_data` binds `F : type.family{name, base}` + each
@@ -298,7 +298,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     dependent ctor domains (`P(x)`) unimplemented; `host` data eval
     tests still assume the predicate encoding (ADR-0154 §2 `type` links
     change ctor values — a follow-up sweep is owed).
-- **2026-10-23 — WS-D second slice landed** (`engine-typecheck-nbe`
+- **2026-10-23 — WS-D second slice landed** (`tool-typecheck-nbe`
   commit `038e65a`; `lib-type` commit `e754221`):
   - `FormerSig::{Comp, Id}` — `cell.comp(k, a, b)` / `cell.id(k, x)`
     are term-level former applications (canonical data), typed by new
@@ -330,7 +330,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     (WS-B seam).
 - **2026-10-22 (cont.)** — WS-C follow-up: the 5 remaining
   `dependent_structure.rs` failures fixed (parity now **20/20**);
-  `engine-typecheck-nbe` uncommitted→committed.
+  `tool-typecheck-nbe` uncommitted→committed.
   - Root cause was *ordering*, not results scoping per se:
     `synth_assign_judgment` (and the duplicated assign paths in
     `synth_block`/`check_block`) synthesized the value *before*
@@ -371,7 +371,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
 
 ### 2026-10-22 — WS-B checker consolidation landed: `.hnl` model deleted, Sig_m imports, NBE canonical
 
-- **engine-typecheck-handl deleted.** The interpreted `.hnl` adapter
+- **tool-typecheck-handl deleted.** The interpreted `.hnl` adapter
   (`HandlTypecheckEngine` + the 6,162-line `models/typecheck_model.hnl`)
   is gone; the model is archived at `host/project/design/typecheck_model.hnl`
   as the record of the reference semantics (kept rather than deleted
@@ -415,13 +415,13 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   substituted) — a test fix, no runtime change.
 - **Verified:** `import_sig` 10/10; `data_constructor_eval` 1/1;
   kit-prelude compiles clean. `Cargo.toml` `[patch]` sections repointed
-  `engine-typecheck-handl` → `engine-typecheck-nbe` across the workspace.
+  `tool-typecheck-handl` → `tool-typecheck-nbe` across the workspace.
 - **Note:** parallel WS-E work (canonical `type.<Name>` seeds, `Sym.ty`
-  links) landed in `kernel`/`engine-typecheck-nbe` during this slice and
+  links) landed in `kernel`/`tool-typecheck-nbe` during this slice and
   is committed under its own messages; commit `9e4f6b6` carries both the
   WS-E seed work and this slice's import/export machinery.
 - **2026-10-23 — WS-E landed** (`kernel` `572491d`+reseal commit,
-  `engine-typecheck-nbe` `9e4f6b6`, `lib-type` `ac439755`; host/kit-core/
+  `tool-typecheck-nbe` `9e4f6b6`, `lib-type` `ac439755`; host/kit-core/
   lib-type-handl changes swept into parallel WS-B commits `1f6ae8b4`/
   `e2b8723`/`5f43372` — content identical, attribution shared):
   - `handl-value`: `Sym` gains a `ty` link (membership; `parent` stays
@@ -442,7 +442,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   - `lib-type-handl`: `kind_is` nominal arm — `type.is(v, T)` =
     instanceof; record gains `Type`/`Unit`; tests assert the `__sym__`
     shape + both-link reads.
-  - `engine-typecheck-nbe`: canonical `type.<Name>` seeds (capitalized,
+  - `tool-typecheck-nbe`: canonical `type.<Name>` seeds (capitalized,
     matching `data.<DeclName>` convention) in `infer_const`/`infer_literal`;
     `Checker::new` ensures the graph; `default_unsolved` → `type.Nat`
     for the `type.Number` anchor (0154 §5); `lift` `__tag__` arm routes
@@ -461,7 +461,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     datum does not satisfy `type.Obj` (matches legacy roles-only
     behavior).
 - **2026-10-23 (cont.) — integration pass: ordered value annotations
-  landed** (`engine-typecheck-nbe` commit `44b18f9`). Fixes the WS-B
+  landed** (`tool-typecheck-nbe` commit `44b18f9`). Fixes the WS-B
   regression where `f : inc(4) := v` was not checked against the
   evaluated annotation: `dep_synth_type`/`interpret_type_expr` rejected
   `call`-shaped annotations outright. Ported the model's
@@ -505,11 +505,11 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
   fragment), stuck shapes → `Former{stuck.*}` neutrals so `infer`
   reports `CannotInfer` honestly.
 - kernel chore check: `kernel d526b3f` is a clean 2-line
-  `[patch]` repoint (`engine-typecheck-handl` → `-nbe`), no WS-E WIP
+  `[patch]` repoint (`tool-typecheck-handl` → `-nbe`), no WS-E WIP
   folded in; tree clean, no rebase needed.
 
 - **2025-01-XX (WS-C/D: open transport + `veval`→`v*` bridge + `apply_arrow`)**
-  `engine-typecheck-nbe 12f6e8b`, `kit-prelude-lang 524adf3`:
+  `tool-typecheck-nbe 12f6e8b`, `kit-prelude-lang 524adf3`:
   - `resolve_path`: a metavariable-bound operand (`p` in
     `transport := (p, v) ~> (p # v)`) synthesizes an open
     `Path(?a, ?b)` — stuck, not a decided non-path — with fresh tagged
@@ -561,7 +561,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     gap in the tagged surface, not a `__tag__` mint issue).
 
 - **2025-01-XX (WS-C/D closeout: dependent.hnl green — 21/21)**
-  `engine-typecheck-nbe` (single commit): `dependent.hnl` now
+  `tool-typecheck-nbe` (single commit): `dependent.hnl` now
   typechecks cleanly end-to-end — `Sigma`/`Path`/`id`/`transport`/
   `comp_assoc`/`id_left`/`id_right`/`interchange` all synth to their
   canonical term-level type data. Four small edges closed, all inside
@@ -641,7 +641,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     cause diagnosed (not the fold machine):** the 8 MiB SIGABRT was
     *not* deep `Vec.rec` eval — the fold machine is `Term::Loop`
     feedback, Rust-iterative (`fold_step` in
-    `engine-exec-tree-walk::eval_inner_td`, MAX_ITERS guard). GDB on
+    `exec-tree-walk::eval_inner_td`, MAX_ITERS guard). GDB on
     the crashing thread shows the overflow inside
     `Runtime::parse` → `apply_desugar` → `fire_native` →
     `handl:desugar.data` → `plugin-lib-handl`'s
@@ -686,7 +686,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     semantic than a kind tag; flag if a non-type consumer relied on
     `"object"`.
 - **2026-10-23 — WS-C follow-up: `.hnl` desugar overlay synced to
-  ADR-0152** (`lib-desugar`, `engine-transform-rewrite`, `host`):
+  ADR-0152** (`lib-desugar`, `tool-transform-rewrite`, `host`):
   remaining edge (a) from the `type.of` entry above is closed.
   - `lib-desugar/src/index.hnl`: `data_rewrite` now emits the nominal
     encoding — `F` binds a seeded-sym former (`{"__former__": fSym,
@@ -709,7 +709,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     dependency so `sym("seed")` resolves inside the overlay (flat
     `call_host` lookup); the parity test's module gains it too.
   - Verified: `handl_desugar` parity **6/6 green** (was 5 failing);
-    `hnl-engine-transform-rewrite` 41+21+35 green; `indexed_family_
+    `hnl-tool-transform-rewrite` 41+21+35 green; `indexed_family_
     match` green end-to-end through the `.hnl` overlay.
   - **Stale tests swept (the "follow-up sweep is owed" item):**
     `indexed_family_data`/`indexed_family_fin` still asserted the
@@ -737,7 +737,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     `j_eliminates_branch_path_through_motive` now parses the real
     surface form; `j_surface_literal_motive` covers literal motives.
     22/22 green at commit; kit-prelude-lang `7824a7c`,
-    engine-typecheck-nbe `98a1a53`, lib-type `079629d` (doc).
+    tool-typecheck-nbe `98a1a53`, lib-type `079629d` (doc).
   - **`type.Name := body` / `type.Name(params) := body` aliases** —
     the chosen surface reuses `assign` (no grammar changes): the
     `type.` namespace head on an `assign` lhs (field-access or call on
@@ -753,8 +753,8 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     already mints), `dep_check_intro` positional `type.array{elements}`
     check, `type.array` added to the dependent `check_node` list.
     `type_alias_expands_transparently` covers `Score`/`Id`/`Pair`
-    accept + reject. engine-transform-rewrite `4b253a9`,
-    engine-typecheck-nbe `1d23fb7`.
+    accept + reject. tool-transform-rewrite `4b253a9`,
+    tool-typecheck-nbe `1d23fb7`.
   - **`IO(sig)` indexed typed effects (ADR-0153 §4)**: `FormerSig::Io`
     registered at `type_sym("type.io")` (`IO(sig) : Type(0)`, arity 0
     = `IO(⊤)` compat). `Checker::subtype` record-width arm —
@@ -768,7 +768,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     (`IO(s) ~> T`, `Vec(n,a) ~> T`) previously read their last arg.
     lib-type `ec07203` exports `IO := (sig) ~> {"__former__":
     sym.seeded("type.io"), "indices": [sig]}`.
-    engine-typecheck-nbe `48d9690`.
+    tool-typecheck-nbe `48d9690`.
   - **Open edge (IO)**: `io_signature_subtyping`'s negative case —
     `IO({puts,gets}) ~> IO({puts}) = x ~> x` — still accepts. The
     positive cases (`IO({puts}) <: IO({puts,gets})`, `IO({puts}) <: IO`
@@ -777,9 +777,9 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     `rule.check`/`check_subtype` scheme that runs before
     `dep_unify`'s IO arm) routed through `vcheck.subtype` — one
     follow-up arm, not a new subsystem.
-  - Test: `cargo test -p hnl-engine-typecheck-nbe --test
+  - Test: `cargo test -p hnl-tool-typecheck-nbe --test
     dependent_structure` — 23/24 green (the IO negative case the one
-    expected failure); `cargo test -p hnl-engine-transform-rewrite`
+    expected failure); `cargo test -p hnl-tool-transform-rewrite`
     green (41/21/35).
 
 - [2026-03-18] **IO widen-rejection edge — closed.** The accept was not
@@ -801,9 +801,9 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     short name `"io"`; now compares the quoted `handle` against
     `type_sym("type.io").handle()` (authoritative when present), with
     the `type.io`/`io` name check only for handle-less spellings.
-  - Test: `cargo test -p hnl-engine-typecheck-nbe` — `dependent_structure`
+  - Test: `cargo test -p hnl-tool-typecheck-nbe` — `dependent_structure`
     **24/24**, `--lib` **283**, `parity` **46/46** (whole crate green).
-    engine-typecheck-nbe `10c05ab`.
+    tool-typecheck-nbe `10c05ab`.
 
 - [2026-03-19] **`IO(sig)` runtime wiring + `__tag__`/`{tag}` bridge deletion** —
   - **IO dispatch (tree-walk `Handle`)**: an `IO` former object
@@ -818,7 +818,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     through unchanged. This is the minimal semantics consistent with
     `handle <expr> with <record>` in lib files (handler record fields
     are op names) and ADR-0153 §4 "ops interpreted by a handler".
-    `interpret_io_former` in `hnl-engine-exec-tree-walk`; bytecode/
+    `interpret_io_former` in `hnl-exec-tree-walk`; bytecode/
     cranelift handle paths unchanged (they eliminate handlers
     statically). The `term_interpreter` PoC does not interpret IO —
     it has no deep-carry either.
@@ -854,7 +854,7 @@ Waves: **0: A** → **1: B ‖ C** → **2: D ‖ E ‖ F** (4 max concurrent).
     `composite_model_parity`, `nominal_kernel`'s bridge assertions)
     will need updates in the full-suite sweep.
   - Green: `handl-value` 110/110; `cargo check` clean on
-    engine-transform-rewrite, engine-exec-tree-walk,
+    tool-transform-rewrite, exec-tree-walk,
     handl-plugin-lib-tag (incl. --tests); `desugar_parity` 21/21;
     `handl_desugar` parity 6/6.
 
@@ -885,8 +885,8 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   `plugin-ext-refinement` `arrow_parser`, and the loader test mirror all
   emit identical text.
 - Green: `cargo test -p handl-runtime` all 45 binaries 0 failures;
-  `hnl-engine-typecheck-nbe` all binaries 0 failures;
-  `hnl-engine-transform-rewrite` all binaries 0 failures;
+  `hnl-tool-typecheck-nbe` all binaries 0 failures;
+  `hnl-tool-transform-rewrite` all binaries 0 failures;
   `handl-kit-prelude --test tagged_values` 6/6.
 - Flagged residual: `engine/src/term_interpreter.rs` still has a
   `"tag.construct"` native arm (stamps `__tag__` locally — dead path,
@@ -951,12 +951,12 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   input-arena coordinates — `Ast::subtree` then walked a closed cycle
   forever. Fixes per repo: `kernel` `subtree_into` carries a per-call
   visiting stack and reports the cycle's node path (`handl-language`);
-  `engine-transform` `RewriteCtx::pass_through` and
-  `engine-transform-rewrite` `visit_children`/`remap_children`/
+  `tool-transform` `RewriteCtx::pass_through` and
+  `tool-transform-rewrite` `visit_children`/`remap_children`/
   `build_rewrite` remap `ARENA_REF_PAYLOAD_KEYS` like `children`;
   `lib-desugar` `blk_splice` marks the `data` rewrite's declaration
   group `{__splice__: true}` so `splice_decl_blocks` flattens it into
-  the enclosing statement list; `engine-typecheck` `pattern_bound_names`
+  the enclosing statement list; `tool-typecheck` `pattern_bound_names`
   binds names under `call`-shaped ctor patterns (`Succ(p)`) via the
   `callee` role.
 - **Bug 2 (landed):** the *term-level* `lookup` op — not
@@ -985,10 +985,10 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   callee-skip left `somemod.trim(input) ~> input` unchecked).
 - **Verified:** `hnl typecheck` ok on nat/vec/path_j/alias/io.hnl;
   `hnl run` nat.hnl evaluates `pred(Succ(Succ(Zero)))` → `Succ(Zero)`;
-  alias.hnl runs to `1`. `cargo test -p hnl-engine-typecheck-nbe`:
+  alias.hnl runs to `1`. `cargo test -p hnl-tool-typecheck-nbe`:
   283 lib + 24 dependent_structure + 46 parity — 0 failures;
-  `cargo test -p hnl-engine-typecheck`: 58 — 0 failures;
-  `hnl-engine-transform-rewrite`: 97 — 0 failures. Also un-staled
+  `cargo test -p hnl-tool-typecheck`: 58 — 0 failures;
+  `hnl-tool-transform-rewrite`: 97 — 0 failures. Also un-staled
   `typecheck_no_rule_errors` (unruled kind → `type.unknown` + warning,
   not `Err` — behavior changed on main without the test).
 - **Remaining (eval-side, pre-existing — not typecheck bugs):**
@@ -1000,20 +1000,20 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   `assign(function(…), …)` and `lower_ast`/`eval_block` only bind
   identifier targets (type-signed function bindings unevaluable).
 
-## Progress log — eval-side gaps closed (vec/path_j/io) + engine-test stack
+## Progress log — eval-side gaps closed (vec/path_j/io) + tool-test stack
 
 - **vec.hnl `match: no arm matched` (landed):** the diagnosis was *not*
   a `__ctor__`/sym-handle issue — seeded syms round-trip intact through
   `lit`/`body_def` (`sym_from_json` reuses the serialized handle;
   `Sym::seeded` stays idempotent). The match never desugared: both
   `match_recursor` implementations (lib-desugar overlay +
-  engine-transform-rewrite native) require an *annotated* scrutinee
+  tool-transform-rewrite native) require an *annotated* scrutinee
   `v : T(idx…)` for indexed families AND full arm coverage — but the
   checker's refinement semantics *rejects* unreachable arms on indexed
   families (`match (v : Vec(2,Bool)) { VNil: … }` → "unreachable
   constructor arm"), so post-typecheck matches are bare-var scrutinees
   with *incomplete* coverage and always fell through to the generic
-  `match` op, which only knew `__tag__` records. Fix (engine-exec
+  `match` op, which only knew `__tag__` records. Fix (exec
   `pattern_match.rs`): `try_tag_pattern` falls through to ctor-object
   dispatch when the scrutinee has no `__tag__` — `{"__ctor__": sym,
   fields…, "type": F(i⃗)}` matches a `Ctor(binder…)` pattern when the
@@ -1045,7 +1045,7 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   `assign(function(type-annot(narrow, IO(sa)), IO(sb)), f)` — the
   annotated name lives under the `function` target's `params` role (the
   `body` is the result type). Exec `binding_target_name`
-  (engine-exec `native_ops.rs`) now mirrors the checker's scope-pass
+  (exec `native_ops.rs`) now mirrors the checker's scope-pass
   role descent — `field`/`callee` first, then
   `source`/`target`/`subject`/`params`/`body`/`expr` — instead of
   `subject`-only unwrap. `expr` covers `runtime-assert` targets: the
@@ -1056,20 +1056,20 @@ reads: a `__tag__` datum is a plain `type.Obj`/`type.Value` member.
   Same descent added to `handl-kit-arrow-lower`'s `lower_ast` so the
   fast Term path binds function/annotated targets instead of falling
   back. `hnl run`/`hnl eval` io.hnl evaluates.
-- **engine-test SIGABRTs (landed — stack, not cycles):**
+- **tool-test SIGABRTs (landed — stack, not cycles):**
   `filter_eval_via_pred_module` and
   `assert_keyword_truthy_failure_carries_detail` overflow the 8 MiB
   test-thread stack evaluating the `pred` `.hnl` module metacircularly
   (the ~16–32 MiB budget the `dependent_structure`/`indexed_family_*`
   tests already spawn threads for) — both pass at 64 MiB. Bodies
   wrapped in a 64 MiB spawned thread (the established pattern) +
-  `engine-test/.cargo/config.toml` `[env] RUST_MIN_STACK` so the whole
-  suite survives in-repo runs. `cargo test -p hnl-engine-test`: 79 —
+  `tool-test/.cargo/config.toml` `[env] RUST_MIN_STACK` so the whole
+  suite survives in-repo runs. `cargo test -p hnl-tool-test`: 79 —
   0 failures.
 - **Verified:** `hnl run`/`hnl eval` on vec/path_j/io.hnl all evaluate;
   nat/alias/run_demo/vann repros unchanged; fail_* repros still reject
-  at typecheck. Suites: `hnl-engine-exec`/`tree-walk`/`bytecode`/
+  at typecheck. Suites: `hnl-exec`/`tree-walk`/`bytecode`/
   `cranelift`/`transform-rewrite`/`handl-runtime`/
-  `engine-typecheck-nbe` (283 lib + 24 dependent + 46 parity)/
-  `hnl-engine-test` (79)/`kit-prelude-lang`/`kit-data-prelude` — 0
+  `tool-typecheck-nbe` (283 lib + 24 dependent + 46 parity)/
+  `hnl-tool-test` (79)/`kit-prelude-lang`/`kit-data-prelude` — 0
   failures.

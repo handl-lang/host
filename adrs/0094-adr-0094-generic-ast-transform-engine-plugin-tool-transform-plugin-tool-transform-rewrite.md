@@ -1,12 +1,12 @@
 +++
 id = "ADR-0094"
-title = "ADR-0094: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)"
+title = "ADR-0094: Generic AST Transform Engine (`plugin-tool-transform` + `plugin-tool-transform-rewrite`)"
 status = "open"
 priority = "med"
 +++
 
 ---
-title: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)
+title: Generic AST Transform Engine (`plugin-tool-transform` + `plugin-tool-transform-rewrite`)
 type: adr
 date: 2026-09-06
 updated: 2026-10-29
@@ -17,8 +17,8 @@ status_note: |-
 
   An instance of the data-driven engine program
   ([ADR-0044](./0044-language-as-data-and-runtime-split.md) "language as
-  data") and the abstraction/impl crate split used by `plugin-engine-exec` →
-  `plugin-engine-exec-{tree-walk,bytecode,cranelift}`. Subsumes the
+  data") and the abstraction/impl crate split used by `plugin-exec` →
+  `plugin-exec-{tree-walk,bytecode,cranelift}`. Subsumes the
   declarative desugar machinery of
   [ADR-0053](./0053-generic-pratt-parser.md) §7, the `when` conditions of
   ADR-0058, `KeepRest` of ADR-0060, and the child-role resolution of
@@ -31,13 +31,13 @@ status_note: |-
   > within a pass.
 ---
 
-# ADR-0094: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`)
+# ADR-0094: Generic AST Transform Engine (`plugin-tool-transform` + `plugin-tool-transform-rewrite`)
 
 ## Decision
 
-1. **Two crates, mirroring the exec split.** `plugin-engine-transform` is the
+1. **Two crates, mirroring the exec split.** `plugin-tool-transform` is the
    contract and vocabulary (no rewriting logic);
-   `plugin-engine-transform-rewrite` is the first implementation.
+   `plugin-tool-transform-rewrite` is the first implementation.
 2. **`TransformDef` is a first-class `Fragment` in `handl-language`.** Its
    identity is `pass + ":" + node_kind`; `Language` gains
    `transforms: FragmentSet<TransformDef>` and `transforms_for(pass, kind)`.
@@ -81,7 +81,7 @@ that data path, and desugar was its first consumer.
 
 ## Enforcement
 
-- `crates/plugin-engine-transform/`, `crates/plugin-engine-transform-rewrite/`
+- `crates/plugin-tool-transform/`, `crates/plugin-tool-transform-rewrite/`
   — the contract and the engine.
 - `crates/handl-runtime/src/desugar_pass.rs` — desugar as a thin delegate.
 - `crates/plugin-ext-lint/`, `crates/host-lsp/src/code_actions.rs` — the

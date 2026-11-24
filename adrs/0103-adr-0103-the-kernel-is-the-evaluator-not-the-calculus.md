@@ -52,7 +52,7 @@ editable as data.
 - `kernel/` — the bytecode VM and value representation.
 - `project/design/adr0103/*.hnl` — `exec_model`, `arrow_model`, `type_model`,
   `meta_model`.
-- `engine-exec-*` — the interpreters that agree value-for-value.
+- `exec-*` — the interpreters that agree value-for-value.
 
 ## Design
 +The insight, architecture, ISA, serialization boundary and the model suite:

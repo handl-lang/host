@@ -15,7 +15,7 @@ applies_to: '`kernel` (`handl-value`, `handl-language`), `kit-prelude-lang`,'
 
 # ADR-0154: Typecheck semantics — identity, equality, universes, literals, erasure
 
-  `engine-typecheck-nbe`, `lib-type`
+  `tool-typecheck-nbe`, `lib-type`
 
 ## Context
 

@@ -27,12 +27,12 @@ implementation is authorized by this ADR.
 **Dotted calls `mod.f(x)`.** `mod` is (usually) an unbound identifier; the
 `proj_env` native op falls back to the name as a string — "Unbound → name as
 a string (allows identifiers like `eval` to flow into `App` host-function
-dispatch)" (`engine-exec/src/native_ops.rs:635-639`; pinned by
-`arr_proj_env_unbound_returns_name`, `engine-exec-tree-walk/src/lib.rs:4705`).
+dispatch)" (`exec/src/native_ops.rs:635-639`; pinned by
+`arr_proj_env_unbound_returns_name`, `exec-tree-walk/src/lib.rs:4705`).
 All three engines carry the same fallback: the shared op, bytecode
-`Instr::Load` (`engine-exec-bytecode/src/vm.rs:678-685`), and cranelift's
+`Instr::Load` (`exec-bytecode/src/vm.rs:678-685`), and cranelift's
 `helper_v2_load_var`/`helper_v2_load_payload_var`
-(`engine-exec-cranelift/src/lib.rs:1270-1304`). `field-access` lowers to
+(`exec-cranelift/src/lib.rs:1270-1304`). `field-access` lowers to
 `field_access` (`kit-prelude-lang/.../data/eval.yaml:441-455`), whose
 `(Str, Str)` arm concatenates `mod.f` → `"mod.f"` (`native_ops.rs:2248-2250`;
 same arm in `FpHostFunctions`, `host/crates/handl-runtime/src/fp.rs:92-96`,
@@ -110,11 +110,11 @@ residual map for non-substitutable names (`handl-value/src/lib.rs:462-474`);
 (`cached_def_arena`, tree-walk `:304-340`; bytecode `def_arenas`/`def_cache`,
 `vm.rs:400-418`). `HandlFunction::call` binds call-frame names via
 `eval_shared_with_call_args` (`__mod`/`__arg_N`;
-`plugin-lib-handl/src/lib.rs:2038-2057`; `engine-exec/src/lib.rs:146-157`;
+`plugin-lib-handl/src/lib.rs:2038-2057`; `exec/src/lib.rs:146-157`;
 tree-walk merges them into `ScopeStack.globals`, `:3420+`). Cranelift
 inherits the `with_global`-clone default and delegates arrow *application*
 to the tree-walk path with the caller's `modules`
-(`engine-exec-cranelift/src/lib.rs:1718-1740`; `ScopeStack` mirrors at
+(`exec-cranelift/src/lib.rs:1718-1740`; `ScopeStack` mirrors at
 `:653`, `vm.rs:131-151`).
 
 **Mint-by-hand precedent.** `app_closure_applies_body` (tree-walk
@@ -194,7 +194,7 @@ One payload kind — **arrows**:
   whose `(name, packed-array)` protocol tree-walk (`lib.rs:2537-2541`) and
   bytecode (`vm.rs:1455-1466`) already implement; cranelift never sees it
   because arrow application delegates to the tree-walk path
-  (`engine-exec-cranelift/src/lib.rs:1718-1740`), so wrapper bodies always
+  (`exec-cranelift/src/lib.rs:1718-1740`), so wrapper bodies always
   evaluate under the interpreter. For unary deps the simpler
   `x ~> mod.fn(x)` suffices — the P0 smoke test uses it; a `match`-fan body
   (`[] => mod.fn(), [a] => mod.fn(a), …`) is the no-new-kind fallback with

@@ -70,7 +70,7 @@ one crate per native lib, forever.
   already does `libloading::Library::new` + `extern "C" fn` symbol lookup.
   Today it loads one symbol per plugin (`handl_plugin_run`); this ADR
   generalizes it to N symbols per module with per-symbol marshalling.
-- **Cranelift JIT** (`plugin-engine-exec-cranelift`) — compiles
+- **Cranelift JIT** (`plugin-exec-cranelift`) — compiles
   `ArrSource::Foreign(name)` to a native call into the module registry. The
   handl abstraction layer (arrow graph over FFI ops) JIT-compiles to native
   code; each `op` is one native call plus per-arg marshalling. For I/O-bound
@@ -583,12 +583,12 @@ a stdlib lib.
 | `handl-value`                  | Value type representations                                                               | No                       |
 | `platform`                     | `Plugin`/`Module`/`Function` traits, `ModuleRuntime`                                     | No                       |
 | `plugin-module`                | `ModuleRuntime`, `ModuleRule`, `ModuleRegistry`                                          | No                       |
-| `plugin-engine-lex-pattern`    | Lexer engine                                                                             | No                       |
-| `plugin-engine-parse-pratt`    | Parser engine                                                                            | No                       |
-| `plugin-engine-exec-tree-walk` | Tree-walk interpreter                                                                    | No                       |
-| `plugin-engine-exec-cranelift` | JIT compiler                                                                             | No                       |
-| `plugin-engine-exec-bytecode`  | Bytecode VM                                                                              | No                       |
-| `plugin-engine-typecheck-nbe`  | Typecheck engine                                                                         | No                       |
+| `plugin-tool-lex-pattern`    | Lexer engine                                                                             | No                       |
+| `plugin-tool-parse-pratt`    | Parser engine                                                                            | No                       |
+| `plugin-exec-tree-walk` | Tree-walk interpreter                                                                    | No                       |
+| `plugin-exec-cranelift` | JIT compiler                                                                             | No                       |
+| `plugin-exec-bytecode`  | Bytecode VM                                                                              | No                       |
+| `plugin-tool-typecheck-nbe`  | Typecheck engine                                                                         | No                       |
 | `plugin-lib-handl`             | Generic `.hnl` loader (`HandlModule`, `OpRegistry`)                                      | No                       |
 | `plugin-ffi`                   | FFI dispatcher (this ADR)                                                                | No                       |
 | `plugin-loader-native`         | Dynamic library loading                                                                  | No                       |

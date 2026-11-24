@@ -80,8 +80,8 @@ using `inkwell`. It provides:
   LLVM module and emit a relocatable `.o` file.
 - `set_target_triple(triple)` — override the default host triple.
 
-The lowering follows `plugin-engine-exec-cranelift`
-(`crates/plugin-engine-exec-cranelift/src/compile.rs`): each v2 `Term`
+The lowering follows `plugin-exec-cranelift`
+(`crates/plugin-exec-cranelift/src/compile.rs`): each v2 `Term`
 compiles to `fn(*mut EvalCtx, *mut Value) -> *mut Value`; literal and
 name pools accumulate in constant arrays; every `helper_v2_*` runtime
 helper is declared `extern "C"`. `TargetMachine` target initialization

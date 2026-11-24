@@ -32,7 +32,7 @@ reified as Rust crates that no binary ever linked**:
   already inlined in `SandboxHost`;
 - `plugin-loader-wasm` / `plugin-loader-web` — faithful implementations of
   ADR-0035, an ADR that is still only `Proposed`;
-- `plugin-engine-transform-parallel` — implemented, documented, never reachable
+- `plugin-tool-transform-parallel` — implemented, documented, never reachable
   because its own threshold keeps it on the sequential path;
 - `plugin-diag-expression` — superseded by `plugin-ext-diag` + lint-rules-as-data;
 - `plugin-source` — a `SourceMap` layer the AST already made redundant.

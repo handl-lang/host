@@ -412,7 +412,7 @@ rule.
   ```
 
   (the legacy shorthand `A ~R~> B` is still accepted). Both spellings parse
-  to the same `graded_arrow` node in `crates/plugin-engine-parse-pratt`
+  to the same `graded_arrow` node in `crates/plugin-tool-parse-pratt`
   (which special-cases `~` because the declarative grammar cannot express an
   infix operator whose closing delimiter is a different token). The bracket
   holds the grade expression — the grade list for multi-grade arrows — and an
@@ -449,14 +449,14 @@ rule.
 
 Nominal subtyping itself (this ADR's §14) is implemented in the Handl-authored
 typecheck model, `project/design/adr0103/typecheck_model.hnl` (crate
-`handl-plugin-engine-typecheck-handl`, loaded via `include_str!`): the
+`handl-plugin-tool-typecheck-handl`, loaded via `include_str!`): the
 `subtype` judgment op reads the `sym` parent chain (`sym_chain`) and succeeds
 iff the sub chain contains the sup's own handle, falling back to unification
 for legacy `__tag__` values. Runtime `instanceof` walks the same chain
 (`sym.instanceof`, `VmPrimitivesModule` in `handl-runtime`), with a legacy
 `__tag__` bridge until `type.hnl` finishes migrating to sym-parented
 identities. Note: the original Rust implementation lived in the crate
-`handl-plugin-engine-typecheck-nbe`; that crate was deleted on `main` during
+`handl-plugin-tool-typecheck-nbe`; that crate was deleted on `main` during
 integration (superseded by the Handl model per ADR-0105), so the rule now
 lives in the model, not in any `*-nbe` crate.
 
@@ -533,7 +533,7 @@ TaggedValue>>`, `home: Option<u64>`, `array_pattern: bool`.
   therefore round-trips **lossily** (pointer preserved, finalizer lost). Not
   serializable as-is.
 
-Tree-walk engine (`crates/plugin-engine-exec-tree-walk/src/lib.rs`):
+Tree-walk engine (`crates/plugin-exec-tree-walk/src/lib.rs`):
 
 - Thread-local eval state: `CURRENT_AST`, `CURRENT_LANG`, `CURRENT_MODULES`,
   `CURRENT_GLOBALS` and `HOME_FRAMES` (`:120-134`). `HOME_FRAMES` is a
@@ -552,14 +552,14 @@ Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>, globals: Rc<FxHashMap<...>> }`
 home: None, … }`. Application threads `captured_env` back in
   (`apply_app`, `:3834-3975`; `:4007-4016`).
 
-Bytecode engine (`crates/plugin-engine-exec-bytecode/src/vm.rs`):
+Bytecode engine (`crates/plugin-exec-bytecode/src/vm.rs`):
 
 - `ScopeStack` mirror (`:133-160`): `captured_root:
 Option<Rc<FxHashMap<Rc<str>, TaggedValue>>>` (`:143`), `globals`
   (`:148`), `lookup` (`:180`), `push_scope` (`:232`), `pop_scope` (`:239`),
   `capture` (`:256`). Verbatim scope-stack + captured-env state.
 
-Cranelift engine (`crates/plugin-engine-exec-cranelift/src/lib.rs`):
+Cranelift engine (`crates/plugin-exec-cranelift/src/lib.rs`):
 
 - `ScopeStack { scopes: Vec<Rc<FxHashMap<Rc<str>, TaggedValue>>>, … }`
   (`:613-637`), with `lookup` (`:643`), `push_scope` (`:695`), `pop_scope`
@@ -666,7 +666,7 @@ outside the process that minted it:
   into the producing engine's arena. The arena is never serialized with the
   arrow, so a decoded arrow's `body` has no target.
 - `home: Option<u64>` names a frame in `HOME_FRAMES`, a process-local table
-  (`crates/plugin-engine-exec-tree-walk/src/lib.rs:134`, `:152-162`). The
+  (`crates/plugin-exec-tree-walk/src/lib.rs:134`, `:152-162`). The
   frame (AST + `Language` + module chain) is not in the value.
 
 `env` is the third piece of hidden state, but it is a _semantic_ problem
@@ -744,7 +744,7 @@ The `__arrow__` object gains exactly one optional key, emitted only when
 
 **Mint** (arrow-value construction):
 
-- tree-walk `crates/plugin-engine-exec-tree-walk/src/lib.rs:2329-2336`
+- tree-walk `crates/plugin-exec-tree-walk/src/lib.rs:2329-2336`
   (`eval_inner_td`, `"closure"` arm) — the canonical mint. Here `ast` and the
   body index are in scope, so this site populates `body_def` via
   `ast.subtree(AstRef::new(body))` + `ast_value`.
@@ -752,17 +752,17 @@ The `__arrow__` object gains exactly one optional key, emitted only when
   `:6117`/`:6122`: `body_def: None` (they re-wrap an existing body in the same
   arena — no new definition).
 - tree-walk `:3308`, `:3390` (builtin arrow values): `body_def: None`.
-- bytecode `crates/plugin-engine-exec-bytecode/src/vm.rs:1096`, `:1319`,
+- bytecode `crates/plugin-exec-bytecode/src/vm.rs:1096`, `:1319`,
   `:3030`, `:3066`, `:752`, `:793`: `body_def: None` for now (the body there
   is an instruction index, not an AST node — a later step).
-- cranelift `crates/plugin-engine-exec-cranelift/src/lib.rs:3843`, `:1949`,
+- cranelift `crates/plugin-exec-cranelift/src/lib.rs:3843`, `:1949`,
   `:2542`: `body_def: None` for now (same reason).
 - test/helper literals: `handl-value/src/lib.rs:1157,1165`,
   `handl-runtime/tests/arrow_serializability.rs:222`.
 
 **Apply** (arrow-value consumption):
 
-- tree-walk `apply_app` (`crates/plugin-engine-exec-tree-walk/src/lib.rs:3881`)
+- tree-walk `apply_app` (`crates/plugin-exec-tree-walk/src/lib.rs:3881`)
   and `apply_arrow_body` (`:4058`). The apply path currently derives
   `(ast, body_idx)` from the ambient arena or from `HOME_FRAMES[home]`
   (`:3912-3944`). A later step makes it **prefer** `body_def` when present:
@@ -813,7 +813,7 @@ Arrow {
 }
 ```
 
-The mint (shared `closure` op, `plugin-engine-exec/src/native_ops.rs`, and
+The mint (shared `closure` op, `plugin-exec/src/native_ops.rs`, and
 `Instr::Closure` in bytecode) collects the definition-site bindings via
 `env_capture`, filters them to the body's free-variable candidates
 (`subtree_name_candidates`), excludes the arrow's own parameter names, and
@@ -916,7 +916,7 @@ this bug).
 
 **Cost of step 2 (resolved).** Preferring `body_def` initially deserialized
 the standalone arena on _every_ application (`tagged_to_value` + `as_ast`),
-which allocates per call. `plugin-engine-exec-tree-walk` now memoizes the
+which allocates per call. `plugin-exec-tree-walk` now memoizes the
 arena per definition value (`cached_def_arena`): the table is keyed by the
 `Rc<TaggedValue>` pointer of the `body_def`, and each entry holds an
 `Rc::clone` of that definition, so the address cannot be recycled while the
@@ -925,7 +925,7 @@ entry — and a reused address can never hit a stale entry (the same argument
 therefore have distinct entries. Growth is bounded by clearing the table at
 `ARROW_ARENA_CACHE_CAP` (64) entries, at a cost of at most one
 re-deserialization per live arrow afterwards. Evidence:
-`arrow_arena_cache_tests` in `crates/plugin-engine-exec-tree-walk/src/lib.rs`
+`arrow_arena_cache_tests` in `crates/plugin-exec-tree-walk/src/lib.rs`
 asserts that a second lookup returns the _same_ allocation
 (`Rc::ptr_eq`) — a test that fails if the memo is removed — that equal-but-
 distinct definitions do not collide, that malformed/empty definitions are

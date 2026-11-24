@@ -60,7 +60,7 @@ language per engine and made equivalences unprovable.
 ## Enforcement
 - `engine/` — `Term`, the `Model` trait, the arrow-handler algebra.
 - `crates/handl-kit-data-canonical/data/` — grades, sorts, eval schemes.
-- Engine parity tests (`engine-test`) across interpreters.
+- Engine parity tests (`tool-test`) across interpreters.
 
 ## Design
 +The graded-theory map, `Term` shape, syntax details, handler algebra and the

@@ -62,7 +62,7 @@ child position — they **dispatch on the canonical kind name**:
 | --- | --- |
 | `handl-kit-arrow-lower` | `assign` / `bind` / `op` / `function` / `rec` / `var` / `call` |
 | `host-cli/src/transform_categorical.rs` | `dim_arrow` / `stmt.import` / `var` / `value` / `flow` |
-| `plugin-engine-typecheck-nbe/src/totality_check.rs` | `call` patterns |
+| `plugin-tool-typecheck-nbe/src/totality_check.rs` | `call` patterns |
 
 Roughly 20 sites in total. Child *positions* are already role-resolved at
 these sites (`child_at_role_or_pos(child, lang, "target", 0)`); only the

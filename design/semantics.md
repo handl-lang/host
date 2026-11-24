@@ -13,8 +13,8 @@ model built alongside the implementation — it *is* the implementation's
 value space: `handl_value::nbe::Val`
 (`kernel/crates/handl-value/src/nbe.rs:38`), shared by the kernel NbE
 evaluator (`engine/src/nbe.rs:92`), the `Val`-domain checker
-(`engine-typecheck-nbe/src/checker.rs`), and the judgment ops
-(`engine-typecheck-nbe/src/judgments.rs`). `TaggedValue` is the boundary
+(`tool-typecheck-nbe/src/checker.rs`), and the judgment ops
+(`tool-typecheck-nbe/src/judgments.rs`). `TaggedValue` is the boundary
 encoding (serialization, FFI); `Val` is the semantics. This document
 reads the variants denotationally and maps every surface form to its
 denotation. Laws are stated as equations over `Val`; each one names the
@@ -227,7 +227,7 @@ is ordinary conversion, not a bespoke solver.
 | `=` | `conv` (`nbe.rs:648`) + `dep_unify`/`unify_index` on the tagged side; `subtype` for `<:` |
 | `Γ ⊢ v : T` | `Checker::infer`/`check` (`checker.rs:436/1013`), Γ = `Vec<(name, Val)>` level-indexed |
 | the op seam | `JudgmentOps` (`judgments.rs`) — the `OpHandler` installed into `eval`; `RefCell<Checker>` because judging mutates |
-| effects runtime | `PerformFn` mints `{"__former__": <type.io sym>, "indices": [sig]}` (`engine-exec/src/io.rs:43`); `handle_dyn_shell`/`interpret_io_former` + `handler_stack` are the homomorphism's operational witness (`native_ops.rs:3559`); compiled backends get the same meaning via `Term::eliminate_handlers` (a compile-time transform) or `handle_dyn` |
+| effects runtime | `PerformFn` mints `{"__former__": <type.io sym>, "indices": [sig]}` (`exec/src/io.rs:43`); `handle_dyn_shell`/`interpret_io_former` + `handler_stack` are the homomorphism's operational witness (`native_ops.rs:3559`); compiled backends get the same meaning via `Term::eliminate_handlers` (a compile-time transform) or `handle_dyn` |
 | cross-engine agreement | `scope_value` (env read, one per backend) + `host/crates/handl-runtime/tests/engine_parity.rs`: tree-walk (reference), bytecode, cranelift must produce the same value on the shared corpus — including `__former__`/`IO`/cell mints |
 
 **Proven vs claimed.** Decided by tests: `conv` laws, meta

@@ -17,14 +17,14 @@ ADR-0058 (Accepted) migrated four primitives (`var`/`call`/`object`/pattern-matc
 
 | Engine                         | Site           | Hardcoded check                                     |
 | ------------------------------ | -------------- | --------------------------------------------------- |
-| `plugin-engine-exec-tree-walk` | `closure`      | `kind == "paren" \|\| "array"` (1053)               |
-| `plugin-engine-exec-tree-walk` | `closure` key  | `kind == "var" \|\| "string"` (1249, 1259)          |
-| `plugin-engine-exec-tree-walk` | `eval_block`   | `kind == "assign"` (1544, 2283, 2352)               |
-| `plugin-engine-exec-tree-walk` | `eval_block`   | `kind == "return"` (2323)                           |
-| `plugin-engine-typecheck-nbe`  | synth/check    | `kind == "type-annot"` (884, 1109)                  |
-| `plugin-engine-typecheck-nbe`  | block          | `kind == "block"` (1247)                            |
-| `plugin-engine-typecheck-nbe`  | params         | `kind == "paren" \|\| "var"` (1378, 1403, 3593)     |
-| `plugin-engine-typecheck-nbe`  | block children | `kind == "assign" \|\| "return"` (2628, 2631, 2695) |
+| `plugin-exec-tree-walk` | `closure`      | `kind == "paren" \|\| "array"` (1053)               |
+| `plugin-exec-tree-walk` | `closure` key  | `kind == "var" \|\| "string"` (1249, 1259)          |
+| `plugin-exec-tree-walk` | `eval_block`   | `kind == "assign"` (1544, 2283, 2352)               |
+| `plugin-exec-tree-walk` | `eval_block`   | `kind == "return"` (2323)                           |
+| `plugin-tool-typecheck-nbe`  | synth/check    | `kind == "type-annot"` (884, 1109)                  |
+| `plugin-tool-typecheck-nbe`  | block          | `kind == "block"` (1247)                            |
+| `plugin-tool-typecheck-nbe`  | params         | `kind == "paren" \|\| "var"` (1378, 1403, 3593)     |
+| `plugin-tool-typecheck-nbe`  | block children | `kind == "assign" \|\| "return"` (2628, 2631, 2695) |
 
 A primitive that needs "the binding target of an `assign`" can only get it by testing `kind == "assign"` and assuming child 0 is the target. A language with different kind names (`set` instead of `assign`, `params` instead of `paren`) can't reuse these primitives without engine edits — a breach of "language as data" ([ADR-0044](./0044-language-as-data-and-runtime-split.md)).
 
@@ -101,17 +101,17 @@ Define a language with renamed kinds (`set`/`params`/`body`) but identical roles
 
 **Phase 3** (this change): Replaced the remaining `kind == "paren" || kind == "array"` shape heuristics in the eval engines with `Language::has_variadic_role(kind)`, which inspects `AstShapeDef` role metadata. Sites converted:
 
-- `plugin-engine-exec-cranelift` — two closure param-list sites (runtime + helper).
-- `plugin-engine-exec-bytecode` — `vm.rs` closure handler; `compile.rs` `try_extract_closure_params_body` (threaded `&Language` through `compile`/`compile_into`/`compile_arr`).
+- `plugin-exec-cranelift` — two closure param-list sites (runtime + helper).
+- `plugin-exec-bytecode` — `vm.rs` closure handler; `compile.rs` `try_extract_closure_params_body` (threaded `&Language` through `compile`/`compile_into`/`compile_arr`).
 - `handl-runtime/desugar_pass.rs` — `type-annot` detection now uses `child_role_index(kind, "annot")` first (threaded `&Language` through `try_rust_desugar`/`desugar_data`/`parse_data_payload`/`collect_constructors`/`desugar_match_to_recursor`).
 - `plugin-ext-refinement/arrow_parser.rs` — binding detection now uses `child_role_index(kind, "target")` first.
 - `data/ast.yaml` — added `variadic: true` to `paren`'s `body` role and a new `elements` variadic role to `array`, so collection-like shapes are detectable by role metadata alone.
 
 All legacy `kind ==` checks are retained only as fallbacks for role-less shapes (backward compatibility).
 
-**Phase 4** (this change): `crates/plugin-engine-exec-tree-walk/tests/adr0081_cross_language.rs` defines a language with renamed kinds (`set`/`block2`/`ret`/`params2`/`func2`) but identical roles and eval schemes, then runs it through the **unchanged** tree-walk and bytecode engines. Three tests cover block-with-binding and closure application. All pass — the engines handle renamed kinds without edits, satisfying the acceptance gate.
+**Phase 4** (this change): `crates/plugin-exec-tree-walk/tests/adr0081_cross_language.rs` defines a language with renamed kinds (`set`/`block2`/`ret`/`params2`/`func2`) but identical roles and eval schemes, then runs it through the **unchanged** tree-walk and bytecode engines. Three tests cover block-with-binding and closure application. All pass — the engines handle renamed kinds without edits, satisfying the acceptance gate.
 
-**Test results:** `cargo test -p handl-plugin-engine-exec-tree-walk -p handl-plugin-engine-exec-bytecode -p handl-plugin-engine-exec-cranelift -p handl-language -p handl-runtime` — all pass (0 failures).
+**Test results:** `cargo test -p handl-plugin-exec-tree-walk -p handl-plugin-exec-bytecode -p handl-plugin-exec-cranelift -p handl-language -p handl-runtime` — all pass (0 failures).
 
 **Optional roles** (this change): `ChildRoleSpec` gains `optional: true` for children that may be absent from a node — `match`'s `motive` (`[scrutinee, (motive,) block]`) and `assign`'s trailing `body` (`[target, value, (body)]`). Because optional slots make positions arity-dependent, resolution gains an arity-aware layer: `AstShapeDef::role_index_at(role, arity)`, `Language::child_role_index_for(node, role)` (arity from `payload["children"]`), and `LanguageView::child_role_index_at(kind, role, arity)`. Occupied optional slots are the first `arity - required` optional roles in declaration order. `role_index`/`child_role_index` keep their full-form meaning (every declared role occupies a slot). `ChildRoleSpec` deserialization accepts a bare-string shorthand (`- scrutinee`) alongside the map form. `ast.yaml` declares the roles for `match`/`assign`; migrated consumers: tree-walk `prim_match` + `assign` arm, bytecode `prim_v2_match`, cranelift `prim_match`, arrow-lower's assign let-form, `desugar.match_recursor`, and the `role_child_arena` helpers / eval `Child` term (now arity-aware). Role-less positional fallbacks are retained for shapes declaring no roles.
 

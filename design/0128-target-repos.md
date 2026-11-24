@@ -22,7 +22,7 @@ is 2.9 GB.
 The motivation for splitting is fourfold and measured, not aesthetic:
 
 - **Heavy optional deps in everyone's build.** `handl-kit-canonical`
-  hard-depends on `handl-plugin-engine-exec-cranelift` (its *only* normal
+  hard-depends on `handl-plugin-exec-cranelift` (its *only* normal
   dependency — `handl-runtime`, `handl-kit-data-canonical` and
   `handl-defining-handl` reference it only in `[dev-dependencies]`). Every
   consumer of the canonical kit — the LSP host, `plugin-compile-js`, any
@@ -102,7 +102,7 @@ other `plugin-lib-*` moves to `stdlib/`.
 | `plugin-sdkgen-emitter-python` + the 205 Python lines of `plugin-ext-sdkgen` | `python/modules/sdkgen-python` | `Emitter` |
 | `plugin-compile-js` | `web/modules/compile-js` | `Compiler` |
 | `plugin-compile-llvm` | `native/modules/compile-llvm` | `Compiler` |
-| `plugin-engine-exec-cranelift` | `native/modules/exec-cranelift` | exec engine |
+| `plugin-exec-cranelift` | `native/modules/exec-cranelift` | exec engine |
 | `plugin-compile-dot` | `dot/modules/compile-dot` | `Compiler` |
 | `plugin-compile-term` | `term/modules/compile-term` | `Compiler` |
 | `plugin-compile-sexp` | `sexp/modules/compile-sexp` | `Compiler` |
@@ -122,7 +122,7 @@ other `plugin-lib-*` moves to `stdlib/`.
 | `plugin-ffi` | `ffi/modules/ffi` | FFI marshalling — sole normal consumer is `kit-canonical`; pulls `cranelift` + `libloading`, the last heavy deps in platform |
 | `handl-kit-data-canonical` + canonical `data/*.yaml` + `handl-packages/` remainder | `lang/` | Handl-the-language as data (ADR-0044 made literal) |
 | `kit-canonical` | `kit-canonical/crates/kit-canonical` | the canonical *kit assembly* — wires language data + stdlib + engines into a `Kit`; consumed by hosts |
-| `handl-defining-handl`, `plugin-engine-typecheck-nbe` | `meta/crates/` | self-hosting/NbE experiments — zero-consumer leaves |
+| `handl-defining-handl`, `plugin-tool-typecheck-nbe` | `meta/crates/` | self-hosting/NbE experiments — zero-consumer leaves |
 | `docs/` (VitePress site) + the sibling `handl-lang/docs/` (top-level ADRs, outside the platform repo) | `docs/` | documentation hub; each repo's API reference is generated from its workspace tree and published into `docs/` |
 
 `plugin-compile-handl` moves to **`handl/`** — the repo for Handl as a
@@ -204,7 +204,7 @@ public; both are private now. Git deps bypass registries entirely —
 repo's CI needs a read credential for its sibling deps. Cheap today;
 flip to public when the "external contributor" motivation becomes real.
 
-**The `lang/` cycle.** `plugin-engine-test`, `plugin-ext-lint`,
+**The `lang/` cycle.** `plugin-tool-test`, `plugin-ext-lint`,
 `plugin-ext-typecheck` and `host-tooling` have *normal* deps on
 `kit-canonical` — and `kit-canonical` depends on platform engines. A
 naive move creates a cross-repo cycle. The seam that breaks it is the
@@ -231,7 +231,7 @@ the `kit-canonical/` repo (which `cli/`/`lsp/` git-depend on alongside
     closure (`|src, p| KIT.with(|k| …)`) — capture-free, so the
     closure is `Send + Sync` while the kit stays thread-local. The
     plugin becomes a pure adapter with no kit types in its signature.
-- **`plugin-engine-test` needs a factory, not a value.** Scheduler
+- **`plugin-tool-test` needs a factory, not a value.** Scheduler
   workers each build their own `Runtime` on-thread (`thread_local!`,
   because `Rc<dyn ModuleLookup>` cannot cross threads), so the runner
   must receive something it can invoke *inside* the job closure:
@@ -276,7 +276,7 @@ table instead of `../` filesystem paths: `from "ws-c" import …` and
 manifest's name → package-dir map (`ModuleLoader::resolve_path` /
 `resolve_spec_to_file` already consulted it; the blind spots were the
 *declaration* paths — `hnl run`/`typecheck`/`lint`'s import stripping and
-splice-name seeding in `host-cli`, and `plugin-engine-test`'s
+splice-name seeding in `host-cli`, and `plugin-tool-test`'s
 `import_preamble` — which now discover the manifest and resolve dep specs
 themselves). `host-cli`'s tooling kit is project-aware (`Kit::discover`
 on the CWD) so `hnl test` wires the deps into the module loader too.

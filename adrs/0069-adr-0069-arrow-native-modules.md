@@ -52,7 +52,7 @@ needs no separate semantics.
 ## Enforcement
 - `kernel/` — module loading and projection.
 - `handl-runtime/` — the graph and contract caches.
-- Module tests in `handl-runtime/tests/` and `engine-exec-*`.
+- Module tests in `handl-runtime/tests/` and `exec-*`.
 
 ## Design
 +The seven rules in full, behavior examples and the five composition operations:

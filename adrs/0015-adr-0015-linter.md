@@ -47,7 +47,7 @@ linter generic and lets hosts extend it without forking.
 
 ## Enforcement
 - `crates/plugin-ext-lint/` — registry and the initial rules.
-- `plugin-engine-lint` — the generic driver.
+- `plugin-tool-lint` — the generic driver.
 - Rule tests and CLI tests.
 
 ## Design

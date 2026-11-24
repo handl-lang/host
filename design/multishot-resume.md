@@ -33,7 +33,7 @@ ADR-0158 made `perform` dispatch in-flight (one-shot): `h[op](arg)`'s
 return value is the `perform` result — "resume" is the call returning.
 A `resume` **value** reifies "the rest of the body's evaluation" as a
 callable — a delimited continuation. In the tree-walk engine
-(`hnl-engine-exec-tree-walk`) the continuation at a `perform` site is the
+(`hnl-exec-tree-walk`) the continuation at a `perform` site is the
 Rust call stack inside `eval_inner_td` — not a value.
 
 Reification options considered:

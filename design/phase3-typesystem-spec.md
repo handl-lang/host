@@ -38,13 +38,13 @@ paths. Verified at phase-2 close: lib 293 + dependent_structure 30/30
 
 | WS | Scope | Repo(s) | Blocks |
 |---|---|---|---|
-| A | Instance resolution — implicit evidence args + dictionary search by nominal head | `engine-typecheck-nbe`, `kit-prelude-lang`, `lib-type`/stdlib | — |
-| B | Higher coherence — `Hom(4)`, comp-tree normalizer for `conv`, HIT evaluation note | `engine-typecheck-nbe`, `kernel` (`handl-value`), `engine`, `lib-type` | — |
-| C | Dependent pattern unification — split-tree coverage for indexed `match` | `engine-typecheck-nbe` | — (informs D) |
-| D | `Succ`-arithmetic bridge — ctor-aware index equality | `engine-typecheck-nbe`, `kit-prelude-lang`, `kernel`, `engine-transform-rewrite`, `lib-desugar` | — |
-| E | `hnl` e2e + compiled-backend parity (`__ctor__`/`__former__`/IO) + artifact sizes | `host-cli`, `host`, `engine-exec-*` | — |
-| F | `.hnl` surface fixes + stdlib nominal/former sweep | `kit-prelude-lang`, `engine-typecheck-nbe`, lib-*, `engine` | — |
-| G | Diagnostics (spans, expected-vs-actual via `quote`) + user docs | `engine-typecheck-nbe`, `plugin-ext-diag`, `host-lsp`, `host/docs` | — (last) |
+| A | Instance resolution — implicit evidence args + dictionary search by nominal head | `tool-typecheck-nbe`, `kit-prelude-lang`, `lib-type`/stdlib | — |
+| B | Higher coherence — `Hom(4)`, comp-tree normalizer for `conv`, HIT evaluation note | `tool-typecheck-nbe`, `kernel` (`handl-value`), `engine`, `lib-type` | — |
+| C | Dependent pattern unification — split-tree coverage for indexed `match` | `tool-typecheck-nbe` | — (informs D) |
+| D | `Succ`-arithmetic bridge — ctor-aware index equality | `tool-typecheck-nbe`, `kit-prelude-lang`, `kernel`, `tool-transform-rewrite`, `lib-desugar` | — |
+| E | `hnl` e2e + compiled-backend parity (`__ctor__`/`__former__`/IO) + artifact sizes | `host-cli`, `host`, `exec-*` | — |
+| F | `.hnl` surface fixes + stdlib nominal/former sweep | `kit-prelude-lang`, `tool-typecheck-nbe`, lib-*, `engine` | — |
+| G | Diagnostics (spans, expected-vs-actual via `quote`) + user docs | `tool-typecheck-nbe`, `plugin-ext-diag`, `host-lsp`, `host/docs` | — (last) |
 
 Waves: **1: A ‖ B ‖ E** → **2: C ‖ D ‖ F** → **3: G** (G's docs half
 drafts from wave 2; ≤4 concurrent throughout). C and D share the
@@ -196,7 +196,7 @@ is the other.
 - Scope: `eval_index`/`eval_index_fuel` (dependent.rs ~L370-374),
   `unify_index`, the `IndexSolver` boundary (~L905-949 — the bridge
   lives upstream of `prove`, in normalization), `desugar.data`
-  emission in *both* impls (`engine-transform-rewrite` native +
+  emission in *both* impls (`tool-transform-rewrite` native +
   `lib-desugar` overlay — parity required), kit data for the
   declaration shape.
 - Exit: `Vec(Succ n, a) ≡ Vec(n+1, a)` convertible both directions;
@@ -402,7 +402,7 @@ unify failures render internal encodings, not source-level types.
     arm-reachability judgments; decl-time error for unrecoverable
     ctor result indices; existential index former; `extern` op decls.
 
-- **WS-D landed** (`engine-typecheck-nbe`): `data`-declared ctor index
+- **WS-D landed** (`tool-typecheck-nbe`): `data`-declared ctor index
   projections — decision 3 resolved to **(b)**. `synth_data` recognizes
   the Nat-former shape: a unary ctor `S(arg : F)` building `F` registers
   `ctor_proj[S] ↦ λx.x+1`, and a family with a successor ctor plus
@@ -430,7 +430,7 @@ unify failures render internal encodings, not source-level types.
 
 - **WS-F landed** (decision 5 resolved to option (a) — grammar lookahead):
   - `eval_body_node` lit-payload bug fixed in
-    `engine-typecheck-nbe/src/judgments.rs`: a `lit`/`value` node whose
+    `tool-typecheck-nbe/src/judgments.rs`: a `lit`/`value` node whose
     payload is a boundary-encoded object (`__sym__`/`__former__`/
     `__type__`/`__neutral__`/`__meta__`) now decodes through
     `TaggedValue::from` + `lift` instead of `Null` — desugar-minted
@@ -440,7 +440,7 @@ unify failures render internal encodings, not source-level types.
     `eval_arrow_body`/`eval_body_node`/`apply_body_value` for
     `__neutral__` rigid restore. Repro tests in judgments.rs.
   - `x ~> {k: v}` parses as a *record* now: `brace_is_record` in
-    `engine-parse-pratt` scans the brace at token level — non-empty and
+    `tool-parse-pratt` scans the brace at token level — non-empty and
     every top-level element entry-shaped (`key :`, or the shape's rest
     token) — and the infix `block_children` arm falls through to the
     `{` prefix row. Multi-statement blocks whose first statement is a
@@ -459,20 +459,20 @@ unify failures render internal encodings, not source-level types.
     against). Consumers migrated to ctor-sym dispatch:
     `option.test.hnl`/`result.test.hnl` assert via `match`;
     `lib-ws-frame-handl` projects the ctor with an `opt_tag` `match`
-    helper; `engine-test` `is_err_result` reads `__ctor__` name `err`
+    helper; `tool-test` `is_err_result` reads `__ctor__` name `err`
     alongside the host `__tag__` assert channel; stdlib tests assert
     ctor sym names.
-  - Verified: engine-typecheck-nbe lib tests 297/297,
-    dependent_structure 33/33, engine-parse-pratt 62/62 +
-    parse_conformance, engine-test `cargo check` clean. **Blocked**:
+  - Verified: tool-typecheck-nbe lib tests 297/297,
+    dependent_structure 33/33, tool-parse-pratt 62/62 +
+    parse_conformance, tool-test `cargo check` clean. **Blocked**:
     parity 46/46 and the stdlib lib suite could not build —
-    `hnl-engine-exec-bytecode` lacks `handler_push`/`handler_pop`/
+    `hnl-exec-bytecode` lacks `handler_push`/`handler_pop`/
     `handler_lookup` impls for a `NativeOpCtx` trait extension landed
     by the in-flight handler workstream (sibling-repo drift, unrelated
     to this change).
 
-- **WS-E landed** (`host-cli` + `engine-exec` + `engine-exec-bytecode` +
-  `engine-exec-cranelift` + `engine-exec-tree-walk`): `hnl` rebuilt and
+- **WS-E landed** (`host-cli` + `exec` + `exec-bytecode` +
+  `exec-cranelift` + `exec-tree-walk`): `hnl` rebuilt and
   the exec-backend parity question is resolved — **bytecode and
   cranelift now run `handle`/IO dispatch**, they do not merely drop it.
   - *`hnl` build*: `cargo build -p handl-host-cli` →
@@ -495,7 +495,7 @@ unify failures render internal encodings, not source-level types.
     `.hnl` never produces: `eval.handle` fixes `target: ""`).
   - *The port*: unnamed-target `Handle` (`""`, i.e. all surface
     `handle … with …`) no longer statically eliminates — it compiles to
-    the new shared **`handle_dyn`** op in `engine-exec`'s `native_ops`
+    the new shared **`handle_dyn`** op in `exec`'s `native_ops`
     (same pattern as `match_shell`), behind a new
     `OpService::HandlerStack` + `NativeOpCtx::{handler_push,
     handler_pop, handler_lookup}` (3 impls: VmCtx/ClCtx/TwCtx). The op
@@ -524,13 +524,13 @@ unify failures render internal encodings, not source-level types.
     `__former__`/`__ctor__` only as live runtime `record` values
     (sym handles are concrete data — the permitted shape); exec-erasure
     + artifact lint (`prepare_exec_artifact`) runs on the eval path.
-  - *Tests*: engine-exec 9/9, bytecode 91, cranelift 82 + conformance
+  - *Tests*: exec 9/9, bytecode 91, cranelift 82 + conformance
     2/2 (the `child_role` bytecode cell re-pinned PASS — intentional
     fix), tree-walk ~137 — all `--test-threads=1`. Commits landed per
     repo; the WS-F log's noted bytecode-parity blocker
     (`handler_push/pop/lookup` trait extension) is now unblocked.
 
-- **WS-G landed** (`engine-typecheck-nbe` + `kit-prelude` + `host` +
+- **WS-G landed** (`tool-typecheck-nbe` + `kit-prelude` + `host` +
   `ext-typecheck`): judgment errors carry source spans and render
   expected-vs-actual in surface syntax; `hnl typecheck` prints
   `file:line:col` diagnostics through `plugin-ext-diag`.
@@ -561,11 +561,11 @@ unify failures render internal encodings, not source-level types.
   - *Verified output*: `vec.hnl:2:20: error [typecheck]: cannot unify
     — expected Vec(3, Bool), got Vec(1 + 1, Bool)`; scope errors
     `scope.hnl:1:5: error [typecheck]: unbound wire: `y` is not in
-    scope`. Tests: engine-typecheck-nbe all suites green
+    scope`. Tests: tool-typecheck-nbe all suites green
     (lib 297, dependent_structure 33, parity 46, …),
     plugin-ext-typecheck 10/10, hnl-ext-typecheck 4/4.
   - *Bytecode-parity re-check* (the WS-F blocker): `handler_push/pop/
-    lookup` impls have landed on `engine-exec` — bytecode suite 91
+    lookup` impls have landed on `exec` — bytecode suite 91
     (86 unit + 5 conformance) green, `handl_desugar` parity 6/6 green,
     kit-prelude `fp_integration`/`ordered_annotations`/`tagged_values`
     green. Pre-existing, unrelated: kit-prelude `intl_c` (13/13 fail —
@@ -573,7 +573,7 @@ unify failures render internal encodings, not source-level types.
     `null` on this box: `field_access` on null; environment/ICU,
     not the parity path).
 
-- **WS-C landed** (`engine-typecheck-nbe`): Kőszegi-style split-tree
+- **WS-C landed** (`tool-typecheck-nbe`): Kőszegi-style split-tree
   coverage for indexed `match` — the "what do we do about
   exhaustiveness" carry pinned to decision 4b.
   - *Mechanism*: `synth_match_with_motive` now runs a coverage pass
@@ -617,7 +617,7 @@ unify failures render internal encodings, not source-level types.
     Note: the commit sits atop uncommitted WS-A/WS-B sibling edits in
     this working tree — reconcile at their landings.
 
-- **WS-B landed** (`engine-typecheck-nbe` + `kernel/handl-value` +
+- **WS-B landed** (`tool-typecheck-nbe` + `kernel/handl-value` +
   `lib-type`): **generic `Hom(n)` checking + a comp-tree normalizer in
   `conv`** — decision 6 superseded by user direction ("generic, not 4
   then stop"; both halves landed).
@@ -666,7 +666,7 @@ unify failures render internal encodings, not source-level types.
     the two stale assertions updated (`Hom(4,Int,Nat)` now rejects;
     interchange composites now conv); nbe +4 (assoc, unit absorb
     incl. `id`-towers and objects, 2×2 + 3×2 interchange grids +
-    non-uniform stuck, `Hom`-nested trees). engine-typecheck-nbe lib
+    non-uniform stuck, `Hom`-nested trees). tool-typecheck-nbe lib
     302/302, dependent_structure 43/43, parity 46/46, handl-value
     37/37 — all `--test-threads=1`.
   - *Note for the sibling WS-A/WS-C in flight*: `dependent.rs`'s
@@ -699,7 +699,7 @@ unify failures render internal encodings, not source-level types.
     `scope_value` missed → catch-all. `native_ops` capture now
     routes `is_ctor_object` values to residual `binds`.
     `vsum(v1) = Succ(Zero)` end-to-end on the AST-eval path.
-    Commit `8af864a` (engine-exec), plus `as_num`'s Nat-tower
+    Commit `8af864a` (exec), plus `as_num`'s Nat-tower
     coercion (`Succ(Zero) → 1`) so `ie2ast`'s `k+1` index eval and
     `binary.add` on `data Nat` values compute instead of erroring.
   - *Un-annotated ctor result unsoundness (F1)*:
@@ -711,7 +711,7 @@ unify failures render internal encodings, not source-level types.
     `nat` index parameter no argument domain mentions mints
     `lit null` (the desugar's unrecoverable-index convention)
     instead of a solvable meta — `Vec(null,a) ≢ Vec(5,Bool)`.
-    Commit `81a184e` (engine-typecheck-nbe).
+    Commit `81a184e` (tool-typecheck-nbe).
   - *Still open* (ranked, next pass): `?k+1+m ≡ m+?k+1` atom
     ordering (F5), `F.rec` visibility to the checker (F6-adjacent),
     implicit-binder name scoping into body annotations (F3),
@@ -721,7 +721,7 @@ unify failures render internal encodings, not source-level types.
     catch-22 untested post-fix.
 
 - **Dogfood gap fixes (session 3)** — the three open P2s from the
-  session-2 log landed in `engine-typecheck-nbe`, plus regression
+  session-2 log landed in `tool-typecheck-nbe`, plus regression
   tests for the P1 runtime fixes:
   - *Commuted-sum canonicalization (F5)*: `append{n,m,a}` typechecks.
     Root cause was narrower than "atom ordering" — `poly_of` bailed on
@@ -787,7 +787,7 @@ unify failures render internal encodings, not source-level types.
 
   | Lib | Verdict | Test status |
   |---|---|---|
-  | `lib-test` | **migrated**: assert/snapshot/benchmark/fuzz/property mint `{__ctor__: sym.seeded("data.Result.{ok,err}"), value, type:{__former__:"data.Result"}}` (manual mint — these are `HandlModule`s whose binds carry only declared imports; `sym` is a floor native); test/benchmark/fuzz/property consumers → `match` | compiles into engine-test; lib unit suite green except 7 pre-existing `pred.*` failures (unrelated: `char.chars`/`serialize` return `{"children":[…]}` term nodes on this box — fails identically with the migration stashed) |
+  | `lib-test` | **migrated**: assert/snapshot/benchmark/fuzz/property mint `{__ctor__: sym.seeded("data.Result.{ok,err}"), value, type:{__former__:"data.Result"}}` (manual mint — these are `HandlModule`s whose binds carry only declared imports; `sym` is a floor native); test/benchmark/fuzz/property consumers → `match` | compiles into tool-test; lib unit suite green except 7 pre-existing `pred.*` failures (unrelated: `char.chars`/`serialize` return `{"children":[…]}` term nodes on this box — fails identically with the migration stashed) |
   | `lib-cli` | **migrated**: cli-c `argv`/`run` → `match` ctor dispatch + exported `is_err`; `argv_head` law → `.value[0]`; cli-c.test.hnl → `res_tag`/`is_err` + `.value` (~40 sites) | `hnl test` 32/50 (baseline pre-migration 0/50 — the `tag.*` reads were dead on `__ctor__` records); residual fails are the same `{"children"}` env bug + stale-`hnl` match lowering |
   | `lib-cli-gen` | **migrated**: 5 test files → `.value`/`res_tag`; generated adapters' `json-capable` doc comment → `parse(r.value.stdout)` | test files need cli-c backend (the same env caveats) |
   | `sdkgen-cli` | **migrated**: `emit_hnl.rs` doc-comment template + `emit_hnl_test.rs` expectation updated so regenerated adapters don't reintroduce `tag.untag` | `cargo test -p` not run (env-time limit); one-line string change |
@@ -813,11 +813,11 @@ unify failures render internal encodings, not source-level types.
   nullary-ctor names (`None:`) are catch-all binders unless scope-resolved
   — consumers use `Some(_)`/`_` splits instead. `dependent_structure`/
   `parity`/`handl-runtime` untouched by these `.hnl`-only edits
-  (compile-time `include_str!`s — no Rust diff); `engine-test` lib suite:
+  (compile-time `include_str!`s — no Rust diff); `tool-test` lib suite:
   31 pass / 7 pre-existing `pred.*` fails (identical stashed vs migrated).
 
 - **`hnl lsp` first cut landed** (`host-lsp` + `kit-prelude` +
-  `kit-data-prelude` + `engine-transform` + `engine-typecheck-nbe`):
+  `kit-data-prelude` + `tool-transform` + `tool-typecheck-nbe`):
   `hnl lsp` now boots the language server on stdio via a new
   `hnl-ext-lsp` cdylib (ADR-0149 packaging — `libhnl_ext_lsp.so`
   discovered next to the `hnl` binary, running the same
@@ -852,7 +852,7 @@ unify failures render internal encodings, not source-level types.
     today); per-workspace kits via the dormant `KitResolver`.
 
 - **`hnl lsp` v2 landed** (`host-lsp` + `host-tooling` +
-  `kit-prelude` + `kit-data-prelude` + `engine-typecheck-nbe`): the
+  `kit-prelude` + `kit-data-prelude` + `tool-typecheck-nbe`): the
   useful, data-driven language server — every feature still dispatched
   through `lsp.yaml` rule kinds, checker semantics untouched.
   - *Meta-zonked hover*: `NbeTypecheckEngine::typecheck` now zonks
@@ -913,7 +913,7 @@ unify failures render internal encodings, not source-level types.
     ops (engine `term_interpreter`, session-2) were never added to the
     shared `native_ops` table, so every lowered ctor `match` crashed on
     bytecode + cranelift. `ctor_name`/`ctor_fields` now live in
-    `engine-exec`'s `apply_native_op` (TaggedValue twin of the
+    `exec`'s `apply_native_op` (TaggedValue twin of the
     term-interpreter ops: `__ctor__` sym → its name, else `null` —
     total probe; sorted non-`__ctor__`/`type` fields — errors on
     non-object). Verified: `match_arrow_lower` 24/24 (both compiled
@@ -924,7 +924,7 @@ unify failures render internal encodings, not source-level types.
     verdict is now *real*, not documented.
   - *Instrumentation (kept, env-gated)*: `HNL_TC_STATS` /
     `HNL_CONV_STATS` counters — `stats.rs` in
-    `engine-typecheck-nbe` (dup-pair + node-revisit probes + inclusive
+    `tool-typecheck-nbe` (dup-pair + node-revisit probes + inclusive
     timers, one relaxed atomic read when off), `conv_stats()` in
     `handl-value::nbe`. `dependent_structure`'s `zzz_tc_stats_dump`
     prints the report.
@@ -934,7 +934,7 @@ unify failures render internal encodings, not source-level types.
     revisits, `instantiate_ctor` 379/99.7 % re-instantiation (by
     design — fresh metas per site), `nbe::conv` 22/4.5 %.
   - *Landed — `TermData` borrow views + scheme cache*
-    (`engine` + `engine-typecheck-nbe`): `TermData` is now
+    (`engine` + `tool-typecheck-nbe`): `TermData` is now
     `repr(transparent)` with `TermData::view`/`get_term_view`/
     `get_term_view_list` — `eval_type_scheme_td` recursion borrows
     sub-schemes instead of deep-cloning a `serde_json::Value` per
@@ -984,7 +984,7 @@ unify failures render internal encodings, not source-level types.
     `annotated_arm_family_params_dont_shadow_rigids` +
     `annotated_arm_elem_param_scopes_cleanly`; 302 lib + 51 dependent
     + 46 parity green; `lib-collections` typechecks. Commit
-    `582d4e9` (engine-typecheck-nbe — folded into the auto-discharge
+    `582d4e9` (tool-typecheck-nbe — folded into the auto-discharge
     commit).
 
 ### 2025 — Dogfood round 2: `lib-json-handl` (JSON parser/serializer in `.hnl`) + `State`/`IO`
@@ -1045,7 +1045,7 @@ s, put replaces it, and the put's payload is computed inside the fold.
   Sigma-destructure entry below — `filter` now computes).
   `exists m. T` sugar → `host/project/BACKLOG.md`.
 - **Auto-discharge for decided-impossible match arms.** In
-  `synth_match_with_motive` (engine-typecheck-nbe): an arm whose ctor
+  `synth_match_with_motive` (tool-typecheck-nbe): an arm whose ctor
   index unification is DECIDED-unsatisfiable is auto-discharged —
   skipped silently, body unchecked-but-allowed, no arm-type
   contribution; coverage never required it anyway. `absurd` stays
@@ -1058,7 +1058,7 @@ s, put replaces it, and the put's payload is computed inside the fold.
   302, parity 46 all green. `typecheck_model.hnl` (fixture + design
   copy) updated to the same contract.
 - **`export` binds + `hnl run --name`.** The shared `export` op
-  (engine-exec `native_ops`) `env_assign`s the declared name —
+  (exec `native_ops`) `env_assign`s the declared name —
   `export x := v` binds `x` via the child's `target` role, self-ref
   exports get `with_self_ref_bind`; engines without Env keep the
   pass-through. `hnl run` on an export file evaluates to the block
@@ -1107,7 +1107,7 @@ s, put replaces it, and the put's payload is computed inside the fold.
 ### 2026 — Index-position syntax `{…}` → `<…>` (dimension IS an index)
 
 - Parser: the `<` special production (`dimension_applies`/`parse_dimension`,
-  engine-parse-pratt) now carries the former `{…}` index-application and
+  tool-parse-pratt) now carries the former `{…}` index-application and
   implicit-binder surface — `Vec<n, a>`, `f<a, ev : Eq(a)>`, `IO<{ puts: T }>`
   all mint `dimension` `[target, args…]`. `parse_dimension` gained the
   whitespace-application fold (`Vec<Succ n, a>` ⇒ `call(Succ, n)`) and a
@@ -1139,7 +1139,7 @@ s, put replaces it, and the put's payload is computed inside the fold.
   stay `{ }` spaced). lib-json-handl/lib-type doc spelling updated.
   Tutorial: `IO<sig>`/`handle <arrow> with <h>` (deep-carry idiomatic)/
   implicit `<…>` binders.
-- Verified: engine-parse-pratt 62+conformance, dependent_structure 51/51
+- Verified: tool-parse-pratt 62+conformance, dependent_structure 51/51
   (incl. the parked `instance` WIP's tests — `synth_instance` is committed),
   lang_merge 7/7, kit_assembly 5/5, `hnl typecheck` clean on
   collections.hnl + json.hnl + `/tmp/hnl-verify/*_angles.hnl`,
@@ -1210,8 +1210,8 @@ s, put replaces it, and the put's payload is computed inside the fold.
 ### 2026 — `perform` op emission (`io` module + `synth_perform`/`check_call`)
 
 - *Where it landed*: `perform` is a **host function on the new `io`
-  module** — `hnl_engine_exec::io::{IoModule, PerformFn}` in
-  `engine-exec` (new `src/io.rs`, next to `interpret_io_former`'s
+  module** — `hnl_exec::io::{IoModule, PerformFn}` in
+  `exec` (new `src/io.rs`, next to `interpret_io_former`'s
   semantics). No AST node, no grammar/eval-scheme change: the surface
   form is an ordinary `call` whose callee resolves the `sym.seeded` way
   — unbound `var` → name string → `call_host` → `ModuleRegistry` —
@@ -1238,7 +1238,7 @@ s, put replaces it, and the put's payload is computed inside the fold.
   (record-width sig subtyping: `IO{puts:Str}` checks against
   `IO{puts,fs}`); every other call reproduces the old YAML check scheme
   verbatim (synth callee → check arg vs `param` → yield `body`).
-- *Scope walk* (`engine-typecheck/src/bootstrap.rs` `check_expr`): a
+- *Scope walk* (`tool-typecheck/src/bootstrap.rs` `check_expr`): a
   `perform`/`io.perform` call's bare-`var` op operand is a name
   position (like an object `key:` or `field-access` field), not an
   unbound wire — exempted; callee/args still walk.
@@ -1276,18 +1276,18 @@ s, put replaces it, and the put's payload is computed inside the fold.
   documented; users should bind op names to their own names or spell
   them as strings.
 
-### 2026 — typed `while` bodies (engine-typecheck-nbe `73673c9`, kit-prelude-lang `38c76ed`)
+### 2026 — typed `while` bodies (tool-typecheck-nbe `73673c9`, kit-prelude-lang `38c76ed`)
 - `type.while` → `synth_while` judgment (was `type.unknown` — 100% unchecked): statement-form checks cond→Bool + body under `ctx.mark()/restore` (binds don't escape, rebinding shadows locally); state-form reads `{state}` head per `build_loop_step_args`, body checked against internal `type.__loose_top__` sentinel so `{state}`/`{out}` records never join but internals report.
 - `loose_synth_node` dispatches by `AstShapeDef` roles only; `ctx.loose` yields fresh metas for record/array access on unsolved metas.
 - 7 new `tests/while_typing.rs` tests; lib 302/302. Fallout noted: `lib-desugar/src/index.hnl:2584` `+`-on-`Str` bug inside a while body (pre-existing, now detected); `if cond` on `type.unknown` in while bodies still fails (pending `type.unknown`-top workstream).
 
-### 2026 — `perform` primitive (engine-exec `1f7976d`, nbe `7e36925`, kit `a06f992`/`ec09d43`, host `7ebe493e`)
+### 2026 — `perform` primitive (exec `1f7976d`, nbe `7e36925`, kit `a06f992`/`ec09d43`, host `7ebe493e`)
 - `perform(op, arg)` / `io.perform(...)` — host fn on new `io` prelude module (no AST/grammar change; resolves via `call_host` like `sym.seeded`): mints `{"__former__": type.io, "indices":[{op:arg}]}` — dispatchable through `handle`/`interpret_io_former` on all 3 engines.
-- Checker: `synth_perform` — `perform(op,arg)` synthesizes `Former{type.io,[{op:typeof(arg)}]}`; bare-`var` op operand exempt from unbound-wire (engine-typecheck `4b3f579`).
+- Checker: `synth_perform` — `perform(op,arg)` synthesizes `Former{type.io,[{op:typeof(arg)}]}`; bare-`var` op operand exempt from unbound-wire (tool-typecheck `4b3f579`).
 - v1 merge semantics: each `perform` mints a fresh single-entry sig — no ambient accumulation; `do { perform(a); perform(b) }` yields two IO values.
 - Open: `check_subtype` doesn't solve metas in anonymous handler impls (use declared impls); sig entry = payload type not op arrow type (both sig shapes coexist intentionally); `hnl-wire-prelude.json` cache is binary-keyed — `rm` after `.so` rebuilds.
 
-### 2026 — `type.unknown` is the dynamic top (engine-typecheck-nbe)
+### 2026 — `type.unknown` is the dynamic top (tool-typecheck-nbe)
 - Approved semantics: for every `T`, `unknown ≡ T` conv succeeds (either side) and `T <: unknown` subtype succeeds. `unknown <: T` for concrete `T` is deliberately NOT a subtype step (top is not bottom) — though `subtype`'s conv-first means domain-level `subtype(unknown, T)` does hold; the boundary `check_subtype` only accepts the `sup` side.
 - Where acceptance landed:
   - `unify` (src/lib.rs) — tagged + domain-encoded spellings via `dependent::is_unknown_ty` (`__tag__`, `__sym__` reification, `__former__` head); placed after the meta-solve shortcuts, before the domain-lift arm.
@@ -1300,7 +1300,7 @@ s, put replaces it, and the put's payload is computed inside the fold.
 - Verified: `tests/unknown_top.rs` 9/9 — `x + 1`, `x == 1`, `if x`, `x.f`, `x[0]`, `f(x)`, `x(1)`, unknown-into-`Str`/`Number` annotations, mixed unknown/concrete match-arm join, `while`-inferred unknown flow; negative controls (`x : Bool = 3`, `if 3`) still fail. `hnl typecheck` repro: `x : type.unknown = serialize.to_string({"a":1})` then `x == 3` → ok. `tests/smoke/eval.hnl` typechecks clean — the `chk`/while island no longer required.
 - Notes: `unify_index`/`solve_meta` untouched — index metas keep solving (an `unknown` bound to a meta is just its solution). `x : Unknown` (the wire-name spelling, report G3) still mints the `LamVal` placeholder — separate bug, not this workstream.
 
-### 2026 — Sigma destructure: rigid witness binding + `unify_index` `Bin` congruence (engine-typecheck-nbe `e094277`, engine-typecheck `4b3f579`, lib-collections `4db4e7f`)
+### 2026 — Sigma destructure: rigid witness binding + `unify_index` `Bin` congruence (tool-typecheck-nbe `e094277`, tool-typecheck `4b3f579`, lib-collections `4db4e7f`)
 - `bind_sigma_destructure` (dependent.rs): the `[witness, payload]` Sigma pair pattern binds the witness *rigidly* — `var{m}` in `results` (index positions) + the `param` sort in Γ (term positions, so `Succ(m)` still checks `m : Nat`) — then applies the `body_closure` at that atom. `ys` lands at `Vec(var{m}, a)`; the repack's `Vec(m + 1, a)` sees the same term.
 - `dep_closure_apply_term` occurs-guard: when the closure's `var_name` occurs inside its own binding term (`Sigma(Nat, m ~> Vec(m,a))` applied at `var{m} + 1` — user `m` and closure `m` collide), the results key alpha-renames through `fam_scope` (`m ↦ __bound_m`): the body's `var{m}` resolves `__bound_m → var{m} + 1` while the outer `var{m}` atom (e.g. `ys`'s index) stays untouched. `eval_index_fuel` got the matching opaque-shadow guard — a `var{n} ↦ t` rewrite where `var{n}` occurs in `t` resolves the inner atom opaquely (`__bound_n`) instead of re-applying the rewrite (`var{n} + 64` at the fuel bound).
 - `dep_synth_var_type` resolves `results` before Γ (a results-bound name is the nearest scope — that's what lets a destructured `m` read as `var{m}` instead of the `Nat` sort) **but** a Γ *type declaration* (`type.alias`/`type.ctor_sig`/`type.family` — the tags `dep_bound_var_type` interprets) still wins: every `assign` records the bound *term* in `results` (`type.Score := Nat` leaves `Score ↦ var{Nat}`, ADR-0103's bound-value env), and that term is value-position only. Without the decl carve-out `type_alias_expands_transparently` regressed (`s : Score = 3` → `expected Nat, got Number`).
@@ -1311,8 +1311,8 @@ s, put replaces it, and the put's payload is computed inside the fold.
 - Verified: lib 302/302, dependent_structure 62/62, parity 46/46, import_sig 10/10, unknown_top 9/9, while_typing 7/7; `/tmp/hnl-repro/zipwith-*` + `absurd*` all `hnl typecheck` ok; `do { export inc := x ~> x + 1; inc(41) }` → `42`.
 - Note: between `73673c9` and `e094277` HEAD was unbuildable — `lib.rs`'s committed `bind_pattern_vars` sigma dispatch called `bind_sigma_destructure`, whose definition was still uncommitted; both halves landed in `e094277`.
 
-### 2026 — resumable `perform`, `acc` state, `return` clause (ADR-0158; engine-exec `13ea7e4`, tree-walk/bytecode/cranelift/typecheck-nbe/kit-prelude-lang/host commits same workstream)
-- `perform(op, arg)` under an enclosing `handle` now resolves the innermost handler frame covering `op` **in-flight** and resumes with `h[op](arg)` as the call-site result — implemented at the engines' host-function dispatch seams (`is_perform_callee` → `perform_dispatch` in `engine-exec/src/native_ops.rs`) so `PerformFn`'s residual `IO<{op:arg}>` mint is untouched for uncovered ops. Interception points: tree-walk `call_host` op arm + `call_host_fn` (flow/`>>>`/Arrow-second-string paths); bytecode `call_host`/`flow`/Arrow-second-string; cranelift `call_host`/`prim_v2_flow`/`helper_v2_call_foreign`.
+### 2026 — resumable `perform`, `acc` state, `return` clause (ADR-0158; exec `13ea7e4`, tree-walk/bytecode/cranelift/typecheck-nbe/kit-prelude-lang/host commits same workstream)
+- `perform(op, arg)` under an enclosing `handle` now resolves the innermost handler frame covering `op` **in-flight** and resumes with `h[op](arg)` as the call-site result — implemented at the engines' host-function dispatch seams (`is_perform_callee` → `perform_dispatch` in `exec/src/native_ops.rs`) so `PerformFn`'s residual `IO<{op:arg}>` mint is untouched for uncovered ops. Interception points: tree-walk `call_host` op arm + `call_host_fn` (flow/`>>>`/Arrow-second-string paths); bytecode `call_host`/`flow`/Arrow-second-string; cranelift `call_host`/`prim_v2_flow`/`helper_v2_call_foreign`.
 - `acc`: `handle f with h acc s0` parses via a new `token.keyword.acc` + `lex.keyword.acc` and an optional trailing child (position 2) on `grammar.handle.prefix`; `ast.handle` gains `acc` role (`optional: true`, maxItems 3). Runtime representation: a `__acc__` slot on the pushed handler-frame record (`HANDLER_ACC_KEY`, `handler_with_acc`/`covering_frame_acc`/`covering_frame_set_acc` shared helpers; `NativeOpCtx::handler_acc`/`handler_set_acc`; `handler_pop` now returns the frame). Acc impls run `(payload, s) ~> (result, s')` — result as `Pair` or 2-elem array; `s'` written back to the covering frame. Deep-handler carry keeps the seeded frame so each application restarts at `s0`. No `return` clause → `handle … acc` yields `(result, s_final)` as a `TaggedValue::Pair`.
 - `return:` handler-record clause applies `h["return"](r)` (or `(r, s_final)` under `acc`) to the arrow's pure result after op handling, after the pop — absent → passthrough.
 - Typecheck: `synth_perform` unchanged (`IO<{op:T_arg}>` still synthesized; coverage typing composes). `synth_handle_judgment` synthesizes the optional `acc` child; `handle_sig_check` excludes `return` and `__*__` reserved keys from the op set (not spurious, not required).

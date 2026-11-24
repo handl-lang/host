@@ -7,7 +7,7 @@ date: 2026-11-15
 # Spike: `hnl run` — the ADR-0175 pipeline-script layer
 
 Date: 2026-11-2x · Status: feasibility spike (prototype evidence, not
-production) · Prototype: `engine-exec-tree-walk/tests/hnl_run_spike.rs`
+production) · Prototype: `exec-tree-walk/tests/hnl_run_spike.rs`
 (scratch test, uncommitted-to-shipped-behavior — it *is* committed as a
 test file in that repo's working tree).
 
@@ -69,7 +69,7 @@ and they should, since `>>>` is surface syntax (below).
 
 At the Term level, `>>>` is `Term::Seq { axis: 0, fst, snd }`
 (`kernel/crates/…/engine/src/term.rs:92`). The tree-walk engine
-(`engine-exec-tree-walk/src/lib.rs:913`) evaluates axis-0 Seq on
+(`exec-tree-walk/src/lib.rs:913`) evaluates axis-0 Seq on
 1-cells as **sequential composition**: `snd` is evaluated with `fst`'s
 result as its `incoming` value. Higher axes (`>>>[k]`, k>0) are globular
 pastes — out of scope for pipelines.
@@ -85,7 +85,7 @@ Three viable placements, all existing seams:
 **(a) `Foreign` ops → `ModuleLookup` host functions.** `Term::Op` with
 `ArrSource::Foreign(name)` resolves `name` through
 `TreeWalkEngine::with_modules(Rc<dyn ModuleLookup>)`
-(`engine-exec-tree-walk/src/lib.rs` ~line 2280) →
+(`exec-tree-walk/src/lib.rs` ~line 2280) →
 `ModuleRegistry::lookup` (`host/crates/plugin-module`) →
 `Function::call(args: &[serde_json::Value], ctx)`. This is the same
 chain `call_host` and `import` already use; the canonical kit wires a
@@ -111,7 +111,7 @@ receive the `Seq`-threaded `incoming` value — only their evaluated args
 do (args are evaluated under the same `incoming` context). Threading
 the pipeline record into a stage requires an arg term that yields
 `incoming` — the native `id` op does exactly that
-(`engine-exec/src/native_ops.rs:682`: `id` returns `incoming`). The
+(`exec/src/native_ops.rs:682`: `id` returns `incoming`). The
 prototype uses `Term::op_foreign("pipeline.lift",
 [Term::op_native("id", [])])` per stage. A production `run` layer would
 want a first-class "this/incoming" term or an `arr`-form stage so
@@ -119,7 +119,7 @@ scripts don't spell `id` — worth noting as the one small ergonomic gap.
 
 ## 4. Prototype evidence
 
-`engine-exec-tree-walk/tests/hnl_run_spike.rs` — two tests, both pass
+`exec-tree-walk/tests/hnl_run_spike.rs` — two tests, both pass
 (`cargo test --test hnl_run_spike`, 0.00s after build):
 
 - `seq_pipeline_of_foreign_stage_ops_round_trips`: builds
@@ -171,15 +171,15 @@ cdylib extension ABI) all exists and is tested.
   `kernel/crates/handl-ext/src/{lib,discovery,load,rt}.rs`,
   `mlopt/crates/hnl-ext-mlopt/src/lib.rs`,
   `ext-eval/src/lib.rs`, `engine/src/term.rs`,
-  `engine-exec-tree-walk/src/lib.rs` (Seq ~913, Op/Foreign ~2060-2290,
-  `id` op in `engine-exec/src/native_ops.rs:682`),
+  `exec-tree-walk/src/lib.rs` (Seq ~913, Op/Foreign ~2060-2290,
+  `id` op in `exec/src/native_ops.rs:682`),
   `host/crates/platform/src/eval.rs` (Function/Module/ModuleLookup),
   `host/crates/plugin-module/src/lib.rs` (ModuleRegistry),
   `kit-prelude/crates/kit-prelude/src/lib.rs` (registry wiring),
   `host/project/adrs/0175-*.md`.
-- Wrote: `engine-exec-tree-walk/tests/hnl_run_spike.rs` (scratch
+- Wrote: `exec-tree-walk/tests/hnl_run_spike.rs` (scratch
   prototype, 2 passing tests).
-- Ran: `cargo test --test hnl_run_spike` in `engine-exec-tree-walk`
+- Ran: `cargo test --test hnl_run_spike` in `exec-tree-walk`
   (git-dep build; `[patch]` warnings are pre-existing workspace noise).
 - Not done: no changes to shipped commands, no push, no `.hnl`
   surface-level pipeline script run through `hnl-ext-eval` itself

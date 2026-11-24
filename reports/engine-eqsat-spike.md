@@ -31,8 +31,8 @@ stop policies, deterministic DAG-aware extraction, and
 internal `Term`. ADR-0175's "P2 = engine-eqsat, NOT the egraph crate"
 is not a gap; it is a layering statement: `engine-eqsat` is a new thin
 *interpretation* crate that consumes `handl-egraph` as a library,
-exactly as `hnl-engine-transform-rewrite` consumes
-`hnl-engine-transform`. The prototype proves the loop the
+exactly as `hnl-tool-transform-rewrite` consumes
+`hnl-tool-transform`. The prototype proves the loop the
 interpretation needs already closes end-to-end over kernel `Term`s:
 lift → saturate → extract → lower → provenance, with the P0.5
 `attrs` payload rewrite-transparent.
@@ -63,8 +63,8 @@ Reasoning, against the three candidates:
   `egraph::Term` engine-internal. Keeping a Python host would
   perpetuate the dual-IR census ADR-0174 §5 is trying to shrink.
 - **New `engine-eqsat-*` repo**: matches the INTERPRET-layer pattern
-  every sibling already follows (`engine-exec-*`, `engine-typecheck-*`,
-  `engine-transform-*`, `compile-*`). It depends on `hnl-engine` +
+  every sibling already follows (`exec-*`, `tool-typecheck-*`,
+  `tool-transform-*`, `compile-*`). It depends on `hnl-engine` +
   `handl-language` + `handl-egraph` as git deps with the standard
   `[patch]` dev-link tables, and exposes kernel-`Term`-only APIs.
 

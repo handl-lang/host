@@ -16,7 +16,7 @@ applies_to: '`kernel` (`handl-value`, `handl-language`), `kit-prelude-lang`,'
 # ADR-0153: `~[n]~>` is a dimension index — n-cells as one indexed former
 
   dimensions with coeffect grades)
-  `engine-typecheck-nbe`, `lib-type`
+  `tool-typecheck-nbe`, `lib-type`
 
 ## Context
 

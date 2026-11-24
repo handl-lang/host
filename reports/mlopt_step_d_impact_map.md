@@ -64,7 +64,7 @@ tagged **graphopt `v0.1.18`**.  Verified on the llama ladder:
   `v0.1.3`, kit-discovery `v0.1.2` (`repin_cascade_eqsat_v0110.md` —
   uv propagates `[tool.uv.sources]` transitively, so every consumer
   carrying eqsat sources needed repin+retag in dep order).
-- **engine-parse-pratt `50070dc`** — multi-statement parse fix: all
+- **tool-parse-pratt `50070dc`** — multi-statement parse fix: all
   top-level statements parse into a block; trailing tokens error.
 - **engine-eqsat `dd4815e`** — dag emits `{"Arr": …}` leaf records for
   canonical `arr` enodes (arr-leaf round-trip).

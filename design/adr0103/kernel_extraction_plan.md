@@ -643,10 +643,10 @@ loaded, validated, composed, and run inside the language.
 - `crates/plugin-engine/src/term.rs` — replace enum with
   `serde_json::Value`
 - `crates/plugin-engine/src/lib.rs` — evaluator (dispatch + recurse)
-- `crates/plugin-engine-exec-tree-walk/src/lib.rs` — thin dispatcher
-- `crates/plugin-engine-exec-bytecode/src/compile.rs` — thin dispatcher
-- `crates/plugin-engine-exec-cranelift/src/compile.rs` — thin dispatcher
-- `crates/plugin-engine-typecheck-nbe/src/lib.rs` — thin dispatcher
+- `crates/plugin-exec-tree-walk/src/lib.rs` — thin dispatcher
+- `crates/plugin-exec-bytecode/src/compile.rs` — thin dispatcher
+- `crates/plugin-exec-cranelift/src/compile.rs` — thin dispatcher
+- `crates/plugin-tool-typecheck-nbe/src/lib.rs` — thin dispatcher
 
 ### Models (Handl-authored data)
 
@@ -668,9 +668,9 @@ loaded, validated, composed, and run inside the language.
 ### Tests
 
 - `crates/handl-runtime/tests/exec_model_parity.rs`
-- `crates/plugin-engine-exec-tree-walk/tests/path_transport.rs`
-- `crates/plugin-engine-exec-tree-walk/tests/rewrite_law.rs`
-- `crates/plugin-engine-typecheck-nbe/src/tests.rs`
+- `crates/plugin-exec-tree-walk/tests/path_transport.rs`
+- `crates/plugin-exec-tree-walk/tests/rewrite_law.rs`
+- `crates/plugin-tool-typecheck-nbe/src/tests.rs`
 
 ## Result
 

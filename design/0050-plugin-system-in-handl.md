@@ -44,7 +44,7 @@ than it first appears.
 
 1. **AST exposure.** There is no `ast.parse(source)` module callable from handl today.
    `plugin-lib-parse`'s `LibraryPlugin` registers nothing (its `contribute` is empty). The
-   parser is Rust (`plugin-engine-parse-pratt`) and its output does not cross into handl.
+   parser is Rust (`plugin-tool-parse-pratt`) and its output does not cross into handl.
 2. **A rule-contribution path.** handl scripts can be loaded as plugins, but there is no
    bridge that lets a handl script contribute `FormatBehavior`/`LintBehavior` rules into a
    `BasicFormatter`/`BasicLinter` acceptor, nor an equivalent acceptor written in handl.
@@ -61,7 +61,7 @@ porting the **toolchain** (parser, formatter, linter, type-checker), not the eng
 
 This ADR therefore fixes two permanent Rust pieces and moves everything above them into handl:
 
-1. **Bootstrap engine** — `plugin-engine-exec-*` (tree-walk / bytecode / cranelift). handl
+1. **Bootstrap engine** — `plugin-exec-*` (tree-walk / bytecode / cranelift). handl
    cannot run without a runtime. The engine is the kernel that stays Rust.
 2. **Binding lib** — a generic extern façade so any Rust crate is exposed as a handl module
    through one uniform primitive. Mostly exists (`ModuleRuntime` + `ModuleRule`); needs a
@@ -76,7 +76,7 @@ handl.
 
 ```
 Rust (permanent):
-  1. bootstrap engine   — plugin-engine-exec-* (tree-walk/bytecode/cranelift)
+  1. bootstrap engine   — plugin-exec-* (tree-walk/bytecode/cranelift)
   2. binding lib        — generic extern façade over ModuleRuntime + ModuleRule
 ─────────────────────────────────────────────────────────────────────────
 handl (everything above the line):

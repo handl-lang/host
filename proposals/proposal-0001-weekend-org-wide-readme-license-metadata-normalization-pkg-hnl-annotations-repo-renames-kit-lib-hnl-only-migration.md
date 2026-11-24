@@ -45,7 +45,7 @@ optional-ws + `:` (~30 lines + tests) — host repo, ship first.
 
 ## 2. README / LICENSE / metadata sweep (all ~160 repos)
 
-- Templates per prefix family: `engine`, `engine-compile`, `tool`,
+- Templates per prefix family: `engine`, `tool-compile`, `tool`,
   `tool-sdkgen`, `lib`, `lib-rust` (transitional), `kit`, `kit-rust`/
   `kit-python` (transitional), `host`, `pitch`, `python`, `bare`.
 - Rules: license always **MIT** + `LICENSE` file in every repo; **no
@@ -61,12 +61,12 @@ optional-ws + `:` (~30 lines + tests) — host repo, ship first.
 ## 3. Repo renames (local prep now; GH ops deferred)
 
 - `sdkgen-*` → `tool-sdkgen-*` (5)
-- `compile-*` → `engine-compile-*` (8)
+- `compile-*` → `tool-compile-*` (8)
 - `slidev-theme` → `slidev-theme-handl`
 - `mlopt` → `research-mlopt`
 - `host-tensor` → NOT a host (host = distribution only); target
   `lib-*`/`engine-*` — decision pending, tensor likely lib-adjacent
-- Templates already reflect target names (`engine-compile.md`,
+- Templates already reflect target names (`tool-compile.md`,
   `tool-sdkgen.md`, `tool.md`, `pitch.md`).
 
 ## 4. `kit-*`/`lib-*` → `.hnl`-only target

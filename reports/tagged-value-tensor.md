@@ -26,7 +26,7 @@ Date: this session. Commits: kernel `b57e922`, platform `224813ca`.
   `NaN` unequal to itself). `Hash` agrees: elements hash as `f64` bits
   with `-0.0` normalized to `+0.0`.
 - **Platform**: the only non-exhaustive `TaggedValue` match in the
-  workspace was `type_tag` (`plugin-engine-exec/src/native_ops.rs`);
+  workspace was `type_tag` (`plugin-exec/src/native_ops.rs`);
   `typeof` now reports `"tensor"`, matching the lowercase scalar-tag
   convention (`"bytes"`, `"resource"`, `"sym"`).
 

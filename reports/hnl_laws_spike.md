@@ -65,7 +65,7 @@ report `graphopt/docs/reports/handl_law_bridge_phase_b.md` §4):
 | Root op + depth-1 child op kinds + arity | ✅ `node_kind` + `KindAt`/`ChildCount` |
 | Metavar → child path binding (`KeepPath`) | ✅ first occurrence; rhs `Create`/`KeepPath` |
 | Root-eliminating rhs (bare metavar) | ✅ `Replace { path }` (handl ADR-0127) |
-| Attr presence / literal attrs / repeated attr metavars | ✅ since the attr vocabulary landed: `AttrEq`, `SameAttr`, `$attr_of` payload markers (`kernel/.../transform_def.rs:257-292`, `engine-transform-rewrite/src/step.rs:123,322`) |
+| Attr presence / literal attrs / repeated attr metavars | ✅ since the attr vocabulary landed: `AttrEq`, `SameAttr`, `$attr_of` payload markers (`kernel/.../transform_def.rs:257-292`, `tool-transform-rewrite/src/step.rs:123,322`) |
 | Attr-scoped `cond` predicates (`attr-eq/-is/-in/-eq-attr`, `attr-cmp ==`) | ✅ translated to the same clauses |
 | **Ops at depth ≥ 2 in lhs** | ❌ `when` pins depth-1 kinds only — `spine_deep` (35 laws) |
 | **Repeated *argument* metavars** (subtree equality) | ❌ binds first path only — `repeat_mvar` (14 laws) |
@@ -120,7 +120,7 @@ Options, in order of increasing machinery:
    `hnl-engine-eqsat` — the engine must not learn `.hnl`.
 3. **Reuse the `TransformDef` path** — already built
    (`discoverykit.handl.law_to_handl` → `transforms.yaml` →
-   `hnl-engine-transform-rewrite`). **Not viable as the law
+   `hnl-tool-transform-rewrite`). **Not viable as the law
    representation**: those rules run the *AST rewriter*
    (`Ast→Ast`, bottom-up/fixpoint — no e-classes, no saturation, no
    cost model) and, per Phase B, the unfaithful subset **over-fires
@@ -189,7 +189,7 @@ Partially — and this overlap is already exploited:
   marker (rhs attr bindings) are explicitly documented as "the mlopt
   bridge's encoding" (`kernel/crates/handl-language/src/fragments/
   transform_def.rs:78-86, 257-292`; resolved in
-  `engine-transform-rewrite/src/step.rs`). `discoverykit.handl.
+  `tool-transform-rewrite/src/step.rs`). `discoverykit.handl.
   _cond_condition` translates the attr-decidable fragment of the
   `cond` DSL into these clauses.
 - But the guard DSL is much larger: engine-eqsat `guard.rs` (2.4k
@@ -224,7 +224,7 @@ Partially — and this overlap is already exploited:
    `hnl_import`'s `_Parser` is a working template; the `Pat` emitter
    is mechanical). Re-spelling the full guard DSL: **not worth it**
    (months, and the JSON embedding already covers it).
-3. **Do not** route laws through `TransformDef`/`hnl-engine-transform-
+3. **Do not** route laws through `TransformDef`/`hnl-tool-transform-
    rewrite` as the representation — wrong semantics (AST rewrite, not
    e-graph law), measured unsound on the unfaithful subset. The
    TransformDef projection remains useful *only* as the handl-side
@@ -245,7 +245,7 @@ Partially — and this overlap is already exploited:
 - `kernel/crates/handl-language/src/fragments/transform_def.rs` —
   `TransformDef`/`TransformRule`/`RewriteStep`/`TransformCondition` +
   `$attr_of`/`AttrEq`/`SameAttr` law-guard vocabulary
-- `engine-transform-rewrite/src/step.rs` — `$attr_of` resolution
+- `tool-transform-rewrite/src/step.rs` — `$attr_of` resolution
 - `discoverykit/packages/discoverykit/src/discoverykit/handl.py` —
   `law_to_handl`/`store_to_handl`, gap classifier, `Native` refusals
 - `graphopt/docs/reports/handl_law_bridge_phase_b.md` — measured

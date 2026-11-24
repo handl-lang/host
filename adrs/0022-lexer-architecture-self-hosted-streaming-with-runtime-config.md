@@ -13,7 +13,7 @@ status: proposed
 status_note: |-
   Proposed — no status was recorded when this was written, and nothing indicates
   it was accepted. The lexer that shipped is the data-driven
-  `engine-lex-pattern` (ADR-0044); the trait-based `handl-lexer` family below
+  `tool-lex-pattern` (ADR-0044); the trait-based `handl-lexer` family below
   was never built.
 ---
 

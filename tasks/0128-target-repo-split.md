@@ -99,11 +99,11 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       pins them anymore. In-platform remainder applied: `str-handl`'s
       second pin (`plugin-lib-handl/examples/loader_bench.rs`) now takes
       `pub const STR_HANDL_HNL`. Also fixed a split-introduced breakage:
-      `plugin-engine-typecheck-handl`'s parity test `include_str!`ed the
+      `plugin-tool-typecheck-handl`'s parity test `include_str!`ed the
       moved `examples/handl/lib-utils/hello.hnl` — vendored as
       `tests/fixtures/hello.hnl` (same pattern as compile-handl's
       fixtures).
-- [x] **0.8 Kit-injection seam**: `plugin-engine-test`,
+- [x] **0.8 Kit-injection seam**: `plugin-tool-test`,
       `plugin-ext-lint`, `plugin-ext-typecheck`, `host-tooling` take a
       `&Language`/kit handle instead of linking `kit-canonical`
       directly — their normal deps on it would otherwise create a
@@ -111,7 +111,7 @@ named targets. Resolution: git deps + `[patch]`, local-only. See
       0.8 seam, concretely"): `Plugin: Send + Sync` forbids holding a
       `Kit` — inject `Arc<dyn Fn + Send + Sync>` capability closures or
       `&Language`/`Arc<Language>`; the host owns `thread_local` kit
-      caches and injects capture-less closures; `plugin-engine-test`
+      caches and injects capture-less closures; `plugin-tool-test`
       needs a runtime *factory* (workers build thread-local runtimes);
       `host-tooling` must stop assembling `Kit::new()` per LSP request;
       dev-deps stay, only normal deps sever.
@@ -227,7 +227,7 @@ This phase validates the whole template on a 1-crate port surface with
       `char-native/` (owned by `modules/char-native`, exported as
       `CHAR_HNL`/`CHAR_NATIVE_HNL` per the 0.7 rule) +
       `generated/icu-{c,uc}-linux-x86_64`. Platform keeps a fixture copy
-      of `collections/array/` — `plugin-engine-typecheck-handl` (src)
+      of `collections/array/` — `plugin-tool-typecheck-handl` (src)
       and `handl-runtime` tests `load_hnl_file` it by path.
 - [x] The other plugin-lib content crates move as modules:
       `stdlib/modules/{kv,kv-hashmap,crypto,encoding,parse,serialize,
@@ -236,11 +236,11 @@ This phase validates the whole template on a 1-crate port surface with
       in platform:** `plugin-lib-handl` (`.hnl` loader), `plugin-lib-tag`
       (host primitive), `plugin-lib-scheduler` (test engine).
       **Done:** all 14 moved with subtree-split history.
-- [x] `kit-canonical`, `plugin-ext-kit`, `plugin-engine-test` and
-      `plugin-engine-typecheck-handl` git-depend on `stdlib/` — the
+- [x] `kit-canonical`, `plugin-ext-kit`, `plugin-tool-test` and
+      `plugin-tool-typecheck-handl` git-depend on `stdlib/` — the
       deliberate inversion. Wire via the same git-dep + `[patch]`
       **Done:** `plugin-ext-kit` (stdlib/crypto/kv-hashmap),
-      `plugin-engine-test` (char-native), `plugin-engine-typecheck-handl`
+      `plugin-tool-test` (char-native), `plugin-tool-typecheck-handl`
       (stdlib; char-native dev), plus dev-deps in `handl-runtime`,
       `plugin-lib-handl`, `handl-defining-handl` (lib-lang-*),
       `plugin-ext-refinement` (char-native for `str_contract`). New
@@ -250,7 +250,7 @@ This phase validates the whole template on a 1-crate port surface with
       `HandlModule`-evaluating tests that never installed the canonical
       language (pre-existing "no language available" failures on main —
       the 0.8 seam; `ensure_lang()` applied per `named_import.rs`'s
-      pattern), and the same gap in `plugin-engine-typecheck-handl`'s
+      pattern), and the same gap in `plugin-tool-typecheck-handl`'s
       `axis_flow_boundaries`/`dependent_structure`/`integration`/unit
       tests in platform.
       mechanism.
@@ -316,7 +316,7 @@ This phase validates the whole template on a 1-crate port surface with
 
 ## Phase 6 — `native/`
 
-- [x] `native/modules/exec-cranelift` ← `plugin-engine-exec-cranelift`
+- [x] `native/modules/exec-cranelift` ← `plugin-exec-cranelift`
       (feature-gated).
       **Done:** subtree-split import; `kit-canonical`'s optional
       `cranelift` dep now pins the native repo; `handl-runtime` +
@@ -371,7 +371,7 @@ This phase validates the whole template on a 1-crate port surface with
 ## Phase 9 — `meta/` (anytime; zero-consumer leaves)
 
 - [x] `meta/crates/defining-handl` ← `handl-defining-handl`.
-- [x] `meta/crates/typecheck-nbe` ← `plugin-engine-typecheck-nbe`.
+- [x] `meta/crates/typecheck-nbe` ← `plugin-tool-typecheck-nbe`.
       **Done:** subtree-split imports; both are zero-consumer leaves so
       no consumer rewiring was needed. `defining-handl`'s manifest now
       git-deps platform + lang + stdlib + native + kit-canonical with
@@ -438,7 +438,7 @@ This phase validates the whole template on a 1-crate port surface with
       `handl-runtime`; moving it would cycle platform↔lang),
       `handl-emitters` (generic fragment emitter, consumed by staying
       `handl-kit-data`), `plugin-ext-refinement` (consumed by
-      `plugin-engine-test`).
+      `plugin-tool-test`).
 
 ## Phase 12 — `docs/` (independent, anytime)
 
@@ -527,7 +527,7 @@ and the repo boundary is a manifest dep. `c/` and `web/` each hold a
 `handl-packages/` subtree split pruned to their keep sets plus a manifest;
 the ws-c↔concurrent-epoll cross-repo cycle resolves both ways via the two
 manifests (`c` self-declares its own names because dep files loaded under
-its context carry name specs). `import_preamble` (`plugin-engine-test`)
+its context carry name specs). `import_preamble` (`plugin-tool-test`)
 and `host-cli`'s decl-stripping/splice-seeding gained dep awareness; the
 tooling kit is `Kit::discover`-based. Regression:
 `handl-runtime/tests/dependency_import.rs`.

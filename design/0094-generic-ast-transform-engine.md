@@ -1,12 +1,12 @@
 ---
-title: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`) — design detail
+title: Generic AST Transform Engine (`plugin-tool-transform` + `plugin-tool-transform-rewrite`) — design detail
 type: design
 date: 2026-09-06
 updated: 2026-10-29
 refs: [ADR-0094]
 ---
 
-# ADR-0094: Generic AST Transform Engine (`plugin-engine-transform` + `plugin-engine-transform-rewrite`) — design detail
+# ADR-0094: Generic AST Transform Engine (`plugin-tool-transform` + `plugin-tool-transform-rewrite`) — design detail
 
 Moved verbatim from ADR-0094 (ADR-0161 size budget). The ADR carries the rules;
 this page carries the mechanism, tables and phase detail.
@@ -52,17 +52,17 @@ Meanwhile, the primitives the engine needs already exist and are proven:
   resolution so transforms never hardcode positions (ADR-0081).
 - `Fragment`/`FragmentSet`/`Language::merge` — the merge discipline every
   other engine's dispatch table uses.
-- The abstraction/impl crate pattern — `plugin-engine-exec` (marker +
-  request + trait) with `plugin-engine-exec-tree-walk` et al. behind it.
+- The abstraction/impl crate pattern — `plugin-exec` (marker +
+  request + trait) with `plugin-exec-tree-walk` et al. behind it.
 
 ## Decision
 
-### 1. Two crates, matching the `plugin-engine-exec` split
+### 1. Two crates, matching the `plugin-exec` split
 
 ```text
-plugin-engine-transform            abstraction — contract + vocabulary,
+plugin-tool-transform            abstraction — contract + vocabulary,
                                    no rewriting logic
-plugin-engine-transform-rewrite    first impl — rule-interpreting
+plugin-tool-transform-rewrite    first impl — rule-interpreting
                                    rewriting engine
 ```
 
@@ -145,11 +145,11 @@ FragmentSet<TransformDef>` and `transforms_for(pass, kind)`.
 **Placement:** `TransformDef`, `TransformRule`, `RewriteStep`, and
 `TransformCondition` live in `handl-language` (alongside `Scheme`,
 `EvalSchemeDef`, `AstShapeDef`) so `Language::merge` produces the dispatch
-table and the data crate stays self-contained. `plugin-engine-transform`
+table and the data crate stays self-contained. `plugin-tool-transform`
 holds only the operation layer (`Transform`, `TransformRequest`,
 `TransformEngine`, `TransformOutput`, `RuleSource`, `NativeRewrite`) — the
 same split as `Scheme` (kernel data, in `handl-language`) vs.
-`EvalEngine` (trait, in `plugin-engine-exec`).
+`EvalEngine` (trait, in `plugin-exec`).
 
 ### 3. The rewrite vocabulary generalizes `AstDesugarChild`
 
@@ -237,7 +237,7 @@ Default `LanguageRuleSource` reads `lang.transforms`. An alternate impl
 loads rules from a codemod file or extra YAML fragment set _without_
 merging into the `Language` — so "the language ships its own lowering" and
 "a user runs an ad-hoc codemod" are the same machinery (mirrors
-`TestProvider` in `plugin-engine-test`).
+`TestProvider` in `plugin-tool-test`).
 
 ### 6. Desugar migrates onto the engine
 
@@ -262,7 +262,7 @@ pub fn apply_desugar(lang: &Language, ast: &Ast) -> Result<Ast, LangError> {
   for backward compatibility with third-party fragments.
 - `try_rust_desugar` (`while`/`do-while`/`for`/`nullish`/`opt-chain`,
   ~4000 lines) moves verbatim into
-  `plugin-engine-transform-rewrite::native::desugar` behind
+  `plugin-tool-transform-rewrite::native::desugar` behind
   `NativeRewrite`. Each gets a `TransformDef { node_kind, rule:
 Native("desugar.<form>") }` — dispatch data-driven, implementation Rust.
   (The five fixed-shape forms were later migrated to declarative
@@ -276,14 +276,14 @@ Native("desugar.<form>") }` — dispatch data-driven, implementation Rust.
 ### 7. Crate layout
 
 ```text
-plugin-engine-transform/
+plugin-tool-transform/
   src/lib.rs        Transform marker, TransformEngine, Match
   src/request.rs    TransformRequest, TransformMode
   src/output.rs     TransformOutput, RewriteTrace, Rewrite
   src/source.rs     RuleSource, LanguageRuleSource
   src/native.rs     NativeRewrite trait, RewriteCtx
 
-plugin-engine-transform-rewrite/
+plugin-tool-transform-rewrite/
   src/lib.rs        RewriteEngine + run_pass/run_pipeline/apply_rule/
                     find_matches
   src/dispatch.rs   pass → kind → Vec<TransformDef> table
@@ -304,8 +304,8 @@ Dependency graph (no cycles):
 ```text
 handl-language                   TransformDef + RewriteStep +
                                  TransformCondition (data)
-plugin-engine-transform          Transform/Request/Engine/Trace/Source
-plugin-engine-transform-rewrite  RewriteEngine + native registry
+plugin-tool-transform          Transform/Request/Engine/Trace/Source
+plugin-tool-transform-rewrite  RewriteEngine + native registry
 handl-runtime                    calls RewriteEngine (drops
                                  try_rust_desugar)
 ```
@@ -342,20 +342,20 @@ handl-runtime                    calls RewriteEngine (drops
   `PayloadEq`, and the `desugar:` → first-class `transforms.yaml` table)
   have since landed.
 - **`handl-language` gains rule-vocabulary types** — a slight broadening
-  of "pure data" (the vocabulary is data; only `plugin-engine-transform`
+  of "pure data" (the vocabulary is data; only `plugin-tool-transform`
   has logic). Same trade-off already made for `Scheme`.
 
 ### Deferred (explicitly out of scope)
 
-`plugin-engine-transform-parallel` has been implemented and is no longer
+`plugin-tool-transform-parallel` has been implemented and is no longer
 outstanding.
 
 The layout-preserving AST→source emitter has been implemented in
-`handl-plugin-engine-fmt` as `PreserveEmitter` and is no longer out of scope.
+`handl-plugin-tool-fmt` as `PreserveEmitter` and is no longer out of scope.
 
-### Implemented: `plugin-engine-transform-parallel`
+### Implemented: `plugin-tool-transform-parallel`
 
-`plugin-engine-transform-parallel` provides a parallel `TransformEngine`
+`plugin-tool-transform-parallel` provides a parallel `TransformEngine`
 implementation that partitions a bottom-up pass at the root's top-level
 children. Each child subtree is processed by a cloned `RewriteEngine` running in
 a `std::thread::scope` worker; the child output arenas are merged with offset
@@ -396,7 +396,7 @@ engine — no `Runtime::parse`, which would pre-desugar per ADR-0082), runs
 the pass via `RewriteEngine::run_pass`/`run_pipeline` with
 `with_desugar_natives`, and renders the output arena as an indented tree
 (`kind` + payload summary), `--emit json`, or a preserving source rendering
-(`--emit source` / `--write`) using `handl-plugin-engine-fmt::PreserveEmitter`.
+(`--emit source` / `--write`) using `handl-plugin-tool-fmt::PreserveEmitter`.
 `--plan` lists match sites (kind + rule id, incl. `native:desugar.*` fallback
 sites) without applying; `--trace` prints each `Rewrite`; `--stats` prints
 `PassStats`.
@@ -411,7 +411,7 @@ field is superseded by a **first-class `transforms.yaml` data file** — a
 `handl-kit-data-canonical`'s `merge_fragments`/`language_from_yaml`/
 `language_from_dir` (optional on disk; absent = no first-class rules) and
 by the `transforms:` section of sectioned fragment docs (e.g.
-`plugin-engine-test`'s test-language fragment). The canonical `call` →
+`plugin-tool-test`'s test-language fragment). The canonical `call` →
 `json` and `entry` computed-key rules are authored there using the
 `RewriteStep`/`TransformCondition` vocabulary (`!Keep`, `!KeepRest`,
 `!Create`, `!KeepPath`, `!KindAt {index, kind}`). `AstShapeDef.desugar` and
@@ -488,7 +488,7 @@ of the decision, not follow-ups.
   diagnostics fail assembly; warnings do not, since shapes and native
   registries may arrive from other fragments/engines) _and_ under the CLI
   check path: `hnl typecheck` (the `hnl check` surface) builds its
-  `Language` in `plugin-engine-typecheck::bootstrap`, which cannot depend
+  `Language` in `plugin-tool-typecheck::bootstrap`, which cannot depend
   on `handl-kit-data-canonical` (cycle via `handl-runtime`), so it embeds
   the same nine YAML files and mirrors `merge_fragments` —
   `merge_ast_fragment` lowering, the `transforms.yaml` merge, and
@@ -546,7 +546,7 @@ BTreeMap<rule_id, usize>, duration }` alongside `RewriteTrace` — dead
 
 ### Splice-preserving emitter
 
-The `PreserveEmitter` in `handl-plugin-engine-fmt` renders a transformed AST
+The `PreserveEmitter` in `handl-plugin-tool-fmt` renders a transformed AST
 back to surface syntax while keeping the user's original formatting and
 comments wherever possible. It reuses the data-driven `FormatEngine` for all
 layout decisions and walks the output AST top-down:
@@ -589,9 +589,9 @@ surface-preserving passes can be turned back into usable source text.
 1. `handl-language`: `TransformDef` fragment + `TransformRule`/
    `RewriteStep`/`TransformCondition` vocabulary + `Language.transforms`
    table + `AstShapeDef::desugar → TransformDef` lowering at merge time.
-2. `plugin-engine-transform`: marker, request, output/trace, trait,
+2. `plugin-tool-transform`: marker, request, output/trace, trait,
    `RuleSource`, `NativeRewrite`/`RewriteCtx`.
-3. `plugin-engine-transform-rewrite`: `RewriteEngine` — the `apply_desugar`
+3. `plugin-tool-transform-rewrite`: `RewriteEngine` — the `apply_desugar`
    walk generalized; `native/desugar.rs` receives `try_rust_desugar`
    verbatim.
 4. `handl-runtime`: `apply_desugar` returns `Result` and delegates to
@@ -608,7 +608,7 @@ use of the transform engine. The exercise confirmed the engine generalizes as
 a **pattern matcher**; with `AstNode::span` now populated by the Pratt parser,
 the lint-to-fix chain is fully AST-derived for pattern-based rules. A
 layout-preserving AST→source emitter is now available in
-`handl-plugin-engine-fmt::PreserveEmitter` for use by the transform CLI and
+`handl-plugin-tool-fmt::PreserveEmitter` for use by the transform CLI and
 can be adopted by the LSP lint fix path.
 
 ### Findings
@@ -677,7 +677,7 @@ A second `quickfix` action is also offered for `lint.simplify-paren`:
 `RewriteEngine::find_matches` locates the matched `paren` site, then
 `RewriteEngine::apply_rule` is run against a companion `lsp-rewrite` pass
 rule and the transformed statement is re-emitted with
-`handl-plugin-engine-fmt::PreserveEmitter`, producing a `WorkspaceEdit` that
+`handl-plugin-tool-fmt::PreserveEmitter`, producing a `WorkspaceEdit` that
 replaces the whole statement. This exercises the `find_matches` →
 `apply_rule` → `RewriteTrace` → `PreserveEmitter` bridge end-to-end while
 leaving the existing text fix in place as a lighter-weight alternative.
@@ -717,7 +717,7 @@ The rule is data-driven:
 
 Because the rewrite must copy the original `string` payload into a newly
 allocated `var` leaf, the rule is `Native`. The implementation lives in the
-backend that opts in to lowering (`handl-plugin-engine-exec-bytecode` registers
+backend that opts in to lowering (`handl-plugin-exec-bytecode` registers
 `lower.object_key` and calls `RewriteEngine::run_pass(lang, ast, root,
 "lower")` from `BytecodeEngine::eval`). This keeps the canonical `Language`
 free of backend-specific payload-manipulation rules while proving that the
@@ -725,15 +725,15 @@ pass machinery, dispatch, and native seam are reusable beyond `desugar`.
 
 ### Backend normalization audit
 
-An audit of the two codegen backends (`plugin-engine-exec-bytecode` and
-`plugin-engine-exec-cranelift`) was performed to find `kind ==`/shape
+An audit of the two codegen backends (`plugin-exec-bytecode` and
+`plugin-exec-cranelift`) was performed to find `kind ==`/shape
 heuristics that could be retired by the `lower` pass. The candidates flagged
 in `AGENTS.md` were:
 
 - **Object-entry key `var`/`string` heuristic** — found in
-  `plugin-engine-exec-bytecode/src/compile.rs` (`try_extract_static_object_keys`),
-  `plugin-engine-exec-bytecode/src/vm.rs` (`object` native op), and
-  `plugin-engine-exec-cranelift/src/lib.rs` (object helper). This is the
+  `plugin-exec-bytecode/src/compile.rs` (`try_extract_static_object_keys`),
+  `plugin-exec-bytecode/src/vm.rs` (`object` native op), and
+  `plugin-exec-cranelift/src/lib.rs` (object helper). This is the
   only heuristic that reaches the codegen backends in a form the `lower` pass
   can remove: the existing `transform.lower.entry` + `lower.object_key` native
   rewrite `string` keys to the canonical `var` shape before the backend sees
@@ -761,9 +761,9 @@ not exercised.
 ### Cranelift parity
 
 `CraneliftEngine` does not yet opt in to the `lower` pass. Wiring it would
-require adding `plugin-engine-transform-rewrite` as a dependency, which risks
+require adding `plugin-tool-transform-rewrite` as a dependency, which risks
 introducing a dependency cycle: `handl-runtime` already depends on
-`plugin-engine-exec-cranelift`, and `plugin-engine-transform-rewrite` has a
+`plugin-exec-cranelift`, and `plugin-tool-transform-rewrite` has a
 dev-dependency on `handl-runtime`. Cranelift therefore retains the same
 `var`/`string` kind fallback with a cross-reference to this ADR section.
 
@@ -833,5 +833,5 @@ engine. End-to-end coverage: `plugin-lib-handl/tests/handl_transform.rs`.
   `role_index`.
 - ADR-0082 — desugar pipeline ordering (parse-time placement is
   preserved).
-- `crates/plugin-engine-exec` — the abstraction/impl split this follows.
+- `crates/plugin-exec` — the abstraction/impl split this follows.
 - `crates/handl-runtime/src/desugar_pass.rs` — the code being migrated.

@@ -174,16 +174,16 @@ handl-language              Language data schema + lex/parse/eval dispatch
 handl-runtime               binds a Language to engine impls
 
 ABSTRACTION (operation + trait, no engine)
-  plugin-engine-lex            from plugin-ext-lexer
-  plugin-engine-parse          from plugin-ext-parser
-  plugin-engine-exec           from plugin-ext-eval
+  plugin-tool-lex            from plugin-ext-lexer
+  plugin-tool-parse          from plugin-ext-parser
+  plugin-exec           from plugin-ext-eval
 
 ENGINE (interprets Language data)
-  plugin-engine-parse-pratt    reads grammar table, drives Pratt loop
-  plugin-engine-exec-tree-walk interprets schemes directly (tree-walk)
-  plugin-engine-exec-bytecode  compiles schemes to bytecode, executes
-  plugin-engine-exec-cranelift compiles schemes to native code
-  (future: plugin-engine-lex-logos)
+  plugin-tool-parse-pratt    reads grammar table, drives Pratt loop
+  plugin-exec-tree-walk interprets schemes directly (tree-walk)
+  plugin-exec-bytecode  compiles schemes to bytecode, executes
+  plugin-exec-cranelift compiles schemes to native code
+  (future: plugin-tool-lex-logos)
 ```
 
 The Pratt engine no longer calls `rule.prefix(token, ctx)` on a Rust
@@ -193,8 +193,8 @@ executes. Same for eval engines: they look up `lang.eval[node.kind]`, read
 the scheme, and interpret it — tree-walk executes directly, bytecode/cranelift
 compile to their respective targets.
 
-Swapping Pratt for chumsky means swapping `plugin-engine-parse-pratt` for
-`plugin-engine-parse-chumsky`. The `Language` and every grammar fragment stay
+Swapping Pratt for chumsky means swapping `plugin-tool-parse-pratt` for
+`plugin-tool-parse-chumsky`. The `Language` and every grammar fragment stay
 untouched.
 
 ### 4. Evaluation schemes as data, engines as interpreters
@@ -239,9 +239,9 @@ Each node kind maps to a scheme:
 
 Engines interpret schemes — they are not the schemes:
 
-- `plugin-engine-exec-tree-walk` — interprets schemes directly (tree-walk)
-- `plugin-engine-exec-bytecode` — compiles schemes to bytecode, executes
-- `plugin-engine-exec-cranelift` — compiles schemes to native code
+- `plugin-exec-tree-walk` — interprets schemes directly (tree-walk)
+- `plugin-exec-bytecode` — compiles schemes to bytecode, executes
+- `plugin-exec-cranelift` — compiles schemes to native code
 
 Adding an engine does not require the `Language` to change. Same property as
 swapping Pratt for chumsky. The scheme description is the stable contract; the
@@ -260,9 +260,9 @@ surface construct
     ▼
 core scheme (combinators)
     │
-    ├── tree-walk interprets       (plugin-engine-exec-tree-walk)
-    ├── bytecode compiler emits    (plugin-engine-exec-bytecode)
-    └── cranelift compiler emits   (plugin-engine-exec-cranelift)
+    ├── tree-walk interprets       (plugin-exec-tree-walk)
+    ├── bytecode compiler emits    (plugin-exec-bytecode)
+    └── cranelift compiler emits   (plugin-exec-cranelift)
 ```
 
 #### Foreign as data, not Rust escape
@@ -544,30 +544,30 @@ triples — is shared across parser engines.
 
 **Unit tests (inline in each crate):**
 
-- `plugin-engine-lex`: `Lexer` operation marker, `LexerRequest`
+- `plugin-tool-lex`: `Lexer` operation marker, `LexerRequest`
   construction, trait dispatch to engine.
-- `plugin-engine-parse`: `Parser` operation marker, `ParserRequest`
+- `plugin-tool-parse`: `Parser` operation marker, `ParserRequest`
   construction, `ParserContext` API (`peek`, `advance`, `expression`).
-- `plugin-engine-exec`: `Eval` operation marker, `EvalRequest`
+- `plugin-exec`: `Eval` operation marker, `EvalRequest`
   construction, `Scheme` interpretation entry point.
-- `plugin-engine-parse-pratt`: reads `Language.grammar` data, drives Pratt
+- `plugin-tool-parse-pratt`: reads `Language.grammar` data, drives Pratt
   loop for each grammar row type (prefix-only, infix-only, both), binding
   power precedence, EOF handling, unexpected token error, empty input.
-- `plugin-engine-exec-tree-walk`: interprets every `Scheme` combinator
+- `plugin-exec-tree-walk`: interprets every `Scheme` combinator
   (`Lit`, `Var`, `Child`, `Bind`, `App`, `Branch`, `Prim`, `Foreign`),
   scope extension for `Bind`, recursion via `Child`, `Foreign` dispatch to
   registered host function, `Foreign` for unregistered name (error).
 
 **Integration tests (`tests/` per crate):**
 
-- `plugin-engine-parse-pratt/tests/parse_conformance.rs` — runs the parse
+- `plugin-tool-parse-pratt/tests/parse_conformance.rs` — runs the parse
   conformance suite against the Pratt engine.
-- `plugin-engine-exec-tree-walk/tests/eval_conformance.rs` — runs the eval
+- `plugin-exec-tree-walk/tests/eval_conformance.rs` — runs the eval
   conformance suite against the tree-walk engine.
 
-**Coverage gate:** `cargo llvm-cov -p handl-plugin-engine-lex -p
-handl-plugin-engine-parse -p handl-plugin-engine-exec -p
-handl-plugin-engine-parse-pratt -p handl-plugin-engine-exec-tree-walk
+**Coverage gate:** `cargo llvm-cov -p handl-plugin-tool-lex -p
+handl-plugin-tool-parse -p handl-plugin-exec -p
+handl-plugin-tool-parse-pratt -p handl-plugin-exec-tree-walk
 --fail-under 100`.
 
 #### Phase 3 — `handl-runtime`
@@ -639,7 +639,7 @@ handl-plugin-engine-parse-pratt -p handl-plugin-engine-exec-tree-walk
 **Coverage gate:** `cargo llvm-cov -p handl-kit-canonical -p handl-kit-config
 -p handl-kit-server -p handl-kit-cli --fail-under 100`.
 
-#### Phase 6 — `plugin-engine-exec-bytecode`
+#### Phase 6 — `plugin-exec-bytecode`
 
 **Unit tests:**
 
@@ -655,10 +655,10 @@ handl-plugin-engine-parse-pratt -p handl-plugin-engine-exec-tree-walk
   the bytecode engine. **Every triple must match the tree-walk engine's
   output.** This is the cross-engine conformance gate.
 
-**Coverage gate:** `cargo llvm-cov -p handl-plugin-engine-exec-bytecode
+**Coverage gate:** `cargo llvm-cov -p handl-plugin-exec-bytecode
 --fail-under 100`.
 
-#### Phase 7 — `plugin-engine-exec-cranelift`
+#### Phase 7 — `plugin-exec-cranelift`
 
 **Unit tests:**
 
@@ -672,7 +672,7 @@ handl-plugin-engine-parse-pratt -p handl-plugin-engine-exec-tree-walk
   the cranelift engine. **Every triple must match tree-walk and bytecode.**
   Three-way conformance gate.
 
-**Coverage gate:** `cargo llvm-cov -p handl-plugin-engine-exec-cranelift
+**Coverage gate:** `cargo llvm-cov -p handl-plugin-exec-cranelift
 --fail-under 100`.
 
 #### Phase 8 — Self-hosting
@@ -719,12 +719,12 @@ above.
 
 ### Phase 2 — `plugin-engine-*` abstractions and engines
 
-Split `plugin-ext-lexer` → `plugin-engine-lex` + (engine stays in
-`plugin-engine-parse-pratt`'s lexer half, or a dedicated lexer engine later).
-Split `plugin-ext-parser` → `plugin-engine-parse` (abstraction) +
-`plugin-engine-parse-pratt` (engine reading `Language` grammar data). Split
-`plugin-ext-eval` → `plugin-engine-exec` (abstraction) +
-`plugin-engine-exec-tree-walk` (engine interpreting `Scheme` data). Engines
+Split `plugin-ext-lexer` → `plugin-tool-lex` + (engine stays in
+`plugin-tool-parse-pratt`'s lexer half, or a dedicated lexer engine later).
+Split `plugin-ext-parser` → `plugin-tool-parse` (abstraction) +
+`plugin-tool-parse-pratt` (engine reading `Language` grammar data). Split
+`plugin-ext-eval` → `plugin-exec` (abstraction) +
+`plugin-exec-tree-walk` (engine interpreting `Scheme` data). Engines
 consume `Language` data, not Rust `Behavior` impls.
 
 **Testing:** see [Phase 2 coverage requirements](#phase-2--plugin-engine--
@@ -757,7 +757,7 @@ migration, files after) and select a `Runtime`, instead of registering
 **Testing:** see [Phase 5 coverage requirements](#phase-5--kits-select-
 language--runtime) above.
 
-### Phase 6 — `plugin-engine-exec-bytecode`
+### Phase 6 — `plugin-exec-bytecode`
 
 Build the bytecode engine: compiles `Scheme` data to a bytecode
 representation, executes via a bytecode VM. Shares the same scheme vocabulary
@@ -768,7 +768,7 @@ performance path.
 **Testing:** see [Phase 6 coverage requirements](#phase-6--plugin-engine-
 eval-bytecode) above.
 
-### Phase 7 — `plugin-engine-exec-cranelift`
+### Phase 7 — `plugin-exec-cranelift`
 
 Build the cranelift engine: compiles `Scheme` data to native code via
 cranelift. Shares the same scheme vocabulary; conformance tests verify

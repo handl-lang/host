@@ -33,10 +33,10 @@ Establish a strict crate-discipline rule:
    - They are the only crates that may embed canonical handl rule data or register a `hnl` subcommand.
 
 3. Existing violations must be remediated:
-   - Create `plugin-ext-typecheck` and move the canonical `check_module` entry point out of `plugin-engine-typecheck`. `plugin-engine-typecheck` should retain only the generic `Typecheck` operation abstraction and the modular engine implementations; `plugin-ext-typecheck` is the canonical `hnl typecheck` wrapper.
-   - Merge `plugin-engine-typecheck-nbe` into `plugin-engine-typecheck` as an internal `nbe` module.
-   - Convert the arrow-contract inference algorithm from `plugin-ext-refinement` into a `refinement` module inside `plugin-engine-typecheck`. Remove `plugin-ext-refinement` and the `hnlc` binary.
-   - Add a `composite` (or `pipeline`) module in `plugin-engine-typecheck` that runs `nbe` then `refinement` on the appropriate fragments.
+   - Create `plugin-ext-typecheck` and move the canonical `check_module` entry point out of `plugin-tool-typecheck`. `plugin-tool-typecheck` should retain only the generic `Typecheck` operation abstraction and the modular engine implementations; `plugin-ext-typecheck` is the canonical `hnl typecheck` wrapper.
+   - Merge `plugin-tool-typecheck-nbe` into `plugin-tool-typecheck` as an internal `nbe` module.
+   - Convert the arrow-contract inference algorithm from `plugin-ext-refinement` into a `refinement` module inside `plugin-tool-typecheck`. Remove `plugin-ext-refinement` and the `hnlc` binary.
+   - Add a `composite` (or `pipeline`) module in `plugin-tool-typecheck` that runs `nbe` then `refinement` on the appropriate fragments.
 
 4. No `plugin-ext-*` crate may implement a generic algorithm. No `plugin-engine-*` crate may expose a `bin` target or a `hnl` capability.
 
@@ -62,8 +62,8 @@ The workspace contains `plugin-engine-*` and `plugin-ext-*` crates, but the dist
 - `plugin-engine-*` — where this is true.
 - `plugin-ext-*` — where this is true.
 - `plugin-ext-typecheck` — where this is true.
-- `plugin-engine-typecheck` — where this is true.
-- `plugin-engine-typecheck-nbe` — where this is true.
+- `plugin-tool-typecheck` — where this is true.
+- `plugin-tool-typecheck-nbe` — where this is true.
 
 ## Design
 

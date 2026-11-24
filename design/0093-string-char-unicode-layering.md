@@ -117,7 +117,7 @@ incidental bugs. Anyone editing `field_access`, the module chain, or arrow
 application must preserve them.
 
 1. **`eval.field-access` is `source: Native`.** The `field_access` op in
-   `plugin-engine-exec-tree-walk` operates on `TaggedValue::Obj`/`Arr` in the
+   `plugin-exec-tree-walk` operates on `TaggedValue::Obj`/`Arr` in the
    engine. It must not be a `!Foreign` host call: passing a record of closures
    through `serde_json` recursively serialized every `Arrow`'s captured
    environment, causing exponential allocation and OOM at ~20 bindings.

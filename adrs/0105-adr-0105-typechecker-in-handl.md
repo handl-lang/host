@@ -47,7 +47,7 @@ model plus a thin adapter keeps the engine generic and makes typing data.
 ## Enforcement
 - `project/design/adr0103/typecheck_model.hnl`, `scope_model.hnl`,
   `totality_model.hnl`.
-- `engine-typecheck-nbe` — the engine + adapter.
+- `tool-typecheck-nbe` — the engine + adapter.
 - Type-model parity tests.
 
 ## Design

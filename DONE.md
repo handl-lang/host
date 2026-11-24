@@ -6,10 +6,10 @@
 - T-105 sweep engine-\*/ext-\*/compile-\*/sdkgen-\*: README + vendor xtask + Cargo metadata + LICENSE · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-108 sweep pitch-\* + bare/oddballs: README per pitch.md/bare.md · pri:low · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-106 sweep kit-\*/host-\*: README + vendor xtask + metadata (transitional pending hnl migration) · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
-- T-113 fix cargo xtask alias for 13 repos where .cargo/ is gitignored (engine-eqsat, engine-exec\*, engine-fmt, engine-lex\*, engine-lint, engine-parse\*, engine-transform\*, engine-typecheck\*) — README dev command or gitignore exception · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
+- T-113 fix cargo xtask alias for 13 repos where .cargo/ is gitignored (engine-eqsat, exec\*, tool-fmt, tool-lex\*, tool-lint, tool-parse\*, tool-transform\*, tool-typecheck\*) — README dev command or gitignore exception · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-104 sweep lib-\*: README normalize/create + LICENSE + pkg.hnl annotations · pri:high · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-114 license unification: dual MIT OR Apache-2.0 → single MIT (delete LICENSE-APACHE, license="MIT", ensure LICENSE file) across ~40 repos — user directive 'all MIT' · pri:high · owner:devin · created:2026-11-20 · #license · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
-- T-109 rename prep (local): sdkgen-\*→tool-sdkgen-\*, compile-\*→engine-compile-\*, slidev-theme→slidev-theme-handl, mlopt→research-mlopt, host-tensor→? · owner:devin · created:2026-11-20 · #rename · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
+- T-109 rename prep (local): sdkgen-\*→tool-sdkgen-\*, compile-\*→tool-compile-\*, slidev-theme→slidev-theme-handl, mlopt→research-mlopt, host-tensor→? · owner:devin · created:2026-11-20 · #rename · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-111 deferred publishing batch: GH repo creates/renames/pushes — needs user approval · owner:human:luis · created:2026-11-20 · #blocked · #publish · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-22
 - T-122 kit selection via .handl.toml (no hnl.hnl): kit = name-or-path key, walk UP from file dir to find nearest .handl.toml containing kit; fallback ~/.config/handl/.handl.toml; explicit --kit flag wins; REPLACE semantics (project kit replaces global, not union); extends/layering later; merges into existing dep map alongside .handl.toml deps · owner:agent · created:2026-11-22 · links:P-004 · epic:weekend-2026-11-20 · done:2026-11-23
 - T-134 sdkgen-webidl: fix empty field names for unresolvable attribute types (NotRestoredReasons bug) · created:2026-11-23 · done:2026-11-23
@@ -24,8 +24,8 @@
 - T-124 Fold kit-prelude-lang + kit-data-prelude (Language-as-data) into host · created:2026-11-23 · done:2026-11-23
 - T-125 Fold kit-stdlib/kit-server/kit-ffi/kit-lang module bundles into host · created:2026-11-23 · done:2026-11-23
 - T-126 Fold kit-prelude facade + kit-eqsat data crate into host · created:2026-11-23 · done:2026-11-23
-- T-128 engine-watch: Rust fs-event engine (inotify) + lib-watch .hnl contract/binding · created:2026-11-23 · done:2026-11-23
+- T-128 tool-watch: Rust fs-event engine (inotify) + lib-watch .hnl contract/binding · created:2026-11-23 · done:2026-11-23
 - T-131 lib-log contract + lib-log-c + lib-log-js backends · created:2026-11-23 · done:2026-11-23
-- T-132 lib-mock spies/stubs + coverage phase for engine-test parity · created:2026-11-23 · done:2026-11-23
+- T-132 lib-mock spies/stubs + coverage phase for tool-test parity · created:2026-11-23 · done:2026-11-23
 - T-133 lib-concurrent-js: concurrent.Run over MessageChannel/setTimeout/Atomics (isomorphic runtime) · created:2026-11-23 · done:2026-11-23
-- T-135 engine-test+ext-test: push watch commits (engine-test first, then ext-test) · created:2026-11-23 · done:2026-11-23
+- T-135 tool-test+ext-test: push watch commits (tool-test first, then ext-test) · created:2026-11-23 · done:2026-11-23

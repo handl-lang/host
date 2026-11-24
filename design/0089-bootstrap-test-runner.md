@@ -1,12 +1,12 @@
 ---
-title: Bootstrap Test Runner (`plugin-engine-test`) — design detail
+title: Bootstrap Test Runner (`plugin-tool-test`) — design detail
 type: design
 date: 2026-10-15
 updated: 2026-10-29
 refs: [ADR-0089]
 ---
 
-# ADR-0089: Bootstrap Test Runner (`plugin-engine-test`) — design detail
+# ADR-0089: Bootstrap Test Runner (`plugin-tool-test`) — design detail
 
 Moved verbatim from ADR-0089 (ADR-0161 size budget). The ADR carries the rules;
 this page carries the mechanism, tables and rationale.
@@ -42,7 +42,7 @@ test fragment is merged in.
 
 ## Decision
 
-**Create a new `plugin-engine-test` crate** as the home of the Rust test
+**Create a new `plugin-tool-test` crate** as the home of the Rust test
 runner, extracting the runner out of `plugin-lib-test`. Architect it as a
 **production pipeline** with stable contracts between stages: land the
 boundaries now, ship simple initial implementations for each. Future
@@ -52,7 +52,7 @@ features become new implementations/compositions, not architectural surgery.
 
 | Crate                          | Role                                                                                                  | Fate                                                                                 |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `plugin-engine-test` (**new**) | Test runner: discovery, index, filter, planner, scheduler, engine, result store, summarizer, reporter | Created by this ADR; stays Rust per ADR-0085 rule 6                                  |
+| `plugin-tool-test` (**new**) | Test runner: discovery, index, filter, planner, scheduler, engine, result store, summarizer, reporter | Created by this ADR; stays Rust per ADR-0085 rule 6                                  |
 | `plugin-lib-test`              | Framework library: `assert`/`property`/`benchmark`/`fuzz`/`snapshot` + `test.hnl` op wiring           | Migrated to handl by [ADR-0092](./0092-test-framework-in-handl.md), then **deleted** |
 
 The runner depends on the framework library (tests call `assert.*` etc.),
@@ -305,7 +305,7 @@ Several pipeline stages are **generic platform systems**, not test-runner
 inventions. The runner is a _consumer_ of these; the concepts in the
 sections above are the runner's consumer-side glue (policies, test-specific
 fields, composition). The principle: **if another tool would want it, it
-does not belong in `plugin-engine-test`.**
+does not belong in `plugin-tool-test`.**
 
 | Generic system                                                    | Home                                                                                 | State                                                                                                    | Runner contributes                                                                                 |
 | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -366,7 +366,7 @@ fragment; the stdlib's test suites are integration fixtures.
 
 ## Consequences
 
-- **The runner gets its own crate** (`plugin-engine-test`), cleanly
+- **The runner gets its own crate** (`plugin-tool-test`), cleanly
   separated from the framework library. ADR-0092 can delete `plugin-lib-test`
   without touching the runner.
 - **The runner is production-architected, not a throwaway.** RFC-0005
@@ -393,7 +393,7 @@ fragment; the stdlib's test suites are integration fixtures.
 
 ## Prerequisites
 
-1. **Create `crates/plugin-engine-test`** and extract `runner.rs` (and
+1. **Create `crates/plugin-tool-test`** and extract `runner.rs` (and
    runner-only helpers) out of `plugin-lib-test`. The framework-library
    modules stay in `plugin-lib-test` pending ADR-0092.
 2. **Author the test-language fragment** (YAML): `test`, `property`,

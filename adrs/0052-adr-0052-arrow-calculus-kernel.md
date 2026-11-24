@@ -60,7 +60,7 @@ construct has exactly one arrow reading.
 ## Enforcement
 - `kernel/` — `Term`/`Value` and the arrow constructors.
 - `crates/handl-kit-data-canonical/data/eval.yaml` — the schemes.
-- `engine-exec-*` — the interpreters that agree value-for-value.
+- `exec-*` — the interpreters that agree value-for-value.
 
 ## Design
 +The lowering table, `proc` surface, handlers and feedback semantics:

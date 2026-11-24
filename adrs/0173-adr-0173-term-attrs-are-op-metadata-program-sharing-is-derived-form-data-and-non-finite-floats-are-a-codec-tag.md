@@ -11,7 +11,7 @@ type: adr
 date: 2026-11-22
 status: accepted
 status_note: "Draft — Phase-0 design for ADR-0172. Answers the three calculus gaps the term_ir_spike measured (graphopt/docs/reports/term_ir_spike.md §5): attrs slot, DAG sharing, non-finite literals. Recommendation: one optional field on Term::Op; sharing stays out of the closed Term vocabulary (env leaves + engine hash-consing + an Opaque-carried dag record); __nonfinite__ adopted as a codec-profile convention, not a serde change. Implementation state (audit_pass_1): `Term::Op.attrs` landed across ~14 repos with serde contract tests; `__nonfinite__`/`dag.program` codec envelopes landed in graphopt v0.1.5 (`hnl_codec.py`). Ratified by user 2026-11-22."
-applies_to: '`hnl-engine` term kernel (engine/src/term.rs, term_data.rs, term_interpreter.rs, nbe.rs), `handl-language` crate, `egraph` term_bridge, engine-exec-* consumers, tensor Language fragment codec (graphopt term_hnl/hnl_import/hnl_surface)'
+applies_to: '`hnl-engine` term kernel (engine/src/term.rs, term_data.rs, term_interpreter.rs, nbe.rs), `handl-language` crate, `egraph` term_bridge, exec-* consumers, tensor Language fragment codec (graphopt term_hnl/hnl_import/hnl_surface)'
 ---
 
 # ADR-0173: Term attrs are op metadata, program sharing is derived-form data, and non-finite floats are a codec tag
@@ -160,8 +160,8 @@ is the remaining step.
   capabilities, desugar, dynamic_handlers, law_inference,
   quantified_laws, fragment_set, fragments/*), `egraph/src/
   term_bridge.rs` (attrs ↔ `TermAttr` pairs both directions),
-  `engine-exec-bytecode`, `engine-exec-cranelift`,
-  `engine-typecheck-nbe`, `compile-js`/`compile-llvm` lowers,
+  `exec-bytecode`, `exec-cranelift`,
+  `tool-typecheck-nbe`, `compile-js`/`compile-llvm` lowers,
   `host` plugins (`plugin-ext-refinement`, `plugin-lib-handl`,
   `handl-runtime`), plus tests. Compile-enforced; no semantic change
   when `None`.

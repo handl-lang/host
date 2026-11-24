@@ -26,8 +26,8 @@ layers are the structure.
 
 ```
 KERNEL     kernel/  engine/  (handl-language, handl-value)
-INTERPRET  engine-exec-*  engine-typecheck-*  engine-transform-*
-           engine-lex/parse/fmt/lint  compile-*  (emitters)
+INTERPRET  exec-*  tool-typecheck-*  tool-transform-*
+           tool-lex/parse/fmt/lint  compile-*  (emitters)
 HOST       host/  host-cli  host-lsp   (dumb platform + op registry)
 KIT        kit-prelude  kit-prelude-lang  kit-data-prelude
            kit-mlopt  kit-torch  kit-onnx  kit-kernel  kit-eqsat

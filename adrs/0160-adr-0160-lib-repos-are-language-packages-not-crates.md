@@ -42,7 +42,7 @@ Rust shells as the loader learns to fetch deps.**
 4. **The shell is a bug, not a feature.** It is removed in the same change that
    gives the loader git deps — never repo-by-repo, because a repo whose shell is
    gone while the loader cannot fetch it becomes unbuildable for its consumers.
-5. **Consumers move to packages**: `engine-test` (and any other Rust consumer)
+5. **Consumers move to packages**: `tool-test` (and any other Rust consumer)
    loads the module through the loader instead of `include_str!`.
 
 
@@ -66,7 +66,7 @@ The `lib-*` split (ADR-0128) made each stdlib port a repo. The contract is a Han
 
 - `lib-*` — where this is true.
 - `lib-lang-*` — where this is true.
-- `engine-test` — where this is true.
+- `tool-test` — where this is true.
 - `plugin-lib-handl` — where this is true.
 - `lib-pred/src/lib.rs` — where this is true.
 

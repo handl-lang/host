@@ -31,7 +31,7 @@ status_note: |-
 
 Extract `try_pattern`, `try_array_pattern`, `try_object_pattern`, and
 `rest_binder_name` into a shared module in
-`handl-plugin-engine-exec` (the abstraction crate all three engines
+`handl-plugin-exec` (the abstraction crate all three engines
 already depend on). The shared module exposes a `PatternMatchCtx` trait
 that abstracts the two engine-specific operations pattern matching
 needs:

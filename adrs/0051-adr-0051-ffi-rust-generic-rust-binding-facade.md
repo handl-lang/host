@@ -173,7 +173,7 @@ everything through `HostFn`.
 
 The first concrete use of the façade is the ADR-0050 bootstrap bridge: a `ModuleBinding`
 named `"ast"` with functions `parse` and `lex`, each a closure that calls into the existing
-Rust parser (`plugin-engine-parse-pratt`) and returns the AST/tokens as `serde_json::Value`.
+Rust parser (`plugin-tool-parse-pratt`) and returns the AST/tokens as `serde_json::Value`.
 No new `plugin-lib-ast` crate with hand-written trait impls; one `ModuleBinding` table in
 the host's composition code.
 

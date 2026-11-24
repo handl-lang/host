@@ -39,9 +39,9 @@ production-grade tooling today.
 The good news from an inventory of the existing platform: a substantial,
 already-generic Rust substrate exists and works — the plugin system
 (`platform` crate: `Capability`/`Plugin`/`Kit`/`Host`), the capability
-extensions (`plugin-ext-*`), and the generic engines (`plugin-engine-lex`,
-`plugin-engine-parse`, `plugin-engine-parse-pratt`,
-`plugin-engine-exec*`, `plugin-engine-typecheck*`). Much of the work is
+extensions (`plugin-ext-*`), and the generic engines (`plugin-tool-lex`,
+`plugin-tool-parse`, `plugin-tool-parse-pratt`,
+`plugin-exec*`, `plugin-tool-typecheck*`). Much of the work is
 done; it just was never focused into a concrete toolchain for the arrow
 surface.
 
@@ -55,7 +55,7 @@ are created:
 | ------------------ | --------------------------------------------------------------------------------- |
 | Formatter          | `plugin-ext-fmt` (canonical style hardcoded in its rules)                         |
 | Linter             | `plugin-ext-lint` (canonical rule set over the generic registry)                  |
-| Typechecker        | `plugin-engine-typecheck`, `plugin-typecheck-core`, `plugin-typecheck-nbe`        |
+| Typechecker        | `plugin-tool-typecheck`, `plugin-typecheck-core`, `plugin-typecheck-nbe`        |
 | Test runner        | `plugin-lib-test` (plus its capability wiring)                                    |
 | CLI                | `host-cli` + `plugin-ext-cli` (thin dispatch over the above)                      |
 | Shared diagnostics | **new `plugin-ext-diag`** (see ADR-0091) — one home for `Diagnostic`/`Span`/`Fix` |

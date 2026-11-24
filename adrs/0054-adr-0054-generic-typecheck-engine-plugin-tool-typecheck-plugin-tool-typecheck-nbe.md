@@ -1,12 +1,12 @@
 +++
 id = "ADR-0054"
-title = "ADR-0054: Generic Typecheck Engine (`plugin-engine-typecheck` + `plugin-engine-typecheck-nbe`)"
+title = "ADR-0054: Generic Typecheck Engine (`plugin-tool-typecheck` + `plugin-tool-typecheck-nbe`)"
 status = "open"
 priority = "med"
 +++
 
 ---
-title: Generic Typecheck Engine (`plugin-engine-typecheck` + `plugin-engine-typecheck-nbe`)
+title: Generic Typecheck Engine (`plugin-tool-typecheck` + `plugin-tool-typecheck-nbe`)
 type: adr
 date: 2026-09-01
 updated: 2026-10-29
@@ -15,7 +15,7 @@ status_note: Accepted — completes the data-driven typecheck stage; rules are d
 refs: [ADR-0032, ADR-0044, ADR-0052, ADR-0055]
 ---
 
-# ADR-0054: Generic Typecheck Engine (`plugin-engine-typecheck` + `plugin-engine-typecheck-nbe`)
+# ADR-0054: Generic Typecheck Engine (`plugin-tool-typecheck` + `plugin-tool-typecheck-nbe`)
 
 ## Decision
 
@@ -24,10 +24,10 @@ refs: [ADR-0032, ADR-0044, ADR-0052, ADR-0055]
    other rules.
 2. **Judgment ops are `Arr` ops** (unify, quote, normalize, meta-solve,
    universe `max`, …), so rules compose with the same kernel as `lang.eval`.
-3. **`plugin-engine-typecheck` is the abstraction crate** — marker,
+3. **`plugin-tool-typecheck` is the abstraction crate** — marker,
    `TypecheckRequest`, `TypecheckEngine`; no engine code, mirroring
    lex/parse/eval.
-4. **`plugin-engine-typecheck-nbe` implements `TypecheckEngine`.** NBE —
+4. **`plugin-tool-typecheck-nbe` implements `TypecheckEngine`.** NBE —
    `unify`, `quote`/`normalize`, metavariable solving, universe `max` — is the
    implementation behind the trait, not the interface.
 5. **Typecheck is wired on `RuntimeHandle` (pure path).** Types are values, so
@@ -62,8 +62,8 @@ behind a trait. This moves dispatch, not theory.
 
 ## Enforcement
 
-- `crates/plugin-engine-typecheck/` — marker, request, engine trait.
-- `crates/plugin-engine-typecheck-nbe/` — the NBE implementation.
+- `crates/plugin-tool-typecheck/` — marker, request, engine trait.
+- `crates/plugin-tool-typecheck-nbe/` — the NBE implementation.
 - `crates/handl-kit-data-canonical/data/types.yaml` — the authored rules.
 - `crates/plugin-lib-lang-typecheck/` — `typecheck.typecheck(lang, ast)`.
 

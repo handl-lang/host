@@ -26,7 +26,7 @@ status_note: |-
 
 
 The linter work lands in `plugin-ext-lint`: a **canonical rule set** over
-the v0.1 surface AST (`handl-language` AST via `plugin-engine-parse`),
+the v0.1 surface AST (`handl-language` AST via `plugin-tool-parse`),
 running on the crate's existing generic rule/capability registry. No config
 files. Diagnostics use the shared types from `plugin-ext-diag` (ADR-0091).
 
@@ -88,7 +88,7 @@ The stdlib will be the first large body of arrow-surface handl code (ADR-0077). 
 ## Enforcement
 
 - `plugin-ext-lint` — where this is true.
-- `plugin-engine-parse` — where this is true.
+- `plugin-tool-parse` — where this is true.
 - `plugin-ext-diag` — where this is true.
 - `plugin-ext-fmt` — where this is true.
 

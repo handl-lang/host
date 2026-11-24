@@ -34,7 +34,7 @@ status_note: Proposed — the calculus is a directed (∞,1)-category; 1-cells s
 8. **Directed paths**: `Term` is a directed (∞,1)-category; the 2-cells are
    directed rewrites, not invertible in general.
 9. **Implementation**: add `Term::Rewrite`, `law`/`rewrite` declarations,
-   `Model::rewrite`, make `plugin-engine-transform` the `OptimizerModel`, add
+   `Model::rewrite`, make `plugin-tool-transform` the `OptimizerModel`, add
    `transport`/`equiv`, and the `Path` sort.
 10. **Keep the 1-categorical engine**: evaluation never requires 2-cells; a
     model may return `Unsupported` for `Rewrite` nodes.
@@ -59,7 +59,7 @@ only way the optimizer and the evaluator share one theory.
 ## Enforcement
 - `engine/` — `Term`, `Model`, `Rewrite`.
 - `crates/handl-kit-data-canonical/data/` — `law`/`rewrite`/`Path` rows.
-- `engine-transform*` — the `OptimizerModel`.
+- `tool-transform*` — the `OptimizerModel`.
 
 ## Design
 +The 2-category presentation, model family, univalence/transport, grades and the

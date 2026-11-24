@@ -63,19 +63,19 @@ per-repo. Two rules keep the derived set honest:
 | substrate | `kernel`, `engine` bases, `engine-*-impl` that are load-bearing (`-pattern`, `-pratt`, `-tree-walk`, `-bytecode`, `-rewrite`, `-typecheck`), `.hnl` eval deps (`lib-desugar`, `lib-loader`, `lib-str-handl`, `lib-char{,-native}`), `host`, `host-tensor`, `kit-prelude-lang` | public at launch |
 | research | `research-mlopt`, `egraph`, `discovery` | public |
 | surface | `docs`, `slidev-theme` | public |
-| tooling | `engine-lint`, `engine-fmt`, `engine-test`, `ext-*`, `host-cli`, `host-lsp`, `kit-*`, remaining `lib-*` ports | private until done |
+| tooling | `tool-lint`, `tool-fmt`, `tool-test`, `ext-*`, `host-cli`, `host-lsp`, `kit-*`, remaining `lib-*` ports | private until done |
 
 ## Consequences
 
-- `engine-lint` leaves the mlopt closure permanently (adapter moved).
-- `engine-exec-bytecode` / `engine-typecheck` stay in the closure —
+- `tool-lint` leaves the mlopt closure permanently (adapter moved).
+- `exec-bytecode` / `tool-typecheck` stay in the closure —
   the `.hnl` loader runs on bytecode, and `handl-runtime` re-exports
   the `TypecheckEngine` interface. Both are substrate, not severable;
   they flip public at launch.
 - Eight private repos remain in the closure today
   (`lib-desugar`, `lib-loader`, `lib-str-handl`, `lib-char`,
-  `lib-char-native`, `engine-transform-rewrite`,
-  `engine-exec-bytecode`, `engine-typecheck`) — a single visibility
+  `lib-char-native`, `tool-transform-rewrite`,
+  `exec-bytecode`, `tool-typecheck`) — a single visibility
   flip each, no code change.
 - Public repos' `cargo test` may still pull private dev-deps; the
   public guarantee is `cargo build`.

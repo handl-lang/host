@@ -128,13 +128,13 @@ The `plugin-ext-*` tooling plugins (`fmt`, `lint`, and the proposed `typecheck`/
 - **No `platform` change.** The seam stays as it is; nothing new to learn.
 - **Portable** — works in-process, in WASM, and in a child process. The
 - A host serializes once and reuses, so the 180 KiB is a startup cost, not a
-- Precedent exists: `plugin-engine-typecheck-handl` already marshals a
+- Precedent exists: `plugin-tool-typecheck-handl` already marshals a
 - ~180 KiB compact JSON (542 KiB pretty) per distinct language, plus a
 
 ## Enforcement
 
 - `plugin-ext-*` — where this is true.
-- `plugin-engine-typecheck-handl` — where this is true.
+- `plugin-tool-typecheck-handl` — where this is true.
 - `host-lsp` — where this is true.
 - `kit-canonical` — where this is true.
 - `host-cli` — where this is true.

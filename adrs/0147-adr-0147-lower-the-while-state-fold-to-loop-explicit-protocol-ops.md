@@ -56,7 +56,7 @@ projects it). `body` reproduces the `loop_step` protocol in combinators:
    `id` for a single param) — the `build_loop_step_args` contract.
 3. A new `loop_outcome` op maps the step result: `{state: v}` → `right(v)`
    (continue), `{out: v}` → `left(v)` (terminate), bare `v` → `left(v)` —
-   exactly `loop_step_outcome` in `plugin-engine-exec`. It is implemented
+   exactly `loop_step_outcome` in `plugin-exec`. It is implemented
    in both `plugin-engine`'s term interpreter and `apply_native`, so the
    emitted term keeps its meaning whether it runs on the arrow interpreter
    or embedded in a `__term__`/handler term under the tree-walk.

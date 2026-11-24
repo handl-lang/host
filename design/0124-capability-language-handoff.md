@@ -41,7 +41,7 @@ changes the decision. Verified:
   data"*, and it derives `Serialize, Deserialize` with **no `serde(skip)`**
   fields (`handl-language/src/language.rs`).
 - It is **already marshalled to JSON today**:
-  `plugin-engine-typecheck-handl::marshal_language` does
+  `plugin-tool-typecheck-handl::marshal_language` does
   `serde_json::to_value(lang)` and hands the result to the handl-written
   typechecker model.
 - Measured size of the canonical language: **180 KiB** compact JSON
@@ -153,7 +153,7 @@ out-of-process callers:
   side-channel could not do this.
 - A host serializes once and reuses, so the 180 KiB is a startup cost, not a
   per-call one.
-- Precedent exists: `plugin-engine-typecheck-handl` already marshals a
+- Precedent exists: `plugin-tool-typecheck-handl` already marshals a
   `Language` to JSON for the handl typechecker, so this is not a novel burden
   on the platform — it is the mechanism already in use for one consumer.
 

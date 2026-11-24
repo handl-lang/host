@@ -356,15 +356,15 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - **Parser desugars move to a data-driven post-parse pass.** if becomes a — [ADR-0053](adrs/0053-adr-0053-generic-pratt-parser-grammar-data-replaces-per-construct-branches.md)
 - **Contextual forms (match, data, from) are closed by grammar data** — — [ADR-0053](adrs/0053-adr-0053-generic-pratt-parser-grammar-data-replaces-per-construct-branches.md)
 
-### ADR-0054: Generic Typecheck Engine (plugin-engine-typecheck + plugin-engine-typecheck-nbe)
+### ADR-0054: Generic Typecheck Engine (plugin-tool-typecheck + plugin-tool-typecheck-nbe)
 
-- **Type rules reuse Scheme — lang.types.** A rule synthesizes a node's — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
-- **Judgment ops are Arr ops** (unify, quote, normalize, meta-solve, — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
-- **plugin-engine-typecheck is the abstraction crate** — marker, — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
-- **plugin-engine-typecheck-nbe implements TypecheckEngine.** NBE — — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
-- **Typecheck is wired on RuntimeHandle (pure path).** Types are values, so — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
-- **plugin-lib-lang-typecheck is the meta leaf** exposing — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
-- **Rules are authored data** in crates/handl-kit-data-canonical/data/types.yaml, — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-engine-typecheck-plugin-engine-typecheck-nbe.md)
+- **Type rules reuse Scheme — lang.types.** A rule synthesizes a node's — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
+- **Judgment ops are Arr ops** (unify, quote, normalize, meta-solve, — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
+- **plugin-tool-typecheck is the abstraction crate** — marker, — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
+- **plugin-tool-typecheck-nbe implements TypecheckEngine.** NBE — — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
+- **Typecheck is wired on RuntimeHandle (pure path).** Types are values, so — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
+- **plugin-lib-lang-typecheck is the meta leaf** exposing — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
+- **Rules are authored data** in crates/handl-kit-data-canonical/data/types.yaml, — [ADR-0054](adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md)
 
 ### ADR-0055: Tagged Values
 
@@ -549,28 +549,28 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - **Rule architecture:** rules are pure functions — [ADR-0087](adrs/0087-adr-0087-bootstrap-linter-plugin-ext-lint.md)
 - **Testing:** 100% coverage; every rule has positive/negative/fix cases; — [ADR-0087](adrs/0087-adr-0087-bootstrap-linter-plugin-ext-lint.md)
 
-### ADR-0088: Bootstrap Typechecker (plugin-engine-typecheck)
+### ADR-0088: Bootstrap Typechecker (plugin-tool-typecheck)
 
-- **Scope (v0.1):** — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- Arrow kind checking of composed graphs (arr/>>>/first/choice — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- Structural type inference for literals, records, positional — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- rec region well-formedness: feedback wires are consumed exactly — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- Module-level checks: every import projection used, every exported — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- **Not in scope (deferred to RFC-0004):** trait/impl checking (ADR-0075), — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- **API surface:** — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- **Architecture:** single pass composition — collect bindings → infer — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
-- **Testing:** 100% coverage. Table-driven tests/ per typing rule from — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-engine-typecheck.md)
+- **Scope (v0.1):** — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- Arrow kind checking of composed graphs (arr/>>>/first/choice — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- Structural type inference for literals, records, positional — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- rec region well-formedness: feedback wires are consumed exactly — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- Module-level checks: every import projection used, every exported — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- **Not in scope (deferred to RFC-0004):** trait/impl checking (ADR-0075), — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- **API surface:** — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- **Architecture:** single pass composition — collect bindings → infer — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
+- **Testing:** 100% coverage. Table-driven tests/ per typing rule from — [ADR-0088](adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md)
 
-### ADR-0089: Bootstrap Test Runner (plugin-engine-test)
+### ADR-0089: Bootstrap Test Runner (plugin-tool-test)
 
-- **A new plugin-engine-test crate owns the runner** — discovery, index, — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **plugin-lib-test becomes the framework library** (assert/property/ — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **Stable pipeline contracts**: Providers → Discovery → Index/Cache → Filter — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **Core types are hard to change and versioned**; internal contracts are — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **Test declaration is a merged language fragment**, not the test_* — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **Providers are extensible from day one**; discovery/index and filtering — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **Planner and scheduler are separate; the scheduler is generic**; the — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
-- **Determinism is a hard invariant**; observability emits structured events — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-engine-test.md)
+- **A new plugin-tool-test crate owns the runner** — discovery, index, — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **plugin-lib-test becomes the framework library** (assert/property/ — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **Stable pipeline contracts**: Providers → Discovery → Index/Cache → Filter — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **Core types are hard to change and versioned**; internal contracts are — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **Test declaration is a merged language fragment**, not the test_* — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **Providers are extensible from day one**; discovery/index and filtering — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **Planner and scheduler are separate; the scheduler is generic**; the — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
+- **Determinism is a hard invariant**; observability emits structured events — [ADR-0089](adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md)
 
 ### ADR-0090: Bootstrap CLI (host-cli)
 
@@ -611,15 +611,15 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - "unicode_c" resolves to the unicode_c table module (unicode-c.hnl), — [ADR-0093](adrs/0093-adr-0093-string-char-unicode-layering.md)
 - The module name is unicode_c, **not** unicode (a deliberate surface — [ADR-0093](adrs/0093-adr-0093-string-char-unicode-layering.md)
 
-### ADR-0094: Generic AST Transform Engine (plugin-engine-transform + plugin-engine-transform-rewrite)
+### ADR-0094: Generic AST Transform Engine (plugin-tool-transform + plugin-tool-transform-rewrite)
 
-- **Two crates, mirroring the exec split.** plugin-engine-transform is the — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
-- **TransformDef is a first-class Fragment in handl-language.** Its — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
-- **The rewrite vocabulary generalizes AstDesugarChild.** Keep, KeepPath, — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
-- **Traversal is part of the pass definition** — BottomUp, TopDown or — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
-- **RuleSource is the seam.** The default reads lang.transforms; an — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
-- **Desugar migrates onto the engine.** handl-runtime::desugar_pass becomes a — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
-- **Crate layout has no cycles**: contract/vocabulary, rewrite implementation, — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-engine-transform-plugin-engine-transform-rewrite.md)
+- **Two crates, mirroring the exec split.** plugin-tool-transform is the — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
+- **TransformDef is a first-class Fragment in handl-language.** Its — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
+- **The rewrite vocabulary generalizes AstDesugarChild.** Keep, KeepPath, — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
+- **Traversal is part of the pass definition** — BottomUp, TopDown or — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
+- **RuleSource is the seam.** The default reads lang.transforms; an — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
+- **Desugar migrates onto the engine.** handl-runtime::desugar_pass becomes a — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
+- **Crate layout has no cycles**: contract/vocabulary, rewrite implementation, — [ADR-0094](adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md)
 
 ### ADR-0095: Formatter as a Production Pipeline
 
@@ -643,8 +643,8 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - **Two check kinds**, mirroring ADR-0094's declarative/native split: — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
 - check: !Match { node_kind, when? } — node-local matching. when is a — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
 - check: !Native "name" — the disciplined escape hatch, resolved — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
-- **Module-level engine API** in plugin-engine-lint: — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
-- **Canonical natives** ship in plugin-engine-lint — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
+- **Module-level engine API** in plugin-tool-lint: — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
+- **Canonical natives** ship in plugin-tool-lint — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
 - **Canonical rules live in handl-kit-data-canonical/data/lints.yaml**, — [ADR-0097](adrs/0097-adr-0097-lint-rules-as-language-data.md)
 
 ### ADR-0098: One Language, Multiple Interpreters — A Graded Arrow Calculus
@@ -672,10 +672,10 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - They supply the canonical rules, language assembly, and the hnl <name> capability wiring — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
 - They are the only crates that may embed canonical handl rule data or register a hnl subcommand — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
 - Existing violations must be remediated: — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
-- Create plugin-ext-typecheck and move the canonical check_module entry point out of plugin-engine-typecheck.… — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
-- Merge plugin-engine-typecheck-nbe into plugin-engine-typecheck as an internal nbe module — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
+- Create plugin-ext-typecheck and move the canonical check_module entry point out of plugin-tool-typecheck.… — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
+- Merge plugin-tool-typecheck-nbe into plugin-tool-typecheck as an internal nbe module — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
 - Convert the arrow-contract inference algorithm from plugin-ext-refinement into a refinement module inside… — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
-- Add a composite (or pipeline) module in plugin-engine-typecheck that runs nbe then refinement on the appropriate… — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
+- Add a composite (or pipeline) module in plugin-tool-typecheck that runs nbe then refinement on the appropriate fragments — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
 - No plugin-ext-* crate may implement a generic algorithm. No plugin-engine-* crate may expose a bin target or a hnl… — [ADR-0099](adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md)
 
 ### ADR-0100: Canonical Term Arrows
@@ -925,7 +925,7 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 - **License is MIT only**, one LICENSE file. LICENSE-APACHE/LICENSE-MIT — [ADR-0160](adrs/0160-adr-0160-lib-repos-are-language-packages-not-crates.md)
 - **CI is bupha-only**: root ci.sh (the repo's gate) + a committed — [ADR-0160](adrs/0160-adr-0160-lib-repos-are-language-packages-not-crates.md)
 - **The shell is a bug, not a feature.** It is removed in the same change that — [ADR-0160](adrs/0160-adr-0160-lib-repos-are-language-packages-not-crates.md)
-- **Consumers move to packages**: engine-test (and any other Rust consumer) — [ADR-0160](adrs/0160-adr-0160-lib-repos-are-language-packages-not-crates.md)
+- **Consumers move to packages**: tool-test (and any other Rust consumer) — [ADR-0160](adrs/0160-adr-0160-lib-repos-are-language-packages-not-crates.md)
 
 ### ADR-0161: An ADR is a one-page decision record
 
@@ -991,8 +991,331 @@ this is the recall surface (ADR-0161 §8). Superseded records are excluded.
 
 ### ADR-0171: The kernel IR gains layout and pointwise ops
 
-- **Eleven ops join the set** (ten → twenty-one): the layout ops — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops.md)
-- transpose/permute are **views**: they denote torch relayouts — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops.md)
-- Pointwise costs are honest elementwise prices: binary ops read — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops.md)
-- This extension exists **because the bridge measured the gap**: — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops.md)
-- permute takes its dims as **positional int args** (the wire — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops.md)
+- **Eleven ops join the set** (ten → twenty-one): the layout ops — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md)
+- transpose/permute are **views**: they denote torch relayouts — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md)
+- Pointwise costs are honest elementwise prices: binary ops read — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md)
+- This extension exists **because the bridge measured the gap**: — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md)
+- permute takes its dims as **positional int args** (the wire — [ADR-0171](adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md)
+
+### ADR-0172: Tensor programs are Handl Terms
+
+- **Tensor programs ARE Handl Terms — full convergence is the — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **Phase 0 — the Term kernel extension (own ADR).** The spike — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **DAG sharing**: Terms are trees; neural nets are hash-consed — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **Typed attrs slot**: Term::Op has no attrs field; the spike — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **Non-finite literals**: serde_json rejects NaN/±inf; needs — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **.hnl / Term serialization is the canonical wire format — — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **mlopt_core.ir remains the search IR until Phase 0 lands.** — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+- **Then the migration**: tensor Language fragment → Term-native — [ADR-0172](adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md)
+
+### ADR-0173: Term attrs are op metadata, program sharing is derived-form data, and non-finite floats are a codec tag
+
+- **Term::Op gains attrs: Option<Value>** — an optional, — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **Term stays a tree. DAG sharing is expressed at three existing — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **Weights/parameters → the environment.** Shared leaves are — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **Semantic sharing → engines.** Hash-consing/e-classing is a — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **Wire compactness + direct DAG interpretation → a derived — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **No Ref{name}/let variant in the closed Term enum.** A — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **Non-finite floats are a codec-profile convention:** the — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+- **The Phase-0 kernel diff is one optional field.** Everything else — [ADR-0173](adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md)
+
+### ADR-0174: The end-state architecture
+
+- **Verify before ship.** The *operative verify verdict* — — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- **Declines are named.** Unsupported op, OOM, unverifiable, — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- **Measured or it didn't happen.** Speed claims come from the — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- **One codec.** .hnl/Term serialization is the only — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- **Substrate layering.** The *gamekit kernel modules* — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- **Ops are data.** Tensor ops live in a Language fragment; — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- No claim that Sanada completeness yields e-graphs — search — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- No torch-free claim until kernel-ir coverage is measured, not — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- No Ref/let/vars in the pointless core — sharing is engine — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+- No parallel IR proliferation — mlopt_core.ir is the *temporary* — [ADR-0174](adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md)
+
+### ADR-0176: The language end-state
+
+- **Rust adapters for declarative formats.** ONNX (protobuf — — [ADR-0176](adrs/0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md)
+- **Architectures-as-data.** A model family becomes a fragment — [ADR-0176](adrs/0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md)
+- **sdkgen for residual FFI.** Where a backend exposes only a — [ADR-0176](adrs/0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md)
+- **HF architecture discovery** for *new* model families — — [ADR-0176](adrs/0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md)
+- **Meta-tier drivers** (gamekit/discoverykit/benchkit — [ADR-0176](adrs/0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md)
+
+### ADR-0177: engine-eqsat search contracts
+
+- **Law format: JSON records** mirroring laws.serialize — [ADR-0177](adrs/0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md)
+- **Guards: port the cond/dspec DSL to Rust** as a — [ADR-0177](adrs/0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md)
+- **Costs: a serializable CostSpec** — named kinds — [ADR-0177](adrs/0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md)
+- **Certificates: no proof.py port in P2.** ProofEdge/ — [ADR-0177](adrs/0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md)
+- **Engine surface: a SearchEngine trait minted inside — [ADR-0177](adrs/0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md)
+
+### ADR-0178: P3 codec consolidation and mlopt_core.ir demotion
+
+- **Two canonical artifacts, distinct authority:** the tensor — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **Direction flips:** vocab/ stops being generated *from* Python — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **One term codec:** hnl_codec's kernel-Term envelope — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **Unguarded-table closure:** mlopt_onnx opmap/liftmap get a — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **D1 parity corpus** — differential extracted-term comparison vs — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **D2 opt-in** — Term bridge callable from Python (PyO3 preferred; — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **D3 feature catch-up** — stage-2 guarded-law batches, — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **D4 measured default flip** — only on differential parity with no — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **D5 adapter Term-native output** — Sources/Sinks produce/consume — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+- **D6 retirements** — mlopt_native (superseded by engine-eqsat), — [ADR-0178](adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md)
+
+### Options Object Over Named Arguments
+
+- The options argument is always the **last positional argument** — [ADR-0179](adrs/0179-options-object-over-named-arguments.md)
+- Missing keys are treated as absent (not errors) — [ADR-0179](adrs/0179-options-object-over-named-arguments.md)
+- null or an empty object {} is equivalent to omitting the argument — [ADR-0179](adrs/0179-options-object-over-named-arguments.md)
+- Verb shorthands (http.get, http.post, etc.) remain positional for — [ADR-0179](adrs/0179-options-object-over-named-arguments.md)
+
+### Expression Object and Array Literals
+
+- **Array literal:** [expr, expr, ...] — [ADR-0180](adrs/0180-expression-object-and-array-literals.md)
+- **Object literal:** { key: expr, key: expr, ... }, where a key is a bare identifier or a quoted string and a value is… — [ADR-0180](adrs/0180-expression-object-and-array-literals.md)
+- Treat { and } as nesting tokens alongside ( and [ in argument splitting and depth tracking (split_args,… — [ADR-0180](adrs/0180-expression-object-and-array-literals.md)
+- Add parse_array_literal and parse_object_literal to the ExprParser trait. Implementations will parse the content… — [ADR-0180](adrs/0180-expression-object-and-array-literals.md)
+- Use the existing Expr::Value variant for object and array results; no new AST node is required because V is already… — [ADR-0180](adrs/0180-expression-object-and-array-literals.md)
+- Update the runtime eval_arg and the typechecker parse_expr to recognize [] and {} as value expressions, evaluate/parse… — [ADR-0180](adrs/0180-expression-object-and-array-literals.md)
+
+### handl-native s.* Schema Vocabulary
+
+- name: a — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- name: b — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- Strings: s.min_length(n), s.max_length(n), s.length(n), s.regex(pattern) — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- Numbers/Integers: s.min_value(n), s.max_value(n), s.range(min, max), s.multiple_of(n) — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- Arrays: s.min_items(n), s.max_items(n), s.length(n) — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- Generic: s.brand(name) (for branded types; typegen can preserve the name as metadata) — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- **handl-dialect-canonical** provides SSchemaVocabulary and SSchema as the canonical implementations of… — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- **handl-typecheck-schema-s** (new crate) provides SSchemaInterpreter, implementing SchemaInterpreter by mapping s.*… — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- **handl-typegen-backend-s** (new crate) provides an SBackend that emits the canonical s schema as a JSON-serializable… — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- **handl-typegen-backend-json-schema** is rewritten as a translator from s to JSON Schema. It becomes an optional… — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- **handl-fields** removes the JSON-Schema-specific check_arg_type in computed.rs and instead compiles arg schemas… — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+- **handl-compiler** default configs use SSchemaInterpreter and SBackend instead of the JSON Schema implementations — [ADR-0181](adrs/0181-handl-native-s-schema-vocabulary.md)
+
+### JSON Schema 2020-12 Reference & Composition Support in the Typechecker
+
+- Per-field $defs: pass the field's own schema as root — [ADR-0182](adrs/0182-json-schema-2020-12-reference-composition-support-in-the-typechecker.md)
+- Document-level $defs: the caller builds a synthetic root object (e.g., a — [ADR-0182](adrs/0182-json-schema-2020-12-reference-composition-support-in-the-typechecker.md)
+
+### ADR-0183: Type Aliases in $defs
+
+- **Type aliases live in $defs inside $:**, with an optional typeParams — [ADR-0183](adrs/0183-adr-0183-type-aliases-in-defs.md)
+- **Aliases are type-only declarations**: they are not data fields, are not — [ADR-0183](adrs/0183-adr-0183-type-aliases-in-defs.md)
+- **References use standard $ref plus a handl args list**; args — [ADR-0183](adrs/0183-adr-0183-type-aliases-in-defs.md)
+- **No new Type variant**: the resolved $ref produces a Type (possibly — [ADR-0183](adrs/0183-adr-0183-type-aliases-in-defs.md)
+
+### ADR-0184: Annotations
+
+- **An optional annotations object is allowed on any document**; the VM — [ADR-0184](adrs/0184-adr-0184-annotations.md)
+- **Conventional keys** are title, description, author, tags, since, — [ADR-0184](adrs/0184-adr-0184-annotations.md)
+- **Annotations cost nothing at runtime or typecheck**; the linter may validate — [ADR-0184](adrs/0184-adr-0184-annotations.md)
+- **Hosts may define additional conventional keys**, namespaced to avoid — [ADR-0184](adrs/0184-adr-0184-annotations.md)
+
+### ADR-0185: Custom Fields
+
+- **User-defined fields are declared in *.field.yml files**; the core keeps — [ADR-0185](adrs/0185-adr-0185-custom-fields.md)
+- **Core keys are** type, expr, arg, schema, inheritable, mutable — [ADR-0185](adrs/0185-adr-0185-custom-fields.md)
+- **Field types are sugar and handler**: sugar expands to a core-language — [ADR-0185](adrs/0185-adr-0185-custom-fields.md)
+- **A field file declares its schema and expansion**, and the resolver loads — [ADR-0185](adrs/0185-adr-0185-custom-fields.md)
+
+### ADR-0186: The dependencies Field
+
+- **A built-in dependencies field lists the custom field names a document — [ADR-0186](adrs/0186-adr-0186-the-dependencies-field.md)
+- **It is allowed** at the document top level, on a field declaration, in a — [ADR-0186](adrs/0186-adr-0186-the-dependencies-field.md)
+- **Names are dotted**: bare (delay) for project-local fields, namespaced — [ADR-0186](adrs/0186-adr-0186-the-dependencies-field.md)
+- **Resolution collects** dependencies from the document, field declarations — [ADR-0186](adrs/0186-adr-0186-the-dependencies-field.md)
+- **Tooling**: handl info shows the list; handl lint may warn when a custom — [ADR-0186](adrs/0186-adr-0186-the-dependencies-field.md)
+
+### Parameter Naming Convention
+
+- Parameter names use snake_case — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- Names are nouns, not verbs (prefix not do_prefix) — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- Boolean parameters use is_, has_, or should_ prefixes — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- No abbreviations (config not cfg, instance not inst) — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- self — reserved for future method-like dispatch — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- host — reserved for host reflection — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- args — reserved for variadic argument access — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- name: prefix — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+- name: length — [ADR-0187](adrs/0187-parameter-naming-convention.md)
+
+### ADR-0188: Modality as Projection
+
+- **A modality system built on one primitive**: project(x, K) extracts the — [ADR-0188](adrs/0188-adr-0188-modality-as-projection.md)
+- **Six moods are uses of that projection**: indicative (strict), potential — [ADR-0188](adrs/0188-adr-0188-modality-as-projection.md)
+- **x not K is complement projection, not Boolean negation**; Boolean — [ADR-0188](adrs/0188-adr-0188-modality-as-projection.md)
+- **Each mood is a module** (mood.ind, mood.pot, mood.neg, mood.int, — [ADR-0188](adrs/0188-adr-0188-modality-as-projection.md)
+- **Strict moods error on non-membership**; soft moods return null, the — [ADR-0188](adrs/0188-adr-0188-modality-as-projection.md)
+- **Projection composes with grades and sorts** — a mood is not a separate — [ADR-0188](adrs/0188-adr-0188-modality-as-projection.md)
+
+### ADR-0189 (Remaining): Types are Values — Advanced Type System Roadmap
+
+- **data declarations for inductive types** — Define algebraic datatypes with sum-of-products structure, generating… — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- **rec / termination checking** — Ensure recursive type-level definitions are total and terminating via structural… — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- **Inductive families** — Enable types parameterized by values, like Vec(A, n) where n is a length index — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- **Dependent pattern matching with a motive** — Pattern match on indexed types, refining the goal type based on… — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- **Type inference and unification** — Infer types in expressions with _ holes; solve constraints via unification — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- **Proof erasure at runtime** — ~~Remove proof terms before evaluation to reduce runtime overhead while preserving type… — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- _Completed._ Built-in equality/membership proofs (type.refl, type.is_evidence) and the uninhabited type.empty are… — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+- **Tactics** — Provide tactic-assisted proof construction (auto, induction, rewrite, simp) for interactive type-level… — [ADR-0189](adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md)
+
+### ADR-0190: vau as a Typed Escape
+
+- **Add Scheme::Vau { params, body }**: children are bound as unevaluated — [ADR-0190](adrs/0190-adr-0190-vau-as-a-typed-escape.md)
+- **The body may** eval a bound expression, inspect the AST, or transform it — [ADR-0190](adrs/0190-adr-0190-vau-as-a-typed-escape.md)
+- **Add a vau keyword and grammar rule** in canonical language data; the — [ADR-0190](adrs/0190-adr-0190-vau-as-a-typed-escape.md)
+- **vau is the only escape** from structured compositional evaluation; every — [ADR-0190](adrs/0190-adr-0190-vau-as-a-typed-escape.md)
+- **Capability discipline covers it**: a language with vau advertises — [ADR-0190](adrs/0190-adr-0190-vau-as-a-typed-escape.md)
+
+### ADR-0191: Computed Object Keys via Bracket Syntax
+
+- An array literal is never followed by : in expression position (the — [ADR-0191](adrs/0191-adr-0191-computed-object-keys-via-bracket-syntax.md)
+- The entry node's key slot is the only place this reinterpretation — [ADR-0191](adrs/0191-adr-0191-computed-object-keys-via-bracket-syntax.md)
+
+### ADR-0192: Predicates as Types — Unified Dependent Typing Without a Sublanguage
+
+- To verify x: T = e, normalize T(e) — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+- If normalization succeeds and yields true, accept statically — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+- If normalization yields false, reject — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+- If normalization is blocked (effect, non-termination, opaque value), — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+- It cannot infer A and B from an opaque function body soundly — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+- It reintroduces a type-level operation as a special form, breaking the — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+- It does not resolve the type-of-type regress (it just renames it) — [ADR-0192](adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md)
+
+### ADR-0193: Failure-Tracking Arrows for Backtracking Parsers
+
+- inl branch: wp assumes the success invariant and propagates the — [ADR-0193](adrs/0193-adr-0193-failure-tracking-arrows-for-backtracking-parsers.md)
+- inr branch: wp assumes the error invariant and propagates into — [ADR-0193](adrs/0193-adr-0193-failure-tracking-arrows-for-backtracking-parsers.md)
+
+### ADR-0194: State Machine Invariants via Fixpoint Discovery
+
+- Each transition atom has a **conditional contract**: — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- state.dec : Int → Int — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- requires: Le(0, input) — can only decrement if ≥ 0 — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- guarantee: Le(0, output) — result is ≥ 0 — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- The state machine is a loop: — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- The inference engine runs the fixpoint: — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- I₀ = body's guarantee (includes Le(0, output) from state.dec) — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- wp(body, I₀) = the precondition needed to preserve I₀ — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- For state.dec: wp = Le(0, input) (the precondition) — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- I₁ = I₀ ∧ wp(body, I₀) = Le(0, output) ∧ Le(0, input) — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- Fixpoint: the invariant Le(0, count) (Count ≥ 0) is discovered — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- The guarantee includes the invariant: Le(0, output) — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- **Data invariants**: properties of the state value itself (Count ≥ 0, — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- **Conditional transitions**: atoms with preconditions (can only — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- **Termination**: if the event stream is finite (consumed via the side — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- **Concurrency invariants**: "the buffer is never accessed by two — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- **Liveness properties**: "the counter eventually reaches zero" — this — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+- **Global invariants**: properties spanning multiple state machines — — [ADR-0194](adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md)
+
+### ADR-0195: Arrow Surface Syntax v0.1 — Redesign
+
+- **Correction 1 — Destructuring renaming.** A pattern element may use source: local to bind a source field/position to a… — [ADR-0195](adrs/0195-adr-0195-arrow-surface-syntax-v0-1-redesign.md)
+- **Correction 2 — rec as a recursive region (Paterson-style).** rec **does not define a recursive arrow**. It introduces… — [ADR-0195](adrs/0195-adr-0195-arrow-surface-syntax-v0-1-redesign.md)
+- **Addendum — Control-flow and construction sugar.** The v0.1 draft specified if, match, and rec as the only… — [ADR-0195](adrs/0195-adr-0195-arrow-surface-syntax-v0-1-redesign.md)
+- **What is accepted unchanged from the draft.** The following from the v0.1 draft are accepted as-is: — [ADR-0195](adrs/0195-adr-0195-arrow-surface-syntax-v0-1-redesign.md)
+
+### ADR-0196: Traits as Arrow Signatures — Graph-Based Interfaces and Contracts
+
+- **Primary mode: trait inference (default).** The user writes a graph. The system derives: — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Secondary mode: explicit declarations (optional).** When the user wants to **name** a law pattern — for… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **The open trait catalog.** Trait inference does not magically derive unknown laws from nothing. It indexed catalog.… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Catalog storage: abstract interface, SQLite implementation.** The trait catalog is persisted in a storage backend.… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Type parameter syntax: angle brackets, not square brackets.** Type application uses **angle brackets** F<A>, not… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Impl declaration (graph layer — annotation-free).** An impl is a graph assignment for each operation in the trait's… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Generic code with trait bounds.** A function may declare trait bounds on its type parameters. The bound is a… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Supertraits as signature inclusion.** A supertrait bound trait T : U means Σ_T requires Σ_U to be satisfied first.… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Associated types via dependent types.** A trait may declare an associated type using the dependent-type machinery… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+- **Blanket impls via ArrowApply; Law verification: the CutElim connection; Trait resolution: catalog search (fallback);… — [ADR-0196](adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md)
+
+### ADR-0197: Decoupled Trait Layer — Laws, Bundles, and Handlers
+
+- **Law on an arrow.** A law is a standalone declaration that an arrow satisfies an equation. It attaches to any arrow —… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **Bundle.** A **bundle** is a named record of arrows plus laws over them. It is only needed when a law spans multiple… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **Handler.** A **handler** injects an arrow or bundle at a scope boundary. This is dependency injection over effect… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **How they compose.** The three features are independent. No combination is mandatory. The "trait" pattern emerges when… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **= in laws.** Inside a law context, = means extensional equality of arrows (both sides produce the same output for all… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **Resolution: handlers primary, catalog fallback.** 1. **Primary: explicit handle ... with** — names the impl,… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **What this replaces from ADR-0196.** with laws attached). No keyword. installation). No keyword. attachable to any… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+- **What this preserves from ADR-0196.** set. Unchanged. default). handle site. Unchanged in mechanism. normalization,… — [ADR-0197](adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md)
+
+### ADR-0198: Value Types as Data — Composable Capabilities and Target Representations
+
+- **Three new data fragment types.** Extend the Language data schema (ADR-0044) with three new fragment sets, each loaded… — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Value Types (value_types.yaml).** A value type declares: — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Capabilities (capabilities.yaml).** A capability declares: — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Target Representations (representations.yaml).** A representation declares how a value type is concretely represented… — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **How the compiler uses this.** The compilation pipeline becomes: — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Type inference: gradual + runtime profiling, gated by language policy.** To specialize, the compiler needs to know… — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Monomorphization.** Yes — the compiler monomorphizes generic operations. When sum<T: Addable + Zero> is called with T… — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Relationship to TaggedValue (the handl-value crate).** TaggedValue is the **dynamic fallback representation** — the… — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+- **Relationship to ADR-0197 (Decoupled Trait Layer).** ADR-0197 decoupled traits into laws + bundles + handlers. This… — [ADR-0198](adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md)
+
+### ADR-0199: Unify Arrow Dialects — Graph Blocks, No let, No in
+
+- **Graph blocks replace let..in and x = y in body:** — [ADR-0199](adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md)
+- **Contextual {} parsing (ADR-0195 ID.11):** { after ~>, if cond, else, match val parses as a _block_… — [ADR-0199](adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md)
+- **eval_block binds assigns:** The tree-walk evaluator's eval_block pushes a scope, binds each assign child (x = y) as a… — [ADR-0199](adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md)
+- **Unified grammar (overlay approach):** The arrow DSL language is built on top of the canonical language: arrow_lang.rs… — [ADR-0199](adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md)
+- **>>> semantics:** Canonical uses App (host-call) for >>>; the arrow overlay replaces it with Seq (arrow composition)… — [ADR-0199](adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md)
+- **Remove let and in:** Delete grammar.let.prefix and grammar.arrow.in.infix after all files are converted — [ADR-0199](adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md)
+
+### ADR-0200: Inductive Types as Desugared Predicates
+
+- **A predicate** (the type) that recognizes values built by the constructors — [ADR-0200](adrs/0200-adr-0200-inductive-types-as-desugared-predicates.md)
+- **Constructors** as ordinary values (tagged records or functions) — [ADR-0200](adrs/0200-adr-0200-inductive-types-as-desugared-predicates.md)
+- **A recursor** as an ordinary library function the checker recognizes for — [ADR-0200](adrs/0200-adr-0200-inductive-types-as-desugared-predicates.md)
+
+### ADR-0201: Arrow Macros — Type-Safe Compile-Time Metaprogramming
+
+- **Macros are arrows that transform arrows.** A macro is an arrow Ast ~> Ast (or more generally Scheme A B ~> Scheme A'… — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **The macro declaration form.** A new top-level declaration, alongside op/handl/cap/const: — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Hygiene.** Macro hygiene prevents variable capture: a macro that introduces a variable x must not capture a caller's… — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Type safety.** Macros are typechecked in two phases: — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Compile-time execution.** Macros run at compile time, not runtime. The execution model: — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Quotation and splicing.** Two syntax forms for building AST in macros: — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Pattern matching on AST.** Macros pattern match on AST structure. With ADR-0081 (child roles) and ADR-0200 (inductive… — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **What macros cannot do.** runtime with no fs/net/libc capabilities. A macro cannot read a file, make a network call,… — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Relationship to const (ADR-0083 §5.1).** const is the simplest macro — a nullary macro that produces a literal value: — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+- **Relationship to data (ADR-0200).** data declarations (inductive types) are desugared to predicates, constructors, and… — [ADR-0201](adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md)
+
+### ADR-0202: The Frontier Calculus
+
+- **Term gains the frontier constructors** — CellId, CellCompV, — [ADR-0202](adrs/0202-adr-0202-the-frontier-calculus.md)
+- **Surface syntax exposes them as data** (the Option B grammar), not as — [ADR-0202](adrs/0202-adr-0202-the-frontier-calculus.md)
+- **Engine semantics**: cells compose vertically and horizontally, whiskers — [ADR-0202](adrs/0202-adr-0202-the-frontier-calculus.md)
+- **Serialization is the same as every Term** — the constructors are JSON — [ADR-0202](adrs/0202-adr-0202-the-frontier-calculus.md)
+- **Relation to existing ADRs**: this is the concrete term layer for ADR-0100 — [ADR-0202](adrs/0202-adr-0202-the-frontier-calculus.md)
+- **Frontier support is optional**: a model declares whether it interprets — [ADR-0202](adrs/0202-adr-0202-the-frontier-calculus.md)
+
+### ADR-0203: Session Types as Grades
+
+- **Introduce grade Session** with !T (send), ?T (receive) and End; — [ADR-0203](adrs/0203-adr-0203-session-types-as-grades.md)
+- **Duality dual : Session -> Session** flips every action (!T ↔ ?T, — [ADR-0203](adrs/0203-adr-0203-session-types-as-grades.md)
+- **Sequential composition is grade multiplication** — !Int ; ?Bool ; End — [ADR-0203](adrs/0203-adr-0203-session-types-as-grades.md)
+- **Channel operations are graded arrows** whose grade is a Session object — [ADR-0203](adrs/0203-adr-0203-session-types-as-grades.md)
+- **Sessions are checked like any grade** — no separate session type system — [ADR-0203](adrs/0203-adr-0203-session-types-as-grades.md)
+
+### ADR-0204: Type-Level Total Evaluation of handl Expressions
+
+- Substitute the concrete call-site type and value arguments into the function's declared return type — [ADR-0204](adrs/0204-adr-0204-type-level-total-evaluation-of-handl-expressions.md)
+- Reduce the resulting handl expressions by evaluating them in a **total** interpreter: no effects, no while/do-while… — [ADR-0204](adrs/0204-adr-0204-type-level-total-evaluation-of-handl-expressions.md)
+- Compare the reduced indices during unification. If the reduced values differ and neither side is a metavariable, report… — [ADR-0204](adrs/0204-adr-0204-type-level-total-evaluation-of-handl-expressions.md)
+- Leave expressions that cannot be reduced (because they contain unresolved variables or metavariables) in normal form… — [ADR-0204](adrs/0204-adr-0204-type-level-total-evaluation-of-handl-expressions.md)
+
+### ADR-0206: Language data assembly in the lang repo
+
+- crates/handl-kit-data-canonical — the fragment merger and the canonical — [ADR-0206](adrs/0206-adr-0206-language-data-assembly-in-the-lang-repo.md)
+- the .hnl packages it pins (query, command, event, …) — [ADR-0206](adrs/0206-adr-0206-language-data-assembly-in-the-lang-repo.md)
+
+### ADR: Generic Arrow Calculus for Any Dimension
+
+- **Arrows are primitive; functions emerge.** There is no lambda calculus, no λ, no primitive functions. The only… — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Two fundamental operators: () and <>.** The surface has exactly two application-like operators: — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Dimensions contain any expression.** A dimension is not restricted to types. It can contain any expression: — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Types are expressions; type constructors are arrows.** Types are ordinary expressions, and type constructors are… — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Generic arrows and objects are arrow families.** Generic arrows are arrow families — arrows over dimensions: — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Dependent types: dependency is not restricted to types.** Expressions can depend on other expressions: — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Proofs are ordinary typed expressions (Curry–Howard).** P : Type p : P — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Graded arrows.** Grades annotate arrows: — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Grade algebras are ordinary structures.** Grade systems are ordinary structures rather than hard-coded language… — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)
+- **Arrow combinators are the computational vocabulary; Quantification is consistent with dimension binding.** See the… — [ADR-0207](adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md)

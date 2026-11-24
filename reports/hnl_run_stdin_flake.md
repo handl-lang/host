@@ -34,9 +34,9 @@ Chain:
 
 - `hnl-run.rs:59-67` — `-`/absent arg → `stdin().read_to_string(&mut s)`;
   EOF with zero bytes yields `s == ""` with no error.
-- `engine-parse-pratt/src/lib.rs:774-789` — empty token stream (or
+- `tool-parse-pratt/src/lib.rs:774-789` — empty token stream (or
   trivia-only) → `Ok(Ast::new())`, an **empty arena**.
-- `engine-exec-tree-walk/src/lib.rs:3914-3916` —
+- `exec-tree-walk/src/lib.rs:3914-3916` —
   `if ast_rc.is_empty() { return Ok(TaggedValue::Null); }` →
   `println!("{v}")` prints `null`, exit 0.
 
@@ -52,7 +52,7 @@ so a *partial* write cannot produce this; only a zero-byte read can.
 This is the subtler, more dangerous finding, and it is **not**
 stdin-specific — it applies identically to file mode.
 
-`engine-parse-pratt/src/lib.rs:769-811` (`parse`): after lexing the
+`tool-parse-pratt/src/lib.rs:769-811` (`parse`): after lexing the
 *whole* source, the parser calls `expression_inner` **once** and returns
 the arena. Everything after the first top-level statement is lexed
 (lex errors still fire — `1+1\n@@@` → `LexError`) but never parsed or
@@ -138,13 +138,13 @@ printf 'do { tensor.load("/nonexistent-xyz","w") }\n' | "$B" -
 - `packages/mlopt-kit/src/bin/hnl-run.rs:59-67` — no empty-input check;
   `""` flows into `kit.run` and prints `null` as a *successful* result.
   A `src.trim().is_empty()` → usage/IO error (exit 2) would close Path 1.
-- `engine-parse-pratt/src/lib.rs:769-811` — `parse` evaluates exactly
+- `tool-parse-pratt/src/lib.rs:769-811` — `parse` evaluates exactly
   one `expression_inner`; trailing top-level statements are silently
   dropped (lexed but unparseable content after stmt 1 is ignored —
   `1+1\nif (` → `2`). If multi-statement modules are meant to work,
   this is the bug; the module loader's "module parses several statements
   into one arena" comment (line ~629) suggests they were intended to.
-- `engine-exec-tree-walk/src/lib.rs:3914-3916` — empty AST →
+- `exec-tree-walk/src/lib.rs:3914-3916` — empty AST →
   `TaggedValue::Null` rather than an error; combined with the above this
   is what turns "empty stdin" into a JSON `null` success.
 - `mlopt/src/mlopt/emit.py:2866-2878` (`_ambient_src`) — strips only the

@@ -58,31 +58,31 @@ continuation capture: the journal is data, so `resume` is copyable.
 
 | File | Change |
 |---|---|
-| `engine-exec/src/native_ops.rs` | `ResumptionDriver` + shared driver table, `ResumeTableScope` (+ eval depth), rec-region fixpoint propagates `Suspended` instead of swallowing it, style cleanups |
-| `engine-exec/src/{io,lib,pattern_match}.rs` | clippy cleanups (no behaviour change) |
-| `engine-exec-cranelift/src/lib.rs` | journal driver (`ResumeJournal`/`ResumeSuspension`/`drive_journal`/`resume_from`/`resume_suspension`), `run_delimited` override, perform/`arr` seams, `__resume__` seam, `ACTIVE_EVAL_CTX`, `set_error` guard, `helper_v2_error_is_suspended`, table scope, node-accurate diagnostics, 5 tests |
-| `engine-exec-cranelift/src/compile.rs` | declare/register the new helper, suspension short-circuits in `compile_args_v2` and `Seq{axis:0}`, item allows |
-| `engine-exec-cranelift/src/standalone.rs` | treat a staticlib older than the crate's newest source as missing (rebuild) — a new `helper_v2_*` otherwise fails at `cc` link time |
-| `engine-exec-cranelift/tests/standalone_bootstrap.rs` | skip the `multishot_resume` corpus case (standalone has no `Language` for arrow application) |
-| `engine-exec-cranelift/tests/{object_compilation.rs,conformance/harness.rs}` | clippy cleanups |
-| `engine-exec-tree-walk/src/lib.rs` | `__resume__` seam consults the shared driver table; table scope in `eval_ast_rc_tagged`; cleanups |
-| `engine-exec-bytecode/src/lib.rs` | table scope in `eval_ast_rc_with_args` |
-| `engine-exec-bytecode/src/vm.rs` | 3 resume tests (both continuations, nested cartesian, one-shot regression) |
-| `engine-exec-bytecode/src/compile.rs` | clippy cleanups |
+| `exec/src/native_ops.rs` | `ResumptionDriver` + shared driver table, `ResumeTableScope` (+ eval depth), rec-region fixpoint propagates `Suspended` instead of swallowing it, style cleanups |
+| `exec/src/{io,lib,pattern_match}.rs` | clippy cleanups (no behaviour change) |
+| `exec-cranelift/src/lib.rs` | journal driver (`ResumeJournal`/`ResumeSuspension`/`drive_journal`/`resume_from`/`resume_suspension`), `run_delimited` override, perform/`arr` seams, `__resume__` seam, `ACTIVE_EVAL_CTX`, `set_error` guard, `helper_v2_error_is_suspended`, table scope, node-accurate diagnostics, 5 tests |
+| `exec-cranelift/src/compile.rs` | declare/register the new helper, suspension short-circuits in `compile_args_v2` and `Seq{axis:0}`, item allows |
+| `exec-cranelift/src/standalone.rs` | treat a staticlib older than the crate's newest source as missing (rebuild) — a new `helper_v2_*` otherwise fails at `cc` link time |
+| `exec-cranelift/tests/standalone_bootstrap.rs` | skip the `multishot_resume` corpus case (standalone has no `Language` for arrow application) |
+| `exec-cranelift/tests/{object_compilation.rs,conformance/harness.rs}` | clippy cleanups |
+| `exec-tree-walk/src/lib.rs` | `__resume__` seam consults the shared driver table; table scope in `eval_ast_rc_tagged`; cleanups |
+| `exec-bytecode/src/lib.rs` | table scope in `eval_ast_rc_with_args` |
+| `exec-bytecode/src/vm.rs` | 3 resume tests (both continuations, nested cartesian, one-shot regression) |
+| `exec-bytecode/src/compile.rs` | clippy cleanups |
 | `host/crates/handl-test-utils/src/conformance/corpus.rs` | `multishot_resume` eval-corpus case — the cross-engine gate |
 | `host/crates/handl-runtime/tests/engine_parity.rs` | `perform_multishot_resume` (both continuations / nested / escape, all three engines); fixed the `vsum<n>` self-recursion case (`{n}` → `<n>`, the pre-existing failure was a test-source syntax bug) and extended it to all three engines; added `self_recursive_arrow_without_data_types` (fac(4) = 24 on every engine), which shows self-recursion is *not* an engine divergence |
 | `host/project/adrs/0158-*.md`, `host/project/design/multishot-resume.md` | status, deltas, limits |
-| `engine-parse-pratt/src/{lib,former_decl}.rs`, `host/crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs` | incidental clippy fixes (crate test suites re-run green) |
+| `tool-parse-pratt/src/{lib,former_decl}.rs`, `host/crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs` | incidental clippy fixes (crate test suites re-run green) |
 
 ## Verification
 
 ```
-cargo test                 # engine-exec           13 passed
-cargo test                 # engine-exec-cranelift 104 passed
-cargo test                 # engine-exec-bytecode   94 passed
-cargo test                 # engine-exec-tree-walk 142 passed
+cargo test                 # exec           13 passed
+cargo test                 # exec-cranelift 104 passed
+cargo test                 # exec-bytecode   94 passed
+cargo test                 # exec-tree-walk 142 passed
 cargo test --test engine_parity   # host/crates/handl-runtime  44 passed
-cargo clippy --all-targets # engine-exec / -cranelift / -tree-walk / -bytecode
+cargo clippy --all-targets # exec / -cranelift / -tree-walk / -bytecode
                            # → no warnings (was ~250 across the four crates)
 ```
 
@@ -94,7 +94,7 @@ ABI functions.
 
 ### Pre-existing failures (not from this changeset)
 
-`engine-parse-pratt` is **being edited concurrently** — its `HEAD` advanced
+`tool-parse-pratt` is **being edited concurrently** — its `HEAD` advanced
 mid-session (`3fb1a4e feat(pratt): lower every family-record decl, not only
 the chunk root`, committed 19\:16 local) as part of an in-progress
 `{…}`→`<…>` / family-record lowering workstream. While that lands, the
@@ -117,7 +117,7 @@ internal `data { children: [type, ctors] }` shape (and drops the retired
 `ctor_object_match_dispatches_on_sym` and `nat_tower_binary_add`:
 `engine_parity` is **43/44**. It is additive — a parser that emits a `data`
 node already makes it a no-op — so it can converge with (or be replaced by)
-the in-flight `engine-parse-pratt` work. It only lowers *multi-constructor*
+the in-flight `tool-parse-pratt` work. It only lowers *multi-constructor*
 records; a one-constructor family still needs the parser-side path.
 
 Remaining reds and what the probes show:
@@ -180,7 +180,7 @@ what differs is only the indexed-family case inside an arrow body. Not the impli
   for the ADR-0158 `acc` clause; unrelated to `resume` and to the lowering
   (it failed identically before this pass).
 
-**Fixed (cranelift, `engine-exec-cranelift`):** the compiled `{__term__,
+**Fixed (cranelift, `exec-cranelift`):** the compiled `{__term__,
 __bound__}` arm appended the *packed* call args to `__bound__`, so
 `Type.rec(m, c0..)(v)` built `[motive, c0.., [v]]` and the fold asked an
 array for `.__ctor__`. It now unpacks a single `Arr` argument (guarded by
@@ -208,7 +208,7 @@ teaching the grammar to accept the keyword there) is a prerequisite. That
 file has no tests, so the rename was left out of this changeset.
 
 Every `perform`/`resume` case in the parity suite is green, including
-`perform_multishot_resume`; `engine-parse-pratt`'s own 62 unit tests pass.
+`perform_multishot_resume`; `tool-parse-pratt`'s own 62 unit tests pass.
 
 Also fixed here (was a genuine test bug, not an engine bug):
 `engine_parity`'s self-recursion source spelled implicit parameters
@@ -243,10 +243,10 @@ since several repos carry unrelated in-flight work.
 
 | repo | commit |
 |---|---|
-| `engine-exec` | `3e9d705` native_ops: shared resume-driver table + eval-scope cleanup; clippy clean |
-| `engine-exec-cranelift` | `34aa147` cranelift: multi-shot resume (ADR-0158 replay journals) + suspension-aware codegen |
-| `engine-exec-tree-walk` | `18a006d` tree-walk: consult the shared resume-driver table; eval-scope cleanup |
-| `engine-exec-bytecode` | `202ffea` bytecode: multi-shot resume tests + eval-scope cleanup; clippy clean |
+| `exec` | `3e9d705` native_ops: shared resume-driver table + eval-scope cleanup; clippy clean |
+| `exec-cranelift` | `34aa147` cranelift: multi-shot resume (ADR-0158 replay journals) + suspension-aware codegen |
+| `exec-tree-walk` | `18a006d` tree-walk: consult the shared resume-driver table; eval-scope cleanup |
+| `exec-bytecode` | `202ffea` bytecode: multi-shot resume tests + eval-scope cleanup; clippy clean |
 | `host` | `c4d85a25` tests: multishot resume parity + eval-corpus case |
 | `host/project` | this note + ADR-0158 + the design doc |
 | `automation` | `scripts/check-engines.sh` (fmt + `clippy -D warnings` + tests for the four engine crates) |

@@ -14,9 +14,9 @@ status_note: Design specification — Phase 1 of the ADR-0103 migration plan.
 - [Kernel Extraction Plan](kernel_extraction_plan.md)
 - [Exec Model (`exec_model.hnl`)](exec_model.hnl)
 - [Arrow Model (`arrow_model.hnl`)](arrow_model.hnl)
-- Current ISA: `crates/plugin-engine-exec-bytecode/src/instr.rs`
-- Current VM: `crates/plugin-engine-exec-bytecode/src/vm.rs`
-- Pattern matching: `crates/plugin-engine-exec/src/pattern_match.rs`
+- Current ISA: `crates/plugin-exec-bytecode/src/instr.rs`
+- Current VM: `crates/plugin-exec-bytecode/src/vm.rs`
+- Pattern matching: `crates/plugin-exec/src/pattern_match.rs`
 
 ---
 
@@ -220,7 +220,7 @@ Examples:
 Per ADR-0103 resolved decision #4, the `match` op is exec model (Handl
 code that orchestrates arm iteration), but the kernel provides
 `pattern_match(pattern, value)` as a VM primitive. The 406-line
-pattern-matching logic in `crates/plugin-engine-exec/src/pattern_match.rs`
+pattern-matching logic in `crates/plugin-exec/src/pattern_match.rs`
 stays in Rust as a kernel primitive.
 
 The six pattern forms (from `pattern_match.rs`):
@@ -295,7 +295,7 @@ code compiled to bytecode.
 
 ## 3. Current ISA → Target ISA Mapping
 
-The current ISA (`crates/plugin-engine-exec-bytecode/src/instr.rs`) has
+The current ISA (`crates/plugin-exec-bytecode/src/instr.rs`) has
 ~30 instructions, many of which are structural ops that should move to
 the exec model (Handl code). This section maps each current instruction to
 its target ISA decomposition.
@@ -1044,7 +1044,7 @@ operand_stack: Vec<Value>
 The scope stack is a VM-managed data structure for variable bindings. It
 is a flat list of `(name, value)` bindings with scope markers, searched
 innermost-first. This is reused from the current VM
-(`crates/plugin-engine-exec-bytecode/src/vm.rs`, `ScopeStack`).
+(`crates/plugin-exec-bytecode/src/vm.rs`, `ScopeStack`).
 
 ```
 ScopeStack {

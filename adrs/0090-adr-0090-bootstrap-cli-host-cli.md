@@ -38,9 +38,9 @@ dispatching directly to the improved tooling crates and engines:
 host-cli (hnl)
 ├── plugin-ext-fmt
 ├── plugin-ext-lint
-├── plugin-engine-typecheck
+├── plugin-tool-typecheck
 ├── plugin-lib-test
-├── plugin-engine-lex / -parse / -eval / -typecheck   (run + engines)
+├── plugin-tool-lex / -parse / -eval / -typecheck   (run + engines)
 ├── handl-language, handl-value, handl-runtime        (core surfaces)
 └── platform                                          (contracts only)
 ```

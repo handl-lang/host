@@ -22,7 +22,7 @@ Today `plugin-lib-test` is one crate hosting **two unrelated concerns**:
    `snapshot.match`, etc.
 2. **The runner** — `runner.rs` (discovery, execution, reporting).
 
-ADR-0089 extracts the runner into `plugin-engine-test`. This ADR migrates
+ADR-0089 extracts the runner into `plugin-tool-test`. This ADR migrates
 the **framework library** to handl under `handl-packages/test/` and
 **deletes `plugin-lib-test`**.
 
@@ -93,7 +93,7 @@ cases, by a handl to a stdlib FFI primitive).
 
 Ops with an FFI dependency land as handl-over-primitive the moment the
 primitive exists; until then they stay as Rust handls _in the runner crate_
-(`plugin-engine-test`) as a temporary bridge, not in a resurrected
+(`plugin-tool-test`) as a temporary bridge, not in a resurrected
 `plugin-lib-test`.
 
 ### Crate boundary
@@ -101,12 +101,12 @@ primitive exists; until then they stay as Rust handls _in the runner crate_
 | Crate                           | Before                       | After                                                                                         |
 | ------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
 | `plugin-lib-test`               | Framework library + runner   | **Deleted**                                                                                   |
-| `plugin-engine-test` (ADR-0089) | —                            | Runner only; may carry temporary Rust handls for `benchmark`/RNG until stdlib primitives land |
+| `plugin-tool-test` (ADR-0089) | —                            | Runner only; may carry temporary Rust handls for `benchmark`/RNG until stdlib primitives land |
 | `handl-packages/test/`          | `test.hnl` (op declarations) | Full pure-handl framework library                                                             |
 
 ### Relationship to ADR-0089
 
-ADR-0089 extracts the runner into `plugin-engine-test` **first**. This ADR
+ADR-0089 extracts the runner into `plugin-tool-test` **first**. This ADR
 then migrates the framework library to handl and deletes `plugin-lib-test`.
 The ordering matters: the runner must have a home before the framework's
 old home is removed. The runner consumes the framework via the handl module
@@ -123,18 +123,18 @@ dependencies (RNG, clock) that gate two of the ops.
 
 ### What stays Rust
 
-- The **runner** (`plugin-engine-test`) — ADR-0089, stays Rust per
+- The **runner** (`plugin-tool-test`) — ADR-0089, stays Rust per
   ADR-0085 rule 6.
 - **Temporary Rust handls** for `benchmark.run` (clock) and
   `property.for_all`/`fuzz.run` (seeded RNG) _if_ those stdlib primitives
-  don't exist yet. These live in `plugin-engine-test` as stopgaps, **not**
+  don't exist yet. These live in `plugin-tool-test` as stopgaps, **not**
   in a recreated `plugin-lib-test`. They are deleted the moment the
   primitives land.
 
 ## Consequences
 
 - **`plugin-lib-test` is deleted.** The runner-framework tangle is gone.
-  The runner is `plugin-engine-test` (Rust); the framework is
+  The runner is `plugin-tool-test` (Rust); the framework is
   `handl-packages/test/` (handl).
 - **The test framework is written in handl, from day one of the
   migration.** This matches ADR-0077's direction and means the framework
@@ -142,7 +142,7 @@ dependencies (RNG, clock) that gate two of the ops.
   handl code.
 - **Two ops gate on stdlib primitives** (seeded RNG, clock). Until those
   land, `benchmark`/`property`/`fuzz` use temporary Rust handls hosted in
-  `plugin-engine-test`. This is an explicit, tracked stopgap — not a
+  `plugin-tool-test`. This is an explicit, tracked stopgap — not a
   permanent split.
 - **The `op` signatures in `test.hnl` are the stable contract.** Migrating
   an op from Rust-handl to pure-handl changes only the `handl "..." = …`
@@ -153,7 +153,7 @@ dependencies (RNG, clock) that gate two of the ops.
 
 ## Prerequisites
 
-1. **ADR-0089 lands first** — `plugin-engine-test` exists and the runner
+1. **ADR-0089 lands first** — `plugin-tool-test` exists and the runner
    is extracted out of `plugin-lib-test`.
 2. **A stdlib JSON serializer** for `snapshot.format` (likely already
    present or near-term per ADR-0077).

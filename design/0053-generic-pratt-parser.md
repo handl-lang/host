@@ -16,7 +16,7 @@ this page carries the mechanism, tables and rationale.
 ADR-0044 §3 specifies that the parse operation is driven by `Language.grammar`
 data rows: a Pratt engine reads `GrammarRow`s keyed by `(token, position)` and
 executes the prefix/infix loop from data. The shipped engine
-(`crates/plugin-engine-parse-pratt/src/lib.rs`) honors this for the **spine**
+(`crates/plugin-tool-parse-pratt/src/lib.rs`) honors this for the **spine**
 — prefix/infix dispatch, `lbp < rbp` precedence, and the generic
 `parse_delimited_block` driven by `DelimitedShape` — but `expression_inner`
 contains five special-case branches that bypass the grammar and dispatch on
@@ -65,7 +65,7 @@ no compile-time knowledge of it. The five special-case branches violate this
 property for the parser: each is keyed to handl's specific token-kind naming
 scheme (`token.keyword.if`, `token.lparen`, …) and handl's specific AST node
 kinds (`match`, `arm`, `bind`, `entry`, `call`). A different language reusing
-`plugin-engine-parse-pratt` would either need the same naming conventions or
+`plugin-tool-parse-pratt` would either need the same naming conventions or
 would silently fail to parse these constructs. Adding a new construct in the
 same family (e.g. `switch/case/default`, `try/catch`, a ternary `? :`)
 currently requires editing `expression_inner`, not just adding data rows.
@@ -292,7 +292,7 @@ only sub-routines. No `kind == "..."`, no `token.kind == "..."`.
 - **The parser is a fixed interpreter of grammar data**, symmetric with the
   eval engines being fixed interpreters of scheme data. ADR-0044's
   "engines as interpreters" property now holds for parse, not just eval.
-- **Other languages can reuse `plugin-engine-parse-pratt`** without adopting
+- **Other languages can reuse `plugin-tool-parse-pratt`** without adopting
   handl's token-kind naming scheme.
 - **`if` and `bind` become honest AST nodes** with explicit grammar rows,
   instead of parser-internal desugars that produce `match`/`bind` nodes

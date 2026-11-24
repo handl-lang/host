@@ -16,7 +16,7 @@ applies_to: '`graphopt`, `kernelopt`, `eqsat`, `gamekit`, `kernel`'
 # ADR-0157: mlopt on the fragment tower — domain vocabularies as `Language` fragments
 
   (`handl-language`, `hnl-engine`), `egraph`, `host` (`host-tensor`),
-  `engine-transform-rewrite`, `engine-typecheck-nbe`
+  `tool-transform-rewrite`, `tool-typecheck-nbe`
 
 ## Context
 
@@ -127,7 +127,7 @@ only rules.
 `Board` seats whose move space is fragment application; `handl-egraph`
 becomes the saturation engine pending the perf-parity gate; law
 guards (`check`/`derive`/`cond`) migrate toward type-level predicates
-as `engine-typecheck-nbe` matures (ADR-0152/0153/0154 lineage).
+as `tool-typecheck-nbe` matures (ADR-0152/0153/0154 lineage).
 
 ## Alternatives considered
 

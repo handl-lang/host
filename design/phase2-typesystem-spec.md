@@ -28,14 +28,14 @@ checker deleted, `.hnl` desugar overlay synced. Verified: 283 lib +
 
 | WS | Scope | Repo(s) | Blocks |
 |---|---|---|---|
-| A | Runtime `IO` flow — verify + finish (in-flight task) | `engine-exec*`, `host`, `kit-prelude-lang`, `lib-type` | F |
-| B | `__tag__`/`{tag}` full deletion | `kernel`, `kit-core`, `kit-prelude`, `engine-transform-rewrite`, `lib-desugar`, `lib-type`, `engine-typecheck-nbe` | — |
-| C | Implicit args + surface sugar (`f{A}`, `match` w/o motive, `Path` notation, `forall` shorthand) | `kit-prelude-lang`, `engine-transform-rewrite`, `engine-typecheck-nbe`, `kernel` (`handl-language`) | — |
-| D | Numeric/index solver hardening (`conv`-integrated normalization + bounded solver iface) | `engine-typecheck-nbe`, `kernel` (`handl-value`) | — |
-| E | `Hom` n≥3 + coherence; `>>>` real composition (0106 amendment) | `engine`, `engine-typecheck-nbe`, `kernel` (`handl-value`), `lib-type` | — |
-| F | Typed-effect signatures — handler typing + effect-row polymorphism | `engine-typecheck-nbe`, `kit-prelude-lang` | (needs A) |
-| G | `eval`/metaprogramming — checked terms from runtime mints, `Val`→AST quoting | `kernel`, `engine`, `engine-typecheck-nbe`, `host` | — |
-| H | Perf — conv/normalization, `eval_judgment` stack depth, `Env` walks | `engine-typecheck-nbe`, `kernel`, `engine` | — (continuous) |
+| A | Runtime `IO` flow — verify + finish (in-flight task) | `exec*`, `host`, `kit-prelude-lang`, `lib-type` | F |
+| B | `__tag__`/`{tag}` full deletion | `kernel`, `kit-core`, `kit-prelude`, `tool-transform-rewrite`, `lib-desugar`, `lib-type`, `tool-typecheck-nbe` | — |
+| C | Implicit args + surface sugar (`f{A}`, `match` w/o motive, `Path` notation, `forall` shorthand) | `kit-prelude-lang`, `tool-transform-rewrite`, `tool-typecheck-nbe`, `kernel` (`handl-language`) | — |
+| D | Numeric/index solver hardening (`conv`-integrated normalization + bounded solver iface) | `tool-typecheck-nbe`, `kernel` (`handl-value`) | — |
+| E | `Hom` n≥3 + coherence; `>>>` real composition (0106 amendment) | `engine`, `tool-typecheck-nbe`, `kernel` (`handl-value`), `lib-type` | — |
+| F | Typed-effect signatures — handler typing + effect-row polymorphism | `tool-typecheck-nbe`, `kit-prelude-lang` | (needs A) |
+| G | `eval`/metaprogramming — checked terms from runtime mints, `Val`→AST quoting | `kernel`, `engine`, `tool-typecheck-nbe`, `host` | — |
+| H | Perf — conv/normalization, `eval_judgment` stack depth, `Env` walks | `tool-typecheck-nbe`, `kernel`, `engine` | — (continuous) |
 
 Waves: **1: A ‖ B ‖ C** → **2: D ‖ E** → **3: F ‖ G ‖ H** (4 max
 concurrent; H slots wherever capacity frees).
@@ -56,11 +56,11 @@ what landed and finishes the remainder.
   `IO` values — an `IO(sig)` codomain on the op's declared
   signature, not just a host return.
 - Untyped ops keep working unchanged (record-width is opt-in).
-- Scope: `engine-exec/src/native_ops.rs` (`handle` shell +
+- Scope: `exec/src/native_ops.rs` (`handle` shell +
   op-dispatch arms ~L966-990, ~L3029-3164),
-  `engine-exec-tree-walk/src/lib.rs` (`handler_stack`, `Term::Op`),
-  `engine-exec-bytecode/src/vm.rs`,
-  `engine-exec-cranelift/src/lib.rs`,
+  `exec-tree-walk/src/lib.rs` (`handler_stack`, `Term::Op`),
+  `exec-bytecode/src/vm.rs`,
+  `exec-cranelift/src/lib.rs`,
   `kit-prelude-lang/data/eval.yaml` (`eval.handle` ~L1216),
   `host` (`Language::register_op`/`register_handler`, module chain).
 - Exit: e2e `handle` on an `IO({puts})`-typed arrow dispatches
@@ -89,7 +89,7 @@ cleanup, see open items).
 - `fold_chain`/`build_fold_chain` `v.tag` disjuncts — **both
   impls**: `lib-desugar/src/index.hnl` `fold_chain` (~L1059, the
   `binary.or` bridge arm) and
-  `engine-transform-rewrite/src/native/desugar.rs`
+  `tool-transform-rewrite/src/native/desugar.rs`
   `build_fold_chain` (~L1709, identical `or` arm) — dispatch only on
   `__ctor__` sym identity.
 - `lib-type/src/dependent.hnl` `{"__tag__": "type.sigma"}` mint
@@ -126,8 +126,8 @@ makes the surface match.
 - `Path` notation — consistent surface for `a ~Path~ b` /
   `Path(a, b)` in type-expression position.
 - Scope: `kit-prelude-lang` (lexer/grammar/`types.yaml`/`ast.yaml`
-  + transforms), `engine-transform-rewrite` (desugar natives),
-  `engine-typecheck-nbe` (`dependent.rs` `synth_match_arms`,
+  + transforms), `tool-transform-rewrite` (desugar natives),
+  `tool-typecheck-nbe` (`dependent.rs` `synth_match_arms`,
   `dep_synth_call_type`, implicit-index binding),
   `kernel/crates/handl-language` (`AstShapeDef` roles for new node
   kinds — role-driven, no `kind ==` checks).
@@ -152,7 +152,7 @@ bounded solver interface.
   non-linear two-unknown stays `Unknown` (stuck ≠ error, unchanged).
 - Interface sized so an SMT backend (Z3/CVC class) can slot behind
   the same `OpHandler`/service seam later — no call-site changes.
-- Scope: `engine-typecheck-nbe/src/dependent.rs`
+- Scope: `tool-typecheck-nbe/src/dependent.rs`
   (`eval_index`/`solve_index`/`subst_index`/`zonk_index`,
   `unify_index` ~L549), `checker.rs` `conv` integration,
   `kernel/crates/handl-value/src/nbe.rs` (if normalization lands on
@@ -212,7 +212,7 @@ metaprograms.
 - `eval` primitive on a quoted artifact runs the full check path —
   a runtime-minted term is *checked*, not trusted.
 - Scope: `kernel/crates/handl-value/src/nbe.rs` (quote side),
-  `engine/src/nbe.rs`, `engine-typecheck-nbe` (`synth` entry
+  `engine/src/nbe.rs`, `tool-typecheck-nbe` (`synth` entry
   accepting materialized AST), `host` (`eval` primitive wiring).
 - Exit: `Val → AST → infer` round-trip covered by tests;
   runtime-minted cells still pass artifact lint unchanged.
@@ -308,7 +308,7 @@ metaprograms.
     parity 46/46, import_sig 10/10 — `--test-threads=1`, single crate.
     `hnl typecheck`/`hnl run` binary e2e still gated by the missing
     `hnl` build (carried open item).
-  - *Note*: sibling `engine-typecheck-nbe` has uncommitted WS-H WIP
+  - *Note*: sibling `tool-typecheck-nbe` has uncommitted WS-H WIP
     (`checker.rs` `force_head_rc`, `stacker` dep, `tests/stack_probe.rs`)
     — left untouched and unstaged.
 
@@ -328,7 +328,7 @@ metaprograms.
     checker's `infer_comp_axis` — `Hom(1,a,b) ∘ Hom(1,b,c)`). Also
     added the missing `flow` arm to `JudgmentOps` (was
     unknown-op error under `veval`). Commits: `engine 308ef2c`,
-    `engine-typecheck-nbe b2ab3e7`.
+    `tool-typecheck-nbe b2ab3e7`.
   - *`Hom(3)` checked* (was stored): `infer_hom` n=3 via
     `cell_faces_at` (`tgt_j = src_j` recursion — deeper faces through
     the source boundary's type; lower cells promote to iterated
@@ -366,10 +366,10 @@ metaprograms.
   work via `callee`), `eval.index_app` (= `eval.call` scheme),
   `type.index_app` (= `synth_call`). Blocker: sibling `engine` repo has
   uncommitted WS-E WIP (`compose_cell_vals`/`is_cell_val` — nbe.rs fails
-  to compile), so `hnl-engine-typecheck-nbe` lib check +
+  to compile), so `hnl-tool-typecheck-nbe` lib check +
   `dependent_structure` + `hnl typecheck`/`hnl run` e2e verification are
   pending on that branch finishing (dependent.rs itself: zero errors,
-  warnings only; engine-parse-pratt 57/57 green).
+  warnings only; tool-parse-pratt 57/57 green).
 
 - **WS-C wave-2 (e2e verify — deferred from wave-1, now green).** The
   wave-1 machinery was committed unexercised (`engine` was mid-edit);
@@ -379,7 +379,7 @@ metaprograms.
      branches resolved the bound name through `node_name` only — an
      `index_app` subject (`id_vec{n,a} : Vec{n,a} ~> _`) fell through
      to "annot var". Both branches now try `implicit_binder_head`
-     first (`engine-typecheck-nbe dc604d8`).
+     first (`tool-typecheck-nbe dc604d8`).
   2. `synth_call` drained implicit `type.pi`s with fresh metas for
      *every* argument — `head{2,Bool}` checked `2` against
      `Vec{Succ ?n, ?a}` ("function is not a family member" → the
@@ -401,7 +401,7 @@ metaprograms.
      names — `vec_map`'s own `a`/`b` reported as unbound wires.
      `implicit_binder_names` descends the binding target through
      `subject`/`params`/`source` to the `index_app` head and scopes
-     the binder vars over the value only (`engine-typecheck 35bf9cb`).
+     the binder vars over the value only (`tool-typecheck 35bf9cb`).
   6. `synth_assign` bound the name *after* checking the value, so
      annotated recursion (`vec_map` calling itself) was unbound. The
      name is now Γ-visible at the annotation's type before the value
@@ -425,8 +425,8 @@ metaprograms.
   `Vec(n + 0, a)` per the dependent.hnl convention; `data Nat`
   ctor args need `Succ`-numerals (literal `1 : Nat` ≠ the inductive
   family — `Succ(3)` still rejected by design). Verify:
-  `engine-typecheck-nbe` lib 285 + dependent_structure 24/24 +
-  parity 46/46 green; `engine-typecheck` 15+43 green;
+  `tool-typecheck-nbe` lib 285 + dependent_structure 24/24 +
+  parity 46/46 green; `tool-typecheck` 15+43 green;
   `ext-typecheck`/`ext-eval` `.so`s rebuilt.
 
 - **WS-H wave-1 (conv fast paths + growable-stack seams) — landed.**
@@ -466,10 +466,10 @@ metaprograms.
     (`ctx.vcheck.store_mark`/`store_restore` in the `IO` arm; the
     parallel `meta_tys`/`meta_constraints` truncate in lockstep).
     Per-module growth is the monotone-solve NbE convention — fine.
-  - Verify: engine-typecheck-nbe lib 290 + dependent_structure 24/24 +
+  - Verify: tool-typecheck-nbe lib 290 + dependent_structure 24/24 +
     parity 46/46 + import_sig/grade/handle suites + stack_probe — all
     green; handl-value suite green. Commits: `kernel 0b64fee`,
-    `engine-typecheck-nbe 7cad7ef`. Note: `.orig` side-effects of the
+    `tool-typecheck-nbe 7cad7ef`. Note: `.orig` side-effects of the
     parallel WS-D/WS-F in-flight work were left untouched (partial
     staging — only WS-H hunks committed).
 
@@ -502,7 +502,7 @@ metaprograms.
   structural — a `Val`-domain port is the documented follow-up if
   needed. New tests: `dependent::index_solver_tests` 5/5. Verify: lib
   **290**/290 (285 + 5), dependent_structure **24/24**, parity **46/46**
-  — all green single-threaded. Commit: `engine-typecheck-nbe fcb1134`.
+  — all green single-threaded. Commit: `tool-typecheck-nbe fcb1134`.
   Collision note: concurrent WS-F/WS-H agents were editing this repo
   mid-run — a mid-session file overwrite wiped the first patch;
   reapplied on top of their WIP and staged only WS-D hunks (`git apply
@@ -527,7 +527,7 @@ metaprograms.
      scoped `law_mark` (pattern mode, ADR-0119), and a scope-bound
      dim var elaborates as its rigid index term instead of a fresh
      `Dim` meta (same in `dep_synth_type`'s dim_arrow arm)
-     (`engine-typecheck-nbe 819b593`).
+     (`tool-typecheck-nbe 819b593`).
   2. `ordered_value_annotations` (`x : 5 >>> inc := 6`) — bf4affd's
      unruled-kind fallback made `dep_synth_type` succeed with
      `type.unknown` on a `flow` annotation, so the ADR-0103
@@ -536,7 +536,7 @@ metaprograms.
      result now takes the term-eval path first (`5 >>> inc` → `6`),
      keeping the placeholder only when eval also fails (`819b593`).
   Verify: `kit-prelude` `ordered_annotations` 2/2, `fp_integration`
-  37/37, `sugars` 14/14; `engine-typecheck-nbe` lib 285/285 +
+  37/37, `sugars` 14/14; `tool-typecheck-nbe` lib 285/285 +
   dependent_structure 24/24 + parity 46/46 — all green.
 
 - **WS-G (eval + metaprogramming — runtime-minted types/laws/cells).**
@@ -592,12 +592,12 @@ metaprograms.
      (`x ~> ({…})`).
 
 - **Reconcile + carried gaps (phase-2 final state, pushed).** All
-  workstream strays reconciled; `engine-typecheck-nbe` lib 293 +
+  workstream strays reconciled; `tool-typecheck-nbe` lib 293 +
   dependent_structure 30/30 + stack_probe 1/1 + parity 46/46,
   `handl-value` lib 33 — all green. Two known gaps carry forward
   (documented, not blocking):
   1. **`eval_body_node` drops object-payload `lit` nodes** —
-     `engine-typecheck-nbe/src/judgments.rs` (`"value" | "lit"` arm):
+     `tool-typecheck-nbe/src/judgments.rs` (`"value" | "lit"` arm):
      a `lit` whose payload is an object (`{"value": …}`-less shapes —
      the desugar-minted `lit __sym__`/`__former__` encodings) evaluates
      to `Null` inside checked arrow bodies, so the payload's value is

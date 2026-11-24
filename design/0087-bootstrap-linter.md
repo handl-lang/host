@@ -21,7 +21,7 @@ was never implemented against the arrow AST.
 ## Decision
 
 The linter work lands in `plugin-ext-lint`: a **canonical rule set** over
-the v0.1 surface AST (`handl-language` AST via `plugin-engine-parse`),
+the v0.1 surface AST (`handl-language` AST via `plugin-tool-parse`),
 running on the crate's existing generic rule/capability registry. No config
 files. Diagnostics use the shared types from `plugin-ext-diag` (ADR-0091).
 

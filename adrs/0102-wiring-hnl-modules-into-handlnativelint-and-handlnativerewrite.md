@@ -17,11 +17,11 @@ status_note: Proposed
 
 ## Context
 
-`HandlNativeLint` (`plugin-lib-handl/src/lint.rs`) and `HandlNativeRewrite` (`plugin-lib-handl/src/transform.rs`) already implement the adapters that let lint and transform rules dispatch into pure-handl functions via the `handl:<mod>.<fn>` name prefix. They are tested in unit tests but are not wired into the production hosts (`plugin-ext-lint`, `host-tooling`, `host-cli` `transform`, `plugin-engine-transform-rewrite`).
+`HandlNativeLint` (`plugin-lib-handl/src/lint.rs`) and `HandlNativeRewrite` (`plugin-lib-handl/src/transform.rs`) already implement the adapters that let lint and transform rules dispatch into pure-handl functions via the `handl:<mod>.<fn>` name prefix. They are tested in unit tests but are not wired into the production hosts (`plugin-ext-lint`, `host-tooling`, `host-cli` `transform`, `plugin-tool-transform-rewrite`).
 
 The canonical kit (`handl-kit-canonical`) builds a `ModuleRegistry` of every stdlib module, many of which are `.hnl`-backed `HandlModule`s. The same `HandlModule`s must be made available to `HandlNativeLint` and `HandlNativeRewrite` so that `lints.yaml` rules with `check: !Native "handl:..."` and `transforms.yaml` rules with `rule: !Native "handl:..."` resolve at runtime instead of reporting "unknown native".
 
-A historical implementation existed on the `wire/handl-natives` branch. That branch is now stale: it was written before the current `Kit`/`build_stdlib_registry` shape (with per-module `want` filters, `get_module` caching, and the removal of `plugin-lib-rand-native` / `plugin-lib-time-native` / `plugin-engine-typecheck-nbe`), so it cannot be merged mechanically.
+A historical implementation existed on the `wire/handl-natives` branch. That branch is now stale: it was written before the current `Kit`/`build_stdlib_registry` shape (with per-module `want` filters, `get_module` caching, and the removal of `plugin-lib-rand-native` / `plugin-lib-time-native` / `plugin-tool-typecheck-nbe`), so it cannot be merged mechanically.
 
 ## Decision
 

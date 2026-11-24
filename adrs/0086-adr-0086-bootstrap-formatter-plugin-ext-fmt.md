@@ -30,7 +30,7 @@ on the generic format capability contracts, that formats `.handl` files
 written in the v0.1 surface syntax.
 
 - **Input/output:** surface source text → parse (via
-  `plugin-engine-parse` over the `handl-language` AST) → canonical layout →
+  `plugin-tool-parse` over the `handl-language` AST) → canonical layout →
   source text. Formatting is AST-driven; comments and tokens are preserved
   via the token stream, not reflowed.
 - **Hardcoded style, no configuration.** Canonical preferences:
@@ -76,7 +76,7 @@ The v0.1 arrow surface syntax (ADR-0074) is now being used to write the handl st
 ## Enforcement
 
 - `plugin-ext-fmt` — where this is true.
-- `plugin-engine-parse` — where this is true.
+- `plugin-tool-parse` — where this is true.
 - `plugin-ext-diag` — where this is true.
 
 ## Design

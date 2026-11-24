@@ -113,7 +113,7 @@ decreasing on `v`'s ctor spine by construction.
 
 ## Why
 
-`desugar.data` (`engine-transform-rewrite/src/native/desugar.rs`) lowers `data Nat :: Zero | Succ(pred : Nat)` into a block of three kinds of bindings:
+`desugar.data` (`tool-transform-rewrite/src/native/desugar.rs`) lowers `data Nat :: Zero | Succ(pred : Nat)` into a block of three kinds of bindings:
 
 ## Not doing
 
@@ -130,7 +130,7 @@ decreasing on `v`'s ctor spine by construction.
 ## Enforcement
 
 - `kit-prelude-lang` — where this is true.
-- `engine-transform-rewrite/src/native/desugar.rs` — where this is true.
+- `tool-transform-rewrite/src/native/desugar.rs` — where this is true.
 - `lib-type` — where this is true.
 
 ## Design

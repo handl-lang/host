@@ -1,25 +1,25 @@
 +++
 id = "ADR-0089"
-title = "ADR-0089: Bootstrap Test Runner (`plugin-engine-test`)"
+title = "ADR-0089: Bootstrap Test Runner (`plugin-tool-test`)"
 status = "open"
 priority = "med"
 +++
 
 ---
-title: Bootstrap Test Runner (`plugin-engine-test`)
+title: Bootstrap Test Runner (`plugin-tool-test`)
 type: adr
 date: 2026-10-15
 updated: 2026-10-29
 status: implemented
-status_note: Implemented — the runner lives in the engine-test repo (`hnl-engine-test`); `plugin-ext-test` is the capability adapter.
+status_note: Implemented — the runner lives in the tool-test repo (`hnl-tool-test`); `plugin-ext-test` is the capability adapter.
 refs: [ADR-0085, ADR-0092]
 ---
 
-# ADR-0089: Bootstrap Test Runner (`plugin-engine-test`)
+# ADR-0089: Bootstrap Test Runner (`plugin-tool-test`)
 
 ## Decision
 
-1. **A new `plugin-engine-test` crate owns the runner** — discovery, index,
+1. **A new `plugin-tool-test` crate owns the runner** — discovery, index,
    filter, planner, scheduler, engine, result store, summarizer, reporter —
    extracted from `plugin-lib-test`; it stays Rust (ADR-0085 §6).
 2. **`plugin-lib-test` becomes the framework library** (`assert`/`property`/
@@ -63,7 +63,7 @@ means rewriting the runner; the pipeline boundaries are the decision.
   land.
 
 ## Enforcement
-- `engine-test/` (`hnl-engine-test`) — the runner.
+- `tool-test/` (`hnl-tool-test`) — the runner.
 - `crates/plugin-ext-test/` — the `test` capability adapter.
 - `tests/` in the engine and host — pipeline and determinism tests.
 

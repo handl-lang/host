@@ -83,8 +83,8 @@ Even if lex fit, the pipeline multiplies memory at every stage:
 | `Source` | the 206 MB `String` itself | trivial |
 | `lex` → `Tokens` | `Token { kind: String, text: String, start, end }` — **two heap `String`s per token** (`kernel/crates/handl-language/src/staged.rs:22-36`) | measured below |
 | `parse_raw` | `ParserRequest::new(toks.clone())` — **deep-clones every token** (`handl-runtime/src/lib.rs:841`) — tokens stay alive through `eval` too (`run` scope) | source |
-| Pratt parse | `expression_inner` recurses per prefix child / infix rhs (`engine-parse-pratt/src/lib.rs:962`, child recursion `:1076`) | stack-overflow data below |
-| parse return | `Ok(self.ast.borrow().clone())` — **clones the whole AST arena** (`engine-parse-pratt/src/lib.rs:810`) | source |
+| Pratt parse | `expression_inner` recurses per prefix child / infix rhs (`tool-parse-pratt/src/lib.rs:962`, child recursion `:1076`) | stack-overflow data below |
+| parse return | `Ok(self.ast.borrow().clone())` — **clones the whole AST arena** (`tool-parse-pratt/src/lib.rs:810`) | source |
 | `apply_desugar` | `ast.clone()` + `RewriteEngine::run_pass` → a second arena (`desugar_pass.rs:54-66`) | source |
 | `eval` | `prepare_exec_artifact` (exec-erasure, another arena + lint traversal) → `lower_ast` → `Term` tree → `interpret_with_handlers`, falling back to tree-walk (`handl-runtime/src/lib.rs:898-919`) | source |
 
@@ -233,7 +233,7 @@ engines help both doors.
 - Read: `graphopt/packages/mlopt-kit/src/{lib.rs,bin/hnl-run.rs}`,
   `host/crates/handl-runtime/src/lib.rs` (`run`/`lex`/`parse`/`eval`,
   lines 810-1056), `desugar_pass.rs`, `exec_erasure_pass.rs`,
-  `engine-parse-pratt/src/lib.rs` (`parse`/`expression_inner`),
+  `tool-parse-pratt/src/lib.rs` (`parse`/`expression_inner`),
   `handl-language/src/{staged.rs,ast.rs}`, `mlopt/src/mlopt/emit.py`,
   `eqsat/.../mlopt_core/ir.py`, `host-tensor/src/ops/mod.rs`.
 - Wrote: `graphopt/packages/mlopt-kit/src/bin/hnl-stage.rs` (scratch

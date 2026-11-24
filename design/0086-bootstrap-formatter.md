@@ -26,7 +26,7 @@ on the generic format capability contracts, that formats `.handl` files
 written in the v0.1 surface syntax.
 
 - **Input/output:** surface source text → parse (via
-  `plugin-engine-parse` over the `handl-language` AST) → canonical layout →
+  `plugin-tool-parse` over the `handl-language` AST) → canonical layout →
   source text. Formatting is AST-driven; comments and tokens are preserved
   via the token stream, not reflowed.
 - **Hardcoded style, no configuration.** Canonical preferences:
@@ -62,6 +62,6 @@ comment reflow, plugin-contributed rules (all RFC-0002).
   RFC-0002.
 - The crate must track ADR-0074 grammar changes (`ARROW_GRAMMAR_V0_1.md`);
   parser changes are a hard dependency, so `plugin-ext-fmt` pins the workspace
-  `plugin-engine-parse` version and CI fails loudly on drift. The formatter
+  `plugin-tool-parse` version and CI fails loudly on drift. The formatter
   consumes and produces the shared diagnostics types from `plugin-ext-diag`
   (ADR-0091).

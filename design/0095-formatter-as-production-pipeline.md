@@ -34,7 +34,7 @@ src/format.rs` ships `BasicFormatter` / `FormatBehavior` / `FormatRequest`
    echo-style unit tests. The real canonical formatter never goes through
    them. ADR-0014's generic purpose was never connected to ADR-0086's
    concrete implementation.
-3. **Two engines, not a pipeline.** `plugin-engine-fmt` already has a
+3. **Two engines, not a pipeline.** `plugin-tool-fmt` already has a
    data-driven AST→source emitter (`FormatEngine` + a `NodeEmitter` trait:
    `PlainEmitter` / `PreserveEmitter`, per ADR-0044). The token-stream layout
    in `plugin-ext-fmt` reimplements the leaf/spacing decisions separately.
@@ -62,7 +62,7 @@ surgery.
 
 | Crate                          | Role                                                                                                                                                                                                      | Fate                                                |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `plugin-engine-fmt` (**core**) | Format **engine**: the staged pipeline plus the `NodeEmitter` and `FormattingRule` seams. Language-generic (ADR-0044/ADR-0041).                                                                           | Improved in place; hosts the pipeline and traits.   |
+| `plugin-tool-fmt` (**core**) | Format **engine**: the staged pipeline plus the `NodeEmitter` and `FormattingRule` seams. Language-generic (ADR-0044/ADR-0041).                                                                           | Improved in place; hosts the pipeline and traits.   |
 | `plugin-ext-fmt` (**surface**) | Canonical v0.1 **surface**: assemble the canonical kit, select the canonical rule set, expose `format_source` / `check_source` / `format_ast` as thin wrappers + CLI contract + golden/idempotence tests. | Slimmed to a thin wrapper over the engine pipeline. |
 | `crates/platform/format.rs`    | The generic `Format` capability (`BasicFormatter` / `FormatBehavior`).                                                                                                                                    | **Decision point below.**                           |
 
@@ -88,18 +88,18 @@ canonical source                     ── stage 4 · post-process (blank-lines
 Each stage has a typed input/output contract. The initial implementation of
 each stage is exactly the logic that exists today, moved behind the boundary:
 
-- **parse** — reuse `plugin-engine-lex-*` and `plugin-engine-parse-pratt`
+- **parse** — reuse `plugin-tool-lex-*` and `plugin-tool-parse-pratt`
   (already generic; not reimplemented).
 - **layout** — `needs_space` / indentation / chain-breaking move from the
   monolith into composable rules.
 - **render** — already exists as `FormatEngine` + `PlainEmitter` /
-  `PreserveEmitter` in `plugin-engine-fmt`.
+  `PreserveEmitter` in `plugin-tool-fmt`.
 - **post-process** — `post_process` / `decl_type` (blank-line and trailing
   policy) move behind the boundary.
 
 ### Rule seam: `FormattingRule` (replaceable, composable)
 
-Introduce `pub trait FormattingRule` in `plugin-engine-fmt`. Each
+Introduce `pub trait FormattingRule` in `plugin-tool-fmt`. Each
 canonical-style rule (indentation, chain-breaking, blank-line policy,
 spacing) is a separate implementation behind the trait, selected/composed by
 the surface rather than hardcoded inside one walk — the formatter analog of
@@ -200,7 +200,7 @@ serial output).
 ## Prerequisites
 
 1. Extract `needs_space` / indentation / chain-breaking into `FormattingRule`
-   implementations in `plugin-engine-fmt`; keep the current behavior
+   implementations in `plugin-tool-fmt`; keep the current behavior
    byte-identical on the golden corpus.
 2. Move `post_process` / `decl_type` behind the post-process stage contract.
 3. Decide and execute the `platform/format.rs` option (connect or retire).

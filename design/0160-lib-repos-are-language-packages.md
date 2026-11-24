@@ -74,7 +74,7 @@ Rust shells as the loader learns to fetch deps.**
 4. **The shell is a bug, not a feature.** It is removed in the same change that
    gives the loader git deps — never repo-by-repo, because a repo whose shell is
    gone while the loader cannot fetch it becomes unbuildable for its consumers.
-5. **Consumers move to packages**: `engine-test` (and any other Rust consumer)
+5. **Consumers move to packages**: `tool-test` (and any other Rust consumer)
    loads the module through the loader instead of `include_str!`.
 
 ## Migration
@@ -144,14 +144,14 @@ cover discovery, path mapping and resolver behaviour. **Still missing for P2:** 
 packages (`src/<name>/index.hnl` + intra-package imports) and wiring
 `fetch_dependencies` + `resolve_pkg_dependencies` into the resolver constructor.
 
-**P2 — pilot.** `lib-pred`: delete `Cargo.toml` + `src/lib.rs`; `engine-test`
+**P2 — pilot.** `lib-pred`: delete `Cargo.toml` + `src/lib.rs`; `tool-test`
 loads `pred` via the loader. Zero `include_str!` in the chain; its suite green.
 
 **P3 — sweep.** Remove the remaining 87 shells, one repo per commit, each with
 its consumer moved. Gate: `hnl-gate.sh` + `verify-all.sh` green throughout.
 
 **P2/P3 status (2026-10-28).** P2 landed: `lib-pred` dropped its `Cargo.toml` +
-`src/lib.rs`, and `engine-test` now loads the `pred` module through the bridge
+`src/lib.rs`, and `tool-test` now loads the `pred` module through the bridge
 (`package_modules` + derived fields) — 79/79 tests green, `ci: ok`. That fixed the field
 discovery properly: brace-stack scan, string/comment aware, counting only single-`:`
 record fields (so `name :: …` helpers are skipped) and preferring the last block with
@@ -169,7 +169,7 @@ table from `include_str!` to package-backed specs
 (`pkg::module_from_dir(dir, name)`) retires 36 shells in one change. The rest are small,
 single-consumer edges: `kit-prelude` (2), `kit-stdlib` (8 extra), `kit-test` (2),
 `kit-core`/`kit-ffi`/`kit-server`/`kit-lang` (1–6 each), `plugin-lib-handl` (4),
-`plugin-ext-refinement` (2), `plugin-lib-tag` (1), `handl-runtime` (1), `engine-test` (1),
+`plugin-ext-refinement` (2), `plugin-lib-tag` (1), `handl-runtime` (1), `tool-test` (1),
 and five `lib-*`→`lib-*` edges.
 
 **P3 mechanism (decision, 2026-10-28).** Two ways a Rust consumer can read a package
@@ -184,7 +184,7 @@ once the shell is gone, and they differ in *when* the package must exist:
 **Decision:** use **build-time vendoring** for the kit/stdlib consumers
 (`plugin-lib-stdlib`'s 36 shells, the `kit-*` edges), because they are built and tested
 hermetically and must not depend on a populated package cache at runtime; keep the
-**runtime load** for consumers that already resolve packages dynamically (`engine-test`'s
+**runtime load** for consumers that already resolve packages dynamically (`tool-test`'s
 `pred`, and hosts that take a `pkg.hnl` manifest). Either way the *lib* repo ships no
 `Cargo.toml` — which is the ADR's actual goal.
 

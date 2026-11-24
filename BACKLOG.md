@@ -7,8 +7,8 @@
 - T-015 RFC-0001 — Plugin system in handl. Extract the Rust plugin system ( platform crate: Capability/Plugin/Kit/Host) into handl: capabilities and plugins as values, kits as module lists, hosts as handlers.
 - T-016 RFC-0002 — Formatter in handl. Refactor of bootstrap plugin-ext-fmt ; formatter as a pure arrow, rules compose by >>> , idempotence as a law.
 - T-017 RFC-0003 — Linter in handl. Refactor of bootstrap plugin-ext-lint ; rules are pure arrows Ast ~> \[Diagnostic\] , --fix as a fixpoint pipeline, cross-module rules over the module graph.
-- T-018 RFC-0004 — Typechecker in handl. Refactor of bootstrap plugin-engine-typecheck ; adds the deferred scope (traits, refinements, invariants, row variables). Blocked on compiled backends (perf).
-- T-019 RFC-0005 — Test runner in handl. Refactor of bootstrap plugin-engine-test ; adds parallel execution (ADR-0072), properties, benchmarks.
+- T-018 RFC-0004 — Typechecker in handl. Refactor of bootstrap plugin-tool-typecheck ; adds the deferred scope (traits, refinements, invariants, row variables). Blocked on compiled backends (perf).
+- T-019 RFC-0005 — Test runner in handl. Refactor of bootstrap plugin-tool-test ; adds parallel execution (ADR-0072), properties, benchmarks.
 - T-020 RFC-0006 — LSP server in handl. Hardest target, intentionally last; session as a fold over the message stream, features as arrows, thin Rust transport adapter. Blocked on RFC-0004 perf.
 - T-021 RFC-0007 — CLI in handl with tool-integration plugins. Realizes ADR-0029: generic, composable, extensible, replaceable, modular, documented CLI that loads integrations contributed by the tool RFCs and is decoupled from them.
 - T-022 VS Code extension. The editor-support/vscode skeleton exists; full feature work is deferred until RFC-0006 LSP-in-handl matures.
@@ -17,11 +17,11 @@
 
 - T-023 CommonJS output for hnl compile js — JsOutputFormat currently emits ESM only. Deferred: ESM covers the node/browser targets in use; revisit if a CommonJS-only embedder appears. ( web repo, modules/compile-js .)
 
-## Arrow macros (ADR-0084)
+## Arrow macros (ADR-0201, was ADR-0084 @ lang)
 
-- T-024 Ref: ADR-0084 — Arrow Macros
+- T-024 Ref: ADR-0201 — Arrow Macros (was ADR-0084 @ lang)
 - T-025 Type-safe compile-time metaprogramming. Macros are arrows ( Ast ~> Ast ), typechecked before expansion. No new calculus primitives.
-- T-026 Subsumes const (ADR-0083 §5.1) and data (ADR-0082) as degenerate macros. Enables derivation ( derive\_show , derive\_eq ) and DSL embedding (SQL, regex, HTML).
+- T-026 Subsumes const (ADR-0083 §5.1) and data (ADR-0200, was ADR-0082 @ lang) as degenerate macros. Enables derivation ( derive\_show , derive\_eq ) and DSL embedding (SQL, regex, HTML).
 - T-027 Low priority — not blocking ADR-0083 (FFI-Native Stdlib). const + prim.or cover the immediate POSIX constants need.
 
 ## lib-utils
@@ -121,7 +121,7 @@
 
 ## S1 — blockers
 
-- T-073 type.unknown untouchable (no == / < / + / if on host/while results) — likely fixed by engine-typecheck-nbe e094277 ("type.unknown is the dynamic top") landed mid-session — re-verify before scheduling.
+- T-073 type.unknown untouchable (no == / < / + / if on host/while results) — likely fixed by tool-typecheck-nbe e094277 ("type.unknown is the dynamic top") landed mid-session — re-verify before scheduling.
 - T-074 Closed-record unification rejects heterogeneous ctor payloads in shared slots.
 - T-075 Record/array literals crash in type.unknown -expected positions ( check\_object\_record: no 'fields' object ).
 - T-076 check\_json\_value internal crash on meta/unknown/mismatched-record expected types — should be a unification diagnostic, not an internal error.
@@ -149,7 +149,7 @@
 
 - T-091 research-dts — DONE. Unarchived, its docs commit pushed ( 6be8055 ), re-archived. Site is published and current.
 - T-092 host , graphopt , eqsat , gamekit got README pointers only. Their docs/site/ trees predate this sweep and were not re-read for accuracy; the other 23 repos were authored from source. Refresh when someone owns them.
-- T-093 38 sibling repos are --locked -clean but not compile-verified. engine-exec-bytecode/src/vm.rs:1842 fails E0308 ( replace wants usize , gets Option\<usize> ) in an in-flight edit, and everything downstream cannot build. Re-run the verify pass ( cargo test --workspace --lib --locked under the global flock) once it compiles. The same blocker holds the hnl extension build, and with it the lib-json-handl re-verify against e094277 . Fixed 2026-10-26 ( 1e0d2d0 -era change to std::mem::replace ); the rest of the verify pass is still owed.
+- T-093 38 sibling repos are --locked -clean but not compile-verified. exec-bytecode/src/vm.rs:1842 fails E0308 ( replace wants usize , gets Option\<usize> ) in an in-flight edit, and everything downstream cannot build. Re-run the verify pass ( cargo test --workspace --lib --locked under the global flock) once it compiles. The same blocker holds the hnl extension build, and with it the lib-json-handl re-verify against e094277 . Fixed 2026-10-26 ( 1e0d2d0 -era change to std::mem::replace ); the rest of the verify pass is still owed.
 
 ## Effects / engines (2026-10-26, after multi-shot resume )
 

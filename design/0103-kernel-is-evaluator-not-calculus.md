@@ -137,7 +137,7 @@ structures, bytecode examples.
 ### Phase 6b: HandlTypecheckEngine adapter (ADR-0105)
 
 - `HandlTypecheckEngine` in
-  `crates/plugin-engine-typecheck-handl/src/lib.rs` — a thin Rust
+  `crates/plugin-tool-typecheck-handl/src/lib.rs` — a thin Rust
   adapter that implements the `TypecheckEngine` trait by loading and
   calling the Handl-authored `typecheck_model.hnl`. It embeds the model
   source via `include_str!`, loads it into a `HandlModule` at
@@ -183,12 +183,12 @@ The following work remains to complete the literal ADR end-state:
    engine, Cranelift compiler, refinement engine (partial),
    `handl-language` (partial), NBE typechecker (`lib.rs`), `handl-runtime`
    (tests), `plugin-engine`). The largest remaining consumer is
-   `plugin-engine-typecheck-nbe` (~1,282 references in its test suite and
+   `plugin-tool-typecheck-nbe` (~1,282 references in its test suite and
    deeper modules), which will require its own migration pass. Other
    major remaining consumers: `plugin-ext-refinement` (708),
    `handl-runtime` (723), `handl-language` (409),
-   `plugin-engine-exec-cranelift` (353), `plugin-engine` (289),
-   `plugin-engine-exec-bytecode` (279), `plugin-engine-exec-tree-walk`
+   `plugin-exec-cranelift` (353), `plugin-engine` (289),
+   `plugin-exec-bytecode` (279), `plugin-exec-tree-walk`
    (208).
 2. **Remove the `Term` enum** from `plugin-engine/src/term.rs` once all
    references are migrated.
@@ -843,11 +843,11 @@ loaded, validated, composed, and run inside the language.
 - `crates/plugin-engine/src/term.rs` — replace enum with
   `serde_json::Value`
 - `crates/plugin-engine/src/lib.rs` — evaluator (dispatch + recurse)
-- `crates/plugin-engine-exec-tree-walk/src/lib.rs` — thin dispatcher
-- `crates/plugin-engine-exec-bytecode/src/compile.rs` — thin dispatcher
-- `crates/plugin-engine-exec-cranelift/src/compile.rs` — thin dispatcher
-- `crates/plugin-engine-typecheck-nbe/src/lib.rs` — thin dispatcher
-- `crates/plugin-engine-typecheck-handl/src/lib.rs` —
+- `crates/plugin-exec-tree-walk/src/lib.rs` — thin dispatcher
+- `crates/plugin-exec-bytecode/src/compile.rs` — thin dispatcher
+- `crates/plugin-exec-cranelift/src/compile.rs` — thin dispatcher
+- `crates/plugin-tool-typecheck-nbe/src/lib.rs` — thin dispatcher
+- `crates/plugin-tool-typecheck-handl/src/lib.rs` —
   `HandlTypecheckEngine` adapter (ADR-0105; new)
 
 ### Models (Handl-authored data)
@@ -877,9 +877,9 @@ loaded, validated, composed, and run inside the language.
 ### Tests
 
 - `crates/handl-runtime/tests/exec_model_parity.rs`
-- `crates/plugin-engine-exec-tree-walk/tests/path_transport.rs`
-- `crates/plugin-engine-exec-tree-walk/tests/rewrite_law.rs`
-- `crates/plugin-engine-typecheck-nbe/src/tests.rs`
+- `crates/plugin-exec-tree-walk/tests/path_transport.rs`
+- `crates/plugin-exec-tree-walk/tests/rewrite_law.rs`
+- `crates/plugin-tool-typecheck-nbe/src/tests.rs`
 
 ## Result
 

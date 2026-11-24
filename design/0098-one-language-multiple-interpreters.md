@@ -153,8 +153,8 @@ pub struct ModelCtx<'a> {
 
 `ModelCtx` carries the AST, the `Language`, and the current node. It is needed to resolve `Child` roles, read `Op` payloads, look up eval/type `Term`s by node kind, and report errors with span information.
 
-- `plugin-engine-exec` is the native tree-walk `Model`.
-- `plugin-engine-typecheck` is the type `Model`.
+- `plugin-exec` is the native tree-walk `Model`.
+- `plugin-tool-typecheck` is the type `Model`.
 - WASM, JS, compiler, analyzer, optimizer are more `Model` impls.
 
 The `Model` is a model of the graded theory. It is not a flat `name -> function` registry; it is a composition of **handlers**, where each handler provides grades for a sort. A `Model` can support or not support any `Term` combinator. If it sees a `Term` it does not implement, it returns an error.
@@ -873,7 +873,7 @@ for (i from 0 to n) body  =>  iter(n, pred, step, init)  -- desugaring
 
 The `Language` data can declare not only `sort`, `grade`, and `op`, but also **laws** (2-cells) and **rewrite rules**. A `Model` becomes a **2-functor**: it sends 0-cells to carriers, 1-cells to functions, and 2-cells to equalities or transformations.
 
-The existing `plugin-engine-transform` already produces rewrites. A 2-categorical view makes those rewrites part of the `Term` language itself:
+The existing `plugin-tool-transform` already produces rewrites. A 2-categorical view makes those rewrites part of the `Term` language itself:
 
 - `ValueModel` maps a 2-cell to an equality proof: `f` and `g` are observationally equivalent.
 - `CompilerModel` maps a 2-cell to a target-level transformation: replace `f` with `g`.
@@ -957,7 +957,7 @@ The practical consequence is that the `TypeModel` is not just a typechecker; it 
 ### Negative
 
 - Requires defining `Term` and the `Model` trait in `plugin-engine`.
-- Requires porting `plugin-engine-exec-tree-walk` and `plugin-engine-typecheck-nbe` to standalone `Model` impls.
+- Requires porting `plugin-exec-tree-walk` and `plugin-tool-typecheck-nbe` to standalone `Model` impls.
 - Requires adding `Iter` and `Term::Child` to the calculus.
 - Requires updating `handl-kit-data-canonical` grammar/ast/eval to remove `data` and support `sort`, `grade`, `op`, `iter`, `for`.
 - Requires migrating `types.yaml` to produce grade tags and `Generic` applications.
@@ -965,12 +965,12 @@ The practical consequence is that the `TypeModel` is not just a typechecker; it 
 ## Migration order
 
 1. Define `Term` and the `Model` trait in `crates/plugin-engine`.
-2. Port `plugin-engine-exec-tree-walk` to a `Model` impl over `TaggedValue`.
-3. Port `plugin-engine-typecheck-nbe` to a `Model` impl for the type interpreter.
+2. Port `plugin-exec-tree-walk` to a `Model` impl over `TaggedValue`.
+3. Port `plugin-tool-typecheck-nbe` to a `Model` impl for the type interpreter.
 4. Add `Iter` to the `Term` calculus and surface `iter`/`for` syntax.
 5. Add `Term::Child` (or equivalent) and desugar surface `arr`/`first`/`second`/`left`/`right`/`+++`/`app` into `Term` sugar.
 6. Remove the `data` keyword from canonical language data; make `sort` the canonical sort declaration.
 7. Add `sort`, `grade`, and `op` declarations and the `grades` clause to `sort`.
 8. Define canonical grades in `handl-packages/type` (`Addable`, `Comparable`, `Serializable`, `Iterable`, `Lengthable`, `Indexable`) and migrate `types.yaml` to use grade tags.
 9. Migrate `types.yaml` to use `Generic` for sort application.
-10. Remove `plugin-engine-exec-tree-walk` and `plugin-engine-typecheck-nbe` once the runtimes are stable.
+10. Remove `plugin-exec-tree-walk` and `plugin-tool-typecheck-nbe` once the runtimes are stable.

@@ -45,7 +45,7 @@ retired:
   # ---------------------------------------------------------------------------
   # Exec-control plugins (ADR-0040). A self-contained island: `logging` was
   # referenced only by `allow`/`deny`. `plugin-exec-cache` is unaffected (live
-  # via `plugin-engine-test`).
+  # via `plugin-tool-test`).
   # ---------------------------------------------------------------------------
   - was: handl-plugin-exec-allow
     loc: 177
@@ -130,7 +130,7 @@ retired:
     status: proposed
     superseded_by: "ADR-0034 is archived; the extension slot survived as a name only."
     unpark: "No — recreate from the ADR when a build pipeline actually exists."
-  - was: handl-plugin-engine-transform-parallel
+  - was: handl-plugin-tool-transform-parallel
     loc: 438
     idea: Parallel bottom-up transform pass (partition at the root's top-level children).
     adr: ADR-0094
@@ -142,7 +142,7 @@ retired:
     idea: Expression-level diagnostics as a `LintBehavior` contributor.
     adr: ADR-0091
     status: superseded
-    superseded_by: "`plugin-ext-diag` (shared diagnostics, ADR-0091) plus lint-rules-as-data (`plugin-engine-lint`, ADR-0097). `host-tooling` had already dropped it as a dead dependency."
+    superseded_by: "`plugin-ext-diag` (shared diagnostics, ADR-0091) plus lint-rules-as-data (`plugin-tool-lint`, ADR-0097). `host-tooling` had already dropped it as a dead dependency."
     unpark: "No — use `plugin-ext-diag` + `lint_source`."
   - was: handl-plugin-source
     loc: 396

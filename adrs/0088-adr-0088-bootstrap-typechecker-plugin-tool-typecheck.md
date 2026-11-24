@@ -1,12 +1,12 @@
 +++
 id = "ADR-0088"
-title = "ADR-0088: Bootstrap Typechecker (`plugin-engine-typecheck`)"
+title = "ADR-0088: Bootstrap Typechecker (`plugin-tool-typecheck`)"
 status = "open"
 priority = "med"
 +++
 
 ---
-title: Bootstrap Typechecker (`plugin-engine-typecheck`)
+title: Bootstrap Typechecker (`plugin-tool-typecheck`)
 type: adr
 date: 2026-10-15
 status: implemented
@@ -20,7 +20,7 @@ status_note: |-
   [RFC-0004](../rfcs/0004-typechecker-in-handl.md).
 ---
 
-# ADR-0088: Bootstrap Typechecker (`plugin-engine-typecheck`)
+# ADR-0088: Bootstrap Typechecker (`plugin-tool-typecheck`)
 
 ## Context
 
@@ -29,13 +29,13 @@ Arrow kind checking and the structural type inference sketched in ADR-0074
 `research/arrow-calculus-kernel-poc/ARROW_REC_TYPING_V0_1.md`) do not exist
 as a usable, per-file checking pass. The stdlib cannot be written with any
 confidence about types until something checks it. The existing
-`plugin-engine-typecheck*` crates target the eval-engine value model, not
+`plugin-tool-typecheck*` crates target the eval-engine value model, not
 the v0.1 surface AST.
 
 ## Decision
 
 The surface-level checking work lands in the existing typecheck crates —
-`plugin-engine-typecheck` (with `plugin-typecheck-core` /
+`plugin-tool-typecheck` (with `plugin-typecheck-core` /
 `plugin-typecheck-nbe` where the machinery fits) — extended with a
 **bootstrap check pass over the v0.1 surface AST**. It is a bootstrap
 checker, not the final inference engine: it implements the decidable core
@@ -80,7 +80,7 @@ that say "not yet checked" rather than silently passing.
 - Deliberately incomplete inference means some valid v0.1 programs are
   rejected with "not yet checked" — acceptable and documented; the RFC-0004
   engine replaces these boundaries.
-- The checker lives inside the generic `plugin-engine-typecheck` machinery
+- The checker lives inside the generic `plugin-tool-typecheck` machinery
   (parsing/unification infrastructure) rather than forking it; what is new
   here is the surface-AST-level pass and its diagnostics. Keeping the
   engine generic preserves replaceability per ADR-0085.
