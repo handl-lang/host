@@ -96,8 +96,12 @@ def check(data: dict) -> int:
 
 
 def verify(data: dict) -> int:
-    """Post-split: platform/project/ holds exactly the platform-owned set."""
-    want = {p.removeprefix("project/") for p in repo_paths(data, "platform")}
+    """Post-split: this worktree's project/ holds exactly the repos that
+    live here (every non-empty `repos:` entry — `host` plus imported
+    ledgers like `lang`)."""
+    want: set[str] = set()
+    for repo in (data.get("repos") or {}):
+        want.update(p.removeprefix("project/") for p in repo_paths(data, repo))
     have = _files()
     missing = sorted(want - have)
     extra = sorted(have - want)
@@ -107,7 +111,7 @@ def verify(data: dict) -> int:
         print(f"EXTRA      {rel}")
     ok = not (missing or extra)
     print(
-        f"\nplatform/project: {len(have)} files, {len(want)} expected "
+        f"\nworktree project/: {len(have)} files, {len(want)} expected "
         f"-> {'OK' if ok else 'FAIL'}"
     )
     return 0 if ok else 1
