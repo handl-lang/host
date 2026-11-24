@@ -5,11 +5,12 @@ status = "deferred"
 created = "2026-11-23"
 priority = "med"
 labels = ["http", "routing"]
+superseded_by = "P-011"
 +++
 
 # P-008 — lib-route: transport-agnostic router + middleware pipeline
 
-***Status:** draft · **New repo:** `lib-route` · **Task:** T-136
+***Status:** superseded by P-011 · **New repo:** `lib-route` · **Task:** T-136
 **Depends on:** nothing (pure `.hnl`, zero deps beyond `str`/`char`/`hash_map`)
 **Builds on:** `lib-http-route` v3 pattern compiler, `lib-http-middleware` P-007 protocol
 

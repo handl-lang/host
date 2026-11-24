@@ -5,6 +5,7 @@ status = "open"
 created = "2026-11-23"
 priority = "med"
 labels = ["cli", "http", "routing"]
+supersedes = "P-008"
 +++
 
 # P-011 — lib-route: transport-agnostic router + pipeline
@@ -13,7 +14,7 @@ labels = ["cli", "http", "routing"]
 `lib-msg-router`, `lib-http-openapi`, `tool-codegen-openapi` ·
 **Rename:**
 `lib-http-route` → `lib-http-router` (clean break, legacy dropped) ·
-**Task:** T-138
+**Task:** T-138 · **Supersedes:** P-008
 
 ## Idea
 
