@@ -186,7 +186,7 @@ rewrite add_zero :
 A path (undirected equality) uses `=`. A directed path (arrow) uses `~>`.
 
 ```handl
-path p : a =_Number b      -- a path/identity proof
+path p : a :=_Number b      -- a path/identity proof
 arrow f : Number ~> Integer  -- a directed arrow
 rewrite r : f => g         -- a 2-cell between arrows
 ```
@@ -202,13 +202,13 @@ The key HoTT axiom is **univalence**:
 An equivalence of sorts gives an equality of sorts. This means Handl can declare two sorts equivalent and then transport operations between them.
 
 ```handl
-sort Number = () ~> [Addable, Comparable, Serializable]
-sort Integer = () ~> [Addable, Comparable, Serializable]
+sort Number := () ~> [Addable, Comparable, Serializable]
+sort Integer := () ~> [Addable, Comparable, Serializable]
 
-equiv Number Integer = (to_int, to_num, roundtrip)
+equiv Number Integer := (to_int, to_num, roundtrip)
 
 add_Number : (Number, Number) ~> Number
-add_Integer : Integer ~> Integer = transport add_Number along (Number = Integer)
+add_Integer : Integer ~> Integer := transport add_Number along (Number := Integer)
 ```
 
 The `transport` operator says: because `Number` and `Integer` are equivalent, the arrow `add_Number` can be moved along the path to become an arrow between `Integer` and `Integer`.
@@ -220,7 +220,7 @@ The `CompilerModel` uses univalence to compile `Number` and `Integer` to the sam
 In HoTT, a **proposition** is a type with at most one element (h-level 1). A `grade` is a proposition over a sort.
 
 ```handl
-grade Addable = { T : Sort | has_add(T) }
+grade Addable := { T : Sort | has_add(T) }
 ```
 
 `Addable` is the collection of all sorts `T` equipped with an `add` operation, where any two such operations are equal. The `grades` clause on a `sort` is a list of proof objects:

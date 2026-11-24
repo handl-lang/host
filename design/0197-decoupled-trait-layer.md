@@ -128,8 +128,8 @@ equation. It attaches to any arrow — no bundle required.
 
 ```handl
 map : (A ~> B) ~> (F<A> ~> F<B>)
-law map_id:    map id        = id
-law map_comp:  map (f >>> g) = map f >>> map g
+law map_id:    map id        := id
+law map_comp:  map (f >>> g) := map f >>> map g
 ```
 
 - `=` inside a `law` context means **extensional equality of arrows**:
@@ -156,10 +156,10 @@ only needed when a law spans multiple operations that must come from the
 same impl.
 
 ```handl
-Serializer<F> = {
+Serializer<F> := {
   serialize   : F ~> Text
   deserialize : Text ~> F
-  law roundtrip: serialize >>> deserialize = id
+  law roundtrip: serialize >>> deserialize := id
 }
 ```
 
@@ -181,10 +181,10 @@ ADR-0052, now the single resolution mechanism.
 
 ```handl
 -- inject a single arrow
-handle sort_by intCmp list with map = map_list
+handle sort_by intCmp list with map := map_list
 
 -- inject a bundle (the "trait" case)
-handle migrate json with Serializer<JSON> = json_impl
+handle migrate json with Serializer<JSON> := json_impl
 ```
 
 - **Lexically scoped, nearest-wins** — like exception handlers. An

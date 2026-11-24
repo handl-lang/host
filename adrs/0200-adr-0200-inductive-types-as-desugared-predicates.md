@@ -50,12 +50,12 @@ data Nat = Zero | Succ(Nat)
 desugars approximately to:
 
 ```handl
-Nat = (v) -> v is { tag: "Zero" } or (v is { tag: "Succ", pred: Nat(v.pred) });
+Nat := (v) -> v is { tag: "Zero" } or (v is { tag: "Succ", pred: Nat(v.pred) });
 
-Zero = { tag: "Zero" };
-Succ = (pred) -> { tag: "Succ", pred: pred };
+Zero := { tag: "Zero" };
+Succ := (pred) -> { tag: "Succ", pred: pred };
 
-Nat.rec = (base, step) -> (n) ->
+Nat.rec := (base, step) -> (n) ->
   if n.tag == "Zero" then base
   else step(n.pred, Nat.rec(base, step)(n.pred));
 ```

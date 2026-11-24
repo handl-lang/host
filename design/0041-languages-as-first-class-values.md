@@ -120,7 +120,7 @@ including handl itself — is a `Language` value built from those primitives.
 A `Language` is a structured value with three components, all data:
 
 ```handl
-handl: type.any = language {
+handl: type.any := language {
   lexer:   lexer.from-tokens([number, string, ident, operator, keyword]),
   grammar: grammar.from-rules([
     grammar.rule("value",  primary-value),
@@ -140,7 +140,7 @@ structured description. The manifest names _what_ the language is; the
 ### 2. `eval` is a handl function
 
 ```handl
-val: type.any = eval(handl, "1 + 2");     # 3
+val: type.any := eval(handl, "1 + 2");     # 3
 ```
 
 `eval : Language -> Source -> Value` is the primary primitive. It is
@@ -151,8 +151,8 @@ behaviors.
 ### 3. `self` is the running language, handed to the program
 
 ```handl
-lang: type.any = runtime.self();          # the language currently running me
-val:  type.any = eval(lang, "1 + 2");     # self-application
+lang: type.any := runtime.self();          # the language currently running me
+val:  type.any := eval(lang, "1 + 2");     # self-application
 ```
 
 `self` is to languages what a function's name is to a recursive function:
@@ -163,10 +163,10 @@ bootstrap.
 ### 4. Language combinators are handl functions
 
 ```handl
-handl-c:    type.any = extend(handl, line-comments);    # a dialect, as a value
-json-lang:  type.any = language { ... };
-merged:     type.any = merge(base, extras);             # value-level composition
-restricted: type.any = restrict(lang, ["value", "object"]);
+handl-c:    type.any := extend(handl, line-comments);    # a dialect, as a value
+json-lang:  type.any := language { ... };
+merged:     type.any := merge(base, extras);             # value-level composition
+restricted: type.any := restrict(lang, ["value", "object"]);
 ```
 
 `extend`/`merge`/`restrict` are the higher-order combinators, the way
@@ -178,8 +178,8 @@ tell that languages are actually first-class.
 
 ```handl
 # handl-defining-handl.hnl
-handl: type.any = language { lexer: ..., grammar: ..., eval: ... };
-binary: type.any = compile(handl, "native");    # the self-hosting compiler
+handl: type.any := language { lexer: ..., grammar: ..., eval: ... };
+binary: type.any := compile(handl, "native");    # the self-hosting compiler
 ```
 
 If `Language` is data and `compile : Language -> Target` is a function on
@@ -209,8 +209,8 @@ value's behaviors at load time and reject if they touch disallowed
 capabilities. No runtime sandbox required.
 
 ```handl
-mod-lang: type.any = kit.build("combat-mod.hnl");
-safe: type.bool = capabilities(mod-lang).subset-of(allowed-mod-caps);
+mod-lang: type.any := kit.build("combat-mod.hnl");
+safe: type.bool := capabilities(mod-lang).subset-of(allowed-mod-caps);
 if not safe then reject else load(mod-lang);
 ```
 

@@ -41,7 +41,7 @@ A handl program builds fragments by calling functions, not by writing YAML:
 #     rbp: 20
 #
 # Computational:
-binary-op = fn(name, lbp, rbp) {
+binary-op := fn(name, lbp, rbp) {
   grammar-row {
     id: name,
     position: "infix",
@@ -50,9 +50,9 @@ binary-op = fn(name, lbp, rbp) {
     shape: ["expr", "expr"],
   }
 };
-plus  = binary-op("plus",  20, 20);
-minus = binary-op("minus", 20, 20);
-star  = binary-op("star",  40, 40);
+plus  := binary-op("plus",  20, 20);
+minus := binary-op("minus", 20, 20);
+star  := binary-op("star",  40, 40);
 ```
 
 The `binary-op` function abstracts over a repetitive pattern. YAML cannot do
@@ -64,9 +64,9 @@ this. This is the value.
 are built by composition:
 
 ```handl
-arith-ops = fragment-set([plus, minus, star, slash]);
-compare-ops = fragment-set([eq, neq, lt, gt]);
-all-ops = merge(arith-ops, compare-ops);
+arith-ops := fragment-set([plus, minus, star, slash]);
+compare-ops := fragment-set([eq, neq, lt, gt]);
+all-ops := merge(arith-ops, compare-ops);
 ```
 
 `extend`/`merge`/`restrict` (ADR-0041 §4) are handl functions over fragment
@@ -78,7 +78,7 @@ data, not a side effect.
 A handl function can produce a `Language` parameterized by inputs:
 
 ```handl
-make-arith-lang = fn(ops, builtins) {
+make-arith-lang := fn(ops, builtins) {
   language {
     tokens:  arith-tokens(ops),
     grammar: arith-grammar(ops),
@@ -86,7 +86,7 @@ make-arith-lang = fn(ops, builtins) {
   }
 };
 
-calc-lang = make-arith-lang([plus, minus, star], [sin, cos, sqrt]);
+calc-lang := make-arith-lang([plus, minus, star], [sin, cos, sqrt]);
 ```
 
 This is the abstraction YAML cannot provide. A family of related languages

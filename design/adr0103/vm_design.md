@@ -384,9 +384,9 @@ bytecode.
 target ISA, this is the `proj_child` structural op in `exec_model.hnl`:
 
 ```handl
-export proj_child :: (node, role) ~> do {
-  children :: getfield(node, "children")   ; LoadField("children")
-  idx :: getfield(children, role)          ; LoadField(role)
+export proj_child := (node, role) ~> do {
+  children := getfield(node, "children")   ; LoadField("children")
+  idx := getfield(children, role)          ; LoadField(role)
   eval(idx)                                ; Call(eval)
 }
 ```
@@ -610,8 +610,8 @@ target ISA, this is a sequence of `StoreField` calls — the `record`
 structural op in `exec_model.hnl`:
 
 ```handl
-export record :: (fields) ~> do {
-  result :: {}
+export record := (fields) ~> do {
+  result := {}
   foreach pair in fields {
     setfield(result, getfield(pair, 0), getfield(pair, 1))
   }
@@ -964,7 +964,7 @@ structural ops. An eval scheme for `assign` becomes:
 
 ```handl
 ; eval scheme for assign:
-val :: proj_child("value")       ; LoadField("children"), LoadField("value"), Call(eval)
+val := proj_child("value")       ; LoadField("children"), LoadField("value"), Call(eval)
 extend_env(proj_child("target"), val)  ; LoadField("children"), LoadField("target"), Call(eval), PushScope, Store
 val                              ; Load("val")
 ```
@@ -1216,7 +1216,7 @@ To illustrate how the target ISA works, here is the bytecode for the
 `assign` eval scheme. The eval scheme for `assign` is:
 
 ```handl
-val :: proj_child("value")           ; evaluate the value child
+val := proj_child("value")           ; evaluate the value child
 extend_env(proj_child("target"), val) ; bind the target name to the value
 val                                   ; return the value
 ```

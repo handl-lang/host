@@ -22,9 +22,9 @@ that applied to a value yields a `type.bool`. `x: T = e` is sugar for
 `x = e; assert T(x)`. Refinement types and type families fall out for free:
 
 ```handl
-Even = (n: type.number) -> n % 2 == 0;
-DivisibleBy = (k) -> (n) -> n % k == 0;
-m: DivisibleBy(3) = 9;
+Even := (n: type.number) -> n % 2 == 0;
+DivisibleBy := (k) -> (n) -> n % k == 0;
+m: DivisibleBy(3) := 9;
 ```
 
 Because types are values, dependent-looking annotations are already
@@ -135,26 +135,26 @@ general checker, eliminating a runtime check at use sites.
 Provide these as ordinary handl values, not keywords:
 
 ```handl
-isFunction = (f) -> type.function(f);
+isFunction := (f) -> type.function(f);
 
-Fn = (A, B) -> (f) ->
+Fn := (A, B) -> (f) ->
   isFunction(f) and array.every(samples(A), (x) -> B(f(x)));
 
-DepFn = (A, B) -> (f) ->
+DepFn := (A, B) -> (f) ->
   isFunction(f) and array.every(samples(A), (x) -> B(x)(f(x)));
 
-Arity = (n) -> (f) -> isFunction(f) and fn.arity(f) == n;
+Arity := (n) -> (f) -> isFunction(f) and fn.arity(f) == n;
 
-Pure = (f) -> isFunction(f) and /* effect analysis: no effects */;
+Pure := (f) -> isFunction(f) and /* effect analysis: no effects */;
 
-Total = (f) -> isFunction(f) and /* termination analysis passes */;
+Total := (f) -> isFunction(f) and /* termination analysis passes */;
 ```
 
 Predicates compose with `and`:
 
 ```handl
-StrictNumToBool = Fn(type.number, type.bool) and Pure and Total;
-f: StrictNumToBool = (x) -> x > 0;
+StrictNumToBool := Fn(type.number, type.bool) and Pure and Total;
+f: StrictNumToBool := (x) -> x > 0;
 ```
 
 `Pure` and `Total` require checker support (effect tracking and

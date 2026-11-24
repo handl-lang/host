@@ -52,13 +52,13 @@ The unifying design principle is that **every surface construct is an arrow** in
   is sugar for:
 
   ```handl
-  sort Addable = () ~> tag.construct("Addable", {})
+  sort Addable := () ~> tag.construct("Addable", {})
   ```
 
 - A **sort** is an arrow to a grade record:
 
   ```handl
-  sort Number = () ~> [Addable, Comparable, Serializable]
+  sort Number := () ~> [Addable, Comparable, Serializable]
   ```
 
   The surface form `sort Number grades Addable, Comparable, Serializable` is exactly that.
@@ -66,7 +66,7 @@ The unifying design principle is that **every surface construct is an arrow** in
 - A **parameterized sort** is an arrow with parameters:
 
   ```handl
-  sort Vec = (T, n: Nat) ~> [Lengthable(n), Indexable(n)]
+  sort Vec := (T, n: Nat) ~> [Lengthable(n), Indexable(n)]
   ```
 
   The surface form is `sort Vec<T, n: Nat> grades Lengthable(n), Indexable(n)`.
@@ -82,7 +82,7 @@ The unifying design principle is that **every surface construct is an arrow** in
 - A **handler** is an arrow to a handler record:
 
   ```handl
-  handler NumberHandler = () ~> Handler {
+  handler NumberHandler := () ~> Handler {
       add: (a, b) ~> Number { native: a.native + b.native }
   }
   ```
@@ -90,7 +90,7 @@ The unifying design principle is that **every surface construct is an arrow** in
 - A `with` expression is an arrow transformer:
 
   ```handl
-  with NumberHandler { total = price1 + price2 }
+  with NumberHandler { total := price1 + price2 }
   ```
 
   takes a `Handler` and a body arrow, and returns a body arrow where `Op` dispatch is augmented by the handler.
@@ -287,7 +287,7 @@ It is available only to runtimes supporting `Loop`.
 Sorts are not a separate `Type` ADT, not user-forgeable JSON objects, and not concrete data types like `Integer` or `String`. A sort is a **grade record** minted by `tag.construct` and inspected by `tag.match_type`. The `__tag__` key is reserved, so user code cannot forge a sort.
 
 ```handl
-sort Number = () ~> tag.construct("Number", { grades: [Addable, Comparable, Serializable] })
+sort Number := () ~> tag.construct("Number", { grades: [Addable, Comparable, Serializable] })
 ```
 
 `Number` vs `Integer` is a representation hint for the compiler, not a semantic boundary. A function like `add` requires `Addable`; the typechecker checks that the value's tag has the `Addable` grade. The compiler then chooses the target-specific representation (native `i64`, WASM `i32`, JS `Number`) from the grades and the target.
@@ -297,11 +297,11 @@ sort Number = () ~> tag.construct("Number", { grades: [Addable, Comparable, Seri
 There is no `data` keyword. `sort` is the canonical sort declaration. Inductive sorts are just ordinary handl values in the type runtime, but constructors are not forged records; they are `plugin-tag` values minted by the `tag.tag` host capability.
 
 ```handl
-sort Nat = Zero || Succ(Nat)
+sort Nat := Zero || Succ(Nat)
 
-Zero = () ~> tag.tag("Zero", {})
-Succ = (pred) ~> tag.tag("Succ", { pred: pred })
-Nat  = (x) ~> tag.match_type(x, [
+Zero := () ~> tag.tag("Zero", {})
+Succ := (pred) ~> tag.tag("Succ", { pred: pred })
+Nat  := (x) ~> tag.match_type(x, [
     ("Zero", () ~> True),
     ("Succ", (p) ~> Nat(p))
 ])
@@ -337,9 +337,9 @@ tag.construct("Generic", {
 
 ```handl
 sort Addable                                  -- grade (same as `grade Addable`)
-sort Number = () ~> [Addable, Comparable, Serializable]
-sort Vec = (T, n: Nat) ~> [Lengthable(n), Indexable(n)]
-sort Nat = Zero || Succ(Nat)
+sort Number := () ~> [Addable, Comparable, Serializable]
+sort Vec := (T, n: Nat) ~> [Lengthable(n), Indexable(n)]
+sort Nat := Zero || Succ(Nat)
 ```
 
 `grade` is retained as an alias for `sort` with no `grades` clause. All `sort`/`grade` declarations desugar to `tag.construct` values in the type runtime.
@@ -353,7 +353,7 @@ grade Addable
 is sugar for:
 
 ```handl
-sort Addable = () ~> tag.construct("Addable", {})
+sort Addable := () ~> tag.construct("Addable", {})
 ```
 
 A grade is a sort with no carrier; it is a tag used in `op` grade constraints and sort `grades` clauses.
@@ -385,7 +385,7 @@ The `grade` clause on the arrow is the grade of the operation. The operation can
 #### `handler` — handler value
 
 ```handl
-handler NumberHandler = () ~> Handler {
+handler NumberHandler := () ~> Handler {
     add: (a, b) ~> Number { native: a.native + b.native }
 }
 ```
@@ -396,7 +396,7 @@ A handler is a `Handler` tagged value, which is a record of `op` names to `Term`
 
 ```handl
 with NumberHandler {
-    total = price1 + price2
+    total := price1 + price2
 }
 ```
 
@@ -407,7 +407,7 @@ with NumberHandler {
 ```handl
 handle {
     with State(0) {
-        x = get()
+        x := get()
         put(x + 1)
         x
     }
@@ -450,12 +450,12 @@ These extensions are natural consequences of the data-driven arrow-handler algeb
 A handler is a record of `op` implementations. It becomes a first-class value. The surface syntax is `with H { body }`:
 
 ```handl
-handler MoneyHandler = () ~> Handler {
+handler MoneyHandler := () ~> Handler {
     add: (a, b) ~> Money { cents: a.cents + b.cents }
 }
 
 with MoneyHandler {
-    total = price1 + price2
+    total := price1 + price2
 }
 ```
 
@@ -543,7 +543,7 @@ op length<A: Lengthable(n)> : (A) ~> Nat
 A parameterized `sort` is an arrow to its `grades`:
 
 ```handl
-Vec = (T, n: Nat) ~> [Lengthable(n), Indexable(n)]
+Vec := (T, n: Nat) ~> [Lengthable(n), Indexable(n)]
 ```
 
 So `Vec<Number, 10>` is `Vec(Number, 10)`, which evaluates to:
@@ -574,9 +574,9 @@ Every arrow type carries a grade row. `arr` is pure. `Op` adds a grade. `handle`
 op get : () ~> s grade State<s>
 op put : (s) ~> Unit grade State<s>
 
-counter = handle {
+counter := handle {
     with State(0) {
-        x = get()
+        x := get()
         put(x + 1)
         x
     }
@@ -666,7 +666,7 @@ This subsumes `Linear`. It is the foundation of Granule and bounded linear logic
 A session type is a protocol of send/receive/branch actions. It can be encoded as a category-graded effect (Orchard & Yoshida):
 
 ```handl
-grade FileSession = Open -> (Read* -> Close) | (Write* -> Close)
+grade FileSession := Open -> (Read* -> Close) | (Write* -> Close)
 
 sort File grades FileSession
 ```
@@ -678,9 +678,9 @@ sort File grades FileSession
 A grade can be a logical predicate:
 
 ```handl
-grade Positive = { n: Number | n > 0 }
-grade NonZero  = { n: Number | n != 0 }
-grade Sorted   = { xs: List | sorted(xs) }
+grade Positive := { n: Number | n > 0 }
+grade NonZero  := { n: Number | n != 0 }
+grade Sorted   := { xs: List | sorted(xs) }
 
 sort PositiveNumber grades Number, Positive
 
@@ -744,9 +744,9 @@ grade Sample
 op sample  : () ~> A            grade Sample
 op observe : (A, A) ~> Unit     grade Sample
 
-infer = handle {
+infer := handle {
     with Prior {
-        x = sample()
+        x := sample()
         observe(x, data)
         x
     }
@@ -793,7 +793,7 @@ grade Sanitized
 op user_input : () ~> String  grade Tainted
 op escape_check : (Tainted) ~> Sanitized
 
-render = (html) ~> html  needs  Sanitized
+render := (html) ~> html  needs  Sanitized
 ```
 
 `Tainted` strings cannot flow to `render` unless they pass `escape_check`. The grade tracks the taint; the handler removes it.
@@ -803,8 +803,8 @@ render = (html) ~> html  needs  Sanitized
 The current `Vec<T, n: Nat>` is a dependent sort. The frontier is full Π and Σ sorts:
 
 ```handl
-sort Pair = (A, B: A -> Sort) ~> (a: A) × B(a)
-sort Pi   = (A, B: A -> Sort) ~> (a: A) -> B(a)
+sort Pair := (A, B: A -> Sort) ~> (a: A) × B(a)
+sort Pi   := (A, B: A -> Sort) ~> (a: A) -> B(a)
 ```
 
 This turns Handl into a dependently-typed arrow language. The `TypeModel` becomes a proof assistant; the `ValueModel` just evaluates.
@@ -814,7 +814,7 @@ This turns Handl into a dependently-typed arrow language. The `TypeModel` become
 A grade can be a proof or a predicate:
 
 ```handl
-grade Even(n: Nat) = { n | n % 2 == 0 }
+grade Even(n: Nat) := { n | n % 2 == 0 }
 sort EvenNat grades Nat, Even
 
 op half : (n: EvenNat) ~> Nat
@@ -911,7 +911,7 @@ sort Integer
 
 equiv Number Integer   -- there is an equivalence between the carriers
 
-by univalence:  Number = Integer
+by univalence:  Number := Integer
 ```
 
 Univalence means an operation `add : Number ~> Number` can be transported to `add : Integer ~> Integer` along the equivalence. The compiler does not need a special case; the transport is structure.

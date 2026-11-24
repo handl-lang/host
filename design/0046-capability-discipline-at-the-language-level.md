@@ -119,9 +119,9 @@ with the parent's policy constraints.
 Expose capability inspection to handl programs:
 
 ```handl
-mod-lang = load("combat-mod.hnl")
-caps = capabilities(mod-lang)
-safe = caps.subset-of(allowed-mod-caps)
+mod-lang := load("combat-mod.hnl")
+caps := capabilities(mod-lang)
+safe := caps.subset-of(allowed-mod-caps)
 if not safe then reject else load(mod-lang)
 ```
 

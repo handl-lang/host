@@ -180,7 +180,7 @@ from "../libc/clock" import { Timespec, ClockGettime }
 
 --- Calls `clock_gettime` in `libc.so.6`.
 export clock_gettime: ClockGettime := (clock_id) ~> do {
-  r = call(
+  r := call(
     "libc.so.6",
     "clock_gettime",
     [clock_id],

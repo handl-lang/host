@@ -114,11 +114,11 @@ the macro call site, and splices the result.
 
 ```handl
 --- macro: specialize list.map for a known function
-macro map_of(f) = ast ~>
-  { fn = ast.children.fn
-  ; list = ast.children.list
+macro map_of(f) := ast ~>
+  { fn := ast.children.fn
+  ; list := ast.children.list
   ; prim.loop({
-      step = (state, item) ~> (f(item), state ++ [f(item)])
+      step := (state, item) ~> (f(item), state ++ [f(item)])
     })(list)
   }
 ```
@@ -131,7 +131,7 @@ verifies that it produces a well-typed AST before the compiler uses it.
 A new top-level declaration, alongside `op`/`handl`/`cap`/`const`:
 
 ```handl
-macro name(pattern) = body
+macro name(pattern) := body
 ```
 
 - **`name`** — the macro name, invoked as `name(args)` in source.
@@ -143,7 +143,7 @@ macro name(pattern) = body
 Example — compile-time flag composition (ADR-0083 §5.1):
 
 ```handl
-macro flags(...fs) = prim.or_all(fs.map(fn x => x))
+macro flags(...fs) := prim.or_all(fs.map(fn x => x))
 
 --- usage:
 libc.open(path, flags(O_RDONLY, O_CLOEXEC))
@@ -154,8 +154,8 @@ libc.open(path, prim.or(O_RDONLY, O_CLOEXEC))
 Example — derive `Show` for an inductive type (ADR-0200):
 
 ```handl
-macro derive_show(type_name, constructors) = ast ~>
-  { show = constructors.map(fn c =>
+macro derive_show(type_name, constructors) := ast ~>
+  { show := constructors.map(fn c =>
       match c.name {
         "True"  => "true"
         "False" => "false"
@@ -212,7 +212,7 @@ time — same as any code generator.
 can carry type annotations:
 
 ```handl
-macro map_of(f: Ast Arrow, list: Ast) = ...
+macro map_of(f: Ast Arrow, list: Ast) := ...
 ```
 
 The typechecker verifies that the call site's arguments match the
@@ -257,7 +257,7 @@ Two syntax forms for building AST in macros:
   `quote`.
 
 ```handl
-macro unless(cond) = ast ~>
+macro unless(cond) := ast ~>
   quote {
     if splice(ast.children.cond) {
       Unit
@@ -284,8 +284,8 @@ Macros pattern match on AST structure. With ADR-0081 (child roles) and
 ADR-0200 (inductive types), this is ordinary pattern matching:
 
 ```handl
-macro map_of(f, list) = match ast {
-  Call(fn=fn, args=[f, list]) => quote { ... }
+macro map_of(f, list) := match ast {
+  Call(fn:=fn, args:=[f, list]) => quote { ... }
   _ => Error("map_of expects a call expression")
 }
 ```
@@ -319,13 +319,13 @@ ordinary values (ADR-0044).
 value:
 
 ```handl
-const O_RDONLY = 0
+const O_RDONLY := 0
 ```
 
 is equivalent to:
 
 ```handl
-macro O_RDONLY() = quote { 0 }
+macro O_RDONLY() := quote { 0 }
 ```
 
 `const` is kept as a separate form because it's common, simple, and
@@ -336,7 +336,7 @@ quotation, no splicing). But it is semantically a degenerate macro.
 macro that composes constants:
 
 ```handl
-macro flags(...fs) = prim.or_all(fs)
+macro flags(...fs) := prim.or_all(fs)
 ```
 
 This replaces the `prim.or(O_RDONLY, O_CLOEXEC)` call with a
@@ -349,10 +349,10 @@ constructors, and recursors. Today this desugaring is hardcoded in the
 compiler. With macros, `data` can be a macro:
 
 ```handl
-macro data(name, constructors) = ast ~>
-  { predicate = build_predicate(name, constructors)
-  ; ctors = constructors.map(build_constructor)
-  ; recursor = build_recursor(name, constructors)
+macro data(name, constructors) := ast ~>
+  { predicate := build_predicate(name, constructors)
+  ; ctors := constructors.map(build_constructor)
+  ; recursor := build_recursor(name, constructors)
   ; quote {
       splice(predicate)
       splice(ctors)

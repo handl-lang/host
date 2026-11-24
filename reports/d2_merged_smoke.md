@@ -55,7 +55,7 @@ Fixture (same as `packages/mlopt/tests/test_stage.py::tiny_hnl`, written to
 --- tiny test program
 from "host-tensor" import tensor
 do {
-  w :: tensor.reshape(tensor.from_list([1, 2, 3, 4, 5, 6]), [2, 3])
+  w := tensor.reshape(tensor.from_list([1, 2, 3, 4, 5, 6]), [2, 3])
   tensor.matmul(x, w)
 }
 ```

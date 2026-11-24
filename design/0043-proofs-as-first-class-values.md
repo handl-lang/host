@@ -64,11 +64,11 @@ applying the transformations they certify.
 
 ```handl
 # a proof is a value: Transformation -> Proof
-correct: type.any = (t: type.any) -> prove-preserves-semantics(t);
+correct: type.any := (t: type.any) -> prove-preserves-semantics(t);
 
 # prove that a specific compiler is semantics-preserving
-wasm-compiler: type.any = to-wasm(handl);
-wasm-proof:    type.any = correct(wasm-compiler);    # a proof value
+wasm-compiler: type.any := to-wasm(handl);
+wasm-proof:    type.any := correct(wasm-compiler);    # a proof value
 ```
 
 The proof is constructed (offline, by a solver, or by a human) and then
@@ -78,9 +78,9 @@ carried as a value alongside the transformation it certifies.
 
 ```handl
 # compiler correctness becomes a runtime check, not a paper theorem
-safe-compile: type.any = (l: type.any) -> {
-  t: type.any = to-wasm(l);
-  p: type.any = correct(t);
+safe-compile: type.any := (l: type.any) -> {
+  t: type.any := to-wasm(l);
+  p: type.any := correct(t);
   if verify(p) then apply(t, l) else reject
 };
 ```
@@ -97,8 +97,8 @@ notion of correctness is compositional (semantics preservation is).
 
 ```handl
 # compose transformations and their proofs together
-pipeline: type.any = compose(optimize, strip-io);
-proof:   type.any = compose-proofs(proof-optimize, proof-strip-io);
+pipeline: type.any := compose(optimize, strip-io);
+proof:   type.any := compose-proofs(proof-optimize, proof-strip-io);
 
 # the composed pipeline is certified by the composed proof
 if verify(proof) then apply(pipeline, handl) else reject;
@@ -116,13 +116,13 @@ code at the language level.
 
 ```handl
 # a certified compiler is a value: (Transformation, Proof)
-certified-wasm: type.any = {
+certified-wasm: type.any := {
   transform: to-wasm,
   proof:     correct(to-wasm),
 };
 
 # the runtime verifies before applying
-run-certified: type.any = (cert: type.any, l: type.any) -> {
+run-certified: type.any := (cert: type.any, l: type.any) -> {
   if verify(cert.proof) then apply(cert.transform, l) else reject
 };
 ```
@@ -134,7 +134,7 @@ Polyglot interop stops being "trust the bridge" and becomes "verify the
 translator."
 
 ```handl
-json-to-handl-cert: type.any = {
+json-to-handl-cert: type.any := {
   transform: json-to-handl,
   proof:     prove-faithful(json-to-handl),
 };

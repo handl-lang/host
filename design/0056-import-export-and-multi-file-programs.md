@@ -133,8 +133,8 @@ importers.
 The syntax must support both declaration forms:
 
 ```handl
-let add = ...
-let sub = ...
+let add := ...
+let sub := ...
 export add
 export sub
 ```
@@ -142,8 +142,8 @@ export sub
 and assignment-style export:
 
 ```handl
-export two = 2
-export add = fn (x, y) => x + y
+export two := 2
+export add := fn (x, y) => x + y
 ```
 
 and wildcard export:
@@ -265,8 +265,8 @@ project/
 `math.hnl`:
 
 ```handl
-let add = fn (x, y) => x + y
-let mul = fn (x, y) => x * y
+let add := fn (x, y) => x + y
+let mul := fn (x, y) => x * y
 
 export add
 export mul
@@ -277,7 +277,7 @@ export mul
 ```handl
 import "math"
 
-let result = math.add(2, 3)
+let result := math.add(2, 3)
 print(result)
 ```
 
@@ -292,12 +292,12 @@ Behavior:
 The end state is equivalent to:
 
 ```handl
-let math = {
+let math := {
   add: fn (x, y) => x + y,
   mul: fn (x, y) => x * y,
 }
 
-let result = math.add(2, 3)
+let result := math.add(2, 3)
 print(result)
 ```
 
@@ -307,8 +307,8 @@ not constructed manually in memory.
 ### Example 2: private bindings stay private
 
 ```handl
-let secret = 42
-let public_value = secret * 2
+let secret := 42
+let public_value := secret * 2
 
 export public_value
 ```
@@ -356,7 +356,7 @@ project/
 ```handl
 import "util/math"
 
-let x = util.math.add(10, 20)
+let x := util.math.add(10, 20)
 print(x)
 ```
 

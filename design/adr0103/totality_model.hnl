@@ -47,32 +47,32 @@
 
 do {
   --- tget: field access with a null default (total projection).
-  tget :: [obj, key] ~> hash_map.get_or(obj, key, null)
+  tget := [obj, key] ~> hash_map.get_or(obj, key, null)
 
   --- is_obj: true iff `v` is a runtime object (hash map) value.
-  is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  is_obj := v ~> if typeof.type_of(v) == "obj" { true } else { false }
 
   --- safe_at: array access with a null default on out-of-bounds.
-  safe_at :: [lst, idx] ~> if idx < array.len(lst) { array.at(lst, idx) } else { null }
+  safe_at := [lst, idx] ~> if idx < array.len(lst) { array.at(lst, idx) } else { null }
 
   --- safe_ast_node: fetch AST node by index, null if out of bounds.
-  safe_ast_node :: [ast, idx] ~> if idx < array.len(ast) { array.at(ast, idx) } else { null }
+  safe_ast_node := [ast, idx] ~> if idx < array.len(ast) { array.at(ast, idx) } else { null }
 
   --- ast_node: fetch AST node by index (assumes in bounds).
-  ast_node :: [ast, idx] ~> array.at(ast, idx)
+  ast_node := [ast, idx] ~> array.at(ast, idx)
 
   --- node_kind: the `kind` string of an AST node.
-  node_kind :: node ~> hash_map.get_or(node, "kind", "")
+  node_kind := node ~> hash_map.get_or(node, "kind", "")
 
   --- node_payload: the `payload` value of an AST node. For `var` nodes
   --- this is a bare string (the name); for most nodes it is an object.
-  node_payload :: node ~> hash_map.get_or(node, "payload", null)
+  node_payload := node ~> hash_map.get_or(node, "payload", null)
 
   --- node_children: the `children` array from a node's payload. Each
   --- element is an integer index into the AST array. Returns [] when
   --- the payload has no children (e.g. leaf `var`/`lit` nodes).
-  node_children :: node ~> do {
-    payload :: node_payload(node)
+  node_children := node ~> do {
+    payload := node_payload(node)
     if is_obj(payload) {
       hash_map.get_or(payload, "children", [])
     } else {
@@ -83,19 +83,19 @@ do {
   --- payload_as_str: extract a string payload (var nodes carry their
   --- name directly as the payload value). Returns null if the payload is
   --- not a string.
-  payload_as_str :: node ~> do {
-    payload :: node_payload(node)
+  payload_as_str := node ~> do {
+    payload := node_payload(node)
     if typeof.type_of(payload) == "str" { payload } else { null }
   }
 
   --- Proof constructors (mirror Rust `Proof::ok`/`no`/`blocked`).
-  proof_ok :: reason ~> ({ verdict: "proven", reason: reason })
-  proof_no :: reason ~> ({ verdict: "disproved", reason: reason })
-  proof_blocked :: reason ~> ({ verdict: "blocked", reason: reason })
+  proof_ok := reason ~> ({ verdict: "proven", reason: reason })
+  proof_no := reason ~> ({ verdict: "disproved", reason: reason })
+  proof_blocked := reason ~> ({ verdict: "blocked", reason: reason })
 
   --- merge_proofs: aggregate two proofs by worst verdict.
   --- disproved > blocked > proven (a single failure fails the module).
-  merge_proofs :: [acc, p] ~> if acc.verdict == "disproved" {
+  merge_proofs := [acc, p] ~> if acc.verdict == "disproved" {
     acc
   } else {
     if p.verdict == "disproved" {
@@ -113,11 +113,11 @@ do {
   --- language's AST shape list. Data-driven (ADR-0081): the shapes are a
   --- fragment set; we look up by `node_kind`. Returns null if no shape
   --- is declared for this kind.
-  lang_ast_shape_ :: [self, shapes, kind, idx] ~> if idx >= array.len(shapes) {
+  lang_ast_shape_ := [self, shapes, kind, idx] ~> if idx >= array.len(shapes) {
     null
   } else {
     do {
-      shape :: array.at(shapes, idx)
+      shape := array.at(shapes, idx)
       if hash_map.get_or(shape, "node_kind", "") == kind {
         shape
       } else {
@@ -127,8 +127,8 @@ do {
   }
 
   --- lang_ast_shape: find the AstShapeDef for `kind` in lang.ast.
-  lang_ast_shape :: [lang, kind] ~> do {
-    shapes :: hash_map.get_or(lang, "ast", [])
+  lang_ast_shape := [lang, kind] ~> do {
+    shapes := hash_map.get_or(lang, "ast", [])
     lang_ast_shape_(lang_ast_shape_, shapes, kind, 0)
   }
 
@@ -136,11 +136,11 @@ do {
   --- child role in an AstShapeDef's `children` list. Each declared role
   --- occupies exactly one slot; roles are in child order, so the index in
   --- the ChildRoleSpec list IS the positional child index.
-  child_role_index_ :: [self, children, role, idx] ~> if idx >= array.len(children) {
+  child_role_index_ := [self, children, role, idx] ~> if idx >= array.len(children) {
     null
   } else {
     do {
-      spec :: array.at(children, idx)
+      spec := array.at(children, idx)
       if hash_map.get_or(spec, "role", "") == role {
         idx
       } else {
@@ -152,13 +152,13 @@ do {
   --- child_role_index: resolve a named child role to its positional index
   --- (ADR-0081). Returns null if the shape has no such role (caller falls
   --- back to positional). Mirrors `Language::child_role_index`.
-  child_role_index :: [lang, kind, role] ~> do {
-    shape :: lang_ast_shape(lang, kind)
+  child_role_index := [lang, kind, role] ~> do {
+    shape := lang_ast_shape(lang, kind)
     if shape == null {
       null
     } else {
       do {
-        children :: hash_map.get_or(shape, "children", [])
+        children := hash_map.get_or(shape, "children", [])
         child_role_index_(child_role_index_, children, role, 0)
       }
     }
@@ -166,8 +166,8 @@ do {
 
   --- child_index_or_fallback: resolve a child role, falling back to a
   --- positional index for role-less shapes (backward compatible).
-  child_index_or_fallback :: [lang, kind, role, fallback] ~> do {
-    idx :: child_role_index(lang, kind, role)
+  child_index_or_fallback := [lang, kind, role, fallback] ~> do {
+    idx := child_role_index(lang, kind, role)
     if idx == null { fallback } else { idx }
   }
 
@@ -177,8 +177,8 @@ do {
   --- recursion: the function decreases on parameter `decreasing_arg`
   --- via the field `decreasing_field`. Returns null if absent.
   --- Mirrors `read_termination_metadata` in the Rust NBE engine.
-  read_termination_metadata :: node ~> do {
-    payload :: node_payload(node)
+  read_termination_metadata := node ~> do {
+    payload := node_payload(node)
     if is_obj(payload) {
       hash_map.get_or(payload, "termination", null)
     } else {
@@ -191,10 +191,10 @@ do {
   --- to the canonical `assign` kind for role-less shapes. Used by
   --- `find_assign_for_name` to locate named function definitions without
   --- hardcoding `kind == "assign"`.
-  is_binding :: [lang, node] ~> do {
-    kind :: node_kind(node)
-    target_idx :: child_role_index(lang, kind, "target")
-    value_idx :: child_role_index(lang, kind, "value")
+  is_binding := [lang, node] ~> do {
+    kind := node_kind(node)
+    target_idx := child_role_index(lang, kind, "target")
+    value_idx := child_role_index(lang, kind, "value")
     if target_idx != null {
       if value_idx != null { true } else { false }
     } else {
@@ -206,15 +206,15 @@ do {
   --- target child. Resolves the `target` child by role (ADR-0081),
   --- falling back to positional 0 for role-less shapes. The target is an
   --- identifier leaf (string payload).
-  extract_assign_name :: [lang, ast, assign_node] ~> do {
-    children :: node_children(assign_node)
-    target_idx :: child_index_or_fallback(lang, node_kind(assign_node), "target", 0)
-    target_child_idx :: safe_at(children, target_idx)
+  extract_assign_name := [lang, ast, assign_node] ~> do {
+    children := node_children(assign_node)
+    target_idx := child_index_or_fallback(lang, node_kind(assign_node), "target", 0)
+    target_child_idx := safe_at(children, target_idx)
     if target_child_idx == null {
       null
     } else {
       do {
-        target_node :: safe_ast_node(ast, target_child_idx)
+        target_node := safe_ast_node(ast, target_child_idx)
         if target_node == null { null } else { payload_as_str(target_node) }
       }
     }
@@ -224,24 +224,24 @@ do {
   --- binding node. Resolves the `value` child by role (ADR-0081), falling
   --- back to positional 1 for role-less shapes. Returns the AST index of
   --- the value node, or null if absent.
-  extract_assign_value :: [lang, ast, assign_node] ~> do {
-    children :: node_children(assign_node)
-    value_idx :: child_index_or_fallback(lang, node_kind(assign_node), "value", 1)
+  extract_assign_value := [lang, ast, assign_node] ~> do {
+    children := node_children(assign_node)
+    value_idx := child_index_or_fallback(lang, node_kind(assign_node), "value", 1)
     safe_at(children, value_idx)
   }
 
   --- find_assign_for_name_: recursively scan AST nodes for a binding
   --- whose target var matches `name`. Returns the AST index of the
   --- matching binding node, or null if none found.
-  find_assign_for_name_ :: [self, lang, ast, name, idx] ~> if idx >= array.len(ast) {
+  find_assign_for_name_ := [self, lang, ast, name, idx] ~> if idx >= array.len(ast) {
     null
   } else {
     do {
-      node :: array.at(ast, idx)
-      binding :: is_binding(lang, node)
+      node := array.at(ast, idx)
+      binding := is_binding(lang, node)
       if binding {
         do {
-          node_name :: extract_assign_name(lang, ast, node)
+          node_name := extract_assign_name(lang, ast, node)
           if node_name == name {
             idx
           } else {
@@ -256,19 +256,19 @@ do {
 
   --- find_assign_for_name: find a binding node whose target var matches
   --- `name`. Scans the entire AST.
-  find_assign_for_name :: [lang, ast, name] ~> find_assign_for_name_(find_assign_for_name_, lang, ast, name, 0)
+  find_assign_for_name := [lang, ast, name] ~> find_assign_for_name_(find_assign_for_name_, lang, ast, name, 0)
 
   --- collect_param_names_: recursively collect parameter names from a
   --- params wrapper node's children. Each child is an AST index pointing
   --- at a `var` (or `type-annot`) leaf whose string payload is the name.
-  collect_param_names_ :: [self, ast, children, idx, acc] ~> if idx >= array.len(children) {
+  collect_param_names_ := [self, ast, children, idx, acc] ~> if idx >= array.len(children) {
     acc
   } else {
     do {
-      child_idx :: array.at(children, idx)
-      child_node :: safe_ast_node(ast, child_idx)
-      name :: if child_node == null { null } else { payload_as_str(child_node) }
-      new_acc :: if name == null { acc } else { [...acc, name] }
+      child_idx := array.at(children, idx)
+      child_node := safe_ast_node(ast, child_idx)
+      name := if child_node == null { null } else { payload_as_str(child_node) }
+      new_acc := if name == null { acc } else { [...acc, name] }
       self(self, ast, children, idx + 1, new_acc)
     }
   }
@@ -278,12 +278,12 @@ do {
   --- body: idx}`) and the legacy format (`{children: [param_idx,
   --- body_idx]}` where param_idx points at a `var` or collection
   --- wrapper). Returns null if the params/body cannot be extracted.
-  function_param_body :: [lang, ast, node] ~> do {
-    payload :: node_payload(node)
+  function_param_body := [lang, ast, node] ~> do {
+    payload := node_payload(node)
     if is_obj(payload) {
       do {
-        params_rich :: hash_map.get_or(payload, "params", null)
-        body_rich :: hash_map.get_or(payload, "body", null)
+        params_rich := hash_map.get_or(payload, "params", null)
+        body_rich := hash_map.get_or(payload, "body", null)
         if params_rich != null {
           if body_rich != null {
             { names: params_rich, body: body_rich }
@@ -292,12 +292,12 @@ do {
           }
         } else {
           do {
-            kind :: node_kind(node)
-            children :: node_children(node)
-            param_idx :: child_index_or_fallback(lang, kind, "params", 0)
-            body_idx :: child_index_or_fallback(lang, kind, "body", 1)
-            param_child_idx :: safe_at(children, param_idx)
-            body_child_idx :: safe_at(children, body_idx)
+            kind := node_kind(node)
+            children := node_children(node)
+            param_idx := child_index_or_fallback(lang, kind, "params", 0)
+            body_idx := child_index_or_fallback(lang, kind, "body", 1)
+            param_child_idx := safe_at(children, param_idx)
+            body_child_idx := safe_at(children, body_idx)
             if param_child_idx == null {
               null
             } else {
@@ -305,15 +305,15 @@ do {
                 null
               } else {
                 do {
-                  param_node :: safe_ast_node(ast, param_child_idx)
+                  param_node := safe_ast_node(ast, param_child_idx)
                   if param_node == null {
                     null
                   } else {
                     do {
-                      bare_name :: payload_as_str(param_node)
-                      names :: if bare_name == null {
+                      bare_name := payload_as_str(param_node)
+                      names := if bare_name == null {
                         do {
-                          param_children :: node_children(param_node)
+                          param_children := node_children(param_node)
                           collect_param_names_(collect_param_names_, ast, param_children, 0, [])
                         }
                       } else {
@@ -336,19 +336,19 @@ do {
   --- call_callee_is_var_named: check if a `call` node's callee (child 0)
   --- is a `var` with the given name. The callee is the first child of the
   --- call node; its payload is the variable name string.
-  call_callee_is_var_named :: [ast, call_node, name] ~> do {
-    children :: node_children(call_node)
+  call_callee_is_var_named := [ast, call_node, name] ~> do {
+    children := node_children(call_node)
     if array.is_empty(children) {
       false
     } else {
       do {
-        callee_idx :: array.first(children)
-        callee_node :: safe_ast_node(ast, callee_idx)
+        callee_idx := array.first(children)
+        callee_node := safe_ast_node(ast, callee_idx)
         if callee_node == null {
           false
         } else {
           do {
-            callee_name :: payload_as_str(callee_node)
+            callee_name := payload_as_str(callee_node)
             callee_name == name
           }
         }
@@ -360,27 +360,27 @@ do {
   --- `start_idx` that call `fn_name`. Uses a worklist (BFS) to walk the
   --- entire subtree without mutual recursion. Returns an array of call
   --- node indices.
-  find_recursive_calls :: [ast, start_idx, fn_name] ~> while { results: [], todo: [start_idx] } {
+  find_recursive_calls := [ast, start_idx, fn_name] ~> while { results: [], todo: [start_idx] } {
     [state] ~> if array.is_empty(state.todo) {
       { out: state.results }
     } else {
       do {
-        node_idx :: array.first(state.todo)
-        rest_todo :: array.drop(state.todo, 1)
-        node :: safe_ast_node(ast, node_idx)
+        node_idx := array.first(state.todo)
+        rest_todo := array.drop(state.todo, 1)
+        node := safe_ast_node(ast, node_idx)
         if node == null {
           { state: { results: state.results, todo: rest_todo } }
         } else {
           do {
-            kind :: node_kind(node)
-            matched :: if kind == "call" {
+            kind := node_kind(node)
+            matched := if kind == "call" {
               if call_callee_is_var_named(ast, node, fn_name) { true } else { false }
             } else {
               false
             }
-            new_results :: if matched { [...state.results, node_idx] } else { state.results }
-            children :: node_children(node)
-            new_todo :: array.concat(rest_todo, children)
+            new_results := if matched { [...state.results, node_idx] } else { state.results }
+            children := node_children(node)
+            new_todo := array.concat(rest_todo, children)
             { state: { results: new_results, todo: new_todo } }
           }
         }
@@ -391,13 +391,13 @@ do {
   --- field_access_target: extract the target child index from a
   --- `field-access` node. The target is the first child. Returns null if
   --- the node has no children or the target index is out of bounds.
-  field_access_target :: [ast, node] ~> do {
-    children :: node_children(node)
+  field_access_target := [ast, node] ~> do {
+    children := node_children(node)
     if array.is_empty(children) {
       null
     } else {
       do {
-        target_idx :: array.first(children)
+        target_idx := array.first(children)
         if target_idx < array.len(ast) { target_idx } else { null }
       }
     }
@@ -411,31 +411,31 @@ do {
   ---   `n.pred.pred`      → nested field-access            → true
   ---   `n` (bare param)   → NOT a strict sub-structure     → false
   ---   `n - 1`            → binary, not field-access       → false
-  is_strict_sub_structure_ :: [self, ast, node_idx, param_names] ~> do {
-    node :: safe_ast_node(ast, node_idx)
+  is_strict_sub_structure_ := [self, ast, node_idx, param_names] ~> do {
+    node := safe_ast_node(ast, node_idx)
     if node == null {
       false
     } else {
       do {
-        kind :: node_kind(node)
+        kind := node_kind(node)
         if kind != "field-access" {
           false
         } else {
           do {
-            target_idx :: field_access_target(ast, node)
+            target_idx := field_access_target(ast, node)
             if target_idx == null {
               false
             } else {
               do {
-                target_node :: safe_ast_node(ast, target_idx)
+                target_node := safe_ast_node(ast, target_idx)
                 if target_node == null {
                   false
                 } else {
                   do {
-                    target_kind :: node_kind(target_node)
+                    target_kind := node_kind(target_node)
                     if target_kind == "var" {
                       do {
-                        name :: payload_as_str(target_node)
+                        name := payload_as_str(target_node)
                         array.contains(param_names, name)
                       }
                     } else {
@@ -458,20 +458,20 @@ do {
   --- is_strict_sub_structure: check if an expression is a strict
   --- sub-structure of a parameter (chain of field-access ending in a
   --- param var).
-  is_strict_sub_structure :: [ast, node_idx, param_names] ~> is_strict_sub_structure_(is_strict_sub_structure_, ast, node_idx, param_names)
+  is_strict_sub_structure := [ast, node_idx, param_names] ~> is_strict_sub_structure_(is_strict_sub_structure_, ast, node_idx, param_names)
 
   --- call_decreases_on_params: check if a recursive `call` node decreases
   --- on at least one parameter. A call decreases if at least one
   --- argument (children 1..N, skipping the callee at child 0) is a strict
   --- sub-structure of a parameter.
-  call_decreases_on_params :: [ast, call_idx, param_names] ~> do {
-    call_node :: safe_ast_node(ast, call_idx)
+  call_decreases_on_params := [ast, call_idx, param_names] ~> do {
+    call_node := safe_ast_node(ast, call_idx)
     if call_node == null {
       false
     } else {
       do {
-        children :: node_children(call_node)
-        args :: array.drop(children, 1)
+        children := node_children(call_node)
+        args := array.drop(children, 1)
         while { found: false, remaining: args } {
           [state] ~> if state.found {
             { out: true }
@@ -480,7 +480,7 @@ do {
               { out: false }
             } else {
               do {
-                arg_idx :: array.first(state.remaining)
+                arg_idx := array.first(state.remaining)
                 if is_strict_sub_structure(ast, arg_idx, param_names) {
                   { out: true }
                 } else {
@@ -497,11 +497,11 @@ do {
   --- check_all_decrease_: recursively verify that every recursive call in
   --- `calls` decreases on a parameter. Returns `proof_no` on the first
   --- call that does not decrease, `proof_ok` if all decrease.
-  check_all_decrease_ :: [self, ast, calls, idx, param_names, fn_name] ~> if idx >= array.len(calls) {
+  check_all_decrease_ := [self, ast, calls, idx, param_names, fn_name] ~> if idx >= array.len(calls) {
     proof_ok("structurally recursive: all recursive call(s) decrease on a parameter")
   } else {
     do {
-      call_idx :: array.at(calls, idx)
+      call_idx := array.at(calls, idx)
       if call_decreases_on_params(ast, call_idx, param_names) {
         self(self, ast, calls, idx + 1, param_names, fn_name)
       } else {
@@ -511,34 +511,34 @@ do {
   }
 
   --- check_all_decrease: verify all recursive calls decrease.
-  check_all_decrease :: [ast, calls, param_names, fn_name] ~> check_all_decrease_(check_all_decrease_, ast, calls, 0, param_names, fn_name)
+  check_all_decrease := [ast, calls, param_names, fn_name] ~> check_all_decrease_(check_all_decrease_, ast, calls, 0, param_names, fn_name)
 
   --- check_function_totality: check totality of a `function` node.
   --- `fn_name` is the name of the function (if named via `assign`), used
   --- to find recursive calls. If null, the function is anonymous and has
   --- no recursive calls (trivially total).
-  check_function_totality :: [lang, ast, fn_node, fn_name] ~> do {
+  check_function_totality := [lang, ast, fn_node, fn_name] ~> do {
     --- 1. Check for termination metadata (generated recursors).
-    info :: read_termination_metadata(fn_node)
+    info := read_termination_metadata(fn_node)
     if info != null {
       proof_ok("structurally recursive via recursor metadata")
     } else {
       --- 2. Extract param names and body index.
       do {
-        pb :: function_param_body(lang, ast, fn_node)
+        pb := function_param_body(lang, ast, fn_node)
         if pb == null {
           proof_blocked("totality: function has invalid params/body")
         } else {
           do {
-            param_names :: pb.names
-            body_idx :: pb.body
+            param_names := pb.names
+            body_idx := pb.body
             --- 3. If anonymous (no name), trivially total.
             if fn_name == null {
               proof_ok("non-recursive, trivially total (anonymous function)")
             } else {
               --- 4. Find all recursive calls in the body.
               do {
-                calls :: find_recursive_calls(ast, body_idx, fn_name)
+                calls := find_recursive_calls(ast, body_idx, fn_name)
                 if array.is_empty(calls) {
                   proof_ok("non-recursive, trivially total")
                 } else {
@@ -556,19 +556,19 @@ do {
   --- check_assign_totality: check totality of an `assign` (named function
   --- definition) node. Extracts the name and function value, then
   --- delegates to `check_function_totality`.
-  check_assign_totality :: [lang, ast, assign_node] ~> do {
-    fn_name :: extract_assign_name(lang, ast, assign_node)
-    fn_node_idx :: extract_assign_value(lang, ast, assign_node)
+  check_assign_totality := [lang, ast, assign_node] ~> do {
+    fn_name := extract_assign_name(lang, ast, assign_node)
+    fn_node_idx := extract_assign_value(lang, ast, assign_node)
     if fn_node_idx == null {
       proof_blocked("totality: assign has no value child")
     } else {
       do {
-        fn_node :: safe_ast_node(ast, fn_node_idx)
+        fn_node := safe_ast_node(ast, fn_node_idx)
         if fn_node == null {
           proof_blocked("totality: assign value node out of bounds")
         } else {
           do {
-            kind :: node_kind(fn_node)
+            kind := node_kind(fn_node)
             if kind != "function" {
               proof_blocked("totality: assign value is not a function, got '" + kind + "'")
             } else {
@@ -587,35 +587,35 @@ do {
   ---   - `assign`   → check the named function definition.
   ---   - `var`      → look up the binding for this name and check it.
   ---   - other     → blocked (not a function).
-  check_expr_totality_ :: [self, lang, ast, expr_idx] ~> do {
-    node :: safe_ast_node(ast, expr_idx)
+  check_expr_totality_ := [self, lang, ast, expr_idx] ~> do {
+    node := safe_ast_node(ast, expr_idx)
     if node == null {
       proof_blocked("totality: expression node out of bounds")
     } else {
       do {
-        kind :: node_kind(node)
-        verdict :: match kind {
+        kind := node_kind(node)
+        verdict := match kind {
           "function": check_function_totality(lang, ast, node, null),
           "assign": check_assign_totality(lang, ast, node),
           "var": do {
-            name :: payload_as_str(node)
+            name := payload_as_str(node)
             if name == null {
               proof_blocked("totality: var node has no string payload")
             } else {
               do {
-                assign_idx :: find_assign_for_name(lang, ast, name)
+                assign_idx := find_assign_for_name(lang, ast, name)
                 if assign_idx == null {
                   proof_blocked("totality: could not find function definition for var")
                 } else {
                   do {
-                    assign_node :: array.at(ast, assign_idx)
-                    fn_name :: extract_assign_name(lang, ast, assign_node)
-                    fn_node_idx :: extract_assign_value(lang, ast, assign_node)
+                    assign_node := array.at(ast, assign_idx)
+                    fn_name := extract_assign_name(lang, ast, assign_node)
+                    fn_node_idx := extract_assign_value(lang, ast, assign_node)
                     if fn_node_idx == null {
                       proof_blocked("totality: assign has no value child")
                     } else {
                       do {
-                        fn_node :: safe_ast_node(ast, fn_node_idx)
+                        fn_node := safe_ast_node(ast, fn_node_idx)
                         if fn_node == null {
                           proof_blocked("totality: assign value node out of bounds")
                         } else {
@@ -645,7 +645,7 @@ do {
   }
 
   --- check_expr_totality: check totality of a specific expression node.
-  check_expr_totality :: [lang, ast, expr_idx] ~> check_expr_totality_(check_expr_totality_, lang, ast, expr_idx)
+  check_expr_totality := [lang, ast, expr_idx] ~> check_expr_totality_(check_expr_totality_, lang, ast, expr_idx)
 
   --- check_all_nodes_: recursively walk every node in the AST, checking
   --- totality of named function definitions (`assign` nodes) and
@@ -653,20 +653,20 @@ do {
   --- Aggregates proofs by worst verdict. Anonymous functions without
   --- metadata are skipped (they are trivially total or part of an
   --- `assign` that is checked separately).
-  check_all_nodes_ :: [self, lang, ast, idx, acc_proof] ~> if idx >= array.len(ast) {
+  check_all_nodes_ := [self, lang, ast, idx, acc_proof] ~> if idx >= array.len(ast) {
     acc_proof
   } else {
     do {
-      node :: array.at(ast, idx)
-      kind :: node_kind(node)
-      has_meta :: read_termination_metadata(node) != null
-      is_assign :: kind == "assign"
-      is_fn :: kind == "function"
+      node := array.at(ast, idx)
+      kind := node_kind(node)
+      has_meta := read_termination_metadata(node) != null
+      is_assign := kind == "assign"
+      is_fn := kind == "function"
       --- Check assign nodes (named functions) and function nodes with
       --- termination metadata (generated recursors). Also check `rec`
       --- fixpoint nodes when they carry metadata.
       --- TODO: check `rec` nodes for structural recursion.
-      should_check :: if is_assign {
+      should_check := if is_assign {
         true
       } else {
         if is_fn {
@@ -675,9 +675,9 @@ do {
           false
         }
       }
-      new_proof :: if should_check {
+      new_proof := if should_check {
         do {
-          p :: if is_assign {
+          p := if is_assign {
             check_assign_totality(lang, ast, node)
           } else {
             check_function_totality(lang, ast, node, null)
@@ -696,7 +696,7 @@ do {
   --- via structural recursion. Returns an aggregate proof: `disproved`
   --- if any function fails, `blocked` if any cannot be checked, `proven`
   --- if all pass.
-  check_totality_ :: [self, lang, ast] ~> if array.is_empty(ast) {
+  check_totality_ := [self, lang, ast] ~> if array.is_empty(ast) {
     proof_blocked("totality: empty ast")
   } else {
     check_all_nodes_(check_all_nodes_, lang, ast, 0, proof_ok("no recursive functions found"))
@@ -704,7 +704,7 @@ do {
 
   --- check_totality: the entry point. Checks that all recursive functions
   --- in the AST terminate via structural recursion.
-  check_totality :: [lang, ast] ~> check_totality_(check_totality_, lang, ast)
+  check_totality := [lang, ast] ~> check_totality_(check_totality_, lang, ast)
 
   {
     check_totality: check_totality,

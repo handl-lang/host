@@ -433,35 +433,35 @@ bytecode.
 ```handl
 --- exec_model.hnl
 
-export proj_child :: (node, role) ~> do {
-  children :: getfield(node, "children")
-  idx :: getfield(children, role)
+export proj_child := (node, role) ~> do {
+  children := getfield(node, "children")
+  idx := getfield(children, role)
   eval(idx)
 }
 
-export extend_env :: (name, val) ~> do {
+export extend_env := (name, val) ~> do {
   push_scope()
   bind(name, val)
   val
 }
 
-export eval_block :: (node) ~> do {
+export eval_block := (node) ~> do {
   push_scope()
-  result :: foreach child in getfield(node, "children") { eval(child) }
+  result := foreach child in getfield(node, "children") { eval(child) }
   pop_scope()
   result
 }
 
-export push_handler :: (handler) ~> do {
-  stack :: getfield(ctx, "handler_stack")
+export push_handler := (handler) ~> do {
+  stack := getfield(ctx, "handler_stack")
   setfield(ctx, "handler_stack", [...stack, handler])
 }
 
-export apply :: (callee, args) ~> call(callee, args)
+export apply := (callee, args) ~> call(callee, args)
 
-export eval :: (node) ~> do {
-  kind :: getfield(node, "kind")
-  scheme :: lookup_eval_scheme(kind)
+export eval := (node) ~> do {
+  kind := getfield(node, "kind")
+  scheme := lookup_eval_scheme(kind)
   scheme(node)
 }
 ```
@@ -474,7 +474,7 @@ effects and handlers for arrows, JFP 2024), point-free and serializable:
 ```handl
 --- arrow_model.hnl
 
-export run :: (self, term, incoming, ctx) ~> match getfield(term, "__tag__") {
+export run := (self, term, incoming, ctx) ~> match getfield(term, "__tag__") {
   "Arr": getfield(term, "value"),
 
   "Seq": self(self, getfield(term, "snd"),
@@ -490,21 +490,21 @@ export run :: (self, term, incoming, ctx) ~> match getfield(term, "__tag__") {
   "Loop": trace(self, getfield(term, "body"), incoming, ctx),
 
   "Op": do {
-    arg_vals :: eval_args(self, getfield(term, "args"), incoming, ctx)
+    arg_vals := eval_args(self, getfield(term, "args"), incoming, ctx)
     call_op(getfield(term, "name"), arg_vals, ctx)
   },
 
   "Handle": do {
-    handler :: self(self, getfield(term, "impl_"), incoming, ctx)
+    handler := self(self, getfield(term, "impl_"), incoming, ctx)
     push_handler(handler)
-    result :: self(self, getfield(term, "body"), incoming, ctx)
+    result := self(self, getfield(term, "body"), incoming, ctx)
     pop_handler()
     result
   },
 
   "App": do {
-    callee :: self(self, getfield(term, "callee"), incoming, ctx)
-    args :: eval_args(self, getfield(term, "args"), incoming, ctx)
+    callee := self(self, getfield(term, "callee"), incoming, ctx)
+    args := eval_args(self, getfield(term, "args"), incoming, ctx)
     apply(callee, args)
   }
 }
@@ -543,7 +543,7 @@ interpretation.
 ```handl
 --- type_model.hnl
 
-export run :: (self, term, incoming, ctx) ~> match getfield(term, "__tag__") {
+export run := (self, term, incoming, ctx) ~> match getfield(term, "__tag__") {
   "Seq": compose_type(self(self, getfield(term, "fst"), incoming, ctx),
                        self(self, getfield(term, "snd"), incoming, ctx)),
 
@@ -574,15 +574,15 @@ handlers). The meta-model can load, validate, compose, and run models:
 ```handl
 --- meta_model.hnl
 
-export load_model :: (path) ~> do {
-  source :: ffi("fs", "read", [path])
+export load_model := (path) ~> do {
+  source := ffi("fs", "read", [path])
   parse(source)
 }
 
-export compose :: (model_a, model_b) ~>
+export compose := (model_a, model_b) ~>
   (term, incoming, ctx) ~> model_b.run(model_a.run(term, incoming, ctx), ctx)
 
-export run_model :: (model, term, incoming, ctx) ~> model.run(term, incoming, ctx)
+export run_model := (model, term, incoming, ctx) ~> model.run(term, incoming, ctx)
 ```
 
 ### The categorical picture

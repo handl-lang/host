@@ -161,8 +161,8 @@ calls.
 Declaring tags:
 
 ```handl
-tag ok = Value
-tag err = Error
+tag ok := Value
+tag err := Error
 ```
 
 This desugars at the **Scheme level**, not in surface syntax. The
@@ -221,14 +221,14 @@ identity, forgeable by user code. With the tag sugar, `data` constructors
 would desugar to `tag.tag` calls instead:
 
 ```handl
-data Nat = Zero | Succ(Nat)
+data Nat := Zero | Succ(Nat)
 ```
 
 Would generate constructors like:
 
 ```handl
-tag zero = Unit
-tag succ = Nat
+tag zero := Unit
+tag succ := Nat
 
 -- Constructors are arrows, composed via >>>:
 -- () >>> zero   -- zero is an arrow: Unit -> Tagged zero Unit
@@ -318,16 +318,16 @@ migration.
 ```handl
 -- Declare the tags (desugars to tag.tag constructor arrows).
 -- Exported so importers get the tag identity too.
-tag ok = Value
-tag err = Error
+tag ok := Value
+tag err := Error
 
 --- result.ok -- construct an Ok result wrapping a value.
 --- Contract: IsOk(output)
-result.ok = value ~> value >>> ok
+result.ok := value ~> value >>> ok
 
 --- result.err -- construct an Err result wrapping an error.
 --- Contract: IsErr(output)
-result.err = error ~> error >>> err
+result.err := error ~> error >>> err
 ```
 
 `ok` and `err` are arrows (`Value -> Tagged`). `result.ok` composes
@@ -378,7 +378,7 @@ Example of a complete migrated pure-logic arrow:
 --- stats.sum — sum all numeric elements in an array.
 --- Non-numeric elements are silently skipped.
 --- Contract: SumOf(output, input)
-sum = xs ~>
+sum := xs ~>
   loop { xs: xs, acc: 0 }(
     [xs, acc] ~> match xs {
       []: { out: acc },
@@ -398,7 +398,7 @@ Example of a complete migrated native `op`:
 op "base64.encode" : String -> String
   guarantee: IsBase64(output)
 
-handl "base64.encode" = rust_base64_encode
+handl "base64.encode" := rust_base64_encode
 ```
 
 ## Phases
@@ -457,8 +457,8 @@ op "fs.write" : (Path × Bytes) -> Unit
 The `handl` block binds a Rust function (the handler) to an `op`:
 
 ```handl
-handl "fs.read" = rust_fs_read
-handl "fs.write" = rust_fs_write
+handl "fs.read" := rust_fs_read
+handl "fs.write" := rust_fs_write
 ```
 
 This requires:

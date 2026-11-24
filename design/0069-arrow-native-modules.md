@@ -72,9 +72,9 @@ A multi-name file is an arrow that produces a **record** of named arrows:
 
 ```handl
 // collection.hnl
-cons = arr("list.cons")
-head = arr("list.head")
-sort = loop(comp(insert, first(id)))
+cons := arr("list.cons")
+head := arr("list.head")
+sort := loop(comp(insert, first(id)))
 ```
 
 This is sugar for:
@@ -99,7 +99,7 @@ import sort from "collection/sort"
 Normalizes to:
 
 ```handl
-sort = project(sort, <collection/sort.hnl's arrow>)
+sort := project(sort, <collection/sort.hnl's arrow>)
 ```
 
 You take the file's arrow (producing a record), project the `sort` field,
@@ -112,7 +112,7 @@ arrow directly:
 ```handl
 // sort.hnl is just: loop(comp(insert, first(id)))
 import sort from "collection/sort"
-// normalizes to: sort = <collection/sort.hnl's arrow>
+// normalizes to: sort := <collection/sort.hnl's arrow>
 ```
 
 **The normalization is the abstraction.** The import syntax has exactly one
@@ -265,10 +265,10 @@ Normalized (Strategy A — compile-time desugar):
 ```handl
 // collection/insert.hnl → arrow A_insert: List α ⇝ List α
 // collection/sort.hnl → arrow A_sort: List α ⇝ List α
-//   where insert = project(insert, A_insert)  // A_insert is single-expr, so insert = A_insert
+//   where insert := project(insert, A_insert)  // A_insert is single-expr, so insert := A_insert
 //   and the file's arrow is loop(comp(insert, first(id)))
 // main.hnl → arrow A_main: Unit ⇝ List Int
-//   where sort = project(sort, A_sort)  // A_sort is single-expr, so sort = A_sort
+//   where sort := project(sort, A_sort)  // A_sort is single-expr, so sort := A_sort
 //   and the file's arrow is const([3, 1, 2]) >>> sort
 ```
 
@@ -328,10 +328,10 @@ Strategy B (flattening), steps 2–6 produce a single inlined graph with no
 
 ```handl
 // collection.hnl
-cons = arr("list.cons")
-head = arr("list.head")
-tail = arr("list.tail")
-sort = loop(comp(insert, first(id)))
+cons := arr("list.cons")
+head := arr("list.head")
+tail := arr("list.tail")
+sort := loop(comp(insert, first(id)))
 ```
 
 This file's arrow is `Unit ⇝ { cons, head, tail, sort }`.
@@ -345,9 +345,9 @@ head(sort([3, 1, 2]))
 Normalized:
 
 ```handl
-collection = <collection.hnl's arrow>  // produces the record
-sort = project(sort, collection)
-head = project(head, collection)
+collection := <collection.hnl's arrow>  // produces the record
+sort := project(sort, collection)
+head := project(head, collection)
 const([3, 1, 2]) >>> sort >>> head
 ```
 

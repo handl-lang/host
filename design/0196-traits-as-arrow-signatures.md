@@ -138,7 +138,7 @@ beyond the bare kernel, because most of it is sugar:
    already in the kernel. Without traits:
 
    ```handl
-   sort_by = map => cmp => arr cmp >>> map
+   sort_by := map => cmp => arr cmp >>> map
    ```
 
    The trait bound `Functor<F> =>` is sugar for "expect a `map` arrow as
@@ -270,7 +270,7 @@ The user writes a graph. The system derives:
 
 ```handl
 -- the user writes only this:
-map = loop (arr uncons >>> choice
+map := loop (arr uncons >>> choice
               (arr nil)
               (first f >>> arr cons))
 
@@ -567,7 +567,7 @@ signature. The user writes **only the graphs**. No types, no proofs.
 
 ```handl
 impl Functor<List> {
-  map = loop (arr uncons >>> choice
+  map := loop (arr uncons >>> choice
                 (arr nil)
                 (first f >>> arr cons))
 }
@@ -594,7 +594,7 @@ effects within the function body — someone must provide them (§13).
 
 ```handl
 sort_by : Functor<F> => (A ~> A) ~> (F<A> ~> F<A>)
-sort_by = arr cmp >>> map       -- map is an unhandled operation
+sort_by := arr cmp >>> map       -- map is an unhandled operation
 ```
 
 This desugars to: `sort_by` is an arrow whose body references `map` as
@@ -617,8 +617,8 @@ trait Ord<A> : Eq<A> {
 
 impl Ord<Int> : Eq<Int> {
   -- must provide both Eq's eq and Ord's compare
-  eq      = arr intEq
-  compare = arr intCompare
+  eq      := arr intEq
+  compare := arr intCompare
 }
 ```
 
@@ -643,7 +643,7 @@ annotation-free HM result).
 
 ```handl
 impl Iterator<[A]> {
-  next = arr uncons >>> choice (arr none) (arr some)
+  next := arr uncons >>> choice (arr none) (arr some)
   -- Item inferred as A from the wiring
 }
 ```
@@ -657,7 +657,7 @@ impl is itself an arrow: given an impl of `U[T]`, produce an impl of
 
 ```handl
 impl<T: Ord> Ord<[T]> {
-  compare = arr lexCompare   -- uses Ord<T>.compare via app
+  compare := arr lexCompare   -- uses Ord<T>.compare via app
 }
 ```
 
@@ -728,11 +728,11 @@ handler machinery (ADR-0052).
 ```handl
 -- inner: declares the capability, never names the impl
 sort_by : Functor<F> => (A ~> A) ~> (F<A> ~> F<A>)
-sort_by = arr cmp >>> map       -- map is an unhandled operation
+sort_by := arr cmp >>> map       -- map is an unhandled operation
 
 -- outer: handles it by providing the impl
 handle sort_by intCmp [3,1,2]
-  with Functor<List> = map_list
+  with Functor<List> := map_list
 ```
 
 The `handle ... with` form installs a handler that intercepts the

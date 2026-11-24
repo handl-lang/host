@@ -24,7 +24,7 @@ keeping **Rust `Function` bodies** as the `handl` implementations:
 
 ```handl
 op "fs.read" : Path -> Bytes
-handl "fs.read" = rust_fs_read   -- Rust body wrapping std::fs::read
+handl "fs.read" := rust_fs_read   -- Rust body wrapping std::fs::read
 ```
 
 This means every native lib keeps a Rust crate that wraps a Rust ecosystem
@@ -104,7 +104,7 @@ positional arrays, records) and returns a `Function` value that the
 --- libc.open — open a file, return file descriptor (or -1 on error).
 op "libc.open" : (Path, Flags, Mode?) -> Fd
   guarantee: Or(Ge(output, 0), IsError)
-handl "libc.open" = ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
+handl "libc.open" := ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
 ```
 
 The `ffi_bind` op takes:
@@ -139,7 +139,7 @@ the library being bound. Without it, the call is rejected at load time.
 ```handl
 --- stdlib/libc/linux.hnl — requires ffi.libc capability
 cap ffi.libc
-handl "libc.open" = ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
+handl "libc.open" := ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
 ```
 
 **Capability granularity: per library.** Each C library gets its own
@@ -209,7 +209,7 @@ The caller accesses the result via `result.buf`.
 Example for `read(fd, void *buf, size_t count)`:
 
 ```handl
-handl "libc.read" = ffi_bind "libc" "read" ["i32", "out_buf:8192"] "i64" { on: "Lt(ret, 0)", errno: true }
+handl "libc.read" := ffi_bind "libc" "read" ["i32", "out_buf:8192"] "i64" { on: "Lt(ret, 0)", errno: true }
 ```
 
 The descriptor list `["i32", "out_buf:8192"]` expands to three C args:
@@ -228,7 +228,7 @@ struct; platform variants (§6) handle per-platform struct differences
 via separate `.hnl` files. Example:
 
 ```handl
-handl "libc.stat" = ffi_bind "libc" "stat" ["cstr", "out_struct:{st_dev:i64,st_ino:i64,st_mode:i32,st_size:i64,st_mtime:i64}"] "i32" { on: "Lt(ret, 0)", errno: true }
+handl "libc.stat" := ffi_bind "libc" "stat" ["cstr", "out_struct:{st_dev:i64,st_ino:i64,st_mode:i32,st_size:i64,st_mtime:i64}"] "i32" { on: "Lt(ret, 0)", errno: true }
 ```
 
 The dispatcher computes offsets as `#[repr(C)]` would: `st_dev` at
@@ -254,7 +254,7 @@ provides a value, and omits it (calling the C function with fewer args)
 otherwise:
 
 ```handl
-handl "libc.open" = ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
+handl "libc.open" := ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
 ```
 
 When called as `libc.open(path, O_RDONLY)`, the dispatcher calls
@@ -270,7 +270,7 @@ trailing handl arg is marshalled by its handl type (`Number` → `i64` via
 default promotion, `String` → `cstr`, `Bytes` → `cbytes`):
 
 ```handl
-handl "libc.printf" = ffi_bind "libc" "printf" ["cstr", "..."] "i32"
+handl "libc.printf" := ffi_bind "libc" "printf" ["cstr", "..."] "i32"
 ```
 
 Variadic FFI is inherently unsafe (no type checking on trailing args)
@@ -346,7 +346,7 @@ holds the detail. `ffi_bind` accepts an optional error clause record
 as its last argument:
 
 ```handl
-handl "libc.open" = ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
+handl "libc.open" := ffi_bind "libc" "open" ["cstr", "i32", "i32?"] "i32" { on: "Lt(ret, 0)", errno: true }
 ```
 
 When the error condition matches, the FFI dispatcher extracts `errno`
@@ -422,11 +422,11 @@ Native libs become handl arrow graphs over raw FFI ops:
 ```handl
 --- fs.read — read a file as bytes.
 --- Contract: Or(IsOk(output), IsError(output))
-fs.read = path ~>
+fs.read := path ~>
   match libc.open(path, O_RDONLY) {
     Err(errno) => Err(errno)
     Ok(fd) => {
-      result = libc.read(fd, out_buf(BUF_SIZE))
+      result := libc.read(fd, out_buf(BUF_SIZE))
       libc.close(fd)
       match result {
         Err(errno) => Err(errno)
@@ -453,22 +453,22 @@ Use existing surface syntax (`name = literal`):
 
 ```handl
 --- POSIX open flags (Linux)
-O_RDONLY   = 0
-O_WRONLY   = 1
-O_RDWR     = 2
-O_CREAT    = 64
-O_TRUNC    = 512
-O_APPEND   = 1024
-O_CLOEXEC  = 524288
+O_RDONLY   := 0
+O_WRONLY   := 1
+O_RDWR     := 2
+O_CREAT    := 64
+O_TRUNC    := 512
+O_APPEND   := 1024
+O_CLOEXEC  := 524288
 
 --- POSIX signals (Linux)
-SIGHUP     = 1
-SIGINT     = 2
-SIGTERM    = 15
+SIGHUP     := 1
+SIGINT     := 2
+SIGTERM    := 15
 
 --- epoll event flags (Linux)
-EPOLLIN    = 1
-EPOLLOUT   = 4
+EPOLLIN    := 1
+EPOLLOUT   := 4
 ```
 
 **Semantics:**
