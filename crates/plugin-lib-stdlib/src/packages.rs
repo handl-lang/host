@@ -2312,11 +2312,30 @@ impl PackagePlugin {
     /// Create a plugin for `spec`, parsing `cap` declarations from the
     /// package `.hnl` interface.
     pub fn new(spec: &'static PackageSpec) -> Self {
+        let mut caps: Vec<CapabilityId> = parse_cap_declarations(spec.hnl)
+            .into_iter()
+            .map(CapabilityId::from)
+            .collect();
+        // P-013 T-151: spec-driven (`RegistrySource::Atoms`) modules carry
+        // their capability surface in `atoms.yaml`, not `cap` decl lines —
+        // fold atom names in so stripping the decls doesn't shrink
+        // `Plugin::capabilities`.
+        for name in package_module_names(spec) {
+            if let Some(mspec) = module_spec(name) {
+                if let Some(RegistrySource::Atoms { spec: yaml, .. }) = mspec.registry {
+                    if let Ok(decls) = atoms::module_atoms(yaml, name) {
+                        for atom in decls {
+                            let id = CapabilityId::from(atom.name.as_str());
+                            if !caps.contains(&id) {
+                                caps.push(id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Self {
-            caps: parse_cap_declarations(spec.hnl)
-                .into_iter()
-                .map(CapabilityId::from)
-                .collect(),
+            caps,
             spec,
             resolver_fallback: None,
         }
