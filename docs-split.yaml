@@ -8,22 +8,24 @@
 # Invariants (checked by the script):
 #   * every path under project/ appears exactly once, or as a `splits:` parent;
 #   * a `splits:` parent's file stays in `host` and its halves are new
-#     ADRs allocated from project/adrs/INDEX.md.
+#     ADRs allocated from project/registry/INDEX.md.
 #
 # Paths are relative to `project/` (e.g. `adrs/0040-....md`).
 
 version: 1
 
 # Cross-cutting ADRs: the parent file stays in `host`; each target gets a
-# NEW ADR (allocated from INDEX.md) carrying the moved half. Numbers are never
+# NEW ADR (allocated from registry/INDEX.md) carrying the moved half. Numbers are never
 # reused, so `host` keeps the canonical citation.
 splits:
   - parent: adrs/0044-language-as-data-and-runtime-split.md
     stays: host
     targets:
       - repo: lang
-        number: "0130"
-        slug: language-data-assembly
+        # allocated as 0130 pre-import; renumbered ADR-0206 when
+        # kit-data-prelude's ledger landed in host/project/adrs
+        number: "0206"
+        slug: adr-0206-language-data-assembly-in-the-lang-repo
         title: "Language data assembly in the lang repo"
         topic: "language data assembly (data/*.yaml + pinned handl-packages)"
   - parent: adrs/0077-stdlib-migration-to-handl.md
@@ -127,8 +129,8 @@ repos:
       - BACKLOG.md
       - parked.yaml
       - docs-split.yaml
+      - registry/INDEX.md
     adrs:
-      - INDEX.md
       - 0001-host-bundles.md
       - 0001-library-crates-are-platform-plugins.md
       - 0002-handl-platform-composable-host-remaining.md
@@ -260,35 +262,40 @@ repos:
     assets:
       - scope-assessment-types-as-values.md
 
+  # kit-data-prelude's ledger was imported into host/project/adrs and
+  # renumbered ADR-0179..ADR-0205 (provenance lines in each file); the
+  # registry repo label stays `lang` — these are the lang ADRs.
   lang:
     adrs:
-      - 0002-options-object-over-named-args.md
-      - 0004-expression-object-array-literals.md
-      - 0005-s-schema-vocabulary.md
-      - 0007-schema-refs.md
-      - 0008-type-aliases.md
-      - 0011-annotations.md
-      - 0016-custom-fields.md
-      - 0017-dependencies-field.md
-      - 0020-parameter-naming.md
-      - 0026-modality-as-projection.md
-      - 0032-types-as-values-remaining.md
-      - 0045-vau-as-a-typed-escape.md
-      - 0057-computed-object-keys.md
-      - 0068-predicates-as-types.md
-      - 0071-failure-tracking-arrows.md
-      - 0073-state-machine-invariants.md
-      - 0074-arrow-syntax-v0_1-surface-redesign.md
-      - 0075-traits-as-arrow-signatures.md
-      - 0076-decoupled-trait-layer.md
-      - 0078-value-types-as-data.md
-      - 0079-unify-dialects-no-let-in.md
-      - 0082-inductive-types.md
-      - 0084-arrow-macros.md
-      - 0101-frontier-calculus.md
-      - 0102-session-types-grades.md
-      - 0118-type-level-total-evaluation.md
-      - 0119-n-dimensional-arrow-calculus.md
+      - 0179-options-object-over-named-arguments.md
+      - 0180-expression-object-and-array-literals.md
+      - 0181-handl-native-s-schema-vocabulary.md
+      - 0182-json-schema-2020-12-reference-composition-support-in-the-typechecker.md
+      - 0183-adr-0183-type-aliases-in-defs.md
+      - 0184-adr-0184-annotations.md
+      - 0185-adr-0185-custom-fields.md
+      - 0186-adr-0186-the-dependencies-field.md
+      - 0187-parameter-naming-convention.md
+      - 0188-adr-0188-modality-as-projection.md
+      - 0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md
+      - 0190-adr-0190-vau-as-a-typed-escape.md
+      - 0191-adr-0191-computed-object-keys-via-bracket-syntax.md
+      - 0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md
+      - 0193-adr-0193-failure-tracking-arrows-for-backtracking-parsers.md
+      - 0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md
+      - 0195-adr-0195-arrow-surface-syntax-v0-1-redesign.md
+      - 0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md
+      - 0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md
+      - 0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md
+      - 0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md
+      - 0200-adr-0200-inductive-types-as-desugared-predicates.md
+      - 0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md
+      - 0202-adr-0202-the-frontier-calculus.md
+      - 0203-adr-0203-session-types-as-grades.md
+      - 0204-adr-0204-type-level-total-evaluation-of-handl-expressions.md
+      - 0205-adr-0205-n-dimensional-arrow-calculus.md
+      - 0206-adr-0206-language-data-assembly-in-the-lang-repo.md
+      - 0207-adr-generic-arrow-calculus-for-any-dimension.md
     tasks:
       - adr0082-steps5-6.md
 
@@ -408,9 +415,10 @@ local_adrs:
     title: "LSP-only Neovim integration"
     file: adrs/0145-handl-lsp-integration.md
   - repo: lang
-    number: "0146"
-    slug: generic-arrow-calculus-any-dimension
+    # was 0146 pre-import; renumbered ADR-0207 in the host merge
+    number: "0207"
+    slug: adr-generic-arrow-calculus-for-any-dimension
     title: "Generic Arrow Calculus for Any Dimension"
-    file: adrs/0146-generic-arrow-calculus-any-dimension.md
+    file: adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md
 
 

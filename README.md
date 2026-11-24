@@ -75,6 +75,13 @@ Status lives **only** in the header: `status` + `status_note` for an ADR or RFC,
 line in the body — legacy ones were moved into `status_note` by the migration.
 `unrecorded` is the honest status for a record that never stated one.
 
+## Local entries
+
+- `registry/` — generated registries that are not work items. Holds
+  `INDEX.md`, the global ADR registry written by
+  `scripts/gen-adr-index.py`; it lives outside `adrs/` because myco
+  parses every top-level `adrs/*.md` as an item file.
+
 ## Rules that are easy to get wrong
 
 - **No `project/docs/`.** User-facing docs go to `docs/`, per repo at

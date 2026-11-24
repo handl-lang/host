@@ -1,7 +1,7 @@
 +++
 id = "P-008"
 title = "lib-route: transport-agnostic router + middleware pipeline"
-status = "open"
+status = "deferred"
 created = "2026-11-23"
 priority = "med"
 labels = ["http", "routing"]
