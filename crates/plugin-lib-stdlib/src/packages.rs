@@ -1438,6 +1438,15 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
+    // ── proc (P-012) — process identity atoms: argv/exit/pid ──────────
+    ModuleSpec {
+        name: "proc",
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-proc/src/index.hnl")),
+        funcs: &[],
+        ops: ops::process::PROC_OPS,
+        values: &[],
+        registry: Some(RegistrySource::Host(ops::process::proc_op_registry)),
+    },
 ];
 /// former `UtilsLibraryPlugin::contribute` module list).
 const UTILS_MODULES: &[&str] = &[
@@ -1670,6 +1679,14 @@ pub static PACKAGES: &[PackageSpec] = &[
         plugin_id: "lib.char",
         plugin_name: "lib-char",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-char/src/index.hnl")),
+        modules: &[],
+    },
+    // P-012: process identity — own argv/exit/pid as host atoms.
+    PackageSpec {
+        lib_name: "proc",
+        plugin_id: "lib.proc",
+        plugin_name: "lib-proc",
+        hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-proc/src/index.hnl")),
         modules: &[],
     },
 ];

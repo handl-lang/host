@@ -31,6 +31,7 @@ fn main() {
         "lib-serialize-yaml-c",
         "lib-tar",
         "lib-posix-c",
+        "lib-proc",
         "lib-transform",
         "lib-type",
         "lib-unicode",

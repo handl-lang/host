@@ -8,6 +8,7 @@
 
 pub mod collections;
 pub mod math;
+pub mod process;
 pub mod strs;
 pub mod toml;
 pub mod yaml;
