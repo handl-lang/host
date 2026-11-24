@@ -1720,6 +1720,72 @@ do {
     }
   }
 
+  --- Cubical path types (ADR-0208 P1): `Path(A, x, y)` and
+  --- `PathP(F, x, y)` mint a `type.pi` over the interval sort `I`
+  --- whose `body_closure` is a *type-level* closure — `const_body`
+  --- for the homogeneous `Path` (`(i:I) → A`, `Path` is the constant
+  --- family special case of `PathP`) and `apply_type` for the
+  --- heterogeneous `PathP` (`(i:I) → F i` for `F : I → Type`, typically
+  --- written `Pi(I, i ~> …)`). The `path` payload records the endpoint
+  --- terms `x`/`y` for introduction (`refl`, `Path` witnesses) and
+  --- elimination (`#`, `j`) — proof-relevant, never erased.
+  ---
+  --- `Path(a, b)` with exactly two arguments is the legacy *index*
+  --- path: both arguments are index terms and the interval body is
+  --- `type.unknown` (index sorts are not tracked). Its `eq_*`/unify
+  --- witnesses stay `Path{frm,to}` records — only the user-facing
+  --- type former changed meaning.
+  synth_path_type_ := [funcs, st, node_idx, former_name]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    args_role := child_role_index(st, "call", "args")
+    arg_count := if args_role == null { 0 } else { len(children) - args_role }
+    interval := funcs.make_type("type.interval", {})
+    unknown := funcs.make_type("type.unknown", {})
+    if args_role == null || arg_count < 2 {
+      { val: unknown, state: tc_add_diagnostic(st, "warning", "synth_type: " + former_name + " needs endpoint arguments") }
+    } else {
+      do {
+        if arg_count == 2 && former_name == "Path" {
+          --- `Path(a, b)` — index path: `a`/`b` are index *terms*
+          --- evaluated through `results` like `family_app` args.
+          do {
+            x_res := funcs.eval_node_(funcs, st, at(children, args_role))
+            y_res := funcs.eval_node_(funcs, x_res["state"], at(children, args_role + 1))
+            closure := set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", unknown)
+            path := set(set({}, "x", x_res.val), "y", y_res.val)
+            { val: funcs.make_type("type.pi", set(set(set({}, "param", interval), "body_closure", closure), "path", path)), state: y_res["state"] }
+          }
+        } else {
+          --- `Path(A, x, y)` / `PathP(F, x, y)`: the first argument is
+          --- a *type* — synthesized through `synth_type_` — and `x`,
+          --- `y` are endpoint terms.
+          if arg_count < 3 {
+            { val: unknown, state: tc_add_diagnostic(st, "warning", "synth_type: " + former_name + " needs a type/family argument and two endpoints") }
+          } else {
+            do {
+              fam_result := funcs.synth_type_(funcs, st, at(children, args_role))
+              x_res := funcs.eval_node_(funcs, fam_result["state"], at(children, args_role + 1))
+              y_res := funcs.eval_node_(funcs, x_res["state"], at(children, args_role + 2))
+              fam := fam_result.val
+              fam_is_interval_pi := type_tag(fam) == "type.pi" && type_tag(get_or(fam, "param", null)) == "type.interval"
+              closure := if former_name == "PathP" && fam_is_interval_pi {
+                set(set(set({}, "var_name", "i"), "body_child_idx", null), "apply_type", fam)
+              } else {
+                --- `Path` is always the constant family; a `PathP`
+                --- whose family did not synthesize to an interval-Pi
+                --- degrades to the same constant reading.
+                set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", fam)
+              }
+              path := set(set({}, "x", x_res.val), "y", y_res.val)
+              { val: funcs.make_type("type.pi", set(set(set({}, "param", interval), "body_closure", closure), "path", path)), state: y_res["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
   --- Apply a dependent `body_closure` to an argument *type* and *term*:
   --- the binder's gamma entry carries `arg_type` while its result entry
   --- carries `arg_term`, so a `Vec(n, a)` body both binds `n` at type
@@ -1728,18 +1794,38 @@ do {
   --- `eval_node_` path). `synth_type_` is used for the body — the
   --- call-form body is annotation position (unlike `apply_type_closure`
   --- on canonical `pi` nodes, where child 1 is a term).
+  ---
+  --- Cubical path closures (ADR-0208 P1) carry no `body_child_idx`:
+  --- `const_body` is a stored type value returned verbatim (the
+  --- homogeneous `(i:I) → A` ignores the dimension), and `apply_type`
+  --- is a stored `I → Type` family value applied recursively at the
+  --- same argument — `(i:I) → F i` has no AST node for `F i`, so the
+  --- body is computed by re-entering this function on the family.
   apply_dep_closure_ := [funcs, type_val, arg_type, arg_term, s]~> do {
     closure := get_or(type_val, "body_closure", {})
     var_name := get_or(closure, "var_name", "")
     body_idx := get_or(closure, "body_child_idx", null)
+    const_body := get_or(closure, "const_body", null)
+    apply_type := get_or(closure, "apply_type", null)
     mark := tc_mark(s)
     old_results := get_or(s, "results", {})
     extended := if var_name == "" { s } else { tc_extend(s, var_name, arg_type) }
     bound := if var_name == "" || arg_term == null { extended } else { tc_bind_result(extended, var_name, arg_term) }
-    body_result := if body_idx == null {
-      { val: funcs.make_type("type.unknown", {}), state: bound }
+    body_result := if apply_type != null {
+      do {
+        inner := funcs.apply_dep_closure_(funcs, apply_type, arg_type, arg_term, bound)
+        { val: inner.val, state: inner["state"] }
+      }
     } else {
-      funcs.synth_type_(funcs, bound, body_idx)
+      if const_body != null {
+        { val: const_body, state: bound }
+      } else {
+        if body_idx == null {
+          { val: funcs.make_type("type.unknown", {}), state: bound }
+        } else {
+          funcs.synth_type_(funcs, bound, body_idx)
+        }
+      }
     }
     restored := set(tc_restore(body_result["state"], mark), "results", old_results)
     { val: body_result.val, state: restored }
@@ -1890,10 +1976,19 @@ do {
     kind := node_kind(node)
     tag := type_tag(expected)
     if tag == "type.pi" {
-      if kind == "function" {
-        funcs.check_pi_intro_(funcs, s, node_idx, expected)
+      --- A `type.pi` carrying a `path` payload is a cubical path type
+      --- (ADR-0208 P1): `(i:I) → A`/`(i:I) → F i` with endpoints `x`,`y`.
+      --- `refl` and `Path` witnesses check through
+      --- `check_path_intro_`; a `function` node is still a genuine
+      --- Π-introduction (`λi. body` IS a path).
+      if get_or(expected, "path", null) != null && kind != "function" {
+        funcs.check_path_intro_(funcs, s, node_idx, expected)
       } else {
-        funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+        if kind == "function" {
+          funcs.check_pi_intro_(funcs, s, node_idx, expected)
+        } else {
+          funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+        }
       }
     } else {
     if tag == "type.sigma" {
@@ -1954,7 +2049,31 @@ do {
     tag_a := type_tag(a)
     tag_b := type_tag(b)
     if tag_a == "type.pi" && tag_b == "type.pi" {
-      funcs.unify_dep_bodies_(funcs, a, b, s, "param")
+      --- Cubical path types (ADR-0208 P1): a `path` payload marks the
+      --- Pi as `Path`/`PathP` — endpoints `x`/`y` are part of the
+      --- type's identity, so they unify alongside the body. A path
+      --- type never unifies with a plain `type.pi`.
+      do {
+        pa := get_or(a, "path", null)
+        pb := get_or(b, "path", null)
+        if (pa == null) != (pb == null) {
+          { ok: false, state: tc_add_diagnostic(s, "error", "type mismatch: path type vs plain Pi") }
+        } else {
+          if pa == null {
+            funcs.unify_dep_bodies_(funcs, a, b, s, "param")
+          } else {
+            do {
+              ux := unify(funcs, get_or(pa, "x", null), get_or(pb, "x", null), s.metas)
+              uy := if ux.ok { unify(funcs, get_or(pa, "y", null), get_or(pb, "y", null), ux.metas) } else { ux }
+              if !uy.ok {
+                { ok: false, state: tc_add_diagnostic(set(s, "metas", uy.metas), "error", "type mismatch: path endpoints differ") }
+              } else {
+                funcs.unify_dep_bodies_(funcs, a, b, set(s, "metas", uy.metas), "param")
+              }
+            }
+          }
+        }
+      }
     } else {
     if tag_a == "type.sigma" && tag_b == "type.sigma" {
       funcs.unify_dep_bodies_(funcs, a, b, s, "param")
@@ -2905,11 +3024,11 @@ do {
   ---     *stuck* — no full arithmetic solver — and the arm proceeds
   ---     unrefined without a diagnostic.
   ---
-  --- A decided-impossible arm is *auto-discharged* — the caller skips
-  --- its body with no diagnostic: coverage never requires the arm and
-  --- `absurd` is not needed. `absurd` stays legal as explicit
-  --- documentation; a reachable arm marked `absurd` is rejected by the
-  --- caller (`synth_match_arms`).
+  --- `arm_absurd` marks the arm's body as the `absurd` keyword: a
+  --- decided-impossible arm is then *discharged* — the unreachable-
+  --- branch diagnostics are suppressed, since the absurd marker is the
+  --- explicit dismissal. A reachable arm marked `absurd` is rejected
+  --- by the caller (`synth_match_arms`).
   ---
   --- Returns `{state, impossible, idx_args}` — `idx_args` are the
   --- evaluated constructor result indices, for `apply_motive_`.
@@ -2945,7 +3064,7 @@ do {
                       u := unify(funcs, ea.val, eb.val, eb["state"].metas)
                       s1 := set(eb["state"], "metas", u.metas)
                       decided := if u.ok { false } else { (type_of(ea.val) == "num" && type_of(eb.val) == "num") || get_or(u, "decided", false) == true }
-                      { state: { state: s1, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
+                      { state: { state: if decided { if arm_absurd { s1 } else { tc_add_diagnostic(s1, "error", "match arm: constructor cannot produce the scrutinee's index — unreachable branch") } } else { s1 }, impossible: st.impossible || decided, vals: [...st.vals, eb.val], i: st.i + 1 } }
                     }
                   }
                 }
@@ -3228,11 +3347,17 @@ do {
       --- decided failure, not a stuck one.
       gt := if pname != "" { tc_lookup(ev["state"], pname) } else { null }
       gtag := type_tag(gt)
+      --- A cubical path type (`type.pi` + `path` payload, ADR-0208
+      --- P1) is a path whose endpoints are the payload's `x`/`y`.
+      gpath := if gtag == "type.pi" { get_or(gt, "path", null) } else { null }
       if gtag == "Path" {
         { verdict: "path", frm: get_or(gt, "frm", null), to: get_or(gt, "to", null), witness: gt, state: ev["state"] }
       } else {
       if gtag == "type.eq" {
         { verdict: "path", frm: get_or(gt, "left", null), to: get_or(gt, "right", null), witness: gt, state: ev["state"] }
+      } else {
+      if gpath != null {
+        { verdict: "path", frm: get_or(gpath, "x", null), to: get_or(gpath, "y", null), witness: gt, state: ev["state"] }
       } else {
         verdict := if ptag == "var" && gt == null {
           "bad"
@@ -3242,33 +3367,81 @@ do {
         { verdict: verdict, frm: null, to: null, witness: pv, state: ev["state"] }
       }
       }
+      }
     }
     }
     }
   }
 
-  --- Path introduction (ADR-0120): checking a term against
-  --- `Path{frm,to}`. `refl` inhabits `Path(a, a)` — the expected
-  --- endpoints must unify — and a `Path`-tagged value (the `eq_<name>`
-  --- witness bound by `refine_scrutinee_`, an alias stored by
-  --- assignment, or a `var` whose gamma type is a `Path`) inhabits
-  --- `Path(frm, to)` when its endpoints unify with the expected ones.
-  --- Anything else is not a path.
+  --- Path introduction (ADR-0120, cubical P1): checking a term
+  --- against a path type. The *expected* type is either a legacy
+  --- `Path{frm,to}` record or a cubical path `type.pi` carrying a
+  --- `path{x,y}` payload (`Path(A,x,y)`/`PathP(F,x,y)`/`Path(a,b)`).
+  --- `refl` inhabits a reflexive path — the expected endpoints must
+  --- unify — and a `Path`-tagged value, a `type.eq`, or a var whose
+  --- gamma/type is itself a path (the `eq_<name>` witness bound by
+  --- `refine_scrutinee_`, an alias stored by assignment, or a
+  --- path-typed hypothesis) inhabits the expected path when its
+  --- endpoints unify with the expected ones. Anything else is not a
+  --- path.
   check_path_intro_ := [funcs, s, node_idx, expected]~> do {
     ev := funcs.eval_node_(funcs, s, node_idx)
     pv := zonk(zonk, ev.val, ev["state"].metas)
     ptag := type_tag(pv)
     pname := if ptag == "var" { get_or(pv, "name", "") } else { "" }
     is_refl_tm := ptag == "type.refl" || pname == "refl"
-    efrm := zonk(zonk, get_or(expected, "frm", null), ev["state"].metas)
-    eto := zonk(zonk, get_or(expected, "to", null), ev["state"].metas)
+    epath := get_or(expected, "path", null)
+    efrm := zonk(zonk, if epath != null { get_or(epath, "x", null) } else { get_or(expected, "frm", null) }, ev["state"].metas)
+    eto := zonk(zonk, if epath != null { get_or(epath, "y", null) } else { get_or(expected, "to", null) }, ev["state"].metas)
     gt := if pname != "" { tc_lookup(ev["state"], pname) } else { null }
     gtag := type_tag(gt)
-    path_of := if ptag == "Path" { pv } else { if gtag == "Path" { gt } else { null } }
-    if path_of != null {
+    --- Witness endpoints `wfrm`/`wto`: a `Path{frm,to}` or
+    --- `type.eq{left,right}` value, or a path-carrying `type.pi`
+    --- (the evaluated term itself, or the var's gamma type).
+    wfrm := null
+    wto := null
+    has_witness := false
+    if ptag == "Path" {
+      wfrm := get_or(pv, "frm", null)
+      wto := get_or(pv, "to", null)
+      has_witness := true
+    } else {
+      if ptag == "type.eq" {
+        wfrm := get_or(pv, "left", null)
+        wto := get_or(pv, "right", null)
+        has_witness := true
+      } else {
+        pep := if ptag == "type.pi" { get_or(pv, "path", null) } else { null }
+        gep := if gtag == "type.pi" { get_or(gt, "path", null) } else { null }
+        if pep != null {
+          wfrm := get_or(pep, "x", null)
+          wto := get_or(pep, "y", null)
+          has_witness := true
+        } else {
+          if gep != null {
+            wfrm := get_or(gep, "x", null)
+            wto := get_or(gep, "y", null)
+            has_witness := true
+          } else {
+            if gtag == "Path" {
+              wfrm := get_or(gt, "frm", null)
+              wto := get_or(gt, "to", null)
+              has_witness := true
+            } else {
+              if gtag == "type.eq" {
+                wfrm := get_or(gt, "left", null)
+                wto := get_or(gt, "right", null)
+                has_witness := true
+              }
+            }
+          }
+        }
+      }
+    }
+    if has_witness {
       do {
-        uf := unify(funcs, get_or(path_of, "frm", null), efrm, ev["state"].metas)
-        ut := if uf.ok { unify(funcs, get_or(path_of, "to", null), eto, uf.metas) } else { uf }
+        uf := unify(funcs, wfrm, efrm, ev["state"].metas)
+        ut := if uf.ok { unify(funcs, wto, eto, uf.metas) } else { uf }
         if ut.ok {
           { ok: true, state: tc_record_node_type(set(ev["state"], "metas", ut.metas), node_idx, expected) }
         } else {
@@ -3774,8 +3947,17 @@ do {
             }
           } else {
             do {
-              meta := tc_fresh_meta(s)
-              { val: meta_value(meta.id), state: tc_add_diagnostic(meta["state"], "error", "unbound variable: " + name) }
+              --- `i0`/`i1` — the interval endpoints (ADR-0208 P1):
+              --- closed terms of the interval sort `I`. They evaluate
+              --- as ordinary symbolic `var` index terms (dimension
+              --- computation is P2's transp/hcomp), so only their
+              --- *type* is fixed here: `type.interval`.
+              if name == "i0" || name == "i1" {
+                { val: funcs.make_type("type.interval", {}), state: s }
+              } else {
+                meta := tc_fresh_meta(s)
+                { val: meta_value(meta.id), state: tc_add_diagnostic(meta["state"], "error", "unbound variable: " + name) }
+              }
             }
           }
         }
@@ -4035,12 +4217,12 @@ do {
                     arm_children := node_children(arm_node)
                     pattern_idx := first_value(arm_children)
                     body_idx := at(arm_children, 1)
-                    --- `impossible` auto-discharges the arm — its body
-                    --- is skipped with no diagnostic (coverage never
-                    --- required it). `absurd` remains legal
-                    --- documentation of the dead branch; `absurd` on a
-                    --- reachable OR merely-stuck arm is rejected below
-                    --- ("absurd arm is reachable").
+                    --- `Ctor: absurd` — the explicit dismissal of an
+                    --- impossible arm (ADR-0120). The arm checks iff
+                    --- `refine_scrutinee_` *decides* its index equations
+                    --- unsatisfiable: `impossible` discharges it
+                    --- silently, anything else — reachable OR stuck —
+                    --- is rejected below ("absurd arm is reachable").
                     body_node := ast_node(st["state"].ast, body_idx)
                     is_absurd := node_kind(body_node) == "absurd"
                     mark := tc_mark(st["state"])
@@ -4053,7 +4235,7 @@ do {
                     --- rigid `var{n}` index binds `n` to the
                     --- constructor's index in `results` (witnessed by
                     --- a `Path` under `eq_n`). A decided index
-                    --- mismatch auto-discharges the arm: its body
+                    --- mismatch marks the arm unreachable: its body
                     --- is skipped and it contributes nothing to the
                     --- join.
                     scrut_ids := concat(meta_ids_in_(meta_ids_in_, scrutinee_type, []), meta_ids_in_(meta_ids_in_, zonk(zonk, scrutinee_type, metas_mark), []))
@@ -5214,6 +5396,14 @@ do {
               if name == "Bool" {
                 { val: funcs.make_type("type.bool", {}), state: st }
               } else {
+                if name == "I" || name == "Interval" {
+                  --- The cubical interval sort (ADR-0208 P1): `I` is
+                  --- the type of dimension variables and endpoints
+                  --- `i0`/`i1`. Dimension variables themselves are
+                  --- ordinary `var` index terms bound by `Pi`/`PathP`
+                  --- closures — no new term shape.
+                  { val: funcs.make_type("type.interval", {}), state: st }
+                } else {
                 if name == "String" || name == "Str" {
                   { val: funcs.make_type("type.string", {}), state: st }
                 } else {
@@ -5265,6 +5455,7 @@ do {
                     }
                   }
                 }
+                }
               }
             }
           }
@@ -5287,6 +5478,9 @@ do {
                 if field_name == "Int" || field_name == "Nat" {
                   { val: funcs.make_type("type.number", {}), state: st }
                 } else {
+                  if field_name == "I" || field_name == "Interval" {
+                    { val: funcs.make_type("type.interval", {}), state: st }
+                  } else {
                   if field_name == "Bool" {
                     { val: funcs.make_type("type.bool", {}), state: st }
                   } else {
@@ -5311,6 +5505,7 @@ do {
                         }
                       }
                     }
+                  }
                   }
                 }
               }
@@ -5364,29 +5559,20 @@ do {
                   if former_name != "" {
                     funcs.synth_dep_former_(funcs, st, node_idx, former_name)
                   } else {
-                  if callee_name == "Path" {
-                    --- `Path(a, b)` — the proof-relevant identity type
-                    --- `a ~Path~ b` (ADR-0120). The endpoints are index
-                    --- *terms*, evaluated through `results` like
-                    --- `family_app` args, so `Path(n, 0)` under a
-                    --- `VNil` arm is `Path(var n, 0)`. Its
-                    --- introductions are `refl` and in-scope `Path`
-                    --- witnesses (`check_path_intro_`); its eliminators
-                    --- are `#` (transport) and `j` (J) — see
-                    --- `synth_transport_`/`synth_j_`.
-                    do {
-                      frm_arg := if args_role < len(children) {
-                        funcs.eval_node_(funcs, st, at(children, args_role))
-                      } else {
-                        { val: null, state: st }
-                      }
-                      to_arg := if args_role + 1 < len(children) {
-                        funcs.eval_node_(funcs, frm_arg["state"], at(children, args_role + 1))
-                      } else {
-                        { val: null, state: frm_arg["state"] }
-                      }
-                      { val: funcs.make_type("Path", set(set({}, "frm", frm_arg.val), "to", to_arg.val)), state: to_arg["state"] }
-                    }
+                  if callee_name == "Path" || callee_name == "PathP" {
+                    --- `Path`/`PathP` — cubical path types (ADR-0208
+                    --- P1): `Path(A, x, y)` is the homogeneous
+                    --- interval function `(i:I) → A`, `PathP(F, x, y)`
+                    --- the heterogeneous `(i:I) → F i` for
+                    --- `F : I → Type`; `Path(a, b)` with two arguments
+                    --- stays the index path. All mint `type.pi` over
+                    --- `type.interval` with a `path` endpoint payload —
+                    --- see `synth_path_type_`. Introductions are `refl`
+                    --- and in-scope `Path` witnesses
+                    --- (`check_path_intro_`); eliminators are `#`
+                    --- (transport) and `j` — `synth_transport_`/
+                    --- `synth_j_`.
+                    synth_path_type_(funcs, st, node_idx, callee_name)
                   } else {
                   if bound_callee != null {
                     funcs.eval_node_(funcs, st, node_idx)
@@ -6077,6 +6263,7 @@ do {
     function_params_: function_params_,
     dep_closure_from_: dep_closure_from_,
     synth_dep_former_: synth_dep_former_,
+    synth_path_type_: synth_path_type_,
     apply_dep_closure_: apply_dep_closure_,
     check_pi_intro_: check_pi_intro_,
     check_sigma_intro_: check_sigma_intro_,
@@ -6126,8 +6313,14 @@ do {
       root_idx := len(ast) - 1
       types_arr := get_or(lang, "types", [])
       ast_arr := get_or(lang, "ast", [])
-      type_index := index_type_rules(types_arr)
-      ast_index := index_type_rules(ast_arr)
+      --- The adapter prebuilds these indexes from the marshaled Language
+      --- (one Rust pass). Building them here is an interpreted loop that
+      --- copies a growing map of full rule values on every step; the
+      --- fallback stays for hosts that pass a bare `lang` value.
+      prebuilt_type_index := get_or(lang, "type_index", null)
+      prebuilt_ast_index := get_or(lang, "ast_index", null)
+      type_index := if prebuilt_type_index == null { index_type_rules(types_arr) } else { prebuilt_type_index }
+      ast_index := if prebuilt_ast_index == null { index_type_rules(ast_arr) } else { prebuilt_ast_index }
       s := tc_new(ast, type_index, ast_index, prelude, get_or(lang, "globals", {}))
       result := funcs.synth_node_(funcs, s, root_idx)
       zonked := zonk(zonk, result.typ, result["state"].metas)
