@@ -461,6 +461,15 @@
 # had no lexer rule — they lexed as identifiers. Neither is used as
 # an identifier in the corpus (only in comments). `Glue`/`isFibrant`/
 # `unglue` stay ordinary identifiers — the call forms need no keyword.
+# `univalence(e)` (ADR-0208 P4) joins them: the token/grammar/ast
+# rows existed since the frontier pass but likewise had no lexer
+# rule; `ua`/`Univalence` stay ordinary identifiers — the call forms
+# are intercepted by callee name.
+- id: lex.keyword.univalence
+  token_kind: token.keyword.univalence
+  pattern: !Literal
+    text: univalence
+  priority: 15
 - id: lex.keyword.glue
   token_kind: token.keyword.glue
   pattern: !Literal

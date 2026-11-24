@@ -3206,7 +3206,6 @@
     args: []
     source: Judgment
     lit: type.unknown
-# `univalence` — univalence from an equivalence.
 # `j` — the J eliminator for `Path` 2-cells (ADR-0120): `j p, P, base`
 # (children `path`/`motive`/`base`). The model's `synth_j` op resolves
 # the path operand (an in-scope `eq_<name>` witness, a gamma-bound
@@ -3297,6 +3296,19 @@
   node_kind: fibrant
   synth: !Op
     name: synth_fibrant
+    args: []
+    source: Judgment
+# `univalence(e)` — computing univalence (ADR-0208 P4): the model's
+# `synth_univalence` mints a path-carrying `type.pi` over `I` whose
+# `path` payload records the equivalence endpoints `x`/`y` and the
+# normalized `equiv{dom,cod,to,fro}` record. The call forms `ua(e)` /
+# `Univalence(e)` / `Equiv(A, B)` are intercepted inside the `call`
+# judgment and `synth_type_call_cubical_` — no rules needed (the
+# `Path`/`Glue` precedent).
+- id: type.univalence
+  node_kind: univalence
+  synth: !Op
+    name: synth_univalence
     args: []
     source: Judgment
 # `cell_id` — `id2 x` is the identity 2-cell on `x` (`Hom(2, x, x)`).

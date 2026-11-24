@@ -58,7 +58,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
         // +2 `lex.keyword.{glue,fibrant}` for the cubical Glue/fibrancy
     // surface forms (ADR-0208 P3) — the token kinds and grammar rows
     // existed since the frontier pass but had no lexer rule.
-    assert_eq!(lang.lexer_rules.len(), 110);
+        // +1 `lex.keyword.univalence` for `univalence(e)` (ADR-0208
+    // P4) — same frontier-pass gap.
+    assert_eq!(lang.lexer_rules.len(), 111);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -103,7 +105,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (ADR-0208 P2).
         // +2 `eval.{glue,fibrant}` proof/type-erasure schemes
     // (ADR-0208 P3).
-    assert_eq!(lang.eval.len(), 98);
+        // +1 `eval.univalence` proof-erasure scheme (ADR-0208 P4).
+    assert_eq!(lang.eval.len(), 99);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator

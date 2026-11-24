@@ -558,7 +558,7 @@ do {
       --- signature provenance from `synth_data`; `via` is the `Path`
       --- witness recorded by transport (proof-relevant provenance —
       --- ADR-0120). None participates in type equality.
-      is_structural := key == "__tag__" || key == "__registry__" || key == "body_closure" || key == "param_name" || key == "ctor" || key == "via"
+      is_structural := key == "__tag__" || key == "__registry__" || key == "body_closure" || key == "param_name" || key == "ctor" || key == "via" || key == "equiv"
       if is_structural {
         unify_fields(self, funcs, a, b, metas, rest_keys)
       } else {
@@ -1518,7 +1518,7 @@ do {
       }
     } else {
     dep_tag := if expected == null { "" } else { type_tag(expected) }
-    is_dep_intro := dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall" || dep_tag == "Path"
+    is_dep_intro := dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall" || dep_tag == "Path" || dep_tag == "type.equiv"
     if is_dep_intro {
       funcs.check_dependent_(funcs, s, node_idx, expected)
     } else {
@@ -2018,9 +2018,16 @@ do {
       --- (`eq_<name>` bindings, `p : Path` hypotheses).
       funcs.check_path_intro_(funcs, s, node_idx, expected)
     } else {
+    if tag == "type.equiv" {
+      --- `Equiv(A, B)` (ADR-0208 P4): no dedicated introduction form —
+      --- synthesis + the `type.record` field check in
+      --- `unify_dependent_` (`{to : A ~> B, fro : B ~> A}`).
+      funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+    } else {
       --- `type.forall` has no term-level introduction form yet —
       --- synthesis + dependent unification only.
       funcs.check_dependent_fallback_(funcs, s, node_idx, expected)
+    }
     }
     }
     }
@@ -2185,10 +2192,34 @@ do {
         }
       }
     } else {
+    if tag_a == "type.equiv" && tag_b == "type.equiv" {
+      --- `Equiv(A, B)` types (ADR-0208 P4): equality is equality of
+      --- domain and codomain.
+      do {
+        ud := funcs.unify_dependent_(funcs, get_or(a, "dom", null), get_or(b, "dom", null), s)
+        if !ud.ok {
+          { ok: false, state: ud["state"] }
+        } else {
+          uc := funcs.unify_dependent_(funcs, get_or(a, "cod", null), get_or(b, "cod", null), ud["state"])
+          { ok: uc.ok, state: uc["state"] }
+        }
+      }
+    } else {
+    if (tag_a == "type.equiv" && tag_b == "type.record") || (tag_a == "type.record" && tag_b == "type.equiv") {
+      --- `Equiv(A, B)` vs a record literal type: the record must
+      --- carry `to : A ~> B` and `fro : B ~> A` (ADR-0208 P4).
+      do {
+        eq_t := if tag_a == "type.equiv" { a } else { b }
+        rec_t := if tag_a == "type.equiv" { b } else { a }
+        funcs.unify_equiv_record_(funcs, eq_t, rec_t, s)
+      }
+    } else {
       do {
         u := unify(funcs, a, b, s.metas)
         { ok: u.ok, state: set(s, "metas", u.metas) }
       }
+    }
+    }
     }
     }
     }
@@ -3218,7 +3249,7 @@ do {
             } else {
               do {
                 k := first_value(st.remaining)
-                skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via"
+                skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via" || k == "equiv"
                 { state: { result: if skip { st.result } else { set(st.result, k, self(self, frm, to, get_or(st.result, k, null))) }, remaining: drop(st.remaining, 1) } }
               }
             }
@@ -3278,7 +3309,7 @@ do {
                   } else {
                     do {
                       k := first_value(st.remaining)
-                      skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via" || k == "param_name" || k == "ctor"
+                      skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via" || k == "equiv" || k == "param_name" || k == "ctor"
                       { state: { result: if skip { st.result } else { set(st.result, k, self(self, frm, to, get_or(st.result, k, null))) }, remaining: drop(st.remaining, 1) } }
                     }
                   }
@@ -3392,7 +3423,7 @@ do {
     --- `synth_node_` so `trans(p, q) # v` / `j (trans p q), …` see the
     --- composed endpoints.
     pnk := node_kind(ast_node(s.ast, path_idx))
-    if pnk == "trans" || pnk == "symm" {
+    if pnk == "trans" || pnk == "symm" || funcs.is_univalence_form_(s, path_idx) {
       do {
         tr := funcs.synth_node_(funcs, s, path_idx)
         tw := witness_from_type_(tr.typ)
@@ -3404,6 +3435,31 @@ do {
       }
     } else {
     do {
+    --- A `var` operand names a gamma-bound path by its *declared*
+    --- type even when its value does not evaluate to the path type —
+    --- `p := ua(e)` binds `p` to a call with no eval rule, so
+    --- `eval_node_` yields a non-path value while `tc_lookup` still
+    --- carries the path-carrying `type.pi` (the `path_witness_`
+    --- gamma-first discipline, ADR-0208 P4).
+    vn := ast_node(s.ast, path_idx)
+    vres_v := if node_kind(vn) == "var" {
+      do {
+        vp := node_payload(vn)
+        vname := if type_of(vp) == "str" { vp } else { get_or(vp, "name", "") }
+        vgt := if vname != "" { tc_lookup(s, vname) } else { null }
+        vgpath := if type_tag(vgt) == "type.pi" { get_or(vgt, "path", null) } else { null }
+        if vgpath != null {
+          { verdict: "path", frm: get_or(vgpath, "x", null), to: get_or(vgpath, "y", null), witness: vgt, state: s }
+        } else {
+          null
+        }
+      }
+    } else {
+      null
+    }
+    if vres_v != null {
+      vres_v
+    } else {
     ev := funcs.eval_node_(funcs, s, path_idx)
     pv := zonk(zonk, ev.val, ev["state"].metas)
     ptag := type_tag(pv)
@@ -3458,6 +3514,7 @@ do {
     }
     }
     }
+    }
   }
 
   --- Path introduction (ADR-0120, cubical P1): checking a term
@@ -3479,7 +3536,7 @@ do {
     --- is unified against the expected endpoints, exactly like an
     --- evaluated witness.
     cnk := node_kind(ast_node(s.ast, node_idx))
-    if cnk == "trans" || cnk == "symm" {
+    if cnk == "trans" || cnk == "symm" || funcs.is_univalence_form_(s, node_idx) {
       do {
         tr := funcs.synth_node_(funcs, s, node_idx)
         tw := witness_from_type_(tr.typ)
@@ -3612,15 +3669,52 @@ do {
         } else {
           do {
             vres := funcs.synth_node_(funcs, rp["state"], value_idx)
-            transported := if rp.verdict == "path" {
-              subst_index_(subst_index_, rp.frm, rp.to, vres.typ)
+            --- Univalence transport (ADR-0208 P4): a witness whose
+            --- `path` payload carries `equiv` (a `ua(e)`/
+            --- `univalence(e)` path) transports by *applying the
+            --- equivalence at the type level* — `v`'s type unified
+            --- against the domain `A` yields the codomain `B`
+            --- (`v : A ↦ B`, the e-applied result type); dependent
+            --- occurrences fall back to `subst_index_` rewriting
+            --- (`Vec(n, A) ↦ Vec(n, B)`), and an unrelated type warns
+            --- and passes through (the `Partial`-approximation
+            --- discipline).
+            wp := if type_tag(rp.witness) == "type.pi" { get_or(rp.witness, "path", null) } else { null }
+            ue := if wp == null { null } else { get_or(wp, "equiv", null) }
+            tv := if rp.verdict == "path" {
+              if ue != null {
+                do {
+                  --- Shallow `unify`, not `unify_dependent_`: the
+                  --- domain match is *speculative* — a failure must
+                  --- not leave a spurious "type mismatch" diagnostic
+                  --- behind (the `subst_index_` fallback still gets
+                  --- its chance).
+                  uu := unify(funcs, vres.typ, rp.frm, vres["state"].metas)
+                  if uu.ok {
+                    { val: zonk(zonk, rp.to, uu.metas), state: set(vres["state"], "metas", uu.metas) }
+                  } else {
+                    do {
+                      t1 := subst_index_(subst_index_, rp.frm, rp.to, vres.typ)
+                      if t1 != vres.typ {
+                        { val: t1, state: vres["state"] }
+                      } else {
+                        { val: vres.typ, state: tc_add_diagnostic(vres["state"], "warning", "transport along univalence: value type does not mention the equivalence domain — passing through unchanged") }
+                      }
+                    }
+                  }
+                }
+              } else {
+                { val: subst_index_(subst_index_, rp.frm, rp.to, vres.typ), state: vres["state"] }
+              }
             } else {
-              vres.typ
+              { val: vres.typ, state: vres["state"] }
             }
+            transported := tv.val
+            vstate := tv.state
             out_state := if rp.verdict == "stuck" {
-              tc_add_diagnostic(vres["state"], "warning", "transport: path operand is not yet known to be a Path — stuck")
+              tc_add_diagnostic(vstate, "warning", "transport: path operand is not yet known to be a Path — stuck")
             } else {
-              vres["state"]
+              vstate
             }
             tagged := if rp.verdict == "stuck" {
               transported
@@ -3966,7 +4060,7 @@ do {
         } else {
           do {
             k := first_value(st.remaining)
-            skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via"
+            skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via" || k == "equiv"
             hit := if skip { false } else { self(self, get_or(t, k, null), name) }
             { state: { result: st.result || hit, remaining: drop(st.remaining, 1) } }
           }
@@ -4023,19 +4117,65 @@ do {
   --- itself for the fibre the partial element inhabits. Any other
   --- type is a constant family: `A(point) = A`.
   fam_at_ := [funcs, fam, point, s]~> do {
-    if type_tag(fam) == "type.glue" {
-      --- `Glue A φ T̂` at `point` (ADR-0208 P3): the checker cannot
-      --- yet decide `φ(point)` — endpoint substitution is deferred —
-      --- so the *off-face* reading `A(point)` is returned. On `φ`
-      --- the section `T̂(point)` agrees with `A(point)` only up to
-      --- the (unchecked) equivalence data; documented approximation.
-      funcs.fam_at_(funcs, get_or(fam, "family", fam), point, s)
-    } else {
-      is_family := type_tag(fam) == "type.pi" && type_tag(get_or(fam, "param", null)) == "type.interval"
-      if is_family {
-        funcs.apply_dep_closure_(funcs, fam, make_type("type.interval", {}), point, s)
+    ftag := type_tag(fam)
+    if ftag == "type.glue" {
+      --- `Glue A φ T̂` at `point` (ADR-0208 P3/P4): when the stored
+      --- face is *decided* the glue computes on-face — `φ ≡ 0`
+      --- (`ff`) yields the off-face family `A(point)`, `φ ≡ 1`
+      --- (`tt`) yields the section `T̂(point)` (the section is an
+      --- `I → Type` family read at the same point). An undecided
+      --- face keeps the documented off-face approximation.
+      fop := get_or(get_or(fam, "face", {}), "op", "")
+      if fop == "ff" {
+        funcs.fam_at_(funcs, get_or(fam, "family", fam), point, s)
       } else {
-        { val: fam, state: s }
+        if fop == "tt" {
+          funcs.fam_at_(funcs, get_or(fam, "section", fam), point, s)
+        } else {
+          funcs.fam_at_(funcs, get_or(fam, "family", fam), point, s)
+        }
+      }
+    } else {
+      pld := if ftag == "type.pi" { get_or(fam, "path", null) } else { null }
+      ue := if pld == null { null } else { get_or(pld, "equiv", null) }
+      if ue != null {
+        --- Univalence family (ADR-0208 P4): a `ua(e)`/`univalence(e)`
+        --- path *is* the `I → Type` family `λi. Glue B (i=0) T̂`
+        --- (CCHM): at `i0` it is the domain `A`, at `i1` the codomain
+        --- `B`, and at an interior dimension `j` the Glue type
+        --- `Glue B (j=0) (const A)` — `transp (ua e)` then computes
+        --- through the P4 on-face `fam_at_` rules above.
+        i0t := make_type("var", set({}, "name", "i0"))
+        i1t := make_type("var", set({}, "name", "i1"))
+        if point == i0t {
+          { val: get_or(pld, "x", null), state: s }
+        } else {
+          if point == i1t {
+            { val: get_or(pld, "y", null), state: s }
+          } else {
+            glue_face := make_type("face", set(set({}, "op", "eq0"), "args", [point]))
+            glue_t := make_type("type.glue", set(set(set({}, "family", get_or(pld, "y", null)), "face", glue_face), "section", get_or(pld, "x", null)))
+            { val: glue_t, state: s }
+          }
+        }
+      } else {
+        is_family := ftag == "type.pi" && type_tag(get_or(fam, "param", null)) == "type.interval"
+        if is_family {
+          do {
+            applied := funcs.apply_dep_closure_(funcs, fam, make_type("type.interval", {}), point, s)
+            --- On-face reduction (ADR-0208 P4): a body that synthesizes
+            --- to a `type.glue` with a *decided* face reduces through
+            --- `fam_at_` — `Π(i:I), Glue(B, f0(i), T̂)` at `i1` is `B`,
+            --- at `i0` the section `T̂(i0)`.
+            if type_tag(applied.val) == "type.glue" {
+              funcs.fam_at_(funcs, applied.val, point, applied["state"])
+            } else {
+              applied
+            }
+          }
+        } else {
+          { val: fam, state: s }
+        }
       }
     }
   }
@@ -4362,7 +4502,24 @@ do {
                         set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", funcs.make_type("type.unknown", {}))
                       }
                     }
-                    result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", set(set({}, "x", w1.x), "y", w2.y)))
+                    --- Univalence composition (ADR-0208 P4): when
+                    --- both operands carry recorded equivalences
+                    --- `e₁ : A ≃ B` and `e₂ : B ≃ C` (endpoint
+                    --- unification above already checked `B`), the
+                    --- composite records `{dom: A, cod: C}` — the
+                    --- term-level maps are not composed (`to`/`fro`
+                    --- stay provenance `null`; transport applies the
+                    --- domain→codomain reading either way).
+                    w1p := if w1.self != null && type_tag(w1.self) == "type.pi" { get_or(w1.self, "path", null) } else { null }
+                    w2p := if w2.self != null && type_tag(w2.self) == "type.pi" { get_or(w2.self, "path", null) } else { null }
+                    w1e := if w1p == null { null } else { get_or(w1p, "equiv", null) }
+                    w2e := if w2p == null { null } else { get_or(w2p, "equiv", null) }
+                    trans_path := set(set({}, "x", w1.x), "y", w2.y)
+                    if w1e != null && w2e != null {
+                      comp_equiv := set(set(set(set({}, "dom", get_or(w1e, "dom", w1.x)), "cod", get_or(w2e, "cod", w2.y)), "to", null), "fro", null)
+                      trans_path := set(trans_path, "equiv", comp_equiv)
+                    }
+                    result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", trans_path))
                     { val: result, state: st2 }
                   }
                 }
@@ -4400,9 +4557,312 @@ do {
               } else {
                 set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", funcs.make_type("type.unknown", {}))
               }
-              result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", set(set({}, "x", w.y), "y", w.x)))
-              { val: result, state: w["state"] }
+              --- Univalence paths (ADR-0208 P4): `symm` swaps the
+              --- recorded equivalence too — `ua(e)⁻¹` carries
+              --- `{dom: cod, cod: dom, to: fro, fro: to}` so transport
+              --- along the symmetric path applies `e.fro`.
+              wp := if w.self != null && type_tag(w.self) == "type.pi" { get_or(w.self, "path", null) } else { null }
+              we := if wp == null { null } else { get_or(wp, "equiv", null) }
+              sym_path := set(set({}, "x", w.y), "y", w.x)
+              if we != null {
+                do {
+                  swapped := set(set(set(set({}, "dom", get_or(we, "cod", null)), "cod", get_or(we, "dom", null)), "to", get_or(we, "fro", null)), "fro", get_or(we, "to", null))
+                  sym_path_swapped := set(sym_path, "equiv", swapped)
+                  result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", sym_path_swapped))
+                  { val: result, state: w["state"] }
+                }
+              } else {
+                result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", sym_path))
+                { val: result, state: w["state"] }
+              }
             }
+          }
+        }
+      }
+    }
+  }
+
+  --- ------------------------------------------------------------------
+  --- Cubical univalence & equivalences (ADR-0208 P4): `univalence` /
+  --- `ua` / `Univalence` / `Equiv` — computing univalence.
+  --- ------------------------------------------------------------------
+  ---
+  --- `univalence(e)` (the retained keyword, arity 1, child role
+  --- `equiv`) and `ua(e)`/`Univalence(e)` (call form — `ua` is an
+  --- ordinary identifier intercepted by name in the `call` judgment
+  --- and in `synth_type_call_cubical_`, the `Glue`/`Path` precedent)
+  --- introduce a path `A ~ B` from an equivalence `e : A ≃ B`.
+  --- `Equiv(A, B)` is the call-form type former for the equivalence
+  --- record `{to : A ~> B, fro : B ~> A}` — `sect`/`retr` proof
+  --- fields are proof-irrelevant (ADR-0151) and deferred; extra
+  --- record fields are ignored.
+  ---
+  --- COMPUTATION MODEL — recorded equivalence, not definitional
+  --- unfolding. The CCHM definition `ua e = λi. Glue B (i=0) T̂`
+  --- (T̂ the constant partial section `(A, e)`) is *represented* in
+  --- the `I → Type` reading rather than unfolded: `ua(e)`
+  --- synthesizes a path-carrying `type.pi` over `I` whose `path`
+  --- payload records `x := A`, `y := B` — the equivalence's
+  --- domain/codomain *type values* — and `equiv`, a normalized
+  --- `{dom, cod, to, fro}` record (`to`/`fro` are the eval'd function
+  --- witnesses when the operand is a record literal, else `null`;
+  --- they are provenance — transport never applies them because
+  --- values are erased). Consumers:
+  ---
+  ---   * `p # v` (`synth_transport_`): a witness carrying `equiv`
+  ---     transports by *applying the equivalence at the type level* —
+  ---     `v`'s type unified against the domain yields the codomain
+  ---     (`v : A ↦ B`), with `subst_index_` occurrence rewriting as
+  ---     the dependent fallback (`Vec(n, A) ↦ Vec(n, B)`).
+  ---   * `transp (ua e), i, φ, u` (`fam_at_`): the path-Pi reads as
+  ---     the family `λi. Glue B (i=0) (λ_. A)` — `i0 ↦ A`,
+  ---     `i1 ↦ B`, interior `j ↦ Glue B (j=0) A`.
+  ---   * `trans`/`symm`: compose/swap endpoints; `symm` swaps the
+  ---     recorded `equiv` direction too.
+  ---
+  --- `equiv` is proof-irrelevant payload: it is added to the skip
+  --- lists of `unify_fields`/`transport_term_`/`subst_index_`/
+  --- `term_has_var_` (alongside `via`) so it never participates in
+  --- type equality — `ua e₁` and `ua e₂` with the same endpoints are
+  --- the same path type.
+
+  --- Is `node_idx` a univalence *form* — the `univalence` keyword
+  --- node or a `ua(...)`/`Univalence(...)` call? Used by
+  --- `resolve_path_`/`check_path_intro_` to route these operands
+  --- through synthesis (they evaluate to `null`, like `trans`/`symm`).
+  is_univalence_form_ := [s, node_idx]~> do {
+    n := ast_node(s.ast, node_idx)
+    nk := node_kind(n)
+    if nk == "univalence" {
+      true
+    } else {
+      if nk == "call" {
+        do {
+          cr := child_role_index(s, "call", "callee")
+          if cr == null {
+            false
+          } else {
+            do {
+              children := node_children(n)
+              cn := ast_node(s.ast, at(children, cr))
+              cp := node_payload(cn)
+              cname := if node_kind(cn) == "var" {
+                if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") }
+              } else {
+                ""
+              }
+              cname == "ua" || cname == "Univalence"
+            }
+          }
+        }
+      } else {
+        false
+      }
+    }
+  }
+
+  --- Domain/codomain of an arrow *type*: `type.function{param,body}`
+  --- directly, `type.pi` through `apply_dep_closure_` at its own
+  --- parameter (non-dependent arrows return the constant body).
+  --- Returns `{ok, dom, cod, state}`.
+  arrow_dom_cod_ := [funcs, t, s]~> do {
+    tag := type_tag(t)
+    if tag == "type.function" {
+      { ok: true, dom: get_or(t, "param", null), cod: get_or(t, "body", null), state: s }
+    } else {
+      if tag == "type.pi" {
+        do {
+          p := get_or(t, "param", null)
+          ap := funcs.apply_dep_closure_(funcs, t, p, null, s)
+          { ok: ap.val != null, dom: p, cod: ap.val, state: ap["state"] }
+        }
+      } else {
+        { ok: false, dom: null, cod: null, state: s }
+      }
+    }
+  }
+
+  --- Best-effort eval of an equivalence record's `to`/`fro` field —
+  --- only when the operand node is an `object` literal (a `var`
+  --- bound to one evaluates to its `node_term_`, which has no object
+  --- case, so it stays symbolic). Returns `{val, state}`; `val` is
+  --- `null` when unavailable. Proof-irrelevant provenance.
+  equiv_field_value_ := [funcs, s, equiv_idx, field]~> do {
+    n := ast_node(s.ast, equiv_idx)
+    if node_kind(n) != "object" {
+      { val: null, state: s }
+    } else {
+      do {
+        children := node_children(n)
+        found := while { result: null, remaining: children, state: s } {
+          [st]~> if is_empty(st.remaining) || st.result != null {
+            { out: { val: st.result, state: st["state"] } }
+          } else {
+            do {
+              e_idx := first_value(st.remaining)
+              e_node := ast_node(s.ast, e_idx)
+              e_children := node_children(e_node)
+              if len(e_children) < 2 {
+                { state: { result: null, remaining: drop(st.remaining, 1), state: st["state"] } }
+              } else {
+                do {
+                  k_node := ast_node(s.ast, first_value(e_children))
+                  k_payload := node_payload(k_node)
+                  k := if type_of(k_payload) == "str" { k_payload } else { get_or(k_payload, "name", get_or(k_payload, "value", "")) }
+                  if k == field {
+                    do {
+                      v_idx := at(e_children, 1)
+                      t := funcs.node_term_(funcs, st["state"], v_idx)
+                      ev := funcs.eval_term_(funcs, st["state"], t)
+                      { state: { result: ev.val, remaining: drop(st.remaining, 1), state: ev["state"] } }
+                    }
+                  } else {
+                    { state: { result: null, remaining: drop(st.remaining, 1), state: st["state"] } }
+                  }
+                }
+              }
+            }
+          }
+        }
+        { val: found.val, state: found["state"] }
+      }
+    }
+  }
+
+  --- Extract the equivalence endpoints from the operand's
+  --- *synthesized type*: `type.equiv{dom,cod}` directly, or a
+  --- `type.record{fields}` whose `to`/`fro` fields are arrows
+  --- `A ~> B` / `B ~> A` (directions cross-checked). Returns
+  --- `{ok, dom, cod, to, fro, state}` — `to`/`fro` are best-effort
+  --- eval'd witnesses (`null` when unavailable).
+  equiv_parts_ := [funcs, st, equiv_idx]~> do {
+    eres := funcs.synth_node_(funcs, st, equiv_idx)
+    et := eres.typ
+    etag := type_tag(et)
+    if etag == "type.equiv" {
+      do {
+        tv := funcs.equiv_field_value_(funcs, eres["state"], equiv_idx, "to")
+        fv := funcs.equiv_field_value_(funcs, tv["state"], equiv_idx, "fro")
+        { ok: true, dom: get_or(et, "dom", null), cod: get_or(et, "cod", null), to: tv.val, fro: fv.val, state: fv["state"] }
+      }
+    } else {
+      fields := if type_of(et) == "obj" { get_or(et, "fields", {}) } else { {} }
+      to_t := get_or(fields, "to", null)
+      fro_t := get_or(fields, "fro", null)
+      if to_t == null || fro_t == null {
+        { ok: false, dom: null, cod: null, to: null, fro: null, state: tc_add_diagnostic(eres["state"], "error", "univalence: equivalence operand must be an Equiv(A, B) record — {to : A ~> B, fro : B ~> A}") }
+      } else {
+        do {
+          ad := funcs.arrow_dom_cod_(funcs, to_t, eres["state"])
+          if !ad.ok {
+            { ok: false, dom: null, cod: null, to: null, fro: null, state: tc_add_diagnostic(ad["state"], "error", "univalence: equivalence `to` field is not an arrow type") }
+          } else {
+            do {
+              af := funcs.arrow_dom_cod_(funcs, fro_t, ad["state"])
+              if !af.ok {
+                { ok: false, dom: null, cod: null, to: null, fro: null, state: tc_add_diagnostic(af["state"], "error", "univalence: equivalence `fro` field is not an arrow type") }
+              } else {
+                do {
+                  --- Cross-check the inverse direction: `fro : B ~> A`.
+                  u1 := funcs.unify_dependent_(funcs, af.dom, ad.cod, af["state"])
+                  u2 := if u1.ok { funcs.unify_dependent_(funcs, af.cod, ad.dom, u1["state"]) } else { u1 }
+                  if !u2.ok {
+                    { ok: false, dom: null, cod: null, to: null, fro: null, state: tc_add_diagnostic(u2["state"], "error", "univalence: equivalence `fro` does not invert `to` — expected B ~> A") }
+                  } else {
+                    do {
+                      tv := funcs.equiv_field_value_(funcs, u2["state"], equiv_idx, "to")
+                      fv := funcs.equiv_field_value_(funcs, tv["state"], equiv_idx, "fro")
+                      { ok: true, dom: ad.dom, cod: ad.cod, to: tv.val, fro: fv.val, state: fv["state"] }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- Shared univalence introduction: given the equivalence operand's
+  --- AST index, mint the path-carrying `type.pi` — `(i:I) → Type`
+  --- with `path{x: A, y: B, equiv: {dom, cod, to, fro}}` (the
+  --- universe-level reading: endpoints are *type values*). Used by
+  --- the `univalence` keyword node, the `ua`/`Univalence` call form
+  --- (term and type position), and `Equiv`-checked annotations.
+  synth_univalence_core_ := [funcs, st, equiv_idx]~> do {
+    ep := funcs.equiv_parts_(funcs, st, equiv_idx)
+    if !ep.ok || ep.dom == null || ep.cod == null {
+      { val: funcs.make_type("type.unknown", {}), state: ep["state"] }
+    } else {
+      do {
+        equiv := set(set(set(set({}, "dom", ep.dom), "cod", ep.cod), "to", ep.to), "fro", ep.fro)
+        path := set(set(set({}, "x", ep.dom), "y", ep.cod), "equiv", equiv)
+        closure := set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", funcs.make_type("type.universe", set({}, "level", 0)))
+        val := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", path))
+        { val: val, state: ep["state"] }
+      }
+    }
+  }
+
+  --- `univalence(e)` — the keyword node's judgment (term position):
+  --- child role `equiv` is the equivalence operand.
+  synth_univalence_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    e_role := child_role_index(s, "univalence", "equiv")
+    e_idx := if e_role == null { at(children, 0) } else { at(children, e_role) }
+    if len(children) < 1 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "univalence: needs an equivalence operand") }
+    } else {
+      synth_univalence_core_(funcs, s, e_idx)
+    }
+  }
+
+  --- `Equiv(A, B)` — the call-form equivalence type former: mints
+  --- `type.equiv{dom, cod}`. Inhabitants are `{to : A ~> B,
+  --- fro : B ~> A}` records (checked by the `unify_dependent_`
+  --- `type.equiv`/`type.record` arm).
+  synth_equiv_former_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    args_role := child_role_index(st, "call", "args")
+    n_args := if args_role == null { 0 } else { len(children) - args_role }
+    if n_args != 2 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: Equiv needs a domain and a codomain — Equiv(A, B)") }
+    } else {
+      do {
+        d_res := funcs.synth_type_(funcs, st, at(children, args_role))
+        c_res := funcs.synth_type_(funcs, d_res["state"], at(children, args_role + 1))
+        { val: funcs.make_type("type.equiv", set(set({}, "dom", d_res.val), "cod", c_res.val)), state: c_res["state"] }
+      }
+    }
+  }
+
+  --- Unify a `type.equiv{dom,cod}` against a `type.record{fields}`
+  --- (either order): the record must carry `to : dom ~> cod` and
+  --- `fro : cod ~> dom` arrow fields; extra fields are ignored.
+  unify_equiv_record_ := [funcs, equiv_t, record_t, s]~> do {
+    dom := get_or(equiv_t, "dom", null)
+    cod := get_or(equiv_t, "cod", null)
+    fields := get_or(record_t, "fields", {})
+    to_f := get_or(fields, "to", null)
+    fro_f := get_or(fields, "fro", null)
+    if to_f == null || fro_f == null {
+      { ok: false, state: tc_add_diagnostic(s, "error", "type mismatch: Equiv record needs `to` and `fro` fields") }
+    } else {
+      do {
+        to_arr := funcs.make_type("type.function", set(set(set({}, "param", dom), "body", cod), "param_name", ""))
+        fro_arr := funcs.make_type("type.function", set(set(set({}, "param", cod), "body", dom), "param_name", ""))
+        ut := funcs.unify_dependent_(funcs, to_f, to_arr, s)
+        if !ut.ok {
+          { ok: false, state: tc_add_diagnostic(ut["state"], "error", "type mismatch: Equiv `to` field is not " + type_tag(dom) + " ~> " + type_tag(cod)) }
+        } else {
+          uf := funcs.unify_dependent_(funcs, fro_f, fro_arr, ut["state"])
+          if !uf.ok {
+            { ok: false, state: tc_add_diagnostic(uf["state"], "error", "type mismatch: Equiv `fro` field is not " + type_tag(cod) + " ~> " + type_tag(dom)) }
+          } else {
+            { ok: true, state: uf["state"] }
           }
         }
       }
@@ -4700,6 +5160,21 @@ do {
         synth_glue_type_(funcs, st, at(children, args_role), at(children, args_role + 1), at(children, args_role + 2))
       }
     } else {
+      if callee_name == "Equiv" {
+        --- `Equiv(A, B)` — the equivalence type former (ADR-0208
+        --- P4): mints `type.equiv{dom, cod}`.
+        synth_equiv_former_(funcs, st, node_idx)
+      } else {
+      if callee_name == "ua" || callee_name == "Univalence" {
+        --- `ua(e)` / `Univalence(e)` in type position (e.g. the
+        --- `transp` family operand): the same path-carrying
+        --- `type.pi` `univalence(e)` synthesizes in term position.
+        if n_args != 1 {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: ua/Univalence needs exactly one equivalence operand") }
+        } else {
+          synth_univalence_core_(funcs, st, at(children, args_role))
+        }
+      } else {
       if callee_name == "isFibrant" {
         if n_args != 1 {
           { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: isFibrant needs exactly one type argument") }
@@ -4721,6 +5196,8 @@ do {
             }
           }
         }
+      }
+      }
       }
     }
   }
@@ -5876,6 +6353,14 @@ do {
     "glue": synth_glue_(funcs, s, node_idx),
     "synth_fibrant": synth_fibrant_(funcs, s, node_idx),
     "fibrant": synth_fibrant_(funcs, s, node_idx),
+    --- Cubical univalence (ADR-0208 P4). `univalence` is a real node
+    --- kind (grammar.univalence.prefix) dispatched through its
+    --- `type.univalence` rule's `synth_univalence` op; the kind arm
+    --- is defensive, like `glue`'s. `ua`/`Univalence` call forms are
+    --- intercepted inside the `call` judgment and
+    --- `synth_type_call_cubical_` — no judgment arms needed.
+    "synth_univalence": synth_univalence_(funcs, s, node_idx),
+    "univalence": synth_univalence_(funcs, s, node_idx),
     "construct_universe": do {
       level := if lit != null { lit } else { if is_empty(args) { 0 } else { eval_first_arg(funcs, s, node_idx, args, incoming).val } }
       { val: funcs.make_type("type.universe", set({}, "level", level)), state: s }
@@ -6125,6 +6610,26 @@ do {
         do {
           node := ast_node(s.ast, node_idx)
           children := node_children(node)
+          --- Cubical univalence call form (ADR-0208 P4): `ua(e)` /
+          --- `Univalence(e)` introduce the same path `univalence(e)`
+          --- does — intercepted by callee name before ordinary
+          --- application (`ua` stays an ordinary identifier
+          --- elsewhere, the `Path`/`Glue` precedent).
+          callee_node := ast_node(s.ast, child_ref(s.ast, node_idx, callee_idx))
+          callee_payload := node_payload(callee_node)
+          call_cname := if node_kind(callee_node) == "var" {
+            if type_of(callee_payload) == "str" { callee_payload } else { get_or(callee_payload, "name", "") }
+          } else {
+            ""
+          }
+          if call_cname == "ua" || call_cname == "Univalence" {
+            n_call_args := len(children) - args_idx
+            if n_call_args != 1 {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "ua/Univalence needs exactly one equivalence operand") }
+            } else {
+              synth_univalence_core_(funcs, s, at(children, args_idx))
+            }
+          } else {
           callee_result := funcs.synth_node_(funcs, s, child_ref(s.ast, node_idx, callee_idx))
           call_state := while { current: callee_result.typ, state: callee_result["state"], idx: args_idx } {
             [st]~> if st.idx >= len(children) {
@@ -6179,6 +6684,7 @@ do {
           zonked := zonk(zonk, final_typ, final_state.metas)
           norm := normalize_type_(normalize_type_, funcs, final_state, zonked)
           { val: norm, state: final_state }
+          }
         }
       }
     },
@@ -6716,11 +7222,13 @@ do {
                     --- `synth_j_`.
                     synth_path_type_(funcs, st, node_idx, callee_name)
                   } else {
-                  if callee_name == "Glue" || callee_name == "isFibrant" || callee_name == "unglue" {
+                  if callee_name == "Glue" || callee_name == "isFibrant" || callee_name == "unglue" || callee_name == "Equiv" || callee_name == "ua" || callee_name == "Univalence" {
                     --- `Glue(A, φ, T̂)` / `isFibrant(A)` / `unglue(G)`
-                    --- — cubical type names (ADR-0208 P3): ordinary
-                    --- call-form identifiers like `Path`/`PathP`, no
-                    --- keyword. See `synth_type_call_cubical_`.
+                    --- (P3) and `Equiv(A, B)` / `ua(e)` /
+                    --- `Univalence(e)` (P4) — cubical type names:
+                    --- ordinary call-form identifiers like
+                    --- `Path`/`PathP`, no keyword. See
+                    --- `synth_type_call_cubical_`.
                     funcs.synth_type_call_cubical_(funcs, st, node_idx, callee_name)
                   } else {
                   if bound_callee != null {
@@ -6795,6 +7303,12 @@ do {
               --- P3): the glue type former — see `synth_glue_`.
               synth_glue_(funcs, st, node_idx)
             } else {
+            if kind == "univalence" {
+              --- `univalence(e)` in type position (ADR-0208 P4): the
+              --- path-carrying `type.pi` — e.g. the `transp` family
+              --- operand `transp (ua e), i, φ, u`.
+              synth_univalence_(funcs, st, node_idx)
+            } else {
             if kind == "fibrant" {
               --- `fibrant A` in annotation position: the fibrancy
               --- type `isFibrant(A)` — see `synth_fibrant_former_`.
@@ -6818,6 +7332,7 @@ do {
               } else {
                 { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unsupported annotation kind: " + kind) }
               }
+            }
             }
             }
             }
@@ -7472,6 +7987,14 @@ do {
     synth_fibrant_former_: synth_fibrant_former_,
     synth_fibrant_: synth_fibrant_,
     synth_type_call_cubical_: synth_type_call_cubical_,
+    is_univalence_form_: is_univalence_form_,
+    arrow_dom_cod_: arrow_dom_cod_,
+    equiv_field_value_: equiv_field_value_,
+    equiv_parts_: equiv_parts_,
+    synth_univalence_core_: synth_univalence_core_,
+    synth_univalence_: synth_univalence_,
+    synth_equiv_former_: synth_equiv_former_,
+    unify_equiv_record_: unify_equiv_record_,
     collect_ctor_names_: collect_ctor_names_,
     collect_ctor_specs_: collect_ctor_specs_,
     instantiate_ctor_: instantiate_ctor_,
