@@ -158,7 +158,7 @@ pub enum ExportDecl {
 /// # Syntax
 ///
 /// ```handl
-/// op "base64.encode" : String -> String
+/// op "base64.encode" : String ~> String
 ///   guarantee: IsBase64(output)
 /// ```
 ///
@@ -267,7 +267,7 @@ pub struct TagDecl {
 ///    `import "path" as alias`.
 /// 4. Parses export lines: `export name`, `export *`,
 ///    `export name from "path"`, `export * from "path"`.
-/// 5. Parses `op` lines: `op "name" : Type -> Type`, optionally followed by
+/// 5. Parses `op` lines: `op "name" : Type ~> Type`, optionally followed by
 ///    indented `guarantee:`/`requires:`/`termination:` lines.
 /// 6. Parses `handl` lines: `handl "op.name" = rust_fn_name`.
 /// 7. Parses `cap` lines: `cap "cap.name"`.
@@ -845,10 +845,10 @@ fn parse_export_line(line: &str) -> Option<ExportDecl> {
 /// Parse a single `op` line into an [`OpDecl`].
 ///
 /// Supported form:
-/// - `op "name" : InputType -> OutputType`
+/// - `op "name" : InputType ~> OutputType` (`->` legacy alias accepted)
 ///
-/// The op name must be a quoted string. The type signature uses `->` to
-/// separate input and output types. Indented `guarantee:`/`requires:`/
+/// The op name must be a quoted string. The type signature uses `~>` to
+/// separate input and output types (`->` accepted as a legacy alias). Indented `guarantee:`/`requires:`/
 /// `termination:` lines are handled separately by [`parse_op_clause`] in
 /// the main parsing loop.
 fn parse_op_line(line: &str) -> Option<OpDecl> {
@@ -858,13 +858,15 @@ fn parse_op_line(line: &str) -> Option<OpDecl> {
     let (name, after_name) = extract_quoted_string(rest)?;
     let after_name = after_name.trim();
 
-    // Expect `:` after the name, then `InputType -> OutputType`.
+    // Expect `:` after the name, then `InputType ~> OutputType` (`->`
+    // remains accepted as a legacy alias during the signature migration).
     let after_colon = after_name.strip_prefix(':')?.trim();
 
-    // Find the `->` separator. We search for `->` as a standalone token.
-    let arrow_idx = find_arrow(after_colon)?;
+    // Find the arrow separator. `~>` (the handl term arrow) is primary;
+    // `->` is the pre-migration spelling. We take whichever occurs first.
+    let (arrow_idx, arrow_len) = find_arrow(after_colon)?;
     let input_type = after_colon[..arrow_idx].trim().to_string();
-    let output_type = after_colon[arrow_idx + 2..].trim().to_string();
+    let output_type = after_colon[arrow_idx + arrow_len..].trim().to_string();
 
     if input_type.is_empty() || output_type.is_empty() {
         return None;
@@ -903,10 +905,18 @@ fn parse_op_clause(line: &str) -> Option<(&'static str, String)> {
     None
 }
 
-/// Find the byte index of the `->` arrow separator in a type signature,
-/// ensuring it is not part of a larger token. Returns `None` if not found.
-fn find_arrow(s: &str) -> Option<usize> {
-    s.find("->")
+/// Find the byte index and length of the arrow separator in a type
+/// signature, taking whichever of `~>` (canonical) or `->` (legacy alias)
+/// occurs first. Returns `None` if neither is found.
+fn find_arrow(s: &str) -> Option<(usize, usize)> {
+    let tilde = s.find("~>").map(|i| (i, 2));
+    let dash = s.find("->").map(|i| (i, 2));
+    match (tilde, dash) {
+        (Some(a), Some(b)) => Some(if a.0 <= b.0 { a } else { b }),
+        (Some(a), None) => Some(a),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    }
 }
 
 /// Parse a single `handl` line into a [`HandlDecl`].

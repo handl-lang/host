@@ -476,7 +476,7 @@ mod bootstrap {
     /// use handl_plugin_lib_handl::strip_declaration_lines;
     ///
     /// let src = r#"cap "hello.greet"
-    /// op "hello.greet" : String -> String
+    /// op "hello.greet" : String ~> String
     ///   guarantee: True
     /// name ~> "Hello, " + name + "!"
     /// "#;
@@ -1884,7 +1884,7 @@ mod bootstrap {
     /// let src = r#"
     /// cap "fs.read"
     /// cap "fs.write"
-    /// op "fs.read" : Path -> Bytes
+    /// op "fs.read" : Path ~> Bytes
     /// "#;
     /// let caps = parse_cap_declarations(src);
     /// assert_eq!(caps, vec!["fs.read".to_string(), "fs.write".to_string()]);
@@ -2100,7 +2100,7 @@ fn loader_string(func: &str, src: &str) -> Option<String> {
 /// use handl_plugin_lib_handl::strip_declaration_lines;
 ///
 /// let src = r#"cap "hello.greet"
-/// op "hello.greet" : String -> String
+/// op "hello.greet" : String ~> String
 ///   guarantee: True
 /// name ~> "Hello, " + name + "!"
 /// "#;
