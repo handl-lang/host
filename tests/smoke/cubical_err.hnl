@@ -1,0 +1,13 @@
+--- tests/smoke/cubical_err.hnl — expected-failure smoke: `hnl typecheck`
+--- MUST exit nonzero on this file (`ci.sh smoke` asserts it).
+---
+--- `refl` proves only reflexive path endpoints: `Zero`/`Succ(Zero)`
+--- are decided-distinct `Nat` terms, so `Path(Nat, Zero, Succ(Zero))`
+--- cannot be inhabited by `refl` (ADR-0208 P1).
+
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
+
+bad : Path(Nat, Zero, Succ(Zero)) := refl
