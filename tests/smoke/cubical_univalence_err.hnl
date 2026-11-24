@@ -1,0 +1,18 @@
+--- tests/smoke/cubical_univalence_err.hnl — expected-failure smoke:
+--- `hnl typecheck` MUST exit nonzero on this file (`ci.sh smoke`
+--- asserts it; the expected-error string lives in the
+--- `cubical_univalence_err.err` sidecar).
+---
+--- `#` along a univalence path applies the recorded equivalence at
+--- the *codomain*: `ua(e) : Bool ~ Nat` transports `true : Bool` to
+--- `Nat`, so the result does not inhabit `Bool` (ADR-0208 P4).
+
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
+
+e : Equiv(Bool, Nat) := { to: x ~> Zero, fro: y ~> true }
+p := ua(e)
+v : Bool := true
+t : Bool := p # v

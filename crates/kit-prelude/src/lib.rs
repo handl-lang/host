@@ -423,6 +423,47 @@ pub fn prelude_wire_names() -> std::collections::HashSet<String> {
         // resolve through existing names.)
         "i0",
         "i1",
+        // Cubical type formers and judgment vocabulary (ADR-0208
+        // P1–P4): the NBE judge intercepts these names in call position
+        // (`Pi(A, a ~> B)`, `Path(A, x, y)`, `Glue(A, φ, T̂)`,
+        // `Equiv(A, B)`, `ua(e)`, `isFibrant(A)`, `unglue(G)`, …) and as
+        // bare type names (`I`, `Type`, `Sigma`, …), but no stdlib
+        // module exports them — they are checker primitives, not
+        // runtime wires. Listing them here keeps the bootstrap scope
+        // pass's unbound-wire walk in parity with what the judge
+        // resolves; the `type.unknown` seeds they receive are
+        // placeholders the judge's builtin-name/call-form dispatch
+        // overrides (`is_builtin_type_name` runs before global lookup,
+        // and `dep_synth_call_type` matches the callee *name*).
+        // `refl` stays out deliberately: it is not seeded so the
+        // judge's `None`-arm `Refl` marker synthesis still fires.
+        "I",
+        "Interval",
+        "Type",
+        "Universe",
+        "Type0",
+        "Sig",
+        "Pi",
+        "Sigma",
+        "Forall",
+        "Family",
+        "Path",
+        "PathP",
+        "Glue",
+        "isFibrant",
+        "unglue",
+        "Equiv",
+        "ua",
+        "Univalence",
+        // Cubical face formulas and dimension endpoints — evaluated as
+        // symbolic terms inside `transp`/`hcomp`/`comp`/`glue` operands.
+        "f0",
+        "f1",
+        "fT",
+        "fF",
+        "fnot",
+        "f_and",
+        "f_or",
     ] {
         names.insert(extra.to_string());
     }

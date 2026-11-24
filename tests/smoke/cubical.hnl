@@ -1,36 +1,35 @@
 --- tests/smoke/cubical.hnl — cubical forms end-to-end through the
---- PRODUCTION `hnl typecheck` path (NBE checker), ADR-0208 P1–P3.
+--- PRODUCTION `hnl typecheck` path (NBE checker), ADR-0208 P1–P4.
 ---
---- Covers: the interval sort `I`/`Interval` with `i0`/`i1` endpoints
---- and `Pi(I, i ~> …)` dimension binders; the `Path(A, x, y)` /
---- `PathP(F, x, y)` interval-function type formers with `refl`,
---- lambda-path, and path-alias introductions; `#` transport and the
---- capital `J` eliminator; the P2 judgments `transp`/`hcomp`/`Comp`/
---- `trans`/`symm` over face formulas (`f0`/`f1`/`fnot`/`f_or`/`f_and`/
---- `fT`/`fF`); and the P3 glue/fibrant surface reachable in production
---- — `Glue(A, φ, T̂)`/`isFibrant(A)`/`unglue(G)` in type position and
---- `fibrant A` witnesses.
+--- Covers: the interval sort `I`/`Interval` with `i0`/`i1` endpoints —
+--- usable directly as `transp`/`hcomp`/`Comp` dimension operands, with
+--- bound `e0 : I := i0`-style variables exercised alongside; the
+--- `Path(A, x, y)` / `PathP(F, x, y)` interval-function type formers
+--- with `refl`, lambda-path, and path-alias introductions; `#`
+--- transport (annotated and unannotated, over index and homogeneous
+--- term endpoints) and the capital `J` eliminator; the P2 judgments
+--- `transp`/`hcomp`/`Comp`/`trans`/`symm` over face formulas
+--- (`f0`/`f1`/`fnot`/`f_or`/`f_and`/`fT`/`fF`); the P3 glue/fibrant
+--- surface — `Glue(A, φ, T̂)`/`isFibrant(A)`/`unglue(G)` in type
+--- position and `fibrant A` witnesses; and the P4 computing
+--- univalence surface — `Equiv(A, B)` records, the `ua(e)` /
+--- `Univalence(e)` / `univalence(e)` path formers, `#` transport
+--- along the recorded equivalence, and `symm`/`trans` path algebra.
 ---
 --- Production-surface notes (verified against `hnl typecheck`, which
 --- runs the unbound-wire scope pass the Rust NBE fixtures bypass):
----   * `i0`/`i1` literals are NOT accepted as `transp`/`hcomp`/`Comp`
----     dimension operands — bind them first (`e0 : I := i0`) and pass
----     the variable. (NBE parity gap vs the Rust fixtures.)
----   * `p # v` transports only when the result stays unannotated or
----     the path endpoints are index terms — `w : Bool := p # true`
----     over `Path(Bool, true, true)` fails "expected null" while
----     `w := p # true` checks. The annotated `Vec`-index form below
----     (the types.hnl convention) is the supported spelling.
----   * The `glue A, φ, T̂` KEYWORD former and term-position
----     `fibrant`/`Glue`/`transp`-family operands mentioning `Pi`/`I`/
----     `Glue`/`fF`/`f0`/`Sigma` are rejected by the scope pass as
----     unbound wires — those names are type-position-only. The `Glue`
----     CALL form works inside type expressions (annotations, Pi
----     domains), which is what this file exercises.
----   * Univalence (`univalence(e)`/`ua(e)`/`Univalence(e)`/`Equiv`,
----     ADR-0208 P4) is NOT covered: the NBE port is still in flight
----     (`ua`/`Univalence` are unbound wires in the shipped cdylib) —
----     follow-up once P4 lands.
+---   * Cubical type-former/judgment names (`Pi`, `Sigma`, `Forall`,
+---     `Family`, `I`, `Interval`, `Type`, `Path`, `PathP`, `Glue`,
+---     `Equiv`, `ua`, `Univalence`, `isFibrant`, `unglue`, and the
+---     face ops `f0`/`f1`/`fT`/`fF`/`fnot`/`f_and`/`f_or`) are checker
+---     primitives carried on the wire prelude — the scope pass admits
+---     them in every wire position, and the judge's builtin-name /
+---     call-form dispatch overrides their `type.unknown` seeds.
+---   * `i0`/`i1` literals synthesize `type.interval` even though they
+---     arrive as `type.unknown` placeholder seeds — the judge's
+---     endpoint arms run before the generic seed return.
+---   * `refl` remains a judge-resolved introduction, not a seeded
+---     wire — the scope pass binds it through its own exemption list.
 
 Nat := {
   Zero : Nat,
@@ -49,8 +48,9 @@ v2 : Vec<2, Bool> := VCons(true, VCons(false, VNil))
 -- ---------------------------------------------------------------------
 
 --- `i0`/`i1` are closed terms of the interval sort; `Interval` is the
---- same sort under its long name. Bound once here because the P2
---- judgments below take dimension *variables*, not literals.
+--- same sort under its long name. The bindings double as coverage for
+--- dimension *variables* — the P2 judgments below take both literals
+--- and bound names.
 e0 : I := i0
 e1 : Interval := i1
 
@@ -75,9 +75,11 @@ p22 : Path(2, 2) := refl
 moved : Vec<2, Bool> := p22 # v2
 
 --- A path-typed variable is itself a witness; `#` also synthesizes
---- (unannotated) over homogeneous term endpoints.
+--- over homogeneous term endpoints — annotated (`wc`) and bare
+--- (`wb`).
 q22 : Path(2, 2) := p22
 wb := cp # true
+wc : Bool := cp # true
 
 --- `J p, motive, base` — the capital-J eliminator over a cubical
 --- path: checks `base` against the motive at the source endpoint and
@@ -90,20 +92,22 @@ jv : Vec<2, Bool> := J p22, (i, w) ~> Vec(i, Bool), v2
 
 --- `transp A, i, φ, u` — transport in the family `A : I → Type` along
 --- dimension `i`, partial on face `φ`; CCHM direction `A(i1) → A(i0)`.
---- `fF` is the empty face; faces may mention *other* dimensions.
-t1 := transp Pi(I, i ~> Bool), e0, fF, true
-t2 := transp Pi(I, i ~> Bool), e0, f0(e1), true
-t3 := transp Pi(I, i ~> Bool), e0, f_and(fF, f0(e1)), true
+--- Dimension operands may be `i0`/`i1` literals or bound `I` variables
+--- (`e0`/`e1` above); `fF` is the empty face and faces may mention
+--- *other* dimensions.
+t1 := transp Pi(I, i ~> Bool), i0, fF, true
+t2 := transp Pi(I, i ~> Bool), i1, fF, true
+t3 := transp Pi(I, i ~> Bool), e0, f_and(fF, f0(i1)), true
 t4 := transp Pi(I, i ~> Bool), e0, f_or(fF, fT), true
-t5 := transp Pi(I, i ~> Bool), e0, fnot(fF), true
+t5 := transp Pi(I, i ~> Bool), e1, fnot(fF), true
 
 --- `hcomp A, i, φ, u, cap` — homogeneous composition over a single
 --- type; `cap : A` is the `i = 0` face, result `: A`.
-h1 : Bool := hcomp Bool, e0, fF, true, false
+h1 : Bool := hcomp Bool, i0, fF, true, false
 
 --- `Comp F, i, φ, u, cap` — heterogeneous composition over
 --- `F : I → Type`; `cap : F(i0)`, result `: F(i1)`.
-c1 : Bool := Comp Pi(I, i ~> Bool), e0, fF, true, false
+c1 : Bool := Comp Pi(I, i ~> Bool), i0, fF, true, false
 
 --- `trans p, q` / `symm p` — derived path algebra over decided-distinct
 --- endpoints; the results are themselves path witnesses.
@@ -133,3 +137,33 @@ y : unglue(Glue(Bool, fF, Pi(I, i ~> Bool))) := true
 --- judgment generically (undecided fibrancy warns, never errors).
 pfB : isFibrant(Bool) := fibrant Bool
 fib : Pi(Type, A ~> isFibrant(A)) := A ~> fibrant A
+
+-- ---------------------------------------------------------------------
+-- P4 — computing univalence: Equiv / ua / Univalence / univalence.
+-- ---------------------------------------------------------------------
+
+--- `Equiv(A, B)` — the equivalence type: an inhabitant is the record
+--- `{to : A ~> B, fro : B ~> A}` checked by the `type.equiv`
+--- unification arm. `ua(e)` / `Univalence(e)` / `univalence(e)` mint
+--- the path `A ~ B` — a `type.pi` over `I` carrying the recorded
+--- equivalence (`path.equiv`).
+eBN : Equiv(Bool, Nat) := { to: x ~> Zero, fro: y ~> true }
+eNB : Equiv(Nat, Bool) := { to: n ~> true, fro: b ~> Zero }
+pu := ua(eBN)
+pv := Univalence(eBN)
+pw := univalence(eBN)
+
+--- `#` along a univalence path applies the recorded equivalence at
+--- the type level: `pu : Bool ~ Nat`, so `true : Bool` transports to
+--- `Nat` — and the result does *not* inhabit `Bool`.
+bv : Bool := true
+tv : Nat := pu # bv
+nv : Nat := Zero
+spu := symm pu
+tb : Bool := spu # nv
+
+--- `trans` composes recorded equivalences: `ua(eBN) : Bool ~ Nat` and
+--- `ua(eNB) : Nat ~ Bool` compose to `Bool ~ Bool`.
+qu := ua(eNB)
+ptu := trans pu, qu
+ttu : Bool := ptu # true
