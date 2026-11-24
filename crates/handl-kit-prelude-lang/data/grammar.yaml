@@ -1236,6 +1236,74 @@
     child_separators:
       - !Required token.comma
       - !Required token.comma
+# Cubical judgments (ADR-0208 P2): `transp A, i, φ, u` transports the
+# partial element `u` in the family `A : I → Type` along dimension `i`
+# on face `φ`; `hcomp A, i, φ, u, cap` is homogeneous composition over
+# a single type `A`; `Comp F, i, φ, u, cap` is heterogeneous
+# composition over `F : I → Type` (`Comp` is capitalized because
+# lowercase `comp` is a live identifier — same reasoning as `J`);
+# `trans p, q` / `symm p` are the derived path-algebra forms.
+- id: grammar.transp.prefix
+  token: token.keyword.transp
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: transp
+    arity: 4
+    child_separators:
+      - !Required token.comma
+      - !Required token.comma
+      - !Required token.comma
+- id: grammar.hcomp.prefix
+  token: token.keyword.hcomp
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: hcomp
+    arity: 5
+    child_separators:
+      - !Required token.comma
+      - !Required token.comma
+      - !Required token.comma
+      - !Required token.comma
+- id: grammar.comp.prefix
+  token: token.keyword.comp
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: comp
+    arity: 5
+    child_separators:
+      - !Required token.comma
+      - !Required token.comma
+      - !Required token.comma
+      - !Required token.comma
+- id: grammar.trans.prefix
+  token: token.keyword.trans
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: trans
+    arity: 2
+    child_separators:
+      - !Required token.comma
+- id: grammar.symm.prefix
+  token: token.keyword.symm
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: symm
+    arity: 1
 - id: grammar.cobox.prefix
   token: token.keyword.cobox
   position: Prefix

@@ -425,6 +425,36 @@
   pattern: !Literal
     text: "J"
   priority: 15
+# Cubical judgments (ADR-0208 P2): `transp A, i, φ, u`,
+# `hcomp A, i, φ, u, cap`, `Comp F, i, φ, u, cap`, `trans p, q`,
+# `symm p`. `transp`/`hcomp`/`trans`/`symm` are unused as identifiers
+# in the corpus; `comp` is spelled `Comp` because lowercase `comp` is
+# a live local in lib-http-openapi (same reasoning as capital `J`).
+- id: lex.keyword.transp
+  token_kind: token.keyword.transp
+  pattern: !Literal
+    text: transp
+  priority: 15
+- id: lex.keyword.hcomp
+  token_kind: token.keyword.hcomp
+  pattern: !Literal
+    text: hcomp
+  priority: 15
+- id: lex.keyword.comp
+  token_kind: token.keyword.comp
+  pattern: !Literal
+    text: "Comp"
+  priority: 15
+- id: lex.keyword.trans
+  token_kind: token.keyword.trans
+  pattern: !Literal
+    text: trans
+  priority: 15
+- id: lex.keyword.symm
+  token_kind: token.keyword.symm
+  pattern: !Literal
+    text: symm
+  priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
   pattern: !Literal

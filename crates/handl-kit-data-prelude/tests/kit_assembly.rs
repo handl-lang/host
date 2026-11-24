@@ -34,7 +34,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (ADR-0158) — landed upstream after the `exists` bump.
     // -1 `token.bind` removed — `:=` (`token.colon_equal`) is the only
     // binding operator; `=`/`==` lex to `token.equal` (equality).
-    assert_eq!(lang.tokens.len(), 107);
+    // +5 cubical-judgment keywords (ADR-0208 P2): `transp`/`hcomp`/
+    // `Comp`/`trans`/`symm` (`Comp` capitalized — lowercase `comp` is a
+    // live identifier, the `J` precedent).
+    assert_eq!(lang.tokens.len(), 112);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
@@ -50,7 +53,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // stays as a keyword tombstone; `acc` is deliberately NOT reserved,
     // so the ADR-0158 clause adds no lexer rule).
         // -1 `lex.bind` (`::`) removed with `token.bind`.
-    assert_eq!(lang.lexer_rules.len(), 103);
+        // +5 `lex.keyword.{transp,hcomp,comp,trans,symm}` for the cubical
+    // judgments (ADR-0208 P2).
+    assert_eq!(lang.lexer_rules.len(), 108);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -73,7 +78,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // -1 `grammar.data.prefix` — retired with the `data` keyword.
     // -1 `grammar.assign.infix` (`::`/`token.bind` → `assign`) removed —
     // `grammar.colon_equal.infix` (`:=`) is the only binding row.
-    assert_eq!(lang.grammar.len(), 86);
+        // +5 `grammar.{transp,hcomp,comp,trans,symm}.prefix` rows
+    // (ADR-0208 P2).
+    assert_eq!(lang.grammar.len(), 91);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
@@ -89,7 +96,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `eval.j` — the J eliminator's runtime iota (`J p, motive, base`
     // → `base`), the `transport`-style runtime backstop for the
     // `type.j` checker rule.
-    assert_eq!(lang.eval.len(), 91);
+        // +5 `eval.{transp,hcomp,comp,trans,symm}` proof-erasure schemes
+    // (ADR-0208 P2).
+    assert_eq!(lang.eval.len(), 96);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
@@ -112,7 +121,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // Phase 4 dependent structure).
     // +1 `ast.absurd` for absurd match arms.
     // +1 `ast.exists` for the `exists` sugar node (mirrors `ast.forall`).
-    assert_eq!(lang.ast.len(), 98);
+        // +5 `ast.{transp,hcomp,comp,trans,symm}` child-role shapes
+    // (ADR-0208 P2).
+    assert_eq!(lang.ast.len(), 103);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -149,8 +160,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 107);
-    assert_eq!(rt.lang().grammar.len(), 86);
+    assert_eq!(rt.lang().tokens.len(), 112);
+    assert_eq!(rt.lang().grammar.len(), 91);
 }
 
 #[test]

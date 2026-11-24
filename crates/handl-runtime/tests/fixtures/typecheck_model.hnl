@@ -3316,6 +3316,34 @@ do {
     }
   }
 
+  --- Interpret a *type value* as a path witness: a cubical path
+  --- `type.pi` + `path{x,y}` payload (P1), a legacy `Path{frm,to}`
+  --- record, or a `type.eq{left,right}`. Returns
+  --- `{x, y, closure, self}` or `null`. Pure — defined before
+  --- `resolve_path_`/`check_path_intro_` because the P2 `trans`/`symm`
+  --- nodes synthesize to path-carrying `type.pi`s that both consult.
+  witness_from_type_ := [v]~> do {
+    tag := type_tag(v)
+    if tag == "type.pi" {
+      p := get_or(v, "path", null)
+      if p == null {
+        null
+      } else {
+        { x: get_or(p, "x", null), y: get_or(p, "y", null), closure: get_or(v, "body_closure", null), self: v }
+      }
+    } else {
+      if tag == "Path" {
+        { x: get_or(v, "frm", null), y: get_or(v, "to", null), closure: null, self: null }
+      } else {
+        if tag == "type.eq" {
+          { x: get_or(v, "left", null), y: get_or(v, "right", null), closure: null, self: null }
+        } else {
+          null
+        }
+      }
+    }
+  }
+
   --- Classify a path operand (the `p` in `p # v` / `j p, P, base`):
   ---   * "path"  — a `Path{frm,to}` (or `type.eq{left,right}`) value,
   ---     or a `var` whose *gamma type* is one (`p : Path(a, b) = …`);
@@ -3327,11 +3355,29 @@ do {
   ---   * "bad"   — a decided non-path (a number, an application, an
   ---     indexed family, an unbound name) — the eliminators reject it.
   resolve_path_ := [funcs, s, path_idx]~> do {
+    --- Cubical path algebra (ADR-0208 P2): a `trans`/`symm` node
+    --- synthesizes to a path-carrying `type.pi` — route it through
+    --- `synth_node_` so `trans(p, q) # v` / `j (trans p q), …` see the
+    --- composed endpoints.
+    pnk := node_kind(ast_node(s.ast, path_idx))
+    if pnk == "trans" || pnk == "symm" {
+      do {
+        tr := funcs.synth_node_(funcs, s, path_idx)
+        tw := witness_from_type_(tr.typ)
+        if tw == null {
+          { verdict: "bad", frm: null, to: null, witness: tr.typ, state: tr["state"] }
+        } else {
+          { verdict: "path", frm: tw.x, to: tw.y, witness: tr.typ, state: tr["state"] }
+        }
+      }
+    } else {
+    do {
     ev := funcs.eval_node_(funcs, s, path_idx)
     pv := zonk(zonk, ev.val, ev["state"].metas)
     ptag := type_tag(pv)
     pname := if ptag == "var" { get_or(pv, "name", "") } else { "" }
     is_refl_tm := ptag == "type.refl" || pname == "refl"
+    epath_v := if ptag == "type.pi" { get_or(pv, "path", null) } else { null }
     if ptag == "Path" {
       { verdict: "path", frm: get_or(pv, "frm", null), to: get_or(pv, "to", null), witness: pv, state: ev["state"] }
     } else {
@@ -3340,6 +3386,12 @@ do {
     } else {
     if is_refl_tm {
       { verdict: "refl", frm: null, to: null, witness: pv, state: ev["state"] }
+    } else {
+    if epath_v != null {
+      --- A path-carrying `type.pi` *value* (a synthesized `trans`/
+      --- `symm` result reaching eval, or any path type produced as a
+      --- term) is itself a path witness — endpoints are the payload.
+      { verdict: "path", frm: get_or(epath_v, "x", null), to: get_or(epath_v, "y", null), witness: pv, state: ev["state"] }
     } else {
       --- A `var` operand that stayed symbolic may still *name* a
       --- gamma-bound Path (`p : Path(a, b) = …`); fall back to its
@@ -3371,6 +3423,9 @@ do {
     }
     }
     }
+    }
+    }
+    }
   }
 
   --- Path introduction (ADR-0120, cubical P1): checking a term
@@ -3385,6 +3440,35 @@ do {
   --- endpoints unify with the expected ones. Anything else is not a
   --- path.
   check_path_intro_ := [funcs, s, node_idx, expected]~> do {
+    --- Cubical path algebra (ADR-0208 P2): `trans`/`symm` nodes are
+    --- *derived* path witnesses — they evaluate to `null`, so they
+    --- cannot go through `eval_node_`. Synthesize them instead: the
+    --- result is a path-carrying `type.pi` whose `path{x,y}` payload
+    --- is unified against the expected endpoints, exactly like an
+    --- evaluated witness.
+    cnk := node_kind(ast_node(s.ast, node_idx))
+    if cnk == "trans" || cnk == "symm" {
+      do {
+        tr := funcs.synth_node_(funcs, s, node_idx)
+        tw := witness_from_type_(tr.typ)
+        cep := get_or(expected, "path", null)
+        cefrm := zonk(zonk, if cep != null { get_or(cep, "x", null) } else { get_or(expected, "frm", null) }, tr["state"].metas)
+        ceto := zonk(zonk, if cep != null { get_or(cep, "y", null) } else { get_or(expected, "to", null) }, tr["state"].metas)
+        if tw == null {
+          { ok: false, state: tc_add_diagnostic(tr["state"], "error", "check: term is not a Path witness") }
+        } else {
+          do {
+            uf := unify(funcs, tw.x, cefrm, tr["state"].metas)
+            ut := if uf.ok { unify(funcs, tw.y, ceto, uf.metas) } else { uf }
+            if ut.ok {
+              { ok: true, state: tc_record_node_type(set(tr["state"], "metas", ut.metas), node_idx, expected) }
+            } else {
+              { ok: false, state: tc_add_diagnostic(set(tr["state"], "metas", ut.metas), "error", "check: path endpoints do not match the expected Path") }
+            }
+          }
+        }
+      }
+    } else {
     ev := funcs.eval_node_(funcs, s, node_idx)
     pv := zonk(zonk, ev.val, ev["state"].metas)
     ptag := type_tag(pv)
@@ -3461,6 +3545,7 @@ do {
       } else {
         { ok: false, state: tc_add_diagnostic(ev["state"], "error", "check: term is not a Path witness") }
       }
+    }
     }
   }
 
@@ -3601,6 +3686,683 @@ do {
           }
         }
         }
+        }
+      }
+    }
+  }
+
+  --- ------------------------------------------------------------------
+  --- Cubical judgments (ADR-0208 P2): transp / hcomp / comp + path algebra
+  --- ------------------------------------------------------------------
+  ---
+  --- CCHM-style cubical operations over the interval sort `I` (P1).
+  --- This is a *typechecker*, not a cubical evaluator: faces and
+  --- partiality are represented and checked structurally, and the
+  --- interval-computational content (filling boxes, computing
+  --- transports) is deferred to the NBE/evaluator phases. What IS
+  --- checked here:
+  ---
+  ---   * `transp A, i, φ, u` — transport in the family `A : I → Type`
+  ---     along dimension `i`, partial on face `φ`. CCHM direction
+  ---     (the Cubical-Agda convention): `transp^i_φ A u : A(i1) → A(i0)`
+  ---     — transport *backward* along `i`. `u` is checked against the
+  ---     full fibre `A(i)` — genuine `Partial φ A` checking is
+  ---     approximated (mismatch is a warning, not an error).
+  ---   * `hcomp A, i, φ, u, cap` — homogeneous composition filling an
+  ---     open box: `A` is a single type (NOT an `I → Type` family —
+  ---     `comp` is the heterogeneous form), `cap : A` is the `i = 0`
+  ---     face, `u` the partial element on `φ`; the result is `: A`.
+  ---   * `comp F, i, φ, u, cap` — heterogeneous composition over
+  ---     `F : I → Type`: `cap : F(i0)`, result `: F(i1)`. A non-family
+  ---     `F` degenerates to the constant-family reading (= `hcomp`).
+  ---   * All three require `i : I` and `i ∉ φ` (`face_has_dim_`).
+  ---   * `trans p, q` / `symm p` — derived path algebra on cubical
+  ---     path witnesses (P1 `type.pi` + `path` payloads; legacy
+  ---     `Path{frm,to}`/`type.eq` records): `trans` unifies
+  ---     `p.y` with `q.x` and yields `x ~ z`; `symm` swaps endpoints.
+  ---     These are *type-level* derived forms — the checker admits
+  ---     them with the correct path type; their `hcomp`-filled
+  ---     squares are deferred.
+  ---
+  --- Faces Φ are *data*: `face`-tagged records
+  --- `{__tag__:"face", op, args}` with ops `tt`/`ff` (full/empty),
+  --- `eq0`/`eq1` (`i = 0`/`i = 1`, `args[0]` = dimension *term*), and
+  --- `not`/`or`/`and` (`~φ`, `φ ∨ ψ`, `φ ∧ ψ`, args = faces).
+  --- `face_of_val_` interprets evaluated terms: the surface
+  --- constructors `f0(i)`, `f1(i)`, `fnot φ`, `f_or φ ψ`,
+  --- `f_and φ ψ`, `fT`, `fF` (plus `true`/`false`/`0`/`1`) are
+  --- unbound names that evaluate to symbolic `App`/`var` terms —
+  --- meaningful only in face position. `face_norm_` folds endpoint
+  --- equations (`i0 = 0 → tt`, `i1 = 0 → ff`), pushes `not`, and
+  --- applies the `∧`/`∨` unit/annihilator, idempotence, and
+  --- `φ ∧ ¬φ → ff` / `φ ∨ ¬φ → tt` / `i=0 ∧ i=1 → ff` laws — enough
+  --- for the `i ∉ φ` side conditions. Endpoint *substitution*
+  --- (`φ[i := i0]`) is deferred.
+  ---
+  --- Proof erasure (ADR-0151): `eval.transp`/`eval.hcomp`/
+  --- `eval.comp`/`eval.trans`/`eval.symm` reduce to the last/first
+  --- operand — the same reading `transport`/`j` already use. The
+  --- model's `eval_node_` has no `node_term_` case for these kinds
+  --- (they lower to `null`), exactly like `transport`/`j`.
+
+  --- Interpret an evaluated term as a face Φ — see the section
+  --- comment. Returns a `face` record or `null`.
+  face_of_val_ := [self, v]~> if v == null {
+    null
+  } else {
+    ftag := type_tag(v)
+    if ftag == "face" {
+      v
+    } else {
+      if ftag == "App" {
+        --- `f0(i)`/`fnot φ`/… evaluate to unapplied symbolic `App`
+        --- terms (the constructor names are unbound).
+        do {
+          callee := get_or(v, "callee", null)
+          cname := if type_tag(callee) == "var" { get_or(callee, "name", "") } else { "" }
+          cargs := get_or(v, "args", [])
+          if cname == "f0" || cname == "f1" {
+            if len(cargs) >= 1 {
+              make_type("face", set(set({}, "op", if cname == "f0" { "eq0" } else { "eq1" }), "args", [at(cargs, 0)]))
+            } else {
+              null
+            }
+          } else {
+            if cname == "fnot" || cname == "f_or" || cname == "f_and" {
+              do {
+                n := if cname == "fnot" { 1 } else { 2 }
+                if len(cargs) < n {
+                  null
+                } else {
+                  do {
+                    fa := self(self, at(cargs, 0))
+                    fb := if n == 2 { self(self, at(cargs, 1)) } else { null }
+                    if fa == null || (n == 2 && fb == null) {
+                      null
+                    } else {
+                      make_type("face", set(set({}, "op", if cname == "fnot" { "not" } else { if cname == "f_or" { "or" } else { "and" } }), "args", if n == 1 { [fa] } else { [fa, fb] }))
+                    }
+                  }
+                }
+              }
+            } else {
+              null
+            }
+          }
+        }
+      } else {
+        if ftag == "var" {
+          vn := get_or(v, "name", "")
+          if vn == "fT" || vn == "true" {
+            make_type("face", set(set({}, "op", "tt"), "args", []))
+          } else {
+            if vn == "fF" || vn == "false" {
+              make_type("face", set(set({}, "op", "ff"), "args", []))
+            } else {
+              null
+            }
+          }
+        } else {
+          if type_of(v) == "num" {
+            if v == 1 {
+              make_type("face", set(set({}, "op", "tt"), "args", []))
+            } else {
+              if v == 0 {
+                make_type("face", set(set({}, "op", "ff"), "args", []))
+              } else {
+                null
+              }
+            }
+          } else {
+            if type_of(v) == "bool" {
+              if v == true {
+                make_type("face", set(set({}, "op", "tt"), "args", []))
+              } else {
+                make_type("face", set(set({}, "op", "ff"), "args", []))
+              }
+            } else {
+              null
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- Normalize a face (see the section comment): endpoint equations
+  --- against the `i0`/`i1` terms, `not` over constants, and the
+  --- `∧`/`∨` laws.
+  face_norm_ := [self, f]~> do {
+    fop := get_or(f, "op", "")
+    args := get_or(f, "args", [])
+    tt_face := make_type("face", set(set({}, "op", "tt"), "args", []))
+    ff_face := make_type("face", set(set({}, "op", "ff"), "args", []))
+    if fop == "tt" || fop == "ff" {
+      f
+    } else {
+      if fop == "eq0" || fop == "eq1" {
+        d := first_value(args)
+        i0 := make_type("var", set({}, "name", "i0"))
+        i1 := make_type("var", set({}, "name", "i1"))
+        holds := if fop == "eq0" { d == i0 } else { d == i1 }
+        fails := if fop == "eq0" { d == i1 } else { d == i0 }
+        if holds {
+          tt_face
+        } else {
+          if fails {
+            ff_face
+          } else {
+            f
+          }
+        }
+      } else {
+        if fop == "not" {
+          a := self(self, first_value(args))
+          aop := get_or(a, "op", "")
+          if aop == "tt" {
+            ff_face
+          } else {
+            if aop == "ff" {
+              tt_face
+            } else {
+              make_type("face", set(set({}, "op", "not"), "args", [a]))
+            }
+          }
+        } else {
+          if fop == "or" || fop == "and" {
+            a := self(self, first_value(args))
+            b := self(self, at(args, 1))
+            aop := get_or(a, "op", "")
+            bop := get_or(b, "op", "")
+            is_or := fop == "or"
+            unit := if is_or { "ff" } else { "tt" }
+            annih := if is_or { "tt" } else { "ff" }
+            if aop == annih || bop == annih {
+              if is_or { tt_face } else { ff_face }
+            } else {
+              if aop == unit {
+                b
+              } else {
+                if bop == unit {
+                  a
+                } else {
+                  a_args := get_or(a, "args", [])
+                  b_args := get_or(b, "args", [])
+                  a_inner := if aop == "not" && len(a_args) >= 1 { first_value(a_args) } else { null }
+                  b_inner := if bop == "not" && len(b_args) >= 1 { first_value(b_args) } else { null }
+                  complemented := (a_inner != null && a_inner == b) || (b_inner != null && b_inner == a)
+                  if a == b {
+                    a
+                  } else {
+                    if complemented {
+                      if is_or { tt_face } else { ff_face }
+                    } else {
+                      contra := false
+                      if !is_or && len(a_args) >= 1 && len(b_args) >= 1 {
+                        if (aop == "eq0" && bop == "eq1") || (aop == "eq1" && bop == "eq0") {
+                          contra := first_value(a_args) == first_value(b_args)
+                        }
+                      }
+                      if contra {
+                        ff_face
+                      } else {
+                        make_type("face", set(set({}, "op", fop), "args", [a, b]))
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            f
+          }
+        }
+      }
+    }
+  }
+
+  --- Does index term `t` mention `var{name}`? Walks record/array
+  --- structure, skipping the same non-term fields `transport_term_`
+  --- skips (spelling, identity, provenance, arena positions).
+  term_has_var_ := [self, t, name]~> if type_tag(t) == "var" {
+    get_or(t, "name", "") == name
+  } else {
+    if type_of(t) == "obj" {
+      while { result: false, remaining: keys(t) } {
+        [st]~> if is_empty(st.remaining) || st.result {
+          { out: st.result }
+        } else {
+          do {
+            k := first_value(st.remaining)
+            skip := k == "__tag__" || k == "__registry__" || k == "__meta__" || k == "name" || k == "op" || k == "body" || k == "body_closure" || k == "env" || k == "via"
+            hit := if skip { false } else { self(self, get_or(t, k, null), name) }
+            { state: { result: st.result || hit, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      if type_of(t) == "arr" {
+        while { result: false, remaining: t } {
+          [st]~> if is_empty(st.remaining) || st.result {
+            { out: st.result }
+          } else {
+            { state: { result: st.result || self(self, first_value(st.remaining), name), remaining: drop(st.remaining, 1) } }
+          }
+        }
+      } else {
+        false
+      }
+    }
+  }
+
+  --- Does dimension term `dim` occur in face `f`? `eq0`/`eq1`
+  --- arguments are dimension terms — occurrence is structural
+  --- equality, or a `var{name}` mention inside a compound term when
+  --- `dim` is itself a variable.
+  face_has_dim_ := [self, dim, f]~> do {
+    fop := get_or(f, "op", "")
+    args := get_or(f, "args", [])
+    if fop == "eq0" || fop == "eq1" {
+      d := first_value(args)
+      if d == dim {
+        true
+      } else {
+        dname := if type_tag(dim) == "var" { get_or(dim, "name", "") } else { "" }
+        if dname == "" {
+          false
+        } else {
+          term_has_var_(term_has_var_, d, dname)
+        }
+      }
+    } else {
+      while { result: false, remaining: args } {
+        [st]~> if is_empty(st.remaining) || st.result {
+          { out: st.result }
+        } else {
+          { state: { result: st.result || self(self, dim, first_value(st.remaining)), remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+  }
+
+  --- `A(point)` — apply an `I → Type` family (an interval-param
+  --- `type.pi` with a `body_closure`) at an interval *term* —
+  --- `var{i0}`/`var{i1}` for the endpoints, or the dimension `var`
+  --- itself for the fibre the partial element inhabits. Any other
+  --- type is a constant family: `A(point) = A`.
+  fam_at_ := [funcs, fam, point, s]~> do {
+    is_family := type_tag(fam) == "type.pi" && type_tag(get_or(fam, "param", null)) == "type.interval"
+    if is_family {
+      funcs.apply_dep_closure_(funcs, fam, make_type("type.interval", {}), point, s)
+    } else {
+      { val: fam, state: s }
+    }
+  }
+
+  --- The path *type* denoted by a `path_witness_` result: the
+  --- witness's own `type.pi` when it is one (identity cases —
+  --- `trans(refl, q)`), else a fresh interval `type.pi` over
+  --- `type.unknown` (the `Path(a, b)` index-path reading).
+  witness_path_type_ := [funcs, w]~> if w.self != null && type_tag(w.self) == "type.pi" {
+    w.self
+  } else {
+    do {
+      closure := if w.closure != null {
+        w.closure
+      } else {
+        set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", funcs.make_type("type.unknown", {}))
+      }
+      funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", set(set({}, "x", w.x), "y", w.y)))
+    }
+  }
+
+  --- Resolve a path *operand* (the `p`/`q` in `trans p, q`, the `p`
+  --- in `symm p`) to its endpoints — `resolve_path_`'s discipline:
+  --- evaluate first (in-scope `eq_<name>` witnesses live in
+  --- `results`, not gamma), fall back to a `var`'s gamma type, then
+  --- to synthesis — which is what admits `trans`/`symm` nodes and
+  --- any other path-typed expression as operands. `refl` is the
+  --- identity witness. Returns `{verdict, x, y, closure, self, state}`
+  --- with verdict `path`/`refl`/`bad`.
+  path_witness_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    nk := node_kind(node)
+    payload := node_payload(node)
+    pname := if nk == "var" {
+      if type_of(payload) == "str" { payload } else { get_or(payload, "name", "") }
+    } else {
+      ""
+    }
+    if nk == "var" && pname == "refl" {
+      { verdict: "refl", x: null, y: null, closure: null, self: null, state: s }
+    } else {
+      do {
+        --- A `var` operand's *declared* type is consulted first: it
+        --- carries the path endpoints even when the bound value is
+        --- `refl` (`p : Path(2, 2) := refl` is a path 2 ~ 2, not the
+        --- undetermined identity). Results-bound witnesses (`eq_*`)
+        --- and non-var expressions fall through to evaluation.
+        gt := if pname != "" { tc_lookup(s, pname) } else { null }
+        wg := witness_from_type_(gt)
+        if wg != null {
+          { verdict: "path", x: wg.x, y: wg.y, closure: wg.closure, self: wg.self, state: s }
+        } else {
+          do {
+            ev := funcs.eval_node_(funcs, s, node_idx)
+            pv := zonk(zonk, ev.val, ev["state"].metas)
+            ptag := type_tag(pv)
+            pvname := if ptag == "var" { get_or(pv, "name", "") } else { "" }
+            w := witness_from_type_(pv)
+            if w != null {
+              { verdict: "path", x: w.x, y: w.y, closure: w.closure, self: w.self, state: ev["state"] }
+            } else {
+              if ptag == "type.refl" || pvname == "refl" {
+                { verdict: "refl", x: null, y: null, closure: null, self: null, state: ev["state"] }
+              } else {
+                gt2 := if pname != "" { tc_lookup(ev["state"], pname) } else { null }
+                wg2 := witness_from_type_(gt2)
+                if wg2 != null {
+                  { verdict: "path", x: wg2.x, y: wg2.y, closure: wg2.closure, self: wg2.self, state: ev["state"] }
+                } else {
+                  sv := funcs.synth_node_(funcs, ev["state"], node_idx)
+                  ws := witness_from_type_(sv.typ)
+                  if ws != null {
+                    { verdict: "path", x: ws.x, y: ws.y, closure: ws.closure, self: ws.self, state: sv["state"] }
+                  } else {
+                    { verdict: "bad", x: null, y: null, closure: null, self: null, state: sv["state"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `transp A, i, φ, u` — see the section comment. The partial
+  --- element `u` is checked against the full fibre `A(i)` (the
+  --- `Partial φ A` approximation — mismatch warns, never errors);
+  --- the result is the non-dependent arrow `A(i1) → A(i0)`.
+  synth_transp_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    fam_role := child_role_index(s, "transp", "family")
+    dim_role := child_role_index(s, "transp", "dim")
+    face_role := child_role_index(s, "transp", "face")
+    part_role := child_role_index(s, "transp", "partial")
+    fam_idx := if fam_role == null { at(children, 0) } else { at(children, fam_role) }
+    dim_idx := if dim_role == null { at(children, 1) } else { at(children, dim_role) }
+    face_idx := if face_role == null { at(children, 2) } else { at(children, face_role) }
+    part_idx := if part_role == null { at(children, 3) } else { at(children, part_role) }
+    if len(children) < 4 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "transp: needs family, dimension, face, and partial operands") }
+    } else {
+      do {
+        fam_res := funcs.synth_type_(funcs, s, fam_idx)
+        interval := funcs.make_type("type.interval", {})
+        dim_res := funcs.synth_node_(funcs, fam_res["state"], dim_idx)
+        dun := unify(funcs, dim_res.typ, interval, dim_res["state"].metas)
+        if !dun.ok {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(set(dim_res["state"], "metas", dun.metas), "error", "transp: dimension operand must have type I") }
+        } else {
+          do {
+            dev := funcs.eval_node_(funcs, set(dim_res["state"], "metas", dun.metas), dim_idx)
+            dim_val := zonk(zonk, dev.val, dev["state"].metas)
+            fev := funcs.eval_node_(funcs, dev["state"], face_idx)
+            phi_raw := face_of_val_(face_of_val_, fev.val)
+            if phi_raw == null {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(fev["state"], "error", "transp: face operand is not a face formula — expected f0(i), f1(i), fnot φ, f_or φ ψ, f_and φ ψ, fT, or fF") }
+            } else {
+              do {
+                phi := face_norm_(face_norm_, phi_raw)
+                if face_has_dim_(face_has_dim_, dim_val, phi) {
+                  { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(fev["state"], "error", "transp: the dimension must not occur in the face φ") }
+                } else {
+                  do {
+                    u_res := funcs.synth_node_(funcs, fev["state"], part_idx)
+                    fam_dim := funcs.fam_at_(funcs, fam_res.val, dim_val, u_res["state"])
+                    uu := unify(funcs, u_res.typ, fam_dim.val, fam_dim["state"].metas)
+                    st_u := if uu.ok {
+                      set(fam_dim["state"], "metas", uu.metas)
+                    } else {
+                      tc_add_diagnostic(fam_dim["state"], "warning", "transp: partial element does not obviously inhabit the family on φ — `Partial φ A` is approximated by the full fibre")
+                    }
+                    a1 := funcs.fam_at_(funcs, fam_res.val, make_type("var", set({}, "name", "i1")), st_u)
+                    a0 := funcs.fam_at_(funcs, fam_res.val, make_type("var", set({}, "name", "i0")), a1["state"])
+                    result := funcs.make_type("type.function", set(set(set({}, "param", a1.val), "body", a0.val), "param_name", ""))
+                    { val: result, state: a0["state"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- Shared prologue for `hcomp`/`comp`: synthesize the family/type
+  --- argument, check the dimension against `I`, evaluate it, read
+  --- and normalize the face, and enforce `i ∉ φ`. Returns
+  --- `{ok, fam, dim_val, state}` — `fam` is the raw `synth_type_`
+  --- result (`{val, state}` folded into `state` on failure paths is
+  --- avoided by keeping `fam` whole).
+  cubical_prologue_ := [funcs, s, node_idx, kind]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    fam_role := child_role_index(s, kind, "family")
+    dim_role := child_role_index(s, kind, "dim")
+    face_role := child_role_index(s, kind, "face")
+    fam_idx := if fam_role == null { at(children, 0) } else { at(children, fam_role) }
+    dim_idx := if dim_role == null { at(children, 1) } else { at(children, dim_role) }
+    face_idx := if face_role == null { at(children, 2) } else { at(children, face_role) }
+    interval := funcs.make_type("type.interval", {})
+    fam_res := funcs.synth_type_(funcs, s, fam_idx)
+    dim_res := funcs.synth_node_(funcs, fam_res["state"], dim_idx)
+    dun := unify(funcs, dim_res.typ, interval, dim_res["state"].metas)
+    if !dun.ok {
+      { ok: false, state: tc_add_diagnostic(set(dim_res["state"], "metas", dun.metas), "error", kind + ": dimension operand must have type I") }
+    } else {
+      do {
+        dev := funcs.eval_node_(funcs, set(dim_res["state"], "metas", dun.metas), dim_idx)
+        dim_val := zonk(zonk, dev.val, dev["state"].metas)
+        fev := funcs.eval_node_(funcs, dev["state"], face_idx)
+        phi_raw := face_of_val_(face_of_val_, fev.val)
+        if phi_raw == null {
+          { ok: false, state: tc_add_diagnostic(fev["state"], "error", kind + ": face operand is not a face formula — expected f0(i), f1(i), fnot φ, f_or φ ψ, f_and φ ψ, fT, or fF") }
+        } else {
+          do {
+            phi := face_norm_(face_norm_, phi_raw)
+            if face_has_dim_(face_has_dim_, dim_val, phi) {
+              { ok: false, state: tc_add_diagnostic(fev["state"], "error", kind + ": the dimension must not occur in the face φ") }
+            } else {
+              { ok: true, fam: fam_res.val, dim_val: dim_val, state: fev["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `hcomp A, i, φ, u, cap` — homogeneous composition (see the
+  --- section comment): `A` is read as a *single type*, `cap : A` is
+  --- the `i = 0` face (checked strictly), `u` the partial on `φ`
+  --- (approximated by the full type — mismatch warns); the result
+  --- is `: A`.
+  synth_hcomp_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    part_role := child_role_index(s, "hcomp", "partial")
+    cap_role := child_role_index(s, "hcomp", "cap")
+    part_idx := if part_role == null { at(children, 3) } else { at(children, part_role) }
+    cap_idx := if cap_role == null { at(children, 4) } else { at(children, cap_role) }
+    if len(children) < 5 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "hcomp: needs family, dimension, face, partial, and cap operands") }
+    } else {
+      do {
+        pre := cubical_prologue_(funcs, s, node_idx, "hcomp")
+        if !pre.ok {
+          { val: funcs.make_type("type.unknown", {}), state: pre["state"] }
+        } else {
+          do {
+            u_res := funcs.synth_node_(funcs, pre["state"], part_idx)
+            uu := unify(funcs, u_res.typ, pre.fam, u_res["state"].metas)
+            st_u := if uu.ok {
+              set(u_res["state"], "metas", uu.metas)
+            } else {
+              tc_add_diagnostic(u_res["state"], "warning", "hcomp: partial element does not obviously inhabit A on φ — `Partial φ A` is approximated by the full type")
+            }
+            cap_res := funcs.synth_node_(funcs, st_u, cap_idx)
+            cu := unify(funcs, cap_res.typ, pre.fam, cap_res["state"].metas)
+            if !cu.ok {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(set(cap_res["state"], "metas", cu.metas), "error", "hcomp: cap does not inhabit A — the i = 0 face must have type A") }
+            } else {
+              st_cap := set(cap_res["state"], "metas", cu.metas)
+              fam_is_pi := type_tag(pre.fam) == "type.pi" && type_tag(get_or(pre.fam, "param", null)) == "type.interval"
+              st_warn := if fam_is_pi {
+                tc_add_diagnostic(st_cap, "warning", "hcomp: A looks like an I → Type family — `comp` is the heterogeneous composition form")
+              } else {
+                st_cap
+              }
+              { val: pre.fam, state: st_warn }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `comp F, i, φ, u, cap` — heterogeneous composition over
+  --- `F : I → Type` (see the section comment): `cap : F(i0)`
+  --- (checked strictly), `u` the partial on `φ` (approximated by the
+  --- fibre `F(i)` — mismatch warns); the result is `: F(i1)`.
+  synth_comp_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    part_role := child_role_index(s, "comp", "partial")
+    cap_role := child_role_index(s, "comp", "cap")
+    part_idx := if part_role == null { at(children, 3) } else { at(children, part_role) }
+    cap_idx := if cap_role == null { at(children, 4) } else { at(children, cap_role) }
+    if len(children) < 5 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "comp: needs family, dimension, face, partial, and cap operands") }
+    } else {
+      do {
+        pre := cubical_prologue_(funcs, s, node_idx, "comp")
+        if !pre.ok {
+          { val: funcs.make_type("type.unknown", {}), state: pre["state"] }
+        } else {
+          do {
+            u_res := funcs.synth_node_(funcs, pre["state"], part_idx)
+            fam_dim := funcs.fam_at_(funcs, pre.fam, pre.dim_val, u_res["state"])
+            uu := unify(funcs, u_res.typ, fam_dim.val, fam_dim["state"].metas)
+            st_u := if uu.ok {
+              set(fam_dim["state"], "metas", uu.metas)
+            } else {
+              tc_add_diagnostic(fam_dim["state"], "warning", "comp: partial element does not obviously inhabit the family on φ — `Partial φ F` is approximated by the full fibre")
+            }
+            cap_res := funcs.synth_node_(funcs, st_u, cap_idx)
+            fam_i0 := funcs.fam_at_(funcs, pre.fam, make_type("var", set({}, "name", "i0")), cap_res["state"])
+            cu := unify(funcs, cap_res.typ, fam_i0.val, fam_i0["state"].metas)
+            if !cu.ok {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(set(fam_i0["state"], "metas", cu.metas), "error", "comp: cap does not inhabit F(i0) — the i = 0 face must have type F(i0)") }
+            } else {
+              fam_i1 := funcs.fam_at_(funcs, pre.fam, make_type("var", set({}, "name", "i1")), set(fam_i0["state"], "metas", cu.metas))
+              { val: fam_i1.val, state: fam_i1["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `trans p, q` — derived path composition (see the section
+  --- comment): unify `p.y` with `q.x`, yield the path type
+  --- `x ~ z` over the first operand's family. `refl` is the identity
+  --- — `trans(refl, q) = q`, `trans(p, refl) = p`.
+  synth_trans_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    f_role := child_role_index(s, "trans", "first")
+    s_role := child_role_index(s, "trans", "second")
+    f_idx := if f_role == null { at(children, 0) } else { at(children, f_role) }
+    s_idx := if s_role == null || s_role >= len(children) { at(children, 1) } else { at(children, s_role) }
+    if len(children) < 2 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "trans: needs two path operands") }
+    } else {
+      do {
+        w1 := path_witness_(funcs, s, f_idx)
+        w2 := path_witness_(funcs, w1["state"], s_idx)
+        st := w2["state"]
+        if w1.verdict == "bad" || w2.verdict == "bad" {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "error", "trans: operand is not a Path") }
+        } else {
+          if w1.verdict == "refl" && w2.verdict == "refl" {
+            { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "trans: refl · refl — endpoints undetermined") }
+          } else {
+            if w1.verdict == "refl" {
+              { val: witness_path_type_(funcs, w2), state: st }
+            } else {
+              if w2.verdict == "refl" {
+                { val: witness_path_type_(funcs, w1), state: st }
+              } else {
+                do {
+                  u := unify(funcs, w1.y, w2.x, st.metas)
+                  if !u.ok {
+                    { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(set(st, "metas", u.metas), "error", "trans: path endpoints do not compose — the first path's target is not the second path's source") }
+                  } else {
+                    st2 := set(st, "metas", u.metas)
+                    closure := if w1.closure != null {
+                      w1.closure
+                    } else {
+                      if w2.closure != null {
+                        w2.closure
+                      } else {
+                        set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", funcs.make_type("type.unknown", {}))
+                      }
+                    }
+                    result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", set(set({}, "x", w1.x), "y", w2.y)))
+                    { val: result, state: st2 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `symm p` — derived path symmetry (see the section comment):
+  --- swaps the endpoints of `p : x ~ y` into `y ~ x` over the same
+  --- family. `refl` has no determined endpoints — a warning, not a
+  --- silent `Path(?, ?)`.
+  synth_symm_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    p_role := child_role_index(s, "symm", "path")
+    p_idx := if p_role == null { at(children, 0) } else { at(children, p_role) }
+    if len(children) < 1 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "symm: needs a path operand") }
+    } else {
+      do {
+        w := path_witness_(funcs, s, p_idx)
+        if w.verdict == "bad" {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(w["state"], "error", "symm: operand is not a Path") }
+        } else {
+          if w.verdict == "refl" {
+            { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(w["state"], "warning", "symm: refl has no determined endpoints") }
+          } else {
+            do {
+              closure := if w.closure != null {
+                w.closure
+              } else {
+                set(set(set({}, "var_name", ""), "body_child_idx", null), "const_body", funcs.make_type("type.unknown", {}))
+              }
+              result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", set(set({}, "x", w.y), "y", w.x)))
+              { val: result, state: w["state"] }
+            }
+          }
         }
       }
     }
@@ -4734,6 +5496,21 @@ do {
     --- the `type.j` rule's `synth_j` op.
     "synth_j": synth_j_(funcs, s, node_idx),
     "j": synth_j_(funcs, s, node_idx),
+    --- Cubical judgments (ADR-0208 P2). `transp`/`hcomp`/`comp` are
+    --- prefix-call nodes (grammar.univalence.* rows); `trans`/`symm`
+    --- are the derived path-algebra forms. None are canonical, so
+    --- they reach here via their `type.*` rules' `synth_*` ops — the
+    --- kind-name arms are defensive, like `j`'s.
+    "synth_transp": synth_transp_(funcs, s, node_idx),
+    "transp": synth_transp_(funcs, s, node_idx),
+    "synth_hcomp": synth_hcomp_(funcs, s, node_idx),
+    "hcomp": synth_hcomp_(funcs, s, node_idx),
+    "synth_comp": synth_comp_(funcs, s, node_idx),
+    "comp": synth_comp_(funcs, s, node_idx),
+    "synth_trans": synth_trans_(funcs, s, node_idx),
+    "trans": synth_trans_(funcs, s, node_idx),
+    "synth_symm": synth_symm_(funcs, s, node_idx),
+    "symm": synth_symm_(funcs, s, node_idx),
     "construct_universe": do {
       level := if lit != null { lit } else { if is_empty(args) { 0 } else { eval_first_arg(funcs, s, node_idx, args, incoming).val } }
       { val: funcs.make_type("type.universe", set({}, "level", level)), state: s }
@@ -6279,6 +7056,20 @@ do {
     check_path_intro_: check_path_intro_,
     synth_transport_: synth_transport_,
     synth_j_: synth_j_,
+    face_of_val_: face_of_val_,
+    face_norm_: face_norm_,
+    term_has_var_: term_has_var_,
+    face_has_dim_: face_has_dim_,
+    fam_at_: fam_at_,
+    witness_from_type_: witness_from_type_,
+    witness_path_type_: witness_path_type_,
+    path_witness_: path_witness_,
+    synth_transp_: synth_transp_,
+    cubical_prologue_: cubical_prologue_,
+    synth_hcomp_: synth_hcomp_,
+    synth_comp_: synth_comp_,
+    synth_trans_: synth_trans_,
+    synth_symm_: synth_symm_,
     collect_ctor_names_: collect_ctor_names_,
     collect_ctor_specs_: collect_ctor_specs_,
     instantiate_ctor_: instantiate_ctor_,

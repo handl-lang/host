@@ -1698,3 +1698,94 @@
     required:
       - children
     type: object
+# Cubical judgments (ADR-0208 P2): `transp A, i, φ, u`,
+# `hcomp A, i, φ, u, cap`, `Comp F, i, φ, u, cap`, `trans p, q`,
+# `symm p`. Face formulas (`f0(i)`, `fnot φ`, …) are ordinary call/var
+# terms evaluated by the checker — no dedicated AST shape.
+- id: ast.transp
+  node_kind: transp
+  children:
+    - role: family
+    - role: dim
+    - role: face
+    - role: partial
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 4
+        minItems: 4
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.hcomp
+  node_kind: hcomp
+  children:
+    - role: family
+    - role: dim
+    - role: face
+    - role: partial
+    - role: cap
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 5
+        minItems: 5
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.comp
+  node_kind: comp
+  children:
+    - role: family
+    - role: dim
+    - role: face
+    - role: partial
+    - role: cap
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 5
+        minItems: 5
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.trans
+  node_kind: trans
+  children:
+    - role: first
+    - role: second
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+- id: ast.symm
+  node_kind: symm
+  children:
+    - role: path
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 1
+        minItems: 1
+        type: array
+    required:
+      - children
+    type: object

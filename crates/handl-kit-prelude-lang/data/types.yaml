@@ -3232,6 +3232,50 @@
     name: synth_transport
     args: []
     source: Judgment
+# Cubical judgments (ADR-0208 P2). `transp A, i, φ, u` (children
+# `family`/`dim`/`face`/`partial`) transports the partial element in
+# the family `A : I → Type` along `i` on face `φ` — CCHM direction
+# `A(i1) → A(i0)`; `hcomp A, i, φ, u, cap` (children
+# `family`/`dim`/`face`/`partial`/`cap`) is homogeneous composition
+# over a single type; `Comp F, i, φ, u, cap` is the heterogeneous form
+# over `F : I → Type` (`cap : F(i0)`, result `: F(i1)`). All three
+# require `i : I` and `i ∉ φ`; faces are `face`-tagged records built
+# by the surface constructors `f0(i)`/`f1(i)`/`fnot φ`/`f_or φ ψ`/
+# `f_and φ ψ`/`fT`/`fF` (evaluated as symbolic terms, interpreted by
+# the model). `trans p, q` / `symm p` are derived path algebra on
+# cubical path witnesses (P1 `type.pi` + `path` payloads, legacy
+# `Path`/`type.eq`): `trans` unifies `p.y ~ q.x` into `x ~ z`, `symm`
+# swaps endpoints.
+- id: type.transp
+  node_kind: transp
+  synth: !Op
+    name: synth_transp
+    args: []
+    source: Judgment
+- id: type.hcomp
+  node_kind: hcomp
+  synth: !Op
+    name: synth_hcomp
+    args: []
+    source: Judgment
+- id: type.comp
+  node_kind: comp
+  synth: !Op
+    name: synth_comp
+    args: []
+    source: Judgment
+- id: type.trans
+  node_kind: trans
+  synth: !Op
+    name: synth_trans
+    args: []
+    source: Judgment
+- id: type.symm
+  node_kind: symm
+  synth: !Op
+    name: synth_symm
+    args: []
+    source: Judgment
 # `cell_id` — `id2 x` is the identity 2-cell on `x` (`Hom(2, x, x)`).
 - id: type.cell_id
   node_kind: cell_id

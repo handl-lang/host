@@ -313,6 +313,25 @@
 - id: token.keyword.j
   label: j
   category: keyword
+# Cubical judgments (ADR-0208 P2): `transp`/`hcomp`/`trans`/`symm` are
+# lowercase like `glue`/`fibrant`; `comp` is capitalized `Comp` —
+# lowercase `comp` is a live identifier (lib-http-openapi's
+# `comp := rt.compile_pat(…)`), the same collision `J` avoids.
+- id: token.keyword.transp
+  label: transp
+  category: keyword
+- id: token.keyword.hcomp
+  label: hcomp
+  category: keyword
+- id: token.keyword.comp
+  label: "Comp"
+  category: keyword
+- id: token.keyword.trans
+  label: trans
+  category: keyword
+- id: token.keyword.symm
+  label: symm
+  category: keyword
 - id: token.keyword.cobox
   label: cobox
   category: keyword
