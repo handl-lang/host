@@ -1569,34 +1569,40 @@
     required:
       - children
     type: object
+# `glue A, φ, T̂` — cubical glue type former (ADR-0208 P3): `family`
+# is `A` (a type or `I → Type` family), `face` the face formula `φ`,
+# `section` the partial section `T̂ : Π(i:I), Partial φ (Σ T:Type,
+# T ≃ A i)` (approximated — see `synth_glue_` in the typecheck model).
 - id: ast.glue
   node_kind: glue
   children:
     - role: family
-    - role: path
+    - role: face
+    - role: section
   payload_schema:
     properties:
       children:
         items:
           type: integer
-        maxItems: 2
-        minItems: 2
+        maxItems: 3
+        minItems: 3
         type: array
     required:
       - children
     type: object
+# `fibrant A` — the fibrancy witness / `isFibrant(A)` type of `A`
+# (ADR-0208 P3).
 - id: ast.fibrant
   node_kind: fibrant
   children:
-    - role: base
-    - role: family
+    - role: target
   payload_schema:
     properties:
       children:
         items:
           type: integer
-        maxItems: 2
-        minItems: 2
+        maxItems: 1
+        minItems: 1
         type: array
     required:
       - children

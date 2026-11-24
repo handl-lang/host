@@ -3276,6 +3276,29 @@
     name: synth_symm
     args: []
     source: Judgment
+# Cubical Glue & fibrancy (ADR-0208 P3). `glue A, φ, T̂` (children
+# `family`/`face`/`section`) is the glue type former — the model's
+# `synth_glue` mints `type.glue{family, face, section}`; `fibrant A`
+# (child `target`) is the fibrancy witness whose type is
+# `type.fibrant{of}` — the model's `synth_fibrant` runs the structural
+# `fibrant_verdict_` (base sorts, Pi/Sigma/Forall/Glue of fibrant,
+# arrays/records of fibrant are `yes`; `Type`/universes and non-types
+# are `no`; indexed families/metas/unknowns are `unknown` → warning,
+# never silent). The call forms `Glue(A, φ, T̂)`, `isFibrant(A)`, and
+# `unglue(G)` are handled inside `synth_type_impl_`'s `call` branch —
+# no rules needed (the `Path`/`PathP` precedent).
+- id: type.glue
+  node_kind: glue
+  synth: !Op
+    name: synth_glue
+    args: []
+    source: Judgment
+- id: type.fibrant
+  node_kind: fibrant
+  synth: !Op
+    name: synth_fibrant
+    args: []
+    source: Judgment
 # `cell_id` — `id2 x` is the identity 2-cell on `x` (`Hom(2, x, x)`).
 - id: type.cell_id
   node_kind: cell_id

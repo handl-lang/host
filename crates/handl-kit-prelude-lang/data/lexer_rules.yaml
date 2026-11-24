@@ -455,6 +455,22 @@
   pattern: !Literal
     text: symm
   priority: 15
+# Cubical Glue & fibrancy (ADR-0208 P3): `glue A, φ, T̂` and
+# `fibrant A` prefix forms (`grammar.{glue,fibrant}.prefix`). Both
+# words were reserved tokens/grammar rows since the frontier pass but
+# had no lexer rule — they lexed as identifiers. Neither is used as
+# an identifier in the corpus (only in comments). `Glue`/`isFibrant`/
+# `unglue` stay ordinary identifiers — the call forms need no keyword.
+- id: lex.keyword.glue
+  token_kind: token.keyword.glue
+  pattern: !Literal
+    text: glue
+  priority: 15
+- id: lex.keyword.fibrant
+  token_kind: token.keyword.fibrant
+  pattern: !Literal
+    text: fibrant
+  priority: 15
 - id: lex.lbrace
   token_kind: token.lbrace
   pattern: !Literal

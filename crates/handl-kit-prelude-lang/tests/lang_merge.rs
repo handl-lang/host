@@ -24,7 +24,11 @@ fn types_yaml_loads() {
     // `type.instance` (phase-3 WS-A instance declarations) +
     // `type.exists` (the `exists m : S, T` `Sigma`-shorthand keyword —
     // `forall`'s existential twin).
-    assert_eq!(lang.types.len(), 89);
+    // +5 `type.{transp,hcomp,comp,trans,symm}` cubical judgments
+    // (ADR-0208 P2 — the assert was not bumped in that commit; the
+    // rows were already in `types.yaml`) + 2 `type.{glue,fibrant}`
+    // Glue/fibrancy judgments (ADR-0208 P3).
+    assert_eq!(lang.types.len(), 95);
     // The `value` kind (literals) must have a rule.
     assert!(lang.types.get_by_identity("value").is_some());
     // Spot-check a few meaningful rules.

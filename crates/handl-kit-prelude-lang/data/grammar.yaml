@@ -1202,6 +1202,10 @@
   child_shape:
     node_kind: univalence
     arity: 1
+# `glue A, φ, T̂` — the cubical glue type former (ADR-0208 P3):
+# `A` the type/`I → Type` family, `φ` a face formula, `T̂` the partial
+# section `Π(i:I), Partial φ (Σ T:Type, T ≃ A i)` (approximated by the
+# checker). `Glue(A, φ, T̂)` is the equivalent call form.
 - id: grammar.glue.prefix
   token: token.keyword.glue
   position: Prefix
@@ -1210,9 +1214,12 @@
     - 0
   child_shape:
     node_kind: glue
-    arity: 2
+    arity: 3
     child_separators:
       - !Required token.comma
+      - !Required token.comma
+# `fibrant A` — the fibrancy witness / fibrancy type of `A`
+# (ADR-0208 P3): `isFibrant(A)` is the equivalent call form.
 - id: grammar.fibrant.prefix
   token: token.keyword.fibrant
   position: Prefix
@@ -1221,9 +1228,7 @@
     - 0
   child_shape:
     node_kind: fibrant
-    arity: 2
-    child_separators:
-      - !Required token.comma
+    arity: 1
 - id: grammar.j.prefix
   token: token.keyword.j
   position: Prefix

@@ -55,7 +55,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
         // -1 `lex.bind` (`::`) removed with `token.bind`.
         // +5 `lex.keyword.{transp,hcomp,comp,trans,symm}` for the cubical
     // judgments (ADR-0208 P2).
-    assert_eq!(lang.lexer_rules.len(), 108);
+        // +2 `lex.keyword.{glue,fibrant}` for the cubical Glue/fibrancy
+    // surface forms (ADR-0208 P3) — the token kinds and grammar rows
+    // existed since the frontier pass but had no lexer rule.
+    assert_eq!(lang.lexer_rules.len(), 110);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -98,7 +101,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `type.j` checker rule.
         // +5 `eval.{transp,hcomp,comp,trans,symm}` proof-erasure schemes
     // (ADR-0208 P2).
-    assert_eq!(lang.eval.len(), 96);
+        // +2 `eval.{glue,fibrant}` proof/type-erasure schemes
+    // (ADR-0208 P3).
+    assert_eq!(lang.eval.len(), 98);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator

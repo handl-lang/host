@@ -2155,10 +2155,42 @@ do {
         }
       }
     } else {
+    if tag_a == "type.fibrant" && tag_b == "type.fibrant" {
+      --- `isFibrant(A)` types (ADR-0208 P3): equality is equality of
+      --- the fibrant target, routed through `unify_dependent_` so a
+      --- `Pi`/`Glue` target compares bodies, not just domains.
+      do {
+        u := funcs.unify_dependent_(funcs, get_or(a, "of", null), get_or(b, "of", null), s)
+        { ok: u.ok, state: u["state"] }
+      }
+    } else {
+    if tag_a == "type.glue" && tag_b == "type.glue" {
+      --- `Glue A φ T̂` types (ADR-0208 P3): `family`/`section`
+      --- unify as types; the face `φ` is a `face` record compared
+      --- structurally (`==` — `unify` cannot compare its string `op`
+      --- field).
+      do {
+        uf := funcs.unify_dependent_(funcs, get_or(a, "family", null), get_or(b, "family", null), s)
+        if !uf.ok {
+          { ok: false, state: uf["state"] }
+        } else {
+          do {
+            if get_or(a, "face", null) != get_or(b, "face", null) {
+              { ok: false, state: tc_add_diagnostic(uf["state"], "error", "type mismatch: glue faces differ") }
+            } else {
+              us := funcs.unify_dependent_(funcs, get_or(a, "section", null), get_or(b, "section", null), uf["state"])
+              { ok: us.ok, state: us["state"] }
+            }
+          }
+        }
+      }
+    } else {
       do {
         u := unify(funcs, a, b, s.metas)
         { ok: u.ok, state: set(s, "metas", u.metas) }
       }
+    }
+    }
     }
     }
     }
@@ -3991,11 +4023,20 @@ do {
   --- itself for the fibre the partial element inhabits. Any other
   --- type is a constant family: `A(point) = A`.
   fam_at_ := [funcs, fam, point, s]~> do {
-    is_family := type_tag(fam) == "type.pi" && type_tag(get_or(fam, "param", null)) == "type.interval"
-    if is_family {
-      funcs.apply_dep_closure_(funcs, fam, make_type("type.interval", {}), point, s)
+    if type_tag(fam) == "type.glue" {
+      --- `Glue A φ T̂` at `point` (ADR-0208 P3): the checker cannot
+      --- yet decide `φ(point)` — endpoint substitution is deferred —
+      --- so the *off-face* reading `A(point)` is returned. On `φ`
+      --- the section `T̂(point)` agrees with `A(point)` only up to
+      --- the (unchecked) equivalence data; documented approximation.
+      funcs.fam_at_(funcs, get_or(fam, "family", fam), point, s)
     } else {
-      { val: fam, state: s }
+      is_family := type_tag(fam) == "type.pi" && type_tag(get_or(fam, "param", null)) == "type.interval"
+      if is_family {
+        funcs.apply_dep_closure_(funcs, fam, make_type("type.interval", {}), point, s)
+      } else {
+        { val: fam, state: s }
+      }
     }
   }
 
@@ -4361,6 +4402,322 @@ do {
               }
               result := funcs.make_type("type.pi", set(set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure), "path", set(set({}, "x", w.y), "y", w.x)))
               { val: result, state: w["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- ------------------------------------------------------------------
+  --- Cubical Glue & fibrancy (ADR-0208 P3): glue / Glue / unglue /
+  --- isFibrant / fibrant
+  --- ------------------------------------------------------------------
+  ---
+  --- CCHM-style glue types over the P1 interval and P2 faces. This is
+  --- a *typechecker*, not a cubical kernel: `Glue A φ T̂` is represented
+  --- and checked structurally; the interval-computational content
+  --- (transport computing through the glued type, `ua`'s
+  --- `transp (ua e) ≡ e`) is deferred to P4. What IS checked here:
+  ---
+  ---   * `glue A, φ, T̂` / `Glue(A, φ, T̂)` — the glue type former.
+  ---     `A` synthesizes as a type (a plain type is the constant
+  ---     family, the `PathP` degradation); `φ` evaluates through the
+  ---     P2 face machinery (`face_of_val_`/`face_norm_`); `T̂` must
+  ---     synthesize as an interval `type.pi` (`Π (i:I), …`) — the
+  ---     `Π(i:I), Partial φ (Σ T:Type, T ≃ A i)` reading is
+  ---     approximated (a non-family section warns, never errors).
+  ---     Mints `type.glue{family, face, section}`.
+  ---   * `unglue(G)` — the type-level projection: `G` must synthesize
+  ---     to `type.glue`; the result is the stored `family` (the
+  ---     off-`φ` type family `A`). The term-level `unglue` eliminator
+  ---     of CCHM is out of scope for the checker.
+  ---   * `isFibrant(A)` / `fibrant A` (type position) — the fibrancy
+  ---     *type*, minted as `type.fibrant{of}` only when
+  ---     `fibrant_verdict_` derives `yes`; `no`/`unknown` degrade to
+  ---     `type.unknown` + warning (unsupported formers are not
+  ---     silently accepted).
+  ---   * `fibrant A` (term position) — the fibrancy *witness*: its
+  ---     type is `type.fibrant{of}` on `yes`, a warning + the same
+  ---     type on `unknown` (optimistic, the P2 `Partial` reading),
+  ---     and an error + `type.unknown` on `no`.
+  ---
+  --- `fibrant_verdict_` is the structural fibrancy check: base sorts
+  --- (`type.number`/`type.bool`/`type.string`/`type.unit`/
+  --- `type.interval`/`type.null`), `type.fibrant`, dependent
+  --- `type.pi`/`type.sigma`/`type.forall`/`type.glue` whose parts are
+  --- fibrant (codomains computed through `apply_dep_closure_`),
+  --- `type.function`, and `type.array`/`type.record` with all-fibrant
+  --- elements/fields are `yes`; `type.universe` (`Type` is not
+  --- fibrant) and non-types are `no`; `type.unknown`, metas,
+  --- `type.family`/`type.family_app` (indexed data — fibrancy depends
+  --- on the indices), `type.constructor`, legacy `Path`/`type.eq`,
+  --- and anything else are `unknown`.
+  ---
+  --- Position discipline (the `Path`/`Pi` precedent): the `glue` and
+  --- `fibrant` KEYWORDS are prefix forms (`glue A, φ, T̂`,
+  --- `fibrant A`); `Glue`/`isFibrant`/`unglue` are ordinary call-form
+  --- type names handled inside `synth_type_impl_`'s `call` branch —
+  --- no keywords, no `type.*` rules for them. A `glue` node in TERM
+  --- position synthesizes the `type.glue` it forms as its own type
+  --- (type formers are their own type here — the `Nat : Family`
+  --- reading), which keeps `G := glue …` aliases working; `fibrant A`
+  --- in term position is the witness whose type is `type.fibrant`.
+
+  --- Child indices of a `glue` node by role (`family`/`face`/
+  --- `section`), positional fallback — same discipline as the P2
+  --- judgments.
+  glue_node_indices_ := [s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    fam_r := child_role_index(s, "glue", "family")
+    face_r := child_role_index(s, "glue", "face")
+    sec_r := child_role_index(s, "glue", "section")
+    { fam: if fam_r == null { at(children, 0) } else { at(children, fam_r) },
+      face: if face_r == null { at(children, 1) } else { at(children, face_r) },
+      sec: if sec_r == null { at(children, 2) } else { at(children, sec_r) } }
+  }
+
+  --- `Glue A φ T̂` formation — see the section comment. Takes the
+  --- three operand node indices directly so both the `glue` keyword
+  --- node and the `Glue(...)` call form share it. Returns
+  --- `{val: type.glue{…}, state}`.
+  synth_glue_type_ := [funcs, st, fam_idx, face_idx, sec_idx]~> do {
+    fam_res := funcs.synth_type_(funcs, st, fam_idx)
+    fev := funcs.eval_node_(funcs, fam_res["state"], face_idx)
+    phi_raw := face_of_val_(face_of_val_, fev.val)
+    if phi_raw == null {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(fev["state"], "error", "glue: face operand is not a face formula — expected f0(i), f1(i), fnot φ, f_or φ ψ, f_and φ ψ, fT, or fF") }
+    } else {
+      do {
+        phi := face_norm_(face_norm_, phi_raw)
+        sec_res := funcs.synth_type_(funcs, fev["state"], sec_idx)
+        sec_is_pi := type_tag(sec_res.val) == "type.pi" && type_tag(get_or(sec_res.val, "param", null)) == "type.interval"
+        st_sec := if sec_is_pi {
+          sec_res["state"]
+        } else {
+          tc_add_diagnostic(sec_res["state"], "warning", "glue: section is not an I → Type family — expected `Pi(I, i ~> T i)`; the `Partial φ (Σ T:Type, T ≃ A i)` obligation is approximated, treating the section as constant")
+        }
+        phi_op := get_or(phi, "op", "")
+        st_face := if phi_op == "tt" {
+          tc_add_diagnostic(st_sec, "warning", "glue: face φ ≡ 1 — Glue agrees with the section on every dimension (degenerate)")
+        } else {
+          if phi_op == "ff" {
+            tc_add_diagnostic(st_sec, "warning", "glue: face φ ≡ 0 — Glue agrees with the family on every dimension (degenerate)")
+          } else {
+            st_sec
+          }
+        }
+        { val: funcs.make_type("type.glue", set(set(set({}, "family", fam_res.val), "face", phi), "section", sec_res.val)), state: st_face }
+      }
+    }
+  }
+
+  --- `glue A, φ, T̂` — the keyword node's judgment (term position):
+  --- runs the same formation checks and returns the `type.glue` it
+  --- forms as the node's type (see the section comment on position
+  --- discipline).
+  synth_glue_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    if len(children) < 3 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "glue: needs family, face, and section operands") }
+    } else {
+      do {
+        gi := glue_node_indices_(s, node_idx)
+        g := synth_glue_type_(funcs, s, gi.fam, gi.face, gi.sec)
+        { val: g.val, state: g["state"] }
+      }
+    }
+  }
+
+  --- Structural fibrancy verdict — see the section comment. Threads
+  --- `s` because dependent codomains are computed through
+  --- `apply_dep_closure_` (which extends/restores gamma+results).
+  fibrant_verdict_ := [funcs, t, s]~> do {
+    tag := type_tag(t)
+    if is_meta(t) || tag == "type.unknown" {
+      { verdict: "unknown", state: s }
+    } else {
+      if tag == "type.universe" || tag == "" {
+        { verdict: "no", state: s }
+      } else {
+        if tag == "type.number" || tag == "type.bool" || tag == "type.string" || tag == "type.unit" || tag == "type.interval" || tag == "type.null" || tag == "type.fibrant" {
+          { verdict: "yes", state: s }
+        } else {
+          if tag == "type.pi" || tag == "type.sigma" || tag == "type.forall" {
+            do {
+              dom_field := if tag == "type.forall" { "kind" } else { "param" }
+              dom := get_or(t, dom_field, null)
+              dv := funcs.fibrant_verdict_(funcs, dom, s)
+              if dv.verdict != "yes" {
+                { verdict: dv.verdict, state: dv["state"] }
+              } else {
+                do {
+                  closure := get_or(t, "body_closure", {})
+                  var_name := get_or(closure, "var_name", "")
+                  arg_term := if var_name == "" { null } else { funcs.make_type("var", set({}, "name", var_name)) }
+                  applied := funcs.apply_dep_closure_(funcs, t, dom, arg_term, dv["state"])
+                  cv := funcs.fibrant_verdict_(funcs, applied.val, applied["state"])
+                  { verdict: cv.verdict, state: cv["state"] }
+                }
+              }
+            }
+          } else {
+            if tag == "type.function" {
+              do {
+                pv := funcs.fibrant_verdict_(funcs, get_or(t, "param", null), s)
+                if pv.verdict != "yes" {
+                  { verdict: pv.verdict, state: pv["state"] }
+                } else {
+                  funcs.fibrant_verdict_(funcs, get_or(t, "body", null), pv["state"])
+                }
+              }
+            } else {
+              if tag == "type.glue" {
+                --- `Glue A φ T̂` is fibrant when the family `A` and the
+                --- section `T̂` are (CCHM: Glue of fibrant data is
+                --- fibrant). The face `φ` carries no fibrancy content.
+                do {
+                  fv := funcs.fibrant_verdict_(funcs, get_or(t, "family", null), s)
+                  if fv.verdict != "yes" {
+                    { verdict: fv.verdict, state: fv["state"] }
+                  } else {
+                    funcs.fibrant_verdict_(funcs, get_or(t, "section", null), fv["state"])
+                  }
+                }
+              } else {
+                if tag == "type.array" {
+                  while { verdict: "yes", state: s, remaining: get_or(t, "elements", []) } {
+                    [st]~> if is_empty(st.remaining) || st.verdict == "no" {
+                      { out: { verdict: st.verdict, state: st["state"] } }
+                    } else {
+                      do {
+                        ev := funcs.fibrant_verdict_(funcs, first_value(st.remaining), st["state"])
+                        nv := if ev.verdict == "no" {
+                          "no"
+                        } else {
+                          if ev.verdict == "unknown" && st.verdict == "yes" { "unknown" } else { st.verdict }
+                        }
+                        { state: { verdict: nv, state: ev["state"], remaining: drop(st.remaining, 1) } }
+                      }
+                    }
+                  }
+                } else {
+                  if tag == "type.record" {
+                    fields := get_or(t, "fields", {})
+                    while { verdict: "yes", state: s, remaining: keys(fields) } {
+                      [st]~> if is_empty(st.remaining) || st.verdict == "no" {
+                        { out: { verdict: st.verdict, state: st["state"] } }
+                      } else {
+                        do {
+                          k := first_value(st.remaining)
+                          ev := funcs.fibrant_verdict_(funcs, get_or(fields, k, null), st["state"])
+                          nv := if ev.verdict == "no" {
+                            "no"
+                          } else {
+                            if ev.verdict == "unknown" && st.verdict == "yes" { "unknown" } else { st.verdict }
+                          }
+                          { state: { verdict: nv, state: ev["state"], remaining: drop(st.remaining, 1) } }
+                        }
+                      }
+                    }
+                  } else {
+                    { verdict: "unknown", state: s }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `isFibrant(A)` / `fibrant A` in *type* position — the fibrancy
+  --- type `type.fibrant{of}` (see the section comment): minted on a
+  --- `yes` verdict; `no`/`unknown` degrade to `type.unknown` +
+  --- warning so unsupported formers are never silently accepted.
+  synth_fibrant_former_ := [funcs, st, arg_idx]~> do {
+    a_res := funcs.synth_type_(funcs, st, arg_idx)
+    fv := funcs.fibrant_verdict_(funcs, a_res.val, a_res["state"])
+    if fv.verdict == "yes" {
+      { val: funcs.make_type("type.fibrant", set({}, "of", a_res.val)), state: fv["state"] }
+    } else {
+      msg := if fv.verdict == "no" {
+        "isFibrant: " + type_tag(a_res.val) + " is not fibrant"
+      } else {
+        "isFibrant: fibrancy of " + type_tag(a_res.val) + " is undecided — the fibrancy type is left open (type.unknown)"
+      }
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(fv["state"], "warning", msg) }
+    }
+  }
+
+  --- `fibrant A` — the keyword node's judgment (term position): the
+  --- fibrancy *witness*. Its type is `type.fibrant{of}` on `yes` and
+  --- on `unknown` (optimistic — the P2 `Partial` approximation); a
+  --- `no` verdict is a hard error.
+  synth_fibrant_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    t_role := child_role_index(s, "fibrant", "target")
+    t_idx := if t_role == null { at(children, 0) } else { at(children, t_role) }
+    if len(children) < 1 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "fibrant: needs a type operand") }
+    } else {
+      do {
+        a_res := funcs.synth_type_(funcs, s, t_idx)
+        fv := funcs.fibrant_verdict_(funcs, a_res.val, a_res["state"])
+        fibrant_t := funcs.make_type("type.fibrant", set({}, "of", a_res.val))
+        if fv.verdict == "yes" {
+          { val: fibrant_t, state: fv["state"] }
+        } else {
+          if fv.verdict == "no" {
+            { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(fv["state"], "error", "fibrant: " + type_tag(a_res.val) + " is not fibrant — no homogeneous-composition witness exists") }
+          } else {
+            { val: fibrant_t, state: tc_add_diagnostic(fv["state"], "warning", "fibrant: fibrancy of " + type_tag(a_res.val) + " is undecided — accepting the witness optimistically") }
+          }
+        }
+      }
+    }
+  }
+
+  --- `Glue(A, φ, T̂)` / `isFibrant(A)` / `unglue(G)` — the call-form
+  --- type names dispatched from `synth_type_impl_`'s `call` branch
+  --- (the `Path`/`PathP` precedent: ordinary identifiers, no keyword,
+  --- no `type.*` rule). `Glue` takes exactly three arguments (the
+  --- `glue` keyword's `family`/`face`/`section`); `isFibrant` and
+  --- `unglue` take exactly one.
+  synth_type_call_cubical_ := [funcs, st, node_idx, callee_name]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    args_role := child_role_index(st, "call", "args")
+    n_args := if args_role == null { 0 } else { len(children) - args_role }
+    if callee_name == "Glue" {
+      if n_args != 3 {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: Glue needs a family, a face, and a section — Glue(A, φ, T̂)") }
+      } else {
+        synth_glue_type_(funcs, st, at(children, args_role), at(children, args_role + 1), at(children, args_role + 2))
+      }
+    } else {
+      if callee_name == "isFibrant" {
+        if n_args != 1 {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: isFibrant needs exactly one type argument") }
+        } else {
+          synth_fibrant_former_(funcs, st, at(children, args_role))
+        }
+      } else {
+        --- `unglue` — the type-level projection back to the
+        --- underlying family (see the section comment).
+        if n_args != 1 {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unglue needs exactly one Glue-type argument") }
+        } else {
+          do {
+            u_res := funcs.synth_type_(funcs, st, at(children, args_role))
+            if type_tag(u_res.val) == "type.glue" {
+              { val: get_or(u_res.val, "family", funcs.make_type("type.unknown", {})), state: u_res["state"] }
+            } else {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(u_res["state"], "error", "unglue: operand is not a Glue type — expected glue(A, φ, T̂) or Glue(A, φ, T̂)") }
             }
           }
         }
@@ -5511,6 +5868,14 @@ do {
     "trans": synth_trans_(funcs, s, node_idx),
     "synth_symm": synth_symm_(funcs, s, node_idx),
     "symm": synth_symm_(funcs, s, node_idx),
+    --- Cubical Glue & fibrancy (ADR-0208 P3). `glue`/`fibrant` are
+    --- the keyword nodes; `Glue`/`isFibrant`/`unglue` are call-form
+    --- type names handled inside `synth_type_impl_` (no judgment
+    --- arms — same as `Path`/`PathP`).
+    "synth_glue": synth_glue_(funcs, s, node_idx),
+    "glue": synth_glue_(funcs, s, node_idx),
+    "synth_fibrant": synth_fibrant_(funcs, s, node_idx),
+    "fibrant": synth_fibrant_(funcs, s, node_idx),
     "construct_universe": do {
       level := if lit != null { lit } else { if is_empty(args) { 0 } else { eval_first_arg(funcs, s, node_idx, args, incoming).val } }
       { val: funcs.make_type("type.universe", set({}, "level", level)), state: s }
@@ -6351,6 +6716,13 @@ do {
                     --- `synth_j_`.
                     synth_path_type_(funcs, st, node_idx, callee_name)
                   } else {
+                  if callee_name == "Glue" || callee_name == "isFibrant" || callee_name == "unglue" {
+                    --- `Glue(A, φ, T̂)` / `isFibrant(A)` / `unglue(G)`
+                    --- — cubical type names (ADR-0208 P3): ordinary
+                    --- call-form identifiers like `Path`/`PathP`, no
+                    --- keyword. See `synth_type_call_cubical_`.
+                    funcs.synth_type_call_cubical_(funcs, st, node_idx, callee_name)
+                  } else {
                   if bound_callee != null {
                     funcs.eval_node_(funcs, st, node_idx)
                   } else {
@@ -6416,7 +6788,28 @@ do {
             }
             }
             }
+            }
           } else {
+            if kind == "glue" {
+              --- `glue A, φ, T̂` in annotation position (ADR-0208
+              --- P3): the glue type former — see `synth_glue_`.
+              synth_glue_(funcs, st, node_idx)
+            } else {
+            if kind == "fibrant" {
+              --- `fibrant A` in annotation position: the fibrancy
+              --- type `isFibrant(A)` — see `synth_fibrant_former_`.
+              do {
+                fib_node := ast_node(st.ast, node_idx)
+                fib_children := node_children(fib_node)
+                fib_role := child_role_index(st, "fibrant", "target")
+                fib_idx := if fib_role == null { at(fib_children, 0) } else { at(fib_children, fib_role) }
+                if len(fib_children) < 1 {
+                  { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: fibrant needs a type operand") }
+                } else {
+                  synth_fibrant_former_(funcs, st, fib_idx)
+                }
+              }
+            } else {
             do {
               left_role := child_role_index(st, kind, "left")
               is_evaluable := kind == "paren" || kind == "if" || kind == "array" || left_role != null
@@ -6425,6 +6818,8 @@ do {
               } else {
                 { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: unsupported annotation kind: " + kind) }
               }
+            }
+            }
             }
           }
         }
@@ -7070,6 +7465,13 @@ do {
     synth_comp_: synth_comp_,
     synth_trans_: synth_trans_,
     synth_symm_: synth_symm_,
+    glue_node_indices_: glue_node_indices_,
+    synth_glue_type_: synth_glue_type_,
+    synth_glue_: synth_glue_,
+    fibrant_verdict_: fibrant_verdict_,
+    synth_fibrant_former_: synth_fibrant_former_,
+    synth_fibrant_: synth_fibrant_,
+    synth_type_call_cubical_: synth_type_call_cubical_,
     collect_ctor_names_: collect_ctor_names_,
     collect_ctor_specs_: collect_ctor_specs_,
     instantiate_ctor_: instantiate_ctor_,

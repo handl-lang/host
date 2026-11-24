@@ -1436,6 +1436,26 @@
     args: []
     source: Native
     lit: 0
+# Cubical Glue & fibrancy (ADR-0208 P3) — proof/type erasure, the same
+# reading `transport`/`j`/P2's cubical judgments use: `glue` is a type
+# former (all operands are types/faces — erased) so it projects the
+# family child; `fibrant A` is a fibrancy *witness* (proof-like) and
+# projects its type operand. `Glue`/`isFibrant`/`unglue` are call-form
+# type names — they live in type position only and need no eval rule.
+- id: eval.glue
+  node_kind: glue
+  scheme: !Op
+    name: proj_child
+    args: []
+    source: Native
+    lit: 0
+- id: eval.fibrant
+  node_kind: fibrant
+  scheme: !Op
+    name: proj_child
+    args: []
+    source: Native
+    lit: 0
 # ---------------------------------------------------------------------------
 # Option B frontier cells — derived forms over `Seq{axis}` (ADR-0119 §7,
 # ADR-0120 Phase 5). There are no `cell_*`/`whisker_*` primitives: each
