@@ -1,7 +1,7 @@
 +++
 id = "ADR-0208"
 title = "ADR-0208: Cubical Equality — Interval, Glue, and Computing Univalence"
-status = "accepted"
+status = "open"
 priority = "high"
 +++
 

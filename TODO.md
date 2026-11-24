@@ -17,7 +17,7 @@
 - [ ] T-140 hnl repl: ext-repl cdylib — line accumulation via parse-EOF detection, persistent session env (open: Runtime resumable eval?), dot-commands (:q/:help/:load/:defs/:type/:engine); cooked-mode stdin only, no line editing v1 · pri:low · owner:agent · created:2026-11-23 · links:P-010 · epic:weekend-2026-11-20
 - [ ] T-141 lib-repl: app-level REPL kit (step core + dot-command conventions + stdio backend) — PARKED until first consumer; hnl repl (T-140) dogfoods the pattern first · pri:low · owner:agent · created:2026-11-23 · links:P-008,P-010,P-011 · epic:weekend-2026-11-20
 - [ ] T-145 lib-web-router: browser-UI routing (React-Router-class) — PARKED until a Handl UI framework exists; lib-route trie already covers path→params matching, remaining work is lib-web-history (pushState/popstate) + link/nav components + nested outlets + loaders · pri:low · owner:agent · created:2026-11-23 · links:P-008,P-011 · epic:weekend-2026-11-20
-- [ ] T-147 typecheck: zero-arg `Unit ->` op calls rejected — `hnl run`/`check` fails `call: needs callee and args` on `math.e()`, `proc.pid()`, `proc.argv()` (eval handles them fine; `(f)()` doesn't help). Pre-existing engine gap surfaced by P-012; blocks `hnl run`-gated CLIs using cli-router `run()` · owner:agent · created:2026-11-24 · links:P-012 · epic:weekend-2026-11-20
+- [ ] T-147 typecheck: zero-arg Unit -> op calls rejected — hnl run/check fails call: needs callee and args on math.e(), proc.pid(), proc.argv() (eval handles them fine; (f)() doesn't help). Pre-existing engine gap surfaced by P-012; blocks hnl run-gated CLIs using cli-router run() · owner:agent · created:2026-11-24 · links:P-012 · epic:weekend-2026-11-20
 
 ## Done — wrongly-placed Rust reifications retired (ADR-0040 kernel rule)
 
