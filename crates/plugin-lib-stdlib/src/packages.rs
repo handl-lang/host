@@ -1975,6 +1975,36 @@ impl ModuleLookup for TableModuleLookup {
         }
         module_ref(module_name)?.function(func_name)
     }
+
+    /// P-013 T-148: enumerate a module's exports with their declared
+    /// signatures so `import math` / `from "math" import *` bind
+    /// `type.module_sig` fields carrying the `op "name" : Sig` types —
+    /// the same surface [`ModuleRegistry::lookup_module_exports`]
+    /// provides for registry-built modules. Each export's signature
+    /// comes from its [`Function::as_type_signature`] (the `OpFunction`
+    /// decl-attached sig); unsigned exports report `None` → the checker
+    /// binds them `type.unknown`, matching the registry path.
+    fn lookup_module_exports(
+        &self,
+        module_name: &str,
+    ) -> Option<Vec<(String, Option<serde_json::Value>)>> {
+        let module: &dyn Module = if let Some(m) = self.resolve_fallback(module_name) {
+            m
+        } else {
+            module_ref(module_name)?
+        };
+        let mut out: Vec<(String, Option<serde_json::Value>)> = Vec::new();
+        for (name, f) in module.functions() {
+            out.push((
+                name.to_string(),
+                f.as_type_signature().map(|ts| ts.type_signature()),
+            ));
+        }
+        for name in module.value_names() {
+            out.push((name, None));
+        }
+        Some(out)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1992,6 +2022,18 @@ impl ModuleLookup for TableModuleLookup {
 /// record is portable across resolvers: the leaf stays `resolver`-keyed
 /// even though the record is shared.
 fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
+    // P-013 T-148: `op "name" : Sig` decls in the spec's `.hnl` source
+    // give each op wrapper arrow a `sig` (the `{fn, sig}` foreign-arrow
+    // shape) — parsed once per record build; unparseable/absent decls
+    // leave `sig: None`.
+    let op_sigs: std::collections::HashMap<String, handl_value::TaggedValue> =
+        handl_plugin_lib_handl::parse_op_declarations(spec.hnl)
+            .into_iter()
+            .filter_map(|(name, text)| {
+                handl_plugin_lib_handl::sig_to_type_value(&text)
+                    .map(|v| (name, handl_value::TaggedValue::from(v)))
+            })
+            .collect();
     let mut obj = serde_json::Map::new();
     for &fname in spec.funcs {
         obj.insert(
@@ -2005,10 +2047,21 @@ fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
     for &op_name in spec.ops {
         let local = op_name.rsplit('.').next().unwrap_or(op_name);
         obj.entry(local.to_string()).or_insert_with(|| {
-            handl_language::Value::from(handl_plugin_lib_handl::wrap_dep_fn(&format!(
-                "{}.{local}",
-                spec.name
-            )))
+            // The decl's qualified name is the op's registry key; the
+            // record field is the local segment. `spec.ops` entries are
+            // qualified in practice, but accept the bare local name too.
+            let sig = op_sigs
+                .get(op_name)
+                .or_else(|| op_sigs.get(local))
+                .or_else(|| {
+                    op_sigs.get(&format!("{}.{}", spec.name, op_name))
+                        .or_else(|| op_sigs.get(&format!("{}.{}", spec.name, local)))
+                })
+                .map(|s| std::rc::Rc::new(s.clone()));
+            handl_language::Value::from(handl_plugin_lib_handl::wrap_dep_fn_with_sig(
+                &format!("{}.{local}", spec.name),
+                sig,
+            ))
         });
     }
     serde_json::Value::Object(obj)

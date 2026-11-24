@@ -36,12 +36,41 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use handl_ops::Op as KernelOp;
-use handl_platform::{EvalContext, EvalError, Function};
+use handl_platform::{EvalContext, EvalError, Function, TypeSignature};
 use serde_json::Value;
 
 /// Runtime axiom checker for op predicates (ADR-0077 Phase 3) — the kernel
 /// ABI definition, re-exported so host code keeps one name.
 pub use handl_ops::RuntimePredicateChecker;
+
+// ---------------------------------------------------------------------------
+// OpSignature — signature carrier for registry entries (P-013 T-148)
+// ---------------------------------------------------------------------------
+
+/// A signature-only [`TypeSignature`] carrier: the type value an op
+/// declares, stored on the [`OpRegistry`] entry independently of the
+/// [`Function`] impl (which may not itself implement [`TypeSignature`]).
+///
+/// The `call` body is unreachable in practice — [`ModuleLookup`]'s
+/// signature probes (`lookup_type_signature`/`lookup_module_exports`)
+/// read [`TypeSignature::type_signature`] without dispatching — but the
+/// [`Function`] supertrait requires an impl, so it fails loudly if ever
+/// invoked.
+struct OpSignature(Value);
+
+impl Function for OpSignature {
+    fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        Err(EvalError::Other(
+            "op signature carrier is not callable".to_string(),
+        ))
+    }
+}
+
+impl TypeSignature for OpSignature {
+    fn type_signature(&self) -> Value {
+        self.0.clone()
+    }
+}
 
 // ---------------------------------------------------------------------------
 // KernelOpFn — adapts a kernel `handl_ops::Op` to the host `Function` trait
@@ -87,6 +116,12 @@ pub struct OpRegistry {
     ops: HashMap<String, Arc<dyn Function + Send + Sync>>,
     /// Op name → optional runtime axiom checker.
     checkers: HashMap<String, Arc<dyn RuntimePredicateChecker>>,
+    /// Op name → optional declared type signature (P-013 T-148): the
+    /// checker's tagged type value (`{"__tag__": "type.function", …}`),
+    /// produced once at registry/module build. Parallel to `ops` —
+    /// `register`/`register_with_checker` clear it, `register_with_sig`
+    /// and `set_signature` populate it.
+    signatures: HashMap<String, Arc<OpSignature>>,
 }
 
 impl OpRegistry {
@@ -95,6 +130,7 @@ impl OpRegistry {
         Self {
             ops: HashMap::new(),
             checkers: HashMap::new(),
+            signatures: HashMap::new(),
         }
     }
 
@@ -102,11 +138,12 @@ impl OpRegistry {
     ///
     /// No runtime axiom checker is attached — the op's axioms are trusted
     /// (no runtime check). If an op with the same name was already
-    /// registered, it is replaced (and any previously attached checker is
-    /// removed).
+    /// registered, it is replaced (and any previously attached checker
+    /// and signature are removed).
     pub fn register(&mut self, op_name: &str, func: Arc<dyn Function + Send + Sync>) {
         self.ops.insert(op_name.to_string(), func);
         self.checkers.remove(op_name);
+        self.signatures.remove(op_name);
     }
 
     /// Register a Rust `Function` impl (the handl) under an op name, with an
@@ -116,7 +153,8 @@ impl OpRegistry {
     /// `requires`/`guarantee` axioms at the dispatch boundary. If `None`,
     /// this is equivalent to [`OpRegistry::register`] (axioms trusted).
     ///
-    /// If an op with the same name was already registered, it is replaced.
+    /// If an op with the same name was already registered, it is replaced
+    /// (and any previously attached signature is removed).
     pub fn register_with_checker(
         &mut self,
         op_name: &str,
@@ -124,11 +162,59 @@ impl OpRegistry {
         checker: Option<Arc<dyn RuntimePredicateChecker>>,
     ) {
         self.ops.insert(op_name.to_string(), func);
+        self.signatures.remove(op_name);
         if let Some(checker) = checker {
             self.checkers.insert(op_name.to_string(), checker);
         } else {
             self.checkers.remove(op_name);
         }
+    }
+
+    /// Register a Rust `Function` impl under an op name together with its
+    /// declared type signature (P-013 T-148).
+    ///
+    /// `sig` is the checker's tagged type value
+    /// (`{"__tag__": "type.function", "param": …, "body": …}`) — see
+    /// [`crate::parse_sig_type`]. It is exposed to typecheck through
+    /// [`TypeSignature`] on the [`OpFunction`] the module wiring builds,
+    /// so `mod.fn(args)` calls check against the declared signature
+    /// instead of falling back to the dynamic top. The signature has no
+    /// effect on eval.
+    pub fn register_with_sig(
+        &mut self,
+        op_name: &str,
+        func: Arc<dyn Function + Send + Sync>,
+        sig: Value,
+    ) {
+        self.ops.insert(op_name.to_string(), func);
+        self.signatures
+            .insert(op_name.to_string(), Arc::new(OpSignature(sig)));
+        self.checkers.remove(op_name);
+    }
+
+    /// Attach (or replace) the declared type signature of an already
+    /// registered op. No-op semantics on an unregistered name: the
+    /// signature is recorded but only observable once a `Function` is
+    /// registered under the same name.
+    pub fn set_signature(&mut self, op_name: &str, sig: Value) {
+        self.signatures
+            .insert(op_name.to_string(), Arc::new(OpSignature(sig)));
+    }
+
+    /// The declared type signature of an op, if one was registered
+    /// (P-013 T-148). Returns the tagged type value verbatim.
+    pub fn signature(&self, op_name: &str) -> Option<Value> {
+        self.signatures
+            .get(op_name)
+            .map(|s| s.type_signature())
+    }
+
+    /// Borrow the signature carrier for an op — cloned out as an `Arc`
+    /// so [`OpFunction`] can snapshot it at construction (the
+    /// [`TypeSignature`] view `as_type_signature` hands to
+    /// [`ModuleLookup::lookup_type_signature`]).
+    fn signature_entry(&self, op_name: &str) -> Option<Arc<OpSignature>> {
+        self.signatures.get(op_name).cloned()
     }
 
     /// Look up the `Function` impl registered under an op name.
@@ -204,14 +290,43 @@ pub struct OpFunction {
     op_name: String,
     /// The shared op registry.
     registry: Arc<OpRegistry>,
+    /// The declared type signature (P-013 T-148), snapshotted at
+    /// construction: an explicit `new_with_sig` value wins, else the
+    /// registry's `register_with_sig`/`set_signature` entry. `None`
+    /// keeps the pre-T-148 dynamic-top behavior.
+    signature: Option<Arc<OpSignature>>,
 }
 
 impl OpFunction {
     /// Create a new `OpFunction` for the given op name and registry.
+    ///
+    /// Picks up the registry's declared signature for `op_name` when one
+    /// was registered via [`OpRegistry::register_with_sig`] or
+    /// [`OpRegistry::set_signature`].
     pub fn new(op_name: impl Into<String>, registry: Arc<OpRegistry>) -> Self {
+        let op_name = op_name.into();
+        let signature = registry.signature_entry(&op_name);
+        Self {
+            op_name,
+            registry,
+            signature,
+        }
+    }
+
+    /// Create an `OpFunction` carrying an explicit declared signature
+    /// (P-013 T-148) — used by [`HandlModule::with_ops`](crate::HandlModule)
+    /// to attach the `op "name" : Sig` declaration's interpreted type
+    /// value. The explicit signature takes precedence over any registry
+    /// entry.
+    pub fn new_with_sig(
+        op_name: impl Into<String>,
+        registry: Arc<OpRegistry>,
+        sig: Value,
+    ) -> Self {
         Self {
             op_name: op_name.into(),
             registry,
+            signature: Some(Arc::new(OpSignature(sig))),
         }
     }
 }
@@ -253,6 +368,19 @@ impl Function for OpFunction {
         }
 
         Ok(output)
+    }
+
+    /// Expose the op's declared type signature (P-013 T-148) so
+    /// [`ModuleLookup::lookup_type_signature`](handl_platform::ModuleLookup)
+    /// can serve it to the typechecker without executing the op.
+    ///
+    /// Returns `None` when no signature was registered — the checker then
+    /// falls back to the dynamic `type.function` top, preserving the
+    /// pre-T-148 behavior for unannotated ops.
+    fn as_type_signature(&self) -> Option<&dyn TypeSignature> {
+        self.signature
+            .as_deref()
+            .map(|s| s as &dyn TypeSignature)
     }
 }
 

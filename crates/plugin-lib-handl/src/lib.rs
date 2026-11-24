@@ -78,11 +78,13 @@
 //! `HandlModule::new_raw` loads the `loader` itself raw, without applying
 //! those transforms to its own source.
 
+mod atom_sig;
 mod char_module;
 pub mod model;
 pub mod op_registry;
 mod str_handl;
 pub mod transform;
+pub use atom_sig::{TYPE_SIG_REGISTRY_ID, parse_op_declarations, sig_to_type_value};
 pub use char_module::{CHAR_OPS, CharModule};
 pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};
@@ -242,6 +244,19 @@ const DEP_WRAP_REST: &str = "args";
 /// lacks `mod` fails at call time (`call_host: function '…' not found`),
 /// the same failure an unbound dotted callee produces today.
 pub fn wrap_dep_fn(name: &str) -> handl_value::TaggedValue {
+    wrap_dep_fn_with_sig(name, None)
+}
+
+/// [`wrap_dep_fn`] with an optional declared signature (P-013 T-148):
+/// `sig` is stored verbatim on the minted arrow's
+/// [`TaggedValue::Arrow::sig`](handl_value::TaggedValue) field — the
+/// `{fn, sig}` foreign-arrow shape. Eval ignores it entirely (calls
+/// still dispatch through the `callv` → `call_host` leaf); typecheck
+/// metadata and `arrow.sig` introspection read it.
+pub fn wrap_dep_fn_with_sig(
+    name: &str,
+    sig: Option<Rc<handl_value::TaggedValue>>,
+) -> handl_value::TaggedValue {
     // `callv` children: [lit "mod.fn", var "args"] — child 0 evals to the
     // callee name (`LIT_KIND` declares no eval scheme, so it returns its
     // payload on every engine), child 1 evals to the rest-bound args
@@ -267,6 +282,7 @@ pub fn wrap_dep_fn(name: &str) -> handl_value::TaggedValue {
         ))),
         binds: Default::default(),
         handlers: Default::default(),
+        sig,
     }
 }
 
@@ -279,10 +295,20 @@ pub fn wrap_dep_fn(name: &str) -> handl_value::TaggedValue {
 /// serializable as ordinary `{"__arrow__": …}` wire values.
 pub fn wrap_dep_module(module: &dyn Module) -> handl_value::TaggedValue {
     let mut obj = serde_json::Map::new();
-    for (fname, _f) in module.functions() {
+    for (fname, f) in module.functions() {
+        // P-013 T-148: carry the function's declared type signature on the
+        // wrapper arrow (`{fn, sig}`) when it exposes one — `OpFunction`s
+        // built from `op "name" : Sig` decls do; plain `.hnl` record
+        // fields and unsigned ops leave `sig: None`.
+        let sig = f
+            .as_type_signature()
+            .map(|ts| Rc::new(handl_value::TaggedValue::from(ts.type_signature())));
         obj.insert(
             fname.to_string(),
-            handl_language::Value::from(wrap_dep_fn(&format!("{}.{}", module.name(), fname))),
+            handl_language::Value::from(wrap_dep_fn_with_sig(
+                &format!("{}.{}", module.name(), fname),
+                sig,
+            )),
         );
     }
     for vname in module.value_names() {
@@ -2547,6 +2573,23 @@ impl ModuleLookup for LayeredLookup {
         }
         self.global.as_deref().and_then(|g| g.lookup(name))
     }
+
+    /// P-013 T-148: forward module-export enumeration (registry first,
+    /// then the global table lookup) so `import m` / ambient `m.f`
+    /// typechecking sees `type.module_sig` fields through this layer.
+    fn lookup_module_exports(
+        &self,
+        module_name: &str,
+    ) -> Option<Vec<(String, Option<serde_json::Value>)>> {
+        if let Some(registry) = &self.registry {
+            if let Some(exports) = registry.lookup_module_exports(module_name) {
+                return Some(exports);
+            }
+        }
+        self.global
+            .as_deref()
+            .and_then(|g| g.lookup_module_exports(module_name))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -3044,6 +3087,13 @@ pub struct HandlModule {
     /// host via [`HandlModule::with_value_names`] — `from "<mod>" import
     /// <name>` binds the evaluated value rather than a string callee.
     value_names: Vec<String>,
+    /// `op "name" : Sig` declarations parsed from the *raw* `.hnl`
+    /// source at construction (P-013 T-148) — `(qualified_name, sig
+    /// text)` pairs. [`HandlModule::with_ops`] attaches the interpreted
+    /// signature to each [`OpFunction`] so host atoms are
+    /// self-describing for typecheck (`ModuleLookup::
+    /// lookup_type_signature`) and eval introspection (`arrow.sig`).
+    op_decls: Vec<(String, String)>,
     /// Optional [`DefaultEnv`] provider (ADR-0155 Phase 3) — ambient
     /// names materialized as eval globals at the lowest precedence,
     /// shadowed by declared deps and imports.
@@ -3066,6 +3116,9 @@ impl HandlModule {
         // the bootstrap transforms run.
         let analysis = analyze_source(hnl_source);
         let source = analysis.prepared;
+        // P-013 T-148: `op "name" : Sig` decls live in the *raw* source —
+        // `prepared` has them stripped — so scan before they are gone.
+        let op_decls = atom_sig::parse_op_declarations(hnl_source);
         let module_id = allocate_module_id();
         let eval_name = "tree-walk";
 
@@ -3103,6 +3156,7 @@ impl HandlModule {
             builder,
             module_id,
             value_names: Vec::new(),
+            op_decls,
             default_env: None,
         }
     }
@@ -3115,6 +3169,7 @@ impl HandlModule {
     pub fn new_raw(name: impl Into<String>, hnl_source: &str, func_names: &[&str]) -> Self {
         let name = name.into();
         let source = hnl_source.to_string();
+        let op_decls = atom_sig::parse_op_declarations(hnl_source);
         let module_id = allocate_module_id();
         let eval_name = "tree-walk";
 
@@ -3152,6 +3207,7 @@ impl HandlModule {
             builder,
             module_id,
             value_names: Vec::new(),
+            op_decls,
             default_env: None,
         }
     }
@@ -3274,10 +3330,23 @@ impl HandlModule {
     pub fn with_ops(mut self, op_names: &[&str], registry: Arc<OpRegistry>) -> Self {
         for &op_name in op_names {
             let local_name = op_name.rsplit('.').next().unwrap_or(op_name);
-            self.op_functions.insert(
-                local_name.to_string(),
-                OpFunction::new(op_name, Arc::clone(&registry)),
-            );
+            // P-013 T-148: attach the `op "name" : Sig` declaration's
+            // interpreted type value so the atom is self-describing —
+            // `ModuleLookup::lookup_type_signature`/`lookup_module_exports`
+            // serve it to typecheck and the minted wrapper arrows carry
+            // it in `TaggedValue::Arrow::sig` for eval introspection.
+            // A decl that fails to parse (or is absent) attaches nothing
+            // — the pre-T-148 dynamic-top behavior.
+            let sig = self
+                .op_decls
+                .iter()
+                .find(|(n, _)| n == op_name)
+                .and_then(|(_, text)| atom_sig::sig_to_type_value(text));
+            let func = match sig {
+                Some(sig) => OpFunction::new_with_sig(op_name, Arc::clone(&registry), sig),
+                None => OpFunction::new(op_name, Arc::clone(&registry)),
+            };
+            self.op_functions.insert(local_name.to_string(), func);
         }
         self
     }
@@ -3396,6 +3465,7 @@ impl HandlModule {
             builder: Arc::clone(&self.builder),
             module_id: self.module_id,
             value_names: self.value_names.clone(),
+            op_decls: self.op_decls.clone(),
             default_env: env.default_env,
         };
         module.rebuild_functions();

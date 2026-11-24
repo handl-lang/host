@@ -1092,6 +1092,18 @@ impl ModuleLookup for HelloHostFunctions {
             _ => self.delegate.as_ref().and_then(|d| d.lookup(name)),
         }
     }
+
+    /// P-013 T-148: forward module-export enumeration to the delegate so
+    /// `import m` signature records (`type.module_sig`) see through this
+    /// wrapper to the modules below it.
+    fn lookup_module_exports(
+        &self,
+        module_name: &str,
+    ) -> Option<Vec<(String, Option<serde_json::Value>)>> {
+        self.delegate
+            .as_ref()
+            .and_then(|d| d.lookup_module_exports(module_name))
+    }
 }
 /// The canonical kit: a thin wrapper around the data-driven [`Runtime`].
 ///
@@ -1879,7 +1891,38 @@ impl Kit {
             engine = engine.with_modules(std::rc::Rc::clone(mods));
         }
         for name in &prelude {
-            engine = engine.with_global(name, serde_json::json!({"__tag__": "type.unknown"}));
+            // P-013 T-148: names that resolve to a registered module seed
+            // as `type.module_sig{module, fields}` records — each field
+            // carries the atom's declared `op "name" : Sig` type (or
+            // `type.unknown` when unsigned), so `mod.fn(args)` calls
+            // typecheck against real signatures instead of the dynamic
+            // top. `value_to_type` passes the tagged record through
+            // verbatim; non-module names keep the `type.unknown` seed.
+            let seeded = rt
+                .modules()
+                .and_then(|mods| mods.lookup_module_exports(name))
+                .map(|exports| {
+                    let mut fields = serde_json::Map::new();
+                    for (fname, sig) in exports {
+                        fields.insert(
+                            fname,
+                            sig.unwrap_or_else(|| {
+                                serde_json::json!({
+                                    "__tag__": "type.unknown",
+                                    "__registry__": handl_plugin_lib_tag::CANONICAL_REGISTRY_ID
+                                })
+                            }),
+                        );
+                    }
+                    serde_json::json!({
+                        "__tag__": "type.module_sig",
+                        "__registry__": handl_plugin_lib_tag::CANONICAL_REGISTRY_ID,
+                        "module": name,
+                        "fields": fields,
+                    })
+                })
+                .unwrap_or_else(|| serde_json::json!({"__tag__": "type.unknown"}));
+            engine = engine.with_global(name, seeded);
         }
         // Bootstrap scope pass (the ADR-0105 safety net): runs on the raw
         // source so an unbound wire reports as a *type error* — the
