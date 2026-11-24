@@ -416,6 +416,13 @@ pub fn prelude_wire_names() -> std::collections::HashSet<String> {
         "Float",
         "Bytes",
         "List",
+        // Cubical interval endpoints (ADR-0208 P1): `i0`/`i1` are closed
+        // terms of the `I`/`Interval` sort — value-position wires with
+        // no module export and no `globals.yaml` entry. (`I`, `Path`,
+        // `PathP`, `refl` only appear in type position or already
+        // resolve through existing names.)
+        "i0",
+        "i1",
     ] {
         names.insert(extra.to_string());
     }
