@@ -442,6 +442,7 @@ const TYPE_HANDL_FUNCS: &[&str] = &[
     "Bool",
     "Value",
     "Type",
+    "Grade",
     "Unit",
 ];
 
@@ -675,8 +676,9 @@ const TYPE_CONSTS: &[(&str, &str)] = &[
     ("type.Array", "type.Array"),
     ("type.Value", "type.Value"),
     ("type.Type", "type.Type"),
-    // `lib-grade`'s `Grade` kind for effect-graded arrows — consumers
-    // annotate port types `export Port<T>: Grade`.
+    // The `Grade` kind for effect-graded arrows — consumers annotate
+    // port types `export Port<T>: Grade` (exported as `Grade` on the
+    // `type` module; the `lib-grade` shim package is retired).
     ("type.Grade", "type.Grade"),
     ("type.Unit", "type.Unit"),
 ];
