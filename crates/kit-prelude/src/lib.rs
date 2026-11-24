@@ -262,9 +262,11 @@ const PRELUDE_MODULES: &[(&'static str, ModuleCtor)] = &[
 
 /// Register every linked kit's modules into the shared kit table —
 /// the prelude's ambient rows first, then `kit-stdlib`, `kit-server`,
-/// `kit-test`, `kit-ffi`, and `kit-mlopt` (the `pipeline` stage-ops —
+/// `kit-test`, `kit-ffi`, `kit-mlopt` (the `pipeline` stage-ops —
 /// admitted to `hnl run` only when `pipeline` is in the prelude
-/// manifest's `base_modules`). `Once`-safe: the first call wins.
+/// manifest's `base_modules`), and `handl-host-tensor` (the `tensor`
+/// host-op module — admitted via `base_modules` likewise). `Once`-safe:
+/// the first call wins.
 ///
 /// Hosts composing a different module mix can skip this and call each
 /// kit's own `register()` (or [`handl_kit_core::register_modules`]
@@ -278,6 +280,10 @@ pub fn register() {
         handl_kit_test::register();
         handl_kit_ffi::register();
         handl_kit_mlopt::register();
+        // `tensor.*` host ops (exec-tensor repo) — `tensor` is admitted
+        // to `hnl run`/`hnl eval` via the prelude manifest's
+        // `base_modules` list.
+        handl_host_tensor::kit::register();
     });
 }
 

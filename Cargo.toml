@@ -168,6 +168,10 @@ hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt",
 hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", branch = "main" }
 hnl-tool-test = { git = "https://github.com/handl-lang/tool-test", branch = "main" }
 handl-kit-test = { git = "https://github.com/handl-lang/tool-test", branch = "main" }
+# The `tensor.*` host-op kit (`exec-tensor` repo): `handl-host-tensor`
+# carries `src/kit.rs` — `tensor` module registration into the shared
+# `handl-kit-core` table, consumed by `handl-kit-prelude`'s `register()`.
+handl-host-tensor = { git = "https://github.com/handl-lang/exec-tensor", branch = "main" }
 handl-ext = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-lib-comb = { git = "https://github.com/handl-lang/lib-comb", branch = "main" }
 hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branch = "main" }
@@ -317,6 +321,11 @@ handl-kit-lang = { path = "crates/handl-kit-lang" }
 [patch."https://github.com/handl-lang/kit-ffi"]
 handl-kit-ffi = { path = "crates/handl-kit-ffi" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
+
+[patch."https://github.com/handl-lang/exec-tensor"]
+# `handl-host-tensor` lives in the exec-tensor repo; local development
+# resolves it from the sibling checkout.
+handl-host-tensor = { path = "../exec-tensor" }
 
 [patch."https://github.com/handl-lang/host"]
 handl-plugin-lib-stdlib = { path = "../host/crates/plugin-lib-stdlib" }

@@ -58,5 +58,6 @@ base_modules:
   - ip
   - collections
   - pipeline
+  - tensor
   - proc
 
