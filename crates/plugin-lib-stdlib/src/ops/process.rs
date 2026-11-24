@@ -10,7 +10,6 @@
 use std::sync::Arc;
 
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::OpRegistry;
 
 use crate::shared::{arr, num};
 
@@ -33,9 +32,7 @@ fn require_exit_code(args: &[serde_json::Value]) -> Result<i32, EvalError> {
     args.first()
         .and_then(|v| v.as_i64())
         .map(|n| n as i32)
-        .ok_or_else(|| {
-            EvalError::TypeMismatch("proc.exit: expected Int exit code".to_string())
-        })
+        .ok_or_else(|| EvalError::TypeMismatch("proc.exit: expected Int exit code".to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -52,8 +49,7 @@ impl Function for Argv {
         _ctx: &mut EvalContext,
     ) -> Result<serde_json::Value, EvalError> {
         no_args("proc.argv", args)?;
-        let argv: Vec<serde_json::Value> =
-            std::env::args().map(serde_json::Value::from).collect();
+        let argv: Vec<serde_json::Value> = std::env::args().map(serde_json::Value::from).collect();
         Ok(arr(&argv))
     }
 }
@@ -88,15 +84,20 @@ impl Function for Pid {
 }
 
 // ---------------------------------------------------------------------------
-// Registry
+// Impl table (P-013 T-149)
 // ---------------------------------------------------------------------------
 
-pub const PROC_OPS: &[&str] = &["proc.argv", "proc.exit", "proc.pid"];
-
-pub fn proc_op_registry() -> OpRegistry {
-    let mut registry = OpRegistry::new();
-    registry.register("proc.argv", Arc::new(Argv));
-    registry.register("proc.exit", Arc::new(Exit));
-    registry.register("proc.pid", Arc::new(Pid));
-    registry
+/// The `impl:` table `lib-proc/atoms.yaml` keys into — `impl` name →
+/// `Function` impl. The atoms spec (`module: proc`, `proc.argv` /
+/// `proc.exit` / `proc.pid`) plus this table fully determine the
+/// module's `handl_plugin_lib_handl::OpRegistry`;
+/// [`crate::atoms::registry_from_atoms`] does
+/// the merge. There is no `*_op_registry()`/`*_OPS` hand-wiring left —
+/// adding an atom is one yaml line + one impl fn + one row here.
+pub fn proc_impls() -> Vec<(&'static str, Arc<dyn Function + Send + Sync>)> {
+    vec![
+        ("proc_argv", Arc::new(Argv)),
+        ("proc_exit", Arc::new(Exit)),
+        ("proc_pid", Arc::new(Pid)),
+    ]
 }

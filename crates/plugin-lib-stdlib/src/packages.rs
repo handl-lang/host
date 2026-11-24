@@ -25,6 +25,7 @@ use handl_plugin_lib_handl::{
 };
 use handl_plugin_module::{ModuleRule, ModuleRuntime};
 
+use crate::atoms::{self, ImplTable};
 use crate::ops;
 
 // ---------------------------------------------------------------------------
@@ -57,12 +58,26 @@ pub struct ModuleSpec {
 /// `Host` builders return the platform [`OpRegistry`] directly; `Kernel`
 /// builders return a [`handl_ops::OpRegistry`] from a `handl-lib-*`/`lib-*`
 /// crate, which is imported into the host registry at module build time.
+/// `Atoms` is the P-013 T-149 spec-driven path: an `atoms.yaml` document
+/// (vendored `include_str!`) plus the module's impl table
+/// ([`crate::atoms::ImplTable`]) — the op names fed to
+/// [`HandlModule::with_ops`] are derived from the spec, so `spec.ops`
+/// stays empty for migrated modules.
 #[derive(Clone, Copy)]
 pub enum RegistrySource {
     /// A host-side `*_op_registry()` returning [`OpRegistry`].
     Host(fn() -> OpRegistry),
     /// A kernel-side `*_op_registry()` returning [`handl_ops::OpRegistry`].
     Kernel(fn() -> handl_ops::OpRegistry),
+    /// Spec-driven (P-013 T-149): `atoms.yaml` text + impl table.
+    /// `spec` is the vendored yaml; `impls` resolves each atom's
+    /// `impl:` key to its `Function` impl.
+    Atoms {
+        /// Vendored `atoms.yaml` (`include_str!` of `OUT_DIR/lib-x/atoms.yaml`).
+        spec: &'static str,
+        /// The module's impl table (`ops::<mod>::*_impls`).
+        impls: ImplTable,
+    },
 }
 
 /// One row of the package table: a named library contributing one or more
@@ -151,13 +166,18 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &["true", "false"],
         registry: None,
     },
+    // T-149: spec-driven — `lib-utils/atoms.yaml` (`modules.math`, 67
+    // atoms) + `math_impls()` replace `MATH_OPS`/`math_op_registry`.
     ModuleSpec {
         name: "math",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/math.hnl")),
         funcs: &[],
-        ops: ops::math::MATH_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Host(ops::math::math_op_registry)),
+        registry: Some(RegistrySource::Atoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/atoms.yaml")),
+            impls: ops::math::math_impls,
+        }),
     },
     ModuleSpec {
         name: "str",
@@ -1438,14 +1458,19 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
-    // ── proc (P-012) — process identity atoms: argv/exit/pid ──────────
+    // ── proc (P-012/P-013) — process identity atoms: argv/exit/pid ────
+    // T-149: spec-driven — `atoms.yaml` + `proc_impls()` replace the
+    // hand-wired `PROC_OPS`/`proc_op_registry`.
     ModuleSpec {
         name: "proc",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-proc/src/index.hnl")),
         funcs: &[],
-        ops: ops::process::PROC_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Host(ops::process::proc_op_registry)),
+        registry: Some(RegistrySource::Atoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-proc/atoms.yaml")),
+            impls: ops::process::proc_impls,
+        }),
     },
 ];
 /// former `UtilsLibraryPlugin::contribute` module list).
@@ -2044,6 +2069,35 @@ fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
             ))),
         );
     }
+    // P-013 T-149: spec-driven modules get their arrow fields from
+    // `atoms.yaml` — names and sigs come from the spec (the `.hnl`
+    // `op` decls are the fallback while T-151 hasn't removed them).
+    if let Some(RegistrySource::Atoms { spec: yaml, .. }) = spec.registry {
+        if let Ok(decls) = atoms::module_atoms(yaml, spec.name) {
+            for atom in &decls {
+                let local = atom.name.rsplit('.').next().unwrap_or(atom.name.as_str());
+                obj.entry(local.to_string()).or_insert_with(|| {
+                    // Spec sig first; the `.hnl` `op` decl sig is the
+                    // fallback for unsigned atoms mid-migration.
+                    let sig = atom
+                        .sig
+                        .as_deref()
+                        .and_then(handl_plugin_lib_handl::sig_to_type_value)
+                        .map(|v| std::rc::Rc::new(handl_value::TaggedValue::from(v)))
+                        .or_else(|| {
+                            op_sigs
+                                .get(&atom.name)
+                                .or_else(|| op_sigs.get(local))
+                                .map(|s| std::rc::Rc::new(s.clone()))
+                        });
+                    handl_language::Value::from(handl_plugin_lib_handl::wrap_dep_fn_with_sig(
+                        &format!("{}.{local}", spec.name),
+                        sig,
+                    ))
+                });
+            }
+        }
+    }
     for &op_name in spec.ops {
         let local = op_name.rsplit('.').next().unwrap_or(op_name);
         obj.entry(local.to_string()).or_insert_with(|| {
@@ -2054,7 +2108,8 @@ fn spec_arrow_record(spec: &ModuleSpec) -> serde_json::Value {
                 .get(op_name)
                 .or_else(|| op_sigs.get(local))
                 .or_else(|| {
-                    op_sigs.get(&format!("{}.{}", spec.name, op_name))
+                    op_sigs
+                        .get(&format!("{}.{}", spec.name, op_name))
                         .or_else(|| op_sigs.get(&format!("{}.{}", spec.name, local)))
                 })
                 .map(|s| std::rc::Rc::new(s.clone()));
@@ -2115,15 +2170,28 @@ fn build_module_shallow(spec: &ModuleSpec, resolver: Arc<dyn ModuleResolver>) ->
         ))))
         .with_global_lookup(lookup);
     if let Some(source) = spec.registry {
-        let registry = match source {
-            RegistrySource::Host(build) => Arc::new(build()),
+        match source {
+            RegistrySource::Host(build) => {
+                module = module.with_ops(spec.ops, Arc::new(build()));
+            }
             RegistrySource::Kernel(build) => {
                 let mut imported = OpRegistry::new();
                 imported.import_kernel(&build());
-                Arc::new(imported)
+                module = module.with_ops(spec.ops, Arc::new(imported));
             }
-        };
-        module = module.with_ops(spec.ops, registry);
+            RegistrySource::Atoms { spec: yaml, impls } => {
+                // P-013 T-149: the spec is the source of truth — op names,
+                // signatures, and the fn bindings all come from
+                // `atoms.yaml` + the impl table. `spec.ops` is unused on
+                // this path (migrated rows leave it empty).
+                let decls = atoms::module_atoms(yaml, spec.name)
+                    .unwrap_or_else(|e| panic!("module '{}': atoms spec: {e}", spec.name));
+                let registry = atoms::registry_from_atoms(&decls, &impls())
+                    .unwrap_or_else(|e| panic!("module '{}': atoms registry: {e}", spec.name));
+                let names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
+                module = module.with_ops(&names, Arc::new(registry));
+            }
+        }
     }
     module
 }

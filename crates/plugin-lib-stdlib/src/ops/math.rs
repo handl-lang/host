@@ -779,147 +779,87 @@ bool_unary_fn!(IsFinite, |x: f64| x.is_finite());
 bool_unary_fn!(IsInfinite, |x: f64| x.is_infinite());
 bool_unary_fn!(IsInteger, |x: f64| x.is_finite() && x.fract() == 0.0);
 
-use handl_plugin_lib_handl::OpRegistry;
 use std::sync::Arc;
 
-pub const MATH_OPS: &[&str] = &[
-    "math.abs",
-    "math.add",
-    "math.ceil",
-    "math.clamp",
-    "math.copysign",
-    "math.cos",
-    "math.cosh",
-    "math.cbrt",
-    "math.asin",
-    "math.acos",
-    "math.atan",
-    "math.atan2",
-    "math.asinh",
-    "math.acosh",
-    "math.atanh",
-    "math.bit_and",
-    "math.bit_not",
-    "math.bit_or",
-    "math.bit_xor",
-    "math.degrees",
-    "math.div",
-    "math.e",
-    "math.exp",
-    "math.exp2",
-    "math.expm1",
-    "math.factorial",
-    "math.floor",
-    "math.floor_div",
-    "math.fract",
-    "math.gcd",
-    "math.hypot",
-    "math.infinity",
-    "math.is_finite",
-    "math.is_infinite",
-    "math.is_integer",
-    "math.is_nan",
-    "math.lcm",
-    "math.lerp",
-    "math.log",
-    "math.log10",
-    "math.log1p",
-    "math.log2",
-    "math.map_range",
-    "math.max",
-    "math.min",
-    "math.mod",
-    "math.mul",
-    "math.nan",
-    "math.nextafter",
-    "math.pi",
-    "math.pow",
-    "math.radians",
-    "math.round",
-    "math.round_to",
-    "math.rotl32",
-    "math.shl",
-    "math.shr",
-    "math.sign",
-    "math.sin",
-    "math.sinh",
-    "math.sqrt",
-    "math.sub",
-    "math.tan",
-    "math.tanh",
-    "math.tau",
-    "math.trunc",
-    "math.u32",
-];
+// ---------------------------------------------------------------------------
+// Impl table (P-013 T-149)
+// ---------------------------------------------------------------------------
 
-pub fn math_op_registry() -> OpRegistry {
-    let mut registry = OpRegistry::new();
-    registry.register("math.abs", Arc::new(Abs));
-    registry.register("math.add", Arc::new(Add));
-    registry.register("math.ceil", Arc::new(Ceil));
-    registry.register("math.clamp", Arc::new(Clamp));
-    registry.register("math.copysign", Arc::new(Copysign));
-    registry.register("math.cos", Arc::new(Cos));
-    registry.register("math.cosh", Arc::new(Cosh));
-    registry.register("math.cbrt", Arc::new(Cbrt));
-    registry.register("math.asin", Arc::new(Asin));
-    registry.register("math.acos", Arc::new(Acos));
-    registry.register("math.atan", Arc::new(Atan));
-    registry.register("math.atan2", Arc::new(Atan2));
-    registry.register("math.asinh", Arc::new(Asinh));
-    registry.register("math.acosh", Arc::new(Acosh));
-    registry.register("math.atanh", Arc::new(Atanh));
-    registry.register("math.bit_and", Arc::new(BitAnd));
-    registry.register("math.bit_not", Arc::new(BitNot));
-    registry.register("math.bit_or", Arc::new(BitOr));
-    registry.register("math.bit_xor", Arc::new(BitXor));
-    registry.register("math.degrees", Arc::new(Degrees));
-    registry.register("math.div", Arc::new(Div));
-    registry.register("math.e", Arc::new(E));
-    registry.register("math.exp", Arc::new(Exp));
-    registry.register("math.exp2", Arc::new(Exp2));
-    registry.register("math.expm1", Arc::new(ExpM1));
-    registry.register("math.factorial", Arc::new(Factorial));
-    registry.register("math.floor", Arc::new(Floor));
-    registry.register("math.floor_div", Arc::new(FloorDiv));
-    registry.register("math.fract", Arc::new(Fract));
-    registry.register("math.gcd", Arc::new(Gcd));
-    registry.register("math.hypot", Arc::new(Hypot));
-    registry.register("math.infinity", Arc::new(Infinity));
-    registry.register("math.is_finite", Arc::new(IsFinite));
-    registry.register("math.is_infinite", Arc::new(IsInfinite));
-    registry.register("math.is_integer", Arc::new(IsInteger));
-    registry.register("math.is_nan", Arc::new(IsNan));
-    registry.register("math.lcm", Arc::new(Lcm));
-    registry.register("math.lerp", Arc::new(Lerp));
-    registry.register("math.log", Arc::new(Log));
-    registry.register("math.log10", Arc::new(Log10));
-    registry.register("math.log1p", Arc::new(Log1p));
-    registry.register("math.log2", Arc::new(Log2));
-    registry.register("math.map_range", Arc::new(MapRange));
-    registry.register("math.max", Arc::new(Max));
-    registry.register("math.min", Arc::new(Min));
-    registry.register("math.mod", Arc::new(Mod));
-    registry.register("math.mul", Arc::new(Mul));
-    registry.register("math.nan", Arc::new(Nan));
-    registry.register("math.nextafter", Arc::new(Nextafter));
-    registry.register("math.pi", Arc::new(Pi));
-    registry.register("math.pow", Arc::new(Pow));
-    registry.register("math.radians", Arc::new(Radians));
-    registry.register("math.round", Arc::new(Round));
-    registry.register("math.round_to", Arc::new(RoundTo));
-    registry.register("math.rotl32", Arc::new(Rotl32));
-    registry.register("math.shl", Arc::new(Shl));
-    registry.register("math.shr", Arc::new(Shr));
-    registry.register("math.sign", Arc::new(Sign));
-    registry.register("math.sin", Arc::new(Sin));
-    registry.register("math.sinh", Arc::new(Sinh));
-    registry.register("math.sqrt", Arc::new(Sqrt));
-    registry.register("math.sub", Arc::new(Sub));
-    registry.register("math.tan", Arc::new(Tan));
-    registry.register("math.tanh", Arc::new(Tanh));
-    registry.register("math.tau", Arc::new(Tau));
-    registry.register("math.trunc", Arc::new(Trunc));
-    registry.register("math.u32", Arc::new(U32));
-    registry
+/// The `impl:` table `lib-utils/atoms.yaml` (`modules.math`) keys into —
+/// `impl` name → `Function` impl. The atoms spec (67 `math.*` atoms with
+/// sigs) plus this table fully determine the module's
+/// `handl_plugin_lib_handl::OpRegistry`;
+/// [`crate::atoms::registry_from_atoms`] does the merge. Replaces the
+/// hand-wired `MATH_OPS`/`math_op_registry` — adding an atom is one yaml
+/// line + one impl fn + one row here.
+pub fn math_impls() -> Vec<(&'static str, Arc<dyn Function + Send + Sync>)> {
+    vec![
+        ("math_abs", Arc::new(Abs)),
+        ("math_add", Arc::new(Add)),
+        ("math_ceil", Arc::new(Ceil)),
+        ("math_clamp", Arc::new(Clamp)),
+        ("math_copysign", Arc::new(Copysign)),
+        ("math_cos", Arc::new(Cos)),
+        ("math_cosh", Arc::new(Cosh)),
+        ("math_cbrt", Arc::new(Cbrt)),
+        ("math_asin", Arc::new(Asin)),
+        ("math_acos", Arc::new(Acos)),
+        ("math_atan", Arc::new(Atan)),
+        ("math_atan2", Arc::new(Atan2)),
+        ("math_asinh", Arc::new(Asinh)),
+        ("math_acosh", Arc::new(Acosh)),
+        ("math_atanh", Arc::new(Atanh)),
+        ("math_bit_and", Arc::new(BitAnd)),
+        ("math_bit_not", Arc::new(BitNot)),
+        ("math_bit_or", Arc::new(BitOr)),
+        ("math_bit_xor", Arc::new(BitXor)),
+        ("math_degrees", Arc::new(Degrees)),
+        ("math_div", Arc::new(Div)),
+        ("math_e", Arc::new(E)),
+        ("math_exp", Arc::new(Exp)),
+        ("math_exp2", Arc::new(Exp2)),
+        ("math_expm1", Arc::new(ExpM1)),
+        ("math_factorial", Arc::new(Factorial)),
+        ("math_floor", Arc::new(Floor)),
+        ("math_floor_div", Arc::new(FloorDiv)),
+        ("math_fract", Arc::new(Fract)),
+        ("math_gcd", Arc::new(Gcd)),
+        ("math_hypot", Arc::new(Hypot)),
+        ("math_infinity", Arc::new(Infinity)),
+        ("math_is_finite", Arc::new(IsFinite)),
+        ("math_is_infinite", Arc::new(IsInfinite)),
+        ("math_is_integer", Arc::new(IsInteger)),
+        ("math_is_nan", Arc::new(IsNan)),
+        ("math_lcm", Arc::new(Lcm)),
+        ("math_lerp", Arc::new(Lerp)),
+        ("math_log", Arc::new(Log)),
+        ("math_log10", Arc::new(Log10)),
+        ("math_log1p", Arc::new(Log1p)),
+        ("math_log2", Arc::new(Log2)),
+        ("math_map_range", Arc::new(MapRange)),
+        ("math_max", Arc::new(Max)),
+        ("math_min", Arc::new(Min)),
+        ("math_mod", Arc::new(Mod)),
+        ("math_mul", Arc::new(Mul)),
+        ("math_nan", Arc::new(Nan)),
+        ("math_nextafter", Arc::new(Nextafter)),
+        ("math_pi", Arc::new(Pi)),
+        ("math_pow", Arc::new(Pow)),
+        ("math_radians", Arc::new(Radians)),
+        ("math_round", Arc::new(Round)),
+        ("math_round_to", Arc::new(RoundTo)),
+        ("math_rotl32", Arc::new(Rotl32)),
+        ("math_shl", Arc::new(Shl)),
+        ("math_shr", Arc::new(Shr)),
+        ("math_sign", Arc::new(Sign)),
+        ("math_sin", Arc::new(Sin)),
+        ("math_sinh", Arc::new(Sinh)),
+        ("math_sqrt", Arc::new(Sqrt)),
+        ("math_sub", Arc::new(Sub)),
+        ("math_tan", Arc::new(Tan)),
+        ("math_tanh", Arc::new(Tanh)),
+        ("math_tau", Arc::new(Tau)),
+        ("math_trunc", Arc::new(Trunc)),
+        ("math_u32", Arc::new(U32)),
+    ]
 }

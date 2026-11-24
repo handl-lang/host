@@ -1632,6 +1632,7 @@ dependencies = [
  "hnl-engine",
  "hnl-exec-tree-walk",
  "iri-string",
+ "serde",
  "serde_json",
  "serde_yaml",
  "tar",

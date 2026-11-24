@@ -18,6 +18,7 @@
 //!   the op impls (moved from `plugin-lib-utils`).
 
 pub mod arrow_iter;
+pub mod atoms;
 // `function_value` + `shared` moved to the `lib-ops` repo (shared op helpers,
 // throwaway until ops are handl). Re-exported so `crate::shared` /
 // `crate::function_value` keep resolving for the ops modules here.

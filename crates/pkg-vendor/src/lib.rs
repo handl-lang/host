@@ -2,7 +2,8 @@
 //!
 //! A consumer that must stay **hermetic** (every `kit-*`, and
 //! `plugin-lib-stdlib`) cannot load its `.hnl` at runtime. Instead its `build.rs`
-//! calls [`vendor`] once, which copies the package (`pkg.hnl` + `src/**/*.hnl`)
+//! calls [`vendor`] once, which copies the package (`pkg.hnl` + `src/**/*.hnl`
+//! + a top-level `atoms.yaml` atom spec when present)
 //! — plus any `handl-packages/**/*.hnl` payload (e.g. `lib-intl-c`'s
 //! codegen-generated ICU port/adapter sources, which table specs embed
 //! directly) — into `OUT_DIR/<package>` and prints `cargo:rerun-if-changed`.
@@ -57,6 +58,15 @@ pub fn vendor_into(pkg_dir: &Path, out_root: &Path) -> Result<PathBuf, String> {
         &pkg_dir.join("handl-packages"),
         &dest.join("handl-packages"),
     )?;
+    // `atoms.yaml` (P-013 T-149): the per-lib atom IDL — like `pkg.hnl`,
+    // a top-level spec file, not `.hnl` source, so `copy_hnl` skips it.
+    // Optional: only libs with native atoms ship one.
+    let atoms = pkg_dir.join("atoms.yaml");
+    if atoms.is_file() {
+        std::fs::copy(&atoms, dest.join("atoms.yaml"))
+            .map_err(|e| format!("vendor: {}: {e}", atoms.display()))?;
+        println!("cargo:rerun-if-changed={}", atoms.display());
+    }
     normalize_single_module(&dest);
     Ok(dest)
 }
