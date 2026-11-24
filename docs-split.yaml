@@ -5,6 +5,11 @@
 # runs `git filter-repo --paths-from-file <file> --path-rename project/:`
 # on a CLONE of host, emitting an orphan `project` branch per repo.
 #
+# Post-split (ADR-0129 done): `repos:` lists only files that live in THIS
+# worktree (`host` + the imported `lang` ledger). ADRs that live on other
+# repos' `project` branches — or whose repos were retired — are registry
+# entries under `local_adrs:` so their numbers stay reserved.
+#
 # Invariants (checked by the script):
 #   * every path under project/ appears exactly once, or as a `splits:` parent;
 #   * a `splits:` parent's file stays in `host` and its halves are new
@@ -14,9 +19,6 @@
 
 version: 1
 
-# Cross-cutting ADRs: the parent file stays in `host`; each target gets a
-# NEW ADR (allocated from registry/INDEX.md) carrying the moved half. Numbers are never
-# reused, so `host` keeps the canonical citation.
 splits:
   - parent: adrs/0044-language-as-data-and-runtime-split.md
     stays: host
@@ -70,12 +72,12 @@ splits:
     targets:
       - repo: c
         number: "0136"
-        slug: sdkgen-c-backend-ownership
+        slug: adr-0136-sdkgen-c-backend-ownership
         title: "sdkgen-c backend ownership"
         topic: "sdkgen-c backend"
       - repo: web
         number: "0137"
-        slug: sdkgen-webidl-and-js-emitters
+        slug: adr-0137-sdkgen-webidl-backend-and-the-js-emitters
         title: "sdkgen-webidl backend and the JS emitters"
         topic: "sdkgen-webidl backend + JS emitters"
       - repo: python
@@ -86,29 +88,29 @@ splits:
   - parent: adrs/0114-handl-compile-plugin-architecture.md
     stays: host
     targets:
-      - repo: compile-dot
+      - repo: tool-compile-dot
         number: "0139"
-        slug: compile-dot-target
+        slug: adr-0139-compile-dot-target
         title: "compile-dot target"
         topic: "compile-dot target"
-      - repo: compile-term
+      - repo: tool-compile-term
         number: "0140"
-        slug: compile-term-target
+        slug: adr-0140-compile-term-target
         title: "compile-term target"
         topic: "compile-term target"
-      - repo: compile-sexp
+      - repo: tool-compile-sexp
         number: "0141"
-        slug: compile-sexp-target
+        slug: adr-0141-compile-sexp-target
         title: "compile-sexp target"
         topic: "compile-sexp target"
-      - repo: compile-handl
+      - repo: tool-compile-handl
         number: "0142"
-        slug: compile-handl-target
+        slug: adr-0142-compile-handl-target
         title: "compile-handl target"
         topic: "compile-handl target"
       - repo: web
         number: "0143"
-        slug: compile-js-target
+        slug: adr-0143-compile-js-target
         title: "compile-js target"
         topic: "compile-js target"
       - repo: native
@@ -122,109 +124,148 @@ splits:
       - repo: "each target repo"
         topic: "that repo's extraction plan (its Phase row, expanded) as a task"
 
+
+
+
 repos:
+
   host:
     root:
-      - TODO.md
       - BACKLOG.md
-      - parked.yaml
+      - DECISIONS.md
+      - DONE.md
+      - README.md
+      - TODO.md
       - docs-split.yaml
-      - registry/INDEX.md
+      - index.md
+      - kit-prelude-lang-stash0-instance-declarations.patch
+      - meta.toml
+      - parked.yaml
     adrs:
+      - .duplicates
       - 0001-host-bundles.md
-      - 0001-library-crates-are-platform-plugins.md
-      - 0002-handl-platform-composable-host-remaining.md
-      - 0002-platform-is-agnostic.md
-      - 0009-strategy-c-runtime-module-loading.md
-      - 0010-package-manager.md
-      - 0012-versioning.md
-      - 0014-formatter.md
-      - 0015-linter.md
-      - 0022-lexer-architecture.md
-      - 0023-modular-ast-common.md
-      - 0024-parser-common.md
+      - 0002-adr-0002-remaining-plugin-library-conversion-and-module-abstraction.md
+      - 0003-library-crates-are-exposed-as-platform-plugins.md
+      - 0004-platform-is-agnostic-of-language-specific-plugins.md
+      - 0009-adr-0009-strategy-c-runtime-module-loading-as-handler-interpreted-ops.md
+      - 0010-package-manager-content-addressed-diff-based-composable-stores.md
+      - 0012-versioning-for-language-artifacts.md
+      - 0014-handl-formatter.md
+      - 0015-adr-0015-linter.md
+      - 0022-lexer-architecture-self-hosted-streaming-with-runtime-config.md
+      - 0023-modular-ast-ast-common-and-handl-ast.md
+      - 0024-agnostic-parser-engine-handl-parser-common-and-handl-parser-canonical-on-top.md
       - 0027-vm-crate-restructure.md
-      - 0028-pluggable-module-composition.md
-      - 0030-lib-lang.md
-      - 0031-platform-abstractions.md
-      - 0035-loaders-as-plugins.md
-      - 0036-host-applier-as-plugin.md
-      - 0037-plugin-resolution-and-excludes.md
-      - 0038-ignored-test-inventory-and-triage.md
-      - 0039-kits-are-curated-plugin-lists.md
-      - 0040-vm-is-an-operation-not-a-subsystem.md
-      - 0041-languages-as-first-class-values.md
-      - 0042-transformations-as-first-class-values.md
-      - 0043-proofs-as-first-class-values.md
-      - 0046-capability-discipline-at-the-language-level.md
-      - 0047-meta-functions-as-plugin-lib-crates.md
-      - 0048-modules-as-first-class-values.md
-      - 0049-modules-are-evaluated-environments.md
-      - 0050-plugin-system-in-handl.md
-      - 0051-ffi-rust-binding-facade.md
-      - 0052-arrow-calculus-kernel.md
-      - 0053-generic-pratt-parser.md
-      - 0054-generic-typecheck-engine.md
-      - 0055-branded-values.md
-      - 0056-import-export-and-multi-file-programs.md
-      - 0058-generic-data-driven-engines.md
-      - 0059-generic-object-key-evaluation.md
-      - 0060-generic-call-dispatch.md
-      - 0061-generic-pattern-match.md
-      - 0063-scheme-core-completeness.md
-      - 0064-computational-language-authoring.md
-      - 0065-derived-artifact-cache-and-compression.md
-      - 0066-dependency-graph-chunking.md
-      - 0067-chunk-certificates.md
-      - 0069-arrow-native-modules.md
-      - 0070-refinement-inference-scope.md
-      - 0072-concurrent-arrow-calculus.md
-      - 0081-data-driven-ast-child-roles.md
-      - 0085-bootstrap-tooling-strategy.md
-      - 0086-bootstrap-formatter.md
-      - 0087-bootstrap-linter.md
-      - 0088-bootstrap-typechecker.md
-      - 0089-bootstrap-test-runner.md
-      - 0090-bootstrap-cli.md
-      - 0091-plugin-ext-diag.md
-      - 0094-generic-ast-transform-engine.md
-      - 0095-formatter-as-production-pipeline.md
-      - 0096-module-resolution.md
-      - 0097-lint-rules-as-data.md
-      - 0098-one-language-multiple-interpreters.md
-      - 0099-plugin-engine-vs-ext-crate-boundaries.md
-      - 0100-canonical-term-arrows.md
-      - 0100-directed-hott-limit.md
-      - 0100-handl-natives-wire.md
-      - 0103-kernel-is-evaluator-not-calculus.md
-      - 0104b-minimal-term-core.md
-      - 0105-typechecker-in-handl.md
-      - 0106-object-arrow-kernel.md
-      - 0120-paper-implementation-alignment.md
-      - 0123-ast-shape-faces.md
-      - 0124-capability-language-handoff.md
-      - 0126-kernel-boundary-and-the-idea-ledger.md
-      - 0127-transform-rule-replace.md
-      - REVIEW_SUMMARY.md
-      # split parents (canonical half stays here)
-      - 0044-language-as-data-and-runtime-split.md
-      - 0077-stdlib-migration-to-handl.md
-      - 0083-ffi-native-stdlib.md
-      - 0092-test-framework-in-handl.md
-      - 0093-string-char-unicode-layering.md
-      - 0107-handl-sdk-generator.md
-      - 0114-handl-compile-plugin-architecture.md
-      - 0128-target-repos.md
-      - 0129-project-docs-topology.md
+      - 0028-adr-0028-pluggable-module-composition.md
+      - 0030-adr-0030-lib-lang-expose-the-handl-language-as-a-reusable-library.md
+      - 0031-adr-0031-platform-abstractions.md
+      - 0035-adr-0035-loaders-as-abstract-plugins.md
+      - 0036-adr-0036-host-applier-as-a-plugin.md
+      - 0037-adr-0037-plugin-resolution-and-excludes.md
+      - 0038-adr-0038-ignored-test-inventory-and-triage.md
+      - 0039-adr-0039-kits-are-curated-plugin-lists-not-implementations.md
+      - 0040-adr-0040-vm-is-an-operation-not-a-subsystem.md
+      - 0041-adr-0041-languages-as-first-class-values.md
+      - 0042-adr-0042-transformations-as-first-class-values.md
+      - 0043-adr-0043-proofs-as-first-class-values.md
+      - 0044-adr-0044-language-as-data-and-runtime-split.md
+      - 0046-adr-0046-capability-discipline-at-the-language-level.md
+      - 0047-adr-0047-meta-functions-as-plugin-lib-crates.md
+      - 0048-adr-0048-modules-as-first-class-values.md
+      - 0049-adr-0049-modules-are-evaluated-environments.md
+      - 0050-adr-0050-plugin-system-in-handl.md
+      - 0051-adr-0051-ffi-rust-generic-rust-binding-facade.md
+      - 0052-adr-0052-arrow-calculus-kernel.md
+      - 0053-adr-0053-generic-pratt-parser-grammar-data-replaces-per-construct-branches.md
+      - 0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md
+      - 0055-adr-0055-tagged-values.md
+      - 0056-adr-0056-import-export-and-multi-file-programs.md
+      - 0058-adr-0058-generic-data-driven-engines.md
+      - 0059-adr-0059-generic-object-key-evaluation.md
+      - 0060-adr-0060-generic-call-dispatch.md
+      - 0061-adr-0061-generic-pattern-match.md
+      - 0063-adr-0063-scheme-core-completeness-for-self-hosting.md
+      - 0064-adr-0064-computational-language-authoring.md
+      - 0065-adr-0065-derived-artifact-cache-and-compression.md
+      - 0066-adr-0066-dependency-graph-chunking.md
+      - 0067-adr-0067-chunk-certificates.md
+      - 0069-adr-0069-arrow-native-modules.md
+      - 0070-adr-0070-refinement-inference-scope-deterministic-dataflow.md
+      - 0072-adr-0072-concurrent-arrow-calculus.md
+      - 0077-adr-0077-stdlib-migration-to-handl-op-declarations-axioms-and-the-elimination-of-per-library-rust.md
+      - 0081-adr-0081-data-driven-ast-child-roles-closing-the-last-engine-hardcoding.md
+      - 0083-adr-0083-ffi-native-stdlib-handl-over-direct-c-posix-bindings.md
+      - 0085-adr-0085-bootstrap-tooling-strategy-rust-tooling-on-the-generic-substrate.md
+      - 0086-adr-0086-bootstrap-formatter-plugin-ext-fmt.md
+      - 0087-adr-0087-bootstrap-linter-plugin-ext-lint.md
+      - 0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md
+      - 0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md
+      - 0090-adr-0090-bootstrap-cli-host-cli.md
+      - 0091-adr-0091-shared-diagnostics-crate-plugin-ext-diag.md
+      - 0092-adr-0092-test-framework-in-handl.md
+      - 0093-adr-0093-string-char-unicode-layering.md
+      - 0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md
+      - 0095-adr-0095-formatter-as-a-production-pipeline.md
+      - 0096-adr-0096-module-resolution-path-based-imports-handl-toml-path-dependencies.md
+      - 0097-adr-0097-lint-rules-as-language-data.md
+      - 0098-adr-0098-one-language-multiple-interpreters-a-graded-arrow-calculus.md
+      - 0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md
+      - 0100-adr-0100-canonical-term-arrows.md
+      - 0101-adr-0101-the-directed-hott-limit-of-the-term-calculus.md
+      - 0102-wiring-hnl-modules-into-handlnativelint-and-handlnativerewrite.md
+      - 0103-adr-0103-the-kernel-is-the-evaluator-not-the-calculus.md
+      - 0105-adr-0105-typechecker-in-handl.md
+      - 0106-adr-0106-the-object-arrow-kernel.md
+      - 0107-adr-0107-handl-sdk-generator.md
+      - 0114-adr-0114-handl-compile-plugin-architecture.md
+      - 0120-adr-0120-paper-implementation-alignment.md
+      - 0123-implementation-finding.md
+      - 0124-adr-0124-handing-a-language-to-capability-plugins.md
+      - 0126-adr-0126-kernel-boundary-and-the-idea-ledger-for-retired-reifications.md
+      - 0127-adr-0127-transformrule-replace-a-rule-form-for-root-eliminating-rewrites.md
+      - 0128-adr-0128-target-repos-repo-target-module-one-port-implementation.md
+      - 0129-adr-0129-project-docs-topology-for-the-target-repo-split.md
+      - 0147-adr-0147-lower-the-while-state-fold-to-loop-explicit-protocol-ops.md
+      - 0148-adr-0148-lower-call-dimension-application-to-app-terms.md
+      - 0149-adr-0149-host-cli-is-a-dumb-host-ext-extensions-load-dynamically.md
+      - 0150-adr-0150-repo-visibility-is-derived-from-the-dep-closure-not-chosen-per-repo.md
+      - 0151-adr-0151-exec-erases-type-annotations-signatures-are-typecheck-owned-metadata.md
+      - 0152-adr-0152-data-is-a-nominal-former-constructor-arrows-dependent-eliminator.md
+      - 0153-adr-0153-n-is-a-dimension-index-n-cells-as-one-indexed-former.md
+      - 0154-adr-0154-typecheck-semantics-identity-equality-universes-literals-erasure.md
+      - 0155-adr-0155-scope-bound-arrow-environments.md
+      - 0156-adr-0156-module-environments-are-parameters-not-construction-state.md
+      - 0157-adr-0157-mlopt-on-the-fragment-tower-domain-vocabularies-as-language-fragments.md
+      - 0158-adr-0158-effect-resumption-semantics-perform-handle-as-algebra-homomorphisms-on-free-arrow-algebras.md
+      - 0159-adr-0159-optimizer-domains-dissolve-into-ext-tools-on-a-trigger.md
+      - 0160-adr-0160-lib-repos-are-language-packages-not-crates.md
+      - 0161-adr-0161-an-adr-is-a-one-page-decision-record.md
+      - 0162-adr-0162-project-holds-process-artifacts-published-docs-live-in-the-org-docs.md
+      - 0163-adr-0163-every-project-artifact-declares-its-metadata-in-yaml-frontmatter.md
+      - 0164-adr-0164-ports-are-types-implementations-are-named-for-what-they-do.md
+      - 0165-adr-0165-the-kernel-ir-is-a-term-plus-kit-declared-ops.md
+      - 0166-adr-0166-the-ir-gains-pipeline-depth-and-the-schedule-programme-stops-there.md
+      - 0167-adr-0104b-minimal-term-core-with-generic-combinators.md
+      - 0168-adr-index.md
+      - 0169-adr-review-and-archive-summary.md
+      - 0170-adr-nnnn-the-decision-stated-as-a-fact-x-is-y-not-about-x.md
+      - 0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md
+      - 0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md
+      - 0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md
+      - 0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md
+      - 0175-adr-0175-the-dissolution-map-every-repo-finds-its-layer-mlopt-becomes-a-kit.md
+      - 0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md
+      - 0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md
+      - 0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md
     adrs_archived:
-      - 0001-generic-node-and-plugin-driven-canonical-kit.md
       - 0001-generic-node-and-plugin-driven-canonical-kit-remaining-archived.md
-      - 0002-handl-platform-composable-host.md
+      - 0001-generic-node-and-plugin-driven-canonical-kit.md
       - 0002-handl-platform-composable-host-v1-complete.md
+      - 0002-handl-platform-composable-host.md
       - 0006-generics.md
       - 0009-typegen-json-schema.md
-      - 0032-types-as-values.md
       - 0032-types-as-values-v1-complete.md
+      - 0032-types-as-values.md
       - 0033-unified-plugin-crate-naming.md
       - 0034-zero-monolith-plugin-driven-platform.md
       - 0083-flatten-handl-packages-layout.md
@@ -240,14 +281,176 @@ repos:
     notes:
       - ast-based-inlining.md
       - module-async-operations.md
+      - multishot-resume-cranelift.md
       - rust-to-handl.md
+      - scope-assessment-types-as-values.md
       - split-branches.md
       - tree-shaking.md
     reports:
       - 2026-02-language-cleanup.md
       - adr-0095-formatter-pipeline.md
+      - adr_binary_tensor_channel.md
+      - arch_coverage_wave2.md
       - arrow-automated-proof-landing.md
+      - audit_pass_1.md
+      - audit_pass_10.md
+      - audit_pass_11.md
+      - audit_pass_12.md
+      - audit_pass_13.md
+      - audit_pass_14.md
+      - audit_pass_15.md
+      - audit_pass_16.md
+      - audit_pass_17.md
+      - audit_pass_18.md
+      - audit_pass_19.md
+      - audit_pass_2.md
+      - audit_pass_20.md
+      - audit_pass_21.md
+      - audit_pass_22.md
+      - audit_pass_24.md
+      - audit_pass_3.md
+      - audit_pass_4.md
+      - audit_pass_5.md
+      - audit_pass_6.md
+      - d1e_kit_torch_done.md
+      - d1e_kit_torch_prep.md
+      - d1f_kit_host_tensor_prep.md
+      - d2_dryrun.md
+      - d2_dryrun_refresh.md
+      - d2_execution_runbook.md
+      - d2_gh_preflight.md
+      - d2_merge_prep.md
+      - d2_merged_smoke.md
+      - delivery_prior_autopsy.md
+      - delivery_prior_v5_negative.md
+      - delivery_prior_v6_result.md
+      - delivery_v6_corpus.md
+      - delivery_v7_corpus.md
+      - delivery_v7_training.md
+      - delivery_v7_training_retry.md
+      - dogfood-json-report.md
+      - engine-eqsat-spike.md
+      - engine_eqsat_post_i003_verify.md
+      - eqsat_gpt2_scale_profile.md
+      - eqsat_v0110_perf_check.md
+      - gpt2_e2e.md
+      - gpt2_e2e_canonical.md
+      - graphopt_gates_v0121.md
+      - hnl-run-spike.md
+      - hnl_laws_spike.md
+      - hnl_run_scale_spike.md
+      - hnl_run_stdin_flake.md
+      - i002_cuda_poison_rca.md
+      - joint_safe_merge_prep.md
+      - joint_safe_preset.md
+      - layout_law_budgets_fix.md
+      - llama1_verify_run.md
+      - llama22_verify_run.md
+      - llama8_verify_run.md
+      - llama_e2e.md
+      - llama_e2e_retry.md
+      - mlopt_dissolution_plan.md
+      - mlopt_egraph_demotion_plan.md
+      - mlopt_step_d_impact_map.md
+      - mlopt_step_e_plan.md
+      - onnx_lifter_rust_spike.md
+      - p3_codec_consolidation_spike.md
+      - post_cascade_landing.md
+      - repin_cascade_eqsat_v0110.md
+      - repin_cascade_eqsat_v0112.md
+      - repo_hygiene_sweep.md
+      - rust-adapter-spike.md
+      - rust_corpus_pin_check.md
+      - session_2026-11-19.md
+      - step_e_dryrun.md
+      - step_e_ir_census.md
+      - step_e_term_repr_b_plan.md
+      - stepe_dialect_census.md
+      - stepe_discoverykit_codec.md
+      - stepe_eqsat_conststr_flip.md
+      - stepe_graphopt_bench.md
+      - stepe_kernelopt_codec.md
+      - stepe_kitdiscovery_hnlcodec.md
+      - stepe_kitonnx_codec.md
+      - stepe_kittorch_codec.md
+      - stepe_leafkits_codec.md
+      - stepe_mlopt_stage.md
+      - stepe_remaining_lanes.md
+      - stepe_sourceonnx_dialect.md
+      - stepe_tail_plan.md
+      - t5_verify_run.md
+      - tagged-value-tensor.md
+      - tensor_load_spike.md
+      - wp4_parity_sweep.md
+      - wp4_parity_sweep_v2.json
+      - wp4_parity_sweep_v2.md
+      - wp4_parity_sweep_v2_wipbinary.json
+      - wp4_parity_sweep_v3.json
+      - wp4_parity_sweep_v3.md
+      - wp4_parity_sweep_v4.json
+      - wp4_parity_sweep_v4.md
+    rfcs:
+      - 0077-stdlib-migration.md
     design:
+      - 0002-handl-platform-composable-host-remaining.md
+      - 0009-strategy-c-runtime-module-loading.md
+      - 0010-package-manager.md
+      - 0014-formatter.md
+      - 0015-linter.md
+      - 0024-parser-common.md
+      - 0028-pluggable-module-composition.md
+      - 0031-platform-abstractions.md
+      - 0035-loaders-as-plugins.md
+      - 0036-host-applier-as-plugin.md
+      - 0038-ignored-test-inventory-and-triage.md
+      - 0039-kits-are-curated-plugin-lists.md
+      - 0040-vm-is-an-operation-not-a-subsystem.md
+      - 0041-languages-as-first-class-values.md
+      - 0042-transformations-as-first-class-values.md
+      - 0043-proofs-as-first-class-values.md
+      - 0044-language-as-data-and-runtime-split.md
+      - 0046-capability-discipline-at-the-language-level.md
+      - 0047-meta-functions-as-plugin-lib-crates.md
+      - 0049-modules-are-evaluated-environments.md
+      - 0050-plugin-system-in-handl.md
+      - 0052-arrow-calculus-kernel.md
+      - 0053-generic-pratt-parser.md
+      - 0054-generic-typecheck-engine.md
+      - 0055-branded-values.md
+      - 0056-import-export-and-multi-file-programs.md
+      - 0060-generic-call-dispatch.md
+      - 0061-generic-pattern-match.md
+      - 0063-scheme-core-completeness.md
+      - 0064-computational-language-authoring.md
+      - 0065-derived-artifact-cache-and-compression.md
+      - 0066-dependency-graph-chunking.md
+      - 0067-chunk-certificates.md
+      - 0069-arrow-native-modules.md
+      - 0081-data-driven-ast-child-roles.md
+      - 0083-ffi-native-stdlib.md
+      - 0086-bootstrap-formatter.md
+      - 0087-bootstrap-linter.md
+      - 0089-bootstrap-test-runner.md
+      - 0092-test-framework-in-handl.md
+      - 0093-string-char-unicode-layering.md
+      - 0094-generic-ast-transform-engine.md
+      - 0095-formatter-as-production-pipeline.md
+      - 0096-module-resolution.md
+      - 0098-one-language-multiple-interpreters.md
+      - 0099-plugin-engine-vs-ext-crate-boundaries.md
+      - 0100-canonical-term-arrows.md
+      - 0100-directed-hott-limit.md
+      - 0103-kernel-is-evaluator-not-calculus.md
+      - 0105-typechecker-in-handl.md
+      - 0106-object-arrow-kernel.md
+      - 0107-handl-sdk-generator.md
+      - 0114-handl-compile-plugin-architecture.md
+      - 0120-paper-implementation-alignment.md
+      - 0124-capability-language-handoff.md
+      - 0128-target-repos.md
+      - 0152-data-nominal-inductive-families.md
+      - 0155-scope-bound-arrow-environments.md
+      - 0160-lib-repos-are-language-packages.md
       - adr0103/arrow_model.hnl
       - adr0103/deletion-plan.md
       - adr0103/exec_model.hnl
@@ -255,16 +458,48 @@ repos:
       - adr0103/meta_model.hnl
       - adr0103/scope_model.hnl
       - adr0103/totality_model.hnl
-      - adr0103/typecheck_model.hnl
       - adr0103/type_model.hnl
+      - adr0103/typecheck_model.hnl
       - adr0103/value_model.hnl
       - adr0103/vm_design.md
-    assets:
-      - scope-assessment-types-as-values.md
+      - multishot-resume.md
+      - phase1-typesystem-spec.md
+      - phase2-typesystem-spec.md
+      - phase3-typesystem-spec.md
+      - phase4-typesystem-spec.md
+      - semantics.md
+      - typecheck_model.hnl
+    proposals:
+      - .gitkeep
+      - proposal-0001-weekend-org-wide-readme-license-metadata-normalization-pkg-hnl-annotations-repo-renames-kit-lib-hnl-only-migration.md
+      - proposal-0002-kit-lib-hnl-only-migration-plan.md
+      - proposal-0003-lib-truly-hnl-only-ffi-call-bindings-tool-sdkgen-emits-hnl-atoms-stay-in-rust-registries.md
+      - proposal-0004-kit-system-kit-hnl-manifests-use-case-kits-lib-gap-analysis.md
+      - proposal-0005-lib-http-route-v3-pattern-compiler.md
+      - proposal-0006-lib-http-route-resources-resource-rest-generators.md
+      - proposal-0007-lib-http-middleware-request-scoped-pipeline.md
+      - proposal-0008-lib-route-transport-agnostic-router-middleware-pipeline.md
+      - proposal-0009-lib-lex-data-driven-lexer.md
+      - proposal-0010-hnl-repl.md
+      - proposal-0011-lib-route-transport-agnostic-router-pipeline.md
+    handoffs:
+      - .gitkeep
+      - I-001.md
+      - T-101.md
+    issues:
+      - .gitkeep
+      - issue-0001-pushed-commits-fail-to-compile-handl-lib-base64-missing.md
+      - issue-0002-nondeterministic-cuda-context-poison-in-delivery-eval.md
+      - issue-0003-eqsat-joint-pass-perf-regression-layout-laws-unbounded-in-compositional-cross-pairs.md
+    plans:
+      - .gitkeep
+    registry:
+      - INDEX.md
 
-  # kit-data-prelude's ledger was imported into host/project/adrs and
-  # renumbered ADR-0179..ADR-0205 (provenance lines in each file); the
-  # registry repo label stays `lang` — these are the lang ADRs.
+  # kit-data-prelude's ledger was imported into this worktree and
+  # renumbered ADR-0179..ADR-0207; the `lang` repo itself no longer exists
+  # in the org, so these files physically live here but stay labelled
+  # `lang` (they are the lang ADRs).
   lang:
     adrs:
       - 0179-options-object-over-named-arguments.md
@@ -296,129 +531,218 @@ repos:
       - 0205-adr-0205-n-dimensional-arrow-calculus.md
       - 0206-adr-0206-language-data-assembly-in-the-lang-repo.md
       - 0207-adr-generic-arrow-calculus-for-any-dimension.md
+    design:
+      - 0181-s-schema-vocabulary.md
+      - 0182-schema-refs.md
+      - 0183-type-aliases.md
+      - 0184-annotations.md
+      - 0185-custom-fields.md
+      - 0186-dependencies-field.md
+      - 0188-modality-as-projection.md
+      - 0190-vau-as-a-typed-escape.md
+      - 0192-predicates-as-types.md
+      - 0194-state-machine-invariants.md
+      - 0195-arrow-syntax-v0_1-surface-redesign.md
+      - 0196-traits-as-arrow-signatures.md
+      - 0197-decoupled-trait-layer.md
+      - 0198-value-types-as-data.md
+      - 0200-inductive-types.md
+      - 0201-arrow-macros.md
+      - 0202-frontier-calculus.md
+      - 0203-session-types-grades.md
+      - 0205-n-dimensional-arrow-calculus.md
+      - 0207-generic-arrow-calculus-any-dimension.md
     tasks:
-      - adr0082-steps5-6.md
-
-  kit-canonical:
-    # no existing ADRs; owns the 0092 child (test-framework package ownership)
-
-  stdlib:
-    adrs:
-      - 0013-standard-library.md
-      - 0018-stdlib-functions.md
-      - 0019-custom-functions.md
-      - 0031-lib-template-and-escaping.md
-      - 0107-rand-ffi.md
-      - 0108-os-ffi.md
-      - 0109-noise-ffi.md
+      - adr0200-steps5-6.md
+      - kit-data-prelude-0128-extraction.md
     notes:
-      - format-template.md
-      - lib-diff.md
-      - lib-fuzzy.md
-      - lib-re.md
-      - lib-text.md
-    assets:
-      - ecma402-parity.md
+      - kit-data-prelude-references.md
 
-  web:
-    adrs:
-      - 0003-ac-frontend-custom-syntax.md
-      - 0021-hmr.md
-      - 0025-http-server-remaining.md
-      - 0113-handl-sdkgen-webidl-js.md
-      - 0115-handl-sdkgen-dts-js.md
-      - 0116-handl-sfc-format.md
-      - 0117-handl-view-component-syntax.md
-      - 0121-webidl-cross-spec-includes.md
-      - 0122-step-arrow-concurrency.md
-    adrs_archived:
-      - 0025-http-server.md
-      - 0025-http-server-v1-complete.md
-
-  python:
-    examples:
-      - sdkgen-python/fs.sdkgen.yaml
-      - sdkgen-python/json_lib.sdkgen.yaml
-
-  c:
-    adrs:
-      - 0110-handl-sdkgen-windows-macos.md
-      - 0111-handl-sdkgen-jvm.md
-      - 0112-handl-sdkgen-bukkit-spigot-paper.md
-
-  native:
-    adrs:
-      - 0061-truffle-backend.md
-      - 0062-jvm-bytecode-emitter-backend.md
-    tasks:
-      - import-op-cranelift.md
-
+  # The remaining repos keep their roster key for docs-mount, but their
+  # `project` branches already hold their docs — nothing under this
+  # worktree is assigned to them. `stdlib`, `meta`, `ffi`, `native`,
+  # `python`, `otlp` and `kit-canonical` were retired from the org; their
+  # ADR numbers stay reserved via `local_adrs:` below.
+  kit-canonical: {}
+  stdlib: {}
+  web: {}
+  python: {}
+  c: {}
+  native: {}
   compile-dot: {}
   compile-term: {}
   compile-sexp: {}
   compile-handl: {}
-
   otlp: {}
-
   extension-vscode: {}
   extension-neovim: {}
   playground: {}
   bench: {}
+  host-cli: {}
+  host-lsp: {}
+  meta: {}
+  ffi: {}
+  docs: {}
+  tool-compile-dot: {}
+  tool-compile-term: {}
+  tool-compile-sexp: {}
+  tool-compile-handl: {}
 
-  host-cli:
-    adrs:
-      - 0029-cli-as-capability-orchestrator.md
-    rfcs:
-      - 0007-cli-in-handl.md
-
-  host-lsp:
-    adrs:
-      - 0100-lsp-as-data.md
-      - ADR-LSP-remaining.md
-    adrs_archived:
-      - ADR-LSP.md
-    rfcs:
-      - 0006-lsp-server-in-handl.md
-
-  meta:
-    adrs:
-      - 0103-handl-metalanguage.md
-      - 0125-bootstrap-type-synthesis.md
-    tasks:
-      - 0125-bootstrap-type-synthesis.md
-    rfcs:
-      - 0001-plugin-system-in-handl.md
-      - 0002-formatter-in-handl.md
-      - 0003-linter-in-handl.md
-      - 0004-typechecker-in-handl.md
-      - 0005-test-runner-in-handl.md
-    # `design/adr0103/meta_model.hnl` stays in platform: handl-runtime's
-    # meta_model_test include_str!s it (see the CI note in ADR-0129).
-
-  ffi:
-    adrs:
-      - 0108-ffi-package-for-sdkgen.md
-      - 0109-ffi-partial-package-injection.md
-
-  docs:
-    root:
-      - principles.md
-    adrs:
-      - 0080-handl-press-docs-framework.md
-
-# ADRs written directly in a repo (not split children of a platform ADR).
-# The registry lists them so a number is never reused across repos.
+# ADRs whose files live on another repo's `project` branch (verified)
+# or whose repo was retired before the file could be re-verified.
+# `file` is the path on that repo's project branch (or last-known path for
+# retired repos — see `note`). Listed here so a number is never reused.
 local_adrs:
+  - repo: web
+    number: "0003"
+    title: 'handl Frontend: Custom `.handl` Syntax'
+    file: adrs/0003-handl-frontend-custom-handl-syntax.md
+  - repo: web
+    number: "0021"
+    title: Hot Module Replacement (HMR)
+    file: adrs/0021-hot-module-replacement-hmr.md
+  - repo: web
+    number: "0025"
+    title: 'ADR-0025 (Remaining): HTTP Client/Server v1.x and v2 Enhancements'
+    file: adrs/0025-adr-0025-remaining-http-client-server-v1-x-and-v2-enhancements.md
+  - repo: web
+    number: "0025"
+    slug: http-server
+    title: HTTP Client/Server Crate Split and Server Runtime (archived v1)
+    file: adrs/archived/0025-http-server.md
+  - repo: web
+    number: "0025"
+    slug: http-server-v1-complete
+    title: "ADR-0025 (Archived): HTTP Client/Server v1 \u2014 Complete"
+    file: adrs/archived/0025-http-server-v1-complete.md
+  - repo: web
+    number: "0113"
+    title: "ADR-0113: Handl SDK Generator \u2014 WebIDL / JS Backend"
+    file: adrs/0113-adr-0113-handl-sdk-generator-webidl-js-backend.md
+  - repo: web
+    number: "0115"
+    title: "ADR-0115: Handl SDK Generator \u2014 TypeScript Declaration (.d.ts) Backend"
+    file: adrs/0115-adr-0115-handl-sdk-generator-typescript-declaration-d-ts-backend.md
+  - repo: web
+    number: "0116"
+    title: 'ADR-0116: Handl Single-File Component (`.hfc`) Format'
+    file: adrs/0116-adr-0116-handl-single-file-component-hfc-format.md
+  - repo: web
+    number: "0117"
+    title: 'ADR-0117: Handl View / JSX-like Component Syntax for JS Targets'
+    file: adrs/0117-adr-0117-handl-view-jsx-like-component-syntax-for-js-targets.md
+  - repo: web
+    number: "0121"
+    title: "ADR-0121: WebIDL Cross-Spec `includes` \u2014 Supplementary Mixin Specs"
+    file: adrs/0121-adr-0121-webidl-cross-spec-includes-supplementary-mixin-specs.md
+  - repo: web
+    number: "0122"
+    title: 'Step-Arrow Concurrency: Handl-Authored Scheduler over epoll'
+    file: adrs/0122-step-arrow-concurrency-handl-authored-scheduler-over-epoll.md
+  - repo: c
+    number: "0110"
+    title: "ADR-0110: Handl SDK Generator \u2014 Windows and macOS C Backend Support"
+    file: adrs/0110-adr-0110-handl-sdk-generator-windows-and-macos-c-backend-support.md
+  - repo: c
+    number: "0111"
+    title: "ADR-0111: Handl SDK Generator \u2014 JVM Backend"
+    file: adrs/0111-adr-0111-handl-sdk-generator-jvm-backend.md
+  - repo: c
+    number: "0112"
+    title: "ADR-0112: Handl SDK Generator \u2014 Bukkit, Spigot, Paper Backend"
+    file: adrs/0112-adr-0112-handl-sdk-generator-bukkit-spigot-paper-backend.md
+  - repo: host-cli
+    number: "0029"
+    title: CLI as Capability Orchestrator
+    file: adrs/0029-cli-as-capability-orchestrator.md
+  - repo: host-lsp
+    number: "0100"
+    title: 'ADR-0100: LSP as Language Data'
+    file: adrs/0100-adr-0100-lsp-as-language-data.md
+  - repo: host-lsp
+    number: "0101"
+    title: 'ADR-LSP (Remaining): Hover and Exact Source-Position Resolution'
+    file: adrs/0101-adr-lsp-remaining-hover-and-exact-source-position-resolution.md
+  - repo: host-lsp
+    number: "—"
+    title: 'ADR: LSP Server as a Tooling Plugin (archived)'
+    file: adrs/archived/ADR-LSP.md
+  - repo: docs
+    number: "0080"
+    title: "ADR-0080: `handl-press` \u2014 A VitePress-Class Docs Framework Written In and Configurable\
+  \ Through Handl"
+    file: adrs/0080-adr-0080-handl-press-a-vitepress-class-docs-framework-written-in-and-configurable-through-handl.md
   - repo: extension-neovim
     number: "0145"
-    slug: handl-lsp-integration
-    title: "LSP-only Neovim integration"
-    file: adrs/0145-handl-lsp-integration.md
+    title: 'ADR-0145: LSP-only Neovim integration'
+    file: adrs/0145-adr-0145-lsp-only-neovim-integration.md
   - repo: lang
-    # was 0146 pre-import; renumbered ADR-0207 in the host merge
     number: "0207"
-    slug: adr-generic-arrow-calculus-for-any-dimension
-    title: "Generic Arrow Calculus for Any Dimension"
+    title: Generic Arrow Calculus for Any Dimension
     file: adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md
-
-
+    note: file lives in host/project (kit-data-prelude import)
+  - repo: stdlib
+    number: "0013"
+    title: handl Standard Library
+    file: adrs/0013-standard-library.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: stdlib
+    number: "0018"
+    title: Standard Library Functions
+    file: adrs/0018-stdlib-functions.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: stdlib
+    number: "0019"
+    title: Custom Functions via YAML
+    file: adrs/0019-custom-functions.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: stdlib
+    number: "0031"
+    title: lib-template
+    file: adrs/0031-lib-template-and-escaping.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: stdlib
+    number: "0107"
+    title: 'ADR-0107: Replace Rust `rand` with pure-handl FFI backends'
+    file: adrs/0107-rand-ffi.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: stdlib
+    number: "0108"
+    title: 'ADR-0108: Replace Rust `os` with pure-handl FFI backends'
+    file: adrs/0108-os-ffi.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: stdlib
+    number: "0109"
+    title: 'ADR-0109: Perlin and Simplex noise as pure-Handl packages'
+    file: adrs/0109-noise-ffi.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: meta
+    number: "0103"
+    title: 'ADR-0103: Handl as Its Own Metalanguage'
+    file: adrs/0103-handl-metalanguage.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: meta
+    number: "0125"
+    title: 'ADR-0125: A Rust bootstrap type synthesiser driven by `lang.types`'
+    file: adrs/0125-bootstrap-type-synthesis.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: ffi
+    number: "0108"
+    title: "ADR-0108: Handl FFI Package \u2014 Grade, Types and Error Arrows"
+    file: adrs/0108-ffi-package-for-sdkgen.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: ffi
+    number: "0109"
+    title: 'ADR-0109: Partial Package Injection for the `ffi` Surface'
+    file: adrs/0109-ffi-partial-package-injection.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: native
+    number: "0061"
+    title: 'ADR-0061: Truffle Backend'
+    file: adrs/0061-truffle-backend.md
+    note: "repo retired \u2014 last-known path, unverified"
+  - repo: native
+    number: "0062"
+    title: 'ADR-0062: JVM Bytecode Emitter Backend'
+    file: adrs/0062-jvm-bytecode-emitter-backend.md
+    note: "repo retired \u2014 last-known path, unverified"
