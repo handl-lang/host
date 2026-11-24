@@ -1269,6 +1269,7 @@ dependencies = [
  "handl-language",
  "handl-plugin-codemod",
  "hnl-tool-codegen",
+ "hnl-tool-transform",
  "serde",
  "serde_json",
  "tempfile",
@@ -3454,14 +3455,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[patch.unused]]
-name = "handl-plugin-compile-sexp"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-compile-handl"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "handl-plugin-compile-term"
 version = "0.1.0"
 
@@ -3478,20 +3471,8 @@ name = "handl-plugin-compile-llvm"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "handl-plugin-compile-dot"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-compile-term"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "compile-cuda"
 version = "0.0.1"
-
-[[patch.unused]]
-name = "handl-plugin-compile-js"
-version = "0.1.0"
 
 [[patch.unused]]
 name = "hnl-tool-typecheck-handl"
@@ -3503,10 +3484,6 @@ version = "0.1.0"
 
 [[patch.unused]]
 name = "handl-plugin-applier-default"
-version = "0.1.0"
-
-[[patch.unused]]
-name = "handl-plugin-compile-llvm"
 version = "0.1.0"
 
 [[patch.unused]]

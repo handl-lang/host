@@ -14,6 +14,8 @@ handl-plugin-codemod = { workspace = true }
 # The desired-state lifecycle kernel: FsStore + Engine
 # plan/apply/revert, manifest + journal under `.handl/codegen/`.
 hnl-tool-codegen = { workspace = true }
+# `codemod_command_with`'s extra-rewrite-layer seam (`NativeRewrite`).
+hnl-tool-transform = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

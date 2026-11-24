@@ -29,13 +29,30 @@
 //!
 //! `lang` is the canonical kit language injected by the host (ADR-0128
 //! §"The 0.8 seam") — registered as the `"handl"` target language.
-//! `handl:`/`native:` rewrite modules and `requires:` engine providers
-//! are host-wired through [`handl_plugin_codemod::Codemod`]; the CLI
-//! ships the kit-language wiring only (unregistered `handl:` modules
-//! and `requires:` engines decline honestly per the spec's
-//! `on_engine_error`).
+//!
+//! # Resolver wiring
+//!
+//! [`codemod_command`] ships the kit-language wiring only; hosts that
+//! can supply more call [`codemod_command_with`], which forwards
+//! extra [`NativeRewrite`] layers into
+//! [`Codemod::with_rewrite_layer`] — the `hnl-ext-codemod` packaging
+//! passes the kit's `handl:` `.hnl` rewrite adapter
+//! (`Kit::handl_rewrite_adapter`), so `rewrite: "handl:<mod>.<fn>"`
+//! rules dispatch into kit modules. Still unwired by the CLI:
+//!
+//! - `native:`/bare rewrite functions — there is no canonical codemod
+//!   native set; hosts register them via [`Codemod::with_native`] or a
+//!   [`CodemodRuleProvider`](handl_plugin_codemod::CodemodRuleProvider)
+//!   (the lint `--fix` path is the intended first consumer).
+//! - `requires:` [`EngineContextProvider`](handl_plugin_codemod::EngineContextProvider)s
+//!   — no concrete engine provider ships anywhere yet (a `typecheck`
+//!   provider is design work: `hnl-tool-typecheck` pulls host deps the
+//!   engine must not see, so it can only live plugin-side). Unregistered
+//!   engines stay an honest `EngineUnavailable` diagnostic under the
+//!   rule's `on_engine_error`.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use handl_language::Language;
 use handl_plugin_codemod::{Codemod, CodemodSpec, resolve_targets};
@@ -43,6 +60,7 @@ use hnl_tool_codegen::{
     ApplyOptions, ApplyReport, ArtifactStore, Engine, FsStore, Manifest, RevertReport, RunMeta,
     journal_ref,
 };
+use hnl_tool_transform::native::NativeRewrite;
 use serde::Serialize;
 
 /// The lifecycle verb `hnl codemod` dispatches.
@@ -71,8 +89,23 @@ impl Verb {
 ///
 /// `lang` is the canonical kit language — the host injects it because
 /// this crate must not link `handl-kit-prelude` (same seam as
-/// `codegen_command`).
+/// `codegen_command`). Equivalent to [`codemod_command_with`] with no
+/// extra rewrite layers.
 pub fn codemod_command(lang: &Language, args: &[String]) -> i32 {
+    codemod_command_with(lang, &[], args)
+}
+
+/// [`codemod_command`] plus caller-supplied extra [`NativeRewrite`]
+/// layers, forwarded to [`Codemod::with_rewrite_layer`] in order — the
+/// seam hosts use to reach `handl:<mod>.<fn>` `.hnl` rewrite modules
+/// (e.g. `Kit::handl_rewrite_adapter`) and `native:` functions the CLI
+/// does not ship itself. The engine's internal `codemod.delete` layer
+/// always stays ahead of these.
+pub fn codemod_command_with(
+    lang: &Language,
+    rewrite_layers: &[Arc<dyn NativeRewrite>],
+    args: &[String],
+) -> i32 {
     let usage = "usage: hnl codemod [plan|apply|revert] <spec.yaml> [--root <dir>] [--target <glob>] [--json] [--check|--dry-run] [--run <id>] [--keep-going]";
     if args.is_empty() {
         eprintln!("{usage}");
@@ -169,6 +202,7 @@ pub fn codemod_command(lang: &Language, args: &[String]) -> i32 {
         ),
         Verb::Plan | Verb::Apply => run_spec_command(
             lang,
+            rewrite_layers,
             verb,
             &root_path,
             spec_arg.as_deref().expect("arity"),
@@ -198,6 +232,7 @@ struct SpecFlags<'a> {
 /// `CodemodEngine::plan` → (apply) `Engine::apply`.
 fn run_spec_command(
     lang: &Language,
+    rewrite_layers: &[Arc<dyn NativeRewrite>],
     verb: Verb,
     root: &Path,
     spec_path: &str,
@@ -217,7 +252,10 @@ fn run_spec_command(
         }
     };
 
-    let codemod = Codemod::new().with_kit_language(lang);
+    let mut codemod = Codemod::new().with_kit_language(lang);
+    for layer in rewrite_layers {
+        codemod = codemod.with_rewrite_layer(Arc::clone(layer));
+    }
     let spec = match codemod.merge_spec(&spec) {
         Ok(s) => s,
         Err(issues) => {
