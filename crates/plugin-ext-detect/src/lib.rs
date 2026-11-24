@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn plain_handl_source_is_canonical() {
-        assert_eq!(detect_dialect("x = 1;"), Dialect::Canonical);
+        assert_eq!(detect_dialect("x := 1;"), Dialect::Canonical);
         assert_eq!(detect_dialect(""), Dialect::Canonical);
         assert_eq!(
             detect_dialect("-- a comment\nmain := (x) ~> x;"),
@@ -165,7 +165,7 @@ mod tests {
             Dialect::Contract
         );
         // An axiom that is *not* the first statement is canonical.
-        assert_eq!(detect_dialect("x = 1;\naxiom a: true"), Dialect::Canonical);
+        assert_eq!(detect_dialect("x := 1;\naxiom a: true"), Dialect::Canonical);
     }
 
     #[test]
@@ -181,10 +181,10 @@ mod tests {
     #[test]
     fn arrow_combinators_are_arrow() {
         assert_eq!(detect_dialect("arr(f)"), Dialect::Arrow);
-        assert_eq!(detect_dialect("x = comp(f, g)"), Dialect::Arrow);
-        assert_eq!(detect_dialect("x = rec { go }"), Dialect::Arrow);
+        assert_eq!(detect_dialect("x := comp(f, g)"), Dialect::Arrow);
+        assert_eq!(detect_dialect("x := rec { go }"), Dialect::Arrow);
         // Combinator words inside comments do not count.
-        assert_eq!(detect_dialect("-- arr(f) here\nx = 1"), Dialect::Canonical);
+        assert_eq!(detect_dialect("-- arr(f) here\nx := 1"), Dialect::Canonical);
     }
 
     #[test]
@@ -195,8 +195,8 @@ mod tests {
         assert_eq!(detect_dialect("fn.comp(f, g)"), Dialect::Canonical);
         // Longer identifiers ending in a combinator name.
         assert_eq!(detect_dialect("my_comp(x)"), Dialect::Canonical);
-        assert_eq!(detect_dialect("imported_and = 1"), Dialect::Canonical);
+        assert_eq!(detect_dialect("imported_and := 1"), Dialect::Canonical);
         // `record {` is not `rec {`.
-        assert_eq!(detect_dialect("x = record { a = 1 }"), Dialect::Canonical);
+        assert_eq!(detect_dialect("x := record { a := 1 }"), Dialect::Canonical);
     }
 }

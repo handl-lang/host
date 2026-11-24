@@ -1391,10 +1391,10 @@ mod tests {
     /// trailing record projecting every bound name.
     #[test]
     fn no_exports_projects_all_bindings() {
-        let src = "helper :: x ~> x + 1\nother := helper(1)";
+        let src = "helper := x ~> x + 1\nother := helper(1)";
         assert_eq!(
             transform_export_to_object(src, &[]),
-            "do {\nhelper :: x ~> x + 1\nother := helper(1)\n{ helper: helper, other: other }\n}"
+            "do {\nhelper := x ~> x + 1\nother := helper(1)\n{ helper: helper, other: other }\n}"
         );
     }
 

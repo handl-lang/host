@@ -4,6 +4,6 @@
 --- discharge a signature that claims only `puts`:
 --- `cannot unify — expected io({puts: …}), got io({fs: …, puts: …})`.
 
-export both : Str ~> IO<{ puts, fs }> = s ~> both(s)
+export both : Str ~> IO<{ puts, fs }> := s ~> both(s)
 
-widen_reject : Str ~> IO<{ puts }> = s ~> both(s)
+widen_reject : Str ~> IO<{ puts }> := s ~> both(s)

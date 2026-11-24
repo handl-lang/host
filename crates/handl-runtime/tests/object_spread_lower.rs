@@ -67,18 +67,18 @@ fn assert_declines(src: &str) {
 
 #[test]
 fn spread_before_entry_lets_the_entry_win() {
-    assert_lowered("do { o :: {a: 1}; {...o, a: 2} }", json!({ "a": 2 }));
+    assert_lowered("do { o := {a: 1}; {...o, a: 2} }", json!({ "a": 2 }));
 }
 
 #[test]
 fn spread_after_entry_overwrites_it() {
-    assert_lowered("do { o :: {a: 1}; {a: 2, ...o} }", json!({ "a": 1 }));
+    assert_lowered("do { o := {a: 1}; {a: 2, ...o} }", json!({ "a": 1 }));
 }
 
 #[test]
 fn spread_fields_merge() {
     assert_lowered(
-        "do { o :: {a: 1, b: 2}; {c: 3, ...o} }",
+        "do { o := {a: 1, b: 2}; {c: 3, ...o} }",
         json!({ "a": 1, "b": 2, "c": 3 }),
     );
 }
@@ -94,7 +94,7 @@ fn multiple_spreads_merge_in_order() {
     // all, `{...a, ...b}` is the bare-expression block (returns the last
     // child), so the literal seed key is what makes this a merge.
     assert_lowered(
-        "do { a :: {x: 1, k: \"a\"}; b :: {y: 2, k: \"b\"}; {k: \"lit\", ...a, ...b} }",
+        "do { a := {x: 1, k: \"a\"}; b := {y: 2, k: \"b\"}; {k: \"lit\", ...a, ...b} }",
         json!({ "x": 1, "y": 2, "k": "b" }),
     );
 }
@@ -102,7 +102,7 @@ fn multiple_spreads_merge_in_order() {
 #[test]
 fn nested_object_spread() {
     assert_lowered(
-        "do { o :: {a: 1}; {inner: {b: 2, ...o}} }",
+        "do { o := {a: 1}; {inner: {b: 2, ...o}} }",
         json!({ "inner": { "a": 1, "b": 2 } }),
     );
 }
@@ -119,5 +119,5 @@ fn spread_free_object_still_lowers() {
 
 #[test]
 fn all_bare_object_declines() {
-    assert_declines("do { o :: {a: 1}; {...o} }");
+    assert_declines("do { o := {a: 1}; {...o} }");
 }

@@ -96,18 +96,18 @@ fn instanceof_self_and_direct_parent_are_true() {
     // build the chain inline: Float instanceof Number (direct parent) and
     // Number instanceof Number (self) are both true.
     assert_eq!(
-        eval("Number = sym(); Float = sym(Number); sym.instanceof(Float, Number)"),
+        eval("Number := sym(); Float := sym(Number); sym.instanceof(Float, Number)"),
         json!(true)
     );
     assert_eq!(
-        eval("Number = sym(); sym.instanceof(Number, Number)"),
+        eval("Number := sym(); sym.instanceof(Number, Number)"),
         json!(true)
     );
 }
 
 #[test]
 fn instanceof_transitive_grandparent_is_true() {
-    let v = eval("Obj = sym(); Number = sym(Obj); Float = sym(Number); sym.instanceof(Float, Obj)");
+    let v = eval("Obj := sym(); Number := sym(Obj); Float := sym(Number); sym.instanceof(Float, Obj)");
     assert_eq!(v, json!(true));
 }
 
@@ -115,19 +115,19 @@ fn instanceof_transitive_grandparent_is_true() {
 fn instanceof_negative_cases_are_false() {
     // Parent -> child is not an instance; siblings are unrelated.
     assert_eq!(
-        eval("N = sym(); F = sym(N); sym.instanceof(N, F)"),
+        eval("N := sym(); F := sym(N); sym.instanceof(N, F)"),
         json!(false)
     );
     assert_eq!(
-        eval("R = sym(); A = sym(R); B = sym(R); sym.instanceof(A, B)"),
+        eval("R := sym(); A := sym(R); B := sym(R); sym.instanceof(A, B)"),
         json!(false)
     );
 }
 
 #[test]
 fn instanceof_non_nominal_value_is_false_not_error() {
-    assert_eq!(eval("N = sym(); sym.instanceof(42, N)"), json!(false));
-    assert_eq!(eval("N = sym(); sym.instanceof(null, N)"), json!(false));
+    assert_eq!(eval("N := sym(); sym.instanceof(42, N)"), json!(false));
+    assert_eq!(eval("N := sym(); sym.instanceof(null, N)"), json!(false));
 }
 
 #[test]
@@ -138,14 +138,14 @@ fn instanceof_non_nominal_parent_errors_cleanly() {
 
 #[test]
 fn instanceof_non_nominal_nominal_arg_errors_cleanly() {
-    let msg = eval_err("N = sym(); sym.instanceof(N, 42)");
+    let msg = eval_err("N := sym(); sym.instanceof(N, 42)");
     assert!(msg.contains("must be a nominal object"), "{msg}");
 }
 
 #[test]
 fn instanceof_underscore_alias_matches() {
     assert_eq!(
-        eval("N = sym(); F = sym(N); sym.instance_of(F, N)"),
+        eval("N := sym(); F := sym(N); sym.instance_of(F, N)"),
         json!(true)
     );
 }
@@ -157,13 +157,13 @@ fn instanceof_underscore_alias_matches() {
 #[test]
 fn float_nominal_is_instanceof_number_nominal() {
     let v = eval(
-        "Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Float, Number)",
+        "Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Float, Number)",
     );
     assert_eq!(v, json!(true), "Float nominal must descend from Number");
     let v =
-        eval("Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Int, Number)");
+        eval("Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Int, Number)");
     assert_eq!(v, json!(true), "Int nominal must descend from Number");
     let v =
-        eval("Number = sym(); Float = sym(Number); Int = sym(Number); sym.instanceof(Float, Int)");
+        eval("Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Float, Int)");
     assert_eq!(v, json!(false), "sibling nominals are unrelated");
 }

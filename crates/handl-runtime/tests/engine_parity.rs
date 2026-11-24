@@ -337,7 +337,7 @@ fn match_runtime_object_keys() {
     );
     // Env-bound runtime key (non-const expression).
     assert_parity(
-        "do { o :: {\"k\": \"ab\"}, match { \"ab\": 7 } { {[o.k]: x}: x, _: 0 } }",
+        "do { o := {\"k\": \"ab\"}, match { \"ab\": 7 } { {[o.k]: x}: x, _: 0 } }",
         json!(7),
     );
     // Mixed static + runtime keys.
@@ -382,11 +382,11 @@ fn while_fold() {
         json!(6),
     );
     // Imperative form: `x = e` updates an enclosing-scope binding.
-    assert_parity("do { x := 0; while x < 5 { x = x + 1 }; x }", json!(5));
+    assert_parity("do { x := 0; while x < 5 { x := x + 1 }; x }", json!(5));
     // Post-test `do { body } while cond` — desugars to the same loop
     // machinery; runs the body at least once.
-    assert_parity("do { x := 0; do { x = x + 1 } while x < 5; x }", json!(5));
-    assert_parity("do { x := 10; do { x = x + 1 } while x < 5; x }", json!(11));
+    assert_parity("do { x := 0; do { x := x + 1 } while x < 5; x }", json!(5));
+    assert_parity("do { x := 10; do { x := x + 1 } while x < 5; x }", json!(11));
 }
 
 #[test]
@@ -1084,10 +1084,10 @@ fn self_recursive_arrow_without_data_types() {
 }
 
 const SRC: &str =
-"do {
+    "do {
           Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
           Vec<n : Nat, a : Type> := { VNil : Vec<0, a>, VCons : (x : a, xs : Vec<n, a>) ~> Vec<n + 1, a> }
-          vsum<n> : Vec<n, Nat> ~> Nat = v ~> match v { VNil: Zero, VCons(x, xs): Succ(vsum(xs)) }
-          toNum : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + toNum(p) }
+          vsum<n> : Vec<n, Nat> ~> Nat := v ~> match v { VNil: Zero, VCons(x, xs): Succ(vsum(xs)) }
+          toNum : Nat ~> Number := n ~> match n { Zero: 0, Succ(p): 1 + toNum(p) }
           toNum(vsum(VCons(Zero, VCons(Zero, VNil))))
         }";

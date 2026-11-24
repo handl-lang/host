@@ -594,13 +594,13 @@ mod tests {
             for (dir, body) in [
                 (
                     "pass",
-                    "-- A module with passing tests.\ntest_addition :: 1 + 1\n",
+                    "-- A module with passing tests.\ntest_addition := 1 + 1\n",
                 ),
                 (
                     "fail",
-                    "-- A module with a failing test.\ntest_fail = assert false\n",
+                    "-- A module with a failing test.\ntest_fail := assert false\n",
                 ),
-                ("bad", "-- A module with a syntax error.\ntest_bad = 1 +\n"),
+                ("bad", "-- A module with a syntax error.\ntest_bad := 1 +\n"),
             ] {
                 let d = root.join(dir);
                 std::fs::create_dir_all(&d).expect("scenario dir");

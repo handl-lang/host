@@ -148,29 +148,29 @@ fn vec_indexed_family_membership_and_recursor_impl() {
 
     // Setup expressions: a = 0, v0 = VNil, v1 = VCons(42, v0),
     // r0 = Vec(0, a)(v0), r1 = Vec(1, a)(v1).
-    children.extend(append_parsed(&mut combined, &parse(&kit, "a :: 0")));
-    children.extend(append_parsed(&mut combined, &parse(&kit, "v0 :: VNil")));
+    children.extend(append_parsed(&mut combined, &parse(&kit, "a := 0")));
+    children.extend(append_parsed(&mut combined, &parse(&kit, "v0 := VNil")));
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "v1 :: VCons(42, v0)"),
+        &parse(&kit, "v1 := VCons(42, v0)"),
     ));
     // ADR-0152: `Vec(i⃗)` is the canonical `{"__former__", "indices"}`
     // family application, not a predicate arrow — membership is read off
     // the ctor value's `type` link via `instanceof`.
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r0 :: sym.instanceof(v0, Vec(0, a))"),
+        &parse(&kit, "r0 := sym.instanceof(v0, Vec(0, a))"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r1 :: sym.instanceof(v1, Vec(1, a))"),
+        &parse(&kit, "r1 := sym.instanceof(v1, Vec(1, a))"),
     ));
     // The `type` link carries the ctor's declared result indices:
     // `VNil : Vec(0, a)` mints indices `[0, null]` — `0` computes at
     // runtime, the implicit `a` stays `null` (type-level only).
     children.extend(append_parsed(
         &mut combined,
-        &parse(&kit, "r2 :: v0.type.indices[0]"),
+        &parse(&kit, "r2 := v0.type.indices[0]"),
     ));
 
     // Manually call the generated recursor: Vec.rec(null, 0, step)(n, a, v).

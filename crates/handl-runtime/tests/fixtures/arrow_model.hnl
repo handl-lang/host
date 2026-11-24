@@ -35,53 +35,53 @@
 --- This module depends on the host `tag` capability and on the runtime
 --- `hash_map`, `array`, and `typeof` modules.
 do {
-  tget :: [obj, key] ~> hash_map.get(obj, key, null)
+  tget := [obj, key] ~> hash_map.get(obj, key, null)
 
-  is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  is_obj := v ~> if typeof.type_of(v) == "obj" { true } else { false }
   --- tag_mint: mint a `__tag__` record — the post-deletion replacement
   --- for the deleted `tag.tag` producer (ADR-0152 §Migration). Mirrors
   --- `tag_value` semantics: object payloads merge; non-object payloads
   --- wrap under `value`; `null` mints an empty payload.
-  tag_mint :: [tag_name, payload] ~> hash_map.set(
+  tag_mint := [tag_name, payload] ~> hash_map.set(
     if is_obj(payload) { payload }
     else { if payload == null { {} } else { hash_map.set({}, "value", payload) } },
     "__tag__", tag_name)
 
-  is_pair :: v ~> if is_obj(v) {
+  is_pair := v ~> if is_obj(v) {
     if hash_map.get_or(v, "__pair__", null) != null { true } else { false }
   } else {
     false
   }
 
-  pair_fst :: v ~> array.first(hash_map.get_or(v, "__pair__", []))
-  pair_snd :: v ~> array.at(hash_map.get_or(v, "__pair__", []), 1)
+  pair_fst := v ~> array.first(hash_map.get_or(v, "__pair__", []))
+  pair_snd := v ~> array.at(hash_map.get_or(v, "__pair__", []), 1)
 
-  is_either :: v ~> if is_obj(v) {
+  is_either := v ~> if is_obj(v) {
     if hash_map.get_or(v, "__either__", null) != null { true } else { false }
   } else {
     false
   }
 
-  either_value :: v ~> hash_map.get_or(v, "value", null)
+  either_value := v ~> hash_map.get_or(v, "value", null)
 
-  pair :: [a, b] ~> hash_map.set({}, "__pair__", [a, b])
-  either_left :: v ~> hash_map.set(hash_map.set({}, "__either__", "left"), "value", v)
-  either_right :: v ~> hash_map.set(hash_map.set({}, "__either__", "right"), "value", v)
+  pair := [a, b] ~> hash_map.set({}, "__pair__", [a, b])
+  either_left := v ~> hash_map.set(hash_map.set({}, "__either__", "left"), "value", v)
+  either_right := v ~> hash_map.set(hash_map.set({}, "__either__", "right"), "value", v)
 
-  arrow_compose :: [a, b] ~> tag_mint("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
+  arrow_compose := [a, b] ~> tag_mint("Arrow", hash_map.set(hash_map.set({}, "first", a), "second", b))
 
-  eval_args :: [self, args, incoming, ctx] ~> while { result: [], remaining: args } {
+  eval_args := [self, args, incoming, ctx] ~> while { result: [], remaining: args } {
     [state] ~> if array.is_empty(state.remaining) {
       { out: state.result }
     } else {
       do {
-        head_val :: self(self, array.first(state.remaining), incoming, ctx)
+        head_val := self(self, array.first(state.remaining), incoming, ctx)
         { state: { result: [...state.result, head_val], remaining: array.drop(state.remaining, 1) } }
       }
     }
   }
 
-  grades_overlap :: [glist, inc_grades] ~> while glist {
+  grades_overlap := [glist, inc_grades] ~> while glist {
     xs ~> if array.is_empty(xs) {
       { out: false }
     } else {
@@ -93,24 +93,24 @@ do {
     }
   }
 
-  handler_matches :: [h, op_name, incoming] ~> do {
-    impls :: hash_map.get_or(h, "impls", {})
-    has_op :: if is_obj(impls) { hash_map.has(impls, op_name) } else { false }
+  handler_matches := [h, op_name, incoming] ~> do {
+    impls := hash_map.get_or(h, "impls", {})
+    has_op := if is_obj(impls) { hash_map.has(impls, op_name) } else { false }
     if has_op {
-      inc_grades :: if is_obj(incoming) { hash_map.get_or(incoming, "grades", []) } else { [] }
-      h_grades :: hash_map.get_or(h, "grades", [])
+      inc_grades := if is_obj(incoming) { hash_map.get_or(incoming, "grades", []) } else { [] }
+      h_grades := hash_map.get_or(h, "grades", [])
       grades_overlap(h_grades, inc_grades)
     } else {
       false
     }
   }
 
-  find_handler :: [stack, op_name, incoming] ~> while stack {
+  find_handler := [stack, op_name, incoming] ~> while stack {
     xs ~> if array.is_empty(xs) {
       { out: null }
     } else {
       do {
-        h :: array.first(xs)
+        h := array.first(xs)
         if handler_matches(h, op_name, incoming) {
           { out: hash_map.get(hash_map.get_or(h, "impls", {}), op_name, null) }
         } else {
@@ -120,21 +120,21 @@ do {
     }
   }
 
-  number_add :: v ~> do {
-    inc :: v
-    snd :: if is_pair(inc) { pair_snd(inc) } else { inc }
-    operands :: if typeof.type_of(snd) == "arr" {
+  number_add := v ~> do {
+    inc := v
+    snd := if is_pair(inc) { pair_snd(inc) } else { inc }
+    operands := if typeof.type_of(snd) == "arr" {
       snd
     } else {
       if typeof.type_of(inc) == "arr" { inc } else { [snd] }
     }
-    a :: array.first(operands)
-    b :: array.at(operands, 1)
-    payload :: tag.untag(a)
+    a := array.first(operands)
+    b := array.at(operands, 1)
+    payload := tag.untag(a)
     tag_mint("Number", hash_map.set(payload, "value", a.value + b.value))
   }
 
-  run_ :: [self, term, incoming, ctx] ~> match tget(term, "__tag__") {
+  run_ := [self, term, incoming, ctx] ~> match tget(term, "__tag__") {
     "Arr": tget(term, "value"),
     "Const": tget(term, "value"),
     "Seq": self(self, tget(term, "snd"), self(self, tget(term, "fst"), incoming, ctx), ctx),
@@ -156,7 +156,7 @@ do {
         { out: tag_mint("LangError", hash_map.set({}, "message", "Loop: exceeded max iterations")) }
       } else {
         do {
-          body_val :: self(self, tget(term, "body"), state, ctx)
+          body_val := self(self, tget(term, "body"), state, ctx)
           if is_pair(body_val) {
             { out: pair_fst(body_val) }
           } else {
@@ -174,8 +174,8 @@ do {
       }
     },
     "App": do {
-      callee_val :: self(self, tget(term, "callee"), incoming, ctx)
-      arg_vals :: eval_args(self, tget(term, "args"), incoming, ctx)
+      callee_val := self(self, tget(term, "callee"), incoming, ctx)
+      arg_vals := eval_args(self, tget(term, "args"), incoming, ctx)
       match arg_vals {
         []: callee_val(),
         [a]: callee_val(a),
@@ -185,16 +185,16 @@ do {
       }
     },
     "Iter": do {
-      fuel_val :: self(self, tget(term, "fuel"), incoming, ctx)
-      init_val :: self(self, tget(term, "initial"), incoming, ctx)
+      fuel_val := self(self, tget(term, "fuel"), incoming, ctx)
+      init_val := self(self, tget(term, "initial"), incoming, ctx)
       while { fuel: fuel_val, value: init_val } {
         [fuel, value] ~> if fuel <= 0 {
           { out: value }
         } else {
           do {
-            pred_val :: self(self, tget(term, "predicate"), value, ctx)
+            pred_val := self(self, tget(term, "predicate"), value, ctx)
             if pred_val {
-              step_val :: self(self, tget(term, "step"), value, ctx)
+              step_val := self(self, tget(term, "step"), value, ctx)
               { state: { fuel: fuel - 1, value: step_val } }
             } else {
               { out: value }
@@ -205,16 +205,16 @@ do {
     },
     "Child": tag_mint("LangError", hash_map.set({}, "message", "Child: no AST context in Handl model")),
     "Handle": do {
-      handler_val :: self(self, tget(term, "impl_"), incoming, ctx)
-      new_stack :: array.concat(hash_map.get_or(ctx, "handler_stack", []), [handler_val])
-      new_ctx :: hash_map.set(ctx, "handler_stack", new_stack)
+      handler_val := self(self, tget(term, "impl_"), incoming, ctx)
+      new_stack := array.concat(hash_map.get_or(ctx, "handler_stack", []), [handler_val])
+      new_ctx := hash_map.set(ctx, "handler_stack", new_stack)
       self(self, tget(term, "body"), incoming, new_ctx)
     },
     "Rewrite": self(self, tget(term, "target"), incoming, ctx),
     "Path": do {
-      a_val :: self(self, tget(term, "from"), incoming, ctx)
-      b_val :: self(self, tget(term, "to"), incoming, ctx)
-      w_val :: if tget(term, "witness") == null {
+      a_val := self(self, tget(term, "from"), incoming, ctx)
+      b_val := self(self, tget(term, "to"), incoming, ctx)
+      w_val := if tget(term, "witness") == null {
         null
       } else {
         self(self, tget(term, "witness"), incoming, ctx)
@@ -222,11 +222,11 @@ do {
       tag_mint("Path", hash_map.set(hash_map.set(hash_map.set({}, "from", a_val), "to", b_val), "witness", w_val))
     },
     "Equiv": do {
-      a_val :: self(self, tget(term, "a"), incoming, ctx)
-      b_val :: self(self, tget(term, "b"), incoming, ctx)
-      eq_val :: a_val == b_val
-      path_val :: if tget(term, "path") == null { null } else { self(self, tget(term, "path"), incoming, ctx) }
-      result :: if is_obj(path_val) {
+      a_val := self(self, tget(term, "a"), incoming, ctx)
+      b_val := self(self, tget(term, "b"), incoming, ctx)
+      eq_val := a_val == b_val
+      path_val := if tget(term, "path") == null { null } else { self(self, tget(term, "path"), incoming, ctx) }
+      result := if is_obj(path_val) {
         if hash_map.get_or(path_val, "__tag__", "") == "Path" {
           if hash_map.get_or(path_val, "from", null) == a_val {
             if hash_map.get_or(path_val, "to", null) == b_val { true } else { eq_val }
@@ -242,37 +242,37 @@ do {
       result
     },
     "Src": do {
-      cell_val :: self(self, tget(term, "cell"), incoming, ctx)
+      cell_val := self(self, tget(term, "cell"), incoming, ctx)
       if is_obj(cell_val) { hash_map.get_or(cell_val, "__src__", cell_val) } else { cell_val }
     },
     "Tgt": do {
-      cell_val :: self(self, tget(term, "cell"), incoming, ctx)
+      cell_val := self(self, tget(term, "cell"), incoming, ctx)
       if is_obj(cell_val) { hash_map.get_or(cell_val, "__tgt__", cell_val) } else { cell_val }
     },
     "CellId": do {
-      arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
+      arrow_val := self(self, tget(term, "arrow"), incoming, ctx)
       tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", arrow_val), "__tgt__", arrow_val), "value", arrow_val))
     },
     "CellCompV": do {
-      first_val :: self(self, tget(term, "first"), incoming, ctx)
-      second_val :: self(self, tget(term, "second"), incoming, ctx)
-      src :: if is_obj(first_val) { hash_map.get_or(first_val, "__src__", first_val) } else { first_val }
-      tgt :: if is_obj(second_val) { hash_map.get_or(second_val, "__tgt__", second_val) } else { second_val }
-      value :: if is_obj(second_val) { hash_map.get_or(second_val, "value", second_val) } else { second_val }
+      first_val := self(self, tget(term, "first"), incoming, ctx)
+      second_val := self(self, tget(term, "second"), incoming, ctx)
+      src := if is_obj(first_val) { hash_map.get_or(first_val, "__src__", first_val) } else { first_val }
+      tgt := if is_obj(second_val) { hash_map.get_or(second_val, "__tgt__", second_val) } else { second_val }
+      value := if is_obj(second_val) { hash_map.get_or(second_val, "value", second_val) } else { second_val }
       tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", src), "__tgt__", tgt), "value", value))
     },
     "Whisker": do {
-      arrow_val :: self(self, tget(term, "arrow"), incoming, ctx)
-      cell_val :: self(self, tget(term, "cell"), incoming, ctx)
-      src :: if is_obj(cell_val) { hash_map.get_or(cell_val, "__src__", cell_val) } else { cell_val }
-      tgt :: if is_obj(cell_val) { hash_map.get_or(cell_val, "__tgt__", cell_val) } else { cell_val }
-      value :: if is_obj(cell_val) { hash_map.get_or(cell_val, "value", cell_val) } else { cell_val }
-      new_src :: if tget(term, "side") == "Right" {
+      arrow_val := self(self, tget(term, "arrow"), incoming, ctx)
+      cell_val := self(self, tget(term, "cell"), incoming, ctx)
+      src := if is_obj(cell_val) { hash_map.get_or(cell_val, "__src__", cell_val) } else { cell_val }
+      tgt := if is_obj(cell_val) { hash_map.get_or(cell_val, "__tgt__", cell_val) } else { cell_val }
+      value := if is_obj(cell_val) { hash_map.get_or(cell_val, "value", cell_val) } else { cell_val }
+      new_src := if tget(term, "side") == "Right" {
         arrow_compose(src, arrow_val)
       } else {
         arrow_compose(arrow_val, src)
       }
-      new_tgt :: if tget(term, "side") == "Right" {
+      new_tgt := if tget(term, "side") == "Right" {
         arrow_compose(tgt, arrow_val)
       } else {
         arrow_compose(arrow_val, tgt)
@@ -280,7 +280,7 @@ do {
       tag_mint("Cell2", hash_map.set(hash_map.set(hash_map.set({}, "__src__", new_src), "__tgt__", new_tgt), "value", value))
     },
     "Univalence": do {
-      equiv_val :: self(self, tget(term, "equiv"), incoming, ctx)
+      equiv_val := self(self, tget(term, "equiv"), incoming, ctx)
       if is_obj(equiv_val) {
         if hash_map.get_or(equiv_val, "__tag__", "") == "Equiv" {
           tag_mint("Path", hash_map.set(
@@ -300,19 +300,19 @@ do {
       }
     },
     "Glue": do {
-      path_val :: self(self, tget(term, "path"), incoming, ctx)
-      family_val :: self(self, tget(term, "family"), incoming, ctx)
+      path_val := self(self, tget(term, "path"), incoming, ctx)
+      family_val := self(self, tget(term, "family"), incoming, ctx)
       family_val
     },
     "Fibrant": do {
-      family_val :: self(self, tget(term, "family"), incoming, ctx)
-      base_val :: self(self, tget(term, "base"), incoming, ctx)
+      family_val := self(self, tget(term, "family"), incoming, ctx)
+      base_val := self(self, tget(term, "base"), incoming, ctx)
       base_val
     },
     "JElim": do {
-      path_val :: self(self, tget(term, "path"), incoming, ctx)
-      base_val :: self(self, tget(term, "base"), incoming, ctx)
-      path_tag :: if is_obj(path_val) { hash_map.get_or(path_val, "__tag__", "") } else { "" }
+      path_val := self(self, tget(term, "path"), incoming, ctx)
+      base_val := self(self, tget(term, "base"), incoming, ctx)
+      path_tag := if is_obj(path_val) { hash_map.get_or(path_val, "__tag__", "") } else { "" }
       if path_tag == "Path" {
         self(self, tget(term, "motive"), base_val, ctx)
       } else {
@@ -324,7 +324,7 @@ do {
       }
     },
     "RecordProj": do {
-      record_val :: self(self, tget(term, "record"), incoming, ctx)
+      record_val := self(self, tget(term, "record"), incoming, ctx)
       if is_obj(record_val) {
         hash_map.get_or(record_val, tget(term, "field"), null)
       } else {
@@ -332,9 +332,9 @@ do {
       }
     },
     "RecordWith": do {
-      record_val :: self(self, tget(term, "record"), incoming, ctx)
-      value_val :: self(self, tget(term, "value"), incoming, ctx)
-      base :: if is_obj(record_val) { record_val } else { {} }
+      record_val := self(self, tget(term, "record"), incoming, ctx)
+      value_val := self(self, tget(term, "value"), incoming, ctx)
+      base := if is_obj(record_val) { record_val } else { {} }
       hash_map.set(base, tget(term, "field"), value_val)
     },
     "Tag": tag_mint(tget(term, "tag"), self(self, tget(term, "value"), incoming, ctx)),
@@ -345,23 +345,23 @@ do {
     },
     "Cobind": self(self, tget(term, "body"), incoming, ctx),
     "Op": do {
-      arg_vals :: eval_args(self, tget(term, "args"), incoming, ctx)
-      op_name :: tget(term, "name")
-      handler_impl :: find_handler(hash_map.get_or(ctx, "handler_stack", []), op_name, incoming)
+      arg_vals := eval_args(self, tget(term, "args"), incoming, ctx)
+      op_name := tget(term, "name")
+      handler_impl := find_handler(hash_map.get_or(ctx, "handler_stack", []), op_name, incoming)
       if handler_impl != null {
         do {
-          handler_in :: if array.len(arg_vals) == 0 {
+          handler_in := if array.len(arg_vals) == 0 {
             incoming
           } else {
             hash_map.set({}, "__pair__", [incoming, arg_vals])
           }
-          handler_term :: hash_map.set(hash_map.get_or(handler_impl, "Op", handler_impl), "__tag__", "Op")
+          handler_term := hash_map.set(hash_map.get_or(handler_impl, "Op", handler_impl), "__tag__", "Op")
           self(self, handler_term, handler_in, ctx)
         }
       } else {
         do {
-          arg0 :: array.first(arg_vals)
-          arg1 :: if array.len(arg_vals) > 1 { array.at(arg_vals, 1) } else { incoming }
+          arg0 := array.first(arg_vals)
+          arg1 := if array.len(arg_vals) > 1 { array.at(arg_vals, 1) } else { incoming }
           match op_name {
             "const": tget(term, "lit"),
             "id": incoming,

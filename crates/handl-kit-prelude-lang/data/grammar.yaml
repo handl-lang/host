@@ -11,7 +11,8 @@
 #   comparisons (50), && (48/49), || (46/47), ?? nullish (45/46),
 #   ?. opt-chain (45/46), *** product (35/36), &&& fanout (35/36),
 #   >>> flow (25/26), ||| choice (20/21), ?: ternary (15/16),
-#   : type-annot (12/13), ~> arrow (10/9, right-assoc), = assign (5/6).
+#   : type-annot (12/13), ~> arrow (10/9, right-assoc), := assign (5/6).
+#   `=`/`==` are equality only (`binary.eq`, 50/51) — never binders.
 # Retained: axiom token — grammar.axiom.prefix aliases it to a `law` node.
 # Added (graded-theory declarations, ADR-0098/0100): sort, grade, op,
 #   rewrite prefixes; `law`/`axiom` re-shaped as 2-cells
@@ -122,20 +123,10 @@
   child_shape:
     node_kind: rest
     arity: 1
-- id: grammar.assign.infix
-  # `::` is the binding/definition operator (was `=`). Produces an `assign`
-  # node: `x :: expr`.
-  token: token.bind
-  position: Infix
-  binding_power:
-    - 5
-    - 6
-  child_shape:
-    node_kind: assign
-    arity: 2
 - id: grammar.colon_equal.infix
-  # `:=` is the canonical binding/definition operator. Produces an `assign`
-  # node: `x := expr`.
+  # `:=` is the canonical and ONLY binding/definition operator. Produces an
+  # `assign` node: `x := expr`. (`=`/`==` lex to `token.equal` →
+  # `binary.eq` — equality only, never a binder.)
   token: token.colon_equal
   position: Infix
   binding_power:
@@ -423,7 +414,7 @@
     arity: 2
     # Per-child right binding powers (ADR-0053): the body parses at rbp 6
     # so `x : forall n : Nat, T := v` keeps the assign *outside* the
-    # forall — at rbp 0 the body would greedily capture the `:=`/`=`/`::`
+    # forall — at rbp 0 the body would greedily capture the `:=`
     # (lbp 5) and `forall` could never annotate a definition. `~>` (10)
     # and `:` (12) still bind inside the body; the binder child parses at
     # rbp 0 (the `,` separator bounds it regardless).
@@ -788,7 +779,7 @@
 # ADR-0106 §11): registers `dict` as the dictionary value for the
 # constraint former application `C(i⃗)`. The first child is a type
 # expression parsed at rbp 6 so it stops before the `:=` separator
-# (same trick as `data`'s `::`); the second child is the dictionary
+# (same trick as `data`'s `:=`); the second child is the dictionary
 # value expression. `synth_instance` elaborates the constraint to a
 # `type.family_app{head, args}` — unbound index variables in the
 # constraint implicitly generalize as rigid index vars (`instance
@@ -900,11 +891,12 @@
       flatten: true
       rest_token: token.ellipsis
 # REMOVED: `let` is not a keyword — there is no `let` surface syntax. The
-# language binds with `x = y` / `x :: y` (`grammar.assign.infix` /
-# `grammar.bind.infix`); graph blocks `{ x = y; ... }` cover the old
-# `let ... in` form (ADR-0079). The `let`/`stmt.let` node kinds remain as
-# internal binding kinds (see `ast.let`, `eval.let`, `eval.stmt-let`) used
-# by self-host/conformance fixtures — no grammar row produces them.
+# language binds with `x := y` (`grammar.colon_equal.infix` — the ONLY
+# binding operator; `=`/`==` are `binary.eq` equality); graph blocks
+# `{ x := y; ... }` cover the old `let ... in` form (ADR-0079). The
+# `let`/`stmt.let` node kinds remain as internal binding kinds (see
+# `ast.let`, `eval.let`, `eval.stmt-let`) used by self-host/conformance
+# fixtures — no grammar row produces them.
 - id: grammar.do-block.prefix
   token: token.keyword.do
   position: Prefix
@@ -926,7 +918,7 @@
 # do-while node — but ONLY when the left operand is a `block` node (the
 # `do {..}` form). `left_kinds` declares that left-context sensitivity:
 # without it the infix would fire after ANY expression and swallow a
-# following `while` statement (`x :: f() <nl> while {s} {step}` parsed the
+# following `while` statement (`x := f() <nl> while {s} {step}` parsed the
 # `{s}` state object as the do-while condition — gap #8 / comb.fanout).
 - id: grammar.do-while.infix
   token: token.keyword.while

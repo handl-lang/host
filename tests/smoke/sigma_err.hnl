@@ -13,4 +13,4 @@ Vec<n : Nat, a : Type> := {
   VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
-bad : Sigma(Nat, m ~> Vec(m, Bool)) = [Succ(Zero), VNil]
+bad : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VNil]

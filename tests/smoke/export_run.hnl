@@ -11,8 +11,8 @@
 --- (parenthesized; bare `assert (if …) == s` also misjudges the `if`
 --- scrutinee type today — documented limitations, not avoided surface).
 
-export double : Number ~> Number = n ~> n * 2
-export add : Number ~> Number ~> Number = a ~> b ~> a + b
+export double : Number ~> Number := n ~> n * 2
+export add : Number ~> Number ~> Number := a ~> b ~> a + b
 export point := { x: 1, y: 2 }
 
 --- Composed application of two exports — the `--name` exprs in

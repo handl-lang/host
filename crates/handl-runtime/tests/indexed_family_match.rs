@@ -153,11 +153,11 @@ fn vec_indexed_family_match_with_and_without_motive_impl() {
     }";
 
     let match_src = |name, v, n| {
-        format!("{name} :: match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}")
+        format!("{name} := match ({v} : Vec({n}, a)) {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}")
     };
     let match_motive_src = |name, v, n| {
         format!(
-            "{name} :: match ({v} : Vec({n}, a)) return (n, a, v) ~> Nat with {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
+            "{name} := match ({v} : Vec({n}, a)) return (n, a, v) ~> Nat with {{ VNil: 0, VCons(x, xs): __rec_0 + 1 }}"
         )
     };
 
@@ -171,11 +171,11 @@ fn vec_indexed_family_match_with_and_without_motive_impl() {
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, nat_src)));
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, vec_src)));
 
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "a :: 0")));
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v0 :: VNil")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "a := 0")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "v0 := VNil")));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "v1 :: VCons(42, v0)"),
+        &parse_raw(&kit, "v1 := VCons(42, v0)"),
     ));
 
     children.extend(append_parsed(

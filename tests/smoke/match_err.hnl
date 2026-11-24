@@ -18,5 +18,5 @@ Vec<n : Nat, a : Type> := {
   VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
-export is_nil_broken<n, a> : Vec<n, a> ~> Bool =
+export is_nil_broken<n, a> : Vec<n, a> ~> Bool :=
   v ~> match v { VNil: true }

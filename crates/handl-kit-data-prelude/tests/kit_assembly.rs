@@ -32,7 +32,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (`exists m : S, T` — `forall`'s existential twin).
     // +1 `token.keyword.acc` for the `handle … acc` accumulator clause
     // (ADR-0158) — landed upstream after the `exists` bump.
-    assert_eq!(lang.tokens.len(), 109);
+    // -1 `token.bind` removed — `:=` (`token.colon_equal`) is the only
+    // binding operator; `=`/`==` lex to `token.equal` (equality).
+    assert_eq!(lang.tokens.len(), 108);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
@@ -45,7 +47,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // -1 `lex.keyword.data` — the `data` keyword is retired (its token
     // stays as a keyword tombstone; `acc` is deliberately NOT reserved,
     // so the ADR-0158 clause adds no lexer rule).
-    assert_eq!(lang.lexer_rules.len(), 105);
+    // -1 `lex.bind` (`::`) removed with `token.bind`.
+    assert_eq!(lang.lexer_rules.len(), 104);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -66,7 +69,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // shorthand — `forall`'s existential twin, same [binder, body]
     // shape and rbp-6 body split).
     // -1 `grammar.data.prefix` — retired with the `data` keyword.
-    assert_eq!(lang.grammar.len(), 87);
+    // -1 `grammar.assign.infix` (`::`/`token.bind` → `assign`) removed —
+    // `grammar.colon_equal.infix` (`:=`) is the only binding row.
+    assert_eq!(lang.grammar.len(), 86);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
@@ -142,8 +147,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 109);
-    assert_eq!(rt.lang().grammar.len(), 87);
+    assert_eq!(rt.lang().tokens.len(), 108);
+    assert_eq!(rt.lang().grammar.len(), 86);
 }
 
 #[test]

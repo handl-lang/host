@@ -2548,7 +2548,7 @@
     source: Judgment
     lit: type.unit
 
-# `data` — inductive family declaration `data Name(params) :: ctors`
+# `data` — inductive family declaration `data Name(params) := ctors`
 # (ADR-0082, ADR-0120 Phase 4). The `synth_data` judgment binds `Name`
 # to `type.family{name, base}` — one fresh metavariable per index
 # parameter, since the payload carries parameter names only — and binds
@@ -3094,11 +3094,12 @@
 
 # ADR-0079 (completed): `type.let`/`type.stmt.let` absent — `let` is fully
 # removed from the language (no token, lexer rule, grammar row, AST shape,
-# eval scheme, or type rule). Bindings are plain `x = y` / `x :: y`.
+# eval scheme, or type rule). Bindings are plain `x := y` (`:=` is the ONLY
+# binding operator; `=`/`==` are equality).
 
 # `stmt.export` — records `(name, type)` into the module's signature
 # record `Sig_m` (phase-1 spec WS-B: a module typechecks to `Sig_m`).
-# `export x` records `x`'s Γ type; `export x :: expr` binds `x` first;
+# `export x` records `x`'s Γ type; `export x := expr` binds `x` first;
 # `export x: T ~> U` records the signature type.
 - id: type.stmt.export
   node_kind: stmt.export

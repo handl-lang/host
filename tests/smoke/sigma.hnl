@@ -26,12 +26,12 @@ Vec<n : Nat, a : Type> := {
 -- because `Vec(1, Bool)` is `Vec(Succ(Zero) ≡ 0 + 1, Bool)`.
 -- ---------------------------------------------------------------------
 
-one_vec : Sigma(Nat, m ~> Vec(m, Bool)) = [Succ(Zero), VCons(true, VNil)]
-empty_vec : Sigma(Nat, m ~> Vec(m, Bool)) = [Zero, VNil]
+one_vec : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
+empty_vec : Sigma(Nat, m ~> Vec(m, Bool)) := [Zero, VNil]
 
 --- A function whose return type is a Σ — the `filter`/`zip` shape from
 --- lib-collections where the output length can't be named.
-export single_vec<a> : a ~> Sigma(Nat, m ~> Vec(m, a)) =
+export single_vec<a> : a ~> Sigma(Nat, m ~> Vec(m, a)) :=
   x ~> [Succ(Zero), VCons(x, VNil)]
 
 --- Note: an index `<n>` binder is a different *sort* from a `Nat` term —
@@ -43,5 +43,5 @@ export single_vec<a> : a ~> Sigma(Nat, m ~> Vec(m, a)) =
 -- inner family only mentions its own binder.
 -- ---------------------------------------------------------------------
 
-two_sigs : Sigma(Nat, m ~> Sigma(Nat, k ~> Vec(k, Bool))) =
+two_sigs : Sigma(Nat, m ~> Sigma(Nat, k ~> Vec(k, Bool))) :=
   [Zero, [Succ(Zero), VCons(false, VNil)]]

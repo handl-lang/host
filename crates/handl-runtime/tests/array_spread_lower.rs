@@ -56,7 +56,7 @@ fn literal_spread() {
 
 #[test]
 fn spread_of_bound_variable() {
-    assert_lowered("do { xs :: [2, 3]; [1, ...xs, 4] }", json!([1, 2, 3, 4]));
+    assert_lowered("do { xs := [2, 3]; [1, ...xs, 4] }", json!([1, 2, 3, 4]));
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn multiple_spreads() {
     // Spread sources arrive as arrow parameters (a tuple), which keeps
     // the test independent of the `do`-block let-encoding.
     assert_lowered(
-        "do { f :: (xs, ys) ~> [...xs, ...ys]; f([2], [3, 4]) }",
+        "do { f := (xs, ys) ~> [...xs, ...ys]; f([2], [3, 4]) }",
         json!([2, 3, 4]),
     );
 }
@@ -72,7 +72,7 @@ fn multiple_spreads() {
 #[test]
 fn leading_and_trailing_spreads() {
     assert_lowered(
-        "do { f :: (xs, ys) ~> [...xs, 3, ...ys]; f([1, 2], [4, 5]) }",
+        "do { f := (xs, ys) ~> [...xs, 3, ...ys]; f([1, 2], [4, 5]) }",
         json!([1, 2, 3, 4, 5]),
     );
 }
@@ -86,22 +86,22 @@ fn empty_spread_contributes_nothing() {
 fn non_array_spread_is_pushed_as_is() {
     // The AST `array` op pushes a non-array rest value as a single
     // element; `concat` mirrors that.
-    assert_lowered("do { n :: 5; [1, ...n, 2] }", json!([1, 5, 2]));
+    assert_lowered("do { n := 5; [1, ...n, 2] }", json!([1, 5, 2]));
 }
 
 #[test]
 fn leading_non_array_spread_is_wrapped() {
-    assert_lowered("do { n :: 5; [...n, 2] }", json!([5, 2]));
+    assert_lowered("do { n := 5; [...n, 2] }", json!([5, 2]));
 }
 
 #[test]
 fn sole_non_array_spread_is_wrapped() {
-    assert_lowered("do { n :: 5; [...n] }", json!([5]));
+    assert_lowered("do { n := 5; [...n] }", json!([5]));
 }
 
 #[test]
 fn spread_only_array() {
-    assert_lowered("do { xs :: [1, 2]; [...xs] }", json!([1, 2]));
+    assert_lowered("do { xs := [1, 2]; [...xs] }", json!([1, 2]));
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn lower_emits_concat_chain() {
     // The lowering (not the AST fallback) must be what runs: the emitted
     // term carries the `concat` op that flattens the spread.
     let rt = runtime();
-    let src = "do { xs :: [2, 3]; [1, ...xs, 4] }";
+    let src = "do { xs := [2, 3]; [1, ...xs, 4] }";
     let toks = rt.lex(&Source::new(src)).expect("lex");
     let ast = rt.parse(&toks).expect("parse");
     let term = lower_ast(&ast, rt.lang(), AstRef::new(ast.len() - 1)).expect("must lower");

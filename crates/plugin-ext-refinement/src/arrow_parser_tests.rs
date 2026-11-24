@@ -541,9 +541,9 @@ fn test_parse_operator_complex_backtrack() {
 #[test]
 fn test_parse_multi_name_file() {
     let src = r#"
-cons = arr("list.cons")
-head = arr("list.head")
-sort = loop(insert >>> first(id))
+cons := arr("list.cons")
+head := arr("list.head")
+sort := loop(insert >>> first(id))
 "#;
     let parsed = parse_arrow_file(arrow_lang(), src).expect("parse multi-name");
     match parsed {
@@ -1452,7 +1452,7 @@ fn test_v01_arrow_lambda_simple() {
 #[test]
 fn test_v01_named_arrows_atoms() {
     let src =
-        "-- Base atom arrows\nid = x ~> x\ncompare = [a, b] ~> a < b\ncons = [x, xs] ~> [x, xs]";
+        "-- Base atom arrows\nid := x ~> x\ncompare := [a, b] ~> a < b\ncons := [x, xs] ~> [x, xs]";
     let result = parse_arrow_file(arrow_lang(), src);
     assert!(
         result.is_ok(),

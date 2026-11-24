@@ -102,38 +102,33 @@
     text: "..."
   priority: 10
 - id: lex.eqeq
-  # `==` lexes to the equality token (`token.equal`); the single `=` is the
-  # binding operator — an alias of `::` (`token.bind`), so `{ x = y }` graph
-  # blocks and `assert a = b` produce `assign` nodes.
+  # `==` lexes to the equality token (`token.equal`), same as a lone `=` —
+  # `=` is equality ONLY and never a binder (the sole binding operator is
+  # `:=`, `token.colon_equal`).
   token_kind: token.equal
   pattern: !Literal
     text: ==
   priority: 10
 - id: lex.equal
-  token_kind: token.bind
+  # `=` is equality (`binary.eq` via `grammar.eq.infix`). It is NEVER a
+  # binding operator — bindings are `:=` only.
+  token_kind: token.equal
   pattern: !Literal
     text: =
   priority: 20
 - id: lex.colon_equal
-  # `:=` is the canonical assignment/binding operator. Produces a distinct
-  # `token.colon_equal` so the formatter surfaces `:=` and not `: =`.
-  # Priority 20 (< lex.colon's 30) so the two-character `:=` wins over the
-  # single `:` (longest match within priority).
+  # `:=` is the canonical and ONLY binding/definition operator. Produces a
+  # distinct `token.colon_equal` so the formatter surfaces `:=` and not
+  # `: =`. Priority 20 (< lex.colon's 30) so the two-character `:=` wins
+  # over the single `:` (longest match within priority).
   token_kind: token.colon_equal
   pattern: !Literal
     text: ":="
   priority: 20
-- id: lex.bind
-  # `::` is the binding token (was `=`). Priority 20 (< lex.colon's 30) so the
-  # two-character `::` win over the single `:` (longest match within priority).
-  token_kind: token.bind
-  pattern: !Literal
-    text: "::"
-  priority: 20
 - id: lex.fat_arrow
   # `=>` — the 2-cell arrow of `rewrite`/`law` declarations (ADR-0100).
-  # Priority 10 (< lex.equal's 20) so `=>` wins over the bare `=`/`::`
-  # binding token; longest-match ordering keeps `==` unaffected.
+  # Priority 10 (< lex.equal's 20) so `=>` wins over the bare `=`
+  # equality token; longest-match ordering keeps `==` unaffected.
   token_kind: token.fat_arrow
   pattern: !Literal
     text: "=>"
@@ -313,7 +308,8 @@
 # NOTE: `let` is not a keyword — both `lex.keyword.let` and `lex.let` (and
 # the `token.keyword.let`/`token.let` kinds and `grammar.let.prefix` row)
 # were removed. Source text `let` lexes as a `token.identifier` like any
-# other name; bindings use `x = y` / `x :: y` or graph blocks. The
+# other name; bindings use `x := y` (`:=` is the ONLY binding operator;
+# `=`/`==` are `token.equal` equality) or graph blocks. The
 # `let`/`stmt.let` node kinds remain as internal binding kinds (eval/type
 # schemes only) produced by self-host/conformance fixtures, not by any
 # surface syntax.
@@ -341,15 +337,15 @@
 # it keeps `let` reserved (lexes to `token.keyword.let`, which has NO
 # grammar row) so `let x :: v` errors with "unexpected token" rather than
 # silently re-lexing as an identifier. Same pattern as `lex.keyword.then`.
-- id: lex.keyword.left
-  token_kind: token.keyword.left
-  pattern: !Literal
-    text: left
-  priority: 15
 - id: lex.keyword.let
   token_kind: token.keyword.let
   pattern: !Literal
     text: let
+  priority: 15
+- id: lex.keyword.left
+  token_kind: token.keyword.left
+  pattern: !Literal
+    text: left
   priority: 15
 - id: lex.keyword.match
   token_kind: token.keyword.match

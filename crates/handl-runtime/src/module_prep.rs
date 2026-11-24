@@ -12,7 +12,7 @@
 //! following another statement — and its `:=` RHS is captured whole no
 //! matter how the author laid out newlines inside `do {…}`/`if`/`else`
 //! blocks. A construct that cannot be transformed (an `export`
-//! declaration without a `::`/`:=`/`:`/`=` separator) is a hard
+//! declaration without a `:=`/`:` separator) is a hard
 //! [`LangError`] — module prep never silently drops a declaration.
 
 use handl_language::LangError;
@@ -148,7 +148,7 @@ pub fn module_export_names(src: &str) -> Vec<String> {
         }
         if let Some(rest) = export_decl_rest(trimmed) {
             if is_data_decl_rest(rest) {
-                // `export data F :: …` exports the family and each
+                // `export data F := …` exports the family and each
                 // constructor the declaration binds.
                 if let Some(names) = data_decl_bound_names(rest) {
                     for name in names {
@@ -319,7 +319,7 @@ enum PrepItem {
         pieces: Vec<Piece>,
         exported: bool,
     },
-    /// A verbatim declaration statement (`export data F :: …` — the
+    /// A verbatim declaration statement (`export data F := …` — the
     /// text keeps its `data` keyword). `exports` lists the names the
     /// declaration binds that join the module record (the family name
     /// and each constructor name; `F.rec` is dotted and cannot be a
@@ -340,13 +340,13 @@ impl PrepItem {
     }
 }
 
-/// Transform top-level `export name <::|:=|:|=> expr` declarations into an
+/// Transform top-level `export name <:=|:> expr` declarations into an
 /// object literal.  Type-only `export Name: Type` declarations are given the
 /// value `null` so that type expressions are not evaluated at runtime. The
 /// same erasure applies to signature exports `export Name := A ~[N]~> B`
 /// whose RHS is a bare graded-arrow signature ([`is_signature_rhs`]): its
 /// boundary children are type expressions that exec must not evaluate.
-/// `export data F :: …` declarations are preserved verbatim and export
+/// `export data F := …` declarations are preserved verbatim and export
 /// the family/constructor names they bind ([`data_decl_bound_names`]).
 ///
 /// The source is consumed as top-level *statements*
@@ -521,7 +521,7 @@ fn transform_export_to_object(
         }
         if let Some(rest) = export_decl_rest(trimmed) {
             finalize!();
-            // `export data F :: …` — a family declaration, not a
+            // `export data F := …` — a family declaration, not a
             // `name := expr` binding: keep the decl verbatim (its
             // `data` keyword included — the desugar pass consumes the
             // stray `var "data"` marker) and export the names it binds.
@@ -547,7 +547,7 @@ fn transform_export_to_object(
                 // from the cause.
                 return Err(LangError::engine(format!(
                     "module prep: cannot transform `export` declaration \
-                     (expected `export <name> <::|:=|=|: > …`): {}",
+                     (expected `export <name> <:=|: > …`): {}",
                     trimmed
                 )));
             };
@@ -661,7 +661,7 @@ fn transform_export_to_object(
     // so the body must be a single `do { … }` — executable path imports
     // (`import "f.hnl"`, `from "./f" import …`) hoisted first so their
     // names scope over the body, the verbatim statements next (private
-    // bindings stay `x :: …`/`x := …`; host-module declarations lower to
+    // bindings stay `x := …`; host-module declarations lower to
     // `name := "spec.name"` string bindings), then the record projecting
     // every bound name.
     if !has_exports {
@@ -915,7 +915,7 @@ fn balanced_inner<'a>(s: &'a str, open: char, close: char) -> Option<&'a str> {
 }
 
 /// Split `s` at `sep` characters at bracket depth zero (strings
-/// respected) — the `|` constructor separator of a `data F :: …` arm
+/// respected) — the `|` constructor separator of a `data F := …` arm
 /// list.
 fn split_top_level(s: &str, sep: char) -> Vec<&str> {
     let bytes = s.as_bytes();
@@ -985,30 +985,27 @@ fn data_decl_bound_names(decl: &str) -> Option<Vec<String>> {
     } else if s.starts_with('(') {
         s = skip_balanced(s, '(', ')')?.trim_start();
     }
-    if let Some(ctors) = s.strip_prefix("::") {
-        // `data F :: C0 | C1(x : T) | …` — constructor arms.
-        for arm in split_top_level(ctors, '|') {
-            if let Some(name) = ctor_arm_name(arm) {
-                if !names.iter().any(|n| *n == name) {
-                    names.push(name);
-                }
-            }
-        }
-    } else {
-        let rhs = s
-            .strip_prefix(":=")
-            .or_else(|| s.strip_prefix('='))
-            .unwrap_or("")
-            .trim_start();
-        // `data F := { C : R, … }` — the record form's keys are the
-        // constructor names.
+    if let Some(ctors) = s.strip_prefix(":=") {
+        let rhs = ctors.trim_start();
         if rhs.starts_with('{') {
+            // `data F := { C : R, … }` — the record form's keys are the
+            // constructor names.
             if let Some(inner) = balanced_inner(rhs, '{', '}') {
                 for entry in split_top_commas(inner) {
                     if let Some(key) = record_field_key(entry) {
                         if is_valid_ident(&key) && !names.iter().any(|n| *n == key) {
                             names.push(key);
                         }
+                    }
+                }
+            }
+        } else {
+            // `data F := C0 | C1(x : T) | …` — constructor arms (`:=` is
+            // the only binding operator; the old `::` spelling is gone).
+            for arm in split_top_level(rhs, '|') {
+                if let Some(name) = ctor_arm_name(arm) {
+                    if !names.iter().any(|n| *n == name) {
+                        names.push(name);
                     }
                 }
             }
@@ -1466,8 +1463,9 @@ fn split_top_commas(s: &str) -> Vec<&str> {
 }
 
 /// The field key of a `name : value` record entry — an identifier
-/// followed by a depth-zero `:` that is not `::`. `None` when the item
-/// is not a keyed field (a binding, an expression, a type annotation).
+/// followed by a depth-zero `:` that is not `:=` (a binding, not a
+/// field). `None` when the item is not a keyed field (a binding, an
+/// expression, a type annotation).
 fn record_field_key(item: &str) -> Option<String> {
     let item = item.trim();
     let bytes = item.as_bytes();
@@ -1488,7 +1486,7 @@ fn record_field_key(item: &str) -> Option<String> {
                 b'(' | b'[' | b'{' => depth += 1,
                 b')' | b']' | b'}' => depth -= 1,
                 b':' if depth == 0 => {
-                    if bytes.get(i + 1) == Some(&b':') {
+                    if bytes.get(i + 1).is_some_and(|&n| n == b':' || n == b'=') {
                         return None;
                     }
                     let key = item[..i].trim();
@@ -1813,10 +1811,11 @@ fn graded_arrow_is_signature(rhs: &str, tilde: usize) -> bool {
 }
 
 fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
+    // `:=` is the ONLY binding separator (`=`/`==` are equality, `::` is
+    // gone). A lone `:` is the type-only `export x : T` separator.
     let bytes = s.as_bytes();
     let mut i = 0;
     let mut depth: i32 = 0;
-    let mut first_eq: Option<usize> = None;
     let mut first_colon: Option<usize> = None;
     while i < bytes.len() {
         let c = bytes[i];
@@ -1824,9 +1823,6 @@ fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
             b':' if depth == 0 => {
-                if i + 1 < bytes.len() && bytes[i + 1] == b':' {
-                    return Some((i, 2));
-                }
                 if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
                     return Some((i, 2));
                 }
@@ -1834,23 +1830,9 @@ fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
                     first_colon = Some(i);
                 }
             }
-            b'=' if depth == 0 => {
-                let prev = if i > 0 { bytes[i - 1] } else { 0 };
-                let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>' {
-                    i += 1;
-                    continue;
-                }
-                if first_eq.is_none() {
-                    first_eq = Some(i);
-                }
-            }
             _ => {}
         }
         i += 1;
-    }
-    if let Some(pos) = first_eq {
-        return Some((pos, 1));
     }
     first_colon.map(|pos| (pos, 1))
 }

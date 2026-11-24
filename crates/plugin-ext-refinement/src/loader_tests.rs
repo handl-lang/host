@@ -766,24 +766,24 @@ impl ModuleResolver for CountingResolver {
 fn build_test_memory_resolver() -> MemoryResolver {
     let mut m = MemoryResolver::new();
     // collection/insert — a single named arrow.
-    m.insert("collection/insert", "insert = arr(\"compare\")");
+    m.insert("collection/insert", "insert := arr(\"compare\")");
     // collection/sort — imports insert, defines sort.
     m.insert(
         "collection/sort",
-        "import insert from \"collection/insert\"\nsort = arr(\"sort\")",
+        "import insert from \"collection/insert\"\nsort := arr(\"sort\")",
     );
     // collection — multi-name file (record arrow).
     m.insert(
         "collection",
-        "cons = arr(\"list.cons\")\nhead = arr(\"list.head\")\nsort = arr(\"sort\")",
+        "cons := arr(\"list.cons\")\nhead := arr(\"list.head\")\nsort := arr(\"sort\")",
     );
     // main — imports sort, uses it.
-    m.insert("main", "import sort from \"collection/sort\"\nmain = sort");
+    m.insert("main", "import sort from \"collection/sort\"\nmain := sort");
     // reexport — export * from "collection".
     m.insert("reexport", "export * from \"collection\"");
     // cycle modules.
-    m.insert("cycle_a", "import b from \"cycle_b\"\nx = arr(\"id\")");
-    m.insert("cycle_b", "import a from \"cycle_a\"\ny = arr(\"id\")");
+    m.insert("cycle_a", "import b from \"cycle_b\"\nx := arr(\"id\")");
+    m.insert("cycle_b", "import a from \"cycle_a\"\ny := arr(\"id\")");
     m
 }
 
@@ -820,7 +820,7 @@ fn test_memory_resolver_not_found() {
 #[test]
 fn test_chain_resolver_finds_memory() {
     let mut mem = MemoryResolver::new();
-    mem.insert("collection/sort", "sort = arr(\"id\")");
+    mem.insert("collection/sort", "sort := arr(\"id\")");
     let mut resolvers: Vec<Box<dyn ModuleResolver>> = Vec::new();
     resolvers.push(Box::new(mem));
     resolvers.push(Box::new(FileResolver::new(PathBuf::from(
@@ -829,7 +829,7 @@ fn test_chain_resolver_finds_memory() {
     let chain = ChainResolver::new(resolvers);
 
     match chain.resolve("collection/sort") {
-        Ok(m) => assert_eq!(m.source, "sort = arr(\"id\")"),
+        Ok(m) => assert_eq!(m.source, "sort := arr(\"id\")"),
         Err(_) => panic!("ChainResolver should find memory module"),
     }
     match chain.resolve("totally/missing") {
@@ -842,7 +842,7 @@ fn test_chain_resolver_finds_memory() {
 #[test]
 fn test_caching_resolver_caches() {
     let mut mem = MemoryResolver::new();
-    mem.insert("collection/sort", "sort = arr(\"id\")");
+    mem.insert("collection/sort", "sort := arr(\"id\")");
     let (counting, counter) = CountingResolver::new_with_counter(Box::new(mem));
     let cache = CachingResolver::new(Box::new(counting));
 
@@ -930,7 +930,7 @@ fn test_module_loader_public_names_with_exports() {
     let mut mem = MemoryResolver::new();
     mem.insert(
         "mod_with_exports",
-        "export sort, cons\nsort = arr(\"sort\")\ncons = arr(\"list.cons\")\nhidden = arr(\"id\")",
+        "export sort, cons\nsort := arr(\"sort\")\ncons := arr(\"list.cons\")\nhidden := arr(\"id\")",
     );
     let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
 
@@ -1109,7 +1109,7 @@ fn test_cycle_detection_flatten() {
 
 #[test]
 fn test_parse_arrow_module_simple_import() {
-    let src = "import sort from \"collection/sort\"\nmain = arr(\"id\")";
+    let src = "import sort from \"collection/sort\"\nmain := arr(\"id\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1, "should have 1 import");
     assert_eq!(parsed.imports[0].path, "collection/sort");
@@ -1122,7 +1122,7 @@ fn test_parse_arrow_module_simple_import() {
 
 #[test]
 fn test_parse_arrow_module_multi_import() {
-    let src = "import sort, insert from \"collection\"\nmain = arr(\"id\")";
+    let src = "import sort, insert from \"collection\"\nmain := arr(\"id\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(parsed.imports[0].path, "collection");
@@ -1141,7 +1141,7 @@ fn test_parse_arrow_module_multi_import() {
 
 #[test]
 fn test_parse_arrow_module_import_as() {
-    let src = "import sort as s from \"collection/sort\"\nmain = arr(\"id\")";
+    let src = "import sort as s from \"collection/sort\"\nmain := arr(\"id\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(
@@ -1152,7 +1152,7 @@ fn test_parse_arrow_module_import_as() {
 
 #[test]
 fn test_parse_arrow_module_import_whole_module() {
-    let src = "import \"collection/sort\" as sortmod\nmain = arr(\"id\")";
+    let src = "import \"collection/sort\" as sortmod\nmain := arr(\"id\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 1);
     assert_eq!(parsed.imports[0].path, "collection/sort");
@@ -1164,7 +1164,7 @@ fn test_parse_arrow_module_import_whole_module() {
 
 #[test]
 fn test_parse_arrow_module_export_names() {
-    let src = "export sort, cons\nsort = arr(\"sort\")\ncons = arr(\"list.cons\")";
+    let src = "export sort, cons\nsort := arr(\"sort\")\ncons := arr(\"list.cons\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.exports.len(), 1);
     match &parsed.exports[0] {
@@ -1179,7 +1179,7 @@ fn test_parse_arrow_module_export_names() {
 
 #[test]
 fn test_parse_arrow_module_export_all() {
-    let src = "export *\nsort = arr(\"sort\")";
+    let src = "export *\nsort := arr(\"sort\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.exports.len(), 1);
     assert!(matches!(parsed.exports[0], ExportDecl::All));
@@ -1212,7 +1212,7 @@ fn test_parse_arrow_module_export_all_from() {
 
 #[test]
 fn test_parse_arrow_module_mixed() {
-    let src = "import sort from \"collection/sort\"\nimport insert from \"collection/insert\"\nexport main\nmain = arr(\"id\")";
+    let src = "import sort from \"collection/sort\"\nimport insert from \"collection/insert\"\nexport main\nmain := arr(\"id\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.imports.len(), 2, "should have 2 imports");
     assert_eq!(parsed.exports.len(), 1, "should have 1 export");
@@ -1220,7 +1220,7 @@ fn test_parse_arrow_module_mixed() {
 
 #[test]
 fn test_parse_arrow_module_no_imports_exports() {
-    let src = "sort = arr(\"sort\")";
+    let src = "sort := arr(\"sort\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert!(parsed.imports.is_empty(), "should have no imports");
     assert!(parsed.exports.is_empty(), "should have no exports");
@@ -1286,7 +1286,7 @@ fn test_parse_arrow_module_op_with_requires_and_guarantee() {
 #[test]
 fn test_parse_arrow_module_handl_declaration() {
     let src = r#"op "base64.encode" : String -> String
-handl "base64.encode" = rust_base64_encode"#;
+handl "base64.encode" := rust_base64_encode"#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.handls.len(), 1);
     assert_eq!(parsed.handls[0].op_name, "base64.encode");
@@ -1310,8 +1310,8 @@ fn test_parse_arrow_module_mixed_declarations() {
 op "base64.encode" : String -> String
 op "base64.decode" : String -> String
 
-handl "base64.encode" = rust_base64_encode
-handl "base64.decode" = rust_base64_decode"#;
+handl "base64.encode" := rust_base64_encode
+handl "base64.decode" := rust_base64_decode"#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 2);
     assert_eq!(parsed.handls.len(), 2);
@@ -1326,7 +1326,7 @@ handl "base64.decode" = rust_base64_decode"#;
 #[test]
 fn test_parse_arrow_module_op_does_not_interfere_with_arrows() {
     let src = r#"op "base64.encode" : String -> String
-sort = arr("sort")"#;
+sort := arr("sort")"#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.ops.len(), 1);
     // The arrow should still be parsed.
@@ -1345,9 +1345,9 @@ sort = arr("sort")"#;
 #[test]
 fn test_parse_arrow_module_tag_decl() {
     let src = r#"
-tag ok = Value
-tag err = Error
-result_ok = value ~> value >>> ok
+tag ok := Value
+tag err := Error
+result_ok := value ~> value >>> ok
 "#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 2);
@@ -1360,9 +1360,9 @@ result_ok = value ~> value >>> ok
 #[test]
 fn test_parse_arrow_module_tag_generates_constructor_arrows() {
     let src = r#"
-tag ok = Value
-tag err = Error
-result_ok = value ~> value >>> ok
+tag ok := Value
+tag err := Error
+result_ok := value ~> value >>> ok
 "#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     // The tag declarations should generate constructor arrows named
@@ -1387,8 +1387,8 @@ result_ok = value ~> value >>> ok
 fn test_parse_arrow_module_tag_only_module() {
     // A module with only tag declarations and no arrow body should still
     // parse, with the constructors in the Named map.
-    let src = r#"tag ok = Value
-tag err = Error"#;
+    let src = r#"tag ok := Value
+tag err := Error"#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 2);
     match &parsed.arrows {
@@ -1403,8 +1403,8 @@ tag err = Error"#;
 
 #[test]
 fn test_parse_arrow_module_tag_does_not_interfere_with_arrows() {
-    let src = r#"tag ok = Value
-sort = arr("sort")"#;
+    let src = r#"tag ok := Value
+sort := arr("sort")"#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 1);
     assert_eq!(parsed.tags[0].name, "ok");
@@ -1419,10 +1419,10 @@ sort = arr("sort")"#;
 
 #[test]
 fn test_parse_arrow_module_tag_mixed_with_op_handl_cap() {
-    let src = r#"tag ok = Value
+    let src = r#"tag ok := Value
 op "tag.tag" : (String, Value) -> Value
 cap "tag.tag"
-handl "tag.tag" = rust_tag_tag"#;
+handl "tag.tag" := rust_tag_tag"#;
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     assert_eq!(parsed.tags.len(), 1);
     assert_eq!(parsed.ops.len(), 1);
@@ -1436,12 +1436,12 @@ fn test_file_resolver_resolves_hnl_file() {
     let dir = std::env::temp_dir().join("handl_file_resolver_test");
     let _ = std::fs::create_dir_all(&dir);
     let file_path = dir.join("test_mod.hnl");
-    std::fs::write(&file_path, "sort = arr(\"id\")").expect("must write test file");
+    std::fs::write(&file_path, "sort := arr(\"id\")").expect("must write test file");
 
     let resolver = FileResolver::new(dir.clone());
     match resolver.resolve("test_mod") {
         Ok(m) => {
-            assert_eq!(m.source, "sort = arr(\"id\")");
+            assert_eq!(m.source, "sort := arr(\"id\")");
             assert_eq!(m.origin, "file");
         }
         Err(e) => panic!("FileResolver should resolve test_mod: {}", e),
@@ -1533,7 +1533,7 @@ fn is_module_ref(scheme: &Term) -> Option<String> {
 fn test_rewrite_imports_named_import_produces_project_module_ref() {
     // `import sort from "collection/sort"` then `main = sort`.
     // After rewrite, `main` should be `project(module_ref("collection/sort"), "sort")`.
-    let src = "import sort from \"collection/sort\"\nmain = sort";
+    let src = "import sort from \"collection/sort\"\nmain := sort";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
@@ -1553,7 +1553,7 @@ fn test_rewrite_imports_named_import_as_alias() {
     // After rewrite, `main` should be `project(module_ref("collection/sort"), "sort")`
     // (the remote name is used in the projection, the local alias is the
     // reference that gets rewritten).
-    let src = "import sort as s from \"collection/sort\"\nmain = s";
+    let src = "import sort as s from \"collection/sort\"\nmain := s";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
@@ -1571,7 +1571,7 @@ fn test_rewrite_imports_named_import_as_alias() {
 fn test_rewrite_imports_local_shadow_not_rewritten() {
     // `import sort from "collection/sort"` but `sort` is also locally defined.
     // The local binding shadows the import — `sort` should NOT be rewritten.
-    let src = "import sort from \"collection/sort\"\nsort = arr(\"id\")\nmain = sort";
+    let src = "import sort from \"collection/sort\"\nsort := arr(\"id\")\nmain := sort";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
@@ -1604,7 +1604,7 @@ fn test_rewrite_imports_local_shadow_not_rewritten() {
 fn test_rewrite_imports_whole_module_produces_module_ref() {
     // `import "collection/sort" as sortmod` then `main = sortmod`.
     // After rewrite, `main` should be `module_ref("collection/sort")`.
-    let src = "import \"collection/sort\" as sortmod\nmain = sortmod";
+    let src = "import \"collection/sort\" as sortmod\nmain := sortmod";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
@@ -1622,7 +1622,7 @@ fn test_rewrite_imports_whole_module_field_access_chains() {
     // The `sortmod` reference inside the Seq is rewritten to
     // `module_ref("collection/sort")` (wrapped in App), and the surrounding
     // structure is preserved.
-    let src = "import \"collection/sort\" as sortmod\nmain = comp(sortmod, arr(\"id\"))";
+    let src = "import \"collection/sort\" as sortmod\nmain := comp(sortmod, arr(\"id\"))";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
@@ -1652,7 +1652,7 @@ fn test_rewrite_imports_no_unresolved_apps_for_imported_names() {
     // (op = "project"), not `Arr { op: "sort" }`. So `has_unresolved_apps`
     // should return false when "project" and "module_ref" are known ops
     // (they are native ops, not named-arrow references).
-    let src = "import sort from \"collection/sort\"\nmain = sort";
+    let src = "import sort from \"collection/sort\"\nmain := sort";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     let known: HashSet<String> = vec![
         "main".to_string(),
@@ -1698,7 +1698,7 @@ fn test_rewrite_imports_app_callee_rewritten() {
     // `import sort from "collection/sort"` then `main = sort >>> arr("id")`.
     // The `sort` reference in the Seq's fst is an App whose callee is
     // rewritten to project(module_ref(path), "sort").
-    let src = "import sort from \"collection/sort\"\nmain = sort >>> arr(\"id\")";
+    let src = "import sort from \"collection/sort\"\nmain := sort >>> arr(\"id\")";
     let parsed = parse_arrow_module(arrow_lang(), src).expect("must parse");
     match &parsed.arrows {
         ParsedFile::Named(map) => {
@@ -1774,7 +1774,7 @@ fn test_e2e_flatten_program_whole_module_import() {
     // Test a whole-module import end-to-end through flatten_program.
     let mut mem = MemoryResolver::new();
     mem.insert("util", "id = arr(\"id\")\nconst = arr(\"const\")");
-    mem.insert("main_whole", "import \"util\" as u\nmain = u");
+    mem.insert("main_whole", "import \"util\" as u\nmain := u");
     let loader = ModuleLoader::new(Box::new(mem), arrow_lang().clone());
     match flatten_program("main_whole", &loader) {
         Ok(flat) => {

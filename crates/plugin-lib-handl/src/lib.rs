@@ -903,7 +903,7 @@ mod bootstrap {
             expr_lines: Vec<String>,
             exported: bool,
         },
-        /// A verbatim declaration statement (`export data F :: …`).
+        /// A verbatim declaration statement (`export data F := …`).
         /// `exports` lists the bound names that join the module record.
         Decl {
             lines: Vec<String>,
@@ -950,7 +950,7 @@ mod bootstrap {
     /// source is returned unchanged (the existing object-literal form is
     /// preserved).
     ///
-    /// `export data F :: …` declarations are preserved verbatim and
+    /// `export data F := …` declarations are preserved verbatim and
     /// export the family/constructor names they bind — mirrors
     /// `handl_runtime::module_prep::transform_export_to_object`.
     pub(super) fn transform_export_to_object(src: &str) -> String {
@@ -1000,7 +1000,7 @@ mod bootstrap {
             if let Some(rest) = export_decl_rest(trimmed) {
                 // Flush the previous entry.
                 finalize!();
-                // `export data F :: …` — a family declaration, not a
+                // `export data F := …` — a family declaration, not a
                 // `name := expr` binding: keep the decl verbatim and
                 // export the names it binds (mirrors `module_prep`).
                 if is_data_decl_rest(rest) {
@@ -1374,17 +1374,17 @@ mod bootstrap {
         }
     }
 
-    /// Find the position and length of the binding separator in `s`: the `::`
-    /// bind token (canonical), the `:=` graded-bind token, a legacy `=`
-    /// (skipping `==`, `>=`, `<=`, `!=`, `=>`), or a bare `:` for type-only
-    /// exports. `::` and `:=` return immediately; the first bare `=` and the
-    /// first bare `:` are remembered so a stronger `::`/`:=`/later `=` wins.
-    /// Returns `None` if no binding separator is found.
+    /// Find the position and length of the binding separator in `s`: `:=`
+    /// is the ONLY binding operator (`=`/`==` are equality, `::` is gone);
+    /// a bare `:` is the type-only `export x : T` separator. Returns
+    /// `None` if no binding separator is found.
     pub(super) fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
+        // `:=` is the ONLY binding separator (`=`/`==` are equality, `::` is
+        // gone). A lone `:` is the type-only `export x : T` separator.
+        // Mirrors `handl_runtime::module_prep::find_binding_sep`.
         let bytes = s.as_bytes();
         let mut i = 0;
         let mut depth: i32 = 0;
-        let mut first_eq: Option<usize> = None;
         let mut first_colon: Option<usize> = None;
         while i < bytes.len() {
             let c = bytes[i];
@@ -1392,37 +1392,16 @@ mod bootstrap {
                 b'(' | b'[' | b'{' => depth += 1,
                 b')' | b']' | b'}' => depth -= 1,
                 b':' if depth == 0 => {
-                    if i + 1 < bytes.len() && bytes[i + 1] == b':' {
-                        return Some((i, 2)); // ::
-                    }
                     if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
-                        return Some((i, 2)); // :=  graded bind
+                        return Some((i, 2)); // :=
                     }
                     if first_colon.is_none() {
                         first_colon = Some(i);
                     }
                 }
-                b'=' if depth == 0 => {
-                    let prev = if i > 0 { bytes[i - 1] } else { 0 };
-                    let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                    if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>'
-                    {
-                        i += 1;
-                        continue;
-                    }
-                    // Legacy `=` bind: remember the first one, but keep
-                    // scanning for a `::` that precedes it in the same line
-                    // (an `=` earlier would already have returned).
-                    if first_eq.is_none() {
-                        first_eq = Some(i);
-                    }
-                }
                 _ => {}
             }
             i += 1;
-        }
-        if let Some(pos) = first_eq {
-            return Some((pos, 1));
         }
         first_colon.map(|pos| (pos, 1))
     }
@@ -1654,7 +1633,7 @@ mod bootstrap {
     }
 
     /// Split `s` at `sep` characters at bracket depth zero (strings
-    /// respected) — the `|` constructor separator of a `data F :: …`
+    /// respected) — the `|` constructor separator of a `data F := …`
     /// arm list. Mirrors `handl_runtime::module_prep::split_top_level`.
     fn split_top_level(s: &str, sep: char) -> Vec<&str> {
         let bytes = s.as_bytes();
@@ -1691,7 +1670,7 @@ mod bootstrap {
     }
 
     /// The field key of a `name : value` record entry — an identifier
-    /// followed by a depth-zero `:` that is not `::`. Mirrors
+    /// followed by a depth-zero `:` that is not `::`/`:=`. Mirrors
     /// `handl_runtime::module_prep::record_field_key`.
     fn record_field_key(item: &str) -> Option<String> {
         let item = item.trim();
@@ -1713,7 +1692,7 @@ mod bootstrap {
                     b'(' | b'[' | b'{' => depth += 1,
                     b')' | b']' | b'}' => depth -= 1,
                     b':' if depth == 0 => {
-                        if bytes.get(i + 1) == Some(&b':') {
+                        if bytes.get(i + 1).is_some_and(|&n| n == b':' || n == b'=') {
                             return None;
                         }
                         let key = item[..i].trim();
@@ -1765,27 +1744,28 @@ mod bootstrap {
         } else if s.starts_with('(') {
             s = skip_balanced(s, '(', ')').unwrap_or("").trim_start();
         }
-        if let Some(ctors) = s.strip_prefix("::") {
-            for arm in split_top_level(ctors, '|') {
-                if let Some(name) = ctor_arm_name(arm) {
-                    if !names.iter().any(|n| *n == name) {
-                        names.push(name);
-                    }
-                }
-            }
-        } else {
-            let rhs = s
-                .strip_prefix(":=")
-                .or_else(|| s.strip_prefix('='))
-                .unwrap_or("")
-                .trim_start();
+        if let Some(ctors) = s.strip_prefix(":=") {
+            let rhs = ctors.trim_start();
             if rhs.starts_with('{') {
+                // `data F := { C : R, … }` — the record form's keys are
+                // the constructor names.
                 if let Some(inner) = balanced_inner(rhs, '{', '}') {
                     for entry in split_top_commas(inner) {
                         if let Some(key) = record_field_key(entry) {
                             if is_valid_ident(&key) && !names.iter().any(|n| *n == key) {
                                 names.push(key);
                             }
+                        }
+                    }
+                }
+            } else {
+                // `data F := C0 | C1(x : T) | …` — constructor arms (`:=`
+                // is the only binding operator; the old `::`/`=` spellings
+                // are gone).
+                for arm in split_top_level(rhs, '|') {
+                    if let Some(name) = ctor_arm_name(arm) {
+                        if !names.iter().any(|n| *n == name) {
+                            names.push(name);
                         }
                     }
                 }
@@ -1990,9 +1970,10 @@ mod bootstrap {
                 }
                 _ => continue,
             };
-            // Find the `::` (canonical) or legacy `=` separator.
+            // Find the `:=` separator (the only binding operator; `=`/`::`
+            // are gone — a stray `=` still splits for tolerance).
             let sep = rest
-                .find("::")
+                .find(":=")
                 .map(|i| (i, 2))
                 .or_else(|| rest.find('=').map(|i| (i, 1)));
             if let Some((eq_idx, sep_len)) = sep {
@@ -2060,7 +2041,7 @@ mod bootstrap {
                 // Skip lines that are `tag` declarations.
                 if let Some(rest) = trimmed.strip_prefix("tag") {
                     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-                        let sep_idx = rest.find("::").or_else(|| rest.find('='));
+                        let sep_idx = rest.find(":=").or_else(|| rest.find('='));
                         if let Some(eq_idx) = sep_idx {
                             let name = rest[..eq_idx].trim();
                             if !name.is_empty()
@@ -2079,7 +2060,7 @@ mod bootstrap {
         let mut out = String::from("do {\n");
         for (name, _payload_type) in &tags {
             out.push_str(&format!(
-                "  {name} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{name}\")\n"
+                "  {name} := _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{name}\")\n"
             ));
         }
         // Append the remaining source, indented by 2 spaces.

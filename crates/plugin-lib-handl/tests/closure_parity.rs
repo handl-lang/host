@@ -37,7 +37,7 @@ fn ensure_lang() {
 const MAP_HNL: &str = handl_plugin_lib_stdlib::TRANSFORM_MAP_HNL;
 
 const MAKER_HNL: &str = r#"
-export make :: x ~> (y ~> x + y)
+export make := x ~> (y ~> x + y)
 "#;
 
 fn runtime_for(engine_name: &'static str) -> Runtime {

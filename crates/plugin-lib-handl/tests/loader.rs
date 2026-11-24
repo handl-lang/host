@@ -569,7 +569,10 @@ mod bootstrap {
                     b'(' | b'[' | b'{' => depth += 1,
                     b')' | b']' | b'}' => depth -= 1,
                     b':' if depth == 0 => {
-                        if bytes.get(i + 1) == Some(&b':') {
+                        if bytes
+                            .get(i + 1)
+                            .is_some_and(|&n| n == b':' || n == b'=')
+                        {
                             return None;
                         }
                         let key = item[..i].trim();
@@ -605,27 +608,26 @@ mod bootstrap {
         } else if s.starts_with('(') {
             s = skip_balanced(s, '(', ')')?.trim_start();
         }
-        if let Some(ctors) = s.strip_prefix("::") {
-            for arm in split_top_level(ctors, '|') {
-                if let Some(name) = ctor_arm_name(arm) {
-                    if !names.iter().any(|n| *n == name) {
-                        names.push(name);
-                    }
-                }
-            }
-        } else {
-            let rhs = s
-                .strip_prefix(":=")
-                .or_else(|| s.strip_prefix('='))
-                .unwrap_or("")
-                .trim_start();
+        if let Some(ctors) = s.strip_prefix(":=") {
+            let rhs = ctors.trim_start();
             if rhs.starts_with('{') {
+                // `data F := { C : R, … }` — the record form's keys are
+                // the constructor names.
                 if let Some(inner) = balanced_inner(rhs, '{', '}') {
                     for entry in split_top_level(inner, ',') {
                         if let Some(key) = record_field_key(entry) {
                             if is_valid_ident(&key) && !names.iter().any(|n| *n == key) {
                                 names.push(key);
                             }
+                        }
+                    }
+                }
+            } else {
+                // `data F := C0 | C1(x : T) | …` — constructor arms.
+                for arm in split_top_level(rhs, '|') {
+                    if let Some(name) = ctor_arm_name(arm) {
+                        if !names.iter().any(|n| *n == name) {
+                            names.push(name);
                         }
                     }
                 }
@@ -828,7 +830,7 @@ mod bootstrap {
             if let Some(rest) = export_decl_rest(trimmed) {
                 finalize!();
                 current_is_private = false;
-                // `export data F :: …` / `export data F := { … }` — a
+                // `export data F := C0 | …` / `export data F := { … }` — a
                 // family declaration, not a `name := expr` binding: keep
                 // the decl verbatim and export the names it binds
                 // (mirrors `loader.hnl` / `module_prep`'s `PrepItem::Decl`).
@@ -849,7 +851,7 @@ mod bootstrap {
                 let Some((sep_pos, sep_len)) = find_binding_sep(rest) else {
                     panic!(
                         "module prep: cannot transform `export` declaration \
-                         (expected `export <name> <::|:=|=|: > …`): {trimmed}"
+                         (expected `export <name> <:=|: > …`): {trimmed}"
                     );
                 };
                 let name = strip_export_name(&rest[..sep_pos]);
@@ -1033,10 +1035,11 @@ mod bootstrap {
     }
 
     fn find_binding_sep(s: &str) -> Option<(usize, usize)> {
+        // `:=` is the ONLY binding separator (`=`/`==` are equality, `::`
+        // is gone). A lone `:` is the type-only `export x : T` separator.
         let bytes = s.as_bytes();
         let mut i = 0;
         let mut depth: i32 = 0;
-        let mut first_eq: Option<usize> = None;
         let mut first_colon: Option<usize> = None;
         while i < bytes.len() {
             let c = bytes[i];
@@ -1044,9 +1047,6 @@ mod bootstrap {
                 b'(' | b'[' | b'{' => depth += 1,
                 b')' | b']' | b'}' => depth -= 1,
                 b':' if depth == 0 => {
-                    if i + 1 < bytes.len() && bytes[i + 1] == b':' {
-                        return Some((i, 2));
-                    }
                     if i + 1 < bytes.len() && bytes[i + 1] == b'=' {
                         return Some((i, 2));
                     }
@@ -1054,24 +1054,9 @@ mod bootstrap {
                         first_colon = Some(i);
                     }
                 }
-                b'=' if depth == 0 => {
-                    let prev = if i > 0 { bytes[i - 1] } else { 0 };
-                    let next = if i + 1 < bytes.len() { bytes[i + 1] } else { 0 };
-                    if next == b'=' || prev == b'>' || prev == b'<' || prev == b'!' || next == b'>'
-                    {
-                        i += 1;
-                        continue;
-                    }
-                    if first_eq.is_none() {
-                        first_eq = Some(i);
-                    }
-                }
                 _ => {}
             }
             i += 1;
-        }
-        if let Some(pos) = first_eq {
-            return Some((pos, 1));
         }
         first_colon.map(|pos| (pos, 1))
     }
@@ -1125,7 +1110,7 @@ mod bootstrap {
                 _ => continue,
             };
             let sep = rest
-                .find("::")
+                .find(":=")
                 .map(|i| (i, 2))
                 .or_else(|| rest.find('=').map(|i| (i, 1)));
             if let Some((eq_idx, sep_len)) = sep {
@@ -1156,7 +1141,7 @@ mod bootstrap {
                 }
                 if let Some(rest) = trimmed.strip_prefix("tag") {
                     if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') {
-                        let sep_idx = rest.find("::").or_else(|| rest.find('='));
+                        let sep_idx = rest.find(":=").or_else(|| rest.find('='));
                         if let Some(eq_idx) = sep_idx {
                             let name = rest[..eq_idx].trim();
                             if !name.is_empty()
@@ -1174,7 +1159,7 @@ mod bootstrap {
         let mut out = String::from("do {\n");
         for (name, _payload_type) in &tags {
             out.push_str(&format!(
-                "  {name} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{name}\")\n"
+                "  {name} := _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{name}\")\n"
             ));
         }
         for line in remaining.lines() {
@@ -1217,14 +1202,14 @@ const CORPUS: &[&str] = &[
     // Bare record with header comments.
     "--- header\n--- more\n\n{ f: x ~> x }",
     // cap/op/handl declarations with continuation lines.
-    "cap \"fs.read\"\ncap 'fs.write'\nop \"fs.read\" : Path -> Bytes\n  guarantee: True\n  requires: x\nhandl \"fs.impl\" = y ~> y\n  termination: total\n{ f: x ~> x }",
+    "cap \"fs.read\"\ncap 'fs.write'\nop \"fs.read\" : Path -> Bytes\n  guarantee: True\n  requires: x\nhandl \"fs.impl\" := y ~> y\n  termination: total\n{ f: x ~> x }",
     // import forms.
     "from \"char\" import * as char\nfrom 'str' import * as 'str'\nimport \"math\" as m\nimport \"a/b/c\"\nimport bad\n{ f: x ~> x }",
     // named imports (bare name and `as` alias) plus star-without-as.
-    "from \"len\" import len\nfrom \"reverse\" import reverse as rev\nexport a :: x ~> len(x)",
-    // export bindings (::, legacy =, multi-line bodies, trailing record
+    "from \"len\" import len\nfrom \"reverse\" import reverse as rev\nexport a := x ~> len(x)",
+    // export bindings (`:=`, multi-line bodies, trailing record
     // literal continues the last export's expression).
-    "export a :: x ~> x\nexport b = [1, 2]\nexport c :: x ~> do {\n  y :: x + 1\n  y\n}\n{ f: 1 }",
+    "export a := x ~> x\nexport b := [1, 2]\nexport c := x ~> do {\n  y := x + 1\n  y\n}\n{ f: 1 }",
     // Segment-aware boundaries: an `export` is recognized wherever a
     // statement can begin — sharing a line with an import, after `;`,
     // indented, or as the whole module on one line.
@@ -1236,42 +1221,43 @@ const CORPUS: &[&str] = &[
     // `.`-dotted names (`m.from`, `char.from_chars`) and keywords inside
     // strings never split a statement.
     "export f := char.from_chars\nexport g := m.from\nexport h := \"import x\"",
-    // tag declarations.
-    "tag ok = Value\ntag err :: Error\n{ ok: ok, err: err }",
+    // tag declarations (`:=` is the separator; a stray `=` still splits
+    // for tolerance).
+    "tag ok := Value\ntag err := Error\n{ ok: ok, err: err }",
     // tag lines that are NOT declarations.
-    "tag1 x = 1\ntags :: t ~> t\n{ f: 1 }",
+    "tag1 x := 1\ntags := t ~> t\n{ f: 1 }",
     // exports mixed with comments and blanks.
-    "-- comment\n\nexport dedent :: (text: String) ~> {\n  trim(text)\n}\n\n-- tail\nexport other = a >= b && a != b",
-    // binding-separator edge cases.
-    "export f :: x ~> if a == b { x } else { x }\nexport g = a => b\nexport h :: r ~> match r { []: 0, [h, ...t]: h }",
+    "-- comment\n\nexport dedent := (text: String) ~> {\n  trim(text)\n}\n\n-- tail\nexport other := a >= b && a != b",
+    // binding-separator edge cases (`:=` is the only binding operator).
+    "export f := x ~> if a == b { x } else { x }\nexport g := a => b\nexport h := r ~> match r { []: 0, [h, ...t]: h }",
     // indented cap continuation variants and non-declaration keywords.
-    "cap\nop\nhandl\nimport\nfrom\ncapx \"no\"\noperator :: x ~> x\n{ f: 1 }",
+    "cap\nop\nhandl\nimport\nfrom\ncapx \"no\"\noperator := x ~> x\n{ f: 1 }",
     // `from ... export ...` re-export shorthand: single name, multiple
     // names, single-quoted spec, a `from` line whose tail is NOT `export`,
     // and a `from`-export line interleaved with a plain export.
-    "from \"./upper.hnl\" export upper\nfrom \"./pair.hnl\" export a, b\nfrom './q.hnl' export q\nfrom \"char\" import * as char\nexport z :: x ~> x\nfrom \"./w.hnl\" export w",
+    "from \"./upper.hnl\" export upper\nfrom \"./pair.hnl\" export a, b\nfrom './q.hnl' export q\nfrom \"char\" import * as char\nexport z := x ~> x\nfrom \"./w.hnl\" export w",
     // Private top-level bindings before, between, and after exports —
     // hoisted into the do-block so exported closures can see them.
-    "helper :: x ~> x + 1\nconst := 3\nexport a :: x ~> helper(x)\nmiddle :: y ~> y * const\nexport b :: x ~> middle(x)",
+    "helper := x ~> x + 1\nconst := 3\nexport a := x ~> helper(x)\nmiddle := y ~> y * const\nexport b := x ~> middle(x)",
     // Private bindings with no exports at all — wrapped in `do { … }` with
     // a trailing record projecting every bound name.
-    "helper :: x ~> x + 1\nother := helper(1)",
+    "helper := x ~> x + 1\nother := helper(1)",
     // Private multi-line arrow between exports.
-    "export a :: x ~> helper(x)\nhelper :: x ~> do {\n  y :: x + 1\n  y\n}\nexport b :: x ~> helper(x)",
+    "export a := x ~> helper(x)\nhelper := x ~> do {\n  y := x + 1\n  y\n}\nexport b := x ~> helper(x)",
     // Graded-arrow signature exports erase to `null`; n-cell *value*
     // exports (`f ~[2]~> g`, string-law domains) stay. A grade-1 arrow
     // over a capitalized type head is still a signature.
     "export Sig := (Int) ~[1]~> Result<Int, String>\nexport BareSig := Int ~[1]~> Int\nexport f := (x) ~> x\nexport alpha := f ~[2]~> f\nexport law := \"a >>> b\" ~[2]~> \"id\"",
-    // `export data` family declarations — both the `::` constructor-arm
+    // `export data` family declarations — both the `:= C0 | …` constructor-arm
     // and `:= { … }` record forms: the decl stays verbatim for desugar
     // and the family/ctor names project into the export record.
-    "export data Nat :: Zero | Succ(n : Nat)\n",
+    "export data Nat := Zero | Succ(n : Nat)\n",
     "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
-    "export data Pair<A> :: Fst(x : A) | Snd(y : A)\nexport data List := { Nil : List, Cons : (head : Int, tail : List) ~> List }\n",
+    "export data Pair<A> := Fst(x : A) | Snd(y : A)\nexport data List := { Nil : List, Cons : (head : Int, tail : List) ~> List }\n",
     // `data`-prefixed identifiers that are NOT declarations.
     "export data_transfer := 5\nexport data := 6\n",
     // `export data` mixed with ordinary exports and a private helper.
-    "helper :: n ~> n + 1\nexport data Nat :: Zero | Succ(n : Nat)\nexport bump :: n ~> helper(n)\n",
+    "helper := n ~> n + 1\nexport data Nat := Zero | Succ(n : Nat)\nexport bump := n ~> helper(n)\n",
     // NOTE: whole-package sources (e.g. str-handl.hnl) are excluded: the
     // interpreted transform over ~25k chars is far too slow for a test —
     // see AGENTS.md "loader self-hosting" for the performance note.
@@ -1356,7 +1342,7 @@ fn export_data_decl_transforms() {
     ensure_lang();
     for src in [
         "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
-        "export data Nat :: Zero | Succ(n : Nat)\n",
+        "export data Nat := Zero | Succ(n : Nat)\n",
     ] {
         let out = handl_plugin_lib_handl::with_loader_disabled(|| transform_export_to_object(src));
         assert!(
@@ -1383,7 +1369,7 @@ fn export_data_decl_transforms() {
     install();
     for src in [
         "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n",
-        "export data Nat :: Zero | Succ(n : Nat)\n",
+        "export data Nat := Zero | Succ(n : Nat)\n",
     ] {
         let out = transform_export_to_object(src);
         assert!(

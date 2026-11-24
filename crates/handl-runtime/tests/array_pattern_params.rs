@@ -65,7 +65,7 @@ fn all_runtimes() -> impl Iterator<Item = (&'static str, fn() -> Runtime)> {
 
 #[test]
 fn array_pattern_two_params_adds() {
-    let source = "do { f :: [x, y] ~> x + y; f(3, 4) }";
+    let source = "do { f := [x, y] ~> x + y; f(3, 4) }";
     for (name, make_rt) in all_runtimes() {
         let result =
             run_with(make_rt, source).unwrap_or_else(|e| panic!("{} failed: {:?}", name, e));
@@ -80,7 +80,7 @@ fn array_pattern_two_params_adds() {
 
 #[test]
 fn array_pattern_rest_params() {
-    let source = "do { f :: [x, ...rest] ~> rest; f(1, 2, 3) }";
+    let source = "do { f := [x, ...rest] ~> rest; f(1, 2, 3) }";
     for (name, make_rt) in all_runtimes() {
         let result =
             run_with(make_rt, source).unwrap_or_else(|e| panic!("{} failed: {:?}", name, e));
@@ -95,7 +95,7 @@ fn array_pattern_rest_params() {
 
 #[test]
 fn positional_pair_params() {
-    let source = "do { f :: (x, y) ~> x + y; f(3 *** 4) }";
+    let source = "do { f := (x, y) ~> x + y; f(3 *** 4) }";
     for (name, make_rt) in all_runtimes() {
         let result =
             run_with(make_rt, source).unwrap_or_else(|e| panic!("{} failed: {:?}", name, e));
@@ -110,7 +110,7 @@ fn positional_pair_params() {
 
 #[test]
 fn positional_two_params_still_works() {
-    let source = "do { f :: (x, y) ~> x + y; f(3, 4) }";
+    let source = "do { f := (x, y) ~> x + y; f(3, 4) }";
     for (name, make_rt) in all_runtimes() {
         let result =
             run_with(make_rt, source).unwrap_or_else(|e| panic!("{} failed: {:?}", name, e));

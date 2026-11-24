@@ -243,7 +243,7 @@ pub struct ParsedModule {
 /// A `tag name = Type` declaration (ADR-0077).
 ///
 /// At module load time, each tag declaration generates a constructor
-/// arrow: `name = _0 ~> hash_map.set({value: _0}, "__tag__", "name")`
+/// arrow: `name := _0 ~> hash_map.set({value: _0}, "__tag__", "name")`
 /// (post-deletion mint, ADR-0152 §Migration). The payload type
 /// is recorded for future typechecking but does not affect runtime
 /// behavior.
@@ -418,15 +418,15 @@ fn parse_arrow_module_inner(lang: &Language, src: &str) -> Result<ParsedModule, 
     }
 
     // Generate constructor arrows for each tag declaration.
-    // Each `tag name = Type` produces:
-    // `name :: _0 ~> hash_map.set({value: _0}, "__tag__", "name")`.
+    // Each `tag name := Type` produces:
+    // `name := _0 ~> hash_map.set({value: _0}, "__tag__", "name")`.
     // (`tag.tag` was deleted with the `__tag__` bridge — ADR-0152
     // §Migration; `hash_map.set` mints the same record shape.)
     let tag_constructor_src: String = tags
         .iter()
         .map(|t| {
             format!(
-                "{} :: _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{}\")",
+                "{} := _0 ~> hash_map.set({{value: _0}}, \"__tag__\", \"{}\")",
                 t.name, t.name
             )
         })
@@ -442,7 +442,7 @@ fn parse_arrow_module_inner(lang: &Language, src: &str) -> Result<ParsedModule, 
     } else if !tag_constructor_src.is_empty() {
         // Both tag constructors and regular arrows — parse separately
         // and merge into a single Named map. This avoids issues with
-        // concatenating `name = expr` lines with a `{ ... }` record
+        // concatenating `name := expr` lines with a `{ ... }` record
         // literal, which parse_arrow_file cannot handle as a single
         // source.
         let tag_file = parse_arrow_file(lang, &tag_constructor_src)?;
@@ -923,8 +923,11 @@ fn parse_handl_line(line: &str) -> Option<HandlDecl> {
     let (op_name, after_name) = extract_quoted_string(rest)?;
     let after_name = after_name.trim();
 
-    // Expect `= rust_fn_name`.
-    let after_eq = after_name.strip_prefix('=')?.trim();
+    // Expect `:= rust_fn_name` (`=` accepted for pre-migration sources).
+    let after_eq = after_name
+        .strip_prefix(":=")
+        .or_else(|| after_name.strip_prefix('='))?
+        .trim();
     if after_eq.is_empty() {
         return None;
     }
@@ -958,23 +961,36 @@ fn parse_cap_line(line: &str) -> Option<CapDecl> {
     Some(CapDecl { name })
 }
 
-/// Parse a `tag name = Type` declaration line (ADR-0077).
+/// Parse a `tag name := Type` declaration line (ADR-0077).
 ///
 /// Returns `Some(TagDecl)` if the line matches the `tag` form with a
-/// valid name and payload type. Returns `None` otherwise.
+/// valid name and payload type. Returns `None` otherwise. `:=` is the
+/// canonical separator; ` = ` / `::` remain accepted for pre-migration
+/// sources.
 ///
 /// # Example
 ///
 /// ```text
-/// tag ok = Value
-/// tag err = Error
+/// tag ok := Value
+/// tag err := Error
 /// ```
 fn parse_tag_line(line: &str) -> Option<TagDecl> {
     let rest = line.strip_prefix("tag")?.trim();
-    // Find the `=` separator.
-    let eq_idx = rest.find('=')?;
-    let name = rest[..eq_idx].trim();
-    let payload_type = rest[eq_idx + 1..].trim();
+    // Find the separator: `:=` canonical, else a bare `=` that is not
+    // part of `:=` or `==`.
+    let (name, payload_type) = if let Some(idx) = rest.find(":=") {
+        (rest[..idx].trim(), rest[idx + 2..].trim())
+    } else {
+        let eq_idx = rest
+            .char_indices()
+            .find(|(i, c)| {
+                *c == '='
+                    && rest[..*i].chars().last() != Some(':')
+                    && rest[*i + 1..].chars().next() != Some('=')
+            })
+            .map(|(i, _)| i)?;
+        (rest[..eq_idx].trim(), rest[eq_idx + 1..].trim())
+    };
     if name.is_empty() || payload_type.is_empty() {
         return None;
     }
@@ -1028,7 +1044,7 @@ fn find_keyword(s: &str, keyword: &str) -> Option<usize> {
 
 /// Parse an arrow file using the data-driven parser.
 ///
-/// Dispatches to named-arrow parsing (multi-line `name = expr`) or
+/// Dispatches to named-arrow parsing (multi-line `name := expr`) or
 /// single-expression parsing. Rich-loop syntax (`loop { ... }`) is always
 /// treated as a single expression (not named arrows) because the arrow body
 /// may contain ` = ` in let-bindings (`cmp = expr in body`) that would
@@ -1167,7 +1183,7 @@ fn parse_arrow_expr_data_driven(src: &str, lang: &Language) -> Result<Term, Stri
     ast_to_scheme(&ast, lang)
 }
 
-/// Parse named arrows (`name = expr` lines) using the data-driven parser.
+/// Parse named arrows (`name := expr` lines) using the data-driven parser.
 ///
 /// Splits the source into lines, and for each line containing ` = `, parses
 /// the expression part with the data-driven parser.
@@ -1186,11 +1202,12 @@ fn parse_named_arrows_data_driven(
             continue;
         }
 
-        // Find ` :: ` (top-level binding); ` = ` is accepted for
-        // pre-migration sources so old `name = expr` lines still bind.
+        // Find the top-level binding separator. ` := ` is canonical;
+        // ` :: ` and ` = ` remain accepted for pre-migration sources.
         let sep = trimmed
-            .find(" :: ")
+            .find(" := ")
             .map(|i| (i, 4))
+            .or_else(|| trimmed.find(" :: ").map(|i| (i, 4)))
             .or_else(|| trimmed.find(" = ").map(|i| (i, 3)));
         if let Some((eq_idx, sep_len)) = sep {
             let name = trimmed[..eq_idx].trim().to_string();
@@ -2244,7 +2261,7 @@ impl PatternCollector {
                 self.has_conditional = true;
             }
             "named_arrow" | "assign" => {
-                // `name = expr` let binding. If expr is an arrow_call/call
+                // `name := expr` let binding. If expr is an arrow_call/call
                 // with a var/field-access callee, track the callee name as
                 // let-bound. This distinguishes take (y = list.head(...) in
                 // ...) from zip (list.head(...) used directly in state
@@ -2505,7 +2522,7 @@ fn parse_arrow_file_legacy(lang: &Language, src: &str) -> Result<ParsedFile, Str
         return Err("empty file (after stripping comments)".to_string());
     }
 
-    // Named arrows: lines with `name = expr`
+    // Named arrows: lines with `name := expr`
     if has_named_arrows(trimmed) {
         let map = parse_named_arrows(lang, trimmed)?;
         return Ok(ParsedFile::Named(map));
@@ -2550,11 +2567,11 @@ fn strip_comments(src: &str) -> String {
 // Named arrow detection and parsing (legacy)
 // ============================================================================
 
-/// Check if the source contains named arrow definitions (`name :: expr`).
+/// Check if the source contains named arrow definitions (`name := expr`).
 ///
-/// `name = expr` at line start is also detected so pre-`::`-migration
-/// sources route to named-arrow parsing (legacy fallback) rather than
-/// silently parsing as a single `equal` expression.
+/// `name :: expr` and `name = expr` at line start are also detected so
+/// pre-`:=`-migration sources route to named-arrow parsing (legacy
+/// fallback) rather than silently parsing as a single expression.
 fn has_named_arrows(src: &str) -> bool {
     src.lines().any(|line| {
         let trimmed = line.trim();
@@ -2564,11 +2581,11 @@ fn has_named_arrows(src: &str) -> bool {
         if line.starts_with(char::is_whitespace) {
             return false;
         }
-        trimmed.contains(" :: ") || trimmed.contains(" = ")
+        trimmed.contains(" := ") || trimmed.contains(" :: ") || trimmed.contains(" = ")
     })
 }
 
-/// Legacy: parse named arrows: `name = expr` on each line.
+/// Legacy: parse named arrows: `name := expr` on each line.
 fn parse_named_arrows(lang: &Language, src: &str) -> Result<HashMap<String, Term>, String> {
     let mut map = HashMap::new();
 
@@ -2578,12 +2595,13 @@ fn parse_named_arrows(lang: &Language, src: &str) -> Result<HashMap<String, Term
             continue;
         }
 
-        // Find ` :: ` or ` = ` (top-level binding); both are detected by
-        // `has_named_arrows`, so both must be split here. ` :: ` is the
-        // canonical spelling; ` = ` is the pre-migration form.
+        // Find the top-level binding separator; `has_named_arrows`
+        // detects all three spellings, so all must be split here.
+        // ` := ` is canonical; ` :: ` and ` = ` are pre-migration forms.
         let sep = trimmed
-            .find(" :: ")
+            .find(" := ")
             .map(|i| (i, 4))
+            .or_else(|| trimmed.find(" :: ").map(|i| (i, 4)))
             .or_else(|| trimmed.find(" = ").map(|i| (i, 3)));
         if let Some((eq_idx, sep_len)) = sep {
             let name = trimmed[..eq_idx].trim().to_string();

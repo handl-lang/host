@@ -842,9 +842,9 @@ mod tests {
     fn split_statements_boundary_comment_before_continuation() {
         // Comment line between the statement head and a `=`-led
         // continuation still merges.
-        let chunks = split_statements("t := assert(1 == 1)\n-- expect\n  = true");
+        let chunks = split_statements("t := assert(1 == 1)\n-- expect\n  := true");
         assert_eq!(chunks.len(), 1);
-        assert_eq!(chunks[0].text, "t := assert(1 == 1)\n-- expect\n  = true");
+        assert_eq!(chunks[0].text, "t := assert(1 == 1)\n-- expect\n  := true");
     }
 
     #[cfg(feature = "lang-span")]
@@ -874,23 +874,23 @@ mod tests {
     fn split_statements_respects_escaped_quotes_in_strings() {
         // The `\\` arm of the string scanner: an escaped quote must not close
         // the literal, so the `;` inside it is not a statement boundary.
-        let chunks = split_statements("a = \"x\\\"y; z\"\nb = 2");
+        let chunks = split_statements("a := \"x\\\"y; z\"\nb := 2");
         assert_eq!(chunks.len(), 2, "{chunks:?}");
-        assert_eq!(chunks[1].text, "b = 2");
+        assert_eq!(chunks[1].text, "b := 2");
     }
 
     #[test]
     fn split_statements_elides_a_comment_only_leading_region() {
-        let chunks = split_statements("-- header\nx = 1");
+        let chunks = split_statements("-- header\nx := 1");
         assert_eq!(chunks.len(), 1, "{chunks:?}");
-        assert_eq!(chunks[0].text, "x = 1");
+        assert_eq!(chunks[0].text, "x := 1");
     }
 
     #[test]
     fn split_statements_treats_import_star_as_a_complete_statement() {
         // `from "x" import *` ends in `*`, which is otherwise a pending binary
         // operator; `is_import_chunk` exempts it, so the following line splits.
-        let chunks = split_statements("from \"x\" import *\ny = 1");
+        let chunks = split_statements("from \"x\" import *\ny := 1");
         assert_eq!(chunks.len(), 2, "{chunks:?}");
         assert_eq!(chunks[0].text, "from \"x\" import *");
     }
@@ -898,16 +898,16 @@ mod tests {
     #[test]
     fn split_statements_handles_a_statement_ending_at_eof() {
         // `bytes.get(j)` is `None` once past the end — still a boundary.
-        let chunks = split_statements("a = 1\n");
+        let chunks = split_statements("a := 1\n");
         assert_eq!(chunks.len(), 1, "{chunks:?}");
     }
 
     #[test]
     fn split_statements_drops_a_comment_only_tail() {
-        let chunks = split_statements("a = 1;\n-- just a comment\n");
+        let chunks = split_statements("a := 1;\n-- just a comment\n");
         assert_eq!(chunks.len(), 1, "{chunks:?}");
         // The `;` is the separator, so it is not part of the chunk text.
-        assert_eq!(chunks[0].text, "a = 1");
+        assert_eq!(chunks[0].text, "a := 1");
     }
 
     #[test]

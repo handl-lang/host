@@ -21,14 +21,14 @@ fn dump(src: &str) {
 
 #[test]
 fn scratch_dump() {
-    dump("data Nat :: Zero | Succ(pred : Nat)");
+    dump("data Nat := Zero | Succ(pred : Nat)");
     dump(
-        "data Vec(n : Nat, a : Type) :: VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)",
+        "data Vec(n : Nat, a : Type) := VNil : Vec(0, a) | VCons(x : a, xs : Vec(n, a)) : Vec(n + 1, a)",
     );
     dump("Nat := {\n  Zero : Nat,\n  Succ : (pred : Nat) ~> Nat\n}");
     dump(
         "Vec<n : Nat, a : Type> := {\n  VNil : Vec(0, a),\n  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)\n}",
     );
-    dump("data Eq(a : Type) :: mkEq(f : a ~> a ~> Bool)");
+    dump("data Eq(a : Type) := mkEq(f : a ~> a ~> Bool)");
     dump("Opt<a : Type> := {\n  None : Opt,\n  Some : (x : a) ~> Opt\n}");
 }

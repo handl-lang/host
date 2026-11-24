@@ -16,15 +16,15 @@ Nat := {
   Succ : (pred : Nat) ~> Nat
 }
 
-to_num : Nat ~> Number = n ~> match n { Zero: 0, Succ(p): 1 + to_num(p) }
+to_num : Nat ~> Number := n ~> match n { Zero: 0, Succ(p): 1 + to_num(p) }
 
 Opt<a : Type> := {
   None : Opt,
   Some : (x : a) ~> Opt
 }
 
-get_or : Opt(Number) ~> Number ~> Number =
+get_or : Opt(Number) ~> Number ~> Number :=
   o ~> d ~> match o { None: d, Some(x): x }
 
-two : Nat = Succ(Succ(Zero))
+two : Nat := Succ(Succ(Zero))
 result := [to_num(two), get_or(Some(41))(0), get_or(None)(7)]

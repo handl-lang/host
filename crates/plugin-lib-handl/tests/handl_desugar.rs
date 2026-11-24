@@ -207,11 +207,11 @@ fn data_maybe_parity() {
 #[test]
 fn match_nat_parity() {
     assert_parity(
-        "Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nx :: match n { Zero: 0, Succ(p): p }",
+        "Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\nx := match n { Zero: 0, Succ(p): p }",
     );
 }
 
 #[test]
 fn match_conditional_declines_parity() {
-    assert_parity("x :: match n { \"a\": 1, _: 0 }");
+    assert_parity("x := match n { \"a\": 1, _: 0 }");
 }

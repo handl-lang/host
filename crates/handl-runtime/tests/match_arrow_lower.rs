@@ -185,46 +185,46 @@ fn runtime_object_keys_on_compiled_engines() {
     // `product` slot-2 key list, and the two-arg dynamic forms of
     // `has_field`/`field_access`/`obj_except`.
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#,
+        r#"do { o := {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#,
     );
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "ab"}, match { "zz": 7 } { {[o.k]: x}: x, _: 0 } }"#,
+        r#"do { o := {"k": "ab"}, match { "zz": 7 } { {[o.k]: x}: x, _: 0 } }"#,
     );
     // `...rest` under a runtime key — `obj_except(target, keys_list)`.
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "ab"}, match { "ab": 7, "c": 3 } { {[o.k]: x, ...r}: r.c, _: 0 } }"#,
+        r#"do { o := {"k": "ab"}, match { "ab": 7, "c": 3 } { {[o.k]: x, ...r}: r.c, _: 0 } }"#,
     );
     // Non-object scrutinee: `is_obj` gates the key-forcing stage.
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "ab"}, match 5 { {[o.k]: x}: x, _: 0 } }"#,
+        r#"do { o := {"k": "ab"}, match 5 { {[o.k]: x}: x, _: 0 } }"#,
     );
     // Env-bound constant key — `static_term_value` collapses it to the
     // static `lit` forms.
     assert_lowered_on_compiled_engines(
-        r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#,
+        r#"do { k := "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#,
     );
     // Non-string runtime key coerces to `""` (try_object_pattern parity).
-    assert_lowered_on_compiled_engines(r#"do { n :: 42, match { "a": 1 } { {[n]: x}: x, _: 0 } }"#);
+    assert_lowered_on_compiled_engines(r#"do { n := 42, match { "a": 1 } { {[n]: x}: x, _: 0 } }"#);
     // Nested dynamic keys — the staged `Extend` appends a tuple slot at
     // depth, shared between the discriminant and both binder paths
     // (`o.k` stays runtime-valued: `static_term_value` cannot fold the
     // field access).
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "b"}, match { "a": { "b": 1, "c": 2 } } { { "a": {[o.k]: x, "c": y} }: x + y, _: 0 } }"#,
+        r#"do { o := {"k": "b"}, match { "a": { "b": 1, "c": 2 } } { { "a": {[o.k]: x, "c": y} }: x + y, _: 0 } }"#,
     );
     // `o.a` present but not an object → the nested `is_obj` gate fails
     // and the arm falls through without forcing a key.
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "b"}, match { "a": 5 } { { "a": {[o.k]: x} }: x, _: 0 } }"#,
+        r#"do { o := {"k": "b"}, match { "a": 5 } { { "a": {[o.k]: x} }: x, _: 0 } }"#,
     );
     // Two nested dynamic-key objects → two appended slots (`elem 3`
     // reads on the 4-tuple).
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "b"}, match { "a": { "b": 1 }, "c": { "b": 4 } } { { "a": {[o.k]: x}, "c": {[o.k]: y} }: x + y, _: 0 } }"#,
+        r#"do { o := {"k": "b"}, match { "a": { "b": 1 }, "c": { "b": 4 } } { { "a": {[o.k]: x}, "c": {[o.k]: y} }: x + y, _: 0 } }"#,
     );
     // Nested `...rest` reads the forced slot via `obj_except`.
     assert_lowered_on_compiled_engines(
-        r#"do { o :: {"k": "b"}, match { "a": { "b": 1, "c": 9 } } { { "a": {[o.k]: x, ...r} }: [x, r.c], _: 0 } }"#,
+        r#"do { o := {"k": "b"}, match { "a": { "b": 1, "c": 9 } } { { "a": {[o.k]: x, ...r} }: [x, r.c], _: 0 } }"#,
     );
 }
 
@@ -362,11 +362,11 @@ fn arm_bodies_see_rebased_env() {
     // Regression: a binding lowered to consume the node's input `in`
     // must be re-anchored through `snd` of the `[sv, in]` dispatch pair —
     // previously `y` evaluated to the pair itself.
-    assert_lowered(r#"((xs) ~> do { y :: xs, match xs { []: y, _: 99 } })([])"#);
-    assert_lowered(r#"((xs) ~> do { y :: xs, match xs { []: y, _: 99 } })([1])"#);
+    assert_lowered(r#"((xs) ~> do { y := xs, match xs { []: y, _: 99 } })([])"#);
+    assert_lowered(r#"((xs) ~> do { y := xs, match xs { []: y, _: 99 } })([1])"#);
     assert_lowered(r#"((xs) ~> match xs { []: 1, _: 2 })([])"#);
     assert_lowered(r#"((xs) ~> match xs { []: 1, _: 2 })([3])"#);
-    assert_lowered(r#"do { f :: (xs) ~> match xs { []: 1, _: 2 }, f([]) }"#);
+    assert_lowered(r#"do { f := (xs) ~> match xs { []: 1, _: 2 }, f([]) }"#);
 }
 
 #[test]
@@ -380,19 +380,19 @@ fn paren_literal_eval_patterns() {
     assert_lowered(r#"match 3 { (1 + 2): "hit", _: "miss" }"#);
     assert_lowered(r#"match 2 { (1 + 2): "hit", _: "miss" }"#);
     // Env-bound constants and param values both resolve.
-    assert_lowered(r#"do { n :: 5, match 5 { (n): "hit", _: "miss" } }"#);
-    assert_lowered(r#"do { n :: 5, match 4 { (n): "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n := 5, match 5 { (n): "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n := 5, match 4 { (n): "hit", _: "miss" } }"#);
     assert_lowered(r#"((n) ~> match 5 { (n): "hit", _: "miss" })(5)"#);
     assert_lowered(r#"((n) ~> match 5 { (n): "hit", _: "miss" })(4)"#);
     // Compound expressions — field access, literals.
-    assert_lowered(r#"do { o :: {"a": 7}, match 7 { (o.a): "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { o := {"a": 7}, match 7 { (o.a): "hit", _: "miss" } }"#);
     assert_lowered(r#"match [1, 2] { ([1, 2]): "hit", _: "miss" }"#);
     assert_lowered(r#"match [1, 3] { ([1, 2]): "hit", _: "miss" }"#);
     // Literal-eval *nested* inside structural patterns — `in` reaches
     // any depth through the re-paired `[v', in]` sub-scrutinee.
-    assert_lowered(r#"do { n :: 2, match [1, 2] { [1, (n)]: "hit", _: "miss" } }"#);
-    assert_lowered(r#"do { n :: 2, match [1, 3] { [1, (n)]: "hit", _: "miss" } }"#);
-    assert_lowered(r#"do { n :: 2, match { "a": 2 } { { "a": (n) }: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n := 2, match [1, 2] { [1, (n)]: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n := 2, match [1, 3] { [1, (n)]: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { n := 2, match { "a": 2 } { { "a": (n) }: "hit", _: "miss" } }"#);
     assert_lowered(r#"((n) ~> match { "a": 9 } { { "a": (n) }: "hit", _: "miss" })(9)"#);
     assert_lowered(r#"((n) ~> match { "a": 9 } { { "a": (n) }: "hit", _: "miss" })(8)"#);
 }
@@ -403,11 +403,11 @@ fn computed_object_pattern_keys() {
     // computed key the interpreter evaluates in the ambient env. When
     // that expression is a compile-time constant (an env-bound constant
     // like `k :: "a"`), the key string resolves statically.
-    assert_lowered(r#"do { k :: "a", match { "a": 1 } { {[k]: x}: x, _: 0 } }"#);
-    assert_lowered(r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x}: x, _: 0 } }"#);
+    assert_lowered(r#"do { k := "a", match { "a": 1 } { {[k]: x}: x, _: 0 } }"#);
+    assert_lowered(r#"do { k := "a", match { "b": 1, "a": 2 } { {[k]: x}: x, _: 0 } }"#);
     // `...rest` excludes the statically-resolved matched key.
-    assert_lowered(r#"do { k :: "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#);
-    assert_lowered(r#"do { k :: "a", match { "b": 1 } { {[k]: x}: x, _: 0 } }"#);
+    assert_lowered(r#"do { k := "a", match { "b": 1, "a": 2 } { {[k]: x, ...r}: r.b, _: 0 } }"#);
+    assert_lowered(r#"do { k := "a", match { "b": 1 } { {[k]: x}: x, _: 0 } }"#);
     // `paren`-wrapped literal keys keep working through the same path.
     assert_lowered(r#"match { "a": 1 } { {("a"): x}: x, _: 0 }"#);
 }
@@ -431,7 +431,7 @@ fn runtime_object_pattern_keys() {
     assert_lowered(r#"((k) ~> match { "a": 9 } { {[k]: 9}: "hit", _: "miss" })("b")"#);
     // Env-bound *runtime* key — a non-const expression (field access on
     // a bound record), which `static_term_value` cannot collapse.
-    assert_lowered(r#"do { o :: {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#);
+    assert_lowered(r#"do { o := {"k": "ab"}, match { "ab": 7 } { {[o.k]: x}: x, _: 0 } }"#);
     // Nested object pattern with a runtime key one level down.
     assert_lowered(r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("b")"#);
     assert_lowered(r#"((k) ~> match { "a": { "b": 7 } } { { "a": {[k]: x} }: x, _: 0 })("z")"#);
@@ -462,7 +462,7 @@ fn runtime_object_pattern_keys() {
     // pre-existing `elem` OOB on the pair projection, unrelated to the
     // staged dispatch).
     assert_lowered(
-        r#"do { k :: "a", j :: "b", match { "a": 1, "b": 2, "c": 3 } { {[k]: x, [j]: y, ...r}: x + y + r.c, _: 0 } }"#,
+        r#"do { k := "a", j := "b", match { "a": 1, "b": 2, "c": 3 } { {[k]: x, [j]: y, ...r}: x + y + r.c, _: 0 } }"#,
     );
     // Nested dynamic-key objects force their keys once per arm
     // attempt *behind* the nested `is_obj` gate — a missing/non-object
@@ -596,7 +596,7 @@ fn runtime_object_key_evaluated_once() {
     // bound keys stay runtime-valued (`o.k` does not static-fold).
     assert_eq!(
         obj_key_count(
-            r#"do { o :: {"k": "a", "j": "b"}, match { "a": 1, "b": 2 } { {[o.k]: x, [o.j]: y}: x + y, _: 0 } }"#,
+            r#"do { o := {"k": "a", "j": "b"}, match { "a": 1, "b": 2 } { {[o.k]: x, [o.j]: y}: x + y, _: 0 } }"#,
         ),
         2,
     );
@@ -650,9 +650,9 @@ fn literal_eval_tail_patterns() {
     // `try_pattern`'s tail evaluates any non-structural pattern node as
     // an expression — a bare field-access, an object literal, a nested
     // `paren`.
-    assert_lowered(r#"do { o :: {"a": 7}, match 7 { o.a: "hit", _: "miss" } }"#);
-    assert_lowered(r#"do { o :: {"a": 7}, match 8 { o.a: "hit", _: "miss" } }"#);
-    assert_lowered(r#"do { p :: [9], match 9 { (p.0): "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { o := {"a": 7}, match 7 { o.a: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { o := {"a": 7}, match 8 { o.a: "hit", _: "miss" } }"#);
+    assert_lowered(r#"do { p := [9], match 9 { (p.0): "hit", _: "miss" } }"#);
 }
 
 #[test]

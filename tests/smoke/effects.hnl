@@ -9,37 +9,37 @@
 --- Signature-only ops still need a body (no `extern`/`declare` surface
 --- yet), so these are self-referencing stubs — they typecheck; applying
 --- them diverges. Check-side only.
-export printLn : Str ~> IO<{ puts }> = s ~> printLn(s)
-export readFile : Str ~> IO<{ fs }> = p ~> readFile(p)
-export both : Str ~> IO<{ puts, fs }> = s ~> both(s)
+export printLn : Str ~> IO<{ puts }> := s ~> printLn(s)
+export readFile : Str ~> IO<{ fs }> := p ~> readFile(p)
+export both : Str ~> IO<{ puts, fs }> := s ~> both(s)
 
-puts_handler : (Str ~> Unit) ~> Unit = req ~> req("handled")
-fs_handler : (Str ~> Str) ~> Str = req ~> req("contents")
+puts_handler : (Str ~> Unit) ~> Unit := req ~> req("handled")
+fs_handler : (Str ~> Str) ~> Str := req ~> req("contents")
 
 --- Covered: `handle` discharges `puts` — the sig entry becomes the
 --- impl's return type (`puts: Unit`); nothing residual.
-handled_print : Str ~> IO<{ puts: Unit }> = handle printLn with {puts: puts_handler}
+handled_print : Str ~> IO<{ puts: Unit }> := handle printLn with {puts: puts_handler}
 
 --- Uncovered: handling `puts` out of `{puts, fs}` leaves `fs` as a
 --- residual bare op — the covered entry still records `puts: Unit`.
-handled_partial : Str ~> IO<{ puts: Unit, fs }> = handle both with {puts: puts_handler}
+handled_partial : Str ~> IO<{ puts: Unit, fs }> := handle both with {puts: puts_handler}
 
 --- Both ops covered.
-handled_full : Str ~> IO<{ puts: Unit, fs: Str }> = handle both with {puts: puts_handler, fs: fs_handler}
+handled_full : Str ~> IO<{ puts: Unit, fs: Str }> := handle both with {puts: puts_handler, fs: fs_handler}
 
 --- Effect widening accepts: a computation performing only `puts` is a
 --- `Str ~> IO<{ puts, fs }>` (the wider sig supplies at least the
 --- narrower one's ops).
-widen_ok : Str ~> IO<{ puts, fs }> = s ~> printLn(s)
+widen_ok : Str ~> IO<{ puts, fs }> := s ~> printLn(s)
 
 --- `perform(op, arg)` — the `IO<sig>` op-emission builtin (the `io`
 --- module's `perform` host fn, reached through the same `call` →
 --- `call_host` → module-registry path as `sym.seeded`): it mints
 --- `IO<{op: T}>` — `op` is an op *name* (a bare identifier is not a
 --- wire), `T` the arg's type. Both spellings check.
-perf_sig : IO<{ puts: Str }> = perform(puts, "hi")
-perf_qualified : IO<{ puts: Str }> = io.perform(puts, "hi")
-perf_string_op : IO<{ fs: Str }> = perform("fs", "path")
+perf_sig : IO<{ puts: Str }> := perform(puts, "hi")
+perf_qualified : IO<{ puts: Str }> := io.perform(puts, "hi")
+perf_string_op : IO<{ fs: Str }> := perform("fs", "path")
 
 --- A `perform`ed op dispatches through `handle` with the same coverage
 --- rules as a declared effect: the covered entry takes the impl's
@@ -47,6 +47,6 @@ perf_string_op : IO<{ fs: Str }> = perform("fs", "path")
 --- is the *payload* type — `Str` for `perform(puts, "hi")` — so the
 --- covering impl's domain takes `Str`, unlike the `(Str ~> Unit)`
 --- op-type impls the declaration stubs use above.)
-puts_payload_impl : Str ~> Str = s ~> s
-perf_handled : IO<{ puts: Str }> = handle perform(puts, "hi") with {puts: puts_payload_impl}
-perf_widen : IO<{ puts: Str, fs }> = perform(puts, "hi")
+puts_payload_impl : Str ~> Str := s ~> s
+perf_handled : IO<{ puts: Str }> := handle perform(puts, "hi") with {puts: puts_payload_impl}
+perf_widen : IO<{ puts: Str, fs }> := perform(puts, "hi")

@@ -235,7 +235,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({ "source": "x = 1", "prelude": null })),
+                    &req(serde_json::json!({ "source": "x := 1", "prelude": null })),
                     ctx,
                 )
                 .expect("typecheck runs")
@@ -251,7 +251,7 @@ mod tests {
         let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
-                .run(&req(serde_json::json!({ "source": "x = y;" })), ctx)
+                .run(&req(serde_json::json!({ "source": "x := y;" })), ctx)
                 .expect("a type error is a response, not a PlatformError")
         });
         assert_eq!(
@@ -287,7 +287,7 @@ mod tests {
             plugin.run(
                 &CapabilityRequest {
                     capability: CapabilityId::from("lint"),
-                    payload: serde_json::json!({ "source": "x = 1" }),
+                    payload: serde_json::json!({ "source": "x := 1" }),
                 },
                 ctx,
             )
@@ -315,7 +315,7 @@ mod tests {
         let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
-                &req(serde_json::json!({ "source": "x = 1", "prelude": "str" })),
+                &req(serde_json::json!({ "source": "x := 1", "prelude": "str" })),
                 ctx,
             )
         })
@@ -331,7 +331,7 @@ mod tests {
         let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
-                .run(&req(serde_json::json!({ "source": "x = 1" })), ctx)
+                .run(&req(serde_json::json!({ "source": "x := 1" })), ctx)
                 .expect("typecheck runs")
         });
         assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("ok"));

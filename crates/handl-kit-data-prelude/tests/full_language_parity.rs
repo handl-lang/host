@@ -120,7 +120,7 @@ fn language_has_grammar_rows_for_all_major_constructs() {
         "grammar.gt.infix",
         "grammar.gte.infix",
         "grammar.compare.infix",
-        "grammar.assign.infix",
+        "grammar.colon_equal.infix",
         "grammar.flow.infix",
         "grammar.fanout.infix",
         "grammar.choice.infix",
@@ -171,7 +171,7 @@ fn language_has_token_kinds_for_all_major_tokens() {
     let token_ids: &[&str] = &[
         // Operators.
         "token.arrow",
-        "token.bind",
+        "token.colon_equal",
         "token.equal",
         "token.plus",
         "token.minus",

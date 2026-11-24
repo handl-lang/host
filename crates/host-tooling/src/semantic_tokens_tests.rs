@@ -208,7 +208,7 @@ fn canonical_semantic_tokens_produces_delta_encoded_tokens() {
     let provider = provider();
     let resp = provider
         .run(&SemanticTokensRequest {
-            source: "x = 42".to_string(),
+            source: "x := 42".to_string(),
         })
         .unwrap();
 
@@ -230,7 +230,7 @@ fn canonical_semantic_tokens_handles_multiline_source() {
     let provider = provider();
     let resp = provider
         .run(&SemanticTokensRequest {
-            source: "x = 1\ny = 2".to_string(),
+            source: "x := 1\ny := 2".to_string(),
         })
         .unwrap();
 
@@ -360,7 +360,7 @@ fn context_classifier_identifies_dotted_function_call() {
 fn context_classifier_identifies_type_reference() {
     // "x: MyType.field = 1" — x is a binding declaration, `MyType` is a
     // type ref (PascalCase, followed by `.` for the dotted type namespace).
-    let all = classify_all_identifiers("x: MyType.field = 1");
+    let all = classify_all_identifiers("x: MyType.field := 1");
     let legend = SemanticTokenLegend::default();
     let type_idx = legend.token_type_index("type").unwrap();
 
@@ -375,7 +375,7 @@ fn context_classifier_identifies_type_reference() {
 
 #[test]
 fn context_classifier_identifies_pascalcase_type() {
-    let all = classify_all_identifiers("x: Flag = 1");
+    let all = classify_all_identifiers("x: Flag := 1");
     let legend = SemanticTokenLegend::default();
     let type_idx = legend.token_type_index("type").unwrap();
     let flag = all
@@ -387,7 +387,7 @@ fn context_classifier_identifies_pascalcase_type() {
 
 #[test]
 fn context_classifier_identifies_binding_declaration_with_colon() {
-    let (ty, mods) = classify_first_identifier("hash: type.str = 1");
+    let (ty, mods) = classify_first_identifier("hash: type.str := 1");
     let legend = SemanticTokenLegend::default();
     assert_eq!(ty, legend.token_type_index("variable").unwrap());
     assert_eq!(mods, legend.modifier_bit("declaration").unwrap());
@@ -395,7 +395,7 @@ fn context_classifier_identifies_binding_declaration_with_colon() {
 
 #[test]
 fn context_classifier_identifies_binding_declaration_with_bind() {
-    let (ty, mods) = classify_first_identifier("x :: 42");
+    let (ty, mods) = classify_first_identifier("x := 42");
     let legend = SemanticTokenLegend::default();
     assert_eq!(ty, legend.token_type_index("variable").unwrap());
     assert_eq!(mods, legend.modifier_bit("declaration").unwrap());
@@ -456,7 +456,7 @@ fn context_classifier_default_identifier_is_variable() {
 fn context_classifier_function_definition_binding() {
     // make_flag :: (name: type.string, short: type.string): Flag ~>
     //   { name: name, short: short };
-    let source = "make_flag :: (name: type.string, short: type.string): Flag ~>\n  { name: name, short: short };";
+    let source = "make_flag := (name: type.string, short: type.string): Flag ~>\n  { name: name, short: short };";
     let all = classify_all_identifiers(source);
     let legend = SemanticTokenLegend::default();
     let var_idx = legend.token_type_index("variable").unwrap();

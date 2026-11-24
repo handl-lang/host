@@ -637,7 +637,7 @@ op \"b.go\" : Unit -> Unit
             &[
                 ("src/index.hnl", "{ stringify: v ~> v }\n"),
                 ("src/internal/helpers.hnl", "{ ws: c ~> c }\n"),
-                ("src/index.test.hnl", "test_x := assert true = true\n"),
+                ("src/index.test.hnl", "test_x := assert true == true\n"),
             ],
         );
         let rows = module_sources_in_dir(&dir).unwrap();

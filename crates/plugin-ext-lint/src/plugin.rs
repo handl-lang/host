@@ -251,7 +251,7 @@ mod tests {
         let plugin = plugin();
         let res = with_ctx(|ctx| {
             plugin
-                .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
+                .run(&req(serde_json::json!({"source": "x := 1"})), ctx)
                 .expect("lint succeeds")
         });
         assert_eq!(
@@ -274,7 +274,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({"source": "x = 1", "fix": true})),
+                    &req(serde_json::json!({"source": "x := 1", "fix": true})),
                     ctx,
                 )
                 .expect("lint fix succeeds")
@@ -295,7 +295,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({"source": "x = 1", "prelude": []})),
+                    &req(serde_json::json!({"source": "x := 1", "prelude": []})),
                     ctx,
                 )
                 .expect("lint with an explicit empty prelude succeeds")
@@ -317,7 +317,7 @@ mod tests {
             plugin.run(
                 &CapabilityRequest {
                     capability: CapabilityId::from("fmt"),
-                    payload: serde_json::json!({ "source": "x = 1" }),
+                    payload: serde_json::json!({ "source": "x := 1" }),
                 },
                 ctx,
             )
@@ -336,7 +336,7 @@ mod tests {
             plugin
                 .run(
                     &req(serde_json::json!({
-                        "source": "x = 1",
+                        "source": "x := 1",
                         "fix": true,
                         "prelude": [],
                     })),
@@ -354,7 +354,7 @@ mod tests {
             plugin
                 .run(
                     &req(serde_json::json!({
-                        "source": "x = \"unterminated;",
+                        "source": "x := \"unterminated;",
                         "fix": true,
                     })),
                     ctx,
@@ -376,7 +376,7 @@ mod tests {
             plugin
                 .run(
                     &req(serde_json::json!({
-                        "source": "x = 1",
+                        "source": "x := 1",
                         "language": serialized,
                         "prelude": ["str"],
                     })),
@@ -393,7 +393,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({ "source": "x = \"unterminated;" })),
+                    &req(serde_json::json!({ "source": "x := \"unterminated;" })),
                     ctx,
                 )
                 .expect("a lint failure is a response, not a PlatformError")
@@ -425,7 +425,7 @@ mod tests {
         let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
-                &req(serde_json::json!({"source": "x = 1", "prelude": "str"})),
+                &req(serde_json::json!({"source": "x := 1", "prelude": "str"})),
                 ctx,
             )
         })
@@ -448,7 +448,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({ "source": "x = 1", "language": serialized })),
+                    &req(serde_json::json!({ "source": "x := 1", "language": serialized })),
                     ctx,
                 )
                 .expect("lint with an explicit language succeeds")
@@ -470,7 +470,7 @@ mod tests {
         let plugin = plugin();
         let err = with_ctx(|ctx| {
             plugin.run(
-                &req(serde_json::json!({ "source": "x = 1", "language": 5 })),
+                &req(serde_json::json!({ "source": "x := 1", "language": 5 })),
                 ctx,
             )
         })

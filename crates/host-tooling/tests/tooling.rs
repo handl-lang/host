@@ -32,25 +32,25 @@ fn lang() -> handl_language::Language {
 }
 
 /// A module with a leading doc comment and one binding — lints clean.
-const CLEAN: &str = "--- module doc\na = 1;";
+const CLEAN: &str = "--- module doc\na := 1;";
 
 /// A module whose inputs are not in canonical format, so the `fmt` rule fires
 /// with a machine-applicable fix.
-const NEEDS_FORMAT: &str = "a   =   1;";
+const NEEDS_FORMAT: &str = "a   :=   1;";
 
 /// Rebind the same name, so `shadowed-binding` fires.
-const SHADOWED: &str = "--- module doc\na = 1;\na = 2;";
+const SHADOWED: &str = "--- module doc\na := 1;\na := 2;";
 
 /// Not parseable at all (as a module).
 const SYNTAX_ERROR: &str = "## not a comment here";
 
 /// Cannot even be lexed — an unterminated string literal.
-const LEX_ERROR: &str = "a = \"unterminated;";
+const LEX_ERROR: &str = "a := \"unterminated;";
 
 fn large_file(n: usize) -> String {
     let mut s = String::from("--- module doc\n");
     for i in 0..n {
-        s.push_str(&format!("a{i} = {i};\n"));
+        s.push_str(&format!("a{i} := {i};\n"));
     }
     s
 }

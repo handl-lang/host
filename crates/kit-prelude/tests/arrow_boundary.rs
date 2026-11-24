@@ -71,7 +71,7 @@ fn transform_map_still_works() {
 /// successively: `f(1, 5)` on `x ~> y ~> body` is `(f 1) 5`.
 #[test]
 fn curried_application() {
-    assert_eq!(eval("g :: x ~> y ~> x - y; g(1, 5)"), json!(-4));
+    assert_eq!(eval("g := x ~> y ~> x - y; g(1, 5)"), json!(-4));
 }
 
 /// `combinators.*` Rust ops must accept `__arrow__` callbacks via

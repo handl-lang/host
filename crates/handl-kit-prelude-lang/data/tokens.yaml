@@ -69,25 +69,23 @@
   label: eof
   category: eof
 - id: token.eqeq
-  # Retained: `==` is lexed to the equality token (`token.equal`) so existing
-  # `a == b` sources keep working while `=` is now also equality. No grammar
-  # row references `token.eqeq` anymore.
+  # Retained: `==` is lexed to the equality token (`token.equal`) — `=` and
+  # `==` are both equality and NEVER binders (the sole binding operator is
+  # `:=`). No grammar row references `token.eqeq` anymore.
   label: ==
   category: operator
-- id: token.bind
-  label: "::"
-  category: operator
 - id: token.colon_equal
-  # `:=` is the canonical binding/definition operator. Distinct from `::`
-  # (which still lexes to `token.bind`) so the formatter can surface `:=`.
+  # `:=` is the canonical and ONLY binding/definition operator. The old `::`
+  # spelling (`token.bind`) is removed — there is no `::` token at all.
   label: ":="
   category: operator
 - id: token.equal
+  # `=` is equality ONLY (`binary.eq` via `grammar.eq.infix`). Never a binder.
   label: =
   category: operator
 - id: token.fat_arrow
   # `=>` — 2-cell arrow separating the source and target of a `rewrite` /
-  # `law` declaration (ADR-0100). Lexed before `=` (`token.bind`).
+  # `law` declaration (ADR-0100). Lexed before `=` (`token.equal`).
   label: "=>"
   category: operator
 - id: token.fanout
@@ -217,15 +215,15 @@
   label: law
   category: keyword
   doc: "**Law declaration — assert a contract signature** `law`\n\n```\nlaw `name` : `signature`\n```"
+- id: token.keyword.left
+  label: left
+  category: keyword
+  doc: "**Map over the left variant of an either — arrow `left` combinator** `left`\n\n```\nleft `f`\n```"
 # `let` is removed from the language (ADR-0079 completed). The keyword
 # token is retained with NO grammar row — the same tombstone pattern as
 # `token.keyword.then`/`token.keyword.axiom` — so `let` stays a reserved
 # word and `let x :: v` fails to parse ("unexpected token") instead of
 # silently lexing as an identifier.
-- id: token.keyword.left
-  label: left
-  category: keyword
-  doc: "**Map over the left variant of an either — arrow `left` combinator** `left`\n\n```\nleft `f`\n```"
 - id: token.keyword.let
   label: let
   category: keyword

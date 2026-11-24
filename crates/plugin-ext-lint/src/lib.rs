@@ -632,7 +632,7 @@ mod tests {
 
     #[test]
     fn lint_source_clean_input() {
-        let src = "-- A simple module.\nmain = 42\n";
+        let src = "-- A simple module.\nmain := 42\n";
         let diags = lint_source_with(&canonical_ctx(), src).unwrap();
         let non_fmt: Vec<_> = diags.iter().filter(|d| d.rule != "fmt").collect();
         assert!(
@@ -648,12 +648,12 @@ mod tests {
     // by leaving them untested.
 
     /// Source that cannot even be lexed, so every downstream stage fails.
-    const UNLEXABLE: &str = "x = \"unterminated;";
+    const UNLEXABLE: &str = "x := \"unterminated;";
 
     #[test]
     fn lint_source_with_uses_the_injected_language() {
         let ctx = canonical_ctx();
-        let diags = lint_source_with(&ctx, "x = 1;").expect("lints");
+        let diags = lint_source_with(&ctx, "x := 1;").expect("lints");
         // The module has no doc comment, so at least one info diagnostic.
         assert!(!diags.is_empty(), "expected diagnostics, got none");
     }
@@ -664,7 +664,7 @@ mod tests {
         // which the engine's `fix_batch` applies alone (it overlaps every
         // other fix).
         let ctx = canonical_ctx();
-        let fixed = fix_source(&ctx, "x   =   1;").expect("fixes");
+        let fixed = fix_source(&ctx, "x   :=   1;").expect("fixes");
         assert!(
             check_source_with(&ctx, &fixed).expect("checks"),
             "the fixed source must be canonical, got {fixed:?}"
@@ -675,7 +675,7 @@ mod tests {
     fn fix_outcome_on_canonical_source_has_no_rounds() {
         // No fmt fix present, so the fixpoint converges immediately.
         let canonical =
-            handl_plugin_ext_fmt::format_source_with_language(canonical_ctx().lang(), "x = 1;")
+            handl_plugin_ext_fmt::format_source_with_language(canonical_ctx().lang(), "x := 1;")
                 .expect("formats");
         let outcome = fix_outcome(&canonical_ctx(), &canonical).expect("fixpoint");
         assert!(outcome.rounds.is_empty());
@@ -718,7 +718,7 @@ mod tests {
     #[test]
     fn fmt_rule_reports_a_fix_for_non_canonical_source() {
         let ctx = canonical_ctx();
-        let hits = fmt_rule(ctx.lang(), "x   =   1;");
+        let hits = fmt_rule(ctx.lang(), "x   :=   1;");
         assert_eq!(hits.len(), 1, "the fmt rule is fixable");
         assert!(hits[0].fix.is_some(), "the hit must carry a fix");
     }
@@ -768,7 +768,7 @@ mod tests {
         let ctx = canonical_ctx();
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
-        let original = "x   =   1;";
+        let original = "x   :=   1;";
         std::fs::write(root.join("a.hnl"), original).expect("seed file");
 
         let report = fix_file(&ctx, root, "a.hnl").expect("fix_file");
@@ -806,7 +806,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
         let canonical =
-            handl_plugin_ext_fmt::format_source_with_language(ctx.lang(), "-- doc\nx = 1;\n")
+            handl_plugin_ext_fmt::format_source_with_language(ctx.lang(), "-- doc\nx := 1;\n")
                 .expect("formats");
         std::fs::write(root.join("clean.hnl"), &canonical).expect("seed file");
 

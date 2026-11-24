@@ -87,7 +87,7 @@ impl Compiler for MockCompiler {
 }
 
 fn minimal_input() -> CompilerInput {
-    let source = "main = 1".to_string();
+    let source = "main := 1".to_string();
     let mut ast = Ast::new();
     let root = ast.push(AstNode::new("module"));
     let language = Language::new();
@@ -154,7 +154,7 @@ fn compiler_rejects_wrong_target() {
 #[test]
 fn compiler_input_construction() {
     let input = minimal_input();
-    assert_eq!(input.source, "main = 1");
+    assert_eq!(input.source, "main := 1");
     assert_eq!(input.root, AstRef::new(0));
     assert_eq!(input.language, Language::new());
     assert!(input.report.is_clean());

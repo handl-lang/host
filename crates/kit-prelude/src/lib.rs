@@ -2319,7 +2319,7 @@ mod tests {
     #[test]
     fn parse_let() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse("a = 1").unwrap();
+        let ast = kit.parse("a := 1").unwrap();
         assert!(ast.len() > 0);
     }
 
@@ -2403,14 +2403,14 @@ mod tests {
     #[test]
     fn parse_module_single_let() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse_module("a = 1").unwrap();
+        let ast = kit.parse_module("a := 1").unwrap();
         assert!(ast.len() >= 1);
     }
 
     #[test]
     fn parse_module_multiple_let() {
         let kit = Kit::new().unwrap();
-        let ast = kit.parse_module("a = 1; b = 2").unwrap();
+        let ast = kit.parse_module("a := 1; b := 2").unwrap();
         assert!(ast.len() >= 2);
     }
 
@@ -2640,7 +2640,7 @@ mod tests {
     fn typecheck_let_binds_var_and_returns_body_type() {
         // ADR-0079: `let ... in` removed. Use `do { x :: 1; x }` graph block.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x :: 1; x }").unwrap();
+        let typ = kit.typecheck("do { x := 1; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -2689,7 +2689,7 @@ mod tests {
         // ADR-0079: `let ... in` removed. Graph blocks don't support type
         // annotations yet — use untyped `do { x :: 2; x }`.
         let kit = Kit::new().unwrap();
-        let typ = kit.typecheck("do { x :: 2; x }").unwrap();
+        let typ = kit.typecheck("do { x := 2; x }").unwrap();
         assert_eq!(typ["__tag__"], serde_json::json!("type.number"));
     }
 
@@ -3179,7 +3179,7 @@ mod tests {
         // a runtime-assert node. At runtime with a valid value (5), the
         // assert passes and returns 5.
         let kit = Kit::new().unwrap();
-        let val = kit.run("do { y :: 5; (y : (n ~> n > 0)) }").unwrap();
+        let val = kit.run("do { y := 5; (y : (n ~> n > 0)) }").unwrap();
         assert_eq!(val, serde_json::json!(5));
     }
 
@@ -3192,7 +3192,7 @@ mod tests {
         // comes from the typechecker or the runtime-assert node is an
         // implementation detail.
         let kit = Kit::new().unwrap();
-        let err = kit.run("do { y :: -1; (y : (n ~> n > 0)) }").unwrap_err();
+        let err = kit.run("do { y := -1; (y : (n ~> n > 0)) }").unwrap_err();
         assert!(
             err.to_string().contains("does not satisfy the predicate")
                 || err.to_string().contains("assertion failed"),

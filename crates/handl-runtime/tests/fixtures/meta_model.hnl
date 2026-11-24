@@ -69,16 +69,16 @@ do {
   --- Used everywhere the ADR spec writes `getfield(term, "field")` or
   --- `model.run`. A model is a record of handlers, so handler lookup
   --- is just `tget(model, "run")`.
-  tget :: [obj, key] ~> hash_map.get(obj, key, null)
+  tget := [obj, key] ~> hash_map.get(obj, key, null)
 
   --- is_obj: true iff `v` is a runtime object (hash map) value.
   --- A model is always an object (a record of handlers).
-  is_obj :: v ~> if typeof.type_of(v) == "obj" { true } else { false }
+  is_obj := v ~> if typeof.type_of(v) == "obj" { true } else { false }
   --- tag_mint: mint a `__tag__` record — the post-deletion replacement
   --- for the deleted `tag.tag` producer (ADR-0152 §Migration). Mirrors
   --- `tag_value` semantics: object payloads merge; non-object payloads
   --- wrap under `value`; `null` mints an empty payload.
-  tag_mint :: [tag_name, payload] ~> hash_map.set(
+  tag_mint := [tag_name, payload] ~> hash_map.set(
     if is_obj(payload) { payload }
     else { if payload == null { {} } else { hash_map.set({}, "value", payload) } },
     "__tag__", tag_name)
@@ -88,14 +88,14 @@ do {
   --- closures are JSON objects stamped with `"__arrow__": true`, so we
   --- detect them by that marker rather than `typeof.type_of` (which
   --- reports `"obj"` for all objects, closures included).
-  is_fn :: v ~> if typeof.type_of(v) == "obj" {
+  is_fn := v ~> if typeof.type_of(v) == "obj" {
     if hash_map.get_or(v, "__arrow__", false) == true { true } else { false }
   } else { false }
 
   --- model_error: construct a `ModelError`-tagged value carrying a
   --- diagnostic message. Returned by validation / lookup failures so
   --- callers can pattern-match on `__tag__ == "ModelError"`.
-  model_error :: message ~> tag_mint("ModelError", hash_map.set({}, "message", message))
+  model_error := message ~> tag_mint("ModelError", hash_map.set({}, "message", message))
 
   --- load_model: load a model from a file path.
   ---
@@ -104,8 +104,8 @@ do {
   --- (a record of handlers) via the kernel `parse` primitive. This is
   --- the ADR-0103 spec verbatim: models live on disk as Handl source,
   --- and the meta-model knows how to materialize them.
-  load_model :: [path] ~> do {
-    source :: ffi("fs", "read", [path])
+  load_model := [path] ~> do {
+    source := ffi("fs", "read", [path])
     parse(source)
   }
 
@@ -120,9 +120,9 @@ do {
   --- `run_model` (and every model's `run`) expects. The composed model is
   --- itself a first-class model (a record with a `run` handler), so
   --- composition is associative and bootstrappable.
-  compose :: [model_a, model_b] ~> do {
-    run_a :: tget(model_a, "run")
-    run_b :: tget(model_b, "run")
+  compose := [model_a, model_b] ~> do {
+    run_a := tget(model_a, "run")
+    run_b := tget(model_b, "run")
     hash_map.set({}, "run", [term, incoming, ctx] ~> run_b(run_a(term, incoming, ctx), incoming, ctx))
   }
 
@@ -130,7 +130,7 @@ do {
   --- context. This is the ADR-0103 spec verbatim — direct dispatch to
   --- the model's `run` handler. The kernel doesn't know what `run`
   --- means; the meta-model does.
-  run_model :: [model, term, incoming, ctx] ~> tget(model, "run")(term, incoming, ctx)
+  run_model := [model, term, incoming, ctx] ~> tget(model, "run")(term, incoming, ctx)
 
   --- validate_model: validate that a model has the required structure.
   ---
@@ -139,9 +139,9 @@ do {
   --- `(term, incoming, ctx)`). Returns `true` on success, or a
   --- `ModelError`-tagged value describing the failure so callers can
   --- branch on the diagnostic.
-  validate_model :: [model] ~> if is_obj(model) {
+  validate_model := [model] ~> if is_obj(model) {
     do {
-      run :: tget(model, "run")
+      run := tget(model, "run")
       if run == null {
         model_error("validate_model: model has no 'run' handler")
       } else {
@@ -162,21 +162,21 @@ do {
   --- incoming, ctx) = term`. This is the left/right unit of `compose`:
   ---   compose(identity_model(), m)  runs m on the term unchanged,
   ---   compose(m, identity_model())  returns m's output unchanged.
-  identity_model :: [] ~> hash_map.set({}, "run", [term, incoming, ctx] ~> term)
+  identity_model := [] ~> hash_map.set({}, "run", [term, incoming, ctx] ~> term)
 
   --- model_handler: look up the handler for a specific tag in a model.
   ---
   --- A model is a record of handlers keyed by tag name (e.g. `"run"`,
   --- or any custom handler tag the model exposes). This is the total
   --- projection — returns `null` if the model handles no such tag.
-  model_handler :: [model, tag_name] ~> tget(model, tag_name)
+  model_handler := [model, tag_name] ~> tget(model, tag_name)
 
   --- available_tags: list all tags a model handles.
   ---
   --- Returns the keys of the model's handler record (the tags the
   --- model dispatches on). This is the model's *interface* — the set
   --- of operations it accepts.
-  available_tags :: [model] ~> if is_obj(model) {
+  available_tags := [model] ~> if is_obj(model) {
     hash_map.keys(model)
   } else {
     []
@@ -187,7 +187,7 @@ do {
   --- Models may carry a `"name"` field (e.g. set by `register_model` or
   --- authored in the model source). Returns `null` if the model is
   --- anonymous.
-  model_name :: [model] ~> if is_obj(model) {
+  model_name := [model] ~> if is_obj(model) {
     tget(model, "name")
   } else {
     null
@@ -199,9 +199,9 @@ do {
   --- *new* registry with the binding added (immutable update), so
   --- registries compose functionally. The model is also stamped with
   --- its `name` so `model_name` round-trips through the registry.
-  register_model :: [name, model, registry] ~> do {
-    base :: if is_obj(registry) { registry } else { {} }
-    stamped :: if is_obj(model) { hash_map.set(model, "name", name) } else { model }
+  register_model := [name, model, registry] ~> do {
+    base := if is_obj(registry) { registry } else { {} }
+    stamped := if is_obj(model) { hash_map.set(model, "name", name) } else { model }
     hash_map.set(base, name, stamped)
   }
 
@@ -210,7 +210,7 @@ do {
   --- Returns the model registered under `name`, or `null` if no such
   --- model is registered. The registry is the hash map built by
   --- `register_model`.
-  lookup_model :: [name, registry] ~> if is_obj(registry) {
+  lookup_model := [name, registry] ~> if is_obj(registry) {
     tget(registry, name)
   } else {
     null
@@ -223,12 +223,12 @@ do {
   --- model in order. `pipeline([a, b, c])` = `compose(compose(a, b),
   --- c)`, so data flows a -> b -> c. The empty pipeline is the
   --- identity model.
-  pipeline :: [models] ~> while { acc: identity_model(), remaining: models } {
+  pipeline := [models] ~> while { acc: identity_model(), remaining: models } {
     [state] ~> if array.is_empty(state.remaining) {
       { out: state.acc }
     } else {
       do {
-        head :: array.first(state.remaining)
+        head := array.first(state.remaining)
         { state: { acc: compose(state.acc, head), remaining: array.drop(state.remaining, 1) } }
       }
     }
@@ -240,15 +240,15 @@ do {
   --- `model_b` on the same `(term, incoming, ctx)` and yields a pair
   --- of their results. This is the categorical product of models:
   ---   parallel(a, b).run(t, i, c) = (a.run(t, i, c), b.run(t, i, c)).
-  parallel :: [model_a, model_b] ~> do {
-    run_a :: tget(model_a, "run")
-    run_b :: tget(model_b, "run")
+  parallel := [model_a, model_b] ~> do {
+    run_a := tget(model_a, "run")
+    run_b := tget(model_b, "run")
     hash_map.set(
       {},
       "run",
       [term, incoming, ctx] ~> do {
-        ra :: run_a(term, incoming, ctx)
-        rb :: run_b(term, incoming, ctx)
+        ra := run_a(term, incoming, ctx)
+        rb := run_b(term, incoming, ctx)
         hash_map.set({}, "__pair__", [ra, rb])
       }
     )
@@ -264,16 +264,16 @@ do {
   --- level at which it can observe models as data.) Returns a record
   --- `{ result, trace }` where `trace` is an array of
   --- `{ tag, ok }` entries.
-  trace_model :: [model, term, incoming, ctx] ~> do {
-    run :: tget(model, "run")
-    tag_name :: if is_obj(term) { tget(term, "__tag__") } else { null }
-    result :: run(term, incoming, ctx)
-    ok :: if is_obj(result) {
+  trace_model := [model, term, incoming, ctx] ~> do {
+    run := tget(model, "run")
+    tag_name := if is_obj(term) { tget(term, "__tag__") } else { null }
+    result := run(term, incoming, ctx)
+    ok := if is_obj(result) {
       if hash_map.get_or(result, "__tag__", "") == "ModelError" { false } else { true }
     } else {
       true
     }
-    entry :: hash_map.set(hash_map.set({}, "tag", tag_name), "ok", ok)
+    entry := hash_map.set(hash_map.set({}, "tag", tag_name), "ok", ok)
     hash_map.set(
       hash_map.set({}, "result", result),
       "trace",

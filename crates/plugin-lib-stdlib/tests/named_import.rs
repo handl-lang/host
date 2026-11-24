@@ -38,7 +38,7 @@ fn call(module: &dyn Module, name: &str, args: &[serde_json::Value]) -> serde_js
 #[test]
 fn named_import_binds_a_bare_callable() {
     ensure_lang();
-    const SRC: &str = "from \"len\" import len\nexport length_of :: xs ~> len(xs)";
+    const SRC: &str = "from \"len\" import len\nexport length_of := xs ~> len(xs)";
     let module = HandlModule::new("named_import_probe", SRC, &["length_of"])
         .with_import_resolver(Arc::new(TableImportResolver::new()))
         .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
@@ -52,7 +52,7 @@ fn named_import_binds_a_bare_callable() {
 #[test]
 fn qualified_import_still_binds_the_module_object() {
     ensure_lang();
-    const SRC: &str = "from \"len\" import * as l\nexport length_of :: xs ~> l.len(xs)";
+    const SRC: &str = "from \"len\" import * as l\nexport length_of := xs ~> l.len(xs)";
     let module = HandlModule::new("qualified_import_probe", SRC, &["length_of"])
         .with_import_resolver(Arc::new(TableImportResolver::new()))
         .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
@@ -69,7 +69,7 @@ fn qualified_import_still_binds_the_module_object() {
 fn named_import_binds_value_exports() {
     ensure_lang();
     const SRC: &str =
-        "from \"bool\" import { true, false, xor }\nexport check :: x ~> xor(true, false)";
+        "from \"bool\" import { true, false, xor }\nexport check := x ~> xor(true, false)";
     let module = HandlModule::new("named_import_values_probe", SRC, &["check"])
         .with_import_resolver(Arc::new(TableImportResolver::new()))
         .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(
@@ -84,7 +84,7 @@ fn named_import_binds_value_exports() {
 #[test]
 fn star_import_splices_value_exports() {
     ensure_lang();
-    const SRC: &str = "from \"bool\" import *\nexport check :: x ~> not(true)";
+    const SRC: &str = "from \"bool\" import *\nexport check := x ~> not(true)";
     let module = HandlModule::new("star_import_values_probe", SRC, &["check"])
         .with_import_resolver(Arc::new(TableImportResolver::new()))
         .with_global_lookup(Arc::new(TableModuleLookup::new(Arc::new(

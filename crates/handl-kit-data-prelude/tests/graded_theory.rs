@@ -117,7 +117,7 @@ fn graded_theory_ast_shapes_exist() {
 
 #[test]
 fn fat_arrow_lexes_before_bind() {
-    // `=>` must lex as `token.fat_arrow`, not `=` (`token.bind`) + `>`.
+    // `=>` must lex as `token.fat_arrow`, not `=` (`token.equal`) + `>`.
     let rt = full_runtime();
     let toks = rt.lex(&Source::new("a => b")).expect("lex");
     let kinds: Vec<&str> = toks.0.iter().map(|t| t.kind.as_str()).collect();
@@ -300,7 +300,7 @@ fn dimension_bracket_takes_multiple_arguments_through_real_lexer() {
 #[test]
 fn dimension_evaluates_as_application() {
     let rt = full_runtime();
-    let src = "do { inc :: x ~> x + 1\n  inc<41> }";
+    let src = "do { inc := x ~> x + 1\n  inc<41> }";
     let toks = rt.lex(&Source::new(src)).expect("lex succeeds");
     let ast = rt.parse(&toks).expect("parse succeeds");
     assert!(
@@ -329,11 +329,11 @@ fn dimension_evaluates_identically_to_the_call_form() {
         let ast = rt.parse(&toks).expect("parse");
         rt.eval(&ast).expect("eval")
     };
-    let call = eval("do { inc :: x ~> x + 1; inc(41) }");
-    let dim = eval("do { inc :: x ~> x + 1; inc<41> }");
+    let call = eval("do { inc := x ~> x + 1; inc(41) }");
+    let dim = eval("do { inc := x ~> x + 1; inc<41> }");
     assert_eq!(dim, call, "`inc<41>` must evaluate exactly like `inc(41)`");
-    let multi_call = eval("do { add :: (a, b) ~> a + b; add(1, 2) }");
-    let multi_dim = eval("do { add :: (a, b) ~> a + b; add<1, 2> }");
+    let multi_call = eval("do { add := (a, b) ~> a + b; add(1, 2) }");
+    let multi_dim = eval("do { add := (a, b) ~> a + b; add<1, 2> }");
     assert_eq!(multi_dim, multi_call, "multi-argument form agrees too");
 }
 
@@ -434,8 +434,8 @@ fn axis_flow_zero_evaluates_like_flow() {
         let ast = rt.parse(&toks).expect("parse");
         rt.eval(&ast).expect("eval")
     };
-    let plain = eval("do { inc :: x ~> x + 1; 41 >>> inc }");
-    let indexed = eval("do { inc :: x ~> x + 1; 41 >>>[0] inc }");
+    let plain = eval("do { inc := x ~> x + 1; 41 >>> inc }");
+    let indexed = eval("do { inc := x ~> x + 1; 41 >>>[0] inc }");
     assert_eq!(indexed, plain, "`>>>[0]` must evaluate exactly like `>>>`");
 }
 
@@ -448,7 +448,7 @@ fn axis_flow_zero_evaluates_like_flow() {
 fn axis_flow_nonzero_axis_enforces_boundary() {
     let rt = full_runtime();
     let toks = rt
-        .lex(&Source::new("do { inc :: x ~> x + 1; 41 >>>[1] inc }"))
+        .lex(&Source::new("do { inc := x ~> x + 1; 41 >>>[1] inc }"))
         .expect("lex");
     let ast = rt.parse(&toks).expect("parse");
     let err = rt

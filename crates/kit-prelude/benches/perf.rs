@@ -12,13 +12,13 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use handl_kit_prelude::Kit;
 
-/// `f = x ~> x; a0 = f 0; a1 = f 1; …; a{n-1} = f {n-1};` — `n` applications
+/// `f := x ~> x; a0 := f 0; a1 := f 1; …; a{n-1} := f {n-1};` — `n` applications
 /// with flat nesting, so scale comes from module length rather than parser
 /// recursion depth.
 fn chain_module(n: usize) -> String {
-    let mut s = String::from("f = x ~> x;");
+    let mut s = String::from("f := x ~> x;");
     for i in 0..n {
-        s.push_str(&format!(" a{i} = f {i};"));
+        s.push_str(&format!(" a{i} := f {i};"));
     }
     s
 }

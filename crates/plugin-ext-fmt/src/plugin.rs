@@ -190,7 +190,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({"source": "x = 1", "check": true})),
+                    &req(serde_json::json!({"source": "x := 1", "check": true})),
                     ctx,
                 )
                 .expect("fmt check succeeds")
@@ -211,7 +211,7 @@ mod tests {
         // single guessed input failed twice (the formatter happily formatted
         // both `"x = "` and `"x = (1"`).
         let plugin = FmtPlugin::new(lang());
-        let candidates = ["x = (1", ")", "\"unterminated", "@@@", "~[", "x = = 1"];
+        let candidates = ["x := (1", ")", "\"unterminated", "@@@", "~[", "x := := 1"];
         let mut saw_error = false;
         for src in candidates {
             let res = with_ctx(|ctx| {
@@ -241,7 +241,7 @@ mod tests {
         let plugin = FmtPlugin::new(lang());
         let res = with_ctx(|ctx| {
             plugin
-                .run(&req(serde_json::json!({"source": "x = 1"})), ctx)
+                .run(&req(serde_json::json!({"source": "x := 1"})), ctx)
                 .expect("fmt succeeds")
         });
         assert_eq!(
@@ -270,7 +270,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({"source": "x   =   1;", "check": true})),
+                    &req(serde_json::json!({"source": "x   :=   1;", "check": true})),
                     ctx,
                 )
                 .expect("fmt check succeeds")
@@ -292,7 +292,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({"source": "x = \"unterminated;", "check": true})),
+                    &req(serde_json::json!({"source": "x := \"unterminated;", "check": true})),
                     ctx,
                 )
                 .expect("a lex failure is a response, not a PlatformError")
@@ -315,7 +315,7 @@ mod tests {
         let res = with_ctx(|ctx| {
             plugin
                 .run(
-                    &req(serde_json::json!({"source": "x = \"unterminated;"})),
+                    &req(serde_json::json!({"source": "x := \"unterminated;"})),
                     ctx,
                 )
                 .expect("a lex failure is a response, not a PlatformError")

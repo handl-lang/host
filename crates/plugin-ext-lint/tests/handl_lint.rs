@@ -27,8 +27,8 @@ fn ensure_lang() {
 
 const T_HNL: &str = r#"
 -- t: test lint module
-export check :: m ~> [{name: "x", span: {start: 1, end: 3}, fix: {start: 1, end: 3, replacement: "y"}}]
-export decline :: m ~> null
+export check := m ~> [{name: "x", span: {start: 1, end: 3}, fix: {start: 1, end: 3, replacement: "y"}}]
+export decline := m ~> null
 "#;
 
 fn test_lang(check_name: &str) -> Language {

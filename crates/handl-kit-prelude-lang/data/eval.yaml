@@ -825,7 +825,7 @@
 # `return` inside a `rec` region exits the region early with the return value.
 # The `rec` node's children are the flattened block bindings (grammar
 # `grammar.rec.prefix` with `flatten: true`). Each child is an expression;
-# `assign` children (`a = expr`) define bindings, and the last child's value
+# `assign` children (`a := expr`) define bindings, and the last child's value
 # is the result of the region (unless a `return` exits early).
 - id: eval.rec
   node_kind: rec

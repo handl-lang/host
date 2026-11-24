@@ -201,9 +201,9 @@ fn test_file_resolver_examples() {
 fn test_multi_file_disk_strategy_a() {
     let dir = make_temp_dir("strategy_a");
     // util.hnl — defines `helper`.
-    write_module(&dir, "util", "helper = arr(\"add\") >>> arr(\"add\")");
+    write_module(&dir, "util", "helper := arr(\"add\") >>> arr(\"add\")");
     // main.hnl — imports `helper` from `util`, uses it.
-    write_module(&dir, "main", "import helper from \"util\"\nmain = helper");
+    write_module(&dir, "main", "import helper from \"util\"\nmain := helper");
 
     let loader = loader_for(dir);
 
@@ -226,8 +226,8 @@ fn test_multi_file_disk_strategy_a() {
 #[test]
 fn test_multi_file_disk_strategy_b() {
     let dir = make_temp_dir("strategy_b");
-    write_module(&dir, "util", "helper = arr(\"add\") >>> arr(\"add\")");
-    write_module(&dir, "main", "import helper from \"util\"\nmain = helper");
+    write_module(&dir, "util", "helper := arr(\"add\") >>> arr(\"add\")");
+    write_module(&dir, "main", "import helper from \"util\"\nmain := helper");
 
     let loader = loader_for(dir);
 
@@ -269,8 +269,8 @@ fn test_multi_file_disk_strategy_b() {
 fn test_multi_file_cycle_disk() {
     let dir = make_temp_dir("cycle");
     // a.hnl imports from b.hnl; b.hnl imports from a.hnl — a cycle.
-    write_module(&dir, "a", "import b from \"b\"\nx = arr(\"id\")");
-    write_module(&dir, "b", "import a from \"a\"\ny = arr(\"id\")");
+    write_module(&dir, "a", "import b from \"b\"\nx := arr(\"id\")");
+    write_module(&dir, "b", "import a from \"a\"\ny := arr(\"id\")");
 
     let loader = loader_for(dir);
 
@@ -302,15 +302,15 @@ fn test_multi_file_cycle_disk() {
 fn test_three_file_chain() {
     let dir = make_temp_dir("chain");
     // c.hnl — leaf: defines `base`.
-    write_module(&dir, "c", "base = arr(\"id\")");
+    write_module(&dir, "c", "base := arr(\"id\")");
     // b.hnl — imports `base` from c, defines `mid`.
     write_module(
         &dir,
         "b",
-        "import base from \"c\"\nmid = base >>> arr(\"const\")",
+        "import base from \"c\"\nmid := base >>> arr(\"const\")",
     );
     // a.hnl — imports `mid` from b, defines `main`.
-    write_module(&dir, "a", "import mid from \"b\"\nmain = mid");
+    write_module(&dir, "a", "import mid from \"b\"\nmain := mid");
 
     let loader = loader_for(dir);
 

@@ -27,8 +27,8 @@ fn ensure_lang() {
 
 const T_HNL: &str = r#"
 -- t: test transform module
-export rewrite :: n ~> ({kind: "bar", payload: {origin: n.kind}, children: [{"__keep__": 0}]})
-export decline :: n ~> null
+export rewrite := n ~> ({kind: "bar", payload: {origin: n.kind}, children: [{"__keep__": 0}]})
+export decline := n ~> null
 "#;
 
 fn test_lang() -> Language {

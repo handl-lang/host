@@ -314,10 +314,10 @@ impl ContextClassifier for CanonicalTokenClassifier {
             }
         }
 
-        // Binding declaration: at the start of a line and followed by `:` or `::`
+        // Binding declaration: at the start of a line and followed by `:` or `:=`
         // (and not inside a paren/brace list, which is handled above).
         if is_at_line_start(tokens, index, source)
-            && (is_label(index + 1, ":") || is_label(index + 1, "::"))
+            && (is_label(index + 1, ":") || is_label(index + 1, ":="))
         {
             let ty = legend.token_type_index("variable")?;
             let mods = legend.modifier_bit("declaration").unwrap_or(0);

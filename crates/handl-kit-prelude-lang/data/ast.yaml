@@ -79,7 +79,7 @@
   children:
     - role: target
     - role: value
-    # `x = v in body` (3-child let-form) carries an optional trailing body.
+    # `x := v in body` (3-child let-form) carries an optional trailing body.
     - role: body
       optional: true
   payload_schema:

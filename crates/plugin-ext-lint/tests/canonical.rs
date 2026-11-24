@@ -58,7 +58,7 @@ fn has(diags: &[handl_plugin_ext_diag::Diagnostic], name: &str, sev: Severity) -
 
 #[test]
 fn unused_import_fires() {
-    let src = "-- doc\nimport unused from \"mod\"\nmain = 42\n";
+    let src = "-- doc\nimport unused from \"mod\"\nmain := 42\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "unused-import", Severity::Warning),
@@ -69,7 +69,7 @@ fn unused_import_fires() {
 
 #[test]
 fn unused_import_clean() {
-    let src = "-- doc\nimport used from \"mod\"\nmain = used\n";
+    let src = "-- doc\nimport used from \"mod\"\nmain := used\n";
     let diags = lint_source(src).unwrap();
     assert!(
         for_rule(&diags, "unused-import").is_empty(),
@@ -80,7 +80,7 @@ fn unused_import_clean() {
 
 #[test]
 fn unused_import_fix() {
-    let src = "-- doc\nimport unused from \"mod\"\nmain = 42\n";
+    let src = "-- doc\nimport unused from \"mod\"\nmain := 42\n";
     let fixed = fix(src).unwrap();
     assert!(
         !fixed.contains("import unused"),
@@ -97,7 +97,7 @@ fn unused_import_fix() {
 
 #[test]
 fn unbound_wire_fires() {
-    let src = "-- doc\nmain = undefined_thing\n";
+    let src = "-- doc\nmain := undefined_thing\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "unbound-wire", Severity::Error),
@@ -108,7 +108,7 @@ fn unbound_wire_fires() {
 
 #[test]
 fn unbound_wire_clean() {
-    let src = "-- doc\nimport greet from \"mod\"\nmain = greet\n";
+    let src = "-- doc\nimport greet from \"mod\"\nmain := greet\n";
     let diags = lint_source(src).unwrap();
     assert!(
         for_rule(&diags, "unbound-wire").is_empty(),
@@ -120,7 +120,7 @@ fn unbound_wire_clean() {
 #[test]
 fn unbound_wire_arrow_param_in_scope() {
     // The arrow parameter `x` is in scope for the body reference `x`.
-    let src = "-- doc\ndouble = x ~> x * 2\n";
+    let src = "-- doc\ndouble := x ~> x * 2\n";
     let diags = lint_source(src).unwrap();
     assert!(
         for_rule(&diags, "unbound-wire").is_empty(),
@@ -135,7 +135,7 @@ fn unbound_wire_arrow_param_in_scope() {
 
 #[test]
 fn shadowed_binding_fires() {
-    let src = "-- doc\nx = 1\nx = 2\n";
+    let src = "-- doc\nx := 1\nx := 2\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "shadowed-binding", Severity::Warning),
@@ -146,7 +146,7 @@ fn shadowed_binding_fires() {
 
 #[test]
 fn shadowed_binding_clean() {
-    let src = "-- doc\nx = 1\ny = 2\n";
+    let src = "-- doc\nx := 1\ny := 2\n";
     let diags = lint_source(src).unwrap();
     assert!(
         for_rule(&diags, "shadowed-binding").is_empty(),
@@ -161,7 +161,7 @@ fn shadowed_binding_clean() {
 
 #[test]
 fn dead_branch_constant_true() {
-    let src = "-- doc\nmain = if true { 1 } else { 2 }\n";
+    let src = "-- doc\nmain := if true { 1 } else { 2 }\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "dead-branch", Severity::Warning),
@@ -172,7 +172,7 @@ fn dead_branch_constant_true() {
 
 #[test]
 fn dead_branch_constant_false() {
-    let src = "-- doc\nmain = if false { 1 } else { 2 }\n";
+    let src = "-- doc\nmain := if false { 1 } else { 2 }\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "dead-branch", Severity::Warning),
@@ -183,7 +183,7 @@ fn dead_branch_constant_false() {
 
 #[test]
 fn dead_branch_ternary_true() {
-    let src = "-- doc\nmain = true ? 1 : 2\n";
+    let src = "-- doc\nmain := true ? 1 : 2\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "dead-branch", Severity::Warning),
@@ -194,7 +194,7 @@ fn dead_branch_ternary_true() {
 
 #[test]
 fn dead_branch_clean() {
-    let src = "-- doc\nmain = if x { 1 } else { 2 }\n";
+    let src = "-- doc\nmain := if x { 1 } else { 2 }\n";
     // Note: `x` is unbound, but dead-branch should not fire (non-constant guard).
     let diags = lint_source(src).unwrap();
     assert!(
@@ -210,7 +210,7 @@ fn dead_branch_clean() {
 
 #[test]
 fn naming_convention_violation() {
-    let src = "-- doc\nMyFunc = 42\n";
+    let src = "-- doc\nMyFunc := 42\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "naming-convention", Severity::Warning),
@@ -221,7 +221,7 @@ fn naming_convention_violation() {
 
 #[test]
 fn naming_convention_clean() {
-    let src = "-- doc\nmy_func = 42\n";
+    let src = "-- doc\nmy_func := 42\n";
     let diags = lint_source(src).unwrap();
     assert!(
         for_rule(&diags, "naming-convention").is_empty(),
@@ -232,7 +232,7 @@ fn naming_convention_clean() {
 
 #[test]
 fn naming_convention_fix() {
-    let src = "-- doc\nMyFunc = 42\n";
+    let src = "-- doc\nMyFunc := 42\n";
     let fixed = fix(src).unwrap();
     assert!(
         fixed.contains("my_func"),
@@ -251,7 +251,7 @@ fn naming_convention_fix() {
 fn record_as_block_fires() {
     // `{ a: 1, b: 2 }` in block position parses each entry as a bare
     // `type-annot` statement, so the block yields the last field's value.
-    let src = "-- doc\nmain = if true { a: 1, b: 2 } else { c: 3 }\n";
+    let src = "-- doc\nmain := if true { a: 1, b: 2 } else { c: 3 }\n";
     let diags = lint_source(src).unwrap();
     assert_eq!(
         for_rule(&diags, "record-as-block").len(),
@@ -264,7 +264,7 @@ fn record_as_block_fires() {
 #[test]
 fn record_as_block_clean_wrapped() {
     // The `do { { ... } }` form parses the literal as an `object`.
-    let src = "-- doc\nmain = do { { a: 1, b: 2 } }\n";
+    let src = "-- doc\nmain := do { { a: 1, b: 2 } }\n";
     let diags = lint_source(src).unwrap();
     assert!(for_rule(&diags, "record-as-block").is_empty());
 }
@@ -272,7 +272,7 @@ fn record_as_block_clean_wrapped() {
 #[test]
 fn record_as_block_clean_annotation() {
     // A real annotation nests `type-annot` under an `assign`.
-    let src = "-- doc\nmain = do {\n  y: Int := 1\n  y\n}\n";
+    let src = "-- doc\nmain := do {\n  y: Int := 1\n  y\n}\n";
     let diags = lint_source(src).unwrap();
     assert!(for_rule(&diags, "record-as-block").is_empty());
 }
@@ -282,7 +282,7 @@ fn record_as_block_clean_annotation() {
 
 #[test]
 fn simplify_paren_fires() {
-    let src = "-- doc\nmain = (42)\n";
+    let src = "-- doc\nmain := (42)\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "simplify-paren", Severity::Warning),
@@ -293,9 +293,9 @@ fn simplify_paren_fires() {
 
 #[test]
 fn simplify_paren_fix() {
-    let src = "-- doc\nmain = (42)\n";
+    let src = "-- doc\nmain := (42)\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nmain = 42\n");
+    assert_eq!(fixed, "-- doc\nmain := 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
 }
@@ -304,9 +304,9 @@ fn simplify_paren_fix() {
 fn simplify_paren_var() {
     // The `paren` node wraps a bound `var`; the fix removes the parens while
     // preserving the surrounding source layout.
-    let src = "-- doc\nx = 1\nmain = (x)\n";
+    let src = "-- doc\nx := 1\nmain := (x)\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nx = 1\nmain = x\n");
+    assert_eq!(fixed, "-- doc\nx := 1\nmain := x\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
 }
@@ -315,9 +315,9 @@ fn simplify_paren_var() {
 fn simplify_paren_nested() {
     // `find_matches` reports both paren layers; the fixpoint removes all
     // redundant parens, converging on the bare atom.
-    let src = "-- doc\nmain = ((x))\n";
+    let src = "-- doc\nmain := ((x))\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nmain = x\n");
+    assert_eq!(fixed, "-- doc\nmain := x\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
 }
@@ -326,9 +326,9 @@ fn simplify_paren_nested() {
 fn simplify_paren_inner_value() {
     // The inner fix comes from the `paren` node span and the child's span,
     // not a token walk, so a single-atom value works too.
-    let src = "-- doc\nmain = ((42))\n";
+    let src = "-- doc\nmain := ((42))\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nmain = 42\n");
+    assert_eq!(fixed, "-- doc\nmain := 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "simplify-paren").is_empty());
 }
@@ -339,7 +339,7 @@ fn simplify_paren_inner_value() {
 
 #[test]
 fn missing_module_doc_fires() {
-    let src = "main = 42\n";
+    let src = "main := 42\n";
     let diags = lint_source(src).unwrap();
     assert!(
         has(&diags, "missing-module-doc", Severity::Info),
@@ -350,7 +350,7 @@ fn missing_module_doc_fires() {
 
 #[test]
 fn missing_module_doc_clean() {
-    let src = "-- doc\nmain = 42\n";
+    let src = "-- doc\nmain := 42\n";
     let diags = lint_source(src).unwrap();
     assert!(
         for_rule(&diags, "missing-module-doc").is_empty(),
@@ -378,7 +378,7 @@ fn fmt_rule_fires() {
 fn fmt_rule_fix() {
     let src = "-- doc\nmain=42\n";
     let fixed = fix(src).unwrap();
-    assert_eq!(fixed, "-- doc\nmain = 42\n");
+    assert_eq!(fixed, "-- doc\nmain := 42\n");
     let diags = lint_source(&fixed).unwrap();
     assert!(for_rule(&diags, "fmt").is_empty());
 }
@@ -389,7 +389,7 @@ fn fmt_rule_fix() {
 
 #[test]
 fn lint_source_returns_diagnostics() {
-    let src = "-- doc\nmain = undefined_ref\n";
+    let src = "-- doc\nmain := undefined_ref\n";
     let diags = lint_source(src).unwrap();
     assert!(!diags.is_empty());
     // Diagnostics carry rule names and severities.
@@ -399,19 +399,19 @@ fn lint_source_returns_diagnostics() {
 #[test]
 fn check_source_clean() {
     // A clean, canonical module with a doc comment and a bound reference.
-    let src = "-- doc\nmy_func = 42\n";
+    let src = "-- doc\nmy_func := 42\n";
     assert!(check_source(src).unwrap());
 }
 
 #[test]
 fn check_source_has_errors() {
-    let src = "-- doc\nmain = undefined_ref\n";
+    let src = "-- doc\nmain := undefined_ref\n";
     assert!(!check_source(src).unwrap());
 }
 
 #[test]
 fn fix_source_idempotent() {
-    let src = "-- doc\nmy_func = 42\n";
+    let src = "-- doc\nmy_func := 42\n";
     let fixed = fix(src).unwrap();
     assert_eq!(fixed, src, "fixing already-fixed source is a no-op");
     // Fixing the fixed output is also a no-op.
@@ -423,7 +423,7 @@ fn fix_source_idempotent() {
 fn fix_source_converges() {
     // Multiple fixable issues: an unused import, a naming violation, and
     // non-canonical formatting. The fixpoint should converge to a clean file.
-    let src = "-- doc\nimport unused from \"mod\"\nMyFunc = 42\n";
+    let src = "-- doc\nimport unused from \"mod\"\nMyFunc := 42\n";
     let fixed = fix(src).unwrap();
     let diags = lint_source(&fixed).unwrap();
     let fixable: Vec<_> = diags.iter().filter(|d| d.fix.is_some()).collect();
@@ -439,7 +439,7 @@ fn fix_source_converges() {
 #[test]
 fn diagnostics_sorted_by_span() {
     // A source with diagnostics at multiple offsets.
-    let src = "main = undefined_ref\n";
+    let src = "main := undefined_ref\n";
     let diags = lint_source(src).unwrap();
     for w in diags.windows(2) {
         assert!(
@@ -457,7 +457,7 @@ fn diagnostics_sorted_by_span() {
 #[test]
 fn lint_source_parse_error() {
     // An unterminated string is a lex/parse error.
-    let src = "-- doc\nmain = \"unterminated\n";
+    let src = "-- doc\nmain := \"unterminated\n";
     let result = lint_source(src);
     assert!(result.is_err());
     assert!(matches!(result.unwrap_err(), LintError::Parse(_)));

@@ -115,10 +115,10 @@ fn axis_flow_zero_matches_flow_on_all_engines() {
     for (name, engine) in all_engines() {
         let rt = runtime_for(engine);
         let plain = rt
-            .run(&Source::new("do { inc :: x ~> x + 1; 41 >>> inc }"))
+            .run(&Source::new("do { inc := x ~> x + 1; 41 >>> inc }"))
             .unwrap_or_else(|e| panic!("{name}: >>> failed: {e:?}"));
         let indexed = rt
-            .run(&Source::new("do { inc :: x ~> x + 1; 41 >>>[0] inc }"))
+            .run(&Source::new("do { inc := x ~> x + 1; 41 >>>[0] inc }"))
             .unwrap_or_else(|e| panic!("{name}: >>>[0] failed: {e:?}"));
         assert_eq!(indexed, plain, "{name}: >>>[0] must equal >>>");
     }
@@ -175,7 +175,7 @@ fn axis_flow_axis2_pastes_3cells_on_all_engines() {
         "value": 200,
     });
     check_all(
-        &format!("do {{ a = {a}; b = {b}; a >>>[2] b }}"),
+        &format!("do {{ a := {a}; b := {b}; a >>>[2] b }}"),
         Ok(expected),
     );
 }
@@ -186,7 +186,7 @@ fn axis_flow_axis2_boundary_mismatch_errors_on_all_engines() {
     let a = "{__dim__: 3, __src__: 10, __tgt__: 20, value: 1}";
     let b = "{__dim__: 3, __src__: 30, __tgt__: 40, value: 2}";
     check_all(
-        &format!("do {{ a = {a}; b = {b}; a >>>[2] b }}"),
+        &format!("do {{ a := {a}; b := {b}; a >>>[2] b }}"),
         Err("boundary"),
     );
 }
@@ -223,7 +223,7 @@ fn axis_flow_axis1_on_3cells_composes_boundaries_pointwise() {
         "value": 200,
     });
     check_all(
-        &format!("do {{ a = {a}; b = {b}; a >>>[1] b }}"),
+        &format!("do {{ a := {a}; b := {b}; a >>>[1] b }}"),
         Ok(expected),
     );
 }
@@ -245,7 +245,7 @@ fn axis_flow_axis2_promotes_lower_dimensional_operands() {
         "value": 7,
     });
     check_all(
-        &format!("do {{ c = {c2}; b = {b}; c >>>[2] b }}"),
+        &format!("do {{ c := {c2}; b := {b}; c >>>[2] b }}"),
         Ok(expected),
     );
 }
@@ -259,8 +259,8 @@ fn axis_flow_axis1_composes_dim_arrow_values() {
         let rt = runtime_for(engine);
         let result = rt
             .run(&Source::new(
-                "do { f = x ~> x + 1; g = x ~> x + 2; h = x ~> x + 3; \
-                 alpha = f ~[2]~> g; beta = g ~[2]~> h; alpha >>>[1] beta }",
+                "do { f := x ~> x + 1; g := x ~> x + 2; h := x ~> x + 3; \
+                 alpha := f ~[2]~> g; beta := g ~[2]~> h; alpha >>>[1] beta }",
             ))
             .unwrap_or_else(|e| panic!("{name}: >>>[1] on dim_arrow values failed: {e:?}"));
         assert_eq!(
@@ -291,7 +291,7 @@ fn compose_runs_pasting_diagram_on_all_engines() {
         format!("{{__dim__: 2, __src__: {src}, __tgt__: {tgt}, value: {w}}}")
     };
     let src = format!(
-        "do {{ d = [{}, {{axis: 1, cell: {}}}, {{axis: 1, cell: {}}}]; d >>> arr compose }}",
+        "do {{ d := [{}, {{axis: 1, cell: {}}}, {{axis: 1, cell: {}}}]; d >>> arr compose }}",
         c2(1, 2, 10),
         c2(2, 3, 20),
         c2(3, 4, 30)
@@ -316,7 +316,7 @@ fn compose_runs_pasting_diagram_on_all_engines() {
 /// reports the failing step.
 #[test]
 fn compose_step_boundary_mismatch_errors_on_all_engines() {
-    let src = "do { d = [{__dim__: 2, __src__: 1, __tgt__: 2, value: 10}, \
+    let src = "do { d := [{__dim__: 2, __src__: 1, __tgt__: 2, value: 10}, \
                {axis: 1, cell: {__dim__: 2, __src__: 9, __tgt__: 3, value: 20}}]; \
                d >>> arr compose }";
     for (name, engine) in all_engines() {
@@ -357,7 +357,7 @@ fn compose_pastes_at_axis2_on_all_engines() {
         "{{__dim__: 3, __src__: {shared}, __tgt__: {}, value: 200}}",
         c2(2, 3, 9)
     );
-    let src = format!("do {{ d = [{a}, {{axis: 2, cell: {b}}}]; d >>> arr compose }}");
+    let src = format!("do {{ d := [{a}, {{axis: 2, cell: {b}}}]; d >>> arr compose }}");
     for (name, engine) in all_engines() {
         let rt = runtime_for(engine);
         let result = rt

@@ -33,7 +33,7 @@ pub const SAMPLE: &str =
 /// "Removed: … pipe …"), so the sample no longer parsed and
 /// `pipeline/parse_and_eval` panicked on its first iteration. Plain
 /// application is the supported form.
-pub const EVAL_SAMPLE: &str = "f = x ~> x; f 1";
+pub const EVAL_SAMPLE: &str = "f := x ~> x; f 1";
 
 /// An inference-heavy module for the `infer` bench.
 ///
@@ -41,4 +41,4 @@ pub const EVAL_SAMPLE: &str = "f = x ~> x; f 1";
 /// synthesize a type for each binding *and* for the application site — the
 /// shape `handl-typecheck-infer` used to be measured on. Validated against
 /// `hnl typecheck` (`<path>: ok`).
-pub const INFERENCE_SAMPLE: &str = "f = x ~> x; g = y ~> f y; h = z ~> g z; h 1";
+pub const INFERENCE_SAMPLE: &str = "f := x ~> x; g := y ~> f y; h := z ~> g z; h 1";

@@ -333,18 +333,18 @@ fn export_data_record_exports_family_and_ctors() {
         r#"do { from "mod.hnl" import two, Zero, Succ; match two { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } } }"#,
     )
     .expect("export data module must evaluate");
-    assert_eq!(value, json!(2), "two = Succ(Succ(Zero))");
+    assert_eq!(value, json!(2), "two := Succ(Succ(Zero))");
     std::fs::remove_dir_all(&root).ok();
 }
 
-/// `export data F :: C0 | C1(…)` — the retired `::` constructor spelling
-/// still parses (the `data` keyword is a stray leading token the desugar
-/// pass tolerates), so `export data` must carry it verbatim and export
-/// the family plus each constructor arm's name.
+/// `export data F := C0 | C1(…)` — the `:=` constructor-arm
+/// spelling (`:=` is the only binding operator; the old `::` is gone)
+/// must carry the decl verbatim and export the family plus each
+/// constructor arm's name.
 #[test]
 fn export_data_colon_form_exports_family_and_ctors() {
     let root = scratch_dir("export-data-colon");
-    let src = "export data Nat :: Zero | Succ(n : Nat)\nexport one := Succ(Zero)\n";
+    let src = "export data Nat := Zero | Succ(n : Nat)\nexport one := Succ(Zero)\n";
 
     let names = handl_runtime::module_prep::module_export_names(src);
     for name in ["Nat", "Zero", "Succ", "one"] {
@@ -359,8 +359,8 @@ fn export_data_colon_form_exports_family_and_ctors() {
         src,
         r#"do { from "mod.hnl" import one, Zero, Succ; match one { Zero(): 0, Succ(p): match p { Zero(): 1, Succ(q): 2 } } }"#,
     )
-    .expect("export data :: module must evaluate");
-    assert_eq!(value, json!(1), "one = Succ(Zero)");
+    .expect("export data := module must evaluate");
+    assert_eq!(value, json!(1), "one := Succ(Zero)");
     std::fs::remove_dir_all(&root).ok();
 }
 
@@ -369,7 +369,7 @@ fn export_data_colon_form_exports_family_and_ctors() {
 #[test]
 fn export_data_alongside_plain_exports() {
     let root = scratch_dir("export-data-mixed");
-    let src = "export double : Number ~> Number = n ~> n * 2\nexport data Wrap := { Mk : (x : Number) ~> Wrap, Empty : Wrap }\nexport wrapped := Mk(21)\n";
+    let src = "export double : Number ~> Number := n ~> n * 2\nexport data Wrap := { Mk : (x : Number) ~> Wrap, Empty : Wrap }\nexport wrapped := Mk(21)\n";
     let value = run(
         &root,
         src,
@@ -381,7 +381,7 @@ fn export_data_alongside_plain_exports() {
     // `double` still exports and evaluates.
     let value = run(
         &root,
-        "export double : Number ~> Number = n ~> n * 2\n",
+        "export double : Number ~> Number := n ~> n * 2\n",
         r#"do { from "mod.hnl" import double; double(21) }"#,
     )
     .expect("plain export still works");

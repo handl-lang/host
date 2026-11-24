@@ -20,7 +20,7 @@ fn compile_file_request_builds_input_with_root_ref() {
         to: None,
         emit: None,
     };
-    let src = "x = 1";
+    let src = "x := 1";
     let ast = CompileFileRequest::build_ast(src);
     let lang = Language::new();
     let term = CompileFileRequest::root_term_for(&lang);

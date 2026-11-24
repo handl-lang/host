@@ -68,8 +68,8 @@ A family declaration produces no value, so the module checks to
 Append to `vec.hnl`:
 
 ```hnl
-v : Vec<2, Bool> = VCons(true, VCons(false, VNil))
-w : Vec<1 + 1, Bool> = v
+v : Vec<2, Bool> := VCons(true, VCons(false, VNil))
+w : Vec<1 + 1, Bool> := v
 ```
 
 ```text
@@ -97,7 +97,7 @@ $ hnl run vec.hnl   # prints the tagged constructor value for `v`/`w`
 Change `v`'s annotation to a wrong length:
 
 ```hnl
-v : Vec(3, Bool) = VCons(true, VCons(false, VNil))
+v : Vec(3, Bool) := VCons(true, VCons(false, VNil))
 ```
 
 ```text
@@ -115,7 +115,7 @@ both sides in surface syntax — `Vec(3, Bool)` vs the synthesized
 Add a `head` binding that only accepts non-empty vectors:
 
 ```hnl
-head : Bool = match v { VCons(x, xs): x }
+head : Bool := match v { VCons(x, xs): x }
 ```
 
 ```text
@@ -128,7 +128,7 @@ the scrutinee's index is refined to that constructor's result index.
 You can see the flip side by adding the `VNil` arm back:
 
 ```hnl
-head : Bool = match v { VNil: false, VCons(x, xs): x }
+head : Bool := match v { VNil: false, VCons(x, xs): x }
 ```
 
 ```text
@@ -147,7 +147,7 @@ When the *result type* depends on the scrutinee, give `match` an
 explicit **motive** with `return … with`:
 
 ```hnl
-id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) =
+id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) :=
   n ~> v ~> match v return (i, w) ~> Vec(i, Bool) with {
     VNil: eq_n # v,
     VCons(x, xs): eq_n # v,
@@ -172,16 +172,16 @@ $ hnl typecheck vec.hnl   # ok
 when the endpoints decide equal:
 
 ```hnl
-v : Vec<2, Bool> = VCons(true, VCons(false, VNil))
-p : Path(2, 2) = refl
-w : Vec(2, Bool) = p # v      -- transport along p
-w2 : Vec(2, Bool) = refl # v  -- refl is the identity transport
+v : Vec<2, Bool> := VCons(true, VCons(false, VNil))
+p : Path(2, 2) := refl
+w : Vec(2, Bool) := p # v      -- transport along p
+w2 : Vec(2, Bool) := refl # v  -- refl is the identity transport
 ```
 
 A false equation is rejected:
 
 ```hnl
-bad : Path(2, 3) = refl
+bad : Path(2, 3) := refl
 -- error [typecheck]: refl cannot prove Path(Number(2), Number(3)) — decided inequality
 ```
 
@@ -189,7 +189,7 @@ bad : Path(2, 3) = refl
 motive spelled out as an argument instead of `return … with`:
 
 ```hnl
-id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) =
+id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) :=
   n ~> v ~> match v return (i, w) ~> Vec(i, Bool) with {
     VNil: J eq_n, (i2, w2) ~> Vec(i2, Bool), v,
     VCons(x, xs): J eq_n, (i2, w2) ~> Vec(i2, Bool), v,
@@ -207,7 +207,7 @@ id_vec : Pi(Nat, n ~> Pi(Vec(n + 0, Bool), v ~> Vec(n + 0, Bool))) =
 naming the ops a computation may perform:
 
 ```hnl
-print : String ~> IO<{ puts: String ~> Unit }> = s ~> print(s)
+print : String ~> IO<{ puts: String ~> Unit }> := s ~> print(s)
 ```
 
 `print` returns an `IO` whose sig declares one op, `puts`, taking a
@@ -221,9 +221,9 @@ produces `A ~> IO(S')`. A covered op's sig entry is replaced by the
 impl's return type:
 
 ```hnl
-puts_impl : (String ~> Unit) ~> Unit = req ~> req("x")
-handled_print : String ~> IO<{ puts: Unit }> = handle print with { puts: puts_impl }
-x : IO<{ puts: Unit }> = handled_print("x")
+puts_impl : (String ~> Unit) ~> Unit := req ~> req("x")
+handled_print : String ~> IO<{ puts: Unit }> := handle print with { puts: puts_impl }
+x : IO<{ puts: Unit }> := handled_print("x")
 ```
 
 Coverage is checked both ways — a handler naming ops the body never
@@ -244,8 +244,8 @@ the checker inserts a fresh metavariable at each application and
 unification solves it.
 
 ```hnl
-id_io<s> : (String ~> IO(s)) ~> String ~> IO(s) = f ~> x ~> f(x)
-y : IO<{ puts: String ~> Unit }> = id_io(print)("x")
+id_io<s> : (String ~> IO(s)) ~> String ~> IO(s) := f ~> x ~> f(x)
+y : IO<{ puts: String ~> Unit }> := id_io(print)("x")
 ```
 
 ```text

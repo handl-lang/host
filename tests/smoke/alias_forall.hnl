@@ -22,9 +22,9 @@ type.NatAlias := Nat
 type.BoolVec := Vec(1, Bool)
 type.Hom2(a) := a ~[2]~> a
 
-z2 : NatAlias = Succ(Zero)
-one_bool : BoolVec = VCons(true, VNil)
-export endo2<a> : Hom2(a) ~> Hom2(a) = e ~> e
+z2 : NatAlias := Succ(Zero)
+one_bool : BoolVec := VCons(true, VNil)
+export endo2<a> : Hom2(a) ~> Hom2(a) := e ~> e
 
 -- ---------------------------------------------------------------------
 -- `forall n : Nat, T` — parse-level `Pi` shorthand: the binder's first
@@ -32,10 +32,10 @@ export endo2<a> : Hom2(a) ~> Hom2(a) = e ~> e
 -- — a bare `2` is a `Number` literal, not a `Nat` index term).
 -- ---------------------------------------------------------------------
 
-idn : forall n : Nat, Nat = n ~> n
-polyv : forall n : Nat, Vec(n, Bool) ~> Vec(n, Bool) = n ~> v ~> v
-two : Nat = idn(Succ(Succ(Zero)))
-v2 : Vec<1, Bool> = polyv(Succ(Zero))(VCons(true, VNil))
+idn : forall n : Nat, Nat := n ~> n
+polyv : forall n : Nat, Vec(n, Bool) ~> Vec(n, Bool) := n ~> v ~> v
+two : Nat := idn(Succ(Succ(Zero)))
+v2 : Vec<1, Bool> := polyv(Succ(Zero))(VCons(true, VNil))
 
 -- ---------------------------------------------------------------------
 -- `~[n]~>` — the dimension-indexed hom `Hom(n, s, t)` (a dimension

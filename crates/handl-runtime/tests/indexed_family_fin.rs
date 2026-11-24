@@ -158,14 +158,14 @@ fn fin_indexed_family_membership_and_match_impl() {
     children.extend(append_parsed(&mut combined, &parse_raw(&kit, fin_src)));
 
     // Construct some `Fin` values.
-    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0 :: FZ")));
+    children.extend(append_parsed(&mut combined, &parse_raw(&kit, "f0 := FZ")));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "f1 :: FS(FZ)"),
+        &parse_raw(&kit, "f1 := FS(FZ)"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "f0_in_Fin0_bad :: FS(FZ)"),
+        &parse_raw(&kit, "f0_in_Fin0_bad := FS(FZ)"),
     ));
 
     // ADR-0152: `Fin(i)` is the canonical `{"__former__", "indices"}`
@@ -176,15 +176,15 @@ fn fin_indexed_family_membership_and_match_impl() {
     // extractor exists), so `FS(FZ)` is a `Fin` member at runtime.
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p0 :: sym.instanceof(f0, Fin(0))"),
+        &parse_raw(&kit, "p0 := sym.instanceof(f0, Fin(0))"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p1 :: sym.instanceof(f1, Fin(1))"),
+        &parse_raw(&kit, "p1 := sym.instanceof(f1, Fin(1))"),
     ));
     children.extend(append_parsed(
         &mut combined,
-        &parse_raw(&kit, "p_bad :: sym.instanceof(f0_in_Fin0_bad, Fin(0))"),
+        &parse_raw(&kit, "p_bad := sym.instanceof(f0_in_Fin0_bad, Fin(0))"),
     ));
 
     // Surface `match` without a motive.
@@ -192,14 +192,14 @@ fn fin_indexed_family_membership_and_match_impl() {
         &mut combined,
         &parse_raw(
             &kit,
-            "m0 :: match (f0 : Fin(0)) { FZ: 0, FS(i): __rec_0 + 1 }",
+            "m0 := match (f0 : Fin(0)) { FZ: 0, FS(i): __rec_0 + 1 }",
         ),
     ));
     children.extend(append_parsed(
         &mut combined,
         &parse_raw(
             &kit,
-            "m1 :: match (f1 : Fin(1)) { FZ: 0, FS(i): __rec_0 + 1 }",
+            "m1 := match (f1 : Fin(1)) { FZ: 0, FS(i): __rec_0 + 1 }",
         ),
     ));
 
@@ -208,7 +208,7 @@ fn fin_indexed_family_membership_and_match_impl() {
         &mut combined,
         &parse_raw(
             &kit,
-            "m_motive :: match (f1 : Fin(1)) return (n, v) ~> Nat with { FZ: 0, FS(i): __rec_0 + 1 }",
+            "m_motive := match (f1 : Fin(1)) return (n, v) ~> Nat with { FZ: 0, FS(i): __rec_0 + 1 }",
         ),
     ));
 
