@@ -903,6 +903,14 @@ fn claim_temp_slot(parent: &Path, slot: &Path) -> Result<PathBuf, String> {
 /// never a half-cloned slot that would be mistaken for populated.
 fn materialize_git_dep(slot: &Path, spec: &DependencySpec) -> Result<(), String> {
     let url = git_remote_url(spec.git.as_deref().unwrap_or_default());
+    materialize_git_checkout(slot, &url, git_selector(spec))
+}
+
+/// Clone `url` into `slot` and check out `selector` (`None` leaves the
+/// clone's default HEAD). The [`materialize_git_dep`] body, split out so
+/// `pkg.hnl` deps — whose spec grammar carries the URL and ref directly —
+/// share the same temp-dir + atomic-publish machinery.
+fn materialize_git_checkout(slot: &Path, url: &str, selector: Option<&str>) -> Result<(), String> {
     let Some(parent) = slot.parent() else {
         return Err(format!("cache slot {} has no parent", slot.display()));
     };
@@ -910,8 +918,8 @@ fn materialize_git_dep(slot: &Path, spec: &DependencySpec) -> Result<(), String>
         .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
     let tmp = claim_temp_slot(parent, slot)?;
     let tmp_str = tmp.to_string_lossy().into_owned();
-    let result = run_git(parent, &["clone", "--quiet", &url, &tmp_str])
-        .and_then(|()| match git_selector(spec) {
+    let result = run_git(parent, &["clone", "--quiet", url, &tmp_str])
+        .and_then(|()| match selector {
             Some(sel) => run_git(&tmp, &["checkout", "--quiet", sel]),
             None => Ok(()),
         })
@@ -1064,11 +1072,26 @@ pub fn discover_dependencies(
 /// { deps: { math: "branch:main", "math-c": "branch:main" } }
 /// ```
 ///
-/// Each spec is `<kind>:<ref>`. Only the **local-development** half is
-/// resolved here: `<name>` maps to the sibling checkout `../lib-<name>` (the
-/// `lib-<package>` repo convention). Fetching `branch:`/`rev:`/`tag:` over git
-/// is the package manager's job (ADR-0010), not the loader's, so the spec is
-/// accepted but the ref is not acted on yet.
+/// Each spec is `<kind>:<ref>` (`branch:`/`rev:`/`tag:` — see
+/// [`dep_spec_ref`]) naming a `handl-lang/lib-<name>` repo
+/// ([`dep_repo_candidates`] order), or a git remote directly
+/// (`git+<url>`, `github:owner/repo`, `gitlab:…`, any `://` URL, `git@…`
+/// scp syntax) with an optional `@<ref>` pin — see
+/// [`pkg_dep_remote_spec`].
+///
+/// Resolution is **sibling-first, fetch-on-miss** (ADR-0160 P1):
+///
+/// 1. `<manifest_dir>/../lib-<name>` — the local-development checkout —
+///    wins whenever it exists (the dev fast path; also the layout inside
+///    the package cache itself, whose slots are named `lib-*`).
+/// 2. Otherwise the dep is fetched over git into its
+///    [`package_cache_dir`] slot — `<pkg_dir>/<repo>` for a `<kind>:<ref>`
+///    spec (the first [`dep_repo_candidates`] entry that clones), or
+///    `<pkg_dir>/<name>` for a remote spec — and the slot is returned
+///    whether or not the clone succeeded, so an `import` failure names
+///    the directory the fetch populates (the `.handl.toml` git-dep
+///    convention). `HANDL_PKG_FETCH=off` (or `0`/`false`/`no`) disables
+///    the fetch; `HANDL_PKG_OFFLINE=1`/`true`/`yes`/`on` does the same.
 ///
 /// A missing file yields an empty map. A *malformed* `pkg.hnl` also yields an
 /// empty map rather than an error: the file is authored by package repos this
@@ -1081,16 +1104,155 @@ pub fn discover_dependencies(
 pub fn resolve_pkg_dependencies(
     manifest_dir: &Path,
 ) -> Result<HashMap<String, PathBuf>, PlatformError> {
+    resolve_pkg_dependencies_in(manifest_dir, &package_cache_dir())
+}
+
+/// [`resolve_pkg_dependencies`] against an explicit package-cache
+/// directory — the test seam that keeps `HANDL_PKG_DIR` env mutation out
+/// of the suite.
+fn resolve_pkg_dependencies_in(
+    manifest_dir: &Path,
+    pkg_dir: &Path,
+) -> Result<HashMap<String, PathBuf>, PlatformError> {
     let path = manifest_dir.join("pkg.hnl");
     let Ok(src) = std::fs::read_to_string(&path) else {
         return Ok(HashMap::new());
     };
     let mut out = HashMap::new();
-    for (name, _spec) in pkg_dep_specs(&src) {
-        // Local-dev convention: the dep lives in the sibling `lib-<name>` repo.
-        out.insert(name.clone(), sibling_lib_dir(manifest_dir, &name));
+    for (name, spec) in pkg_dep_specs(&src) {
+        // Local-dev convention first: the dep lives in the sibling
+        // `lib-<name>` repo when a checkout is present.
+        let sibling = sibling_lib_dir(manifest_dir, &name);
+        if sibling.is_dir() {
+            out.insert(name.clone(), sibling);
+            continue;
+        }
+        out.insert(name.clone(), pkg_dep_dir(&sibling, pkg_dir, &name, &spec));
     }
     Ok(out)
+}
+
+/// Whether the fetch hook may run for `pkg.hnl` deps: `HANDL_PKG_FETCH`
+/// set to `0`, `off`, `false`, or `no` disables it (offline or hermetic
+/// runs); `HANDL_PKG_OFFLINE` set to `1`, `true`, `yes`, or `on` is the
+/// same switch under the offline name (ADR-0160's test-plan spelling).
+/// Unset or any other value leaves fetching on.
+fn pkg_fetch_enabled() -> bool {
+    package_fetch_enabled() && !pkg_offline()
+}
+
+/// `HANDL_PKG_OFFLINE` — the offline-mode spelling of the fetch switch.
+fn pkg_offline() -> bool {
+    let Ok(v) = std::env::var("HANDL_PKG_OFFLINE") else {
+        return false;
+    };
+    matches!(v.to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on")
+}
+
+/// The directory a `pkg.hnl` dep resolves to when no sibling checkout
+/// exists: its [`package_cache_dir`] slot, fetched over git on miss.
+///
+/// Two spec shapes (see [`resolve_pkg_dependencies`]):
+///
+/// - **remote spec** ([`pkg_dep_remote_spec`] — `git+…`, `github:…`,
+///   `gitlab:…`, any `://` URL, `git@…`): one candidate, slot
+///   `<pkg_dir>/<name>`, optional `@<ref>` checkout.
+/// - **`<kind>:<ref>` spec**: the [`dep_repo_candidates`] repos under
+///   `https://github.com/handl-lang/` tried in order; the first that
+///   clones wins and its slot is `<pkg_dir>/<repo>`. All failing warns
+///   once and the primary candidate's slot (`lib-<name>`) is returned —
+///   the dir the fetch would have populated.
+///
+/// A populated slot is never refetched (fetch-on-miss, pins trusted once
+/// materialized — the `.handl.toml` convention). Fetch failures warn on
+/// stderr, never fail resolution.
+fn pkg_dep_dir(sibling: &Path, pkg_dir: &Path, name: &str, spec: &str) -> PathBuf {
+    // A dep name is a path segment of the cache slot; anything that is
+    // not a plain identifier stays on the (absent) sibling path rather
+    // than risking a slot escape.
+    let slot_safe = !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if !slot_safe {
+        return sibling.to_path_buf();
+    }
+    if !pkg_fetch_enabled() {
+        return pkg_dep_fallback_slot(pkg_dir, name, spec);
+    }
+    if let Some((remote, reference)) = pkg_dep_remote_spec(spec) {
+        let slot = pkg_dir.join(name);
+        if slot.is_dir() {
+            return slot;
+        }
+        let url = git_remote_url(&remote);
+        if let Err(e) = materialize_git_checkout(&slot, &url, reference.as_deref()) {
+            eprintln!(
+                "warning: cannot fetch pkg.hnl dependency `{name}` from {url} \
+                 into {}: {e}",
+                slot.display()
+            );
+        }
+        return slot;
+    }
+    let (_, reference) = dep_spec_ref(spec);
+    let mut last_err = String::new();
+    for repo in dep_repo_candidates(name) {
+        let slot = pkg_dir.join(&repo);
+        if slot.is_dir() {
+            return slot;
+        }
+        let url = format!("https://github.com/handl-lang/{repo}");
+        match materialize_git_checkout(&slot, &url, Some(reference.as_str())) {
+            Ok(()) => return slot,
+            Err(e) => last_err = e,
+        }
+    }
+    let fallback = pkg_dep_fallback_slot(pkg_dir, name, spec);
+    eprintln!(
+        "warning: cannot fetch pkg.hnl dependency `{name}` ({spec}) into {}: {last_err}",
+        fallback.display()
+    );
+    fallback
+}
+
+/// The cache slot a `pkg.hnl` dep maps to when nothing was (or could be)
+/// fetched: `<pkg_dir>/<name>` for a remote spec, `<pkg_dir>/lib-<name>`
+/// — the primary [`dep_repo_candidates`] entry — for a `<kind>:<ref>`
+/// spec. Naming the would-be slot keeps `import` failures honest.
+fn pkg_dep_fallback_slot(pkg_dir: &Path, name: &str, spec: &str) -> PathBuf {
+    match pkg_dep_remote_spec(spec) {
+        Some(_) => pkg_dir.join(name),
+        None => pkg_dir.join(format!("lib-{name}")),
+    }
+}
+
+/// Split a `pkg.hnl` dep spec that names a git remote directly —
+/// `git+<url>`, `github:owner/repo`, `gitlab:owner/repo`, any `://` URL,
+/// or `git@host:path` scp syntax — into `(remote, ref)`. Returns `None`
+/// for the `<kind>:<ref>` repo-spec grammar ([`dep_spec_ref`]).
+///
+/// URL-ish remotes (`git+`, `github:`, `gitlab:`, `://`) accept an
+/// `@<ref>` pin on the last `@` (`git+file:///repo@v1`); scp-style
+/// `git@host:…` remotes take no pin — the `@` is user syntax, not a
+/// separator.
+fn pkg_dep_remote_spec(spec: &str) -> Option<(String, Option<String>)> {
+    let s = spec.trim();
+    let urlish = s.contains("://")
+        || s.starts_with("git+")
+        || s.starts_with("github:")
+        || s.starts_with("gitlab:");
+    if !urlish && !s.starts_with("git@") {
+        return None;
+    }
+    if urlish
+        && let Some((remote, reference)) = s.rsplit_once('@')
+        && !remote.is_empty()
+        && !reference.is_empty()
+    {
+        return Some((remote.to_string(), Some(reference.to_string())));
+    }
+    Some((s.to_string(), None))
 }
 
 /// First `key:` occurrence in comment-stripped `pkg.hnl` source.
@@ -2395,6 +2557,185 @@ vendored = { path = "../lib-vendored" }
 
         std::fs::write(root.join("pkg.hnl"), "{ deps: { math: ").unwrap();
         assert!(resolve_pkg_dependencies(&root).unwrap().is_empty());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// `pkg_dep_remote_spec` splits the direct-remote spec grammar from
+    /// the `<kind>:<ref>` repo grammar: `git+`/`github:`/`gitlab:`/`://`
+    /// remotes take an optional `@<ref>` pin; scp-style `git@` remotes
+    /// never do (the `@` is user syntax).
+    #[test]
+    fn pkg_dep_remote_spec_parses() {
+        assert_eq!(pkg_dep_remote_spec("branch:main"), None);
+        assert_eq!(pkg_dep_remote_spec("rev:abc123"), None);
+        assert_eq!(pkg_dep_remote_spec(""), None);
+        assert_eq!(
+            pkg_dep_remote_spec("git+file:///tmp/repo@v1"),
+            Some(("git+file:///tmp/repo".to_string(), Some("v1".to_string())))
+        );
+        assert_eq!(
+            pkg_dep_remote_spec("github:handl-lang/lib-pred"),
+            Some(("github:handl-lang/lib-pred".to_string(), None))
+        );
+        assert_eq!(
+            pkg_dep_remote_spec("git@github.com:handl-lang/c"),
+            Some(("git@github.com:handl-lang/c".to_string(), None))
+        );
+        assert_eq!(
+            pkg_dep_remote_spec("https://example.com/r.git@abc"),
+            Some((
+                "https://example.com/r.git".to_string(),
+                Some("abc".to_string())
+            ))
+        );
+    }
+
+    /// The git half of `pkg.hnl` deps (ADR-0160 P1): with no sibling
+    /// checkout on disk a remote spec clones into `<pkg_dir>/<name>` and
+    /// checks out the `@<ref>` pin; a populated cache slot is trusted
+    /// without refetching; a live sibling still wins over everything.
+    #[test]
+    fn resolve_pkg_dependencies_fetches_over_git() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-pkgfetch-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        let (repo, main_sha) = fixture_git_repo(&root, "upstream");
+        // A second commit on `dev` distinguishes `@<ref>` checkouts.
+        let git = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .args(args)
+                .current_dir(&repo)
+                .output()
+                .expect("git runs");
+            assert!(out.status.success(), "git {args:?}: {:?}", out.stderr);
+        };
+        git(&["checkout", "--quiet", "-b", "dev"]);
+        std::fs::write(repo.join("index.hnl"), "export x := 2\n").unwrap();
+        git(&["add", "."]);
+        git(&[
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@test",
+            "commit",
+            "--quiet",
+            "-m",
+            "dev",
+        ]);
+        let dev_sha = head_sha(&repo);
+        git(&["checkout", "--quiet", "main"]);
+        git(&["tag", "v0.1"]);
+        let url = format!("file://{}", repo.display());
+
+        std::fs::write(
+            proj.join("pkg.hnl"),
+            format!(
+                "{{ deps: {{ \
+                 by-branch: \"git+{url}@dev\", \
+                 by-tag: \"git+{url}@v0.1\", \
+                 by-rev: \"git+{url}@{main_sha}\", \
+                 no-pin: \"git+{url}\" \
+                 }} }}"
+            ),
+        )
+        .unwrap();
+
+        let deps = resolve_pkg_dependencies_in(&proj, &pkg).unwrap();
+        for (name, want_sha) in [
+            ("by-branch", dev_sha.as_str()),
+            ("by-tag", main_sha.as_str()),
+            ("by-rev", main_sha.as_str()),
+            ("no-pin", main_sha.as_str()),
+        ] {
+            let slot = pkg.join(name);
+            assert_eq!(deps[name], slot, "{name} resolves to its cache slot");
+            assert!(slot.join("index.hnl").is_file(), "{name} was cloned");
+            assert_eq!(head_sha(&slot), want_sha, "{name} checked out its ref");
+        }
+
+        // A populated slot is never refetched: point `by-branch` at a
+        // bogus remote — resolution still returns the slot untouched.
+        std::fs::write(
+            proj.join("pkg.hnl"),
+            "{ deps: { by-branch: \"git+file:///nonexistent@dev\" } }",
+        )
+        .unwrap();
+        let deps = resolve_pkg_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["by-branch"], pkg.join("by-branch"));
+
+        // The sibling checkout is the dev fast path: recreate
+        // `../lib-by-branch` and it shadows the cache slot entirely.
+        let sibling = root.join("lib-by-branch");
+        std::fs::create_dir_all(&sibling).unwrap();
+        let deps = resolve_pkg_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["by-branch"], std::fs::canonicalize(&sibling).unwrap());
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// A `<kind>:<ref>` spec with no sibling maps to the
+    /// `handl-lang/lib-<name>` cache slot — and a slot that is already
+    /// populated is used without any fetch (the hermetic half of the
+    /// git path; the clone itself needs the network).
+    #[test]
+    fn resolve_pkg_dependencies_kind_spec_uses_lib_slots() {
+        let _guard = FETCH_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let root = std::env::temp_dir().join(format!("hnl-pkgslot-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::write(
+            proj.join("pkg.hnl"),
+            "{ deps: { pred: \"branch:main\", \"math-c\": { spec: \"rev:abc\", modules: [\"math\"] } } }",
+        )
+        .unwrap();
+
+        // Fetch disabled: both names map to their would-be slots, no clone.
+        // SAFETY: serialized by FETCH_ENV_LOCK; restored before unlock.
+        unsafe { std::env::set_var("HANDL_PKG_FETCH", "off") };
+        let deps = resolve_pkg_dependencies_in(&proj, &pkg).unwrap();
+        unsafe { std::env::remove_var("HANDL_PKG_FETCH") };
+        assert_eq!(deps["pred"], pkg.join("lib-pred"));
+        assert_eq!(deps["math-c"], pkg.join("lib-math-c"));
+        assert!(!pkg.join("lib-pred").exists());
+
+        // Populated `lib-<name>` slots are trusted as-is — fetch-on-miss
+        // never refetches, so resolution touches no network.
+        for repo in ["lib-pred", "lib-math-c"] {
+            let slot = pkg.join(repo);
+            std::fs::create_dir_all(slot.join("src")).unwrap();
+            std::fs::write(slot.join("pkg.hnl"), "{ modules: [\"x\"] }").unwrap();
+        }
+        let deps = resolve_pkg_dependencies_in(&proj, &pkg).unwrap();
+        assert_eq!(deps["pred"], pkg.join("lib-pred"));
+        assert_eq!(deps["math-c"], pkg.join("lib-math-c"));
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    /// The real-repo half of the git path (ADR-0160 P1 test plan):
+    /// `deps: { pred: "branch:main" }` resolves `handl-lang/lib-pred`
+    /// over github with no sibling checkout on disk. Needs network —
+    /// run explicitly with `--ignored`.
+    #[test]
+    #[ignore = "requires network access to github.com"]
+    fn resolve_pkg_dependencies_fetches_lib_pred_from_github() {
+        let root = std::env::temp_dir().join(format!("hnl-pkggithub-{}", std::process::id()));
+        let proj = root.join("repo");
+        let pkg = root.join("pkg");
+        std::fs::create_dir_all(&proj).unwrap();
+        std::fs::write(proj.join("pkg.hnl"), "{ deps: { pred: \"branch:main\" } }").unwrap();
+
+        let deps = resolve_pkg_dependencies_in(&proj, &pkg).unwrap();
+        let slot = pkg.join("lib-pred");
+        assert_eq!(deps["pred"], slot);
+        assert!(
+            slot.join("src/index.hnl").is_file(),
+            "lib-pred's package module file is present"
+        );
 
         std::fs::remove_dir_all(&root).ok();
     }
