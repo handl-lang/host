@@ -890,13 +890,13 @@
       open_is_operator_token: true
       flatten: true
       rest_token: token.ellipsis
-# REMOVED: `let` is not a keyword — there is no `let` surface syntax. The
-# language binds with `x := y` (`grammar.colon_equal.infix` — the ONLY
-# binding operator; `=`/`==` are `binary.eq` equality); graph blocks
-# `{ x := y; ... }` cover the old `let ... in` form (ADR-0079). The
-# `let`/`stmt.let` node kinds remain as internal binding kinds (see
-# `ast.let`, `eval.let`, `eval.stmt-let`) used by self-host/conformance
-# fixtures — no grammar row produces them.
+# REMOVED: `let` is not a keyword — there is no `let` surface syntax and no
+# `let` token at all (`let` lexes as `token.identifier`). The language binds
+# with `x := y` (`grammar.colon_equal.infix` — the ONLY binding operator;
+# `=`/`==` are `binary.eq` equality);
+# graph blocks `{ x := y; ... }` cover the old `let ... in` form (ADR-0079).
+# No `let`/`stmt.let` node kinds remain in the canonical language — nothing
+# in ast/eval/types/transforms produces or consumes a node named `let`.
 - id: grammar.do-block.prefix
   token: token.keyword.do
   position: Prefix

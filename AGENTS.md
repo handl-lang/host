@@ -396,21 +396,23 @@ duplicating the predicate where `handl_language` is unreachable.
 ### Known issues
 
 - `let` is **fully removed** from the language (completes ADR-0079):
-  `token.let`, `lex.let`, `grammar.let.prefix`, `ast.let`, `eval.let`, and
-  `type.let` are deleted. `token.keyword.let` + `lex.keyword.let` stay as a
-  **tombstone** (same pattern as `then`/`axiom`): `let` remains a reserved
-  word with no grammar row, so `let x :: v` fails with "unexpected token"
-  instead of silently lexing as an identifier. Bindings are plain
-  `x = y` / `x :: y` (both lex to `token.bind` → `assign` nodes);
-  `do { x = y; ... }` blocks cover the old `let ... in` form. The internal
+  `token.let`, `lex.let`, `grammar.let.prefix`, `ast.let`, `eval.let`,
+  `type.let`, **and** the `token.keyword.let`/`lex.keyword.let` tombstone
+  are all deleted. `let` is not a keyword and not even a reserved word —
+  it lexes as an ordinary `token.identifier`, so it can be used as a
+  variable/function name. (The `then`/`axiom` tombstones remain reserved;
+  `let` was the exception.) `:=` (`token.colon_equal`) is the ONLY
+  binding/definition operator — `x := y` produces an `assign` node;
+  `=`/`==` are `binary.eq` equality only and `::`/`token.bind` no longer
+  exist. `do { x := y; ... }` blocks cover the old `let ... in` form. The internal
   `stmt.let` kind is also gone — nothing produced it (no grammar row, no
   desugar native, no transform); block bindings eval directly as `assign`
-  children of `block` via `eval_block`. `x = y` in a block is
+  children of `block` via `eval_block`. `x := y` in a block is
   **update-or-define** (`ScopeStack::assign` in all three engines —
   tree-walk, bytecode, cranelift): it updates the nearest enclosing
   binding when `x` is already bound, else defines a block-local binding —
   that is what lets `while`/`do-while`/`for` bodies rebind outer
-  variables (`x = x + 1`) and lets the desugars' `__continue`/`__xs`
+  variables (`x := x + 1`) and lets the desugars' `__continue`/`__xs`
   feedback wires reach the `rec` region's bindings. `rec` fixpoint
   convergence observes those cross-scope writes via
   `ScopeStack::enclosing_updated` plus an end-of-pass comparison of each
@@ -576,9 +578,9 @@ run` when its specifier does not resolve to a file) — the stdlib
       are out of scope for this cleanup.
   - `data/eval.yaml`/`data/types.yaml` `let` parity: **closed by removal**.
     `let` is gone end-to-end (`token.let`, `lex.let`, `grammar.let.prefix`,
-    `ast.let`, `eval.let`, `eval.stmt-let`, `type.let` all deleted;
-    `token.keyword.let`/`lex.keyword.let` remain only as a reserved-word
-    tombstone); `parity_block_*` (46 tests in
+    `ast.let`, `eval.let`, `eval.stmt-let`, `type.let`,
+    `token.keyword.let`, and `lex.keyword.let` all deleted — `let` lexes
+    as `token.identifier`); `parity_block_*` (46 tests in
     `hnl-tool-typecheck-nbe/tests/parity.rs`) all pass.
 - **ADR-0089 prerequisite (done):** (a) `hnl-tool-test` exists as
   a standalone crate; (b) the **test-language fragment**

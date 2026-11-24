@@ -13,8 +13,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // additions (ADR-0079/0082) + arrow-combinator surface syntax
     // (`token.keyword.{app,arr,first,left,right,second}` + `token.sum` for
     // `+++`); `token.let` removed (`let` fully removed —
-    // ADR-0079 completed) while `token.keyword.let` stays as a tombstone so
-    // `let` remains a reserved word (no grammar row → parse error).
+    // ADR-0079 completed) and `token.keyword.let` is now gone too — `let`
+    // is not a keyword at all and lexes as `token.identifier`.
     // +7 graded-theory tokens (ADR-0100): `token.fat_arrow` (`=>`) and
     // `token.keyword.{sort,grade,grades,op,handler,rewrite}`;
     // `token.keyword.handler` removed — handlers are plain arrow values.
@@ -34,7 +34,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (ADR-0158) — landed upstream after the `exists` bump.
     // -1 `token.bind` removed — `:=` (`token.colon_equal`) is the only
     // binding operator; `=`/`==` lex to `token.equal` (equality).
-    assert_eq!(lang.tokens.len(), 108);
+    assert_eq!(lang.tokens.len(), 107);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
@@ -44,11 +44,13 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `lex.keyword.absurd` for absurd match arms.
     // +1 `lex.keyword.j` for the J eliminator surface.
     // +1 `lex.keyword.exists` for the `Sigma` shorthand keyword.
+    // -1 `lex.keyword.let` tombstone removed — `let` is not a keyword and
+    // lexes as `token.identifier`.
     // -1 `lex.keyword.data` — the `data` keyword is retired (its token
     // stays as a keyword tombstone; `acc` is deliberately NOT reserved,
     // so the ADR-0158 clause adds no lexer rule).
-    // -1 `lex.bind` (`::`) removed with `token.bind`.
-    assert_eq!(lang.lexer_rules.len(), 104);
+        // -1 `lex.bind` (`::`) removed with `token.bind`.
+    assert_eq!(lang.lexer_rules.len(), 103);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -147,7 +149,7 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 108);
+    assert_eq!(rt.lang().tokens.len(), 107);
     assert_eq!(rt.lang().grammar.len(), 86);
 }
 
@@ -163,10 +165,10 @@ fn assemble_canonical_specific_fragments_present() {
     assert!(lang.tokens.get_by_id("token.arrow").is_some());
     assert!(lang.tokens.get_by_id("token.lparen").is_some());
     assert!(lang.tokens.get_by_id("token.eqeq").is_some());
-    // `let` is removed: the lexed binding token is gone; the keyword token
-    // remains as a tombstone (reserved word, no grammar row).
+    // `let` is fully removed: neither the lexed binding token nor the
+    // keyword tombstone exists — `let` lexes as `token.identifier`.
     assert!(lang.tokens.get_by_id("token.let").is_none());
-    assert!(lang.tokens.get_by_id("token.keyword.let").is_some());
+    assert!(lang.tokens.get_by_id("token.keyword.let").is_none());
     assert!(lang.tokens.get_by_id("token.keyword.match").is_some());
     assert!(lang.tokens.get_by_id("token.bang").is_some());
     assert!(lang.tokens.get_by_id("token.question").is_some());

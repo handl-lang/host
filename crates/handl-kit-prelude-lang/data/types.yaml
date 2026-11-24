@@ -2199,19 +2199,6 @@
           source: Judgment
           lit: body
 
-# `let` — internal binding kind (no `let` surface syntax; the grammar
-# row was removed). In block/rec statement
-# position the generic `target`/`value` role convention binds it in Γ
-# (`synth_block`/`check_block`/`synth_rec`); as a standalone expression it
-# mirrors `assign` — a statement with side effects, returning type.unit.
-- id: type.let
-  node_kind: let
-  synth: !Op
-    name: construct
-    args: []
-    source: Judgment
-    lit: type.unit
-
 # ---------------------------------------------------------------------------
 # Catch-all kinds — type.unknown
 # ---------------------------------------------------------------------------
@@ -3094,7 +3081,8 @@
 
 # ADR-0079 (completed): `type.let`/`type.stmt.let` absent — `let` is fully
 # removed from the language (no token, lexer rule, grammar row, AST shape,
-# eval scheme, or type rule). Bindings are plain `x := y` (`:=` is the ONLY
+# eval scheme, or type rule) and is not even a reserved word: it lexes as
+# `token.identifier`. Bindings are plain `x := y` (`:=` is the ONLY
 # binding operator; `=`/`==` are equality).
 
 # `stmt.export` — records `(name, type)` into the module's signature

@@ -213,9 +213,8 @@ fn language_has_token_kinds_for_all_major_tokens() {
         "token.string",
         // Identifier.
         "token.identifier",
-        // Keywords. (`token.keyword.let` stays as a tombstone — `let` is a
-        // reserved word with no grammar row after removal.)
-        "token.keyword.let",
+        // Keywords. (`token.keyword.let` is gone entirely — `let` is not a
+        // keyword or reserved word; it lexes as `token.identifier`.)
         "token.keyword.if",
         "token.keyword.else",
         "token.keyword.match",

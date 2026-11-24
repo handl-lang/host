@@ -305,14 +305,13 @@
   pattern: !Literal
     text: import
   priority: 15
-# NOTE: `let` is not a keyword — both `lex.keyword.let` and `lex.let` (and
-# the `token.keyword.let`/`token.let` kinds and `grammar.let.prefix` row)
-# were removed. Source text `let` lexes as a `token.identifier` like any
-# other name; bindings use `x := y` (`:=` is the ONLY binding operator;
-# `=`/`==` are `token.equal` equality) or graph blocks. The
-# `let`/`stmt.let` node kinds remain as internal binding kinds (eval/type
-# schemes only) produced by self-host/conformance fixtures, not by any
-# surface syntax.
+# NOTE: `let` is not a keyword — `lex.keyword.let`, `lex.let`, the
+# `token.keyword.let`/`token.let` kinds, and the `grammar.let.prefix` row
+# were all removed. Source text `let` lexes as a `token.identifier` like any
+# other name; bindings use `x := y` or graph blocks (`=`/`==` are
+# `token.equal` equality only). No `let` /
+# `stmt.let` node kinds remain in the canonical language either — the
+# desugar/eval/type pipeline has no binding node named `let`.
 - id: lex.keyword.in
   token_kind: token.keyword.in
   pattern: !Literal
@@ -332,15 +331,6 @@
   token_kind: token.keyword.law
   pattern: !Literal
     text: law
-  priority: 15
-# `let` is removed (ADR-0079 completed): `lex.keyword.let` is a tombstone —
-# it keeps `let` reserved (lexes to `token.keyword.let`, which has NO
-# grammar row) so `let x :: v` errors with "unexpected token" rather than
-# silently re-lexing as an identifier. Same pattern as `lex.keyword.then`.
-- id: lex.keyword.let
-  token_kind: token.keyword.let
-  pattern: !Literal
-    text: let
   priority: 15
 - id: lex.keyword.left
   token_kind: token.keyword.left

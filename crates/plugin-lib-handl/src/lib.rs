@@ -1486,7 +1486,6 @@ mod bootstrap {
         "j",
         "law",
         "left",
-        "let",
         "match",
         "op",
         "rec",

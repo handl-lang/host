@@ -219,14 +219,11 @@
   label: left
   category: keyword
   doc: "**Map over the left variant of an either — arrow `left` combinator** `left`\n\n```\nleft `f`\n```"
-# `let` is removed from the language (ADR-0079 completed). The keyword
-# token is retained with NO grammar row — the same tombstone pattern as
-# `token.keyword.then`/`token.keyword.axiom` — so `let` stays a reserved
-# word and `let x :: v` fails to parse ("unexpected token") instead of
-# silently lexing as an identifier.
-- id: token.keyword.let
-  label: let
-  category: keyword
+# `let` is fully removed from the language — it is NOT a keyword and NOT a
+# reserved word. There is deliberately no `token.keyword.let` entry here, so
+# source text `let` lexes as an ordinary `token.identifier` usable as a
+# variable/function name. (Unlike the `token.keyword.then`/
+# `token.keyword.axiom` tombstones, which stay reserved with no grammar row.)
 - id: token.keyword.match
   label: match
   category: keyword
