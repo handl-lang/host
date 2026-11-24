@@ -33,6 +33,12 @@ SUBDIR = {
     "design": "design",
     "examples": "examples",
     "assets": "assets",
+    "proposals": "proposals",
+    "handoffs": "handoffs",
+    "issues": "issues",
+    "plans": "plans",
+    "registry": "registry",
+    "retros": "retros",
 }
 
 

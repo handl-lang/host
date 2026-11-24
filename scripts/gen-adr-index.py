@@ -218,8 +218,13 @@ def main() -> int:
             "|---|---|---|---|",
         ]
         for a in locals_:
+            file = str(a.get("file") or "—")
+            note = str(a.get("note") or "").strip()
+            cell = f"`{file}`" if a.get("file") else "—"
+            if note:
+                cell += f" — {note}"
             out.append(
-                f"| {a['number']} | {a['title']} | `{a['repo']}` | `{a['file']}` |"
+                f"| {a['number']} | {a['title']} | `{a['repo']}` | {cell} |"
             )
 
     out.append("")
