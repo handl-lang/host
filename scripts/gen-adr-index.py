@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
-"""Generate project/adrs/INDEX.md — the global ADR registry (ADR-0129 §3).
+"""Generate project/registry/INDEX.md — the global ADR registry (ADR-0129 §3).
 
 Reads docs-split.yaml for ownership, and each ADR for its title, status and
 supersession links. Numbers are globally unique and never renumbered; the
 split children of docs-split.yaml `splits:` are listed as `pending`.
 
-Usage: python3 scripts/gen-adr-index.py   # rewrites project/adrs/INDEX.md
+The index lives outside `adrs/` on purpose: myco parses every top-level
+`adrs/*.md` as an item file and has no exclusion mechanism, so a generated
+non-item markdown file there fails `myco check`. `registry/` is not a myco
+kind dir and is declared in `project/README.md`'s local entries.
+
+Usage: python3 scripts/gen-adr-index.py   # rewrites project/registry/INDEX.md
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "project"
 MANIFEST = PROJECT / "docs-split.yaml"
-OUT = PROJECT / "adrs" / "INDEX.md"
+OUT = PROJECT / "registry" / "INDEX.md"
 
 NUM = re.compile(r"^(\d+|[0-9]+b?)-")
 TITLE = re.compile(r"^#\s+(.*)")
