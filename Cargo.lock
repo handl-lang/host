@@ -967,6 +967,7 @@ dependencies = [
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
+ "handl-plugin-lib-ip-c",
  "handl-plugin-lib-kv-hashmap",
  "handl-plugin-lib-stdlib",
 ]
@@ -993,10 +994,6 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
-
-[[package]]
-name = "handl-lib-base64"
-version = "0.1.0"
 
 [[package]]
 name = "handl-lib-bytes"
@@ -1035,10 +1032,6 @@ dependencies = [
  "handl-value",
  "serde_json",
 ]
-
-[[package]]
-name = "handl-lib-hex"
-version = "0.1.0"
 
 [[package]]
 name = "handl-lib-mood"
@@ -1483,6 +1476,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "handl-plugin-lib-ip-c"
+version = "0.1.0"
+dependencies = [
+ "handl-ops",
+ "inventory",
+ "serde_json",
+]
+
+[[package]]
 name = "handl-plugin-lib-kv"
 version = "0.1.0"
 dependencies = [
@@ -1624,12 +1626,10 @@ dependencies = [
  "base64",
  "handl-kit-data-prelude",
  "handl-language",
- "handl-lib-base64",
  "handl-lib-bytes",
  "handl-lib-cmp",
  "handl-lib-comb",
  "handl-lib-error",
- "handl-lib-hex",
  "handl-lib-mood",
  "handl-lib-obj",
  "handl-lib-ops",
@@ -1642,6 +1642,7 @@ dependencies = [
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
+ "handl-plugin-lib-ip-c",
  "handl-plugin-lib-otlp-c",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-serialize-toml-c",
@@ -3501,11 +3502,19 @@ name = "handl-plugin-compile-sexp"
 version = "0.1.0"
 
 [[patch.unused]]
+name = "handl-lib-hex"
+version = "0.1.0"
+
+[[patch.unused]]
 name = "handl-plugin-compile-llvm"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "compile-cuda"
+name = "handl-lib-base64"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "tool-compile-cuda"
 version = "0.0.1"
 
 [[patch.unused]]
@@ -3529,7 +3538,7 @@ name = "handl-plugin-compile-js"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "compile-triton"
+name = "tool-compile-triton"
 version = "0.0.1"
 
 [[patch.unused]]

@@ -205,7 +205,23 @@ const IP_SOURCES: &[(&str, &str, &[&str])] = &[
     ),
 ];
 
+/// `lib-ip-c/atoms.yaml` (P-013 T-151) — the `ip.*` atom spec whose
+/// `impl:` keys resolve against [`handl_plugin_lib_ip_c::ip_impls`].
+const IP_C_ATOMS: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-ip-c/atoms.yaml"));
+
 fn build_ip_module() -> HandlModule {
+    // Spec-driven op registry (T-151): the 14 `ip.*` atoms bind the
+    // native lib-ip-c impls (IPv4+IPv6/CIDR/socket). Op functions take
+    // precedence over the `.hnl` record funcs of the same names at
+    // `Module::function` dispatch, so `ip.*` wires hit the native ops
+    // while the module's evaluated record stays the `.hnl` surface.
+    let decls = stdlib::atoms::module_atoms(IP_C_ATOMS, "ip").expect("ip-c atoms spec");
+    let registry = stdlib::atoms::registry_from_atoms_kernel(
+        &decls,
+        &handl_plugin_lib_ip_c::ip_impls(),
+    )
+    .expect("ip-c atoms registry");
+    let op_names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
     handl_plugin_lib_handl::handl_module_from_sources(
         "ip",
         IP_HNL,
@@ -214,6 +230,7 @@ fn build_ip_module() -> HandlModule {
         &KitResolver,
         "tree-walk",
     )
+    .with_ops(&op_names, Arc::new(registry))
     .with_global_lookup(std::sync::Arc::new(stdlib::TableModuleLookup::new(
         std::sync::Arc::new(KitResolver),
     )))

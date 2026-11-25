@@ -7,6 +7,7 @@ fn main() {
         "lib-base64",
         "lib-hex",
         "lib-ip",
+        "lib-ip-c",
         "lib-json",
         "lib-perlin",
         "lib-serialize",

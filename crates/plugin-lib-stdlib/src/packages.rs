@@ -395,6 +395,12 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
+    // T-151: spec-driven over the kernel op ABI — `lib-ip-c/atoms.yaml`
+    // (14 `ip.*` atoms) + `ip_impls()` replace the hand-wired
+    // `ip_op_registry` path. The `.hnl` funcs stay as the module's
+    // evaluated record; the op registry shadows them at dispatch
+    // (`Module::function` prefers op functions), giving `ip.*` the
+    // native IPv4+IPv6/CIDR/socket impls.
     ModuleSpec {
         name: "ip",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-ip/src/index_flat.hnl")),
@@ -416,7 +422,10 @@ pub static MODULES: &[ModuleSpec] = &[
         ],
         ops: &[],
         values: &[],
-        registry: None,
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-ip-c/atoms.yaml")),
+            impls: handl_plugin_lib_ip_c::ip_impls,
+        }),
     },
     ModuleSpec {
         name: "serialize",
