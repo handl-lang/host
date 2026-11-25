@@ -1,4 +1,5 @@
 # Done
+- T-151 decl extinction IN PROGRESS: per-lib migrate cap/op/handle triples to atoms.yaml; delete handle/cap/handl parser support (4 strip sites in lockstep); keep op "name" string-callee until port imports covered — all Rust-backed modules spec-driven (math/proc/bytes/cmp/comb/error/mood/transform/tag/toml_c/yaml_c/str/obj/typeof/hash_set/kv/otlp_c); remaining decls are pure-handl with-targets or contract-only (strip support stays for op string-callee) · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
 
 - T-147 typecheck: zero-arg Unit -> op calls rejected — hnl run/check fails call: needs callee and args on math.e(), proc.pid(), proc.argv() (eval handles them fine; (f)() doesn't help). Pre-existing engine gap surfaced by P-012; blocks hnl run-gated CLIs using cli-router run() · owner:agent · created:2026-11-24 · links:P-012 · epic:weekend-2026-11-20 · done:2026-11-24
 - T-148 atoms-as-arrows P-013: {fn,sig} on OpRegistry/Function + foreign-arrow Value shape + typecheck reads atom sigs from arrow values · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
