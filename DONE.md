@@ -1,5 +1,12 @@
 # Done
 
+- T-147 typecheck: zero-arg Unit -> op calls rejected — hnl run/check fails call: needs callee and args on math.e(), proc.pid(), proc.argv() (eval handles them fine; (f)() doesn't help). Pre-existing engine gap surfaced by P-012; blocks hnl run-gated CLIs using cli-router run() · owner:agent · created:2026-11-24 · links:P-012 · epic:weekend-2026-11-20 · done:2026-11-24
+- T-148 atoms-as-arrows P-013: {fn,sig} on OpRegistry/Function + foreign-arrow Value shape + typecheck reads atom sigs from arrow values · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
+- T-149 atoms.yaml spec + spec-driven registry/env builder (registry_from_atoms); pilot lib-proc → lib-utils/math · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
+- T-150 pkg.hnl atom-scoped deps: kit resolves declared atom closure (tsconfig-lib semantics); ambient surface = deps only; typesafe from-imports · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
+- T-153 unit≡null unification: type.unit≡type.null in checker; f()≡f(null) via elide_unit_args at host boundary — Unit domains now inhabited, T-147 special case moot — DONE+pushed (tool-typecheck-nbe 9eb478f, host 765ab654, exec-tree-walk/bytecode/cranelift); verified proc.argv()/proc.argv(null) ok, proc.argv(5) rejected · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
+- T-152 rust ffi module (ffi.rust.resolve dynamic atoms) + tool-codegen-ffi external-client emitter + ADR-0077 supersession note — DONE: ffi.rust.resolve live (host ddafa99a), tool-codegen-ffi repo created+pushed (TS emitter, 6/6 tests), ADR-0077 partial-supersession noted. Follow-up: ffi.hnl decl needs rust.resolve export for hnl run/test typecheck (eval works) · owner:agent · created:2026-11-24 · links:P-013 · epic:weekend-2026-11-20 · done:2026-11-24
+
 - T-103 workspace: push templates repo to GH (remote create — deferred publish) · owner:devin · created:2026-11-20 · #publish · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-102 host: harden pkg.hnl scanners (deps/modules/entry key-aware) + tests · pri:high · owner:devin · created:2026-11-20 · #pkg-hnl · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
 - T-107 sweep python repos: vendor gate.py + README + metadata · owner:devin · created:2026-11-20 · #sweep · links:P-001 · epic:weekend-2026-11-20 · done:2026-11-20
