@@ -20,20 +20,30 @@
 //! [`TypeSignature`] when the atom declares one (P-013 T-148) and rides
 //! the arrow for typecheck/`arrow.sig` introspection.
 //!
-//! Resolution scope is the **kit module table** ([`KitResolver`] — the
-//! same table `build_registry` materializes into the eval-time
-//! `ModuleLookup`): name → module → `function(local)` mirrors
-//! `ModuleRegistry::lookup`'s split-once fallback. Atoms contributed by
-//! non-kit plugins that never entered the table are not visible here —
-//! the applying chain still resolves them at call time; `resolve` only
+//! Resolution scope is the **applying runtime's module chain** first
+//! (the eval context's [`ModuleLookup`] or the `hnl-exec` eval-frame
+//! thread-local — the same chain the returned arrow's `callv` body
+//! re-dispatches through at `call_host`, ADR-0155), falling back to
+//! the **kit module table**
+//! ([`KitResolver`] — the table `build_registry` materializes into the
+//! eval-time `ModuleLookup`). The chain-first order matters for P-013
+//! phase-2b: dep-bound atom modules (`dep_atom_modules`, T-150
+//! scope-filtered at kit build) live in the per-`Kit`
+//! `ModuleRegistry`, never in the process-wide table — consulting the
+//! chain is what lets `ffi.rust.resolve("tensor.zeros")` see them, and
+//! what keeps scope violations refused by name (a filtered-out atom
+//! simply is not in the chain). Atoms contributed by non-kit plugins
+//! that never entered either surface are not visible here — the
+//! applying chain still resolves them at call time; `resolve` only
 //! gates existence + signature at mint time.
 
 use std::rc::Rc;
 use std::sync::Arc;
 
 use handl_kit_core::KitResolver;
-use handl_platform::{EvalContext, EvalError, Function, Module};
+use handl_platform::{EvalContext, EvalError, Function, Module, ModuleLookup};
 use handl_plugin_lib_handl::{ModuleResolver, wrap_dep_fn_with_sig};
+use handl_plugin_module::ModuleRegistry;
 use handl_value::{TaggedValue, tagged_to_value};
 use serde_json::Value;
 
@@ -86,6 +96,21 @@ fn resolve_module(name: &str) -> Result<(Arc<dyn Module + Send + Sync>, String),
     Ok((module, local.to_string()))
 }
 
+/// The applying runtime's module chain for this resolve: the eval
+/// context's wired [`ModuleLookup`] when one is set (the platform
+/// `BasicEvaluator` path), else the `hnl-exec` eval-frame thread-local
+/// the tree-walk/bytecode engines install around every eval
+/// ([`hnl_exec::services::CURRENT_MODULES`]). Both name the same thing — the
+/// chain the minted arrow's `call_host` body re-dispatches `"mod.fn"`
+/// through at call time (ADR-0155 ambient re-resolution) — so gating
+/// on it makes the existence check mirror what the call will
+/// actually dispatch. `None` outside eval entirely (host callers,
+/// tests) — those fall through to the kit-table gate.
+fn applying_modules(ctx: &EvalContext) -> Option<Rc<dyn ModuleLookup>> {
+    ctx.module_lookup()
+        .or_else(|| hnl_exec::services::CURRENT_MODULES.with(|c| c.borrow().clone()))
+}
+
 /// Read the declared signature type value off the resolved module's
 /// function, when the atom declares one (P-013 T-148).
 fn resolve_sig(module: &dyn Module, local: &str) -> Option<Value> {
@@ -96,10 +121,34 @@ fn resolve_sig(module: &dyn Module, local: &str) -> Option<Value> {
 }
 
 impl Function for FfiRustResolve {
-    fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+    fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
         let name = args.first().and_then(Value::as_str).ok_or_else(|| {
             EvalError::TypeMismatch("ffi.rust.resolve: expected a string atom name".to_string())
         })?;
+        // The qualified-name gate applies to both resolution surfaces —
+        // an unqualified name must not slip through the chain's flat-
+        // name `lookup` pass (`"greet"` would match `hello.greet`).
+        if split_atom_name(name).is_none() {
+            return Err(EvalError::Other(format!(
+                "ffi.rust.resolve: `{name}` is not a qualified atom name (expected \"mod.fn\")"
+            )));
+        }
+        // P-013 phase-2b: the applying runtime's module chain is the
+        // authoritative scope — it carries dep-bound atom modules
+        // (`dep_atom_modules`, already T-150-filtered) that never enter
+        // the process-wide kit table. Consult it first so the existence
+        // gate mirrors what the minted arrow's `call_host` will
+        // actually dispatch; the kit table remains the fallback for
+        // contexts with no chain wired (host callers, nested-runtime
+        // evals whose frame is narrower than the kit).
+        if let Some(modules) = applying_modules(ctx) {
+            if modules.lookup(name).is_some() {
+                let sig = modules
+                    .lookup_type_signature(name)
+                    .map(|v| Rc::new(TaggedValue::from(v)));
+                return Ok(tagged_to_value(&wrap_dep_fn_with_sig(name, sig)));
+            }
+        }
         let (module, local) = resolve_module(name)?;
         let sig = resolve_sig(module.as_ref(), &local).map(|v| Rc::new(TaggedValue::from(v)));
         Ok(tagged_to_value(&wrap_dep_fn_with_sig(name, sig)))
@@ -156,13 +205,49 @@ impl AtomHandle {
     /// table — the same gate `ffi.rust.resolve` applies at mint time.
     pub fn resolve(name: &str) -> Result<Self, EvalError> {
         let (module, local) = resolve_module(name)?;
+        Ok(Self::from_module(name, module, local))
+    }
+
+    /// Resolve a qualified atom name through a specific
+    /// [`ModuleRegistry`] — the **kit-scoped** resolution surface
+    /// (P-013 phase-2b).
+    ///
+    /// A kit-assembled registry carries the
+    /// dep-bound atom modules `dep_atom_modules` bound at kit build —
+    /// already filtered by the `pkg.hnl` `deps` scopes (T-150), so a
+    /// scope violation refuses here by name exactly as it does inside
+    /// eval. This is the external-caller counterpart of the in-eval
+    /// op's applying-chain lookup: same `"mod.fn"` →
+    /// `module.function(local)` split, same existence gate, same
+    /// signature carry. Unlike [`AtomHandle::resolve`] it does **not**
+    /// consult the process-wide kit table — pass the registry of the
+    /// kit whose scope should apply (a host composing several kits
+    /// picks the one the call belongs to).
+    pub fn resolve_in(name: &str, registry: &ModuleRegistry) -> Result<Self, EvalError> {
+        let (module_name, local) = split_atom_name(name).ok_or_else(|| {
+            EvalError::Other(format!(
+                "ffi.rust.resolve: `{name}` is not a qualified atom name (expected \"mod.fn\")"
+            ))
+        })?;
+        let module = registry
+            .module(module_name)
+            .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?
+            .clone();
+        if module.function(local).is_none() {
+            return Err(EvalError::UnknownFunction(name.to_string()));
+        }
+        Ok(Self::from_module(name, module, local.to_string()))
+    }
+
+    /// Shared handle construction once `(module, local)` is resolved.
+    fn from_module(name: &str, module: Arc<dyn Module + Send + Sync>, local: String) -> Self {
         let sig = resolve_sig(module.as_ref(), &local);
-        Ok(Self {
+        Self {
             name: name.to_string(),
             module,
             local,
             sig,
-        })
+        }
     }
 
     /// The qualified atom name this handle was resolved from.
@@ -237,6 +322,35 @@ mod tests {
         }
     }
 
+    /// A dep-style module present ONLY in a `ModuleRegistry` — the
+    /// phase-2b surface `dep_atom_modules` populates — never in the
+    /// process-wide kit table.
+    struct DepModule;
+
+    struct DepDouble;
+    impl Function for DepDouble {
+        fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
+            let n = args[0].as_f64().unwrap_or(0.0);
+            Ok(json!(n * 2.0))
+        }
+    }
+
+    impl Module for DepModule {
+        fn name(&self) -> &str {
+            "t152dep"
+        }
+        fn function(&self, name: &str) -> Option<&dyn Function> {
+            match name {
+                "double" => Some(&DepDouble),
+                _ => None,
+            }
+        }
+    }
+
+    fn dep_registry() -> ModuleRegistry {
+        ModuleRegistry::new().with(DepModule)
+    }
+
     fn ensure_registered() {
         static ONCE: std::sync::Once = std::sync::Once::new();
         ONCE.call_once(|| {
@@ -290,6 +404,61 @@ mod tests {
             signed.signature().unwrap()["__tag__"],
             json!("type.function")
         );
+    }
+
+    #[test]
+    fn resolve_sees_applying_chain_dep_modules() {
+        // Phase-2b: a module that exists only in the eval ctx's
+        // `ModuleLookup` chain (the dep-bound surface) resolves — the
+        // kit table alone could never see it.
+        let mut ctx = EvalContext::new();
+        ctx.set_modules(std::rc::Rc::new(dep_registry()));
+        let out = FfiRustResolve::new()
+            .call(&[json!("t152dep.double")], &mut ctx)
+            .unwrap();
+        assert_eq!(out["__arrow__"], json!(true));
+        let body = out["body_def"].to_string();
+        assert!(body.contains("t152dep.double"), "body: {body}");
+
+        // ...but the kit-table-only path still cannot see it.
+        assert!(matches!(
+            AtomHandle::resolve("t152dep.double"),
+            Err(EvalError::UnknownFunction(_))
+        ));
+    }
+
+    #[test]
+    fn kit_table_remains_fallback_when_chain_misses() {
+        ensure_registered();
+        let mut ctx = EvalContext::new();
+        ctx.set_modules(std::rc::Rc::new(ModuleRegistry::new()));
+        let out = FfiRustResolve::new()
+            .call(&[json!("t152probe.double")], &mut ctx)
+            .unwrap();
+        assert_eq!(out["__arrow__"], json!(true));
+    }
+
+    #[test]
+    fn atom_handle_resolve_in_registry() {
+        let registry = dep_registry();
+        let handle = AtomHandle::resolve_in("t152dep.double", &registry).unwrap();
+        assert_eq!(handle.name(), "t152dep.double");
+        let mut ctx = EvalContext::new();
+        assert_eq!(handle.call(&[json!(3.0)], &mut ctx).unwrap(), json!(6.0));
+
+        // `resolve_in` is registry-scoped only: it must NOT fall back
+        // to the kit table (`t152probe` is registered there).
+        ensure_registered();
+        assert!(matches!(
+            AtomHandle::resolve_in("t152probe.double", &registry),
+            Err(EvalError::UnknownFunction(_))
+        ));
+        // Missing function / unqualified name refuse by name too.
+        assert!(matches!(
+            AtomHandle::resolve_in("t152dep.missing", &registry),
+            Err(EvalError::UnknownFunction(_))
+        ));
+        assert!(AtomHandle::resolve_in("bare", &registry).is_err());
     }
 
     #[test]

@@ -1338,6 +1338,10 @@ pub struct Kit {
     /// `mod.fn` wires against dep-bound atom modules check against
     /// their declared sigs instead of reporting unbound.
     dep_module_names: Vec<String>,
+    /// The eval-time stdlib [`handl_plugin_module::ModuleRegistry`] —
+    /// retained so [`Kit::atom_handle`] can resolve dep-bound atom
+    /// modules (P-013 phase-2b) that the `ModuleLookup` chain erases.
+    module_registry: Rc<handl_plugin_module::ModuleRegistry>,
 }
 
 impl std::fmt::Debug for Kit {
@@ -1443,6 +1447,32 @@ impl Kit {
     /// error as "unknown native" because no host registers the registry.
     pub fn handl_rewrite_adapter(&self) -> HandlNativeRewrite {
         self.handl_modules.rewrite_adapter()
+    }
+
+    /// Resolve a qualified atom name (`"mod.fn"`) to an
+    /// [`handl_kit_ffi::AtomHandle`] — the external-caller counterpart
+    /// of the in-eval `ffi.rust.resolve` op (P-013 phase-2b).
+    ///
+    /// Resolution consults this kit's module registry first, which
+    /// carries the dep-bound atom modules `dep_atom_modules` bound at
+    /// kit build — already filtered by the `pkg.hnl` `deps` scopes
+    /// (T-150), so a scope violation refuses here by name exactly as it
+    /// does inside eval. Names the registry does not provide fall back
+    /// to the process-wide kit module table
+    /// ([`handl_kit_ffi::AtomHandle::resolve`]), mirroring the in-eval
+    /// op's chain-then-table order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`handl_platform::EvalError::UnknownFunction`] (or the
+    /// not-qualified [`handl_platform::EvalError::Other`]) when neither
+    /// surface provides the atom.
+    pub fn atom_handle(
+        &self,
+        name: &str,
+    ) -> Result<handl_kit_ffi::AtomHandle, handl_platform::EvalError> {
+        handl_kit_ffi::AtomHandle::resolve_in(name, self.module_registry.as_ref())
+            .or_else(|_| handl_kit_ffi::AtomHandle::resolve(name))
     }
 
     /// Build a [`Kit`] from a caller-supplied [`Language`],
@@ -1590,7 +1620,13 @@ impl Kit {
         // default. A host that wants the self-hosted pipeline can still call
         // `handl_plugin_lib_handl::install_loader` before building a kit.
 
-        let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = Rc::new(stdlib_registry);
+        // Retain the concrete registry alongside the erased chain: dep-
+        // bound atom modules (P-013 phase-2a/2b) live here, and
+        // `Kit::atom_handle` resolves `ffi.rust.resolve`-style names
+        // against it — the `Rc<dyn ModuleLookup>` chain cannot vend
+        // the `Arc<dyn Module>` an `AtomHandle` pins.
+        let module_registry = Rc::new(stdlib_registry);
+        let stdlib_chain: Rc<dyn handl_platform::ModuleLookup> = module_registry.clone();
         let fp = handl_runtime::fp::canonical_fp_host_functions(Some(Rc::clone(&stdlib_chain)));
         let hello = Rc::new(HelloHostFunctions::new(Some(
             Rc::clone(&fp) as Rc<dyn handl_platform::ModuleLookup>
@@ -1709,6 +1745,7 @@ impl Kit {
             dep_dirs: dependencies,
             dep_scopes,
             dep_module_names,
+            module_registry,
         })
     }
 
@@ -3538,5 +3575,94 @@ mod tests {
                 || err.to_string().contains("assertion failed"),
             "expected predicate rejection, got: {err}"
         );
+    }
+
+    /// P-013 phase-2b fixtures: a dep dir vending a minimal `atoms.yaml`
+    /// for module `tensor`. The impl table is discovered from the linked
+    /// `handl-host-tensor` crate's `AtomProvider` submission — the same
+    /// inventory path phase-2a uses — so `tensor.zeros` binds with zero
+    /// test-local provider wiring.
+    fn write_tensor_dep(dir: &Path) {
+        std::fs::write(
+            dir.join("atoms.yaml"),
+            "module: tensor\natoms:\n  - { name: tensor.zeros, sig: \"(List Int) ~> Tensor\", impl: rust_tensor_zeros, total: true }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("pkg.hnl"),
+            "name: \"tdep\"\nmodules: [\"tensor\"]\n",
+        )
+        .unwrap();
+    }
+
+    /// Build a kit whose `tdep` dependency binds the `tensor.zeros`
+    /// atom under `scopes` (empty = unrestricted). The `TempDir` is
+    /// returned so the dep directory outlives the kit.
+    fn kit_with_tensor_dep(
+        scopes: HashMap<String, handl_platform::PkgDepScope>,
+    ) -> (Kit, tempfile::TempDir) {
+        let kit_data = handl_kit_data_prelude::assemble().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        write_tensor_dep(dir.path());
+        let mut deps = HashMap::new();
+        deps.insert("tdep".to_string(), dir.path().to_path_buf());
+        let kit = Kit::build_kit_with_dep_scopes(
+            kit_data.lang().clone(),
+            kit_data.runtime_config().clone(),
+            None,
+            deps,
+            scopes,
+            None,
+            prelude_engine_registry(),
+        )
+        .unwrap();
+        (kit, dir)
+    }
+
+    #[test]
+    fn dep_bound_atom_resolves_via_ffi_rust_resolve_and_atom_handle() {
+        let (kit, _dir) = kit_with_tensor_dep(HashMap::new());
+
+        // In-eval (phase-2b): `ffi.rust.resolve` consults the applying
+        // runtime's module chain — which carries the dep-bound `tensor`
+        // module — mints the `{fn, sig}` arrow, and the arrow's
+        // `call_host` re-dispatch invokes the dep-bound op.
+        let out = kit
+            .eval(r#"do { f := ffi.rust.resolve("tensor.zeros"); f([2]) }"#)
+            .unwrap();
+        assert_eq!(out["__tensor__"]["shape"], serde_json::json!([2]));
+
+        // External: `Kit::atom_handle` resolves the same atom through
+        // the kit's retained module registry — the surface the
+        // process-wide kit table cannot see.
+        let handle = kit.atom_handle("tensor.zeros").unwrap();
+        assert_eq!(handle.name(), "tensor.zeros");
+        // `tensor.zeros` declares a sig in atoms.yaml → carried (T-148).
+        assert!(handle.signature().is_some());
+        let mut ctx = EvalContext::new();
+        let called = handle.call(&[serde_json::json!([3])], &mut ctx).unwrap();
+        assert_eq!(called["__tensor__"]["shape"], serde_json::json!([3]));
+    }
+
+    #[test]
+    fn dep_scope_violation_refuses_atom_by_name() {
+        // Scope allows only `tensor.ones`; the dep's atoms.yaml declares
+        // `tensor.zeros` → the decl is filtered and the module never
+        // binds. Both resolution surfaces must refuse by name.
+        let mut scopes = HashMap::new();
+        scopes.insert(
+            "tdep".to_string(),
+            handl_platform::PkgDepScope {
+                modules: vec![],
+                atoms: vec!["tensor.ones".to_string()],
+                caps: vec![],
+            },
+        );
+        let (kit, _dir) = kit_with_tensor_dep(scopes);
+
+        assert!(kit.atom_handle("tensor.zeros").is_err());
+        assert!(kit.eval(r#"ffi.rust.resolve("tensor.zeros")"#).is_err());
+        // An unbound name still refuses the same way.
+        assert!(kit.atom_handle("tensor.no_such_op").is_err());
     }
 }

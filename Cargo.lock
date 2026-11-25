@@ -864,7 +864,9 @@ dependencies = [
  "handl-platform",
  "handl-plugin-ffi",
  "handl-plugin-lib-handl",
+ "handl-plugin-module",
  "handl-value",
+ "hnl-exec",
  "serde_json",
 ]
 

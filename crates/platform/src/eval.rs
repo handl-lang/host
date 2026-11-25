@@ -674,6 +674,19 @@ impl EvalContext {
         self.modules.is_some()
     }
 
+    /// The module/function lookup chain wired via [`set_modules`], if
+    /// any — the *applying runtime's* resolution scope.
+    ///
+    /// Host functions that gate on name existence before minting a
+    /// callable (e.g. `ffi.rust.resolve`, P-013 phase-2b) consult this
+    /// so dep-bound/scoped modules resolve exactly as
+    /// [`call_function`](Self::call_function) would dispatch them,
+    /// instead of only seeing process-wide registries. Returns a clone
+    /// of the `Rc` so the borrow does not tie up `self`.
+    pub fn module_lookup(&self) -> Option<Rc<dyn ModuleLookup>> {
+        self.modules.clone()
+    }
+
     /// Set the string-expression evaluator handle.
     ///
     /// The host wires an [`ExprEvaluator`] into the context so host
