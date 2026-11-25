@@ -236,6 +236,10 @@
   label: match
   category: keyword
   doc: "**Pattern-match on a value** `match`\n\n```\nmatch `expr` { `pat` { `body` }, … }\n```"
+- id: token.keyword.new
+  label: new
+  category: keyword
+  doc: "**Mode/algebra declaration RHS** `new`\n\n```\n`X` := new `T`(`args`) { `members` }\n```\n\nBinds `X` as a mode-family former (`X(p)` builds mode values) and registers `{members}` as the instance dictionary for `X`-headed modes — the `forall`→`Pi` precedent: a parse-level alias over the ctor + `instance` machinery (graded-arrows.md §3, MTT migration)."
 - id: token.keyword.op
   label: op
   category: keyword

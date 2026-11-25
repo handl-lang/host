@@ -468,6 +468,30 @@
       - 6
     child_separators:
       - !Required token.comma
+# `new T(args) { members }` — mode/algebra declaration RHS
+# (graded-arrows.md §3 "Algebra declaration syntax", MTT migration;
+# the `forall`→`Pi` precedent: a parse-level alias, no new semantics of
+# its own). Two juxtaposed children — no separator token: child 0 is
+# the algebra type expression `T(args)` (`Algebra(Nat)` — a `call`, or a
+# bare `var` for a parameterless former) and child 1 is the member
+# dictionary record (`object`). Child 0 ends where the `{` record
+# begins — `{` is not an infix operator, so no binding-power tuning is
+# needed. Meaningful as the value of `X := …`: `synth_assign`'s `new`
+# arm binds `X` as a mode-family former (`X(p)` mints
+# `type.family_app{X, [p]}` — the call-head mode value `mode_compose`
+# resolves) and registers `{members}` as the instance dictionary for
+# `X`-headed modes — the same `(head, args) ↦ dict` entry
+# `instance X(_) := dict` would register. The desugar pass rewrites
+# the node for eval (`block { instance T(args) := dict, x ~> … }`).
+- id: grammar.new.prefix
+  token: token.keyword.new
+  position: Prefix
+  binding_power:
+    - 0
+    - 0
+  child_shape:
+    node_kind: new
+    arity: 2
 # NOTE — index position uses `name<a, b, …>` implicit index binders /
 # `F<i, …>` index application (phase-2 WS-C sugar, migrated `{…}` → `<…>`:
 # a dimension IS an index). `<` cannot be a declarative infix row for this

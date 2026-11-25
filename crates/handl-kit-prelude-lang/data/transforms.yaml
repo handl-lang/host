@@ -133,6 +133,51 @@
                           - !Keep 1
                   - !Fresh "__result"
 
+# `new T(args) { members }` — mode/algebra declaration RHS
+# (graded-arrows.md §3, MTT migration). Exec-pipeline lowering only —
+# the checker sees the raw `new` node (`synth_assign`'s `new` arm binds
+# the assign target as a mode family and registers the dict instance).
+# Rewrites to a `block` of two statements:
+#   1. `instance T(args) := { members }` — the existing instance node;
+#      `eval.instance` projects (evaluates) the dict child, so the
+#      member record is still evaluated for effect/failure parity with
+#      a hand-written `instance` decl.
+#   2. `x ~> { mode: x, algebra: { members } }` — the mode constructor
+#      `X := …` binds: `X(p)` evaluates to a self-describing mode value
+#      carrying its payload and algebra dictionary. The record shape is
+#      provisional pending M2's `Algebra`/`mode_compose` definition —
+#      the checker-side canonical form is `type.family_app{X, [p]}`
+#      regardless (types and runtime values already diverge the same
+#      way `data` ctors do).
+- id: transform.desugar.new
+  pass: desugar
+  node_kind: new
+  rule: !Declarative
+    target_kind: block
+    children:
+      - !Create
+        kind: instance
+        children:
+          - !Keep 0
+          - !Keep 1
+      - !Create
+        kind: function
+        children:
+          - !Create { kind: var, payload: "__mode_payload" }
+          - !Create
+            kind: object
+            children:
+              - !Create
+                kind: entry
+                children:
+                  - !Create { kind: var, payload: "mode" }
+                  - !Create { kind: var, payload: "__mode_payload" }
+              - !Create
+                kind: entry
+                children:
+                  - !Create { kind: var, payload: "algebra" }
+                  - !Keep 1
+
 # `lower` pass (ADR-0094 follow-up): canonicalize object entry keys so the
 # bytecode/cranelift backends can stop guessing whether a literal key is a
 # `var` or a `string`.  The rule is authored in language data; the payload

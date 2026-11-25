@@ -351,6 +351,15 @@
   pattern: !Literal
     text: match
   priority: 15
+# `new` — the mode/algebra declaration keyword (`X := new T(args) {…}`,
+# graded-arrows.md §3). Free as an identifier in the canonical corpus
+# (only doc comments use it); the identifier CharClass (priority 50)
+# still wins on longer names (`newton`), the `forall`/`exists` precedent.
+- id: lex.keyword.new
+  token_kind: token.keyword.new
+  pattern: !Literal
+    text: new
+  priority: 15
 - id: lex.keyword.op
   token_kind: token.keyword.op
   pattern: !Literal

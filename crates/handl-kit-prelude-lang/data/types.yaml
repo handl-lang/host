@@ -2584,6 +2584,23 @@
     args: []
     source: Judgment
 
+# `new T(args) { members }` — mode/algebra declaration RHS
+# (graded-arrows.md §3 "Algebra declaration syntax", MTT migration).
+# Meaningful only as the value of `X := …`: `synth_assign`'s `new` arm
+# binds `X` as a mode-family former (`type.family{name: X}` — `X(p)`
+# mints `type.family_app{X, [p]}`, the call-head mode value) and
+# registers `{members}` as the instance dictionary for `X`-headed
+# modes — the `(head, args) ↦ dict` entry `instance X(_) := dict`
+# registers. A `new` node reached outside an assign value synthesizes
+# its children for well-formedness and degrades to `type.unknown` with
+# a warning (there is no target name to bind the family under).
+- id: type.new
+  node_kind: new
+  synth: !Op
+    name: synth_new
+    args: []
+    source: Judgment
+
 # ---------------------------------------------------------------------------
 # Graded-theory declarations (ADR-0098/0100)
 # ---------------------------------------------------------------------------

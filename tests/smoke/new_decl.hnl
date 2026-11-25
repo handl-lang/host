@@ -1,0 +1,48 @@
+--- tests/smoke/new_decl.hnl — `X := new T(args) { members }` mode/
+--- algebra declarations (graded-arrows.md §3 "Algebra declaration
+--- syntax", MTT migration). Driven by `hnl typecheck` (see `ci.sh
+--- smoke`).
+---
+--- `new` is a parse-level alias (the `forall`→`Pi` precedent):
+--- `Cost := new Algebra(Nat) { … }` binds `Cost` as a mode-family
+--- former — `Cost(3)` synthesizes `type.family_app{Cost, [3]}`, the
+--- call-head mode value — and registers `{…}` as the `(Cost, [_]) ↦
+--- dict` instance entry, so instance/dictionary search finds the
+--- algebra for `Cost`-headed modes (the same entry `instance
+--- Cost(_) := dict` would register; coherence is per declared name,
+--- so `Cost`/`Price` coexist over the same former).
+---
+--- `Algebra` is M2's to define (mode_compose lands with it); the stub
+--- below is a record-family in the `Eq<a>` spelling — enough for
+--- `Algebra(Nat)` to elaborate as a type. When the real `Algebra`
+--- lands, swap the stub for the kit declaration.
+
+Algebra<c : Type> := {
+  mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
+}
+
+--- The spec form: ctor binding + instance registration in one decl.
+Cost := new Algebra(Nat) {
+  compose: (a, b) ~> a + b,
+  unit:    0,
+  order:   (a, b) ~> a <= b
+}
+
+--- A second algebra over the same former — distinct head, no
+--- coherence clash (`Cost(_)` and `Price(_)` are different shapes).
+Price := new Algebra(Nat) {
+  compose: (a, b) ~> a * b,
+  unit:    1
+}
+
+--- `Cost(3)` — the mode value: `type.family_app{Cost, [3]}`.
+cost_three := Cost(3)
+price_two := Price(2)
+
+--- Bare-former spelling (`new T { … }`, no argument list) also parses
+--- and declares — `T` elaborates through the family self-application.
+Session := new Algebra {
+  compose: (a, b) ~> a,
+  unit:    0
+}
+session_zero := Session(0)

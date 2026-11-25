@@ -1461,6 +1461,33 @@
     required:
       - children
     type: object
+# `new` — mode/algebra declaration RHS `new T(args) { members }`
+# (graded-arrows.md §3 "Algebra declaration syntax", MTT migration).
+# Meaningful as the value of `X := …` — `synth_assign`'s `new` arm binds
+# `X` as a mode-family former and registers the dict as `X`'s instance.
+# Two named children:
+#   0. `type` — the algebra type expression `T(args)` (a `call` node, or
+#      a bare `var` for a parameterless former).
+#   1. `dict` — the member dictionary (an `object` literal).
+# Like `exists`/`forall` this is a parse-level alias: the desugar pass
+# rewrites it for eval, so no `eval.new` scheme exists.
+- id: ast.new
+  node_kind: new
+  children:
+    - role: type
+    - role: dict
+  payload_schema:
+    properties:
+      children:
+        description: positional children [type_expr, dict_expr]
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
 # `alt` — constructor alternative node created by `|` pipe infix
 # (ADR-0082). Two children: `left` and `right`. The desugar pass walks
 # the `alt` tree to collect all constructors from a `data` declaration.
