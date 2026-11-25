@@ -28,14 +28,17 @@ export endo2<a> : Hom2(a) ~> Hom2(a) := e ~> e
 
 -- ---------------------------------------------------------------------
 -- `forall n : Nat, T` — parse-level `Pi` shorthand: the binder's first
--- argument is the index. Application instantiates it (`idn(Succ(Zero))`
--- — a bare `2` is a `Number` literal, not a `Nat` index term).
+-- argument is the index. Application instantiates it. A bare numeric
+-- literal in `Nat`-expected position elaborates to the `Succ^k(Zero)`
+-- index term, so `idn(2)` ≡ `idn(Succ(Succ(Zero)))`.
 -- ---------------------------------------------------------------------
 
 idn : forall n : Nat, Nat := n ~> n
 polyv : forall n : Nat, Vec(n, Bool) ~> Vec(n, Bool) := n ~> v ~> v
-two : Nat := idn(Succ(Succ(Zero)))
-v2 : Vec<1, Bool> := polyv(Succ(Zero))(VCons(true, VNil))
+two : Nat := idn(2)
+two_b : Nat := idn(Succ(Succ(Zero)))
+v2 : Vec<1, Bool> := polyv(1)(VCons(true, VNil))
+v2_b : Vec<1, Bool> := polyv(Succ(Zero))(VCons(true, VNil))
 
 -- ---------------------------------------------------------------------
 -- `~[n]~>` — the dimension-indexed hom `Hom(n, s, t)` (a dimension
