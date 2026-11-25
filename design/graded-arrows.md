@@ -19,7 +19,7 @@ Verified against:
 - `crates/handl-kit-arrow-lower/src/lib.rs` (`op` lowering, `lower_dim_term`,
   ~lines 1960–2037)
 - `tool-parse-pratt/src/lib.rs` (legacy `graded_arrow` special case, ~line 1292)
-- A workspace-wide grep census of `~[…​]~>` in `.hnl` sources (see §7).
+- A workspace-wide grep census of `~[…​]~>` in `.hnl` sources (see §9).
 
 ---
 
@@ -99,10 +99,10 @@ carried by `IO<sig>` codomain annotations, not arrow grades. The only
 "grade-like" bracket uses are comments (`lib-loader/src/index.hnl` ~line
 268: "all signatures grade `~[1]~>`" — i.e. dimension-1).
 
-This makes the codemod nearly mechanical (§7), but it also means the
+This makes the codemod nearly mechanical (§9), but it also means the
 *transition parse rule* in `syntax-decisions.md` — "numeric payload →
 dimension reading; named/expr → grade" — would misclassify the 140
-`~[N]~>`/`~[n]~>` open-dimension sites as grades. See §7.3.
+`~[N]~>`/`~[n]~>` open-dimension sites as grades. See §9.3.
 
 ### 1.5 Grades that already exist as *data*
 
@@ -129,7 +129,106 @@ the effect row. The design question is what `~[G]~>` *annotates*.
 
 ---
 
-## 2. Grade domain — recommendation
+## 2. Literature review
+
+What the graded/coeffect literature actually does, per system:
+
+| System | What a grade is | Where it attaches | How it is enforced |
+|---|---|---|---|
+| **Granule** (Orchard, Liepelt, Eades III et al., ICFP'19 "Quantitative Program Reasoning with Graded Modal Types") | Element of a **semiring** (resource bounds), a security **lattice**, or an effect **monoid** — three built-in grade kinds, user-extensible only within those shapes | Graded *modality* on types (`A [r]`, `A <IO>`); in "graded base" calculus the grade also sits on every binder and on the arrow's *input* (`A[r] ⊸ B`) | Bidirectional typechecking + Z3 SMT solver discharging grade constraints; subsumption via the semiring **preorder**; grade polymorphism by quantifying over grade variables |
+| **QTT** (Atkey, LICS'18; McBride; Abel–Coquand–Dybjer erasure) | Element of a **semiring**, parameterized — the theory is generic over the semiring | On **variable binders** in contexts (`(q x : A)`), never on arrow types | Semiring arithmetic + preorder during type checking; usage counts accumulate through contexts |
+| **Coeffects** (Petricek, Orchard, Mycroft 2014; Petricek thesis) | Element of a user-chosen **coeffect algebra** (monoid, vector space, …) | On contexts / individual variables (structural coeffects); graded-base puts it on function inputs | Algebraic combination of contexts; shape of the algebra must match the shape of the typing rules |
+| **Koka** (Leijen) | Not a grade — an open **effect row** | On the function type's effect slot: `τ -> e τ'` | Row unification + subsumption by row width/depth; fully inferred |
+| **MTT** (Gratzer, Kavvos, Nuyts, Birkedal) | A **mode** — an object of a mode theory (2-category); modes can be effect contexts | On every judgement (`Γ ⊢ M : A @ E`) | Mode matching between domain/codomain; modalities bridge modes |
+| **"Graded arrows" (category theory)** | A morphism in a **grading category** — Sanada's category-graded effects (`CatEff`), compositional-game-theory graded arrows | On the arrow itself, indexed by grading-category morphisms | Composition = grading-category composition; handlers = graded algebra morphisms |
+| **Grass** (Hanukaev & Eades) | Elements of **multiple coexisting grade algebras** — each variable controlled by its own algebra | Per-variable in context | Per-algebra operations; closest literature precedent for "pluggable algebra per site" |
+
+Concrete instantiations worth noting:
+
+- **Idris 2** implements QTT with the concrete `{0, 1, ω}` zero-one-many
+  semiring on binders (erasure / linear / unrestricted). **Agda** has only
+  the `0` erasure modality so far — full QTT linearity is blocked on
+  constraint machinery (agda/agda#4642). **Lean** has no graded-arrow or
+  quantity mechanism at all. No mainstream proof assistant ships
+  semiring-graded *arrows*; graded arrows remain a research-language
+  feature (Granule) or a categorical abstraction.
+- **Granule's graded possibility modality** is the literature's answer to
+  "can effects and coeffects share machinery": yes — effects are a graded
+  monad over the effect-set monoid `(𝒫(IO), ∪, ∅)`, coeffects a graded
+  comonad over a semiring. They coexist under one modality framework but
+  remain *different grade algebras*. This is the strongest argument that
+  `IO<sig>` and `~[G]~>` need not be identified — but also shows unification
+  is possible if ever wanted.
+- Every enforceable system fixes **some** algebraic structure: a semiring
+  (QTT/Granule), a monoid (effect rows, graded possibility), a lattice
+  (security), or a grading category (Sanada). "Arbitrary data with no
+  operations" is not a grade domain anywhere in the literature — it is a
+  grade *representation* awaiting an algebra.
+
+---
+
+## 3. Design assessment
+
+### What holds
+
+- **Three separate axes is the literature consensus.** Dimension (cell
+  level), coeffect/usage grade, and effect are distinct axes in MTT, QTT,
+  and Granule alike. ADR-0153 already resolved bracket = dimension; giving
+  grades their own `~[G]~>` notation matches how the field separated these
+  concerns.
+- **Grades orthogonal to `IO<sig>` is defensible.** Koka puts effects on
+  the function type and tracks no usage; QTT/Granule put usage on
+  binders/modalities and no algebraic effects. handl's `IO<sig>` codomain
+  former + arrow grade mirrors exactly this split. Granule shows the axes
+  *can* be unified under one modality mechanism — but as different algebras,
+  which is what this design already allows (a grade value may be an effect
+  row; `IO<>` remains canonical for effects).
+- **Arbitrary-data grades are MORE feasible here than in ML-family
+  languages — with one caveat (adjustment 1 below).** Types, terms, proofs, and grades
+  share one evaluator and the checker is itself Handl data
+  (`typecheck_model.hnl`), so there is no metatheoretic requirement that
+  grades form a semiring *in the host*. ADR-0207 §8–9 explicitly wants
+  grade algebras to be ordinary typed expressions. A grade that is a
+  record, an array, a `Session(!T)` call, or a proof-carrying value is
+  unthinkable in Idris2/Agda and natural here.
+- **`~[G]~>` bracket-infix is fine.** Comparable to Granule's `A [r]` /
+  `A[r] ⊸ B` and the category-theory `A -[r→] B`; the notation already has
+  in-repo precedent (ADR-0203, legacy `graded_arrow`).
+- **P2 = representation + well-formedness only is the right scope.** No
+  shipped system enforces grades without a fixed algebra + constraint
+  solver; deferring subsumption is honest, not timid.
+
+### What needs adjustment
+
+1. **Pin the algebra *interface*, not the algebra.** §4's "MVP algebra =
+   equality / record-merge / meta" is too ad hoc to be the composition
+   semantics — every literature system requires *some* structure
+   (semiring ops, monoid op, preorder). The fix that preserves
+   arbitrary-data grades: a **grade algebra is a Handl data structure**
+   exposing the operations `gradeCompose` needs — at minimum a compose
+   operation, a unit grade, and a subsumption/order predicate — selectable
+   per composition site (ADR-0207 §9, Grass precedent). P2 ships one
+   canonical default algebra (record-row union for rows, equality
+   otherwise, honest-bound fallback) *as data*; user algebras plug in at
+   P3. This turns "pluggable" from aspirational into an interface.
+2. **Pin what `G` constrains.** The literature attaches coeffect grades
+   to the *consumed input* (QTT binder quantities, Granule `A[r] ⊸ B`),
+   while ADR-0207's examples (`Path ~[IO]~> String`) read as a whole-morphism
+   annotation. `A ~[G]~> B` should be documented as: **G grades the arrow
+   as a consumer of A** (coeffect reading, QTT-aligned) — i.e., "using
+   this arrow consumes A at grade G" — with whole-morphism readings
+   (session protocol of the arrow's behavior, ADR-0203) as algebra-defined
+   interpretations. Flagged as open question §11.9.
+3. **Numeric-literal grade spelling.** `~[(2)]~>` works but is ugly and
+   undiscoverable; every real usage-count system uses a named grade
+   (`Two`, `Usage(2)`) anyway. Keep the restriction, document the named
+   spelling as the recommended one.
+4. **Phased plan: unchanged in shape.** P2 gains the algebra-interface
+   item from adjustment 1; see §8.
+
+---
+
+## 4. Grade domain — recommendation
 
 **Recommendation: a grade is an arbitrary Handl data value (a typed
 expression), composed by a pluggable grade algebra — not a literal, not a
@@ -183,7 +282,7 @@ grade-as-data to flow through the existing `Arrow` record.
 
 ---
 
-## 3. Payload grammar — what `G` can be
+## 5. Payload grammar — what `G` can be
 
 **Recommendation: `G` is a single arbitrary expression child**, parsed
 between `~[` and `]~>` and terminated by the `token.dim_close` separator —
@@ -193,12 +292,12 @@ already lexed distinctly by the in-flight work).
 
 | payload | example | reading |
 |---|---|---|
-| identifier | `~[Addable]~>` | named grade (declared via `grade`/`sort`) — **or** dimension var during transition (see §7.3) |
+| identifier | `~[Addable]~>` | named grade (declared via `grade`/`sort`) — **or** dimension var during transition (see §9.3) |
 | call | `~[Session(!T)]~>`, `~[Lengthable(n)]~>` | parameterized grade (ADR-0203 precedent) |
 | record | `~[{ puts: Str, fs: Path }]~>` | effect/permission row as a grade value |
 | array | `~[[Addable, Comparable]]~>` | grade product/list (legacy `graded_arrow` array-grade precedent) |
 | paren | `~[(r >>> s)]~>` | composed/compound grade expression |
-| literal | `~[2]~>` | usage-count grade — legal, but **numeric payloads are claimed by the dimension reading during transition** (see §7.3); post-transition `~[2]~>` stays `dim_arrow` sugar, so literal grades need a non-numeric spelling (`~[(2)]~>`) or a named grade |
+| literal | `~[2]~>` | usage-count grade — legal, but **numeric payloads are claimed by the dimension reading during transition** (see §9.3); post-transition `~[2]~>` stays `dim_arrow` sugar, so literal grades need a non-numeric spelling (`~[(2)]~>`) or a named grade |
 
 **Multiple grades**: do not add `~[g1, g2]~>` comma syntax — `,` is not an
 infix operator in the language and `sort ... grades` already established
@@ -211,7 +310,7 @@ grade algebra, exactly as ADR-0207 intends.
 `>>>` (grade composition per ADR-0207 §8: `A ~[r >>> s]~> C`) but cannot
 swallow the closing `]~>` — the separator token terminates it naturally,
 mirroring how `axis_flow`'s `k` child parses. Whether `~>` itself is
-admissible inside `G` is an open question (§9): recommend **no** — grades
+admissible inside `G` is an open question (§11): recommend **no** — grades
 compose with `>>>`, not `~>`; a grade that needs an arrow type is a
 category error the checker should reject, not parse.
 
@@ -238,7 +337,7 @@ not once at parse time.
 
 ---
 
-## 4. Semantics — what the checker does today vs. what's needed
+## 6. Semantics — what the checker does today vs. what's needed
 
 ### Today
 
@@ -262,7 +361,7 @@ not once at parse time.
 
 - **P1 (representation)**: `eval.graded_arrow` mints the same `Arrow`
   record with `grade` = the evaluated grade *value* and `dim` absent (or
-  `dim: 1` — see open question §9.4 on `cell_boundary_` interaction);
+  `dim: 1` — see open question §11.4 on `cell_boundary_` interaction);
   `synth_graded_arrow` produces `Arrow{inputs, grade: <grade type>,
   output, dim: 1}` — a graded arrow *is* a 1-cell with an annotation, so
   `dim: 1` keeps `cell_boundary_`/`infer_hom` correct for free. The grade
@@ -272,8 +371,11 @@ not once at parse time.
 - **P2 (minimal discipline)**: grade well-formedness only — the grade
   expression must elaborate (resolve names, check arity of grade
   constructors like `Session(!T)`). Composition carries the grade through
-  a single `grade_compose` judgment op with the MVP algebra of §2
-  (equal→equal, record-merge, else meta+deferred). Subsumption checking
+  a single `grade_compose` judgment op that **dispatches to a grade-algebra
+  interface** (§3 adjustment 1): the algebra is a Handl data structure
+  exposing compose / unit / order operations, and P2 ships one canonical
+  default algebra (record-row union for rows, equality otherwise,
+  meta+deferred fallback). Subsumption checking
   at `~[G]~>`-annotated binding sites is **explicitly deferred** — same
   honest-bound posture as symbolic `IO(s)` sigs.
 - **P3 (full vision, ADR-0207)**: grade algebras as data, `r >>> s` inside
@@ -289,7 +391,7 @@ unify — different formers, different checkers paths.
 
 ---
 
-## 5. Grades vs `IO<>`/`handle`/`perform` — the key conceptual question
+## 7. Grades vs `IO<>`/`handle`/`perform` — the key conceptual question
 
 **Conclusion: complementary, orthogonal axes — not redundant, not the same
 thing at different levels.**
@@ -324,21 +426,21 @@ Arguments for keeping them separate:
 
 What grades buy that `IO` can't: usage/linearity (`~[2]~>`-as-grade would
 be "consume twice" — distinct from dimension-2!), cost, staging,
-permissions, session protocols. Note the collision this creates and §7.3
+permissions, session protocols. Note the collision this creates and §9.3
 resolves: `~[2]~>` must stay dimension-2 forever; a usage-count grade
 needs `~[(2)]~>` or a named grade — numeric literal payloads are
 permanently claimed by the dimension reading.
 
 ---
 
-## 6. Phased plan
+## 8. Phased plan
 
 | Phase | Content | Depends on | Implementable? |
 |---|---|---|---|
 | **P0** | Syntax reservation: `~>[n]` dim spelling, `~[G]~>` grade spelling, old `~[n]~>` sugar. **In flight** (parser agent). | — | now |
 | **P1a** | `graded_arrow` node kind in `ast.yaml`; `grammar.graded_arrow.infix` on `token.dim_open`/`token.dim_close` reusing the bracket capture; payload = expression child. Transition rule: non-numeric payload → `graded_arrow`, numeric → `dim_arrow` (per syntax-decisions). | P0 grammar slots | soon — pure data |
-| **P1b** | `eval.graded_arrow` (Arrow record, grade field = grade value, `dim: 1` or absent — §9.4); `type.graded_arrow` → `synth_graded_arrow` in model + NBE judgment + `dep_synth_type` arm; `handl-kit-arrow-lower` `graded_arrow` signature path (name already accepted — verify grade child lowers to a grade term, not `Op.dim`). | P1a | soon — mirrors `dim_arrow` entries 1:1 |
-| **P2** | Grade semantics: `grade_compose` judgment op (MVP algebra §2), grade well-formedness diagnostics, subsumption stub. Codemod + `~[n]~>`→`~>[n]` migration of all sources. Docs + ADR-0153/0106 conformance amendment. | P1b, codemod | medium — the semantics is the real work |
+| **P1b** | `eval.graded_arrow` (Arrow record, grade field = grade value, `dim: 1` or absent — §11.4); `type.graded_arrow` → `synth_graded_arrow` in model + NBE judgment + `dep_synth_type` arm; `handl-kit-arrow-lower` `graded_arrow` signature path (name already accepted — verify grade child lowers to a grade term, not `Op.dim`). | P1a | soon — mirrors `dim_arrow` entries 1:1 |
+| **P2** | Grade semantics: `grade_compose` judgment op dispatching to the grade-algebra interface (§3 adj. 1; canonical default algebra as data), grade well-formedness diagnostics, subsumption stub. Codemod + `~[n]~>`→`~>[n]` migration of all sources. Docs + ADR-0153/0106 conformance amendment. | P1b, codemod | medium — the semantics is the real work |
 | **P3** | Vision (ADR-0207/0203): grade algebras as data, `r >>> s` in annotations, `forall G.` grade quantification, grade inference, session types as grade morphisms. | P2 + research | not soon — honest bound |
 
 **What is NOT recommended soon**: any grade *constraint enforcement*
@@ -350,16 +452,16 @@ coverage check second, row polymorphism last.
 
 ---
 
-## 7. Codemod spec
+## 9. Codemod spec
 
-### 7.1 The problem
+### 9.1 The problem
 
 `~[x]~>` today means dimension for **every** payload kind. After the split:
 `~>[x]` = dimension, `~[G]~>` = grade. A blind `~[n]~>` → `~>[n]` rewrite
 is wrong for grade sites; a blind keep is wrong for dim sites. The codemod
 must classify each `dim_arrow` node's middle child.
 
-### 7.2 Disambiguation rule (recommended): payload kind first, binding second
+### 9.2 Disambiguation rule (recommended): payload kind first, binding second
 
 For each `dim_arrow` node `A ~[x]~> B` in a `.hnl` source:
 
@@ -386,7 +488,7 @@ scope pass `bind_pattern_vars_`/module prep already performs). Position
 signatures today contain zero bracket payloads (§1.4), so position would
 buy nothing and mislead later.
 
-### 7.3 The transition-parse hazard (must be sequenced)
+### 9.3 The transition-parse hazard (must be sequenced)
 
 `syntax-decisions.md` fixes the *transition* reading: "numeric payload →
 dimension; named/expr → grade". Applied naively, `~[N]~>`/`~[n]~>` —
@@ -411,7 +513,7 @@ existing files" decision and keeps the parser dumb. The only cost is that
 `~[Addable]~>` grade syntax is unavailable until the codemod lands —
 acceptable, since zero sources use it.
 
-### 7.4 Codemod mechanics
+### 9.4 Codemod mechanics
 
 - Vehicle: `plugin-ext-codemod` / `hnl-tool-transform` rewrite pass (the
   same playbook as `let`→`:=`), driven by the parsed AST — classify by
@@ -429,25 +531,25 @@ acceptable, since zero sources use it.
 
 ---
 
-## 8. Decision table
+## 10. Decision table
 
 | Question | Decision | Basis |
 |---|---|---|
-| What is a grade? | Arbitrary Handl data value; algebras pluggable per ADR-0207 | §2; ADR-0207 §8–9 |
+| What is a grade? | Arbitrary Handl data value; algebras pluggable per ADR-0207 | §4; ADR-0207 §8–9 |
 | Grade domain closed? | No — named grades, calls, records, arrays, expressions | legacy `graded_arrow` accepted full exprs incl. arrays |
 | Multiple grades syntax | Single expr; multiplicity via `[G1,G2]`/`{…}` data | `sort ... grades` precedent; `,` not infix |
 | Node kind | New `graded_arrow` (roles source/grade/target) | engine-genericity; precedent in arrow-lower |
 | `Hom`/`dim` vs grade | Strictly separate formers; grade never enters `type.hom` index | ADR-0153 §6 |
-| Grades vs `IO<>` | Orthogonal: grades = coeffects/usage on the arrow; `IO<sig>` = effects/authority in codomain | §5; MTT precedent; implemented handle story |
-| Literal numeric grade | Legal but spelled `~[(2)]~>` — bare `~[2]~>` is forever dimension | §5 collision note |
-| Composition grade rule | `grade_compose` judgment op; MVP algebra = equality/record-merge/meta | §4 P2 |
+| Grades vs `IO<>` | Orthogonal: grades = coeffects/usage on the arrow; `IO<sig>` = effects/authority in codomain | §7; MTT precedent; implemented handle story |
+| Literal numeric grade | Legal but spelled `~[(2)]~>` — bare `~[2]~>` is forever dimension | §7 collision note |
+| Composition grade rule | `grade_compose` judgment op dispatching to a **grade-algebra interface** (compose/unit/order as data fields, §3 adj. 1); canonical default algebra ships in P2 | §6 P2 |
 | Enforcement now | None beyond well-formedness; subsumption deferred | honest-bound convention |
-| Codemod disambiguation | Payload kind, then binding for idents (§7.2) | census §1.4 |
-| Transition hazard | Codemod-first; `~[x]~>` stays `dim_arrow` until migrated (§7.3a) | syntax-decisions sequencing |
+| Codemod disambiguation | Payload kind, then binding for idents (§9.2) | census §1.4 |
+| Transition hazard | Codemod-first; `~[x]~>` stays `dim_arrow` until migrated (§9.3a) | syntax-decisions sequencing |
 
 ---
 
-## 9. Open questions
+## 11. Open questions
 
 1. **Grade expression level**: are grade children elaborated as *terms*
    (values, like `Session(!T)` constructing a tag) or *types* (like
@@ -486,10 +588,16 @@ acceptable, since zero sources use it.
 8. **`~[G]~>` where G mentions dimension variables** (`~[f<N>]~>`?):
    grades depending on dims — allowed by "everything is data"; checking
    deferred. Note only.
+9. **What `G` constrains** (raised by §3 adjustment 2): coeffect reading
+   ("the arrow consumes A at grade G" — QTT/Granule-aligned) vs
+   whole-morphism annotation (ADR-0207 examples, session protocol of the
+   arrow's behavior). Recommend documenting the coeffect reading as the
+   default and leaving richer readings to the governing algebra; needs a
+   user decision before P2 writes the `grade_compose` contract.
 
 ---
 
-## 10. References
+## 12. References
 
 - [`syntax-decisions.md`](syntax-decisions.md) — approved arrow taxonomy
 - ADR-0153 (`adrs/0153-…`) — `~[n]~>` is a dimension index; grades pushed
@@ -503,9 +611,20 @@ acceptable, since zero sources use it.
 - ADR-0120 (`adrs/…`) — `>>>[k]` composition, `Op.dim` unification
   (Phase 3: grade and dimension share the `dim` slot — this doc splits
   them again at the *surface*; the `Op.dim` slot stays the runtime
-  dimension, grades need their own channel — §9.5)
+  dimension, grades need their own channel — §11.5)
 - ADR-0098 (`design/0098-one-language-multiple-interpreters.md`) —
   `sort`/`grade`/`op` graded-theory declarations
-- Granule / coeffect systems, Koka effect rows, Atkey QTT, McBride
-  quantitative types — grade-as-semiring/usage literature (via ADR-0207
-  references)
+- Literature (surveyed in §2): Orchard, Liepelt, Eades III et al.,
+  "Quantitative Program Reasoning with Graded Modal Types" (ICFP 2019) —
+  Granule graded modal types; Atkey, "Syntax and Semantics of
+  Quantitative Type Theory" (LICS 2018) — semiring quantities on binders;
+  Petricek, Orchard, Mycroft, "Coeffects" (2014) + Petricek thesis —
+  coeffect algebras on contexts; Leijen, "Koka: Programming with
+  Row-polymorphic Effect Types" — effect rows; Gratzer, Kavvos, Nuyts,
+  Birkedal, "Multimodal Dependent Type Theory" — modes as the
+  generalization; Sanada, "Algebraic Effects and Handlers for Arrows" /
+  "Category-Graded Algebraic Theories" (ICFP/JFP 2024) — graded arrows
+  via grading categories; Hanukaev & Eades, "Grass" — multiple coexisting
+  grade algebras; Idris 2 QTT documentation ({0,1,ω} semiring);
+  Abel–Coquand–Dybjer–Lorenzen, "A Graded Modal Dependent Type Theory"
+  (partially ordered semiring modalities).
