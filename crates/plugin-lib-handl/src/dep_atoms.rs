@@ -16,7 +16,7 @@
 //! ```text
 //! deps: { lib-tensor-native: "git+file://…" }        # pkg.hnl / .handl.toml
 //!   → resolve_pkg_dependencies → name → dir
-//!   → dir/atoms.yaml  (spec — the dep's own contract)
+//!   → dir/atoms.yaml (+ atoms-<module>.yaml siblings)  (spec — the dep's own contract)
 //!   → atom_providers() finds the linked impl table for `tensor`
 //!   → registry_from_atoms[_kernel] → HandlModule::with_ops
 //!   → Kit's stdlib ModuleRegistry (ambient `tensor.*` wires)
@@ -24,8 +24,9 @@
 //!
 //! Semantics:
 //!
-//! - **The dep vendors the spec.** Only `dir/atoms.yaml` triggers
-//!   binding — a dep that wants native ops ships its atom contract;
+//! - **The dep vendors the spec.** Only `dir/atoms.yaml` and its
+//!   `atoms-<module>.yaml` siblings trigger binding — a dep that wants
+//!   native ops ships its atom contract;
 //!   provider-submitted `atoms_yaml` copies are diagnostic, not a spec
 //!   source (a dep without `atoms.yaml` is a pure `.hnl` package and is
 //!   skipped untouched).
@@ -195,20 +196,60 @@ fn dep_atom_modules_with(
 ) -> Vec<Arc<HandlModule>> {
     let mut out = Vec::new();
     for (dep_name, dir) in dependencies {
-        // Spec source: the dep's own `atoms.yaml` — absent means a pure
-        // `.hnl` package, skipped untouched.
-        let yaml_path = dir.join("atoms.yaml");
-        let Ok(text) = std::fs::read_to_string(&yaml_path) else {
+        // Spec sources: the dep's own atoms spec documents — `atoms.yaml`
+        // plus any `atoms-<module>.yaml` siblings (one module per
+        // document). No spec file means a pure `.hnl` package, skipped
+        // untouched.
+        let mut spec_files = Vec::new();
+        let primary = dir.join("atoms.yaml");
+        if primary.is_file() {
+            spec_files.push(primary);
+        }
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            let mut siblings: Vec<PathBuf> = entries
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| {
+                    p.is_file()
+                        && p.file_name().is_some_and(|n| {
+                            let n = n.to_string_lossy();
+                            n.starts_with("atoms-") && n.ends_with(".yaml")
+                        })
+                })
+                .collect();
+            siblings.sort();
+            spec_files.extend(siblings);
+        }
+        if spec_files.is_empty() {
             continue;
-        };
-        let specs = match atoms::parse_atoms(&text) {
-            Ok(parsed) => parsed,
-            Err(e) => {
-                eprintln!("kit: dep `{dep_name}`: {e} — skipping atom binding");
-                continue;
+        }
+        let mut specs = Vec::new();
+        let mut spec_error = false;
+        for path in &spec_files {
+            let text = match std::fs::read_to_string(path) {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!(
+                        "kit: dep `{dep_name}`: cannot read {}: {e} — skipping atom binding",
+                        path.display()
+                    );
+                    spec_error = true;
+                    break;
+                }
+            };
+            match atoms::parse_atoms(&text) {
+                Ok(parsed) => specs.extend(parsed),
+                Err(e) => {
+                    eprintln!(
+                        "kit: dep `{dep_name}`: {}: {e} — skipping atom binding",
+                        path.display()
+                    );
+                    spec_error = true;
+                    break;
+                }
             }
-        };
-        if specs.is_empty() {
+        }
+        if spec_error || specs.is_empty() {
             continue;
         }
 
@@ -293,6 +334,21 @@ mod tests {
 
     fn echo_impls() -> Vec<AtomImpl> {
         vec![("t_echo", Arc::new(Echo))]
+    }
+
+    fn ping_impls() -> Vec<AtomImpl> {
+        vec![("t_ping", Arc::new(Echo))]
+    }
+
+    // A second test-local provider for the `atoms-<module>.yaml`
+    // sibling-spec path.
+    inventory::submit! {
+        AtomProvider {
+            modules: &["textra"],
+            atoms_yaml: "module: textra\natoms:\n  - { name: textra.ping, sig: \"Unit ~> Unit\", impl: t_ping, total: true }\n",
+            host_impls: Some(ping_impls),
+            kernel_impls: None,
+        }
     }
 
     // A test-local provider — submitted from this crate so the
@@ -423,6 +479,34 @@ mod tests {
             .map(|(n, _)| n.to_string())
             .collect();
         assert!(names.contains(&"net".to_string()), "{names:?}");
+    }
+
+    #[test]
+    fn binds_dep_atoms_yaml_sibling_specs() {
+        // Multi-module package: `atoms.yaml` covers `tmod`, the
+        // `atoms-textra.yaml` sibling covers `textra` — both bind.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("pkg.hnl"),
+            "name: \"multi-pkg\"\nmodules: [\"tmod\", \"textra\"]\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("atoms.yaml"),
+            "module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo, total: true }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("atoms-textra.yaml"),
+            "module: textra\natoms:\n  - { name: textra.ping, sig: \"Unit ~> Unit\", impl: t_ping, total: true }\n",
+        )
+        .unwrap();
+        let mut deps = HashMap::new();
+        deps.insert("multi-pkg".to_string(), dir.path().to_path_buf());
+        let modules = dep_atom_modules(&deps, &HashMap::new(), "tree-walk");
+        let mut names: Vec<String> = modules.iter().map(|m| m.name().to_string()).collect();
+        names.sort();
+        assert_eq!(names, vec!["textra".to_string(), "tmod".to_string()]);
     }
 
     #[test]

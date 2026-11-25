@@ -3,7 +3,8 @@
 //! A consumer that must stay **hermetic** (every `kit-*`, and
 //! `plugin-lib-stdlib`) cannot load its `.hnl` at runtime. Instead its `build.rs`
 //! calls [`vendor`] once, which copies the package (`pkg.hnl` + `src/**/*.hnl`
-//! + a top-level `atoms.yaml` atom spec when present)
+//! + a top-level `atoms.yaml` atom spec and any `atoms-<module>.yaml`
+//! siblings when present)
 //! — plus any `handl-packages/**/*.hnl` payload (e.g. `lib-intl-c`'s
 //! codegen-generated ICU port/adapter sources, which table specs embed
 //! directly) — into `OUT_DIR/<package>` and prints `cargo:rerun-if-changed`.
@@ -60,12 +61,26 @@ pub fn vendor_into(pkg_dir: &Path, out_root: &Path) -> Result<PathBuf, String> {
     )?;
     // `atoms.yaml` (P-013 T-149): the per-lib atom IDL — like `pkg.hnl`,
     // a top-level spec file, not `.hnl` source, so `copy_hnl` skips it.
-    // Optional: only libs with native atoms ship one.
+    // Optional: only libs with native atoms ship one. One module per
+    // spec document (`module:`+`atoms:`); multi-module packages add
+    // `atoms-<module>.yaml` siblings, vendored alongside.
     let atoms = pkg_dir.join("atoms.yaml");
     if atoms.is_file() {
         std::fs::copy(&atoms, dest.join("atoms.yaml"))
             .map_err(|e| format!("vendor: {}: {e}", atoms.display()))?;
         println!("cargo:rerun-if-changed={}", atoms.display());
+    }
+    if let Ok(entries) = std::fs::read_dir(pkg_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if path.is_file() && name.starts_with("atoms-") && name.ends_with(".yaml") {
+                std::fs::copy(&path, dest.join(name.as_ref()))
+                    .map_err(|e| format!("vendor: {}: {e}", path.display()))?;
+                println!("cargo:rerun-if-changed={}", path.display());
+            }
+        }
     }
     normalize_single_module(&dest);
     Ok(dest)
@@ -184,6 +199,27 @@ mod tests {
             !dest.join("src/notes.txt").exists(),
             "non-.hnl is not vendored"
         );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn vendors_atoms_spec_siblings() {
+        let root = temp("atoms");
+        let pkg = package(
+            &root,
+            "lib-utils",
+            "{ modules: [\"math\", \"str\"] }\n",
+            &[("src/index.hnl", "{}\n")],
+        );
+        std::fs::write(pkg.join("atoms.yaml"), "module: math\natoms: []\n").unwrap();
+        std::fs::write(pkg.join("atoms-str.yaml"), "module: str\natoms: []\n").unwrap();
+        std::fs::write(pkg.join("atoms.yaml.bak"), "skip").unwrap();
+        let out = root.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let dest = vendor_into(&pkg, &out).unwrap();
+        assert!(dest.join("atoms.yaml").is_file());
+        assert!(dest.join("atoms-str.yaml").is_file());
+        assert!(!dest.join("atoms.yaml.bak").exists());
         let _ = std::fs::remove_dir_all(&root);
     }
 
