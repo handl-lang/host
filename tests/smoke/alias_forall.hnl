@@ -20,7 +20,7 @@ Vec<n : Nat, a : Type> := {
 
 type.NatAlias := Nat
 type.BoolVec := Vec(1, Bool)
-type.Hom2(a) := a ~[2]~> a
+type.Hom2(a) := a ~>[2] a
 
 z2 : NatAlias := Succ(Zero)
 one_bool : BoolVec := VCons(true, VNil)
@@ -46,7 +46,7 @@ v2_b : Vec<1, Bool> := polyv(Succ(Zero))(VCons(true, VNil))
 -- `>>>[k]` composition, the `id` identity cell, stated at `~[3]~>`.
 -- ---------------------------------------------------------------------
 
-export comp_assoc := (a, b, c) ~> ((a >>>[2] b) >>>[2] c) ~[3]~> (a >>>[2] (b >>>[2] c))
-export id_left := (f, e) ~> (id(f) >>>[2] e) ~[3]~> e
-export id_right := (g, e) ~> (e >>>[2] id(g)) ~[3]~> e
-export swap_id := (a ~[2]~> a) ~[3]~> (a ~[2]~> a)
+export comp_assoc := (a, b, c) ~> ((a >>>[2] b) >>>[2] c) ~>[3] (a >>>[2] (b >>>[2] c))
+export id_left := (f, e) ~> (id(f) >>>[2] e) ~>[3] e
+export id_right := (g, e) ~> (e >>>[2] id(g)) ~>[3] e
+export swap_id := (a ~>[2] a) ~>[3] (a ~>[2] a)

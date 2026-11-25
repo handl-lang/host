@@ -29,7 +29,7 @@ prod : (x : Bool, y : String) := [true, "hi"]
 f := n ~> n
 g := n ~> n + 1
 cell_bare := f ~>[2] g
-cell_legacy := f ~[2]~> g
+cell_legacy := f ~>[2] g
 
 --- Brace-free `IO<sig>` records: `IO<puts, fs>` ≡ `IO<{ puts, fs }>`,
 --- `name : T` declares the payload type, single ops work too
