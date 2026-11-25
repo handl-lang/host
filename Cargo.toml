@@ -123,6 +123,10 @@ handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/lib-kv-hashmap", branch = "main" }
+# ADR-0128: the `ip` module's native backend lives in the `lib-ip-c`
+# repo; local development resolves it from the sibling checkout via
+# `[patch]` below.
+handl-plugin-lib-ip-c = { git = "https://github.com/handl-lang/lib-ip-c", branch = "main" }
 # ADR-0128 Phase 4: the otlp modules live in the `otlp` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
@@ -164,10 +168,10 @@ hnl-tool-parse-pratt = { git = "https://github.com/handl-lang/tool-parse-pratt",
 hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", branch = "main" }
 hnl-tool-test = { git = "https://github.com/handl-lang/tool-test", branch = "main" }
 handl-kit-test = { git = "https://github.com/handl-lang/tool-test", branch = "main" }
-# The `tensor.*` host-op kit (`exec-tensor` repo): `handl-host-tensor`
+# The `tensor.*` host-op kit (`lib-tensor-native` repo): `handl-host-tensor`
 # carries `src/kit.rs` — `tensor` module registration into the shared
 # `handl-kit-core` table, consumed by `handl-kit-prelude`'s `register()`.
-handl-host-tensor = { git = "https://github.com/handl-lang/exec-tensor", branch = "main" }
+handl-host-tensor = { git = "https://github.com/handl-lang/lib-tensor-native", branch = "main" }
 handl-ext = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branch = "main" }
 hnl-exec-cranelift = { git = "https://github.com/handl-lang/exec-cranelift", branch = "main" }
@@ -313,10 +317,10 @@ handl-kit-lang = { path = "crates/handl-kit-lang" }
 handl-kit-ffi = { path = "crates/handl-kit-ffi" }
 handl-plugin-ffi = { path = "crates/plugin-ffi" }
 
-[patch."https://github.com/handl-lang/exec-tensor"]
-# `handl-host-tensor` lives in the exec-tensor repo; local development
+[patch."https://github.com/handl-lang/lib-tensor-native"]
+# `handl-host-tensor` lives in the lib-tensor-native repo; local development
 # resolves it from the sibling checkout.
-handl-host-tensor = { path = "../exec-tensor" }
+handl-host-tensor = { path = "../lib-tensor-native" }
 
 [patch."https://github.com/handl-lang/host"]
 handl-plugin-lib-stdlib = { path = "../host/crates/plugin-lib-stdlib" }
@@ -400,6 +404,8 @@ handl-lib-cmp = { path = "../lib-cmp" }
 handl-lib-error = { path = "../lib-error" }
 [patch."https://github.com/handl-lang/lib-hex"]
 handl-lib-hex = { path = "../lib-hex" }
+[patch."https://github.com/handl-lang/lib-ip-c"]
+handl-plugin-lib-ip-c = { path = "../lib-ip-c" }
 [patch."https://github.com/handl-lang/lib-kv"]
 handl-plugin-lib-kv = { path = "../lib-kv" }
 [patch."https://github.com/handl-lang/lib-kv-hashmap"]
