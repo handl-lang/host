@@ -36,10 +36,9 @@
   category: close-bracket
   pair: token.dim_open
 # `~>[ k ]` — dimension-n arrow, the operator + trailing-bracket
-# spelling (`>>>[k]` composition precedent). `A ~>[n] B` mints the same
-# `dim_arrow` node `A ~[n]~> B` does; the bracket payload's kind
-# (numeric dimension vs named/expr grade) is read by consumers exactly
-# as before — no new node kind.
+# spelling (`>>>[k]` composition precedent). `A ~>[n] B` always mints
+# the `dim_arrow` node — the unambiguous dimension spelling
+# post-codemod; named/expression grades use `~[G]~>` (`graded_arrow`).
 - id: token.dim_arrow_open
   label: "~>["
   category: open-bracket

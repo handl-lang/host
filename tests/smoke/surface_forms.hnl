@@ -23,13 +23,16 @@ empty_vec : (m : Nat, v : Vec(m, Bool)) := [Zero, VNil]
 same_as_sigma : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
 prod : (x : Bool, y : String) := [true, "hi"]
 
---- `A ~>[n] B` is the bracketed spelling of the dimension arrow —
---- the same `dim_arrow` node `A ~[n]~> B` mints (payload `n` stays an
---- expression; named/expr payloads keep the `~[G]~>` spelling).
+--- `A ~>[n] B` is the bracketed spelling of the dimension arrow — it
+--- always mints `dim_arrow`. The legacy `~[…]~>` spelling is
+--- payload-conditional (graded-arrows.md §9): a bare numeric literal
+--- keeps `dim_arrow` (`cell_legacy`), any other payload mints
+--- `graded_arrow` (`graded_law`).
 f := n ~> n
 g := n ~> n + 1
 cell_bare := f ~>[2] g
 cell_legacy := f ~[2]~> g
+graded_law<N> := (g >>> g) ~[N]~> g
 
 --- Brace-free `IO<sig>` records: `IO<puts, fs>` ≡ `IO<{ puts, fs }>`,
 --- `name : T` declares the payload type, single ops work too

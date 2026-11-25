@@ -49,10 +49,16 @@
     arity: 2
     block_children:
       - 1
-# `dim_arrow.infix` — N-dimensional arrow `A ~[N]~> B` (ADR-0119).
-# The infix operator is `~[`; the `]~>` token separates the dimension `N`
-# from the target `B`. The declarative grammar treats the bracketed segment
-# via `child_separators` pending full Pratt special-case support.
+# `dim_arrow.infix` — `A ~[…]~> B` (ADR-0119 + graded-arrows.md §9
+# payload-kind flip). The infix operator is `~[`; the `]~>` token
+# separates the bracketed payload from the target `B`. The declarative
+# grammar treats the bracketed segment via `child_separators`; the
+# *node kind* is payload-conditional and lives in the Pratt engine's
+# sanctioned special case (`tool-parse-pratt`): a bare numeric literal
+# payload (`~[2]~>`) mints `dim_arrow` (the legacy dimension spelling),
+# every other payload (`~[N]~>`, `~[Cost(3)]~>`, `~[{…}]~>`) mints
+# `graded_arrow`. The `~>[n]` spelling below is the unambiguous
+# dimension form for every payload.
 - id: grammar.dim_arrow.infix
   token: token.dim_open
   position: Infix
@@ -66,13 +72,13 @@
       - !Required token.dim_close
 # `dim_arrow.bare.infix` — dimension arrow `A ~>[n] B`: the operator +
 # trailing-bracket spelling, consistent with `a >>>[k] b`
-# (`grammar.axis_flow.infix`). Produces the *same* `dim_arrow` node
-# `A ~[n]~> B` mints — only the separator differs (`]`/`token.rbracket`
-# instead of `]~>`), so every `dim_arrow` consumer (eval/types schemes,
-# the NBE judgments, transforms) reads it unchanged. Payload-kind is
-# still decided by the dim child: a numeric literal is a dimension
-# index; a name/expression payload is a grade — the `~[G]~>` spelling
-# keeps working as the grade form during the transition.
+# (`grammar.axis_flow.infix`). Produces a `dim_arrow` node — the same
+# node a numeric-payload `A ~[n]~> B` mints; only the separator
+# differs (`]`/`token.rbracket` instead of `]~>`), so every `dim_arrow` consumer (eval/types schemes,
+# the NBE judgments, transforms) reads it unchanged. Unlike the
+# `~[…]~>` spelling there is no payload-kind flip here: `~>[x]` mints
+# `dim_arrow` for numeric AND named/expression payloads — it is the
+# dimension spelling post-codemod (graded-arrows.md §9).
 - id: grammar.dim_arrow.bare.infix
   token: token.dim_arrow_open
   position: Infix
