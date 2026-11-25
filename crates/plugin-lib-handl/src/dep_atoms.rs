@@ -1,0 +1,328 @@
+//! Dep-bound atom modules (P-013 phase-2a, proposal-0012).
+//!
+//! A `pkg.hnl`/`kit.hnl` dep that vendors `atoms.yaml` gets its native
+//! ops bound automatically at kit build: the spec comes from the dep
+//! directory, the impls from the [`crate::atoms::AtomProvider`] /
+//! `handl_ops::KernelAtomProvider` inventory — no hand table row, no
+//! host-side `register()` call.
+//!
+//! ```text
+//! deps: { exec-tensor: "git+file://…" }        # pkg.hnl / .handl.toml
+//!   → resolve_pkg_dependencies → name → dir
+//!   → dir/atoms.yaml  (spec — the dep's own contract)
+//!   → atom_providers() finds the linked impl table for `tensor`
+//!   → registry_from_atoms[_kernel] → HandlModule::with_ops
+//!   → Kit's stdlib ModuleRegistry (ambient `tensor.*` wires)
+//! ```
+//!
+//! Semantics:
+//!
+//! - **The dep vendors the spec.** Only `dir/atoms.yaml` triggers
+//!   binding — a dep that wants native ops ships its atom contract;
+//!   provider-submitted `atoms_yaml` copies are diagnostic, not a spec
+//!   source (a dep without `atoms.yaml` is a pure `.hnl` package and is
+//!   skipped untouched).
+//! - **Kit-registered modules win.** [`dep_atom_modules`] only returns
+//!   modules the caller's registry does not already provide — dep atoms
+//!   fill gaps, they never shadow floor natives (`char`) or kit rows.
+//! - **`pkg.hnl` `deps` scopes apply** (T-150): a restricted dep's
+//!   `modules:`/`atoms:` lists filter the bound atom set —
+//!   `atoms: ["tensor.zeros"]` yields a `tensor` module whose op
+//!   registry contains only `tensor.zeros`.
+//! - **Ambiguity is loud.** Two providers claiming the same module, a
+//!   spec/impl drift ([`crate::atoms::registry_from_atoms`] errors),
+//!   or an `atoms.yaml` no linked provider can serve all surface as
+//!   `eprintln!` warnings and a skipped module — never a silent
+//!   half-binding.
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use handl_platform::PkgDepScope;
+
+use crate::atoms::{self, AtomDecl, ImplTable, KernelImplTable};
+use crate::pkg::{self, PackageModuleDef};
+use crate::HandlModule;
+
+/// The impl ABI a discovered provider offers for one module.
+enum ProviderImpls {
+    /// Host `Function` impls — preferred when present.
+    Host(ImplTable),
+    /// Kernel `handl_ops::Op` impls.
+    Kernel(KernelImplTable),
+}
+
+/// One discovered provider claim on a module name.
+struct ProviderClaim<'a> {
+    /// The provider's own `atoms.yaml` (diagnostic; the dep's copy is
+    /// the spec actually bound).
+    #[allow(dead_code)]
+    atoms_yaml: &'a str,
+    impls: ProviderImpls,
+}
+
+/// Collect every provider claim for `module` across both inventories:
+/// host-side [`AtomProvider`]s and kernel-side
+/// `handl_ops::KernelAtomProvider`s.
+fn provider_claims(module: &str) -> Vec<ProviderClaim<'static>> {
+    let mut claims = Vec::new();
+    for p in atoms::atom_providers() {
+        if !p.modules.contains(&module) {
+            continue;
+        }
+        // A provider may offer both ABIs; host wins (checked first).
+        if let Some(host) = p.host_impls {
+            claims.push(ProviderClaim {
+                atoms_yaml: p.atoms_yaml,
+                impls: ProviderImpls::Host(host),
+            });
+        } else if let Some(kernel) = p.kernel_impls {
+            claims.push(ProviderClaim {
+                atoms_yaml: p.atoms_yaml,
+                impls: ProviderImpls::Kernel(kernel),
+            });
+        }
+    }
+    for p in handl_ops::kernel_atom_providers() {
+        if !p.modules.contains(&module) {
+            continue;
+        }
+        claims.push(ProviderClaim {
+            atoms_yaml: p.atoms_yaml,
+            impls: ProviderImpls::Kernel(p.impls),
+        });
+    }
+    claims
+}
+
+/// The `module.field` tail of an atom name — the `field` half
+/// [`PkgDepScope::allows_field`] compares against `atoms:` entries.
+fn atom_field<'a>(module: &str, atom: &'a AtomDecl) -> &'a str {
+    atom.name
+        .strip_prefix(module)
+        .and_then(|rest| rest.strip_prefix('.'))
+        .unwrap_or_else(|| atom.name.rsplit('.').next().unwrap_or(&atom.name))
+}
+
+/// Build the [`HandlModule`] for one dep-bound atom module: the dep's
+/// `.hnl` surface (when the package declares one) plus the spec-driven
+/// op registry.
+fn build_dep_atom_module(
+    dep_name: &str,
+    dir: &PathBuf,
+    module: &str,
+    atoms: &[AtomDecl],
+    claim: &ProviderClaim<'_>,
+    eval_name: &'static str,
+) -> Result<HandlModule, String> {
+    // The `.hnl` surface is optional: an atoms-only package has no
+    // `src/` module file — the op registry alone still makes a valid
+    // module (every `mod.*` wire is an op call).
+    let def: Option<PackageModuleDef> = match pkg::module_in_dir(dir, module) {
+        Ok(def) => Some(def),
+        Err(e) => {
+            eprintln!(
+                "kit: dep `{dep_name}` module `{module}`: no .hnl surface ({e}); \
+                 binding atoms only"
+            );
+            None
+        }
+    };
+    let (source, funcs) = match &def {
+        Some(d) => (
+            d.source.as_str(),
+            d.funcs.iter().map(String::as_str).collect::<Vec<_>>(),
+        ),
+        None => ("", Vec::new()),
+    };
+    let op_names: Vec<&str> = atoms.iter().map(|a| a.name.as_str()).collect();
+    let registry = match &claim.impls {
+        ProviderImpls::Host(table) => atoms::registry_from_atoms(atoms, &table()),
+        ProviderImpls::Kernel(table) => atoms::registry_from_atoms_kernel(atoms, &table()),
+    }
+    .map_err(|e| format!("dep `{dep_name}` module `{module}`: {e}"))?;
+    Ok(HandlModule::new(module, source, &funcs)
+        .with_ops(&op_names, Arc::new(registry))
+        .with_eval_engine(eval_name))
+}
+
+/// Bind every dep `atoms.yaml` module to its provider impls.
+///
+/// `dependencies` is the kit's `name → package dir` map (project
+/// `[dependencies]` merged with kit `libs` + transitive `pkg.hnl`
+/// deps); `dep_scopes` the `pkg.hnl` `deps` surface restrictions
+/// (T-150); `eval_name` the kit's configured eval engine for the
+/// `.hnl` surfaces.
+///
+/// Returns the bound modules — the caller registers them into its
+/// module registry, skipping names the kit table already provides.
+pub fn dep_atom_modules(
+    dependencies: &HashMap<String, PathBuf>,
+    dep_scopes: &HashMap<String, PkgDepScope>,
+    eval_name: &'static str,
+) -> Vec<Arc<HandlModule>> {
+    let mut out = Vec::new();
+    for (dep_name, dir) in dependencies {
+        // Spec source: the dep's own `atoms.yaml` — absent means a pure
+        // `.hnl` package, skipped untouched.
+        let yaml_path = dir.join("atoms.yaml");
+        let Ok(text) = std::fs::read_to_string(&yaml_path) else {
+            continue;
+        };
+        let specs = match atoms::parse_atoms(&text) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                eprintln!("kit: dep `{dep_name}`: {e} — skipping atom binding");
+                continue;
+            }
+        };
+        if specs.is_empty() {
+            continue;
+        }
+
+        // The dep's declared module surface — when `pkg.hnl` names
+        // modules, atoms.yaml modules outside it are not this package's
+        // public surface and are skipped.
+        let manifest = std::fs::read_to_string(dir.join("pkg.hnl")).unwrap_or_default();
+        let declared = handl_platform::pkg_modules(&manifest);
+        let scope = dep_scopes.get(dep_name);
+
+        for (module, mut decls) in specs {
+            if !declared.is_empty() && !declared.iter().any(|d| d == &module) {
+                eprintln!(
+                    "kit: dep `{dep_name}` atoms.yaml module `{module}` is not declared \
+                     in pkg.hnl `modules:` — skipping"
+                );
+                continue;
+            }
+            if let Some(scope) = scope {
+                if !scope.allows_module(&module) {
+                    continue;
+                }
+                decls.retain(|a| scope.allows_field(&module, atom_field(&module, a)));
+                if decls.is_empty() {
+                    continue;
+                }
+            }
+            let claims = provider_claims(&module);
+            let Some(claim) = claims.first() else {
+                eprintln!(
+                    "kit: dep `{dep_name}` module `{module}`: atoms.yaml present but no \
+                     linked atom provider claims it — link the provider crate (and its \
+                     link anchor) or the ops stay unbound"
+                );
+                continue;
+            };
+            if claims.len() > 1 {
+                eprintln!(
+                    "kit: dep `{dep_name}` module `{module}`: {} providers claim it — \
+                     ambiguous, skipping",
+                    claims.len()
+                );
+                continue;
+            }
+            match build_dep_atom_module(dep_name, dir, &module, &decls, claim, eval_name) {
+                Ok(m) => out.push(Arc::new(m)),
+                Err(e) => eprintln!("kit: {e} — skipping module `{module}`"),
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::atoms::{AtomImpl, AtomProvider};
+    use handl_platform::{EvalContext, EvalError, Function, Module};
+    use serde_json::{Value, json};
+
+    struct Echo;
+    impl Function for Echo {
+        fn call(
+            &self,
+            _args: &[Value],
+            _ctx: &mut EvalContext,
+        ) -> Result<Value, EvalError> {
+            Ok(json!(null))
+        }
+    }
+
+    fn echo_impls() -> Vec<AtomImpl> {
+        vec![("t_echo", Arc::new(Echo))]
+    }
+
+    // A test-local provider — submitted from this crate so the
+    // inventory sees it in `cargo test -p handl-plugin-lib-handl`.
+    inventory::submit! {
+        AtomProvider {
+            modules: &["tmod"],
+            atoms_yaml: "module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo, total: true }\n",
+            host_impls: Some(echo_impls),
+            kernel_impls: None,
+        }
+    }
+
+    fn write_pkg(dir: &std::path::Path, atoms_yaml: Option<&str>) {
+        std::fs::write(dir.join("pkg.hnl"), "name: \"tmod-pkg\"\nmodules: [\"tmod\"]\n").unwrap();
+        if let Some(yaml) = atoms_yaml {
+            std::fs::write(dir.join("atoms.yaml"), yaml).unwrap();
+        }
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("src/index.hnl"), "export echo := 1\n").unwrap();
+    }
+
+    #[test]
+    fn binds_dep_atoms_yaml_module() {
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg(
+            dir.path(),
+            Some("module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo, total: true }\n"),
+        );
+        let mut deps = HashMap::new();
+        deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
+        let modules = dep_atom_modules(&deps, &HashMap::new(), "tree-walk");
+        assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0].name(), "tmod");
+    }
+
+    #[test]
+    fn dep_scope_atoms_filters_native_ops() {
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg(
+            dir.path(),
+            Some("module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo }\n  - { name: tmod.other, impl: t_echo }\n"),
+        );
+        let mut deps = HashMap::new();
+        deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
+        let mut scopes = HashMap::new();
+        scopes.insert(
+            "tmod-pkg".to_string(),
+            PkgDepScope {
+                modules: vec![],
+                atoms: vec!["tmod.echo".to_string()],
+            },
+        );
+        let modules = dep_atom_modules(&deps, &scopes, "tree-walk");
+        assert_eq!(modules.len(), 1);
+        // The scoped-out atom must not be bound: the module's function
+        // surface carries only `echo`.
+        let names: Vec<String> = modules[0]
+            .functions()
+            .iter()
+            .map(|(n, _)| n.to_string())
+            .collect();
+        assert!(names.contains(&"echo".to_string()), "{names:?}");
+        assert!(!names.contains(&"other".to_string()), "{names:?}");
+    }
+
+    #[test]
+    fn no_atoms_yaml_no_binding() {
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg(dir.path(), None);
+        let mut deps = HashMap::new();
+        deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
+        assert!(dep_atom_modules(&deps, &HashMap::new(), "tree-walk").is_empty());
+    }
+}

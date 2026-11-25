@@ -24,6 +24,10 @@ hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = "0.9"
+# P-013 phase-2a (proposal-0012): atom-provider self-registration —
+# provider crates `inventory::submit!` an `AtomProvider`; dep binding
+# collects them here. See `src/dep_atoms.rs`.
+inventory = "0.3"
 
 [build-dependencies]
 handl-pkg-vendor = { path = "../pkg-vendor" }
@@ -38,3 +42,4 @@ hnl-tool-transform-rewrite = { git = "https://github.com/handl-lang/tool-transfo
 # `TRANSFORM_*_HNL` `pub const` re-exports of `handl-packages/transform/`,
 # which stdlib owns per ADR-0128 §".hnl ownership".
 handl-plugin-lib-stdlib = { workspace = true }
+tempfile = "3"

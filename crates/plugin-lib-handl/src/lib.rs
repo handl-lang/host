@@ -81,11 +81,13 @@
 mod atom_sig;
 pub mod atoms;
 mod char_module;
+pub mod dep_atoms;
 pub mod model;
 pub mod op_registry;
 mod str_handl;
 pub mod transform;
 pub use atom_sig::{TYPE_SIG_REGISTRY_ID, parse_op_declarations, sig_to_type_value};
+pub use dep_atoms::dep_atom_modules;
 pub use char_module::{CHAR_OPS, CharModule};
 pub use model::{HandlModel, HandlModelAdapter, HandlModelEngine, term_to_value};
 pub use op_registry::{OpFunction, OpRegistry, RuntimePredicateChecker};

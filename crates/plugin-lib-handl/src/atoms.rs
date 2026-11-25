@@ -79,6 +79,53 @@ pub type KernelAtomImpl = (&'static str, Arc<dyn handl_ops::Op>);
 /// returns (P-013 T-151).
 pub type KernelImplTable = fn() -> Vec<KernelAtomImpl>;
 
+/// A crate-level atom provider (P-013 phase-2a, proposal-0012).
+///
+/// Provider crates submit exactly one of these via `inventory::submit!`:
+///
+/// ```ignore
+/// inventory::submit! {
+///     handl_plugin_lib_handl::atoms::AtomProvider {
+///         modules: &["tensor"],
+///         atoms_yaml: TENSOR_ATOMS_YAML,   // include_str!("../atoms.yaml")
+///         host_impls: Some(tensor_impls),  // fn() -> Vec<AtomImpl>
+///         kernel_impls: None,
+///     }
+/// }
+/// ```
+///
+/// `modules` names the `atoms.yaml` module keys this crate can
+/// implement; `atoms_yaml` is the provider's own spec copy, used as the
+/// fallback spec when a consuming dep directory does not vendor
+/// `atoms.yaml` itself. `host_impls`/`kernel_impls` are the two impl
+/// ABIs — a provider may offer either or both (host `Function` impls
+/// preferred when both could serve a module; see `dep_atoms`).
+///
+/// The inventory only sees submissions from crates that are *linked*:
+/// a consumer must add the provider as a Cargo dependency **and**
+/// reference one of its symbols (a "link anchor" `pub fn` placed next
+/// to `submit!`) so the linker pulls the registering object into the
+/// final artifact.
+pub struct AtomProvider {
+    /// Module names (`atoms.yaml` keys) this provider implements.
+    pub modules: &'static [&'static str],
+    /// The provider crate's own `atoms.yaml` text.
+    pub atoms_yaml: &'static str,
+    /// Host-ABI impl table (`handl_platform::Function` impls), when the
+    /// provider speaks the host op ABI.
+    pub host_impls: Option<ImplTable>,
+    /// Kernel-ABI impl table (`handl_ops::Op` impls), when the provider
+    /// speaks the kernel op ABI.
+    pub kernel_impls: Option<KernelImplTable>,
+}
+
+inventory::collect!(AtomProvider);
+
+/// Every host-side [`AtomProvider`] linked into this binary.
+pub fn atom_providers() -> impl Iterator<Item = &'static AtomProvider> {
+    inventory::iter::<AtomProvider>().into_iter()
+}
+
 #[derive(Debug, Deserialize)]
 struct RawSpec {
     /// Single-module form: `module: proc` + top-level `atoms:`.
