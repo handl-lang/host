@@ -28,6 +28,7 @@ fn main() {
         "lib-mood",
         "lib-option",
         "lib-otlp",
+        "lib-obj",
         "lib-parse",
         "lib-rand-c",
         "lib-result",

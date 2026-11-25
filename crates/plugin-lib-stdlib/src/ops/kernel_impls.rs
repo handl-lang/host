@@ -140,3 +140,49 @@ pub fn yaml_c_impls() -> Vec<KernelAtomImpl> {
         ),
     ]
 }
+
+/// `lib-obj/atoms.yaml` (`module: obj`) — 5 `obj.*` atoms; the impl keys
+/// are the `obj_keys`/`obj_values`/… names in the spec.
+pub fn obj_impls() -> Vec<KernelAtomImpl> {
+    vec![
+        ("obj_keys", Arc::new(handl_lib_obj::ops::Keys)),
+        ("obj_values", Arc::new(handl_lib_obj::ops::Values)),
+        ("obj_entries", Arc::new(handl_lib_obj::ops::Entries)),
+        ("obj_set", Arc::new(handl_lib_obj::ops::Set)),
+        ("obj_from_entries", Arc::new(handl_lib_obj::ops::FromEntries)),
+    ]
+}
+
+/// `lib-type/atoms.yaml` (`module: typeof`) — 25 `typeof.*` atoms. The
+/// tag constants are the `pub static StringTag` values in
+/// `handl_lib_type::ops` (each a distinct `&'static str` payload);
+/// `typeof.type_of`/`typeof.typeof` share the `TypeOf` impl, matching
+/// `type_op_registry`.
+pub fn typeof_impls() -> Vec<KernelAtomImpl> {
+    vec![
+        ("typeof_string_tag", Arc::new(handl_lib_type::ops::STRING_TAG)),
+        ("typeof_str_tag", Arc::new(handl_lib_type::ops::STR_TAG)),
+        ("typeof_number_tag", Arc::new(handl_lib_type::ops::NUMBER_TAG)),
+        ("typeof_num_tag", Arc::new(handl_lib_type::ops::NUM_TAG)),
+        ("typeof_bool_tag", Arc::new(handl_lib_type::ops::BOOL_TAG)),
+        ("typeof_null_tag", Arc::new(handl_lib_type::ops::NULL_TAG)),
+        ("typeof_array_tag", Arc::new(handl_lib_type::ops::ARRAY_TAG)),
+        ("typeof_arr_tag", Arc::new(handl_lib_type::ops::ARR_TAG)),
+        ("typeof_object_tag", Arc::new(handl_lib_type::ops::OBJECT_TAG)),
+        ("typeof_obj_tag", Arc::new(handl_lib_type::ops::OBJ_TAG)),
+        ("typeof_any_tag", Arc::new(handl_lib_type::ops::ANY_TAG)),
+        ("typeof_unknown_tag", Arc::new(handl_lib_type::ops::UNKNOWN_TAG)),
+        ("typeof_is", Arc::new(handl_lib_type::ops::TypeIs)),
+        ("typeof_must", Arc::new(handl_lib_type::ops::TypeMust)),
+        ("typeof_may", Arc::new(handl_lib_type::ops::TypeMay)),
+        ("typeof_not", Arc::new(handl_lib_type::ops::TypeNot)),
+        ("typeof_when", Arc::new(handl_lib_type::ops::TypeWhen)),
+        ("typeof_to_string", Arc::new(handl_lib_type::ops::ToString)),
+        ("typeof_to_number", Arc::new(handl_lib_type::ops::ToNumber)),
+        ("typeof_to_bool", Arc::new(handl_lib_type::ops::ToBool)),
+        ("typeof_type_of", Arc::new(handl_lib_type::ops::TypeOf)),
+        ("typeof_identity", Arc::new(handl_lib_type::ops::Identity)),
+        ("typeof_default", Arc::new(handl_lib_type::ops::Default)),
+        ("typeof_coalesce", Arc::new(handl_lib_type::ops::Coalesce)),
+    ]
+}

@@ -368,3 +368,34 @@ impl Function for UniqueBy {
         Ok(arr(&result))
     }
 }
+
+// ---------------------------------------------------------------------------
+// Atom impl table (P-013 T-151)
+// ---------------------------------------------------------------------------
+
+/// `impl:` table for `lib-collections/atoms.yaml` (`module: hash_set`) —
+/// the spec-driven [`RegistrySource::Atoms`](crate::atoms) path replaces
+/// the `HASH_SET_OPS`/`collections_op_registry` hand-wiring for this
+/// module. Keys match the spec's `impl:` fields.
+pub fn hash_set_impls() -> Vec<crate::atoms::AtomImpl> {
+    vec![
+        ("hash_set_new", std::sync::Arc::new(New)),
+        ("hash_set_from", std::sync::Arc::new(From)),
+        ("hash_set_to_array", std::sync::Arc::new(ToArray)),
+        ("hash_set_len", std::sync::Arc::new(Len)),
+        ("hash_set_is_empty", std::sync::Arc::new(IsEmpty)),
+        ("hash_set_add", std::sync::Arc::new(Add)),
+        ("hash_set_remove", std::sync::Arc::new(Remove)),
+        ("hash_set_has", std::sync::Arc::new(Has)),
+        ("hash_set_union", std::sync::Arc::new(Union)),
+        ("hash_set_intersection", std::sync::Arc::new(Intersection)),
+        ("hash_set_difference", std::sync::Arc::new(Difference)),
+        ("hash_set_unique", std::sync::Arc::new(Unique)),
+        (
+            "hash_set_symmetric_difference",
+            std::sync::Arc::new(SymmetricDifference),
+        ),
+        ("hash_set_without", std::sync::Arc::new(Without)),
+        ("hash_set_unique_by", std::sync::Arc::new(UniqueBy)),
+    ]
+}

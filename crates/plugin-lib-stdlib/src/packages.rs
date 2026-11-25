@@ -245,13 +245,20 @@ pub static MODULES: &[ModuleSpec] = &[
             impls: ops::kernel_impls::transform_impls,
         }),
     },
+    // T-151: spec-driven over the kernel op ABI — `lib-type/atoms.yaml`
+    // (`module: typeof`, 25 `typeof.*` atoms) + `typeof_impls()` replace
+    // `TYPE_OPS`/`type_op_registry`. (The separate `type.*` nominal-ctor
+    // surface stays on the kit-core `build_type_module` wiring.)
     ModuleSpec {
         name: "typeof",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-type/src/index.hnl")),
         funcs: &[],
-        ops: handl_lib_type::TYPE_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(handl_lib_type::type_op_registry)),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-type/atoms.yaml")),
+            impls: ops::kernel_impls::typeof_impls,
+        }),
     },
     ModuleSpec {
         name: "option",
@@ -671,6 +678,10 @@ pub static MODULES: &[ModuleSpec] = &[
             ops::collections::collections_op_registry,
         )),
     },
+    // T-151: spec-driven — `lib-collections/atoms.yaml` (`module:
+    // hash_set`, 15 atoms) + `hash_set_impls()` replace
+    // `HASH_SET_OPS`/`collections_op_registry` for this module (the other
+    // collections modules keep the shared host registry).
     ModuleSpec {
         name: "hash_set",
         hnl: include_str!(concat!(
@@ -678,11 +689,12 @@ pub static MODULES: &[ModuleSpec] = &[
             "/lib-collections/src/hash_set.hnl"
         )),
         funcs: &[],
-        ops: ops::collections::HASH_SET_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Host(
-            ops::collections::collections_op_registry,
-        )),
+        registry: Some(RegistrySource::Atoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-collections/atoms.yaml")),
+            impls: ops::collections::hash_set_impls,
+        }),
     },
     // The `array` package is loaded from `handl-packages/collections/array/index.hnl`
     // at runtime via `crate::loader::load_hnl_file` instead of being embedded here.
@@ -751,13 +763,19 @@ pub static MODULES: &[ModuleSpec] = &[
     // `obj.keys`/`obj.values`/`obj.entries` are the object-field
     // enumeration primitives (gap #3); used by `hash_map` and other
     // record ops.
+    // T-151: spec-driven over the kernel op ABI — `lib-obj/atoms.yaml`
+    // (`module: obj`, 5 `obj.*` atoms) + `obj_impls()` replace
+    // `OBJ_OPS`/`obj_op_registry`.
     ModuleSpec {
         name: "obj",
         hnl: handl_lib_obj::OBJ_HNL,
         funcs: &[],
-        ops: handl_lib_obj::OBJ_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(handl_lib_obj::obj_op_registry)),
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-obj/atoms.yaml")),
+            impls: ops::kernel_impls::obj_impls,
+        }),
     },
     // ── error (ADR-0092 gap (a)) — the error-raising primitive ─────────
     // `error.raise` is an irreducible atom: aborting evaluation cannot be

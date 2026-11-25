@@ -46,6 +46,7 @@ mod hash_set;
 mod seq;
 
 pub use error::CollectionsError;
+pub use hash_set::hash_set_impls;
 
 // ---------------------------------------------------------------------------
 // Op names per sub-module (from the former module.rs)
