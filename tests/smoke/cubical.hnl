@@ -120,6 +120,11 @@ pt : Path(Nat, Zero, Succ(Zero)) := i ~> Zero
 qt : Path(Nat, Succ(Zero), Succ(Succ(Zero))) := i ~> Succ(Zero)
 tt : Path(Nat, Zero, Succ(Succ(Zero))) := trans pt, qt
 st : Path(Nat, Succ(Succ(Zero)), Zero) := symm tt
+--- Call-form parity: unary prefix keywords already accept `f(x)` —
+--- the `(x)` parses as a transparent `paren` child (project/design/
+--- apply-forms-unification.md §1.1/§7). Multi-arg comma forms
+--- (`trans(p, q)`, `J(p, m, b)`) do NOT parse call-form yet.
+stc : Path(Nat, Succ(Succ(Zero)), Zero) := symm(tt)
 
 -- ---------------------------------------------------------------------
 -- P3 — Glue / isFibrant / unglue / fibrant (type-position surface).
@@ -141,6 +146,7 @@ y : unglue(Glue(Bool, fF, Pi(I, i ~> Bool))) := true
 --- Base sorts derive yes; a bound `A : Type` checks the witness
 --- judgment generically (undecided fibrancy warns, never errors).
 pfB : isFibrant(Bool) := fibrant Bool
+pfBc : isFibrant(Bool) := fibrant(Bool)
 fib : Pi(Type, A ~> isFibrant(A)) := A ~> fibrant A
 
 -- ---------------------------------------------------------------------
