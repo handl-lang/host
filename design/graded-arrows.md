@@ -353,6 +353,28 @@ declaration, both jobs — `Cost := new Algebra(C) {...}`,
 all share the shape. Semantics unchanged: `Algebra` is an ordinary type,
 `new` is sugar over ctor + instance machinery.
 
+**`new Inductive` — same declaration form for families (user decision,
+2026-11-25).** Inductives are NOT values (they're type-formers with
+eliminators), so `Inductive` is declaration syntax, not a type:
+
+```hnl
+Nat := new Inductive {
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
+}
+```
+
+Constructor names inside `new Inductive` are **lowercase** (`zero:`,
+`succ:`) — title-case ctor names (`Zero`, `Succ`) are ugly; the `new`
+form sets the convention going forward. `new Inductive {...}` desugars
+to the existing record-spelling/data-family machinery — no new
+semantics. (Corpus migration to lowercase ctors is a separate codemod
+decision — `new` accepts whatever names are written.)
+
+Explicitly OUT of scope: `Inductive` as a genuine type (inductives-as-
+data / W-types / generic recursors derived by interpretation) —
+research-grade, noted in pl-0002.
+
 ---
 
 ## 4. Mode domain — recommendation ("grade domain" in the grade framing)
