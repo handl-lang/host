@@ -1,0 +1,21 @@
+[package]
+name = "handl-plugin-lib-handl-fixture-atom"
+version.workspace = true
+edition.workspace = true
+publish = false
+description = "cdylib atom-provider fixture for handl-plugin-lib-handl (P-013 phase-2c)."
+license.workspace = true
+repository.workspace = true
+
+[lib]
+# `hnl_ext_atomfix` → `libhnl_ext_atomfix.{so,dylib,dll}` — the ADR-0149
+# naming convention atom-provider discovery scans for.
+name = "hnl_ext_atomfix"
+# `cdylib` is what dep binding dlopens as a `libhnl_ext_*` atom provider;
+# `rlib` exists so the fixture can also be a (dev-)dependency, which is
+# what forces cargo to build it (same trick as the native-echo fixture).
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+handl-ext = { workspace = true }
+serde_json = { workspace = true }

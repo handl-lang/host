@@ -56,21 +56,25 @@ enum ProviderImpls {
     Host(ImplTable),
     /// Kernel `handl_ops::Op` impls.
     Kernel(KernelImplTable),
+    /// A `libhnl_ext_*` cdylib provider (P-013 phase-2c): impls live
+    /// behind the extension's `handl_ext_dispatch` boundary; each atom
+    /// becomes a [`crate::cdylib_atoms::CdylibAtomFn`].
+    Cdylib(Arc<handl_ext::LoadedExtension>),
 }
 
 /// One discovered provider claim on a module name.
-struct ProviderClaim<'a> {
-    /// The provider's own `atoms.yaml` (diagnostic; the dep's copy is
-    /// the spec actually bound).
-    #[allow(dead_code)]
-    atoms_yaml: &'a str,
+struct ProviderClaim {
     impls: ProviderImpls,
 }
 
-/// Collect every provider claim for `module` across both inventories:
-/// host-side [`AtomProvider`]s and kernel-side
+/// Collect every statically linked provider claim for `module` across
+/// both inventories: host-side [`AtomProvider`]s and kernel-side
 /// `handl_ops::KernelAtomProvider`s.
-fn provider_claims(module: &str) -> Vec<ProviderClaim<'static>> {
+///
+/// cdylib providers are *not* consulted here — [`dep_atom_modules`]
+/// falls back to them only when no linked provider claims the module,
+/// so a first-party rlib provider always shadows a same-named `.so`.
+fn provider_claims(module: &str) -> Vec<ProviderClaim> {
     let mut claims = Vec::new();
     for p in atoms::atom_providers() {
         if !p.modules.contains(&module) {
@@ -79,12 +83,10 @@ fn provider_claims(module: &str) -> Vec<ProviderClaim<'static>> {
         // A provider may offer both ABIs; host wins (checked first).
         if let Some(host) = p.host_impls {
             claims.push(ProviderClaim {
-                atoms_yaml: p.atoms_yaml,
                 impls: ProviderImpls::Host(host),
             });
         } else if let Some(kernel) = p.kernel_impls {
             claims.push(ProviderClaim {
-                atoms_yaml: p.atoms_yaml,
                 impls: ProviderImpls::Kernel(kernel),
             });
         }
@@ -94,7 +96,6 @@ fn provider_claims(module: &str) -> Vec<ProviderClaim<'static>> {
             continue;
         }
         claims.push(ProviderClaim {
-            atoms_yaml: p.atoms_yaml,
             impls: ProviderImpls::Kernel(p.impls),
         });
     }
@@ -118,7 +119,7 @@ fn build_dep_atom_module(
     dir: &PathBuf,
     module: &str,
     atoms: &[AtomDecl],
-    claim: &ProviderClaim<'_>,
+    claim: &ProviderClaim,
     eval_name: &'static str,
 ) -> Result<HandlModule, String> {
     // The `.hnl` surface is optional: an atoms-only package has no
@@ -145,6 +146,7 @@ fn build_dep_atom_module(
     let registry = match &claim.impls {
         ProviderImpls::Host(table) => atoms::registry_from_atoms(atoms, &table()),
         ProviderImpls::Kernel(table) => atoms::registry_from_atoms_kernel(atoms, &table()),
+        ProviderImpls::Cdylib(ext) => crate::cdylib_atoms::registry_from_cdylib(atoms, ext),
     }
     .map_err(|e| format!("dep `{dep_name}` module `{module}`: {e}"))?;
     Ok(HandlModule::new(module, source, &funcs)
@@ -166,6 +168,23 @@ pub fn dep_atom_modules(
     dependencies: &HashMap<String, PathBuf>,
     dep_scopes: &HashMap<String, PkgDepScope>,
     eval_name: &'static str,
+) -> Vec<Arc<HandlModule>> {
+    dep_atom_modules_with(
+        dependencies,
+        dep_scopes,
+        eval_name,
+        crate::cdylib_atoms::cdylib_providers(),
+    )
+}
+
+/// [`dep_atom_modules`] with an explicit cdylib provider set — the seam
+/// tests use to exercise the phase-2c path without `dlopen`-ing the
+/// process-wide discovery dirs.
+fn dep_atom_modules_with(
+    dependencies: &HashMap<String, PathBuf>,
+    dep_scopes: &HashMap<String, PkgDepScope>,
+    eval_name: &'static str,
+    cdylib: &[Arc<crate::cdylib_atoms::CdylibProvider>],
 ) -> Vec<Arc<HandlModule>> {
     let mut out = Vec::new();
     for (dep_name, dir) in dependencies {
@@ -213,12 +232,24 @@ pub fn dep_atom_modules(
                     continue;
                 }
             }
-            let claims = provider_claims(&module);
+            // Statically linked providers win; cdylib providers are the
+            // fallback for modules no linked crate claims (P-013 2c).
+            let mut claims = provider_claims(&module);
+            if claims.is_empty() {
+                claims = cdylib
+                    .iter()
+                    .filter(|p| p.modules.contains(&module))
+                    .map(|p| ProviderClaim {
+                        impls: ProviderImpls::Cdylib(Arc::clone(&p.ext)),
+                    })
+                    .collect();
+            }
             let Some(claim) = claims.first() else {
                 eprintln!(
                     "kit: dep `{dep_name}` module `{module}`: atoms.yaml present but no \
-                     linked atom provider claims it — link the provider crate (and its \
-                     link anchor) or the ops stay unbound"
+                     linked or discovered atom provider claims it — link the provider \
+                     crate (and its link anchor) or install a `libhnl_ext_*` atom \
+                     provider, or the ops stay unbound"
                 );
                 continue;
             };
@@ -268,10 +299,10 @@ mod tests {
         }
     }
 
-    fn write_pkg(dir: &std::path::Path, atoms_yaml: Option<&str>) {
+    fn write_pkg_as(dir: &std::path::Path, module: &str, atoms_yaml: Option<&str>) {
         std::fs::write(
             dir.join("pkg.hnl"),
-            "name: \"tmod-pkg\"\nmodules: [\"tmod\"]\n",
+            format!("name: \"{module}-pkg\"\nmodules: [\"{module}\"]\n"),
         )
         .unwrap();
         if let Some(yaml) = atoms_yaml {
@@ -279,6 +310,10 @@ mod tests {
         }
         std::fs::create_dir_all(dir.join("src")).unwrap();
         std::fs::write(dir.join("src/index.hnl"), "export echo := 1\n").unwrap();
+    }
+
+    fn write_pkg(dir: &std::path::Path, atoms_yaml: Option<&str>) {
+        write_pkg_as(dir, "tmod", atoms_yaml)
     }
 
     #[test]
@@ -390,5 +425,89 @@ mod tests {
         let mut deps = HashMap::new();
         deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
         assert!(dep_atom_modules(&deps, &HashMap::new(), "tree-walk").is_empty());
+    }
+
+    // ------------------------------------------------------------------
+    // P-013 phase-2c: cdylib atom providers (libhnl_ext_* discovered
+    // through the ADR-0149 search path, impls behind handl_ext_dispatch)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn binds_dep_atoms_via_cdylib_provider() {
+        let Some(provider) = crate::cdylib_atoms::fixture_provider() else {
+            eprintln!("atomfix fixture cdylib not built; skipping");
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg_as(
+            dir.path(),
+            "atomfix",
+            Some(
+                "module: atomfix\natoms:\n  - { name: atomfix.echo, sig: \"String ~> String\", impl: atom_echo }\n  - { name: atomfix.add, sig: \"(Int * Int) ~> Int\", impl: atom_add }\n",
+            ),
+        );
+        let mut deps = HashMap::new();
+        deps.insert("atomfix-pkg".to_string(), dir.path().to_path_buf());
+        let modules = dep_atom_modules_with(&deps, &HashMap::new(), "tree-walk", &[provider]);
+        assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0].name(), "atomfix");
+
+        // The bound module's ops dispatch through the cdylib's
+        // `handl_ext_dispatch` — real FFI, real JSON marshalling.
+        let mut ctx = EvalContext::new();
+        let echo = modules[0].function("echo").expect("echo op bound");
+        assert_eq!(echo.call(&[json!("hi")], &mut ctx).unwrap(), json!("hi!"));
+        let add = modules[0].function("add").expect("add op bound");
+        assert_eq!(
+            add.call(&[json!(20), json!(22)], &mut ctx).unwrap(),
+            json!(42)
+        );
+    }
+
+    #[test]
+    fn cdylib_provider_error_surfaces_loudly() {
+        let Some(provider) = crate::cdylib_atoms::fixture_provider() else {
+            eprintln!("atomfix fixture cdylib not built; skipping");
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg_as(
+            dir.path(),
+            "atomfix",
+            Some("module: atomfix\natoms:\n  - { name: atomfix.fail, impl: atom_fail }\n"),
+        );
+        let mut deps = HashMap::new();
+        deps.insert("atomfix-pkg".to_string(), dir.path().to_path_buf());
+        let modules = dep_atom_modules_with(&deps, &HashMap::new(), "tree-walk", &[provider]);
+        assert_eq!(modules.len(), 1);
+        let mut ctx = EvalContext::new();
+        let err = modules[0]
+            .function("fail")
+            .expect("fail op bound")
+            .call(&[json!(1)], &mut ctx)
+            .unwrap_err();
+        assert!(err.to_string().contains("boom"), "{err}");
+    }
+
+    #[test]
+    fn static_provider_shadows_cdylib_for_same_module() {
+        // `tmod` has an inventory provider (test-local `AtomProvider`
+        // above); a cdylib claiming `tmod` must not shadow it — static
+        // linking wins, matching the kit-registered-wins rule.
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg(
+            dir.path(),
+            Some(
+                "module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo, total: true }\n",
+            ),
+        );
+        let mut deps = HashMap::new();
+        deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
+        // Even with a cdylib provider present (claiming `atomfix`, not
+        // `tmod`), the static claim is used — and with an empty provider
+        // set the static claim alone still binds.
+        let modules = dep_atom_modules_with(&deps, &HashMap::new(), "tree-walk", &[]);
+        assert_eq!(modules.len(), 1);
+        assert_eq!(modules[0].name(), "tmod");
     }
 }

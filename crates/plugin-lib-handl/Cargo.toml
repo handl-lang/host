@@ -28,6 +28,10 @@ serde_yaml = "0.9"
 # provider crates `inventory::submit!` an `AtomProvider`; dep binding
 # collects them here. See `src/dep_atoms.rs`.
 inventory = "0.3"
+# P-013 phase-2c (proposal-0012): cdylib atom providers — `libhnl_ext_*`
+# extensions whose manifest carries `atoms_yaml` are discovered through
+# the ADR-0149 search path and serve atom calls over `handl_ext_dispatch`.
+handl-ext = { workspace = true }
 
 [build-dependencies]
 handl-pkg-vendor = { path = "../pkg-vendor" }
@@ -43,3 +47,7 @@ hnl-tool-transform-rewrite = { git = "https://github.com/handl-lang/tool-transfo
 # which stdlib owns per ADR-0128 §".hnl ownership".
 handl-plugin-lib-stdlib = { workspace = true }
 tempfile = "3"
+# P-013 phase-2c (proposal-0012): the cdylib atom-provider fixture —
+# building it as a dev-dep produces `target/debug/libhnl_ext_atomfix.so`,
+# which the cdylib_atoms tests load directly.
+handl-plugin-lib-handl-fixture-atom = { path = "tests/fixtures/atom-provider" }
