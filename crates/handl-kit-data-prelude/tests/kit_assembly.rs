@@ -37,7 +37,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +5 cubical-judgment keywords (ADR-0208 P2): `transp`/`hcomp`/
     // `Comp`/`trans`/`symm` (`Comp` capitalized — lowercase `comp` is a
     // live identifier, the `J` precedent).
-    assert_eq!(lang.tokens.len(), 112);
+    // +1 `token.dim_arrow_open` for `~>[` (dimension-arrow operator +
+    // trailing bracket — the `>>>[` precedent; mints `dim_arrow`).
+    assert_eq!(lang.tokens.len(), 113);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
@@ -60,7 +62,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // existed since the frontier pass but had no lexer rule.
         // +1 `lex.keyword.univalence` for `univalence(e)` (ADR-0208
     // P4) — same frontier-pass gap.
-    assert_eq!(lang.lexer_rules.len(), 111);
+    // +1 `lex.dim_arrow_open` for `~>[` (priority 7 — before `~>`).
+    assert_eq!(lang.lexer_rules.len(), 112);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -85,7 +88,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // `grammar.colon_equal.infix` (`:=`) is the only binding row.
         // +5 `grammar.{transp,hcomp,comp,trans,symm}.prefix` rows
     // (ADR-0208 P2).
-    assert_eq!(lang.grammar.len(), 91);
+    // +1 `grammar.dim_arrow.bare.infix` for `A ~>[n] B` (same
+    // `dim_arrow` node as `~[n]~>`; `]` separator).
+    assert_eq!(lang.grammar.len(), 92);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
@@ -168,8 +173,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 112);
-    assert_eq!(rt.lang().grammar.len(), 91);
+    assert_eq!(rt.lang().tokens.len(), 113);
+    assert_eq!(rt.lang().grammar.len(), 92);
 }
 
 #[test]

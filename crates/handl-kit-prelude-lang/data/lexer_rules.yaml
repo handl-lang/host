@@ -44,6 +44,15 @@
   pattern: !Literal
     text: "]~>"
   priority: 5
+# `~>[ ... ]` — dimension-arrow opener (operator + trailing bracket).
+# Priority 7 runs before `~>` (10) so the three-character operator wins
+# on maximal munch, exactly as `>>>[` (9) beats `>>>` (10). Written
+# contiguously only — `~> [` keeps lexing as arrow + array bracket.
+- id: lex.dim_arrow_open
+  token_kind: token.dim_arrow_open
+  pattern: !Literal
+    text: "~>["
+  priority: 7
 - id: lex.arrow.unicode
   token_kind: token.arrow
   pattern: !Literal

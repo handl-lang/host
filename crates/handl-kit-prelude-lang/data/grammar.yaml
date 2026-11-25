@@ -64,6 +64,26 @@
     arity: 3
     child_separators:
       - !Required token.dim_close
+# `dim_arrow.bare.infix` — dimension arrow `A ~>[n] B`: the operator +
+# trailing-bracket spelling, consistent with `a >>>[k] b`
+# (`grammar.axis_flow.infix`). Produces the *same* `dim_arrow` node
+# `A ~[n]~> B` mints — only the separator differs (`]`/`token.rbracket`
+# instead of `]~>`), so every `dim_arrow` consumer (eval/types schemes,
+# the NBE judgments, transforms) reads it unchanged. Payload-kind is
+# still decided by the dim child: a numeric literal is a dimension
+# index; a name/expression payload is a grade — the `~[G]~>` spelling
+# keeps working as the grade form during the transition.
+- id: grammar.dim_arrow.bare.infix
+  token: token.dim_arrow_open
+  position: Infix
+  binding_power:
+    - 10
+    - 9
+  child_shape:
+    node_kind: dim_arrow
+    arity: 3
+    child_separators:
+      - !Required token.rbracket
 # `not.prefix` uses `token.bang` (`!`) — the v0.1 negation operator.
 # The `not` keyword infix (`grammar.not.infix`) is removed in v0.1.
 - id: grammar.not.prefix

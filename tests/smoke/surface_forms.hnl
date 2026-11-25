@@ -1,0 +1,46 @@
+--- tests/smoke/surface_forms.hnl — Handl surface-syntax upgrade:
+--- typed-binder Π arrows `(x : A) ~> B`, dependent pairs
+--- `(x : A, y : B(x), …)`, the `~>[n]` dimension arrow, and brace-free
+--- `IO<puts, fs>` signature records. Driven by `hnl typecheck`.
+
+--- Typed-binder Π: `(x : A) ~> B` in type position synthesizes the
+--- same `type.pi` `Pi(A, x ~> B)` produces — single binder, constant
+--- body, and a right-nested chain over several binders.
+idp : (x : Nat) ~> Nat := x ~> x
+constp : (x : Nat) ~> Bool := x ~> true
+same_as_pi : Pi(Nat, x ~> Nat) := x ~> x
+curried : (x : Nat, y : Bool) ~> Nat := x ~> y ~> x
+
+--- Dependent pairs: `(x : A, y : B(x), …)` in type position is the
+--- dependent `type.sigma` `Sigma(A, x ~> Sigma(B, …))` produces —
+--- `[w, v]`/`[w, [v, u]]` literals check componentwise. A binder list
+--- whose later annotations never mention an earlier binder stays the
+--- non-dependent `type.array` product.
+Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }
+Vec<n : Nat, a : Type> := { VNil : Vec(0, a), VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a) }
+one_vec : (m : Nat, v : Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
+empty_vec : (m : Nat, v : Vec(m, Bool)) := [Zero, VNil]
+same_as_sigma : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
+prod : (x : Bool, y : String) := [true, "hi"]
+
+--- `A ~>[n] B` is the bracketed spelling of the dimension arrow —
+--- the same `dim_arrow` node `A ~[n]~> B` mints (payload `n` stays an
+--- expression; named/expr payloads keep the `~[G]~>` spelling).
+f := n ~> n
+g := n ~> n + 1
+cell_bare := f ~>[2] g
+cell_legacy := f ~[2]~> g
+
+--- Brace-free `IO<sig>` records: `IO<puts, fs>` ≡ `IO<{ puts, fs }>`,
+--- `name : T` declares the payload type, single ops work too
+--- (`IO<puts>` ≡ `IO<{ puts }>`). Call-form `IO(s)` is unchanged — a
+--- bare variable there is still a sig-typed index.
+export printLn : Str ~> IO<puts> := s ~> printLn(s)
+export readFile : Str ~> IO<fs> := p ~> readFile(p)
+export both : Str ~> IO<puts, fs> := s ~> both(s)
+puts_handler : (Str ~> Unit) ~> Unit := req ~> req("handled")
+fs_handler : (Str ~> Str) ~> Str := req ~> req("contents")
+handled_partial : Str ~> IO<puts: Unit, fs> := handle both with {puts: puts_handler}
+handled_full : Str ~> IO<puts: Unit, fs: Str> := handle both with {puts: puts_handler, fs: fs_handler}
+widen_ok : Str ~> IO<puts, fs> := s ~> printLn(s)
+braced : Str ~> IO<{ puts, fs }> := s ~> both(s)
