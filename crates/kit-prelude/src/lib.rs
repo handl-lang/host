@@ -465,6 +465,13 @@ pub fn prelude_wire_names() -> std::collections::HashSet<String> {
         "Equiv",
         "ua",
         "Univalence",
+        // `transport(p, v)` — the call-form spelling of the `p # v`
+        // transport eliminator (apply-forms-unification §9, decided:
+        // both forms exist). The judge intercepts the callee *name* in
+        // call position (the `ua`/`Glue` precedent — `transport`
+        // stays an ordinary identifier everywhere else), but the
+        // scope pass still needs the wire admitted.
+        "transport",
         // Cubical face formulas and dimension endpoints — evaluated as
         // symbolic terms inside `transp`/`hcomp`/`comp`/`glue` operands.
         "f0",

@@ -7,7 +7,8 @@
 --- `Path(A, x, y)` / `PathP(F, x, y)` interval-function type formers
 --- with `refl`, lambda-path, and path-alias introductions; `#`
 --- transport (annotated and unannotated, over index and homogeneous
---- term endpoints) and the capital `J` eliminator; the P2 judgments
+--- term endpoints) and its `transport(p, v)` call-form alias, and the
+--- capital `J` eliminator; the P2 judgments
 --- `transp`/`hcomp`/`Comp`/`trans`/`symm` over face formulas
 --- (`f0`/`f1`/`fnot`/`f_or`/`f_and`/`fT`/`fF`); the P3 glue/fibrant
 --- surface — `Glue(A, φ, T̂)`/`isFibrant(A)`/`unglue(G)` in type
@@ -20,7 +21,8 @@
 --- runs the unbound-wire scope pass the Rust NBE fixtures bypass):
 ---   * Cubical type-former/judgment names (`Pi`, `Sigma`, `Forall`,
 ---     `Family`, `I`, `Interval`, `Type`, `Path`, `PathP`, `Glue`,
----     `Equiv`, `ua`, `Univalence`, `isFibrant`, `unglue`, and the
+---     `Equiv`, `ua`, `Univalence`, `isFibrant`, `unglue`, `transport`,
+---     and the
 ---     face ops `f0`/`f1`/`fT`/`fF`/`fnot`/`f_and`/`f_or`) are checker
 ---     primitives carried on the wire prelude — the scope pass admits
 ---     them in every wire position, and the judge's builtin-name /
@@ -80,6 +82,15 @@ moved : Vec<2, Bool> := p22 # v2
 q22 : Path(2, 2) := p22
 wb := cp # true
 wc : Bool := cp # true
+
+--- Call-form parity: `transport(p, v)` is the `#` transport under a
+--- plain identifier — intercepted by callee name like `ua`/`Glue`
+--- (project/design/apply-forms-unification.md §9: both spellings
+--- exist). `transport` stays an ordinary identifier outside call
+--- position, so these produce the same types as the `#` twins above.
+moved_c : Vec<2, Bool> := transport(p22, v2)
+wbc := transport(cp, true)
+wcc : Bool := transport(cp, true)
 
 --- `J p, motive, base` — the capital-J eliminator over a cubical
 --- path: checks `base` against the motive at the source endpoint and
@@ -172,6 +183,11 @@ tv : Nat := pu # bv
 nv : Nat := Zero
 spu := symm pu
 tb : Bool := spu # nv
+
+--- `transport(p, v)` along a univalence path — the call-form twin of
+--- `pu # bv`: `true : Bool` transports to `Nat` through the recorded
+--- equivalence.
+tvc : Nat := transport(pu, bv)
 
 --- `trans` composes recorded equivalences: `ua(eBN) : Bool ~ Nat` and
 --- `ua(eNB) : Nat ~ Bool` compose to `Bool ~ Bool`.

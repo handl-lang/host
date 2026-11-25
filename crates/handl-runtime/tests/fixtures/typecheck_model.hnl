@@ -3728,20 +3728,13 @@ do {
   --- unrefined); a decided non-path is an error. The result type
   --- records the consumed witness under `via` — proof-relevant, never
   --- erased.
-  synth_transport_ := [funcs, s, node_idx]~> do {
-    node := ast_node(s.ast, node_idx)
-    children := node_children(node)
-    path_role := child_role_index(s, "transport", "path")
-    value_role := child_role_index(s, "transport", "value")
-    if len(children) < 2 {
-      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "transport: needs a path and a value operand") }
-    } else {
-      do {
-        p_role := if path_role == null { 0 } else { path_role }
-        v_role := if value_role == null { 1 } else { value_role }
-        path_idx := at(children, p_role)
-        value_idx := at(children, v_role)
-        rp := resolve_path_(funcs, s, path_idx)
+  --- `synth_transport_operands_` — the shared operand judgment behind
+  --- both `p # v` (`synth_transport_`) and the `transport(p, v)` call
+  --- form intercepted in the `call` judgment (the `ua`/`Univalence`
+  --- precedent: the same judgment under a plain identifier, no new
+  --- node kind). `path_idx`/`value_idx` are AST child indices.
+  synth_transport_operands_ := [funcs, s, path_idx, value_idx]~> do {
+    rp := resolve_path_(funcs, s, path_idx)
         if rp.verdict == "bad" {
           { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(rp["state"], "error", "transport: path operand is not a Path") }
         } else {
@@ -3853,6 +3846,22 @@ do {
             { val: tagged, state: out_state }
           }
         }
+  }
+
+  synth_transport_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    path_role := child_role_index(s, "transport", "path")
+    value_role := child_role_index(s, "transport", "value")
+    if len(children) < 2 {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "transport: needs a path and a value operand") }
+    } else {
+      do {
+        p_role := if path_role == null { 0 } else { path_role }
+        v_role := if value_role == null { 1 } else { value_role }
+        path_idx := at(children, p_role)
+        value_idx := at(children, v_role)
+        synth_transport_operands_(funcs, s, path_idx, value_idx)
       }
     }
   }
@@ -5300,7 +5309,10 @@ do {
   --- (the `Path`/`PathP` precedent: ordinary identifiers, no keyword,
   --- no `type.*` rule). `Glue` takes exactly three arguments (the
   --- `glue` keyword's `family`/`face`/`section`); `isFibrant` and
-  --- `unglue` take exactly one.
+  --- `unglue` take exactly one. `transport(p, v)` joins them as the
+  --- call-form spelling of the `p # v` eliminator — a term-level
+  --- form, so in annotation position it degrades to `type.unknown`
+  --- exactly like the `transport` node does.
   synth_type_call_cubical_ := [funcs, st, node_idx, callee_name]~> do {
     node := ast_node(st.ast, node_idx)
     children := node_children(node)
@@ -5335,6 +5347,17 @@ do {
           synth_fibrant_former_(funcs, st, at(children, args_role))
         }
       } else {
+      if callee_name == "transport" {
+        --- `transport(p, v)` in type position — `p # v` is a
+        --- term-level eliminator; the `transport` node reads as
+        --- `type.unknown` in annotations, so the call form does the
+        --- same.
+        if n_args != 2 {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "warning", "synth_type: transport(p, v) needs a path and a value operand") }
+        } else {
+          { val: funcs.make_type("type.unknown", {}), state: st }
+        }
+      } else {
         --- `unglue` — the type-level projection back to the
         --- underlying family (see the section comment).
         if n_args != 1 {
@@ -5349,6 +5372,7 @@ do {
             }
           }
         }
+      }
       }
       }
       }
@@ -6783,6 +6807,20 @@ do {
               synth_univalence_core_(funcs, s, at(children, args_idx))
             }
           } else {
+          --- `transport(p, v)` call form — the `p # v` transport
+          --- eliminator under a plain identifier (apply-forms-
+          --- unification §9, decided: both spellings exist).
+          --- Intercepted by callee name before ordinary application —
+          --- the `ua`/`Univalence` precedent: `transport` stays an
+          --- ordinary identifier everywhere else.
+          if call_cname == "transport" {
+            n_call_args := len(children) - args_idx
+            if n_call_args != 2 {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "transport(p, v) needs exactly two operands — a path and a value") }
+            } else {
+              synth_transport_operands_(funcs, s, at(children, args_idx), at(children, args_idx + 1))
+            }
+          } else {
           callee_result := funcs.synth_node_(funcs, s, child_ref(s.ast, node_idx, callee_idx))
           call_state := while { current: callee_result.typ, state: callee_result["state"], idx: args_idx } {
             [st]~> if st.idx >= len(children) {
@@ -6837,6 +6875,7 @@ do {
           zonked := zonk(zonk, final_typ, final_state.metas)
           norm := normalize_type_(normalize_type_, funcs, final_state, zonked)
           { val: norm, state: final_state }
+          }
           }
         }
       }
@@ -7133,6 +7172,61 @@ do {
       }
       { val: funcs.make_type("type.unit", {}), state: bound }
     },
+    "check_call": do {
+      --- `transport(p, v)` in check position — the call-form twin of
+      --- `p # v`: synthesize the transport type and unify it against
+      --- the expected type (`incoming`). Other callees keep the
+      --- pre-existing "unknown judgment op" reading (the model never
+      --- implemented a general `check_call`; NBE's
+      --- `check_call_judgment` covers them).
+      node := ast_node(s.ast, node_idx)
+      children := node_children(node)
+      callee_role := child_role_index(s, "call", "callee")
+      args_role := child_role_index(s, "call", "args")
+      cname := if callee_role == null {
+        ""
+      } else {
+        do {
+          cn := ast_node(s.ast, child_ref(s.ast, node_idx, callee_role))
+          cp := node_payload(cn)
+          if node_kind(cn) == "var" {
+            if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") }
+          } else {
+            ""
+          }
+        }
+      }
+      if cname == "transport" {
+        if args_role == null {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "check_call: call missing args role") }
+        } else {
+          do {
+            n_args := len(children) - args_role
+            if n_args != 2 {
+              { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "transport(p, v) needs exactly two operands — a path and a value") }
+            } else {
+              do {
+                tr := synth_transport_operands_(funcs, s, at(children, args_role), at(children, args_role + 1))
+                if incoming == null {
+                  { val: tr.val, state: tr["state"] }
+                } else {
+                  do {
+                    ud := funcs.unify_dependent_(funcs, tr.val, incoming, tr["state"])
+                    if ud.ok {
+                      { val: tr.val, state: ud["state"] }
+                    } else {
+                      { val: null, state: tc_add_diagnostic(ud["state"], "error", "type mismatch") }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "warning", "unknown judgment op: check_call") }
+      }
+    },
     _: { val: funcs.make_type("type.unknown", {}), state: funcs.add_diagnostic(s, "warning", "unknown judgment op: " + op_name) }
   }
   }
@@ -7375,12 +7469,15 @@ do {
                     --- `synth_j_`.
                     synth_path_type_(funcs, st, node_idx, callee_name)
                   } else {
-                  if callee_name == "Glue" || callee_name == "isFibrant" || callee_name == "unglue" || callee_name == "Equiv" || callee_name == "ua" || callee_name == "Univalence" {
+                  if callee_name == "Glue" || callee_name == "isFibrant" || callee_name == "unglue" || callee_name == "Equiv" || callee_name == "ua" || callee_name == "Univalence" || callee_name == "transport" {
                     --- `Glue(A, φ, T̂)` / `isFibrant(A)` / `unglue(G)`
                     --- (P3) and `Equiv(A, B)` / `ua(e)` /
                     --- `Univalence(e)` (P4) — cubical type names:
                     --- ordinary call-form identifiers like
-                    --- `Path`/`PathP`, no keyword. See
+                    --- `Path`/`PathP`, no keyword — plus the
+                    --- `transport(p, v)` term-form call name, which
+                    --- degrades to `type.unknown` here (the `p # v`
+                    --- node's annotation-position reading). See
                     --- `synth_type_call_cubical_`.
                     funcs.synth_type_call_cubical_(funcs, st, node_idx, callee_name)
                   } else {
@@ -8119,6 +8216,7 @@ do {
     resolve_path_: resolve_path_,
     check_path_intro_: check_path_intro_,
     synth_transport_: synth_transport_,
+    synth_transport_operands_: synth_transport_operands_,
     synth_j_: synth_j_,
     face_of_val_: face_of_val_,
     face_norm_: face_norm_,
