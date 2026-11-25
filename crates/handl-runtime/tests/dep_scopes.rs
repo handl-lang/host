@@ -71,6 +71,7 @@ fn atoms_scope(fields: &[&str]) -> PkgDepScope {
     PkgDepScope {
         modules: vec![],
         atoms: fields.iter().map(|f| format!("mri.{f}")).collect(),
+        caps: vec![],
     }
 }
 
@@ -154,6 +155,7 @@ fn module_scope_excludes_other_modules() {
         PkgDepScope {
             modules: vec!["math".to_string()],
             atoms: vec![],
+            caps: vec![],
         },
     )]);
     let (loader, _rt) = loader_and_runtime(project, deps, scopes);

@@ -1477,6 +1477,9 @@ fn pkg_dep_entries(body: &str) -> Vec<(String, String)> {
 //   is non-empty the allowed modules are implied by the atom qualifiers;
 //   combined with `modules`, a module must pass both gates and only the
 //   listed fields of it are exposed.
+// - `caps` — capability names dep *atoms* may require (T-151): an atom
+//   declaring `caps: [...]` in its `atoms.yaml` binds only when every
+//   required capability is listed here. `.hnl` bindings carry no caps.
 //
 // A bare-string value naming a *module* (`deps: { "lib-utils": "math" }`,
 // the coarser form sketched in the proposal) is deliberately NOT adopted:
@@ -1487,20 +1490,27 @@ fn pkg_dep_entries(body: &str) -> Vec<(String, String)> {
 // ---------------------------------------------------------------------------
 
 /// The declared surface a `pkg.hnl` `deps` entry restricts a dependency
-/// to (P-013 T-150). Both lists empty = the whole dep, today's behavior.
+/// to (P-013 T-150). All lists empty = the whole dep, today's behavior.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PkgDepScope {
     /// Dep module names exposed whole (`modules: ["math"]`).
     pub modules: Vec<String>,
     /// `module.field` exports exposed individually (`atoms: ["math.abs"]`).
     pub atoms: Vec<String>,
+    /// Capability names dep *atoms* may require (T-151 caps-as-data):
+    /// `{ ..., caps: ["ffi.rust"] }` keeps only atoms whose `caps:`
+    /// requirements are covered by this allowlist. Empty = unrestricted,
+    /// the same convention as `modules:`/`atoms:`. Consumed only by
+    /// dep-bound atom modules (`dep_atom_modules`) — `.hnl` bindings
+    /// carry no capability declarations.
+    pub caps: Vec<String>,
 }
 
 impl PkgDepScope {
     /// Whether the scope restricts anything — `false` means the dep's
     /// whole surface is exposed (the legacy behavior).
     pub fn is_unrestricted(&self) -> bool {
-        self.modules.is_empty() && self.atoms.is_empty()
+        self.modules.is_empty() && self.atoms.is_empty() && self.caps.is_empty()
     }
 
     /// Whether `module` (a dep module name — see [`dep_spec_scope`]) is
@@ -1522,11 +1532,15 @@ impl PkgDepScope {
         if !self.allows_module(module) {
             return false;
         }
-        self.atoms.is_empty()
-            || self
-                .atoms
-                .iter()
-                .any(|a| a == &format!("{module}.{field}"))
+        self.atoms.is_empty() || self.atoms.iter().any(|a| a == &format!("{module}.{field}"))
+    }
+
+    /// Whether every capability in `required` (an atom's `caps:` list)
+    /// is permitted under this scope — `required ⊆ caps`. An empty
+    /// scope `caps:` list is unrestricted, so cap-free atoms and
+    /// unscoped deps always pass.
+    pub fn allows_caps(&self, required: &[String]) -> bool {
+        self.caps.is_empty() || required.iter().all(|c| self.caps.contains(c))
     }
 }
 
@@ -1609,7 +1623,7 @@ pub fn discover_dep_scopes(start: &Path) -> HashMap<String, PkgDepScope> {
     pkg_dep_scope_map(&src)
 }
 
-/// Parse a record-form dep value (`{ spec: "…", modules: […], atoms: […] }`)
+/// Parse a record-form dep value (`{ spec: "…", modules: […], atoms: […], caps: […] }`)
 /// into `(spec, scope)`. Unknown keys are ignored; a missing `spec`/`ref`
 /// yields an empty spec (the `dep_spec_ref` local-development default).
 fn pkg_dep_scope_record(value: &str) -> (String, PkgDepScope) {
@@ -1625,6 +1639,7 @@ fn pkg_dep_scope_record(value: &str) -> (String, PkgDepScope) {
             "spec" | "ref" => spec = val,
             "modules" => scope.modules = pkg_dep_name_list(&val),
             "atoms" => scope.atoms = pkg_dep_name_list(&val),
+            "caps" => scope.caps = pkg_dep_name_list(&val),
             _ => {}
         }
     }
@@ -2954,6 +2969,7 @@ vendored = { path = "../lib-vendored" }
         let atoms = PkgDepScope {
             modules: vec![],
             atoms: vec!["math.abs".to_string(), "math.e".to_string()],
+            caps: vec![],
         };
         assert!(atoms.allows_module("math"));
         assert!(!atoms.allows_module("str"));
@@ -2964,6 +2980,7 @@ vendored = { path = "../lib-vendored" }
         let modules = PkgDepScope {
             modules: vec!["math".to_string()],
             atoms: vec![],
+            caps: vec![],
         };
         assert!(modules.allows_module("math"));
         assert!(!modules.allows_module("str"));
@@ -2975,17 +2992,54 @@ vendored = { path = "../lib-vendored" }
         let both = PkgDepScope {
             modules: vec!["math".to_string()],
             atoms: vec!["math.abs".to_string()],
+            caps: vec![],
         };
         assert!(both.allows_field("math", "abs"));
         assert!(!both.allows_field("math", "sin"));
         assert!(!both.allows_field("str", "abs"));
 
         assert!(PkgDepScope::default().is_unrestricted());
-        assert!(PkgDepScope {
+        assert!(
+            PkgDepScope {
+                modules: vec![],
+                atoms: vec![],
+                caps: vec![],
+            }
+            .allows_field("any", "thing")
+        );
+    }
+
+    /// `caps` parses from the dep record and gates atom capability
+    /// requirements (T-151): empty = unrestricted, otherwise the atom's
+    /// `caps:` list must be a subset.
+    #[test]
+    fn pkg_dep_scope_caps_gate() {
+        let scope = PkgDepScope {
             modules: vec![],
-            atoms: vec![]
-        }
-        .allows_field("any", "thing"));
+            atoms: vec![],
+            caps: vec!["ffi.rust".to_string()],
+        };
+        assert!(!scope.is_unrestricted());
+        assert!(scope.allows_caps(&[]));
+        assert!(scope.allows_caps(&["ffi.rust".to_string()]));
+        assert!(!scope.allows_caps(&["net.io".to_string()]));
+        assert!(!scope.allows_caps(&["ffi.rust".to_string(), "net.io".to_string()]));
+        // Empty caps = unrestricted even when other gates are set.
+        let scoped = PkgDepScope {
+            modules: vec!["math".to_string()],
+            atoms: vec![],
+            caps: vec![],
+        };
+        assert!(scoped.allows_caps(&["anything".to_string()]));
+
+        // Record-form parse: `caps: ["a", "b"]` lands on the scope.
+        let src = r#"{ deps: { t: { spec: "branch:main", caps: ["ffi.rust", "net.io"] } } }"#;
+        let scopes = pkg_dep_scope_map(src);
+        let scope = scopes.get("t").expect("t scope");
+        assert_eq!(
+            scope.caps,
+            vec!["ffi.rust".to_string(), "net.io".to_string()]
+        );
     }
 
     /// `dep_spec_scope` maps an import specifier to `(scope, dep, module)`:
@@ -2999,6 +3053,7 @@ vendored = { path = "../lib-vendored" }
             PkgDepScope {
                 modules: vec!["math".to_string()],
                 atoms: vec![],
+                caps: vec![],
             },
         );
         scopes.insert(
@@ -3006,6 +3061,7 @@ vendored = { path = "../lib-vendored" }
             PkgDepScope {
                 modules: vec![],
                 atoms: vec!["mri.parse".to_string()],
+                caps: vec![],
             },
         );
         let (scope, dep, module) = dep_spec_scope(&scopes, "utils/math").unwrap();
@@ -3035,6 +3091,7 @@ vendored = { path = "../lib-vendored" }
         let scope = PkgDepScope {
             modules: vec![],
             atoms: vec!["math.abs".to_string()],
+            caps: vec![],
         };
         let filtered = scope_tagged_bindings(&bindings, &scope, "math");
         let TaggedValue::Obj(m) = filtered.as_ref() else {

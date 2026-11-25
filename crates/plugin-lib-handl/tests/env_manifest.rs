@@ -288,12 +288,9 @@ fn from_pkg_hnl_scopes_dep_atoms() {
     let scope = handl_platform::PkgDepScope {
         modules: vec![],
         atoms: vec!["gamma.keep".to_string()],
+        caps: vec![],
     };
-    let scoped = handl_plugin_lib_handl::pkg::ScopedModule::new(
-        inner,
-        "gamma".to_string(),
-        scope,
-    );
+    let scoped = handl_plugin_lib_handl::pkg::ScopedModule::new(inner, "gamma".to_string(), scope);
     let names: Vec<&str> = scoped.functions().iter().map(|(n, _)| *n).collect();
     assert_eq!(names, vec!["keep"], "scoped functions: {names:?}");
     assert!(scoped.function("drop").is_none());

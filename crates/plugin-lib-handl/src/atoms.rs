@@ -40,9 +40,18 @@
 //! - `impl` — key into the module's impl table: a `fn() ->
 //!   Vec<(&'static str, Arc<dyn Function + Send + Sync>)>` in the
 //!   matching `ops/*.rs` (e.g. `plugin-lib-stdlib`'s `ops::process::proc_impls`).
-//! - `total` — metadata replacing the dead `guarantee:`/`requires:`/
-//!   `termination:` decl clauses; parsed and carried, not yet consumed
-//!   (capability gating is a later task).
+//! - `total` — metadata replacing the `guarantee: True` decl clause.
+//! - `caps` — capability names the atom *requires* of the consuming
+//!   runtime (T-151 caps-as-data). Carried as data and consumed by
+//!   `dep_atom_modules`: a `pkg.hnl` dep scope's `caps:` allowlist
+//!   filters out atoms whose requirements it does not cover. Audit
+//!   consumers union them via [`atom_capabilities`]. Absent/empty = no
+//!   requirements.
+//! - `requires` / `termination` / `guarantee` — the remaining index.hnl
+//!   decl-clause texts carried verbatim (T-151 data-loss fix;
+//!   `guarantee:` entries exclude `True`, which stays the `total`
+//!   flag). Parsed and carried, not yet consumed — same convention as
+//!   `total` was before caps landed.
 //!
 //! ## Registration mechanism
 //!
@@ -56,11 +65,11 @@
 //! row. If `inventory` is ever adopted workspace-wide this module is
 //! the single place to swap the collection strategy.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use handl_platform::{EvalContext, EvalError, Function};
 use crate::{OpRegistry, sig_to_type_value};
+use handl_platform::{EvalContext, EvalError, Function};
 use serde::Deserialize;
 
 /// One `impl:` table entry: spec key → the `Function` impl (the handl).
@@ -156,9 +165,32 @@ pub struct AtomDecl {
     /// keyword, hence the rename).
     #[serde(rename = "impl")]
     pub impl_key: String,
-    /// Totality metadata (replaces the dead `guarantee:` clause).
+    /// Totality metadata (`guarantee: True` decl clause).
     #[serde(default)]
     pub total: bool,
+    /// Capability names this atom requires of the consuming runtime
+    /// (T-151 caps-as-data). See the module docs for consumers.
+    #[serde(default)]
+    pub caps: Vec<String>,
+    /// `requires:` decl-clause texts, carried verbatim.
+    #[serde(default)]
+    pub requires: Vec<String>,
+    /// `termination:` decl-clause texts, carried verbatim.
+    #[serde(default)]
+    pub termination: Vec<String>,
+    /// Non-`True` `guarantee:` decl-clause texts (`True` is `total`).
+    #[serde(default)]
+    pub guarantee: Vec<String>,
+}
+
+/// Union of every atom's `caps` requirements — the capability set a
+/// consumer must allow for the whole spec (T-151). Audit consumers check
+/// it against their allowlist (`needed ⊆ allowed` — the same `subset_of`
+/// relation the kernel's `capabilities()` audit applies to `Language`
+/// foreign names; atom caps are spec data one layer up, not kernel
+/// `Foreign` sources).
+pub fn atom_capabilities(atoms: &[AtomDecl]) -> BTreeSet<String> {
+    atoms.iter().flat_map(|a| a.caps.iter().cloned()).collect()
 }
 
 /// Parse an `atoms.yaml` document into `(module_name, atoms)` pairs.
@@ -248,7 +280,11 @@ pub fn registry_from_atoms(atoms: &[AtomDecl], impls: &[AtomImpl]) -> Result<OpR
 struct KernelOpFn(Arc<dyn handl_ops::Op>);
 
 impl Function for KernelOpFn {
-    fn call(&self, args: &[serde_json::Value], ctx: &mut EvalContext) -> Result<serde_json::Value, EvalError> {
+    fn call(
+        &self,
+        args: &[serde_json::Value],
+        ctx: &mut EvalContext,
+    ) -> Result<serde_json::Value, EvalError> {
         self.0.call(args, ctx).map_err(EvalError::from)
     }
 }
@@ -321,6 +357,13 @@ atoms:
   - name: proc.pid
     sig: "Unit ~> Int"
     impl: proc_pid
+  - name: proc.spawn
+    sig: "String ~> Int"
+    impl: proc_pid
+    caps: ["proc.spawn"]
+    requires: ["Le(0, input)"]
+    termination: ["Decreasing(input)"]
+    guarantee: ["Le(0, output)"]
 "#;
 
     fn impls() -> Vec<AtomImpl> {
@@ -328,18 +371,30 @@ atoms:
             ("proc_argv", Arc::new(Echo)),
             ("proc_exit", Arc::new(Echo)),
             ("proc_pid", Arc::new(Echo)),
+            ("proc_spawn", Arc::new(Echo)),
         ]
     }
 
     #[test]
     fn parses_single_module_spec() {
         let atoms = module_atoms(SPEC, "proc").unwrap();
-        assert_eq!(atoms.len(), 3);
+        assert_eq!(atoms.len(), 4);
         assert_eq!(atoms[0].name, "proc.argv");
         assert_eq!(atoms[0].impl_key, "proc_argv");
         assert!(atoms[0].total);
         assert_eq!(atoms[0].sig.as_deref(), Some("Unit ~> (List String)"));
         assert_eq!(atoms[1].sig.as_deref(), Some("Int ~> a"));
+        // T-151 caps/clauses: carried as data, absent = empty.
+        assert!(atoms[0].caps.is_empty());
+        let spawn = &atoms[3];
+        assert_eq!(spawn.caps, vec!["proc.spawn".to_string()]);
+        assert_eq!(spawn.requires, vec!["Le(0, input)".to_string()]);
+        assert_eq!(spawn.termination, vec!["Decreasing(input)".to_string()]);
+        assert_eq!(spawn.guarantee, vec!["Le(0, output)".to_string()]);
+        assert_eq!(
+            atom_capabilities(&atoms),
+            BTreeSet::from(["proc.spawn".to_string()])
+        );
     }
 
     #[test]
@@ -370,7 +425,7 @@ modules:
     fn registry_from_atoms_carries_fn_and_sig() {
         let atoms = module_atoms(SPEC, "proc").unwrap();
         let registry = registry_from_atoms(&atoms, &impls()).unwrap();
-        assert_eq!(registry.len(), 3);
+        assert_eq!(registry.len(), 4);
         assert!(registry.contains("proc.argv"));
         // Sig attached → tagged type.function value.
         let sig = registry.signature("proc.argv").unwrap();
@@ -387,6 +442,10 @@ modules:
             sig: Some("not a ~> sig !!!".into()),
             impl_key: "proc_argv".into(),
             total: false,
+            caps: vec![],
+            requires: vec![],
+            termination: vec![],
+            guarantee: vec![],
         }];
         assert!(registry_from_atoms(&bad, &impls()).is_err());
     }

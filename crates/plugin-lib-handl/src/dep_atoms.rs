@@ -25,10 +25,15 @@
 //! - **Kit-registered modules win.** [`dep_atom_modules`] only returns
 //!   modules the caller's registry does not already provide — dep atoms
 //!   fill gaps, they never shadow floor natives (`char`) or kit rows.
-//! - **`pkg.hnl` `deps` scopes apply** (T-150): a restricted dep's
+//! - **`pkg.hnl` `deps` scopes apply** (T-150/T-151): a restricted dep's
 //!   `modules:`/`atoms:` lists filter the bound atom set —
 //!   `atoms: ["tensor.zeros"]` yields a `tensor` module whose op
-//!   registry contains only `tensor.zeros`.
+//!   registry contains only `tensor.zeros`. A scope's `caps:` allowlist
+//!   additionally drops atoms whose `caps:` requirements (T-151
+//!   caps-as-data) it does not cover; an empty `caps:` list is
+//!   unrestricted, matching the `modules:`/`atoms:` convention. The
+//!   atom's `requires:`/`termination:`/`guarantee:` clause texts are
+//!   carried on [`AtomDecl`] but not yet consumed.
 //! - **Ambiguity is loud.** Two providers claiming the same module, a
 //!   spec/impl drift ([`crate::atoms::registry_from_atoms`] errors),
 //!   or an `atoms.yaml` no linked provider can serve all surface as
@@ -41,9 +46,9 @@ use std::sync::Arc;
 
 use handl_platform::PkgDepScope;
 
+use crate::HandlModule;
 use crate::atoms::{self, AtomDecl, ImplTable, KernelImplTable};
 use crate::pkg::{self, PackageModuleDef};
-use crate::HandlModule;
 
 /// The impl ABI a discovered provider offers for one module.
 enum ProviderImpls {
@@ -200,7 +205,10 @@ pub fn dep_atom_modules(
                 if !scope.allows_module(&module) {
                     continue;
                 }
-                decls.retain(|a| scope.allows_field(&module, atom_field(&module, a)));
+                decls.retain(|a| {
+                    scope.allows_field(&module, atom_field(&module, a))
+                        && scope.allows_caps(&a.caps)
+                });
                 if decls.is_empty() {
                     continue;
                 }
@@ -240,11 +248,7 @@ mod tests {
 
     struct Echo;
     impl Function for Echo {
-        fn call(
-            &self,
-            _args: &[Value],
-            _ctx: &mut EvalContext,
-        ) -> Result<Value, EvalError> {
+        fn call(&self, _args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
             Ok(json!(null))
         }
     }
@@ -265,7 +269,11 @@ mod tests {
     }
 
     fn write_pkg(dir: &std::path::Path, atoms_yaml: Option<&str>) {
-        std::fs::write(dir.join("pkg.hnl"), "name: \"tmod-pkg\"\nmodules: [\"tmod\"]\n").unwrap();
+        std::fs::write(
+            dir.join("pkg.hnl"),
+            "name: \"tmod-pkg\"\nmodules: [\"tmod\"]\n",
+        )
+        .unwrap();
         if let Some(yaml) = atoms_yaml {
             std::fs::write(dir.join("atoms.yaml"), yaml).unwrap();
         }
@@ -278,7 +286,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_pkg(
             dir.path(),
-            Some("module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo, total: true }\n"),
+            Some(
+                "module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo, total: true }\n",
+            ),
         );
         let mut deps = HashMap::new();
         deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
@@ -292,7 +302,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_pkg(
             dir.path(),
-            Some("module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo }\n  - { name: tmod.other, impl: t_echo }\n"),
+            Some(
+                "module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo }\n  - { name: tmod.other, impl: t_echo }\n",
+            ),
         );
         let mut deps = HashMap::new();
         deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
@@ -302,6 +314,7 @@ mod tests {
             PkgDepScope {
                 modules: vec![],
                 atoms: vec!["tmod.echo".to_string()],
+                caps: vec![],
             },
         );
         let modules = dep_atom_modules(&deps, &scopes, "tree-walk");
@@ -315,6 +328,59 @@ mod tests {
             .collect();
         assert!(names.contains(&"echo".to_string()), "{names:?}");
         assert!(!names.contains(&"other".to_string()), "{names:?}");
+    }
+
+    #[test]
+    fn dep_scope_caps_filters_atoms_by_capability() {
+        let dir = tempfile::tempdir().unwrap();
+        write_pkg(
+            dir.path(),
+            Some(
+                "module: tmod\natoms:\n  - { name: tmod.echo, sig: \"Unit ~> Unit\", impl: t_echo }\n  - { name: tmod.net, impl: t_echo, caps: [\"net.io\"] }\n",
+            ),
+        );
+        let mut deps = HashMap::new();
+        deps.insert("tmod-pkg".to_string(), dir.path().to_path_buf());
+
+        // Scope allowing only `ffi.rust`: the `net.io`-requiring atom is
+        // dropped, the cap-free atom binds.
+        let mut scopes = HashMap::new();
+        scopes.insert(
+            "tmod-pkg".to_string(),
+            PkgDepScope {
+                modules: vec![],
+                atoms: vec![],
+                caps: vec!["ffi.rust".to_string()],
+            },
+        );
+        let modules = dep_atom_modules(&deps, &scopes, "tree-walk");
+        assert_eq!(modules.len(), 1);
+        let names: Vec<String> = modules[0]
+            .functions()
+            .iter()
+            .map(|(n, _)| n.to_string())
+            .collect();
+        assert!(names.contains(&"echo".to_string()), "{names:?}");
+        assert!(!names.contains(&"net".to_string()), "{names:?}");
+
+        // Scope covering the requirement binds both.
+        let mut scopes = HashMap::new();
+        scopes.insert(
+            "tmod-pkg".to_string(),
+            PkgDepScope {
+                modules: vec![],
+                atoms: vec![],
+                caps: vec!["net.io".to_string()],
+            },
+        );
+        let modules = dep_atom_modules(&deps, &scopes, "tree-walk");
+        assert_eq!(modules.len(), 1);
+        let names: Vec<String> = modules[0]
+            .functions()
+            .iter()
+            .map(|(n, _)| n.to_string())
+            .collect();
+        assert!(names.contains(&"net".to_string()), "{names:?}");
     }
 
     #[test]
