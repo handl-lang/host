@@ -9,4 +9,8 @@ fn main() {
     // vendor the package directly instead of depending on the crate.
     handl_pkg_vendor::vendor("../../../lib-char")
         .unwrap_or_else(|e| panic!("vendor lib-char: {e}"));
+    // Same for `str`: the contract moved out of `handl-packages/str/` into
+    // the `lib-str` repo — vendor it so the test stays hermetic.
+    handl_pkg_vendor::vendor("../../../lib-str")
+        .unwrap_or_else(|e| panic!("vendor lib-str: {e}"));
 }

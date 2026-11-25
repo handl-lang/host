@@ -1,20 +1,15 @@
-//! Verifies that `handl-packages/str/str.hnl` (the str abstraction contract)
-//! parses cleanly with `parse_contracts` and registers all 45 axioms.
-
-use std::path::PathBuf;
+//! Verifies that the `str` abstraction contract (the `lib-str` package's
+//! `src/index.hnl`, vendored into `OUT_DIR` by build.rs — T-044) parses
+//! cleanly with `parse_contracts` and registers all 45 axioms.
 
 use handl_plugin_ext_refinement::parse_contracts;
 
-fn workspace_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
+const STR_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-str/src/index.hnl"));
 
 #[test]
 fn str_contract_parses_all_45_axioms() {
-    let path = workspace_root().join("handl-packages/str/str.hnl");
-    let src = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("failed to read {}: {}", path.display(), e));
-    let reg = parse_contracts(&src).expect("str.hnl must parse");
+    let src = STR_HNL;
+    let reg = parse_contracts(src).expect("str.hnl must parse");
     assert_eq!(reg.len(), 45, "str contract must declare exactly 45 axioms");
 
     // Spot-check a few representative axioms are registered under their
