@@ -298,6 +298,39 @@ Concrete instantiations worth noting:
 4. **Phased plan: unchanged in shape.** P2 gains the algebra-interface
    item from adjustment 1; see §8.
 
+### Algebra selection: call-head instances (user decision, 2026-11-25)
+
+Algebras are defined **in HNL itself**: `Algebra` is an ordinary type —
+a record of `compose`/`unit`/`order` functions — and each algebra is an
+`instance` (reusing the existing instance-resolution machinery). Mode
+payloads are *calls*: `~[Cost(3)]~>` reads as "mode `3` in the `Cost`
+algebra" — the call head `Cost` selects the algebra instance, the
+argument is the grade payload. This makes modes self-describing: no
+registry lookup, no head-symbol table, no type-directed dispatch needed
+at the selection step — instance resolution does it.
+
+Because `Algebra` is just a type, **algebras are computable**: algebra
+transformers (`product(A, B)`, `lift(f, A)`), algebra composition
+(graded-monad-style), and mode expressions like `Cost(3) + Session(p)`
+(mode sum = algebra compose) are ordinary Handl functions returning
+algebra records. This is the everything-is-data payoff: the algebra of
+algebras exists for free.
+
+Two invariants the checker relies on (both fall out of evaluation, no
+new machinery):
+
+- **Canonical forms**: `compose` must return a mode value in the same
+  call-head shape (`Cost(2) ⋄ Cost(5)` → `Cost(7)`), or unification
+  sees distinct normal forms. Algebra authors get this for free by
+  writing `compose` as a function returning `Cost(...)`.
+- **Confluence/termination**: algebra `compose`/`order` are ordinary
+  Handl eval — a diverging or non-confluent algebra diverges/sticks the
+  checker, same caveat as index computation and `loop`/`rec`.
+
+Bare non-call modes (`~[{cost: 3}]~>`, `~[Addable]~>`) still need a
+fallback: either require the call form (recommended — self-describing
+beats terse), or a canonical default algebra for untagged values.
+
 ---
 
 ## 4. Mode domain — recommendation ("grade domain" in the grade framing)
