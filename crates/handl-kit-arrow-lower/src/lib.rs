@@ -1969,48 +1969,65 @@ fn lower_op(
         .ok_or_else(|| format!("op at {} missing payload.name", node_index(node)))?
         .to_string();
 
-    // The signature's grade/dim child lowers into the `Op`'s `dim` slot —
-    // the unified dimension/grade representation (ADR-0120 Phase 3). A
-    // `dim_arrow`'s `dim` role sits at position 1, as does a legacy
-    // `graded_arrow`'s `grade` child; a plain `function` signature
-    // (`A ~> B`) has no dimension bracket and defaults to dimension 1.
-    // A named grade is a named dimension (`Const "S"`); a numeric
-    // bracket is a numeric dimension (`Const n`). `source` stays
-    // `Native`: `Foreign` is the host-function boundary, not a
-    // dimension.
-    let dim = if let Some(signature_idx) = child_at_role_or_pos(node, lang, "signature", 1) {
-        match ast.get(AstRef::new(signature_idx)) {
-            Some(signature) if matches!(signature.kind.as_str(), "dim_arrow" | "graded_arrow") => {
-                // `dim_arrow` declares the `dim` role at position 1; the
-                // legacy `graded_arrow` keeps its `grade` child at the
-                // same position.
-                let dim_idx = child_at_role_or_pos(signature, lang, "dim", 1)
-                    .ok_or_else(|| format!("{} signature missing dim child", signature.kind))?;
-                lower_dim_term(ast, lang, dim_idx, env, params)?
-            }
-            _ => Term::constant(Value::from(1)),
+    // The signature's middle child splits by node kind — the graded-arrow
+    // channel (graded-arrows.md §9.5, ADR-0120 Phase 3 split):
+    //
+    // - `dim_arrow` (`A ~[n]~> B` / `A ~>[n] B`): the `dim` child is the
+    //   globular dimension index and lowers into the `Op`'s `dim` slot —
+    //   `Const n` numeric, `Const "S"` named dimension.
+    // - `graded_arrow` (`A ~[G]~> B`): the `grade` child is an arbitrary
+    //   grade *expression*, NOT a dimension. It lowers into the grade
+    //   channel — `attrs["grade"]` via [`Term::with_op_grade`] — and
+    //   `dim` stays `1`: a graded arrow is a 1-cell with an annotation,
+    //   so `cell_boundary_`/`infer_hom`/handler `dim_label` routing see
+    //   an ordinary dimension-1 op. A grade in `Op.dim` would mint a
+    //   bogus `Const "Addable"` dimension and misroute dispatch.
+    // - a plain `function` signature (`A ~> B`) has no bracket and
+    //   defaults to dimension 1 with no grade.
+    //
+    // `source` stays `Native`: `Foreign` is the host-function boundary,
+    // not a dimension.
+    let signature_idx = child_at_role_or_pos(node, lang, "signature", 1);
+    let (dim, grade) = match signature_idx.and_then(|i| ast.get(AstRef::new(i))) {
+        Some(signature) if signature.kind == "dim_arrow" => {
+            let dim_idx = child_at_role_or_pos(signature, lang, "dim", 1)
+                .ok_or_else(|| "dim_arrow signature missing dim child".to_string())?;
+            (lower_dim_term(ast, lang, dim_idx, env, params)?, None)
         }
-    } else {
-        Term::constant(Value::from(1))
+        Some(signature) if signature.kind == "graded_arrow" => {
+            let grade_idx = child_at_role_or_pos(signature, lang, "grade", 1)
+                .ok_or_else(|| "graded_arrow signature missing grade child".to_string())?;
+            // The grade child lowers like a `dim`/`grade`-role child
+            // (`lower_role_child`'s label-position convention): a bare
+            // `var` is a named grade `Const "G"`, a literal is a
+            // `Const`, anything else is an ordinary lowered expression.
+            let grade = lower_dim_term(ast, lang, grade_idx, env, params)?;
+            (Term::constant(Value::from(1)), Some(grade))
+        }
+        _ => (Term::constant(Value::from(1)), None),
     };
 
-    Ok(Term::Op {
+    let op = Term::Op {
         dim: Box::new(dim),
         name,
         args: vec![],
         source: ArrSource::Native,
         lit: None,
         attrs: None,
+    };
+    Ok(match grade {
+        Some(grade) => op.with_op_grade(grade),
+        None => op,
     })
 }
 
-/// Lower a signature `dim`/`grade` child into a dimension `Term` for an
-/// `Op`'s `dim` slot (ADR-0120 Phase 3).
+/// Lower a signature `dim`/`grade` child into a label `Term` — the
+/// payload of an `Op`'s `dim` slot (ADR-0120 Phase 3) or, for a
+/// `graded_arrow` signature, of the grade channel (`attrs["grade"]`).
 ///
-/// A bare `var` (`~[S]~>` / `~[Addable]~>`) is a *named* dimension —
-/// `Const "S"`. A literal (`~[2]~>`) is a numeric dimension —
-/// `Const 2`. Anything else is an ordinary dimension expression lowered
-/// as a term.
+/// A bare `var` (`~[S]~>` / `~[Addable]~>`) is a *named* label —
+/// `Const "S"`. A literal (`~[2]~>`) is `Const 2`. Anything else is an
+/// ordinary expression lowered as a term.
 fn lower_dim_term(
     ast: &Ast,
     lang: &Language,

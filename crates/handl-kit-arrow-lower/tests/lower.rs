@@ -64,6 +64,62 @@ fn graded_arrow_with_op_and_grade_product_lowers_to_named_op() {
     );
 }
 
+/// `op f : A ~[G]~> B` — a `graded_arrow` signature lowers the grade
+/// child into the grade channel (`attrs["grade"]`), NOT `Op.dim`:
+/// `dim` stays `1` so dimension consumers (`cell_boundary_`, handler
+/// `dim_label` routing) never misread a grade as a dimension
+/// (graded-arrows.md §9.5).
+///
+/// Arena layout:
+///   0: var "f"          (op name child)
+///   1: var "A"          (graded_arrow source)
+///   2: var "Addable"    (graded_arrow grade)
+///   3: var "B"          (graded_arrow target)
+///   4: graded_arrow [1, 2, 3]
+///   5: op {children: [0, 4], name: "f"}
+#[test]
+fn op_graded_arrow_signature_lowers_grade_to_attrs_channel() {
+    let mut ast = Ast::new();
+    ast.push(var_node("f"));
+    ast.push(var_node("A"));
+    ast.push(var_node("Addable"));
+    ast.push(var_node("B"));
+    ast.push(with_children("graded_arrow", vec![1, 2, 3]));
+    ast.push(with_children_and_name("op", vec![0, 4], "f"));
+
+    let term = lower_ast(&ast, &Language::new(), AstRef::new(5)).expect("lower should succeed");
+    let expected = Term::op_native("f", vec![]).with_op_grade(Term::named_dim("Addable"));
+    assert_eq!(term, expected);
+    // The grade is readable through the channel and `dim` stayed 1.
+    assert_eq!(term.op_grade(), Some(Term::named_dim("Addable")));
+    assert_eq!(term.globular_dim(), 1);
+}
+
+/// `op f : A ~[S]~> B` — a `dim_arrow` signature keeps the middle child
+/// in `Op.dim` (a named dimension `Const "S"`) with no grade channel.
+///
+/// Arena layout:
+///   0: var "f"   1: var "A"   2: var "S"   3: var "B"
+///   4: dim_arrow [1, 2, 3]
+///   5: op {children: [0, 4], name: "f"}
+#[test]
+fn op_dim_arrow_signature_lowers_dim_to_dim_slot() {
+    let mut ast = Ast::new();
+    ast.push(var_node("f"));
+    ast.push(var_node("A"));
+    ast.push(var_node("S"));
+    ast.push(var_node("B"));
+    ast.push(with_children("dim_arrow", vec![1, 2, 3]));
+    ast.push(with_children_and_name("op", vec![0, 4], "f"));
+
+    let term = lower_ast(&ast, &Language::new(), AstRef::new(5)).expect("lower should succeed");
+    assert_eq!(
+        term,
+        Term::op_native_dim("f", Term::named_dim("S"), vec![])
+    );
+    assert_eq!(term.op_grade(), None);
+}
+
 // ---------------------------------------------------------------------------
 // Data-driven lowering — `lang.eval` scheme instantiation (ADR-0105/0120)
 // ---------------------------------------------------------------------------

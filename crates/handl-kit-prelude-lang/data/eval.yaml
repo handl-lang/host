@@ -1219,10 +1219,51 @@
           - !Child
             role: "target"
     source: Native
+# `graded_arrow` — graded arrow `A ~[G]~> B` (graded-arrows.md §4 P1).
+# Mirrors `eval.dim_arrow` but the middle (`grade`) child is a grade
+# *value*, not a dimension: the minted `Arrow` record's legacy-named
+# `grade` field genuinely carries the grade here (for `dim_arrow` it
+# carries the dimension payload — the field name predates the split).
+# The op's `dim` slot is `1`: a graded arrow is a 1-cell with an
+# annotation, so dimension consumers (`cell_boundary_`, globular
+# projection, handler `dim_label` routing) see an ordinary 1-cell and
+# the grade never enters the dimension channel.
+- id: eval.graded_arrow
+  node_kind: graded_arrow
+  scheme: !Op
+    dim: !Const { value: 1 }
+    name: "tag.construct"
+    args:
+      - !Arr
+        dim: !Const { value: 1 }
+        value: "Arrow"
+      - !Op
+        dim: !Const { value: 1 }
+        name: "record"
+        source: Native
+        args:
+          - !Arr
+            dim: !Const { value: 1 }
+            value: "inputs"
+          - !Child
+            role: "source"
+          - !Arr
+            dim: !Const { value: 1 }
+            value: "grade"
+          - !Child
+            role: "grade"
+          - !Arr
+            dim: !Const { value: 1 }
+            value: "output"
+          - !Child
+            role: "target"
+    source: Native
 # `op` — graded operation declaration; a generating 1-cell.
 # The `signature` child is an arrow expression (`function` for ungraded,
-# `dim_arrow` for graded). The `arrow_field` native op extracts the
-# `inputs`, `grade`, and `output` fields from either shape.
+# `dim_arrow` for dimensioned, `graded_arrow` for grade-annotated). The
+# `arrow_field` native op extracts the `inputs`, `grade`, and `output`
+# fields from either arrow shape — for a `graded_arrow` signature the
+# `grade` field genuinely carries the grade value.
 - id: eval.op
   node_kind: op
   scheme: !Op

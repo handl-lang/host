@@ -1934,6 +1934,21 @@
     args: []
     source: Judgment
 
+# `graded_arrow` — graded arrow `A ~[G]~> B` (graded-arrows.md §4 P1).
+# Synthesizes the same `Arrow{inputs, grade, output}` record as
+# `dim_arrow` — the `grade` field holds the *type* of the grade child —
+# with `dim: 1`: a graded arrow is a 1-cell with an annotation, so
+# `cell_boundary_`/`infer_hom` treat it as an ordinary 1-cell and the
+# grade never enters the `type.hom` index (ADR-0153 §6: grades are a
+# separate axis). `synth_graded_arrow` elaborates the grade child —
+# well-formedness only; grade constraint enforcement is deferred.
+- id: type.graded_arrow
+  node_kind: graded_arrow
+  synth: !Op
+    name: synth_graded_arrow
+    args: []
+    source: Judgment
+
 # ---------------------------------------------------------------------------
 # Dependent types — Pi / Sigma (ADR-0054 closure machinery)
 # ---------------------------------------------------------------------------

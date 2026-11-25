@@ -644,6 +644,37 @@
     required:
       - children
     type: object
+# `graded_arrow` — graded arrow `A ~[G]~> B` (graded-arrows.md; the
+# grade/dimension split of ADR-0120 Phase 3). Roles `source`/`grade`/
+# `target`: the `grade` child is an arbitrary Handl data expression —
+# NEVER a dimension index. A graded arrow is a 1-cell with an
+# annotation, so `eval.graded_arrow`/`type.graded_arrow` mint `dim: 1`
+# records and `handl-kit-arrow-lower` routes `op` signature grades to
+# the `Op` grade channel (`attrs["grade"]`), not `Op.dim`.
+# NOTE: no `grammar.graded_arrow.*` row yet — `~[x]~>` still parses to
+# `dim_arrow` for every payload during the codemod transition
+# (graded-arrows.md §7.3a); the grammar row lands with the payload-kind
+# flip. Nodes of this kind currently arrive only from the legacy
+# `tool-parse-pratt` dialect or hand-built ASTs.
+- id: ast.graded_arrow
+  node_kind: graded_arrow
+  faces:
+    - arrow
+  children:
+    - role: source
+    - role: grade
+    - role: target
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 3
+        minItems: 3
+        type: array
+    required:
+      - children
+    type: object
 - id: ast.hello.greet
   node_kind: hello.greet
   payload_schema:
