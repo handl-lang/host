@@ -6,6 +6,13 @@
 //! `handl_ops::KernelAtomProvider` inventory — no hand table row, no
 //! host-side `register()` call.
 //!
+//! Phase-2c (proposal-0012 §d): when no linked provider claims a module,
+//! [`crate::cdylib_atoms`] falls back to `libhnl_ext_*` atom providers —
+//! extensions discovered through the ADR-0149 search path whose manifest
+//! carries `atoms_yaml`, serving calls over `handl_ext_dispatch`. Static
+//! providers always win; cdylibs fill the gap for providers that cannot
+//! be Cargo-linked (third-party/user atoms).
+//!
 //! ```text
 //! deps: { lib-tensor-native: "git+file://…" }        # pkg.hnl / .handl.toml
 //!   → resolve_pkg_dependencies → name → dir
@@ -36,9 +43,9 @@
 //!   carried on [`AtomDecl`] but not yet consumed.
 //! - **Ambiguity is loud.** Two providers claiming the same module, a
 //!   spec/impl drift ([`crate::atoms::registry_from_atoms`] errors),
-//!   or an `atoms.yaml` no linked provider can serve all surface as
-//!   `eprintln!` warnings and a skipped module — never a silent
-//!   half-binding.
+//!   or an `atoms.yaml` no linked *or discovered* provider can serve all
+//!   surface as `eprintln!` warnings and a skipped module — never a
+//!   silent half-binding.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
