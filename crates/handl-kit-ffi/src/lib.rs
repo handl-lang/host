@@ -10,7 +10,7 @@ use handl_kit_core::{KitResolver, ModuleCtor, ModuleEntry, build_type_module};
 use handl_plugin_lib_handl::{HandlModule, OpRegistry};
 
 mod resolve;
-pub use resolve::FfiRustResolve;
+pub use resolve::{AtomHandle, FfiRustResolve};
 
 #[cfg(feature = "ffi")]
 use handl_plugin_ffi::{FfiBind, FfiCall, FfiErrno, FfiLoad, FfiRead, FfiSym};

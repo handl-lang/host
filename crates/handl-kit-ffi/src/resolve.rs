@@ -29,6 +29,7 @@
 //! gates existence + signature at mint time.
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use handl_kit_core::KitResolver;
 use handl_platform::{EvalContext, EvalError, Function, Module};
@@ -64,8 +65,29 @@ fn split_atom_name(name: &str) -> Option<(&str, &str)> {
     name.split_once('.').filter(|(_, f)| !f.is_empty())
 }
 
-/// Resolve `name` to its declared signature type value, if the module
-/// and function exist and the function exposes [`TypeSignature`].
+/// Resolve `name` through the kit module table to its `(module, local)`
+/// pair — the shared existence gate behind both `ffi.rust.resolve` and
+/// [`AtomHandle::resolve`]. Unknown modules and missing functions raise
+/// [`EvalError::UnknownFunction`] rather than producing a dangling
+/// reference, so typos fail at resolve time instead of at the deferred
+/// `call_host`.
+fn resolve_module(name: &str) -> Result<(Arc<dyn Module + Send + Sync>, String), EvalError> {
+    let (module_name, local) = split_atom_name(name).ok_or_else(|| {
+        EvalError::Other(format!(
+            "ffi.rust.resolve: `{name}` is not a qualified atom name (expected \"mod.fn\")"
+        ))
+    })?;
+    let module = KitResolver
+        .resolve(module_name)
+        .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
+    if module.function(local).is_none() {
+        return Err(EvalError::UnknownFunction(name.to_string()));
+    }
+    Ok((module, local.to_string()))
+}
+
+/// Read the declared signature type value off the resolved module's
+/// function, when the atom declares one (P-013 T-148).
 fn resolve_sig(module: &dyn Module, local: &str) -> Option<Value> {
     module
         .function(local)?
@@ -75,26 +97,96 @@ fn resolve_sig(module: &dyn Module, local: &str) -> Option<Value> {
 
 impl Function for FfiRustResolve {
     fn call(&self, args: &[Value], _ctx: &mut EvalContext) -> Result<Value, EvalError> {
-        let name = args
-            .first()
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                EvalError::TypeMismatch("ffi.rust.resolve: expected a string atom name".to_string())
-            })?;
-        let (module_name, local) = split_atom_name(name).ok_or_else(|| {
-            EvalError::Other(format!(
-                "ffi.rust.resolve: `{name}` is not a qualified atom name (expected \"mod.fn\")"
-            ))
+        let name = args.first().and_then(Value::as_str).ok_or_else(|| {
+            EvalError::TypeMismatch("ffi.rust.resolve: expected a string atom name".to_string())
         })?;
-        let module = KitResolver
-            .resolve(module_name)
-            .ok_or_else(|| EvalError::UnknownFunction(name.to_string()))?;
-        if module.function(local).is_none() {
-            return Err(EvalError::UnknownFunction(name.to_string()));
-        }
-        let sig = resolve_sig(module.as_ref(), local)
-            .map(|v| Rc::new(TaggedValue::from(v)));
+        let (module, local) = resolve_module(name)?;
+        let sig = resolve_sig(module.as_ref(), &local).map(|v| Rc::new(TaggedValue::from(v)));
         Ok(tagged_to_value(&wrap_dep_fn_with_sig(name, sig)))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AtomHandle — the external/runtime-caller half of `ffi.rust.resolve`
+// ---------------------------------------------------------------------------
+
+/// An owned, FFI-callable handle to a resolved atom — the runtime-caller
+/// counterpart of the `{fn, sig}` arrow [`FfiRustResolve`] mints.
+///
+/// Where the in-eval op returns a handl arrow that re-dispatches
+/// `"mod.fn"` through the *applying* runtime's module chain at
+/// `call_host` (ADR-0155 ambient re-resolution), a handle pins the
+/// resolved [`Module`] instance — the same `Arc` [`KitResolver`] hands
+/// out — plus the function's local name, and invokes it directly through
+/// [`Function::call`]'s `serde_json::Value` codec. This is the shape
+/// external FFI hosts consume (PyO3 cdylibs, wasm shims, C-ABI
+/// wrappers): one [`AtomHandle::resolve`] per atom name, then
+/// [`AtomHandle::call`] per invocation, args/results crossing as JSON
+/// values exactly as they do across `ffi.call`/`ffi.bind`.
+///
+/// Resolution scope and signature gating are identical to
+/// `ffi.rust.resolve`: the process-wide kit module table, unknown names
+/// rejected up front, `signature()` carrying the T-148 declared type
+/// when the atom has one.
+///
+/// The handle does **not** capture an eval engine or a
+/// [`ModuleLookup`]: it is for self-contained host atoms (the
+/// `tensor.*`-style registry citizens behind `with_ops`), not for
+/// `.hnl` functions that need the module's own runtime to evaluate
+/// their bodies. Those keep going through the arrow path.
+#[derive(Clone)]
+pub struct AtomHandle {
+    /// The qualified atom name this handle was resolved from (`"mod.fn"`).
+    name: String,
+    /// The resolved module instance — kept alive for the handle's life
+    /// so the borrowed `&dyn Function` behind [`Module::function`] never
+    /// dangles.
+    module: Arc<dyn Module + Send + Sync>,
+    /// The function's local (in-module) name — what
+    /// [`Module::function`] expects.
+    local: String,
+    /// The atom's declared signature type value (P-013 T-148), when it
+    /// declares one — the `sig` half of the `{fn, sig}` shape for
+    /// callers that want it without minting the arrow.
+    sig: Option<Value>,
+}
+
+impl AtomHandle {
+    /// Resolve a qualified atom name (`"mod.fn"`) through the kit module
+    /// table — the same gate `ffi.rust.resolve` applies at mint time.
+    pub fn resolve(name: &str) -> Result<Self, EvalError> {
+        let (module, local) = resolve_module(name)?;
+        let sig = resolve_sig(module.as_ref(), &local);
+        Ok(Self {
+            name: name.to_string(),
+            module,
+            local,
+            sig,
+        })
+    }
+
+    /// The qualified atom name this handle was resolved from.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// The declared signature type value, when the atom declares one
+    /// (P-013 T-148) — `None` for unsigned atoms.
+    pub fn signature(&self) -> Option<&Value> {
+        self.sig.as_ref()
+    }
+
+    /// Invoke the atom with already-evaluated JSON arguments — the same
+    /// `serde_json::Value` codec [`Function::call`] uses inside eval.
+    ///
+    /// The function is re-resolved through the module on every call
+    /// (a `HashMap` lookup), so a module that swaps implementations sees
+    /// the swap — matching the arrow path's ambient re-resolution.
+    pub fn call(&self, args: &[Value], ctx: &mut EvalContext) -> Result<Value, EvalError> {
+        self.module
+            .function(&self.local)
+            .ok_or_else(|| EvalError::UnknownFunction(self.name.clone()))?
+            .call(args, ctx)
     }
 }
 
@@ -180,6 +272,38 @@ mod tests {
             .call(&[json!("t152probe.signed")], &mut ctx)
             .unwrap();
         assert_eq!(out["sig"]["__tag__"], json!("type.function"));
+    }
+
+    #[test]
+    fn atom_handle_resolves_calls_and_carries_sig() {
+        ensure_registered();
+        let mut ctx = EvalContext::new();
+
+        let handle = AtomHandle::resolve("t152probe.double").unwrap();
+        assert_eq!(handle.name(), "t152probe.double");
+        // Unsigned atom → no signature payload.
+        assert!(handle.signature().is_none());
+        assert_eq!(handle.call(&[json!(21.0)], &mut ctx).unwrap(), json!(42.0));
+
+        let signed = AtomHandle::resolve("t152probe.signed").unwrap();
+        assert_eq!(
+            signed.signature().unwrap()["__tag__"],
+            json!("type.function")
+        );
+    }
+
+    #[test]
+    fn atom_handle_rejects_unknown_names() {
+        ensure_registered();
+        assert!(matches!(
+            AtomHandle::resolve("no.such"),
+            Err(EvalError::UnknownFunction(_))
+        ));
+        assert!(matches!(
+            AtomHandle::resolve("t152probe.missing"),
+            Err(EvalError::UnknownFunction(_))
+        ));
+        assert!(AtomHandle::resolve("bare").is_err());
     }
 
     #[test]
