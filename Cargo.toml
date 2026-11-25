@@ -2,6 +2,7 @@
 name = "handl"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 description = "`handl` is the root facade for the Handl language platform."
 license.workspace = true
 repository.workspace = true

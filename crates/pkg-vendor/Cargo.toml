@@ -2,6 +2,7 @@
 name = "handl-pkg-vendor"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 description = "Build-script helper: vendor a lib-* package's .hnl sources into OUT_DIR (ADR-0160 P3)."
 license = "MIT"
 repository = "https://github.com/handl-lang/host"

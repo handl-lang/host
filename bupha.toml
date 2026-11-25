@@ -1,34 +1,18 @@
-# bupha.toml — shell-runner CI for handl-lang/host.
+# bupha.toml — committed CI manifest for handl-lang/host.
 #
-# Replaces the Dagger runner (`dagger call ci`): no containers, no docker
-# — the runner is `bash scripts/ci.sh` executed natively inside a
-# detached worktree of the pushed sha. This box is memory- and
-# disk-constrained; the shell runner skips the engine round-trip and the
-# pipeline keeps the module's -j 2 memory guards.
-#
-# Live topology on luis's box: merge the [[repo]] entry below into the
-# shared watcher config ~/.config/bupha/bupha.toml (one systemd
-# `bupha-watch.service`, one cloudflared tunnel `bupha` -> :29173, one
-# latest-wins queue/worker — builds serialize with the docs watches).
-# This file is the committed manifest of that watch; it is also a valid
-# standalone config — run a dedicated instance with
-# `bupha watch --config bupha.toml` after moving `trigger.listen` to a
-# free port.
-#
-# Secrets resolve env var -> OS keyring -> ~/.config/bupha/env; never
-# this file. Schema: github.com/9aia/bupha examples/bupha.toml.example.
-#
-# Manual run (whole gate in this checkout, no worktree):
-#   bupha run                      # = bash scripts/ci.sh
-#   bash scripts/ci.sh test        # single stage
-
+# The gate is the peregrin campaign in workflows/gate.yaml — ci.sh is
+# retired fleet-wide, so the runner executes the campaign in the pushed
+# worktree and checks .ci-result.json's conclusion (same contract as
+# handl-lang/workspace). Merge the [[repos]] entry into the shared
+# watcher (~/.config/bupha/bupha.toml) or run:
+# bupha watch --config bupha.toml
 [[repos]]
 name = "handl-lang/host"
 dir = "~/GitHub/handl-lang/host"
 branch = "refs/heads/main"
   [repos.runner]
   kind = "script"
-  cmd = "bash scripts/ci.sh"
+  cmd = "export PATH="$HOME/.local/bin:$PATH"; GATE_REPO="$PWD" GATE_RESULTS="$PWD/.gate-results.jsonl" peregrin campaign run workflows/gate.yaml --result .ci-result.json && jq -e '.conclusion == "success"' .ci-result.json"
   cancel_running = true
 
 [trigger]
@@ -40,7 +24,7 @@ secret_env = "BUPHA_WEBHOOK_SECRET"
 # anyway ([repo.runner] is a full replacement).
 [runner]
 kind = "script"
-cmd = "bash scripts/ci.sh"
+cmd = "export PATH="$HOME/.local/bin:$PATH"; GATE_REPO="$PWD" GATE_RESULTS="$PWD/.gate-results.jsonl" peregrin campaign run workflows/gate.yaml --result .ci-result.json && jq -e '.conclusion == "success"' .ci-result.json"
 token_env = "BUPHA_TOKEN"
 
 [status]
