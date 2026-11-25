@@ -190,6 +190,20 @@ path confusion: `project` is a linked worktree of the `project` repo.
     "compose + well-formedness only" — decide with evidence, record in
     this plan.
 
+- [ ] **M3.5 mode polymorphism** — user-scoped (2026-11-25): quantification
+  over modes as ordinary dependent function binders.
+  - `Mode` sort/type so `m : Mode` can be bound; `~[m]~>` stores the
+    bound var; `mapM : (m : Mode) ~> (f : A ~[m]~> B) ~> List(A) ~[m]~> List(B)`.
+  - Instantiation `mapM(Cost(1), f)` is ordinary substitution — no
+    constraint solver; mode vars in `mode_compose` hit the existing
+    stuck/meta honest-bound convention.
+  - Annotation-required polymorphism only (no inference) — same
+    discipline as explicit `forall`. Generalization is a later phase.
+  - Depends on M2 (`Mode` sort + algebra dispatch) and M3 (subsumption
+    must treat mode vars as rigid, not unify them away).
+  - Repos: tool-typecheck-handl, tool-typecheck-nbe, kit data if a
+    `Mode` former/sort is needed.
+
 - [x] **M4 effects-as-modes — assessment only (deferred)**
   - MTT places effect rows in the mode theory; `IO<sig>` is already row
     data. Feasibility question: can `IO<{…}>` be re-read as a mode
