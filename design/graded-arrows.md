@@ -333,6 +333,26 @@ Bare non-call modes (`~[{cost: 3}]~>`, `~[Addable]~>`) still need a
 fallback: either require the call form (recommended — self-describing
 beats terse), or a canonical default algebra for untagged values.
 
+**Algebra declaration syntax (user decision, 2026-11-25): `new`.**
+Algebra instances are born via constructor-call syntax, not bare
+`instance` decls:
+
+```hnl
+Cost := new Algebra(Nat) {
+  compose: (a, b) ~> a + b,
+  unit:    0,
+  order:   (a, b) ~> a <= b
+}
+```
+
+`new` is a parse-level alias (the `forall`→Pi precedent): it expands to
+a data-family constructor (so `Cost(3)` builds mode values) PLUS an
+`instance` registration (so `mode_compose` resolves the algebra). One
+declaration, both jobs — `Cost := new Algebra(C) {...}`,
+`Session := new Algebra(Proto) {...}`, `Effects := new Algebra(Row) {...}`
+all share the shape. Semantics unchanged: `Algebra` is an ordinary type,
+`new` is sugar over ctor + instance machinery.
+
 ---
 
 ## 4. Mode domain — recommendation ("grade domain" in the grade framing)
