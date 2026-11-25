@@ -107,7 +107,8 @@ fn instanceof_self_and_direct_parent_are_true() {
 
 #[test]
 fn instanceof_transitive_grandparent_is_true() {
-    let v = eval("Obj := sym(); Number := sym(Obj); Float := sym(Number); sym.instanceof(Float, Obj)");
+    let v =
+        eval("Obj := sym(); Number := sym(Obj); Float := sym(Number); sym.instanceof(Float, Obj)");
     assert_eq!(v, json!(true));
 }
 
@@ -160,10 +161,12 @@ fn float_nominal_is_instanceof_number_nominal() {
         "Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Float, Number)",
     );
     assert_eq!(v, json!(true), "Float nominal must descend from Number");
-    let v =
-        eval("Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Int, Number)");
+    let v = eval(
+        "Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Int, Number)",
+    );
     assert_eq!(v, json!(true), "Int nominal must descend from Number");
-    let v =
-        eval("Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Float, Int)");
+    let v = eval(
+        "Number := sym(); Float := sym(Number); Int := sym(Number); sym.instanceof(Float, Int)",
+    );
     assert_eq!(v, json!(false), "sibling nominals are unrelated");
 }

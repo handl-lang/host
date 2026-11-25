@@ -264,8 +264,8 @@ const PRELUDE_MODULES: &[(&'static str, ModuleCtor)] = &[
 /// the prelude's ambient rows first, then `kit-stdlib`, `kit-server`,
 /// `kit-test`, `kit-ffi`, `kit-mlopt` (the `pipeline` stage-ops —
 /// admitted to `hnl run` only when `pipeline` is in the prelude
-/// manifest's `base_modules`), and `handl-host-tensor` (the `tensor`
-/// host-op module — admitted via `base_modules` likewise). `Once`-safe:
+/// manifest's `base_modules`), and `handl-host-tensor`'s atom-provider
+/// link anchor (dep-bound `tensor` atoms — P-013 phase-2a). `Once`-safe:
 /// the first call wins.
 ///
 /// Hosts composing a different module mix can skip this and call each
@@ -280,10 +280,14 @@ pub fn register() {
         handl_kit_test::register();
         handl_kit_ffi::register();
         handl_kit_mlopt::register();
-        // `tensor.*` host ops (exec-tensor repo) — `tensor` is admitted
-        // to `hnl run`/`hnl eval` via the prelude manifest's
-        // `base_modules` list.
-        handl_host_tensor::kit::register();
+        // `tensor.*` host ops (exec-tensor repo) — P-013 phase-2a
+        // (proposal-0012): `tensor` is no longer a global kit row; it
+        // binds per-project through dep `atoms.yaml` →
+        // `dep_atom_modules`. The Cargo dep stays — the impl table must
+        // be *linked* — so `register()` keeps a one-line link anchor
+        // that pulls the provider's `inventory::submit!` object into
+        // this artifact.
+        handl_host_tensor::kit::atom_provider_link_anchor();
     });
 }
 
@@ -1237,16 +1241,12 @@ impl ModuleLookup for DepScopeLookup {
     }
 
     fn lookup_type_signature(&self, name: &str) -> Option<Value> {
-        self
-            .inner
+        self.inner
             .as_ref()
             .and_then(|i| i.lookup_type_signature(name))
     }
 
-    fn lookup_module_exports(
-        &self,
-        module_name: &str,
-    ) -> Option<Vec<(String, Option<Value>)>> {
+    fn lookup_module_exports(&self, module_name: &str) -> Option<Vec<(String, Option<Value>)>> {
         if let Some(exports) = self.scoped_exports(module_name) {
             return Some(exports);
         }
@@ -1333,6 +1333,11 @@ pub struct Kit {
     /// `pkg.hnl` `deps` surface scopes (P-013 T-150) — same retention
     /// contract as [`Kit::dep_dirs`].
     dep_scopes: HashMap<String, handl_platform::PkgDepScope>,
+    /// Module names bound from dep `atoms.yaml` specs (P-013 phase-2a,
+    /// proposal-0012) — added to the typecheck prelude so bare
+    /// `mod.fn` wires against dep-bound atom modules check against
+    /// their declared sigs instead of reporting unbound.
+    dep_module_names: Vec<String>,
 }
 
 impl std::fmt::Debug for Kit {
@@ -1540,8 +1545,32 @@ impl Kit {
             _ => "tree-walk",
         };
         let kit_modules = build_stdlib_registry(module_set.as_ref(), eval_name);
-        let stdlib_registry = kit_modules.registry;
-        let handl_modules = kit_modules.handl_modules;
+        let mut stdlib_registry = kit_modules.registry;
+        let mut handl_modules = kit_modules.handl_modules;
+
+        // P-013 phase-2a (proposal-0012): dep-bound atom modules — a
+        // `pkg.hnl`/`kit.hnl` dep shipping `atoms.yaml` gets its native
+        // ops bound through the inventory-discovered provider impl
+        // tables (`handl_plugin_lib_handl::dep_atom_modules`). Kit-
+        // registered modules win: dep atoms fill gaps, never shadow.
+        // `dep_module_names` feeds the typecheck prelude below so a
+        // bare `tensor.zeros`-style wire checks against the bound
+        // module's declared sigs.
+        let mut dep_module_names: Vec<String> = Vec::new();
+        for module in
+            handl_plugin_lib_handl::dep_atom_modules(&dependencies, &dep_scopes, eval_name)
+        {
+            let name = module.name().to_string();
+            if stdlib_registry.module(&name).is_some() {
+                eprintln!(
+                    "kit: dep atom module `{name}` shadowed by a kit-registered module — skipped"
+                );
+                continue;
+            }
+            handl_modules.register(&name, Arc::clone(&module));
+            stdlib_registry.register_arc(handl_kit_core::coerce_handl(module));
+            dep_module_names.push(name);
+        }
 
         // NOTE: the self-hosted handl loader (`install_loader`) is deliberately
         // NOT installed here — it is an opt-in seam a host may enable itself.
@@ -1679,6 +1708,7 @@ impl Kit {
             handl_modules,
             dep_dirs: dependencies,
             dep_scopes,
+            dep_module_names,
         })
     }
 
@@ -2073,6 +2103,13 @@ impl Kit {
     ) -> Result<(hnl_tool_typecheck::TypecheckResult, Ast, usize), LangError> {
         let mut prelude = prelude_wire_names();
         prelude.extend(extra_prelude.iter().cloned());
+        // P-013 phase-2a: dep-bound atom modules are ambient wires at
+        // eval time (they sit in the same `ModuleRegistry` the kit
+        // modules do) — the checker prelude must name them or every
+        // `tensor.zeros`-style reference reports unbound. Their
+        // `lookup_module_exports` entries (op names + `op`-declared
+        // sigs) seed as `type.module_sig` records below.
+        prelude.extend(self.dep_module_names.iter().cloned());
         let trimmed = input.trim_start();
         let is_block = trimmed == "do"
             || trimmed.starts_with("do ")
