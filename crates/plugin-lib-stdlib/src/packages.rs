@@ -70,10 +70,11 @@ pub enum RegistrySource {
     /// A kernel-side `*_op_registry()` returning [`handl_ops::OpRegistry`].
     Kernel(fn() -> handl_ops::OpRegistry),
     /// Spec-driven (P-013 T-149): `atoms.yaml` text + impl table.
-    /// `spec` is the vendored yaml; `impls` resolves each atom's
-    /// `impl:` key to its `Function` impl.
+    /// `spec` is the vendored yaml (one module per document —
+    /// `atoms-<module>.yaml` siblings for multi-module packages);
+    /// `impls` resolves each atom's `impl:` key to its `Function` impl.
     Atoms {
-        /// Vendored `atoms.yaml` (`include_str!` of `OUT_DIR/lib-x/atoms.yaml`).
+        /// Vendored atoms spec (`include_str!` of `OUT_DIR/lib-x/atoms*.yaml`).
         spec: &'static str,
         /// The module's impl table (`ops::<mod>::*_impls`).
         impls: ImplTable,
@@ -85,7 +86,7 @@ pub enum RegistrySource {
     /// build time and still gets its spec `sig` attached (the old
     /// `import_kernel` path carried none).
     KernelAtoms {
-        /// Vendored `atoms.yaml` (`include_str!` of `OUT_DIR/lib-x/atoms.yaml`).
+        /// Vendored atoms spec (`include_str!` of `OUT_DIR/lib-x/atoms*.yaml`).
         spec: &'static str,
         /// The module's kernel impl table (`ops::kernel_impls::*_impls`).
         impls: atoms::KernelImplTable,
@@ -191,7 +192,7 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &["true", "false"],
         registry: None,
     },
-    // T-149: spec-driven — `lib-utils/atoms.yaml` (`modules.math`, 67
+    // T-149: spec-driven — `lib-utils/atoms.yaml` (`module: math`, 67
     // atoms) + `math_impls()` replace `MATH_OPS`/`math_op_registry`.
     ModuleSpec {
         name: "math",
@@ -204,8 +205,9 @@ pub static MODULES: &[ModuleSpec] = &[
             impls: ops::math::math_impls,
         }),
     },
-    // T-151: spec-driven — `lib-utils/atoms.yaml` (`modules.str`, 45
-    // atoms) + `strs_impls()` replace `STR_OPS`/`str_op_registry`.
+    // T-151: spec-driven — `lib-utils/atoms-str.yaml` (`module: str`,
+    // 45 atoms; one module per spec document) + `strs_impls()` replace
+    // `STR_OPS`/`str_op_registry`.
     ModuleSpec {
         name: "str",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/src/str.hnl")),
@@ -213,7 +215,7 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: &[],
         values: &[],
         registry: Some(RegistrySource::Atoms {
-            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/atoms.yaml")),
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-utils/atoms-str.yaml")),
             impls: ops::strs::strs_impls,
         }),
     },

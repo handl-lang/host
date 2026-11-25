@@ -7,27 +7,17 @@
 //!
 //! ## Spec format
 //!
-//! One file per lib (`atoms.yaml` at the package root, vendored by
-//! `handl-pkg-vendor` like `pkg.hnl`). Two shapes:
+//! One file per module (`atoms.yaml` at the package root, vendored by
+//! `handl-pkg-vendor` like `pkg.hnl`; multi-module packages add
+//! `atoms-<module>.yaml` siblings — one module per spec document):
 //!
 //! ```yaml
-//! # single-module lib (lib-proc):
 //! module: proc
 //! atoms:
 //!   - name: proc.argv
 //!     sig: "Unit ~> (List String)"
 //!     impl: proc_argv
 //!     total: true
-//! ```
-//!
-//! ```yaml
-//! # multi-module lib (lib-utils):
-//! modules:
-//!   math:
-//!     atoms:
-//!       - { name: math.abs, sig: "Float ~> Float", impl: math_abs, total: true }
-//!   str:
-//!     atoms: [...]
 //! ```
 //!
 //! Fields per atom:
@@ -65,7 +55,7 @@
 //! row. If `inventory` is ever adopted workspace-wide this module is
 //! the single place to swap the collection strategy.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use crate::{OpRegistry, sig_to_type_value};
@@ -137,17 +127,10 @@ pub fn atom_providers() -> impl Iterator<Item = &'static AtomProvider> {
 
 #[derive(Debug, Deserialize)]
 struct RawSpec {
-    /// Single-module form: `module: proc` + top-level `atoms:`.
+    /// The module this spec declares: `module: proc` + top-level
+    /// `atoms:`. One module per document — multi-module packages ship
+    /// `atoms-<module>.yaml` siblings.
     module: Option<String>,
-    #[serde(default)]
-    atoms: Vec<AtomDecl>,
-    /// Multi-module form: `modules: { math: { atoms: [...] } }`.
-    #[serde(default)]
-    modules: BTreeMap<String, RawModule>,
-}
-
-#[derive(Debug, Deserialize)]
-struct RawModule {
     #[serde(default)]
     atoms: Vec<AtomDecl>,
 }
@@ -193,33 +176,23 @@ pub fn atom_capabilities(atoms: &[AtomDecl]) -> BTreeSet<String> {
     atoms.iter().flat_map(|a| a.caps.iter().cloned()).collect()
 }
 
-/// Parse an `atoms.yaml` document into `(module_name, atoms)` pairs.
+/// Parse an `atoms.yaml` document into `(module_name, atoms)` pairs —
+/// exactly one pair: the spec declares a single `module:`.
 ///
-/// Accepts both the single-module (`module:` + `atoms:`) and the
-/// multi-module (`modules:` map) shapes; the single-module form yields
-/// exactly one pair. Returns an error on malformed yaml or a document
-/// declaring neither shape.
+/// Returns an error on malformed yaml or a document missing `module:`.
 pub fn parse_atoms(yaml_text: &str) -> Result<Vec<(String, Vec<AtomDecl>)>, String> {
     let raw: RawSpec =
         serde_yaml::from_str(yaml_text).map_err(|e| format!("atoms.yaml parse: {e}"))?;
-    if !raw.modules.is_empty() {
-        return Ok(raw
-            .modules
-            .into_iter()
-            .map(|(name, m)| (name, m.atoms))
-            .collect());
-    }
     match raw.module {
         Some(module) => Ok(vec![(module, raw.atoms)]),
-        None => Err("atoms.yaml: neither `module:`+`atoms:` nor `modules:` present".to_string()),
+        None => Err("atoms.yaml: `module:`+`atoms:` not present".to_string()),
     }
 }
 
-/// Select one module's atom declarations from a parsed spec document.
+/// Select the module's atom declarations from a parsed spec document.
 ///
 /// `module` is the [`ModuleSpec`](https://docs.rs/handl-plugin-lib-stdlib) (plugin-lib-stdlib) name (e.g. `"proc"`,
-/// `"math"`). For a single-module document the declared `module:` must
-/// match; for a `modules:` map the key must exist.
+/// `"math"`); the document's declared `module:` must match.
 pub fn module_atoms(yaml_text: &str, module: &str) -> Result<Vec<AtomDecl>, String> {
     let specs = parse_atoms(yaml_text)?;
     let known: Vec<String> = specs.iter().map(|(n, _)| n.clone()).collect();
@@ -403,22 +376,16 @@ atoms:
     }
 
     #[test]
-    fn parses_multi_module_spec() {
+    fn rejects_modules_map_shape() {
+        // One module per spec document — the retired `modules:` map
+        // shape must not parse.
         let yaml = r#"
 modules:
   math:
     atoms:
       - { name: math.abs, sig: "Float ~> Float", impl: math_abs }
-  str:
-    atoms:
-      - { name: str.len, impl: str_len }
 "#;
-        let math = module_atoms(yaml, "math").unwrap();
-        assert_eq!(math.len(), 1);
-        assert_eq!(math[0].name, "math.abs");
-        let str_atoms = module_atoms(yaml, "str").unwrap();
-        assert!(str_atoms[0].sig.is_none());
-        assert!(module_atoms(yaml, "proc").is_err());
+        assert!(module_atoms(yaml, "math").is_err());
     }
 
     #[test]
