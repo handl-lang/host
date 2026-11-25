@@ -1445,7 +1445,7 @@ do {
       }
     } else {
       do {
-        s := if kind == "dim_arrow" { funcs.bind_pattern_vars_(funcs, s, node_idx) } else { s }
+        s := if kind == "dim_arrow" || kind == "graded_arrow" { funcs.bind_pattern_vars_(funcs, s, node_idx) } else { s }
         rule := lang_type_rule(s, kind)
         if rule == null {
           if is_empty(s.ast) {
@@ -2551,6 +2551,116 @@ do {
     }
     }
     }
+  }
+
+  --- Owned type-expression node (PL-0003 I1): a self-contained
+  --- `{kind, span, payload}` record — the same shape `marshal_ast`
+  --- produces for one arena node — whose `payload.children` /
+  --- `payload.body` arena references are replaced by recursively owned
+  --- node records. `inductive.spec` values must survive as ordinary
+  --- Handl data with no dependence on the source arena; re-elaboration
+  --- (`instantiate_ctor_`'s fresh-meta discipline) runs on these owned
+  --- nodes in later phases.
+  owned_node_ := [funcs, s, node_idx]~> do {
+    n := ast_node(s.ast, node_idx)
+    payload := node_payload(n)
+    owned_payload := funcs.owned_payload_(funcs, s, payload)
+    set(set(set({}, "kind", node_kind(n)), "span", get_or(n, "span", null)), "payload", owned_payload)
+  }
+
+  owned_payload_ := [funcs, s, payload]~> if type_of(payload) != "obj" {
+    payload
+  } else {
+    do {
+      raw_children := get_or(payload, "children", null)
+      owned_children := if type_of(raw_children) == "arr" {
+        while { result: [], remaining: raw_children } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              c := first_value(st.remaining)
+              ci := if type_of(c) == "arr" { at(c, 0) } else { c }
+              owned := if type_of(ci) == "num" { funcs.owned_node_(funcs, s, ci) } else { c }
+              { state: { result: [...st.result, owned], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      } else {
+        raw_children
+      }
+      raw_body := get_or(payload, "body", null)
+      owned_body := if type_of(raw_body) == "num" { funcs.owned_node_(funcs, s, raw_body) } else { raw_body }
+      while { result: {}, remaining: keys(payload) } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.result }
+        } else {
+          do {
+            k := first_value(st.remaining)
+            v := get_or(payload, k, null)
+            nv := if k == "children" && owned_children != null {
+              owned_children
+            } else {
+              if k == "body" && owned_body != null { owned_body } else { v }
+            }
+            { state: { result: set(st.result, k, nv), remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    }
+  }
+
+  --- `inductive.spec` value (PL-0003 I1): the declaration's spec as
+  --- ordinary Handl data — `{name, params, ctors}` where `params` is
+  --- `[{name, sort, nat}]` (`sort` the owned annotation node or `null`)
+  --- and `ctors` is `[{name, args, result, bare}]` with `args` a list
+  --- of `{name, type}` (`type` the owned domain node or `null`) and
+  --- `result` the owned result-index node or `null`. Every
+  --- type-expression is an *owned* node value (`owned_node_`), never
+  --- an arena index — the spec describes the declaration and must
+  --- round-trip through eval as data. `synth_data` binds it in
+  --- `results` under `"<name>.spec"` alongside the
+  --- `type.family`/`type.ctor_sig` gamma bindings; nothing consumes it
+  --- yet (I2+).
+  inductive_spec_ := [funcs, s, name, params, ctor_specs]~> do {
+    p_acc := while { result: [], remaining: params } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          p := first_value(st.remaining)
+          p_node := get_or(p, "node", null)
+          psort := if p_node == null { null } else { funcs.owned_node_(funcs, s, p_node) }
+          { state: { result: [...st.result, { name: get_or(p, "name", ""), sort: psort, nat: get_or(p, "nat", false) }], remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    c_acc := while { result: [], remaining: ctor_specs } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          c := first_value(st.remaining)
+          c_args := get_or(c, "args", [])
+          a_acc := while { result: [], remaining: c_args } {
+            [a_st]~> if is_empty(a_st.remaining) {
+              { out: a_st.result }
+            } else {
+              do {
+                a := first_value(a_st.remaining)
+                a_node := get_or(a, "node", null)
+                aty := if a_node == null { null } else { funcs.owned_node_(funcs, s, a_node) }
+                { state: { result: [...a_st.result, { name: get_or(a, "name", ""), type: aty }], remaining: drop(a_st.remaining, 1) } }
+              }
+            }
+          }
+          r_node := get_or(c, "result", null)
+          rspec := if r_node == null { null } else { funcs.owned_node_(funcs, s, r_node) }
+          { state: { result: [...st.result, { name: get_or(c, "name", ""), args: a_acc, result: rspec, bare: get_or(c, "bare", false) }], remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    funcs.make_type("inductive.spec", set(set(set({}, "name", name), "params", p_acc), "ctors", c_acc))
   }
 
   --- Instantiate a `type.ctor_sig` spec into a fresh `type.function`
@@ -7094,6 +7204,31 @@ do {
         }
       }
     },
+    --- `synth_graded_arrow` — graded arrow `A ~[G]~> B`
+    --- (graded-arrows.md §4 P1). The same `Arrow{inputs, grade,
+    --- output}` record as `synth_dim_arrow` — the `grade` field holds
+    --- the *type* of the grade child (the middle child's type, the
+    --- `dim_arrow` convention) — but `dim` is the literal `1`: a graded
+    --- arrow is a 1-cell with an annotation, so `cell_boundary_`/
+    --- `cell_paste_` treat it as an ordinary 1-cell and the grade never
+    --- enters the dimension channel (ADR-0153 §6). The grade child is
+    --- synthesized like any expression — well-formedness only (names
+    --- resolve, constructors elaborate); grade constraint enforcement
+    --- is deferred.
+    "synth_graded_arrow": do {
+      node := ast_node(s.ast, node_idx)
+      children := node_children(node)
+      if len(children) < 3 {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "graded_arrow: missing operands") }
+      } else {
+        do {
+          src_result := funcs.synth_node_(funcs, s, first_value(children))
+          grade_result := funcs.synth_node_(funcs, src_result["state"], at(children, 1))
+          tgt_result := funcs.synth_node_(funcs, grade_result["state"], at(children, 2))
+          { val: funcs.make_type("Arrow", set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", 1)), state: tgt_result["state"] }
+        }
+      }
+    },
     --- `synth_data` — inductive family declaration `data Name(params)
     --- :: ctors` (ADR-0082 / ADR-0120 Phase 4). The `type` child gives
     --- the parameter list (`call(var Name, p…)`: `n : Nat`, `a : Type`,
@@ -7170,7 +7305,21 @@ do {
           }
         }
       }
-      { val: funcs.make_type("type.unit", {}), state: bound }
+      --- PL-0003 I1: materialize the `inductive.spec` value — the
+      --- declaration's spec as ordinary data (owned type-expr nodes,
+      --- not arena indices) — into `results` under `"<name>.spec"`,
+      --- alongside the `type.family`/`type.ctor_sig` gamma bindings.
+      --- Inert for now; I2+ consumes it. `results` (not gamma) is the
+      --- value channel — the spec is data, not a type.
+      spec_state := if name == "" {
+        bound
+      } else {
+        do {
+          spec_val := funcs.inductive_spec_(funcs, bound, name, params, ctor_specs)
+          tc_bind_result(bound, name + ".spec", spec_val)
+        }
+      }
+      { val: funcs.make_type("type.unit", {}), state: spec_state }
     },
     "check_call": do {
       --- `transport(p, v)` in check position — the call-form twin of
@@ -8249,6 +8398,9 @@ do {
     unify_equiv_record_: unify_equiv_record_,
     collect_ctor_names_: collect_ctor_names_,
     collect_ctor_specs_: collect_ctor_specs_,
+    owned_node_: owned_node_,
+    owned_payload_: owned_payload_,
+    inductive_spec_: inductive_spec_,
     instantiate_ctor_: instantiate_ctor_,
     flow_cod_: flow_cod_,
     flow_compose_: flow_compose_,
