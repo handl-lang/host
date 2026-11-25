@@ -12,7 +12,7 @@ Approved direction (user, 2026-11-25): effects migrate from the
 `IO<sig>` codomain former to the **ambient mode** reading of MTT —
 the judgement carries a mode `μ`; `perform` extends it; `handle` is a
 modality between modes. The `IO<S>` codomain former is **retired, not
-kept as an alias** — the existing surface migrates to `@ {io: S}`.
+kept as an alias** — the existing surface migrates to `@ [Effects(S)]`.
 
 This supersedes the "defer unification" verdict of
 `effects-as-modes.md` (M4 assessment): that doc correctly identified
@@ -31,13 +31,15 @@ MTT's mode context, made concrete for Handl:
 Surface spelling (proposal, to be pinned by the phase-1 spec):
 
 ```hnl
-printLn : (Str ~> Str) @ {io: {puts}}
+printLn : (Str ~> Str) @ [Effects({puts: Str ~> Unit})]
 handle m with {puts: h}      -- modality: μ → μ′
 ```
 
-`@ μ` is a new type-position/judgement suffix — distinct from `~[m]~>`
-(which grades the *morphism's usage*). The `IO<S>` codomain former is
-retired: there is no reified spelling, no alias, no dual truth.
+`@ μ` is a judgement suffix ascribing a **set of algebra
+applications** — `@ [Effects(S), Cost(3)]`. It replaces *both* reified
+spellings: the `IO<S>` codomain former (retired) and the `~[m]~>`
+graded-arrow mode form (retired — `~[n]~>` keeps only its dimension
+meaning). No aliases, no dual truth.
 
 ## 2. The effects algebra
 
@@ -54,8 +56,10 @@ Effects := new Algebra(Row) {
   M4 assessment flagged).
 - `order` = the existing `dep_unify io_headed` direction, re-homed as
   an algebra field.
-- One sig-entry shape going forward: `perform` extends the mode with
-  `{op: argTy}` — dissolves the declared-op vs payload dual shape.
+- One sig-entry shape going forward: every row entry is an operation
+  type `name : A ~> B` — declared and performed ops alike (the
+  payload-only `perform` mint is gone; `perform` consults the op's
+  declared type).
 
 ## 3. Semantics per construct
 
@@ -68,7 +72,7 @@ Effects := new Algebra(Row) {
 | row polymorphism `IO(s)` | sig metas in `Former{type.io}.args` | mode metavariables (honest bound; M3 posture) |
 
 `IO<S>` removal: the `type.io` former is retired outright — no
-reification, no compat alias (user decision: ambient `@ {io: S}` is
+reification, no compat alias (user decision: ambient `@ [Effects(S)]` is
 the only spelling; `IO<S>` reads like a generic type application and
 hides where the effect lives). Existing `IO<...>` surface sites and
 the smoke corpus migrate to ambient. Deep-handler codomain rewrite
@@ -94,12 +98,12 @@ becomes a modality on the mode slot.
 4. **Mode metavariables** for row polymorphism — honest bound first,
    solver later.
 5. **`IO<S>` removal + surface migration** — `type.io` former retired;
-   `@ {io: S}` is the canonical and only spelling; existing `IO<...>`
+   `@ [Effects(S)]` is the canonical and only spelling; existing `IO<...>`
    sites migrate (codemod + corpus update).
 
 ## 5. Phases (see pl-0004)
 
-- **E0** — effects algebra instance + `~[{io:S}]~>` permitted as
+- **E0** — effects algebra instance + `@ [Effects(S)]` permitted as
   annotation (M2 subset; no semantic change).
 - **E1** — mode contexts: `Γ ⊢ t : A @ μ` judgement plumbing through
   NBE; `@ μ` surface parses/elaborates; `type.io` former retired and

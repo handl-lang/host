@@ -1,6 +1,13 @@
 # Graded arrows — generalization design (MTT modes framing)
 
 Status: proposal (design only — no code), **reframed to modes 2026-11-25**.
+**Superseded 2026-11-25 (surface only):** the `~[G]~>` mode form is
+retired — all mode ascriptions move to `@ [Algebra(payload), …]` (a set
+of algebra applications) per
+[`effects-ambient-modes.md`](effects-ambient-modes.md). `~[n]~>` keeps
+only its dimension meaning. The mode-algebra semantics below
+(`compose`/`unit`/`order`, call-head instances, mode polymorphism)
+carries over unchanged; only the *spelling* changed.
 User decision: "MTT looks the best one, because it generalizes" — the
 bracket payload `G` in `A ~[G]~> B` is a **mode** (an object of a mode
 theory, MTT/Gratzer–Kavvos–Nuyts–Birkedal), generalizing coeffect grades.

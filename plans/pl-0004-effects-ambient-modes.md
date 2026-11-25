@@ -12,7 +12,7 @@ Goal: complete the MTT thesis — effects become a mode algebra on the
 same axis as grades/coeffects, with the judgement carrying an ambient
 mode `μ`. The `IO<sig>` codomain former is **retired outright** (no
 compat alias); existing `IO<...>` surface sites and the smoke corpus
-migrate to `@ {io: S}`.
+migrate to `@ [Effects(S)]`.
 
 Design: `design/effects-ambient-modes.md`. Supersedes the M4
 deferral in `effects-as-modes.md` (blockers are sequenced, not
@@ -36,16 +36,16 @@ avoided).
 - `Effects := new Algebra(Row)` canonical instance:
   `compose` = row union w/ entry-merge rule, `unit` = `{}`,
   `order` = row-width subsumption.
-- `~[{io: S}]~>` permitted as annotation; `synth_graded_arrow`
-  recognizes the `io` dimension. `type.io` former begins deprecation;
-  `IO<...>` surface sites migrate to ambient spelling.
+- `@ [Effects(S)]` permitted as annotation; `synth_graded_arrow`'s
+  mode path recognizes the `Effects` head. `type.io` former begins
+  deprecation; `IO<...>` surface sites migrate to ambient spelling.
 
 ### E1 — mode contexts + `@ μ` surface
 
 - Judgement form `Γ ⊢ t : A @ μ` plumbed through NBE synth/check.
 - `@ μ` parses/elaborates as the canonical effects spelling.
 - `type.io` former removed; `IO<...>` sites migrated to
-  `@ {io: ...}` (codemod + corpus update — no compat shim).
+  `@ [Effects(S)]` (codemod + corpus update — no compat shim).
 - Mode metavariables: honest bound (unresolvable → pass), matching
   M3 posture.
 
@@ -75,7 +75,7 @@ avoided).
   `IO<S>` codomain form is gone.
 - Effect rows compose via `mode_compose`; widening via `order`.
 - Coverage/residual diagnostics preserved (same three classes).
-- `IO<sig>` corpus fully migrated to `@ {io: ...}`; model parity green.
+- `IO<sig>` corpus fully migrated to `@ [Effects(S)]`; model parity green.
 
 ## Risks
 
