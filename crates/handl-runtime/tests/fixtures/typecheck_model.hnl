@@ -3762,14 +3762,16 @@ do {
             tv := if rp.verdict == "path" {
               if ue != null {
                 do {
-                  --- Shallow `unify`, not `unify_dependent_`: the
-                  --- domain match is *speculative* — a failure must
-                  --- not leave a spurious "type mismatch" diagnostic
-                  --- behind (the `subst_index_` fallback still gets
-                  --- its chance).
-                  uu := unify(funcs, vres.typ, rp.frm, vres["state"].metas)
-                  if uu.ok {
-                    { val: zonk(zonk, rp.to, uu.metas), state: set(vres["state"], "metas", uu.metas) }
+                  --- Strict `unify_dependent_`, not shallow `unify`:
+                  --- the domain match is *speculative* — a failure
+                  --- must not leave a spurious "type mismatch"
+                  --- diagnostic behind (the `subst_index_` fallback
+                  --- still gets its chance). `unify` is also vacuous
+                  --- here: it only compares `__tag__` on tagged
+                  --- values, so `Vec(0, Bool)` would "match" `Nat`.
+                  ud := funcs.unify_dependent_(funcs, vres.typ, rp.frm, vres["state"])
+                  if ud.ok {
+                    { val: zonk(zonk, rp.to, ud["state"].metas), state: ud["state"] }
                   } else {
                     do {
                       t1 := subst_index_(subst_index_, rp.frm, rp.to, vres.typ)
