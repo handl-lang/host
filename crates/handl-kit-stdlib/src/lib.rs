@@ -19,6 +19,47 @@ use handl_plugin_lib_stdlib::ops::collections::CollectionsModule;
 // `handl-lib-*` crates' HNL/FUNCS/SOURCES tables verbatim.
 // ---------------------------------------------------------------------------
 
+// base64 — pure `.hnl` codec (T-044: crate dep dropped, pkg vendored).
+const BASE64_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/index.hnl"));
+const BASE64_FUNCS: &[&str] = &["encode", "decode", "codec"];
+const BASE64_SOURCES: &[(&str, &str, &[&str])] = &[
+    (
+        "encode",
+        include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/encode.hnl")),
+        &["encode"],
+    ),
+    (
+        "decode",
+        include_str!(concat!(env!("OUT_DIR"), "/lib-base64/src/decode.hnl")),
+        &["decode"],
+    ),
+];
+
+// hex — pure `.hnl` codec.
+const HEX_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/index.hnl"));
+const HEX_FUNCS: &[&str] = &["encode", "decode", "codec"];
+const HEX_SOURCES: &[(&str, &str, &[&str])] = &[
+    (
+        "encode",
+        include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/encode.hnl")),
+        &["encode"],
+    ),
+    (
+        "decode",
+        include_str!(concat!(env!("OUT_DIR"), "/lib-hex/src/decode.hnl")),
+        &["decode"],
+    ),
+];
+
+// serialize — format-agnostic serialization port (`.hnl` module surface).
+const SERIALIZE_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-serialize/src/index.hnl"));
+const SERIALIZE_FUNCS: &[&str] = &["serialize", "deserialize", "toml", "yaml"];
+const SERIALIZE_SOURCES: &[(&str, &str, &[&str])] = &[(
+    "serialize",
+    include_str!(concat!(env!("OUT_DIR"), "/lib-serialize/src/serialize.hnl")),
+    &["fmt_name", "serialize", "deserialize", "toml", "yaml"],
+)];
+
 // ---------------------------------------------------------------------------
 // perlin module (pure Handl — ADR-0109)
 // ---------------------------------------------------------------------------
@@ -84,9 +125,9 @@ fn build_json_module() -> HandlModule {
 fn build_base64_module() -> HandlModule {
     handl_plugin_lib_handl::handl_module_from_sources(
         "base64",
-        handl_lib_base64::BASE64_HNL,
-        handl_lib_base64::BASE64_FUNCS,
-        handl_lib_base64::BASE64_SOURCES,
+        BASE64_HNL,
+        BASE64_FUNCS,
+        BASE64_SOURCES,
         &KitResolver,
         "tree-walk",
     )
@@ -97,9 +138,9 @@ fn build_base64_module() -> HandlModule {
 fn build_hex_module() -> HandlModule {
     handl_plugin_lib_handl::handl_module_from_sources(
         "hex",
-        handl_lib_hex::HEX_HNL,
-        handl_lib_hex::HEX_FUNCS,
-        handl_lib_hex::HEX_SOURCES,
+        HEX_HNL,
+        HEX_FUNCS,
+        HEX_SOURCES,
         &KitResolver,
         "tree-walk",
     )
@@ -289,9 +330,9 @@ fn build_tar_module() -> HandlModule {
 fn build_serialize_module() -> HandlModule {
     handl_plugin_lib_handl::handl_module_from_sources(
         "serialize",
-        handl_lib_serialize::SERIALIZE_HNL,
-        handl_lib_serialize::SERIALIZE_FUNCS,
-        handl_lib_serialize::SERIALIZE_SOURCES,
+        SERIALIZE_HNL,
+        SERIALIZE_FUNCS,
+        SERIALIZE_SOURCES,
         &KitResolver,
         "tree-walk",
     )
@@ -387,26 +428,38 @@ pub fn populate_libraries(reg: &mut handl_kit_data::LibraryRegistry) {
             stdlib::library(name).unwrap_or_else(|| panic!("unknown stdlib package '{name}'"))
         });
     }
-    // `kv-hashmap` — the `handl-ops`-migrated backend: the lib repo exposes
-    // a kernel `handl_ops::OpRegistry`; the host `HandlLibraryPlugin`
-    // wrapper (formerly `handl_plugin_lib_kv_hashmap::LibraryPlugin`)
-    // lives here now.
+    // `kv-hashmap` — P-013/T-151 spec-driven: `lib-kv-hashmap/atoms.yaml`
+    // (`module: kv`, 6 atoms) + `kv_impls()` (kernel `handl_ops::Op`s
+    // adapted by `registry_from_atoms_kernel`) replace the
+    // `KV_HASHMAP_OPS`/`kv_hashmap_op_registry`/`cap`-`op`-`handle`
+    // decl triple. Atom names are the `kv.*` capability ids, same
+    // surface the stripped `cap` decls declared.
     reg.register("kv-hashmap", || {
-        use handl_plugin_lib_handl::{HandlLibraryPlugin, OpRegistry};
-        let mut registry = OpRegistry::new();
-        registry.import_kernel(&handl_plugin_lib_kv_hashmap::kv_hashmap_op_registry());
+        use handl_platform::CapabilityId;
+        use handl_plugin_lib_handl::HandlLibraryPlugin;
+        let decls =
+            stdlib::atoms::module_atoms(handl_plugin_lib_kv_hashmap::KV_HASHMAP_ATOMS, "kv")
+                .expect("kv-hashmap atoms spec");
+        let registry = stdlib::atoms::registry_from_atoms_kernel(
+            &decls,
+            &handl_plugin_lib_kv_hashmap::kv_impls(),
+        )
+        .expect("kv-hashmap atoms registry");
+        let op_names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
+        let caps: Vec<CapabilityId> = decls
+            .iter()
+            .map(|a| CapabilityId::from(a.name.clone()))
+            .collect();
         Box::new(
-            HandlLibraryPlugin::new_with_caps(
+            HandlLibraryPlugin::new(
                 "kv",
                 "lib.kv-hashmap",
                 "lib-kv-hashmap",
                 handl_plugin_lib_kv_hashmap::KV_HASHMAP_HNL,
                 &[],
             )
-            .with_ops(
-                handl_plugin_lib_kv_hashmap::KV_HASHMAP_OPS,
-                Arc::new(registry),
-            ),
+            .with_ops(&op_names, Arc::new(registry))
+            .with_capabilities(caps),
         ) as LibraryPlugin
     });
 }

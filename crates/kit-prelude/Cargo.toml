@@ -60,7 +60,8 @@ handl-plugin-ext-lint = { workspace = true }
 handl-plugin-lib-stdlib = { workspace = true }
 handl-plugin-lib-handl = { workspace = true }
 
-handl-lib-comb = { workspace = true }
+# `handl-lib-comb` dropped (T-044): the per-arrow `.hnl` files are vendored
+# by build.rs (`handl-pkg-vendor`) — no crate dep needed.
 handl-plugin-lib-tag = { workspace = true }
 handl-plugin-module = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
@@ -75,6 +76,9 @@ libc = "0.2"
 [dev-dependencies]
 criterion = "0.5"
 tempfile = "3"
+
+[build-dependencies]
+handl-pkg-vendor = { path = "../pkg-vendor" }
 
 [[bench]]
 name = "perf"

@@ -41,11 +41,13 @@ fn str_contract_parses_all_45_axioms() {
 /// The `char` contract is the semantic floor beneath `str`: category,
 /// case, scalar, and char-sequence atoms that every backend
 /// (`char-native`, `char-ascii`, `char-js`, `char-icu`) implements.
-/// The package moved to the `stdlib` repo with `handl-plugin-lib-char-native`
-/// (ADR-0128 Phase 3), which exports it as the `CHAR_HNL` const.
+/// The package lives in the `lib-char` repo; build.rs vendors it into
+/// `OUT_DIR` (T-044 — previously `handl-plugin-lib-char-native::CHAR_HNL`).
+const CHAR_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-char/src/index.hnl"));
+
 #[test]
 fn char_contract_parses_all_axioms() {
-    let src = handl_plugin_lib_char_native::CHAR_HNL;
+    let src = CHAR_HNL;
     let reg = parse_contracts(src).expect("char.hnl must parse");
     assert_eq!(
         reg.len(),

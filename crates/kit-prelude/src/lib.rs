@@ -882,6 +882,41 @@ impl Module for TransformModule {
     }
 }
 
+// comb — pure-Handl function combinators (T-044: crate dep dropped;
+// `lib-comb`'s per-arrow `.hnl` files are vendored by build.rs).
+mod comb_hnl {
+    pub const APPLY_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/apply.hnl"));
+    pub const CHOICE_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/choice.hnl"));
+    pub const COMPOSE_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/compose.hnl"));
+    pub const CONSTANTLY_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/constantly.hnl"));
+    pub const CONVERGE_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/converge.hnl"));
+    pub const COUNT_BY_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/count_by.hnl"));
+    pub const EVERY_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/every.hnl"));
+    pub const FANOUT_FN_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/fanout_fn.hnl"));
+    pub const FANOUT_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/fanout.hnl"));
+    pub const FIND_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/find.hnl"));
+    pub const FLAT_MAP_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/flat_map.hnl"));
+    pub const FLIP_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/flip.hnl"));
+    pub const FLOW_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/flow.hnl"));
+    pub const GROUP_BY_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/group_by.hnl"));
+    pub const PARTIAL_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/partial.hnl"));
+    pub const PARTITION_HNL: &str =
+        include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/partition.hnl"));
+    pub const PIPE_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/pipe.hnl"));
+    pub const SOME_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/some.hnl"));
+    pub const TAP_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/tap.hnl"));
+    pub const UNLESS_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/unless.hnl"));
+    pub const WHEN_HNL: &str = include_str!(concat!(env!("OUT_DIR"), "/lib-comb/src/when.hnl"));
+}
+
 /// `CombModule` exposes `handl-packages/comb/*.hnl` as the `comb.*` host
 /// function namespace: pure-Handl function combinators (one `.hnl` file per
 /// arrow, loaded by a one-function `HandlModule`). List transforms
@@ -898,59 +933,59 @@ impl CombModule {
 
         functions.insert(
             "fanout".to_string(),
-            HandlModule::new("comb", handl_lib_comb::FANOUT_HNL, &["fanout"]),
+            HandlModule::new("comb", comb_hnl::FANOUT_HNL, &["fanout"]),
         );
         functions.insert(
             "fanout_fn".to_string(),
-            HandlModule::new("comb", handl_lib_comb::FANOUT_FN_HNL, &["fanout_fn"]),
+            HandlModule::new("comb", comb_hnl::FANOUT_FN_HNL, &["fanout_fn"]),
         );
         functions.insert(
             "flow".to_string(),
-            HandlModule::new("comb", handl_lib_comb::FLOW_HNL, &["flow"]),
+            HandlModule::new("comb", comb_hnl::FLOW_HNL, &["flow"]),
         );
         functions.insert(
             "compose".to_string(),
-            HandlModule::new("comb", handl_lib_comb::COMPOSE_HNL, &["compose"]),
+            HandlModule::new("comb", comb_hnl::COMPOSE_HNL, &["compose"]),
         );
         functions.insert(
             "pipe".to_string(),
-            HandlModule::new("comb", handl_lib_comb::PIPE_HNL, &["pipe"]),
+            HandlModule::new("comb", comb_hnl::PIPE_HNL, &["pipe"]),
         );
         functions.insert(
             "apply".to_string(),
-            HandlModule::new("comb", handl_lib_comb::APPLY_HNL, &["apply"]),
+            HandlModule::new("comb", comb_hnl::APPLY_HNL, &["apply"]),
         );
         functions.insert(
             "tap".to_string(),
-            HandlModule::new("comb", handl_lib_comb::TAP_HNL, &["tap"]),
+            HandlModule::new("comb", comb_hnl::TAP_HNL, &["tap"]),
         );
         functions.insert(
             "constantly".to_string(),
-            HandlModule::new("comb", handl_lib_comb::CONSTANTLY_HNL, &["constantly"]),
+            HandlModule::new("comb", comb_hnl::CONSTANTLY_HNL, &["constantly"]),
         );
         functions.insert(
             "flip".to_string(),
-            HandlModule::new("comb", handl_lib_comb::FLIP_HNL, &["flip"]),
+            HandlModule::new("comb", comb_hnl::FLIP_HNL, &["flip"]),
         );
         functions.insert(
             "partial".to_string(),
-            HandlModule::new("comb", handl_lib_comb::PARTIAL_HNL, &["partial"]),
+            HandlModule::new("comb", comb_hnl::PARTIAL_HNL, &["partial"]),
         );
         functions.insert(
             "choice".to_string(),
-            HandlModule::new("comb", handl_lib_comb::CHOICE_HNL, &["choice"]),
+            HandlModule::new("comb", comb_hnl::CHOICE_HNL, &["choice"]),
         );
         functions.insert(
             "when".to_string(),
-            HandlModule::new("comb", handl_lib_comb::WHEN_HNL, &["when"]),
+            HandlModule::new("comb", comb_hnl::WHEN_HNL, &["when"]),
         );
         functions.insert(
             "unless".to_string(),
-            HandlModule::new("comb", handl_lib_comb::UNLESS_HNL, &["unless"]),
+            HandlModule::new("comb", comb_hnl::UNLESS_HNL, &["unless"]),
         );
         functions.insert(
             "converge".to_string(),
-            HandlModule::new("comb", handl_lib_comb::CONVERGE_HNL, &["converge"]),
+            HandlModule::new("comb", comb_hnl::CONVERGE_HNL, &["converge"]),
         );
         // Collection ops — thin `.hnl` delegations onto the
         // `combinators.*` natives (same convention as `kit-test`'s
@@ -962,13 +997,13 @@ impl CombModule {
         let combinators = Arc::new(stdlib::module("combinators").expect("combinators"))
             as Arc<dyn Module + Send + Sync>;
         for (name, src) in [
-            ("flat_map", handl_lib_comb::FLAT_MAP_HNL),
-            ("find", handl_lib_comb::FIND_HNL),
-            ("some", handl_lib_comb::SOME_HNL),
-            ("every", handl_lib_comb::EVERY_HNL),
-            ("group_by", handl_lib_comb::GROUP_BY_HNL),
-            ("partition", handl_lib_comb::PARTITION_HNL),
-            ("count_by", handl_lib_comb::COUNT_BY_HNL),
+            ("flat_map", comb_hnl::FLAT_MAP_HNL),
+            ("find", comb_hnl::FIND_HNL),
+            ("some", comb_hnl::SOME_HNL),
+            ("every", comb_hnl::EVERY_HNL),
+            ("group_by", comb_hnl::GROUP_BY_HNL),
+            ("partition", comb_hnl::PARTITION_HNL),
+            ("count_by", comb_hnl::COUNT_BY_HNL),
         ] {
             functions.insert(
                 name.to_string(),

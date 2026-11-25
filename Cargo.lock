@@ -760,10 +760,12 @@ name = "handl-host-tensor"
 version = "0.1.0"
 dependencies = [
  "handl-kit-core",
+ "handl-kit-ffi",
  "handl-lib-ops",
  "handl-platform",
  "handl-plugin-lib-handl",
  "handl-value",
+ "inventory",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -908,7 +910,7 @@ dependencies = [
  "handl-kit-stdlib",
  "handl-kit-test",
  "handl-language",
- "handl-lib-comb",
+ "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-ext-diag",
  "handl-plugin-ext-lint",
@@ -960,9 +962,6 @@ version = "0.1.0"
 dependencies = [
  "handl-kit-core",
  "handl-kit-data",
- "handl-lib-base64",
- "handl-lib-hex",
- "handl-lib-serialize",
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
@@ -996,11 +995,6 @@ dependencies = [
 [[package]]
 name = "handl-lib-base64"
 version = "0.1.0"
-dependencies = [
- "base64",
- "handl-ops",
- "serde_json",
-]
 
 [[package]]
 name = "handl-lib-bytes"
@@ -1043,11 +1037,6 @@ dependencies = [
 [[package]]
 name = "handl-lib-hex"
 version = "0.1.0"
-dependencies = [
- "handl-ops",
- "hex",
- "serde_json",
-]
 
 [[package]]
 name = "handl-lib-mood"
@@ -1113,6 +1102,7 @@ dependencies = [
 name = "handl-ops"
 version = "0.1.0"
 dependencies = [
+ "inventory",
  "serde_json",
  "thiserror",
 ]
@@ -1405,7 +1395,6 @@ dependencies = [
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-ext-detect",
- "handl-plugin-lib-char-native",
  "handl-plugin-lib-handl",
  "hnl-engine",
  "hnl-tool-lex-pattern",
@@ -1456,6 +1445,7 @@ version = "0.1.0"
 dependencies = [
  "handl-ops",
  "handl-pkg-vendor",
+ "inventory",
  "serde_json",
 ]
 
@@ -1483,9 +1473,11 @@ dependencies = [
  "hnl-tool-parse-pratt",
  "hnl-tool-transform",
  "hnl-tool-transform-rewrite",
+ "inventory",
  "serde",
  "serde_json",
  "serde_yaml",
+ "tempfile",
 ]
 
 [[package]]
@@ -2190,6 +2182,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c033f80b2c113cdf91ab7a33faa9cbc014726dcad99880c8609af2a370edf37d"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "inventory"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6928282826c822ad91bf1c9a1cb90a30ba1c26770749929b4656cd6be829cd7c"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]

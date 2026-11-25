@@ -4,9 +4,12 @@
 //! then embeds the vendored files with `include_str!`.
 fn main() {
     for pkg in [
+        "lib-base64",
+        "lib-hex",
         "lib-ip",
         "lib-json",
         "lib-perlin",
+        "lib-serialize",
         "lib-simplex",
         "lib-tar",
         "lib-url-rfc",

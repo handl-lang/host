@@ -119,20 +119,15 @@ handl-kit-eqsat = { path = "crates/handl-kit-eqsat" }
 handl-plugin-lib-stdlib = { path = "crates/plugin-lib-stdlib" }
 handl-plugin-load = { path = "crates/plugin-load" }
 handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
-handl-lib-encoding = { git = "https://github.com/handl-lang/lib-encoding", branch = "main" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
-handl-plugin-lib-kv = { git = "https://github.com/handl-lang/lib-kv", branch = "main" }
 handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/lib-kv-hashmap", branch = "main" }
 # ADR-0128 Phase 4: the otlp modules live in the `otlp` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
-handl-plugin-lib-parse = { git = "https://github.com/handl-lang/host", branch = "main" }
 
 handl-plugin-applier-bootstrap = { path = "crates/plugin-applier-bootstrap" }
 handl-plugin-applier-default = { path = "crates/plugin-applier-default" }
-handl-plugin-lib-serialize = { git = "https://github.com/handl-lang/host", branch = "main" }
-handl-plugin-lib-scheduler = { path = "crates/plugin-lib-scheduler" }
 handl-plugin-lib-tag = { path = "crates/plugin-lib-tag" }
 handl-platform = { path = "crates/platform" }
 handl-plugin-exec-cache = { path = "crates/plugin-exec-cache" }
@@ -173,7 +168,6 @@ handl-kit-test = { git = "https://github.com/handl-lang/tool-test", branch = "ma
 # `handl-kit-core` table, consumed by `handl-kit-prelude`'s `register()`.
 handl-host-tensor = { git = "https://github.com/handl-lang/exec-tensor", branch = "main" }
 handl-ext = { git = "https://github.com/handl-lang/kernel", branch = "main" }
-handl-lib-comb = { git = "https://github.com/handl-lang/lib-comb", branch = "main" }
 hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branch = "main" }
 hnl-exec-cranelift = { git = "https://github.com/handl-lang/exec-cranelift", branch = "main" }
 hnl-tool-fmt = { git = "https://github.com/handl-lang/tool-fmt", branch = "main" }
@@ -197,9 +191,6 @@ handl-plugin-ffi = { path = "crates/plugin-ffi" }
 handl-kit-lang = { path = "crates/handl-kit-lang" }
 # Vendored .hnl-only lib packages consumed by handl-kit-stdlib
 # (ADR-0160 P3); resolved from the sibling lib-* checkouts via [patch].
-handl-lib-base64 = { git = "https://github.com/handl-lang/lib-base64", branch = "main" }
-handl-lib-hex = { git = "https://github.com/handl-lang/lib-hex", branch = "main" }
-handl-lib-serialize = { git = "https://github.com/handl-lang/lib-serialize", branch = "main" }
 handl-value = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 handl-plugin-codegen = { path = "crates/plugin-codegen" }
 handl-plugin-ext-codegen = { path = "crates/plugin-ext-codegen" }
@@ -212,7 +203,6 @@ hnl-tool-codemod = { git = "https://github.com/handl-lang/tool-codemod", branch 
 handl-plugin-codemod = { path = "crates/plugin-codemod" }
 handl-plugin-ext-codemod = { path = "crates/plugin-ext-codemod" }
 
-handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 handl-plugin-lib-lang-compile = { git = "https://github.com/handl-lang/lib-lang-compile", branch = "main" }
 handl-plugin-lib-lang-eval = { git = "https://github.com/handl-lang/lib-lang-eval", branch = "main" }
 handl-plugin-lib-lang-lex = { git = "https://github.com/handl-lang/lib-lang-lex", branch = "main" }
