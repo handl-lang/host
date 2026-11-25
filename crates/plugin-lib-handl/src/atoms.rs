@@ -39,7 +39,7 @@
 //!   the registry entry (T-148). Optional: absent = unsigned atom.
 //! - `impl` — key into the module's impl table: a `fn() ->
 //!   Vec<(&'static str, Arc<dyn Function + Send + Sync>)>` in the
-//!   matching `ops/*.rs` (e.g. [`crate::ops::process::proc_impls`]).
+//!   matching `ops/*.rs` (e.g. `plugin-lib-stdlib`'s `ops::process::proc_impls`).
 //! - `total` — metadata replacing the dead `guarantee:`/`requires:`/
 //!   `termination:` decl clauses; parsed and carried, not yet consumed
 //!   (capability gating is a later task).
@@ -60,7 +60,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use handl_platform::{EvalContext, EvalError, Function};
-use handl_plugin_lib_handl::{OpRegistry, sig_to_type_value};
+use crate::{OpRegistry, sig_to_type_value};
 use serde::Deserialize;
 
 /// One `impl:` table entry: spec key → the `Function` impl (the handl).
@@ -138,7 +138,7 @@ pub fn parse_atoms(yaml_text: &str) -> Result<Vec<(String, Vec<AtomDecl>)>, Stri
 
 /// Select one module's atom declarations from a parsed spec document.
 ///
-/// `module` is the [`crate::packages::ModuleSpec`] name (e.g. `"proc"`,
+/// `module` is the [`ModuleSpec`](https://docs.rs/handl-plugin-lib-stdlib) (plugin-lib-stdlib) name (e.g. `"proc"`,
 /// `"math"`). For a single-module document the declared `module:` must
 /// match; for a `modules:` map the key must exist.
 pub fn module_atoms(yaml_text: &str, module: &str) -> Result<Vec<AtomDecl>, String> {
@@ -194,7 +194,7 @@ pub fn registry_from_atoms(atoms: &[AtomDecl], impls: &[AtomImpl]) -> Result<OpR
 // ---------------------------------------------------------------------------
 
 /// Presents a kernel [`handl_ops::Op`] as a host [`Function`] — the same
-/// adaptation [`handl_plugin_lib_handl::OpRegistry::import_kernel`] applies
+/// adaptation [`OpRegistry::import_kernel`] applies
 /// internally, re-stated here (that adapter is private to
 /// `plugin-lib-handl`) so spec-driven modules can attach per-atom sigs via
 /// [`OpRegistry::register_with_sig`] — something `import_kernel` cannot do.

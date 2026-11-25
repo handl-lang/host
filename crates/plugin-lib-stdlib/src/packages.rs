@@ -366,11 +366,16 @@ pub static MODULES: &[ModuleSpec] = &[
         name: "otlp_c",
         hnl: handl_plugin_lib_otlp_c::OTLP_C_HNL,
         funcs: &[],
-        ops: handl_plugin_lib_otlp_c::OTLP_OPS,
+        ops: &[],
         values: &[],
-        registry: Some(RegistrySource::Kernel(
-            handl_plugin_lib_otlp_std::otlp_std_op_registry,
-        )),
+        // Spec-driven (P-013/T-151): the `otlp_c.*` atoms + impls table
+        // replace the hand-wired `OTLP_OPS`/`otlp_std_op_registry`
+        // pair. The ops are stateful (`HttpOtlpState`), so the impl
+        // table is parameterized — see `kernel_impls::otlp_c_impls`.
+        registry: Some(RegistrySource::KernelAtoms {
+            spec: handl_plugin_lib_otlp_c::OTLP_C_ATOMS_YAML,
+            impls: ops::kernel_impls::otlp_c_impls,
+        }),
     },
     ModuleSpec {
         name: "kv_map",
@@ -840,8 +845,9 @@ pub static MODULES: &[ModuleSpec] = &[
     },
     // ── archive / archive_tar (former plugin-lib-archive, plugin-lib-archive-tar)
     // The `archive` module is caps-only (no callable ops — it's a trait
-    // abstraction). The `tar` module provides `tar.pack` and `tar.unpack` via
-    // the consolidated Rust `Function` impls in `ops::tar`.
+    // abstraction). The `tar` module is pure handl: `pack`/`unpack` are
+    // local arrows in `index_flat.hnl` (the `cap`/`op` decls there are
+    // the contract, kept per P-013 — there is no Rust impl to spec-drive).
     ModuleSpec {
         name: "archive",
         hnl: include_str!(concat!(env!("OUT_DIR"), "/lib-archive/src/index.hnl")),

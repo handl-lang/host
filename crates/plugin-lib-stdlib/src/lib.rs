@@ -18,7 +18,11 @@
 //!   the op impls (moved from `plugin-lib-utils`).
 
 pub mod arrow_iter;
-pub mod atoms;
+// P-013/T-151: the `atoms.yaml` spec machinery moved to
+// `handl-plugin-lib-handl` (the `CharModule` consumer lives there and
+// cannot depend on this crate); re-exported so `stdlib::atoms::*` and
+// `crate::atoms::*` keep resolving.
+pub use handl_plugin_lib_handl::atoms;
 // `function_value` + `shared` moved to the `lib-ops` repo (shared op helpers,
 // throwaway until ops are handl). Re-exported so `crate::shared` /
 // `crate::function_value` keep resolving for the ops modules here.

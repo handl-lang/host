@@ -1,12 +1,12 @@
 //! The `char` module — the host-shaped [`Module`] wrapper over
 //! `handl-plugin-lib-char-native`'s kernel-ABI ops.
 //!
-//! `lib-char-native` registers its 18 `char.*` ops on the kernel
-//! [`handl_ops::OpRegistry`] (via `char_op_registry()`); this module
-//! imports that registry into the host [`OpRegistry`] through
-//! [`OpRegistry::import_kernel`] and exposes the ops through
-//! [`HandlModule::with_ops`], preserving the `char.<fn>` module/name keys
-//! [`ModuleLookup`] resolves (`char` module + local function name).
+//! `lib-char-native` declares its 18 `char.*` atoms in `atoms.yaml`
+//! (P-013/T-151); this module builds the registry from that spec +
+//! [`handl_plugin_lib_char_native::char_impls`] through
+//! [`crate::atoms::registry_from_atoms_kernel`], preserving the
+//! `char.<fn>` module/name keys [`ModuleLookup`] resolves (`char`
+//! module + local function name).
 //!
 //! This is the `char` backend the embedding host provides for the `char`
 //! axiom contract (`handl-packages/char/char.hnl`): `str-handl`, the
@@ -16,10 +16,12 @@ use std::sync::{Arc, OnceLock};
 
 use handl_platform::{Function, Module};
 
-use crate::{HandlModule, OpRegistry};
+use crate::HandlModule;
 
 /// The qualified op names backing the `char` module — re-exported from
-/// `lib-char-native` ([`handl_plugin_lib_char_native::CHAR_OPS`]).
+/// `lib-char-native` ([`handl_plugin_lib_char_native::CHAR_OPS`]). Kept
+/// for consumers that enumerate the surface; the spec-driven wiring reads
+/// names from `atoms.yaml` ([`crate::atoms::module_atoms`]).
 pub const CHAR_OPS: &[&str] = handl_plugin_lib_char_native::CHAR_OPS;
 
 static CHAR_MODULE: OnceLock<HandlModule> = OnceLock::new();
@@ -28,8 +30,22 @@ static CHAR_MODULE: OnceLock<HandlModule> = OnceLock::new();
 /// record functions; every `char.*` export is an irreducible atom).
 fn inner() -> &'static HandlModule {
     CHAR_MODULE.get_or_init(|| {
-        let mut registry = OpRegistry::new();
-        registry.import_kernel(&handl_plugin_lib_char_native::char_op_registry());
+        // P-013/T-151: spec-driven — `lib-char-native/atoms.yaml`
+        // (`module: char`, 18 atoms) + `char_impls()` replace the
+        // `CHAR_OPS`/`char_op_registry`/`cap`-`op`-`handle` hand-wiring.
+        // The spec is the source of truth for op names *and* signatures
+        // (the stripped `op` decls used to feed `with_ops`' sig attach).
+        let decls = crate::atoms::module_atoms(
+            handl_plugin_lib_char_native::CHAR_ATOMS_YAML,
+            "char",
+        )
+        .expect("char atoms spec");
+        let registry = crate::atoms::registry_from_atoms_kernel(
+            &decls,
+            &handl_plugin_lib_char_native::char_impls(),
+        )
+        .expect("char atoms registry");
+        let names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
         // `with_loader_disabled`: `HandlModule::new`'s `analyze_source`
         // would otherwise route `char`'s prep through the installed
         // `.hnl` loader — a nested eval whose runtime build materializes
@@ -39,7 +55,7 @@ fn inner() -> &'static HandlModule {
         // loader state (same guard `plugin-lib-stdlib::module_ref` uses).
         crate::with_loader_disabled(|| {
             HandlModule::new("char", handl_plugin_lib_char_native::CHAR_NATIVE_HNL, &[])
-                .with_ops(CHAR_OPS, Arc::new(registry))
+                .with_ops(&names, Arc::new(registry))
         })
     })
 }

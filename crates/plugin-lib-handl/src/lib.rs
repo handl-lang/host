@@ -79,6 +79,7 @@
 //! those transforms to its own source.
 
 mod atom_sig;
+pub mod atoms;
 mod char_module;
 pub mod model;
 pub mod op_registry;

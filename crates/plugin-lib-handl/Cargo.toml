@@ -21,7 +21,9 @@ hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branc
 hnl-tool-transform = { git = "https://github.com/handl-lang/tool-transform", branch = "main" }
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
 
 [build-dependencies]
 handl-pkg-vendor = { path = "../pkg-vendor" }

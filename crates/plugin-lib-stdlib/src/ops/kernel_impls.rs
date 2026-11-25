@@ -186,3 +186,16 @@ pub fn typeof_impls() -> Vec<KernelAtomImpl> {
         ("typeof_coalesce", Arc::new(handl_lib_type::ops::Coalesce)),
     ]
 }
+
+/// `otlp_c.*` — the OTLP exporter ops are *stateful* (all nine share one
+/// `Arc<dyn OtlpState>`), so unlike the stateless tables above this one
+/// is built by `otlp_op_impls(state)` in lib-otlp-c rather than being a
+/// static `fn() -> Vec<_>`. The `atoms.yaml` `impl:` keys are the
+/// qualified op names themselves, so this table is a straight pass-
+/// through; the state is `HttpOtlpState`, matching what
+/// `RegistrySource::Kernel(otlp_std_op_registry)` built before T-151.
+pub fn otlp_c_impls() -> Vec<KernelAtomImpl> {
+    let state: Arc<dyn handl_plugin_lib_otlp_c::OtlpState> =
+        Arc::new(handl_plugin_lib_otlp_std::HttpOtlpState::new());
+    handl_plugin_lib_otlp_c::otlp_op_impls(state)
+}
