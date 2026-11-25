@@ -86,6 +86,11 @@ wc : Bool := cp # true
 --- synthesizes the motive at the target.
 jv : Vec<2, Bool> := J p22, (i, w) ~> Vec(i, Bool), v2
 
+--- `J refl, motive, base` — the refl iota: the endpoints are
+--- unidentified, so J computes on the base's own fibre — `VNil`'s
+--- `Vec(0, Bool)`, not any path endpoint.
+jr : Vec<0, Bool> := J refl, (i, w) ~> Vec(i, Bool), VNil
+
 -- ---------------------------------------------------------------------
 -- P2 — transp / hcomp / Comp / trans / symm.
 -- ---------------------------------------------------------------------
