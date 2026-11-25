@@ -23,7 +23,7 @@ Design decisions (fixed): `I` sort with `i0`/`i1` + dim vars; faces `Φ` = `i=0`
 - [x] **P6a paper** — `kernel` `eb1b6f3`: "Equality as interval data" section + CCHM/Huber/HoTT citations; post-P5 wording spots flagged.
 - [x] **P6b smoke** — host `d742b6ef`: `tests/smoke/cubical{,_err}.hnl`, suite 24/24 green through production `hnl typecheck`.
 - [x] **Final cleanup** — J-excision audit (agent `e26d5dc7`): **nothing left to remove** — P1–P5 already excised all primitive J machinery. `type.j` routes to the derived `synth_j_` shell; `eval.j` is a required runtime backstop (`j` nodes reach eval — erase pass only removes `type.refl`/`is_evidence`/`empty`-typed nodes); NBE `synth_j_judgment` already computes the derived endpoint applications (verified empirically through `hnl typecheck`); `JElim` Term tag is live kernel vocabulary consumed by exec/law/capability backends, not the surface-J primitive. Fixture-drift guard: `5665d0c` + host `5eccf939`. Paper post-P5 wording: kernel `e8dbbe4`. Univalence smoke: in `13c9dff3`. Known residuals: NBE `synth_j_judgment` lacks a dedicated `refl` verdict arm + `w`-binder approximation (pre-existing, no test coverage); shallow-`unify` vacuity also in P4 transport branch (~line 3760) — tech debt.
-- [ ] **dependent_structure.rs repair** — 14 pre-existing failures from retired `data` keyword; rewrite to family-record spelling (`Bool := { True : Bool, … }`) is on disk uncommitted, awaiting verification after P5 model lands.
+- [x] **dependent_structure.rs repair** — 20/20 green, tool-typecheck-handl `1519a15`. No P5 soundness bug: failures were (a) `check_call` unimplemented for ctor apps in argument position + `check_json_value` not solving metas (tests rerouted ctor args through let-bound vars; latent gaps filed as I-004), (b) `dependent.hnl` "Path as data"/cell-law sections never typechecked (pre-existing axis-≥2 `axis_flow` cap + missing `synth_cell_*` ops, predates cubical) — test now stops before `export Path`, covering the 8 checkable statements.
 
 ## Production parity gaps found by smoke — ALL RESOLVED
 
@@ -47,8 +47,8 @@ The everything-is-data architecture compounds beyond the type theory itself:
 
 ## Known issues / follow-ups
 
-- `dependent_structure.rs`: 14 pre-existing failures (`unbound variable: data` — retired keyword), unrelated.
-- `typecheck_model.hnl` fixture drift — no sync mechanism; phases re-sync by `cp`, consider a drift test.
+- ~~`dependent_structure.rs`: 14 pre-existing failures~~ — resolved 20/20 (`1519a15`); residual latent gaps tracked as I-004.
+- ~~`typecheck_model.hnl` fixture drift~~ — resolved: drift-guard sync test + script (`5665d0c` + host `5eccf939`).
 - Disk pressure on this machine; always `CARGO_INCREMENTAL=0`, `CARGO_PROFILE_*_DEBUG=0`, `-j2`, `CARGO_LOCK_HELD=1 /usr/bin/cargo` to bypass the flock queue.
 - `sect`/`retr` equivalence proof fields deferred (proof-irrelevant, ADR-0151); `to`/`fro` are provenance only.
 - Glue partial-section checking approximate; fibrancy of `Type`/universe resizing unaddressed.
