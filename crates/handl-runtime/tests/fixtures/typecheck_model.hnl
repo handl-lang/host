@@ -1801,17 +1801,46 @@ do {
   --- is a stored `I → Type` family value applied recursively at the
   --- same argument — `(i:I) → F i` has no AST node for `F i`, so the
   --- body is computed by re-entering this function on the family.
+  --- `j_motive` (ADR-0208 P5) is the derived-J motive family
+  --- `M(i) = P (p i) (p↾i)`: `synth_j_` builds it as an `I → Type`
+  --- `type.pi` and reads `M(i0)`/`M(i1)` by re-entering this function
+  --- at the endpoint dimension variables (`fam_at_`'s is_family arm
+  --- does exactly this application; the endpoint-only motive never
+  --- produces a `type.glue` needing fam_at_'s on-face reduction, so
+  --- the direct call is equivalent) — J *is* the dependent transport
+  --- (`comp`/`transp`) in that family. The
+  --- closure stores the motive's AST index plus the path's endpoints
+  --- and witness; the dimension point selects the endpoint (`i0`/`i1`
+  --- only — an interior `p i` has no representable term, paths being
+  --- type-level, so it yields stuck `type.unknown`).
   apply_dep_closure_ := [funcs, type_val, arg_type, arg_term, s]~> do {
     closure := get_or(type_val, "body_closure", {})
     var_name := get_or(closure, "var_name", "")
     body_idx := get_or(closure, "body_child_idx", null)
     const_body := get_or(closure, "const_body", null)
     apply_type := get_or(closure, "apply_type", null)
+    j_motive := get_or(closure, "j_motive", null)
     mark := tc_mark(s)
     old_results := get_or(s, "results", {})
     extended := if var_name == "" { s } else { tc_extend(s, var_name, arg_type) }
     bound := if var_name == "" || arg_term == null { extended } else { tc_bind_result(extended, var_name, arg_term) }
-    body_result := if apply_type != null {
+    body_result := if j_motive != null {
+      do {
+        i0t := make_type("var", set({}, "name", "i0"))
+        i1t := make_type("var", set({}, "name", "i1"))
+        endpoint := if arg_term == i0t {
+          get_or(j_motive, "x", null)
+        } else {
+          if arg_term == i1t { get_or(j_motive, "y", null) } else { null }
+        }
+        if endpoint == null {
+          { val: funcs.make_type("type.unknown", {}), state: bound }
+        } else {
+          funcs.apply_motive_(funcs, bound, get_or(j_motive, "motive_idx", null), [endpoint, get_or(j_motive, "witness", null)])
+        }
+      }
+    } else {
+      if apply_type != null {
       do {
         inner := funcs.apply_dep_closure_(funcs, apply_type, arg_type, arg_term, bound)
         { val: inner.val, state: inner["state"] }
@@ -1826,6 +1855,7 @@ do {
           funcs.synth_type_(funcs, bound, body_idx)
         }
       }
+    }
     }
     restored := set(tc_restore(body_result["state"], mark), "results", old_results)
     { val: body_result.val, state: restored }
@@ -1980,8 +2010,18 @@ do {
       --- (ADR-0208 P1): `(i:I) → A`/`(i:I) → F i` with endpoints `x`,`y`.
       --- `refl` and `Path` witnesses check through
       --- `check_path_intro_`; a `function` node is still a genuine
-      --- Π-introduction (`λi. body` IS a path).
-      if get_or(expected, "path", null) != null && kind != "function" {
+      --- Π-introduction (`λi. body` IS a path). Only
+      --- path-*introduction* shapes go to `check_path_intro_` —
+      --- `var` (`refl`/path-typed names), `call`/`paren` wrappers,
+      --- `trans`/`symm`, and univalence forms (all of which
+      --- `check_path_intro_` itself dispatches on). Composite terms —
+      --- `match` (whose motive may itself return a path type, P5),
+      --- `if`, `j`, `transport`, … — synthesize and unify through
+      --- `check_dependent_fallback_` instead: their eliminator
+      --- judgments already check the constituents (e.g. each match
+      --- arm against the motive application).
+      path_intro_kind := kind == "var" || kind == "call" || kind == "paren" || kind == "trans" || kind == "symm" || funcs.is_univalence_form_(s, node_idx)
+      if get_or(expected, "path", null) != null && kind != "function" && path_intro_kind {
         funcs.check_path_intro_(funcs, s, node_idx, expected)
       } else {
         if kind == "function" {
@@ -3324,32 +3364,70 @@ do {
     }
   }
 
-  --- `Path` witnesses bound in `results` — the `eq_<name>` bindings of
-  --- `refine_scrutinee_`, plus aliases: a `q := eq_n` assignment stores
-  --- the *term* `var{eq_n}`, so each binding is evaluated before the
-  --- `Path` tag is checked.
+  --- Path witnesses in scope (ADR-0208 P5 — representation-agnostic):
+  --- every binding `unify_via_paths_` may consume, normalized to
+  --- `{frm, to, wit}`. Two sources:
+  ---
+  ---   * `results` — the `eq_<name>` `Path{frm,to}` bindings of
+  ---     `refine_scrutinee_` plus aliases (`q := eq_n` stores the
+  ---     *term* `var{eq_n}`, so each binding is evaluated first) and
+  ---     any cubical witness value stored there;
+  ---   * `gamma` — declared path *types*: `p : Path(A, x, y)`
+  ---     hypotheses, `q := ua(e)` / `trans`/`symm` results whose
+  ---     path-carrying `type.pi` (or legacy `Path`/`type.eq`) lives
+  ---     in the gamma entry even when the bound term does not
+  ---     evaluate to a witness.
+  ---
+  --- `witness_from_type_` is the single classifier — `Path{frm,to}`,
+  --- `type.eq{left,right}`, and `type.pi` + `path{x,y}` payloads all
+  --- normalize to endpoints. Witnesses with undetermined (`null`) or
+  --- metavariable endpoints are skipped: they cannot justify a
+  --- rewrite.
   paths_in_scope_ := [funcs, s]~> do {
+    collect := [v, acc]~> do {
+      w := funcs.witness_from_type_(v)
+      if w == null || get_or(w, "x", null) == null || get_or(w, "y", null) == null || is_meta(get_or(w, "x", null)) || is_meta(get_or(w, "y", null)) {
+        acc
+      } else {
+        [...acc, { frm: get_or(w, "x", null), to: get_or(w, "y", null), wit: v }]
+      }
+    }
     rs := get_or(s, "results", {})
     ks := if type_of(rs) == "obj" { keys(rs) } else { [] }
-    while { result: [], remaining: ks } {
+    res_paths := while { result: [], remaining: ks } {
       [st]~> if is_empty(st.remaining) {
         { out: st.result }
       } else {
         do {
           raw := get_or(rs, first_value(st.remaining), null)
           v := funcs.eval_term_(funcs, s, raw).val
-          { state: { result: if type_tag(v) == "Path" { [...st.result, v] } else { st.result }, remaining: drop(st.remaining, 1) } }
+          { state: { result: collect(v, st.result), remaining: drop(st.remaining, 1) } }
         }
       }
     }
+    gamma := get_or(s, "gamma", [])
+    gpaths := while { result: [], remaining: gamma } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          entry := first_value(st.remaining)
+          gt := if type_of(entry) == "obj" { get_or(entry, "type", null) } else { null }
+          { state: { result: collect(gt, st.result), remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    [...res_paths, ...gpaths]
   }
 
   --- Unification consumes in-scope paths: `unify` plus a transport
-  --- retry — for each `Path{frm,to}` bound in `results`, rewrite
-  --- `frm ↦ to` (or `to ↦ frm`) on either side and retry. `P[frm]`
-  --- against `P[to]` thereby succeeds exactly when a path justifies
-  --- it; the successful witness is reported in `path`, so the equation
-  --- is derived, not silently decided.
+  --- retry — for each witness `paths_in_scope_` reports (`{frm,to,wit}`
+  --- — `Path{frm,to}` records and cubical `type.pi`/`type.eq`
+  --- witnesses alike, ADR-0208 P5), rewrite `frm ↦ to` (or `to ↦ frm`)
+  --- on either side and retry. `P[frm]` against `P[to]` thereby
+  --- succeeds exactly when a path justifies it; the successful
+  --- witness is reported in `path`, so the equation is derived, not
+  --- silently decided.
   unify_via_paths_ := [funcs, a, b, s]~> do {
     metas := get_or(s, "metas", [])
     u := unify(funcs, a, b, metas)
@@ -3372,7 +3450,7 @@ do {
             r2 := if r1.ok { r1 } else { if b_fwd != b { unify(funcs, a, b_fwd, metas) } else { r1 } }
             r3 := if r2.ok { r2 } else { if a_rev != a { unify(funcs, a_rev, b, metas) } else { r2 } }
             r4 := if r3.ok { r3 } else { if b_rev != b { unify(funcs, a, b_rev, metas) } else { r3 } }
-            { state: { result: if r4.ok { { ok: true, metas: r4.metas, path: p } } else { st.result }, remaining: drop(st.remaining, 1) } }
+            { state: { result: if r4.ok { { ok: true, metas: r4.metas, path: get_or(p, "wit", p) } } else { st.result }, remaining: drop(st.remaining, 1) } }
           }
         }
       }
@@ -3704,7 +3782,56 @@ do {
                   }
                 }
               } else {
-                { val: subst_index_(subst_index_, rp.frm, rp.to, vres.typ), state: vres["state"] }
+                --- PathP heterogeneous transport (ADR-0208 P5): a
+                --- path-pi whose `body_closure` carries `apply_type`
+                --- is `(i:I) → F i` for `F : I → Type` — `p # v` is
+                --- the *dependent* transport `v : F(i0) ↦ F(i1)`
+                --- through the family, read by `fam_at_` (the same
+                --- machinery `transp`/`comp` use; P1 stored
+                --- `apply_type` for exactly this). The domain match
+                --- is speculative `unify_dependent_` — a failure
+                --- falls back to `subst_index_` endpoint rewriting (the
+                --- index-term reading, e.g. `Vec(0,·) ↦ Vec(1,·)`
+                --- along `PathP(·, 0, 1)`), then to a pass-through
+                --- warning.
+                do {
+                  wclos := if type_tag(rp.witness) == "type.pi" { get_or(rp.witness, "body_closure", null) } else { null }
+                  wfa := if wclos == null { null } else { get_or(wclos, "apply_type", null) }
+                  if wfa == null {
+                    { val: subst_index_(subst_index_, rp.frm, rp.to, vres.typ), state: vres["state"] }
+                  } else {
+                    do {
+                      i0t := make_type("var", set({}, "name", "i0"))
+                      i1t := make_type("var", set({}, "name", "i1"))
+                      f0 := funcs.fam_at_(funcs, wfa, i0t, vres["state"])
+                      --- The domain match must be *strict*: shallow
+                      --- `unify` only compares `__tag__` on tagged
+                      --- values (`is_obj` excludes them, so
+                      --- `unify_fields` sees an empty key list) —
+                      --- `Vec(0, Bool)` would "match" `Nat`. Use
+                      --- `unify_dependent_`, which compares
+                      --- `family_app` names/args (consuming in-scope
+                      --- paths) and Pi/Sigma bodies; its failure-state
+                      --- diagnostics are discarded with the state, so
+                      --- the speculative check stays silent and the
+                      --- `subst_index_` fallback still gets its chance.
+                      ud := funcs.unify_dependent_(funcs, vres.typ, f0.val, f0["state"])
+                      if ud.ok {
+                        f1 := funcs.fam_at_(funcs, wfa, i1t, ud["state"])
+                        { val: zonk(zonk, f1.val, f1["state"].metas), state: f1["state"] }
+                      } else {
+                        do {
+                          t1 := subst_index_(subst_index_, rp.frm, rp.to, vres.typ)
+                          if t1 != vres.typ {
+                            { val: t1, state: vres["state"] }
+                          } else {
+                            { val: vres.typ, state: tc_add_diagnostic(vres["state"], "warning", "transport along PathP: value type does not inhabit F(i0) — passing through unchanged") }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             } else {
               { val: vres.typ, state: vres["state"] }
@@ -3728,18 +3855,33 @@ do {
     }
   }
 
-  --- `synth_j_` — the J eliminator `j p, P, base` (ADR-0120):
-  --- `J : P a refl ~> (b : A) ~> (p : a ~Path~ b) ~> P b p`, with the
-  --- surface order `j <path>, <motive>, <base>` (children
-  --- `path`/`motive`/`base`). For `p : Path{frm,to}` the base is
-  --- *checked* against the motive applied at `[frm, p]` and the result
-  --- is the motive applied at `[to, p]` — `apply_motive_` composes it,
-  --- and the motive's `results` bindings are rolled back afterwards
-  --- (they are local to the elimination). At `refl` the endpoints are
-  --- unidentified, so J computes on the base's own fibre: the motive is
-  --- applied at the base's family indices plus the base term — the
-  --- same convention `synth_match_arms` uses for the scrutinee — and
-  --- the base is checked against it.
+  --- `synth_j_` — the J eliminator `j p, P, base` (ADR-0120 surface,
+  --- ADR-0208 P5 *derived*): `J : P a refl ~> (b : A) ~> (p : a
+  --- ~Path~ b) ~> P b p`, with the surface order `j <path>, <motive>,
+  --- <base>` (children `path`/`motive`/`base`).
+  ---
+  --- DERIVED, not primitive: for a decided path `p : x ~ y` the
+  --- eliminator is dependent transport — `comp`/`transp` — in the
+  --- motive family `M(i) = P (p i) (p↾i)` over the interval `I`. The
+  --- model builds `M` as an `I → Type` `type.pi` whose
+  --- `body_closure.j_motive` computes `apply_motive_` at the
+  --- dimension's endpoint (`i0 ↦ x`, `i1 ↦ y`; the restricted path
+  --- `p↾i = λj. p (i∧j)` has no term-level representation, so the
+  --- motive's path argument keeps the full witness — the same
+  --- approximation the pre-P5 endpoint application used), then reads
+  --- `M(i0)`/`M(i1)` through `apply_dep_closure_` — the same family
+  --- application `fam_at_`/`transp`/`comp` share. `base` is *checked* against `M(i0)` and
+  --- the result is `M(i1)`; the motive's `results` bindings are
+  --- rolled back inside `apply_dep_closure_` (they are local to the
+  --- elimination). What remains primitive is only the *judgment
+  --- shell*: operand resolution (`resolve_path_`, fully cubical —
+  --- `eq_*` witnesses, gamma-bound paths, `trans`/`symm`/`ua`
+  --- path-pi`s), the `refl` iota case, and the stuck/bad verdicts.
+  --- At `refl` the endpoints are unidentified, so J computes on the
+  --- base's own fibre: the motive is applied at the base's family
+  --- indices plus the base term — the same convention
+  --- `synth_match_arms` uses for the scrutinee — and the base is
+  --- checked against it.
   synth_j_ := [funcs, s, node_idx]~> do {
     node := ast_node(s.ast, node_idx)
     children := node_children(node)
@@ -3795,16 +3937,25 @@ do {
             }
           }
         } else {
-          --- "path": check `base : P frm p`, yield `P to p`.
+          --- "path": J is transport in the motive family `M(i) =
+          --- P (p i) (p↾i)` — `base : M(i0)`, result `M(i1)`, both
+          --- read by applying the `j_motive` closure at the endpoint
+          --- dimension variables (the derived-J reading, P5).
           do {
-            m_frm := apply_motive_(funcs, rp["state"], motive_idx, [rp.frm, rp.witness])
-            s1 := set(m_frm["state"], "results", old_results)
-            chk := funcs.check_node_(funcs, s1, base_idx, m_frm.val)
+            jm := set(set(set({}, "motive_idx", motive_idx), "x", rp.frm), "y", rp.to)
+            jm := set(jm, "witness", rp.witness)
+            closure := set(set(set({}, "var_name", ""), "body_child_idx", null), "j_motive", jm)
+            motive_fam := funcs.make_type("type.pi", set(set({}, "param", funcs.make_type("type.interval", {})), "body_closure", closure))
+            i0t := make_type("var", set({}, "name", "i0"))
+            i1t := make_type("var", set({}, "name", "i1"))
+            f0 := funcs.apply_dep_closure_(funcs, motive_fam, funcs.make_type("type.interval", {}), i0t, rp["state"])
+            s1 := set(f0["state"], "results", old_results)
+            chk := funcs.check_node_(funcs, s1, base_idx, f0.val)
             if chk.ok {
               do {
-                m_to := apply_motive_(funcs, chk["state"], motive_idx, [rp.to, rp.witness])
-                s2 := set(m_to["state"], "results", old_results)
-                { val: if type_of(m_to.val) == "obj" { set(m_to.val, "via", rp.witness) } else { m_to.val }, state: s2 }
+                f1 := funcs.apply_dep_closure_(funcs, motive_fam, funcs.make_type("type.interval", {}), i1t, chk["state"])
+                s2 := set(f1["state"], "results", old_results)
+                { val: if type_of(f1.val) == "obj" { set(f1.val, "via", rp.witness) } else { f1.val }, state: s2 }
               }
             } else {
               { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(chk["state"], "error", "j: base does not inhabit the motive at the path's source") }
@@ -7952,6 +8103,7 @@ do {
     synth_dep_former_: synth_dep_former_,
     synth_path_type_: synth_path_type_,
     apply_dep_closure_: apply_dep_closure_,
+    apply_motive_: apply_motive_,
     check_pi_intro_: check_pi_intro_,
     check_sigma_intro_: check_sigma_intro_,
     check_family_arrow_: check_family_arrow_,
