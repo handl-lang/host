@@ -91,7 +91,10 @@ Deep-handler codomain rewrite becomes a modality on the mode slot.
 4. **Mode metavariables** for row polymorphism — honest bound first,
    solver later.
 5. **`IO<S>` ↔ mode reification** — bidirectional elaboration so old
-   and new spellings denote one mode.
+   and new spellings denote one mode. **Surface decision (approved):
+   ambient `@ {io: S}` is the canonical spelling** — `IO<S>` reads like
+   a generic type application and hides where the effect lives.
+   `IO<S>` is demoted to a compatibility/reified alias, not removed.
 
 ## 5. Phases (see pl-0004)
 
