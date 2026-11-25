@@ -395,7 +395,7 @@ pub static MODULES: &[ModuleSpec] = &[
         values: &[],
         registry: None,
     },
-    // T-151: spec-driven over the kernel op ABI — `lib-ip-c/atoms.yaml`
+    // T-151: spec-driven over the kernel op ABI — `lib-ip-native/atoms.yaml`
     // (14 `ip.*` atoms) + `ip_impls()` replace the hand-wired
     // `ip_op_registry` path. The `.hnl` funcs stay as the module's
     // evaluated record; the op registry shadows them at dispatch
@@ -423,8 +423,8 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: &[],
         values: &[],
         registry: Some(RegistrySource::KernelAtoms {
-            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-ip-c/atoms.yaml")),
-            impls: handl_plugin_lib_ip_c::ip_impls,
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-ip-native/atoms.yaml")),
+            impls: handl_plugin_lib_ip_native::ip_impls,
         }),
     },
     ModuleSpec {

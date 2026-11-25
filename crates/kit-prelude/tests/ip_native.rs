@@ -1,5 +1,5 @@
 //! `ip.*` smoke tests — the `ip` module's op registry is the native
-//! `lib-ip-c` backend (spec-driven via `lib-ip-c/atoms.yaml` +
+//! `lib-ip-native` backend (spec-driven via `lib-ip-native/atoms.yaml` +
 //! `ip_impls()`, attached in `handl-kit-stdlib`'s `build_ip_module`).
 //!
 //! IPv6 inputs are the tell: the pure-`.hnl` `lib-ip` surface only

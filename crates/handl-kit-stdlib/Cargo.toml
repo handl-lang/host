@@ -16,8 +16,8 @@ handl-plugin-lib-handl = { workspace = true }
 handl-plugin-lib-stdlib = { workspace = true }
 handl-plugin-lib-kv-hashmap = { workspace = true }
 # Native `ip.*` backend — the `ip` module's op registry is spec-driven
-# (`lib-ip-c/atoms.yaml` + `ip_impls()`), attached in `build_ip_module`.
-handl-plugin-lib-ip-c = { workspace = true }
+# (`lib-ip-native/atoms.yaml` + `ip_impls()`), attached in `build_ip_module`.
+handl-plugin-lib-ip-native = { workspace = true }
 # `handl-lib-{base64,hex,serialize}` dropped (T-044): the `.hnl` modules are
 # vendored by build.rs (`handl-pkg-vendor`) — no crate dep needed.
 

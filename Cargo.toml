@@ -27,6 +27,7 @@ members = [
   "crates/plugin-load",
   "crates/plugin-loader-native",
   "crates/plugin-loader-native/tests/fixtures/native-echo",
+  "crates/plugin-lib-handl/tests/fixtures/atom-provider",
   "crates/plugin-lib-handl",
 
   "crates/plugin-lib-scheduler",
@@ -123,10 +124,10 @@ handl-plugin-loader-native = { path = "crates/plugin-loader-native" }
 
 handl-plugin-lib-handl = { path = "crates/plugin-lib-handl" }
 handl-plugin-lib-kv-hashmap = { git = "https://github.com/handl-lang/lib-kv-hashmap", branch = "main" }
-# ADR-0128: the `ip` module's native backend lives in the `lib-ip-c`
+# ADR-0128: the `ip` module's native backend lives in the `lib-ip-native`
 # repo; local development resolves it from the sibling checkout via
 # `[patch]` below.
-handl-plugin-lib-ip-c = { git = "https://github.com/handl-lang/lib-ip-c", branch = "main" }
+handl-plugin-lib-ip-native = { git = "https://github.com/handl-lang/lib-ip-native", branch = "main" }
 # ADR-0128 Phase 4: the otlp modules live in the `otlp` repo; local
 # development resolves them from the sibling checkout via `[patch]` below.
 handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
@@ -404,8 +405,8 @@ handl-lib-cmp = { path = "../lib-cmp" }
 handl-lib-error = { path = "../lib-error" }
 [patch."https://github.com/handl-lang/lib-hex"]
 handl-lib-hex = { path = "../lib-hex" }
-[patch."https://github.com/handl-lang/lib-ip-c"]
-handl-plugin-lib-ip-c = { path = "../lib-ip-c" }
+[patch."https://github.com/handl-lang/lib-ip-native"]
+handl-plugin-lib-ip-native = { path = "../lib-ip-native" }
 [patch."https://github.com/handl-lang/lib-kv"]
 handl-plugin-lib-kv = { path = "../lib-kv" }
 [patch."https://github.com/handl-lang/lib-kv-hashmap"]

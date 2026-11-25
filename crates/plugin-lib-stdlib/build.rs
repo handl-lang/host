@@ -23,7 +23,7 @@ fn main() {
         "lib-intl",
         "lib-intl-c",
         "lib-ip",
-        "lib-ip-c",
+        "lib-ip-native",
         "lib-json",
         "lib-kv-map",
         "lib-mood",

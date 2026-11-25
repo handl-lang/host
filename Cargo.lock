@@ -967,7 +967,7 @@ dependencies = [
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
- "handl-plugin-lib-ip-c",
+ "handl-plugin-lib-ip-native",
  "handl-plugin-lib-kv-hashmap",
  "handl-plugin-lib-stdlib",
 ]
@@ -1448,12 +1448,14 @@ dependencies = [
 name = "handl-plugin-lib-handl"
 version = "0.1.0"
 dependencies = [
+ "handl-ext",
  "handl-kit-data-prelude",
  "handl-language",
  "handl-ops",
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-char-native",
+ "handl-plugin-lib-handl-fixture-atom",
  "handl-plugin-lib-stdlib",
  "handl-plugin-module",
  "handl-runtime",
@@ -1476,7 +1478,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "handl-plugin-lib-ip-c"
+name = "handl-plugin-lib-handl-fixture-atom"
+version = "0.1.0"
+dependencies = [
+ "handl-ext",
+ "serde_json",
+]
+
+[[package]]
+name = "handl-plugin-lib-ip-native"
 version = "0.1.0"
 dependencies = [
  "handl-ops",
@@ -1642,7 +1652,7 @@ dependencies = [
  "handl-pkg-vendor",
  "handl-platform",
  "handl-plugin-lib-handl",
- "handl-plugin-lib-ip-c",
+ "handl-plugin-lib-ip-native",
  "handl-plugin-lib-otlp-c",
  "handl-plugin-lib-otlp-std",
  "handl-plugin-lib-serialize-toml-c",

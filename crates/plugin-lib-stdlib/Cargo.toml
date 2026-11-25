@@ -16,8 +16,8 @@ handl-ops = { workspace = true }
 handl-plugin-lib-otlp-c = { git = "https://github.com/handl-lang/lib-otlp-c", branch = "main" }
 handl-plugin-lib-otlp-std = { git = "https://github.com/handl-lang/lib-otlp-std", branch = "main" }
 # Native `ip.*` backend (IPv4+IPv6/CIDR/socket) — spec-driven via
-# `lib-ip-c/atoms.yaml` + `kernel_impls::ip_impls`.
-handl-plugin-lib-ip-c = { git = "https://github.com/handl-lang/lib-ip-c", branch = "main" }
+# `lib-ip-native/atoms.yaml` + `kernel_impls::ip_impls`.
+handl-plugin-lib-ip-native = { git = "https://github.com/handl-lang/lib-ip-native", branch = "main" }
 # Shared op helpers (throwaway — see the lib-ops README).
 handl-lib-ops = { git = "https://github.com/handl-lang/kernel", branch = "main" }
 # ADR-0128: port packages live in their own repos.
