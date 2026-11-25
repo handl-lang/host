@@ -52,7 +52,9 @@ doesn't:
   effect rows in the mode theory; handl's `IO<sig>` codomain former +
   `handle`/`perform` is already a complete implemented story
   (`handle_sig_check`, residual sigs). Unifying them is assessment-only;
-  `IO<sig>` stays canonical.
+  `IO<sig>` stays canonical. Assessment:
+  [`effects-as-modes.md`](effects-as-modes.md) — **deferred**; optional
+  subset = effect row as a registry algebra instance (gated on M2).
 - **Naming decision (recorded)**: keep `graded_arrow`,
   `attrs["grade"]`/`OP_GRADE_ATTR`, `Arrow.grade`, `grade`/`sort ...
   grades` — serde-visible and already landed/drafted; "mode" is the

@@ -5,7 +5,7 @@ status = "open"
 created = "2026-11-25"
 owner = "devin"
 priority = "high"
-links = ["graded-arrows.md", "syntax-decisions.md", "ADR-0119", "ADR-0120", "ADR-0153", "ADR-0203", "ADR-0207", "ADR-0208"]
+links = ["graded-arrows.md", "effects-as-modes.md", "syntax-decisions.md", "ADR-0119", "ADR-0120", "ADR-0153", "ADR-0203", "ADR-0207", "ADR-0208"]
 +++
 
 Migrate the graded-arrow surface (`A ~[G]~> B`) from the "grade" framing to the
@@ -190,16 +190,35 @@ path confusion: `project` is a linked worktree of the `project` repo.
     "compose + well-formedness only" — decide with evidence, record in
     this plan.
 
-- [ ] **M4 effects-as-modes — assessment only (likely defer)**
+- [x] **M4 effects-as-modes — assessment only (deferred)**
   - MTT places effect rows in the mode theory; `IO<sig>` is already row
     data. Feasibility question: can `IO<{…}>` be re-read as a mode
     annotation without breaking `handle`'s coverage/residual machinery?
-    Almost certainly NO cheaply — `handle_sig_check` (`dependent.rs`
-    ~10151), `synth_perform`, residual-sig computation are a complete
-    implemented story; mode-matching them is research-grade.
-  - Deliverable: short assessment appended to `graded-arrows.md` (or a
-    note in this plan); explicit defer decision unless M1–M3 reveal a
-    cheap unification. `IO<sig>` remains the canonical effect mechanism.
+    Assessment: [`design/effects-as-modes.md`](../design/effects-as-modes.md).
+  - **Verdict: defer unification.** The categorical story exists
+    (ADR-0158/Sanada — handlers as algebra homomorphisms; MTT
+    modalities), and the sig *row* fits the M2 algebra interface
+    (union/order ≈ existing record-row shapes), but coverage/residual-sig
+    computation (`handle_sig_check`, `dependent.rs` ~10272–10480),
+    row-polymorphic `IO(s)` metas, deep-handler codomain rewrites, and
+    residual-trace values all live in the codomain-former machinery —
+    replacing it needs ambient mode contexts (out of scope,
+    research-grade) or a strictly poorer re-implementation.
+  - Optional subset recorded in the assessment: register the effect row
+    as a canonical mode-algebra instance in M2's registry
+    (`compose` = row union, `order` = row-width subsumption) so
+    `~[{io: S}]~>` annotations are *permitted* — gated on M2, zero risk
+    to `IO<sig>` checking. Not attempted: moving
+    coverage/residual/row-poly checking into modes.
+  - `IO<sig>`/`handle`/`perform` remain the canonical effect mechanism.
+    Revisit only if full-MTT mode contexts land or a second consumer
+    (e.g. ADR-0203 sessions composing with effects) needs effect rows
+    as modes.
+  - Side finding (prerequisite for any effects-adjacent work):
+    `synth_handle`/`synth_perform`/`check_call`'s perform branch are
+    NBE-native judgment ops only — `typecheck_model.hnl` has no
+    `synth_handle`/`synth_perform` (falls to "unknown judgment op").
+    Port to the model before touching `IO`/`handle`/`perform`.
 
 - [ ] **M5 transition cleanup**
   - Finish `~[x]~>` legacy payload-kind flip: after the `~>[n]` codemod
