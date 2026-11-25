@@ -33,6 +33,13 @@ Rust shells as the loader learns to fetch deps.**
    `-js` backends and `lib-lang-*` substrate adapters — keep their crate: for
    them the crate is the port, not transport. The distinction is mechanical:
    a repo with `.hnl` sources is a package; a repo with none is a backend.
+
+   **Backend suffixes name the binding, not the repo's language.** `-native`
+   is an *atom provider* (P-013: `atoms.yaml` + `KernelAtomProvider`, or a
+   `libhnl_ext_*` cdylib driver — implementation-agnostic); `-c` is an *FFI
+   binding* into an actual C library; `-js` binds a JS engine. A Rust
+   implementation behind the atoms mechanism is `-native`, never `-c` —
+   `lib-ip-c` was renamed `lib-ip-native` for exactly this reason.
 2. **License is MIT only**, one `LICENSE` file. `LICENSE-APACHE`/`LICENSE-MIT`
    pairs fold into it; `license = "MIT OR Apache-2.0"` disappears with the
    crates.
