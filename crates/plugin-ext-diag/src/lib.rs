@@ -325,6 +325,16 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
     let mut chunks = Vec::new();
     let mut start = 0usize;
     let mut depth: i32 = 0;
+    // Square-bracket stack parallel to `[`…`]` nesting: `true` when the
+    // `[` is an *operator* bracket — the `~>[…]` / `>>>[…]` spellings
+    // whose `[` immediately follows `>`. The matching `]` is then an
+    // infix *separator*, not an expression closer: no statement can end
+    // on it (the right operand is required), so it must read as an
+    // operator byte to the newline-boundary heuristic — exactly like
+    // the legacy `~[n]~>` spelling, whose last byte is already `>`.
+    // Without this, `x := f ~>[2]\n  g` split after the `]` and the
+    // operand-less chunk failed to parse ("unexpected end of input").
+    let mut op_sq: Vec<bool> = Vec::new();
     // Last significant byte of the pending chunk — every code byte outside
     // strings and comments.
     let mut last_sig: Option<u8> = None;
@@ -371,9 +381,20 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
         }
 
         // Bracket nesting.
+        let mut closes_op_bracket = false;
         match b {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => depth -= 1,
+            b'(' | b'{' => depth += 1,
+            b'[' => {
+                depth += 1;
+                // Operator bracket iff `[` is written contiguously after
+                // `>` (`~>[`, `>>>[`); `~> [` stays arrow + array bracket.
+                op_sq.push(i > 0 && bytes[i - 1] == b'>');
+            }
+            b')' | b'}' => depth -= 1,
+            b']' => {
+                depth -= 1;
+                closes_op_bracket = op_sq.pop().unwrap_or(false);
+            }
             _ => {}
         }
 
@@ -388,7 +409,12 @@ pub fn split_statements(src: &str) -> Vec<StatementChunk> {
             }
         }
 
-        if !b.is_ascii_whitespace() {
+        if closes_op_bracket {
+            // `]` closing `~>[…]`/`>>>[…]` is an infix separator — record
+            // an operator byte so a following newline reads as a
+            // continuation, not a statement boundary.
+            last_sig = Some(b'>');
+        } else if !b.is_ascii_whitespace() {
             last_sig = Some(b);
         }
         i += 1;
@@ -836,6 +862,47 @@ mod tests {
         let chunks = split_statements("x := a *\n  b\ny := 1");
         assert_eq!(chunks.len(), 2);
         assert_eq!(chunks[0].text, "x := a *\n  b");
+    }
+
+    #[test]
+    fn split_statements_continues_after_operator_bracket_close() {
+        // `A ~>[n] B` / `A >>>[k] B` — the `]` closing an operator
+        // bracket (`[` contiguous after `>`) is an infix separator, not
+        // an expression closer: the right operand may start on the next
+        // line, so the newline must not split. The legacy `~[n]~>`
+        // spelling already merged via its trailing `>`.
+        let chunks = split_statements("x := f ~>[2]\n  g\ny := 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x := f ~>[2]\n  g");
+        assert_eq!(chunks[1].text, "y := 1");
+
+        let chunks = split_statements("x := a >>>[k]\n  b\ny := 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x := a >>>[k]\n  b");
+
+        // Same-line operand still splits normally after the statement.
+        let chunks = split_statements("x := f ~>[2] g\ny := 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x := f ~>[2] g");
+    }
+
+    #[test]
+    fn split_statements_plain_bracket_close_still_splits() {
+        // `]` closing an array literal or an index postfix IS an
+        // expression closer — statements may end there.
+        let chunks = split_statements("x := [1, 2]\ny := 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x := [1, 2]");
+
+        let chunks = split_statements("x := a[0]\ny := 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x := a[0]");
+
+        // `~> [` (spaced) is arrow + array bracket, not the operator
+        // spelling — `]` still ends the statement.
+        let chunks = split_statements("x := f ~> [1]\ny := 1");
+        assert_eq!(chunks.len(), 2, "{chunks:?}");
+        assert_eq!(chunks[0].text, "x := f ~> [1]");
     }
 
     #[test]
