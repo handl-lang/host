@@ -518,6 +518,45 @@ pub struct TypeInspection {
     pub node_types: Vec<(Span, Value)>,
 }
 
+/// Insert one module export into a `type.module_sig` `fields` map —
+/// the serde_json half of `tool-typecheck-nbe`'s
+/// `insert_module_sig_field` (keep the two in sync).
+///
+/// Export names can be dotted: a namespaced op's *local* name keeps its
+/// inner segments (`"ffi.rust.resolve"` in module `"ffi"` is exposed as
+/// `"rust.resolve"`, P-013 T-152). Each `.`-separated prefix nests as a
+/// `type.record` so `mod.rust.resolve` projects through the ordinary
+/// `record_field_type` path. A prefix colliding with a non-record field
+/// is overwritten by the nested record.
+fn insert_module_sig_field(
+    fields: &mut serde_json::Map<String, serde_json::Value>,
+    name: &str,
+    ty: serde_json::Value,
+) {
+    let Some((head, rest)) = name.split_once('.') else {
+        fields.insert(name.to_string(), ty);
+        return;
+    };
+    let entry = fields.entry(head.to_string()).or_insert_with(|| {
+        serde_json::json!({
+            "__tag__": "type.record",
+            "__registry__": handl_plugin_lib_tag::CANONICAL_REGISTRY_ID,
+            "fields": {},
+        })
+    });
+    let is_record = entry.get("__tag__").and_then(|t| t.as_str()) == Some("type.record");
+    if !is_record {
+        *entry = serde_json::json!({
+            "__tag__": "type.record",
+            "__registry__": handl_plugin_lib_tag::CANONICAL_REGISTRY_ID,
+            "fields": {},
+        });
+    }
+    if let Some(inner) = entry.get_mut("fields").and_then(|f| f.as_object_mut()) {
+        insert_module_sig_field(inner, rest, ty);
+    }
+}
+
 /// Map a typecheck result's `error`-severity diagnostics to the
 /// `typecheck errors:` [`LangError`] both typecheck entry points report —
 /// with the first diagnostic's span shifted from wrapped to caller
@@ -1105,6 +1144,83 @@ impl TypeSignature for HelloGreetHostFn {
     }
 }
 
+/// A [`ModuleLookup`] layer answering `lookup_module_exports` for
+/// *scoped* `pkg.hnl` dep specs (P-013 T-150 follow-up).
+///
+/// `from "dep" import * as m` binds `m : Sig_dep` where `Sig_dep` comes
+/// from `lookup_module_exports("dep")`. File deps are not kit modules,
+/// so without this layer the signature degrades to `type.unknown` and
+/// `m.<scoped-out>` typechecks clean — then reads `null` at eval, where
+/// `scope_tagged_bindings` has already filtered the record to the
+/// declared surface. This layer resolves the spec through the project's
+/// dependency map + `dep_spec_file` (the same `pkg.hnl` `modules:`/`src/`
+/// layout eval uses), collects the module's export names statically
+/// ([`handl_runtime::module_prep::module_export_names`]), and filters
+/// them by [`handl_platform::PkgDepScope::allows_field`] — exactly the
+/// surface `spliced_import_names` seeds for splice-form imports and
+/// `scope_tagged_bindings` exposes at eval.
+///
+/// Only *restricted* deps answer here: an unrestricted dep spec falls
+/// through to `inner`, preserving the pre-T-150 `type.unknown` behavior
+/// for unscoped file imports. `lookup`/`lookup_type_signature` always
+/// delegate — declared fields already ride the `fields` map, and a
+/// scoped-out field's `<dep>.<name>` probe must NOT resolve (that is
+/// what makes `m.scoped_out` a `record_field_type` error).
+struct DepScopeLookup {
+    /// Import name → package root directory (the kit's project deps).
+    dep_dirs: HashMap<String, PathBuf>,
+    /// `pkg.hnl` `deps` name → declared surface scope.
+    dep_scopes: HashMap<String, handl_platform::PkgDepScope>,
+    /// The wrapped chain (kit modules) — consulted for everything the
+    /// dep layer does not answer.
+    inner: Option<Rc<dyn ModuleLookup>>,
+}
+
+impl DepScopeLookup {
+    /// The scoped export surface of `spec`, or `None` when `spec` does
+    /// not name a restricted dep or its module file cannot be read
+    /// (either way the caller falls back to `inner` — a dep eval cannot
+    /// load is not a typecheck concern here).
+    fn scoped_exports(&self, spec: &str) -> Option<Vec<(String, Option<Value>)>> {
+        let (scope, dep, module) = handl_platform::dep_spec_scope(&self.dep_scopes, spec)?;
+        let dep_dir = self.dep_dirs.get(&dep)?;
+        // The spec tail inside the package: `"dep"` → the primary module,
+        // `"dep/mod"` → `mod` — the same split `dep_spec_scope` applies
+        // to the scope's module qualifier.
+        let rest = spec.split_once('/').map(|(_, r)| r).unwrap_or("");
+        let file = handl_platform::dep_spec_file(dep_dir, rest)?;
+        let src = std::fs::read_to_string(&file).ok()?;
+        let mut names = handl_runtime::module_prep::module_export_names(&src);
+        names.retain(|n| scope.allows_field(&module, n));
+        Some(names.into_iter().map(|n| (n, None)).collect())
+    }
+}
+
+impl ModuleLookup for DepScopeLookup {
+    fn lookup(&self, name: &str) -> Option<&dyn Function> {
+        self.inner.as_ref().and_then(|i| i.lookup(name))
+    }
+
+    fn lookup_type_signature(&self, name: &str) -> Option<Value> {
+        self
+            .inner
+            .as_ref()
+            .and_then(|i| i.lookup_type_signature(name))
+    }
+
+    fn lookup_module_exports(
+        &self,
+        module_name: &str,
+    ) -> Option<Vec<(String, Option<Value>)>> {
+        if let Some(exports) = self.scoped_exports(module_name) {
+            return Some(exports);
+        }
+        self.inner
+            .as_ref()
+            .and_then(|i| i.lookup_module_exports(module_name))
+    }
+}
+
 /// A [`ModuleLookup`] registry exposing `hello.greet`, with an optional
 /// delegate for further lookup.
 pub struct HelloHostFunctions {
@@ -1174,6 +1290,14 @@ pub struct Kit {
     /// can build [`HandlNativeLint`]/[`HandlNativeRewrite`] adapters from
     /// them (ADR-0097 / ADR-0094).
     handl_modules: HandlModules,
+    /// Project dependency name → package root (P-013 T-150) — retained
+    /// from [`Kit::build_kit_with_dep_scopes`] so the typecheck
+    /// module-signature lookup can resolve scoped dep specs to their
+    /// `.hnl` sources.
+    dep_dirs: HashMap<String, PathBuf>,
+    /// `pkg.hnl` `deps` surface scopes (P-013 T-150) — same retention
+    /// contract as [`Kit::dep_dirs`].
+    dep_scopes: HashMap<String, handl_platform::PkgDepScope>,
 }
 
 impl std::fmt::Debug for Kit {
@@ -1477,8 +1601,8 @@ impl Kit {
                     .box_clone(),
                 module_root.clone(),
             )
-            .with_dependencies(dependencies)
-            .with_dep_scopes(dep_scopes),
+            .with_dependencies(dependencies.clone())
+            .with_dep_scopes(dep_scopes.clone()),
         );
         // The loader evals module sources with the kit's configured eval
         // engine (`runtime.eval` in the manifest) — a `.hnl` lib never picks
@@ -1518,6 +1642,8 @@ impl Kit {
             runtime,
             module_root,
             handl_modules,
+            dep_dirs: dependencies,
+            dep_scopes,
         })
     }
 
@@ -1963,8 +2089,23 @@ impl Kit {
         let mut engine: Box<dyn TypecheckEngine> = Box::new(NbeTypecheckEngine::new(Box::new(
             hnl_exec_tree_walk::TreeWalkEngine::new(),
         )));
-        if let Some(mods) = rt.modules() {
-            engine = engine.with_modules(std::rc::Rc::clone(mods));
+        // P-013 T-150: wrap the module chain with the dep-scope layer so
+        // `from "dep" import * as m` binds `m` to a signature record
+        // carrying exactly the scoped surface — `m.<scoped-out>` becomes
+        // a `record_field_type` error instead of silently checking clean
+        // (eval reads `null` off the filtered bindings record). Kits
+        // built without dep scopes skip the wrapper entirely.
+        let typecheck_modules: Option<Rc<dyn ModuleLookup>> = if self.dep_scopes.is_empty() {
+            rt.modules().cloned()
+        } else {
+            Some(Rc::new(DepScopeLookup {
+                dep_dirs: self.dep_dirs.clone(),
+                dep_scopes: self.dep_scopes.clone(),
+                inner: rt.modules().cloned(),
+            }) as Rc<dyn ModuleLookup>)
+        };
+        if let Some(mods) = &typecheck_modules {
+            engine = engine.with_modules(Rc::clone(mods));
         }
         for name in &prelude {
             // P-013 T-148: names that resolve to a registered module seed
@@ -1980,8 +2121,9 @@ impl Kit {
                 .map(|exports| {
                     let mut fields = serde_json::Map::new();
                     for (fname, sig) in exports {
-                        fields.insert(
-                            fname,
+                        insert_module_sig_field(
+                            &mut fields,
+                            &fname,
                             sig.unwrap_or_else(|| {
                                 serde_json::json!({
                                     "__tag__": "type.unknown",
