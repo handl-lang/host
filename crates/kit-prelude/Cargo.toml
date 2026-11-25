@@ -37,7 +37,7 @@ handl-kit-server = { workspace = true }
 handl-kit-test = { workspace = true }
 handl-kit-ffi = { workspace = true }
 handl-kit-mlopt = { workspace = true }
-# `tensor.*` host ops (exec-tensor repo): `src/kit.rs` registers the
+# `tensor.*` host ops (lib-tensor-native repo): `src/kit.rs` registers the
 # `tensor` module into the shared kit-core table from `register()`.
 handl-host-tensor = { workspace = true }
 handl-kit-lang = { workspace = true }

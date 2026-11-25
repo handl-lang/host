@@ -7,7 +7,7 @@
 //! host-side `register()` call.
 //!
 //! ```text
-//! deps: { exec-tensor: "git+file://…" }        # pkg.hnl / .handl.toml
+//! deps: { lib-tensor-native: "git+file://…" }        # pkg.hnl / .handl.toml
 //!   → resolve_pkg_dependencies → name → dir
 //!   → dir/atoms.yaml  (spec — the dep's own contract)
 //!   → atom_providers() finds the linked impl table for `tensor`

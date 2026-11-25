@@ -280,7 +280,7 @@ pub fn register() {
         handl_kit_test::register();
         handl_kit_ffi::register();
         handl_kit_mlopt::register();
-        // `tensor.*` host ops (exec-tensor repo) — P-013 phase-2a
+        // `tensor.*` host ops (lib-tensor-native repo) — P-013 phase-2a
         // (proposal-0012): `tensor` is no longer a global kit row; it
         // binds per-project through dep `atoms.yaml` →
         // `dep_atom_modules`. The Cargo dep stays — the impl table must
