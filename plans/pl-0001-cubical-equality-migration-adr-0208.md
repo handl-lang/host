@@ -18,18 +18,21 @@ Design decisions (fixed): `I` sort with `i0`/`i1` + dim vars; faces `Φ` = `i=0`
 - [x] **P1 interval + Path/PathP** — `type.interval`, `i0`/`i1`, path-carrying `type.pi{param:interval, path:{x,y}}`, `synth_path_type_`, dual witness acceptance. Commits: tool-typecheck-handl `f72e304`, host `a697fb8a`; NBE parity `64d77de`+`ada56882`.
 - [x] **P2 transp/hcomp/comp/trans/symm + faces Φ** — model `1903399`, host yaml `20aeed04`; NBE parity `45b0f9a`.
 - [x] **P3 Glue/unglue/isFibrant/fibrant** — model `694f512`, host `60bbc5bc`; NBE parity `0c98f83`.
-- [x] **P4 computing univalence** — `ua`/`univalence`/`Univalence`/`Equiv` via recorded-equivalence path-pi; `transp (ua e)` applies domain→codomain incl. dependent families. Model `79dceb9`, host `1911c05a`; **NBE parity in flight**.
-- [ ] **P5 elimination rework** — in flight (model side): PathP matching, `j` demotion to derived, `eq_*`/transport decisions; YAML `type.j`/`eval.j` preserved until NBE-P4 lands, then final excision.
+- [x] **P4 computing univalence** — `ua`/`univalence`/`Univalence`/`Equiv` via recorded-equivalence path-pi; `transp (ua e)` applies domain→codomain incl. dependent families. Model `79dceb9`, host `1911c05a`; NBE parity `3d1197b` (491 tests green) — univalence computes in production.
+- [ ] **P5 elimination rework** — model changes on disk (uncommitted): `j_motive` interval family in `apply_dep_closure_`, representation-agnostic `witness_from_type_`/`paths_in_scope_`, PathP transport branch in `synth_transport_`, `synth_j_` rebuilt as derived J. `tests/cubical_p5.rs` (7 tests): 3 pass, 3 real failures under repair (agent `92982217`), 1 pending rerun. YAML `type.j`/`eval.j` preserved until parity, then final excision.
 - [x] **P6a paper** — `kernel` `eb1b6f3`: "Equality as interval data" section + CCHM/Huber/HoTT citations; post-P5 wording spots flagged.
-- [x] **P6b smoke** — host `d742b6ef`: `tests/smoke/cubical{,_err}.hnl`, 23/23 suite green through production `hnl typecheck` (NBE P1-P3 verified).
-- [ ] **Final cleanup** — `j`/`type.j`/`eval.j`/`JElim` excision once NBE-P4+P5 parity lands; univalence smoke cases; paper post-P5 wording flip.
+- [x] **P6b smoke** — host `d742b6ef`: `tests/smoke/cubical{,_err}.hnl`, suite 24/24 green through production `hnl typecheck`.
+- [ ] **Final cleanup** — `j`/`type.j`/`eval.j`/`JElim` excision once P5 parity lands; univalence smoke cases; paper post-P5 wording flip; fixture-drift test for the three `typecheck_model.hnl` copies.
+- [ ] **dependent_structure.rs repair** — 14 pre-existing failures from retired `data` keyword; rewrite to family-record spelling (`Bool := { True : Bool, … }`) is on disk uncommitted, awaiting verification after P5 model lands.
 
-## Production parity gaps found by smoke (host `d742b6ef` header)
+## Production parity gaps found by smoke — ALL RESOLVED
 
-1. `i0`/`i1` literals rejected as `transp`/`hcomp`/`Comp` dimension operands in production `.hnl` (workaround: bind `e0 : I := i0` first) — scope/lowering gap, NBE fixtures pass literals directly.
-2. `p # v` annotated over homogeneous term endpoints fails (`Path(Bool,true,true)`); unannotated works — `true` doesn't eval as index term in `resolve_path`.
-3. `glue A, φ, T̂` keyword former unusable in production files — children scope-checked as term wires → unbound; `Glue(...)`/`isFibrant(...)`/`unglue(...)` call forms work in type position only. Unbound-wire scope pass issue.
-4. Univalence smoke pending NBE-P4 landing + cdylib rebuild; `Equiv(Bool,Nat)` record checking looked flaky in probes.
+Fixed by agent `232de29c`: NBE `dd1ccfe` + host `13c9dff3` (cubical vocab in `prelude_wire_names()`, extended smoke). Suite at 24/24 green.
+
+1. ~~`i0`/`i1` literals rejected as `transp`/`hcomp`/`Comp` dimension operands~~ — fixed.
+2. ~~`p # v` annotated over homogeneous term endpoints fails~~ — fixed.
+3. ~~`glue A, φ, T̂` keyword former unusable~~ — fixed (`glue`/`Pi`/`I`/`Path`/`Equiv`/`ua` unbound-wire resolution).
+4. ~~Univalence smoke pending~~ — univalence smoke added; computes in production.
 
 ## Design insights (recorded from design discussion — future work candidates)
 
