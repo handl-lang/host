@@ -10,8 +10,9 @@ type: plan
 
 Goal: complete the MTT thesis — effects become a mode algebra on the
 same axis as grades/coeffects, with the judgement carrying an ambient
-mode `μ`. `IO<sig>` survives as reification throughout; nothing breaks
-mid-migration.
+mode `μ`. The `IO<sig>` codomain former is **retired outright** (no
+compat alias); existing `IO<...>` surface sites and the smoke corpus
+migrate to `@ {io: S}`.
 
 Design: `design/effects-ambient-modes.md`. Supersedes the M4
 deferral in `effects-as-modes.md` (blockers are sequenced, not
@@ -36,14 +37,15 @@ avoided).
   `compose` = row union w/ entry-merge rule, `unit` = `{}`,
   `order` = row-width subsumption.
 - `~[{io: S}]~>` permitted as annotation; `synth_graded_arrow`
-  cross-checks `io`-headed mode vs `IO`-headed codomain (one row
-  comparison). Zero semantic change to `IO<sig>`.
+  recognizes the `io` dimension. `type.io` former begins deprecation;
+  `IO<...>` surface sites migrate to ambient spelling.
 
 ### E1 — mode contexts + `@ μ` surface
 
 - Judgement form `Γ ⊢ t : A @ μ` plumbed through NBE synth/check.
-- `@ μ` parses/elaborates; `IO<S>` reifies to ambient `{io:S}`
-  (bidirectional: old spelling = new mode).
+- `@ μ` parses/elaborates as the canonical effects spelling.
+- `type.io` former removed; `IO<...>` sites migrated to
+  `@ {io: ...}` (codemod + corpus update — no compat shim).
 - Mode metavariables: honest bound (unresolvable → pass), matching
   M3 posture.
 
@@ -60,7 +62,7 @@ avoided).
 ### E3 — effects polymorphism
 
 - `runAll`-style mode-polymorphic combinators over ambient modes.
-- Row-poly sigs (`IO(s)`) as mode metavariables; solver upgrade path.
+- Row-poly effects as mode metavariables; solver upgrade path.
 
 ### E4 — model parity
 
@@ -69,11 +71,11 @@ avoided).
 
 ## Exit criteria
 
-- `handle`/`perform` check identically under both spellings
-  (`IO<S>` codomain and `@ {io:S}` ambient) — parity tests.
+- `handle`/`perform` check under the ambient spelling only —
+  `IO<S>` codomain form is gone.
 - Effect rows compose via `mode_compose`; widening via `order`.
 - Coverage/residual diagnostics preserved (same three classes).
-- Zero regression on the `IO<sig>` corpus; model parity green.
+- `IO<sig>` corpus fully migrated to `@ {io: ...}`; model parity green.
 
 ## Risks
 

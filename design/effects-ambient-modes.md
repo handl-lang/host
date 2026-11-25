@@ -11,8 +11,8 @@ title: Effects as ambient modes — design
 Approved direction (user, 2026-11-25): effects migrate from the
 `IO<sig>` codomain former to the **ambient mode** reading of MTT —
 the judgement carries a mode `μ`; `perform` extends it; `handle` is a
-modality between modes. `IO<S>` survives as the *reification* of
-`{io: S}`, so the existing surface keeps working throughout.
+modality between modes. The `IO<S>` codomain former is **retired, not
+kept as an alias** — the existing surface migrates to `@ {io: S}`.
 
 This supersedes the "defer unification" verdict of
 `effects-as-modes.md` (M4 assessment): that doc correctly identified
@@ -36,8 +36,8 @@ handle m with {puts: h}      -- modality: μ → μ′
 ```
 
 `@ μ` is a new type-position/judgement suffix — distinct from `~[m]~>`
-(which grades the *morphism's usage*) and from `IO<S>` (which is the
-*reified* ambient mode, kept for compatibility).
+(which grades the *morphism's usage*). The `IO<S>` codomain former is
+retired: there is no reified spelling, no alias, no dual truth.
 
 ## 2. The effects algebra
 
@@ -67,9 +67,12 @@ Effects := new Algebra(Row) {
 | widening | `IO(s) <: IO(s')` row-width | `order` field |
 | row polymorphism `IO(s)` | sig metas in `Former{type.io}.args` | mode metavariables (honest bound; M3 posture) |
 
-`IO<S>` reification: `IO<S>` elaborates to `@ {io: S} (· ~> ·)`-style
-ambient annotation — the codomain former becomes sugar over the mode.
-Deep-handler codomain rewrite becomes a modality on the mode slot.
+`IO<S>` removal: the `type.io` former is retired outright — no
+reification, no compat alias (user decision: ambient `@ {io: S}` is
+the only spelling; `IO<S>` reads like a generic type application and
+hides where the effect lives). Existing `IO<...>` surface sites and
+the smoke corpus migrate to ambient. Deep-handler codomain rewrite
+becomes a modality on the mode slot.
 
 ## 4. What transfers vs. what must be built
 
@@ -90,18 +93,17 @@ Deep-handler codomain rewrite becomes a modality on the mode slot.
    genuinely type-directed).
 4. **Mode metavariables** for row polymorphism — honest bound first,
    solver later.
-5. **`IO<S>` ↔ mode reification** — bidirectional elaboration so old
-   and new spellings denote one mode. **Surface decision (approved):
-   ambient `@ {io: S}` is the canonical spelling** — `IO<S>` reads like
-   a generic type application and hides where the effect lives.
-   `IO<S>` is demoted to a compatibility/reified alias, not removed.
+5. **`IO<S>` removal + surface migration** — `type.io` former retired;
+   `@ {io: S}` is the canonical and only spelling; existing `IO<...>`
+   sites migrate (codemod + corpus update).
 
 ## 5. Phases (see pl-0004)
 
 - **E0** — effects algebra instance + `~[{io:S}]~>` permitted as
   annotation (M2 subset; no semantic change).
 - **E1** — mode contexts: `Γ ⊢ t : A @ μ` judgement plumbing through
-  NBE; `@ μ` surface parses/elaborates; `IO<S>` reifies to ambient.
+  NBE; `@ μ` surface parses/elaborates; `type.io` former retired and
+  `IO<...>` sites migrated to ambient.
 - **E2** — `perform` ambient extension + `handle` modality; coverage/
   residual ported behind the modality judgment.
 - **E3** — mode polymorphism over effects (`runAll`-style); mode
