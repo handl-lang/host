@@ -1,12 +1,20 @@
-# Graded arrows — generalization design
+# Graded arrows — generalization design (MTT modes framing)
 
-Status: proposal (design only — no code).
+Status: proposal (design only — no code), **reframed to modes 2026-11-25**.
+User decision: "MTT looks the best one, because it generalizes" — the
+bracket payload `G` in `A ~[G]~> B` is a **mode** (an object of a mode
+theory, MTT/Gratzer–Kavvos–Nuyts–Birkedal), generalizing coeffect grades.
+Filename kept (`graded-arrows.md`) because `graded_arrow`,
+`attrs["grade"]`, `Arrow.grade`, and `grade`/`sort ... grades` are
+committed identifiers and ~30 files link here; "grade" in prose below
+means "mode" unless it names one of those identifiers. Migration plan:
+[`plans/pl-0002-mtt-modes-migration.md`](../plans/pl-0002-mtt-modes-migration.md).
 Scope: the semantic/design side of the arrow taxonomy split approved in
 [`syntax-decisions.md`](syntax-decisions.md) (2026-11-24). The grammar/parser
-mechanics (`~>[n]` dim spelling, `~[G]~>` grade spelling, old `~[n]~>` kept as
-sugar) are being implemented separately; this doc covers what a *grade is*,
-what the checker does with it, how it relates to `IO<>`/`handle`/`perform`,
-and the codemod disambiguation rule.
+mechanics (`~>[n]` dim spelling, `~[G]~>` grade/mode spelling, old `~[n]~>`
+kept as sugar) are being implemented separately; this doc covers what a
+*mode* is, what the checker does with it, how it relates to
+`IO<>`/`handle`/`perform`, and the codemod disambiguation rule.
 
 Verified against:
 
@@ -20,6 +28,58 @@ Verified against:
   ~lines 1960–2037)
 - `tool-parse-pratt/src/lib.rs` (legacy `graded_arrow` special case, ~line 1292)
 - A workspace-wide grep census of `~[…​]~>` in `.hnl` sources (see §9).
+
+---
+
+## 0. Modes reframing (MTT) — 2026-11-25
+
+The "grade" framing below generalizes to **modes**. What changes and what
+doesn't:
+
+- **A mode is an object of a mode theory** (MTT: a 2-category of modes;
+  Gratzer–Kavvos–Nuyts–Birkedal). Coeffect grades (QTT/Granule) are the
+  canonical instance; usage counts, permission rows, session protocols
+  (ADR-0203), cost, and staging are sibling instances — one mechanism,
+  many algebras, exactly the generalization the user chose.
+- **Dimensions are NOT modes.** `~>[n]` is the globular cell index —
+  `Hom(n, src, tgt)` per ADR-0153/0119 — an index into the globular
+  structure, not an object of a mode theory. The two axes stay strictly
+  separate: `dim_arrow` vs `graded_arrow` node kinds, `Op.dim` vs
+  `attrs["grade"]` channels, `infer_hom` vs mode checking. MTT itself
+  keeps these apart (its modes annotate judgements; globular dimension
+  is a different structure).
+- **Effects are a mode-algebra instance — deferred (M4).** MTT places
+  effect rows in the mode theory; handl's `IO<sig>` codomain former +
+  `handle`/`perform` is already a complete implemented story
+  (`handle_sig_check`, residual sigs). Unifying them is assessment-only;
+  `IO<sig>` stays canonical.
+- **Naming decision (recorded)**: keep `graded_arrow`,
+  `attrs["grade"]`/`OP_GRADE_ATTR`, `Arrow.grade`, `grade`/`sort ...
+  grades` — serde-visible and already landed/drafted; "mode" is the
+  semantic term. A rename (`mode_arrow`/`attrs["mode"]`) is evaluated at
+  M5 cleanup, not assumed. Rationale: renaming a serde key breaks
+  serialized `Term`s for zero semantic gain.
+- **Mode-on-former vs coeffect-on-input — resolved (was §11.9)**:
+  `A ~[m]~> B` reads as **the arrow is a morphism in mode `m`** — the
+  MTT judgement-mode reading, which specializes to the QTT/Granule
+  coeffect reading ("using this arrow consumes `A` at mode `m`") for
+  binder-style algebras, and to whole-morphism readings (session
+  protocol of the arrow's behavior, ADR-0203) for protocol algebras.
+  The governing mode algebra decides which reading applies — same
+  conclusion as the grade design, now with the MTT vocabulary.
+- **Literal-mode spelling — resolved**: modes are named/data values;
+  `~[2]~>` is permanently claimed by the dimension reading, so a
+  numeric-count mode needs `~[(2)]~>` or a named mode (`Usage(2)`).
+  Unchanged from §5/§10.
+- **Algebra interface**: unchanged from §3 adjustment 1 — a mode
+  algebra is a Handl data structure exposing compose/unit/order,
+  selectable per composition site (Grass precedent). `mode_compose`
+  replaces `grade_compose` as the judgment-op name.
+- **Honest scoping**: representation + well-formedness + canonical
+  default algebra + subsumption where annotations exist is P2-sized.
+  Full MTT — mode contexts (`Γ ⊢ M : A @ m`), mode substitution,
+  strictness/usage extraction, mode polymorphism, modality bridges —
+  is research-grade and **out of scope**. See pl-0002 "Honest scoping".
 
 ---
 
@@ -143,6 +203,11 @@ What the graded/coeffect literature actually does, per system:
 | **"Graded arrows" (category theory)** | A morphism in a **grading category** — Sanada's category-graded effects (`CatEff`), compositional-game-theory graded arrows | On the arrow itself, indexed by grading-category morphisms | Composition = grading-category composition; handlers = graded algebra morphisms |
 | **Grass** (Hanukaev & Eades) | Elements of **multiple coexisting grade algebras** — each variable controlled by its own algebra | Per-variable in context | Per-algebra operations; closest literature precedent for "pluggable algebra per site" |
 
+**MTT is the chosen unifying frame (2026-11-25, §0)**: of the systems
+above, MTT's *mode* is the only notion general enough to host coeffect
+grades, usage counts, session protocols, and (deferred) effect rows under
+one mechanism — which is why `~[G]~>` payloads are called *modes*.
+
 Concrete instantiations worth noting:
 
 - **Idris 2** implements QTT with the concrete `{0, 1, ω}` zero-one-many
@@ -168,6 +233,13 @@ Concrete instantiations worth noting:
 ---
 
 ## 3. Design assessment
+
+> **MTT update (2026-11-25)**: the assessment below was written for the
+> "grade" framing; under MTT every "grade" reads "mode". The verdicts
+> hold — MTT *strengthens* the case: modes are precisely the
+> generalization of coeffect grades to arbitrary mode theories, and the
+> "pluggable algebra per site" requirement is the mode-theory
+> requirement. Phasing now lives in `plans/pl-0002` (M0–M5).
 
 ### What holds
 
@@ -228,10 +300,10 @@ Concrete instantiations worth noting:
 
 ---
 
-## 4. Grade domain — recommendation
+## 4. Mode domain — recommendation ("grade domain" in the grade framing)
 
-**Recommendation: a grade is an arbitrary Handl data value (a typed
-expression), composed by a pluggable grade algebra — not a literal, not a
+**Recommendation: a mode is an arbitrary Handl data value (a typed
+expression), composed by a pluggable mode algebra — not a literal, not a
 closed semiring, not a row type.**
 
 Concretely, in order of increasing ambition:
@@ -382,6 +454,11 @@ not once at parse time.
   grade annotations with algebra dispatch, `forall G. A ~[G]~> B`
   quantification, inference of grades from wiring. Out of scope here.
 
+> **Superseded by `plans/pl-0002` (2026-11-25)**: P1–P3 map onto M1
+> (representation), M2 (algebra interface), M3 (subsumption), with M4
+> (effects-as-modes assessment) and M5 (transition cleanup) added. The
+> P2 "grade_compose" judgment op is now `mode_compose`.
+
 The key semantic commitment to record now: **`Hom` stays purely
 dimensional; grades never enter `type.hom`'s index.** ADR-0153 resolved
 that the bracket forms n-cell types and pushed coeffect grades to a
@@ -434,6 +511,9 @@ permanently claimed by the dimension reading.
 ---
 
 ## 8. Phased plan
+
+> **Superseded by `plans/pl-0002-mtt-modes-migration.md` (2026-11-25)** —
+> the table below is kept for history; M0–M5 there is the live plan.
 
 | Phase | Content | Depends on | Implementable? |
 |---|---|---|---|
@@ -535,17 +615,19 @@ acceptable, since zero sources use it.
 
 | Question | Decision | Basis |
 |---|---|---|
-| What is a grade? | Arbitrary Handl data value; algebras pluggable per ADR-0207 | §4; ADR-0207 §8–9 |
-| Grade domain closed? | No — named grades, calls, records, arrays, expressions | legacy `graded_arrow` accepted full exprs incl. arrays |
-| Multiple grades syntax | Single expr; multiplicity via `[G1,G2]`/`{…}` data | `sort ... grades` precedent; `,` not infix |
-| Node kind | New `graded_arrow` (roles source/grade/target) | engine-genericity; precedent in arrow-lower |
-| `Hom`/`dim` vs grade | Strictly separate formers; grade never enters `type.hom` index | ADR-0153 §6 |
-| Grades vs `IO<>` | Orthogonal: grades = coeffects/usage on the arrow; `IO<sig>` = effects/authority in codomain | §7; MTT precedent; implemented handle story |
-| Literal numeric grade | Legal but spelled `~[(2)]~>` — bare `~[2]~>` is forever dimension | §7 collision note |
-| Composition grade rule | `grade_compose` judgment op dispatching to a **grade-algebra interface** (compose/unit/order as data fields, §3 adj. 1); canonical default algebra ships in P2 | §6 P2 |
-| Enforcement now | None beyond well-formedness; subsumption deferred | honest-bound convention |
+| What is a mode (was: grade)? | Arbitrary Handl data value; a **mode** in the MTT sense — object of a mode theory; algebras pluggable per ADR-0207 | §0, §4; ADR-0207 §8–9; MTT |
+| Mode domain closed? | No — named modes, calls, records, arrays, expressions | legacy `graded_arrow` accepted full exprs incl. arrays |
+| Multiple modes syntax | Single expr; multiplicity via `[m1,m2]`/`{…}` data | `sort ... grades` precedent; `,` not infix |
+| Node kind | `graded_arrow` (roles source/grade/target) — name kept, semantics = mode arrow | engine-genericity; precedent in arrow-lower; §0 naming decision |
+| `Hom`/`dim` vs mode | Strictly separate formers; **dimensions are not modes** — mode never enters `type.hom` index or `Op.dim` | ADR-0153 §6; §0 |
+| Modes vs `IO<>` | Orthogonal: modes = coeffect/usage discipline on the arrow; `IO<sig>` = effects/authority in codomain. Effects-as-modes unification deferred to M4 assessment | §7; MTT precedent; implemented handle story |
+| Literal numeric mode | Legal but spelled `~[(2)]~>` — bare `~[2]~>` is forever dimension | §7 collision note; §0 |
+| Composition mode rule | `mode_compose` judgment op dispatching to a **mode-algebra interface** (compose/unit/order as data fields, §3 adj. 1); canonical default algebra ships in M2 | §6 P2; pl-0002 |
+| What `m` constrains | The arrow is a morphism in mode `m` (MTT judgement-mode); specializes to coeffect-on-input for binder algebras, whole-morphism for protocol algebras — governing algebra decides | §0 (was §11.9) |
+| Enforcement now | M1–M2: representation + well-formedness; M3: subsumption where annotations exist; unresolvable → pass | honest-bound convention; pl-0002 |
+| Full MTT (mode contexts, substitution, strictness, mode polymorphism) | **Out of scope** — research-grade | pl-0002 "Honest scoping" |
 | Codemod disambiguation | Payload kind, then binding for idents (§9.2) | census §1.4 |
-| Transition hazard | Codemod-first; `~[x]~>` stays `dim_arrow` until migrated (§9.3a) | syntax-decisions sequencing |
+| Transition hazard | Codemod-first; `~[x]~>` stays `dim_arrow` until migrated (§9.3a); flip lands in M5 | syntax-decisions sequencing |
 
 ---
 
@@ -588,12 +670,24 @@ acceptable, since zero sources use it.
 8. **`~[G]~>` where G mentions dimension variables** (`~[f<N>]~>`?):
    grades depending on dims — allowed by "everything is data"; checking
    deferred. Note only.
-9. **What `G` constrains** (raised by §3 adjustment 2): coeffect reading
-   ("the arrow consumes A at grade G" — QTT/Granule-aligned) vs
-   whole-morphism annotation (ADR-0207 examples, session protocol of the
-   arrow's behavior). Recommend documenting the coeffect reading as the
-   default and leaving richer readings to the governing algebra; needs a
-   user decision before P2 writes the `grade_compose` contract.
+9. ~~**What `G` constrains**~~ — **RESOLVED (MTT, 2026-11-25)**: `A ~[m]~> B`
+   annotates the arrow as a morphism *in mode `m`* — the MTT
+   judgement-mode reading. For binder-style algebras (usage counts,
+   permission rows) this specializes to the QTT/Granule coeffect
+   reading ("consumes `A` at mode `m`" — the default documented
+   reading); for protocol algebras (ADR-0203 `Session`) it is the
+   whole-morphism reading (the session protocol of the arrow's
+   behavior). The governing mode algebra decides which operations the
+   mode supports; richer readings remain algebra-defined. See §0.
+
+**MTT resolutions summary (2026-11-25)**: Q9 resolved above; literal-mode
+spelling confirmed (`~[(2)]~>`/named mode, `~[2]~>` stays dimension);
+algebra interface = mode algebra (compose/unit/order as data, §3 adj. 1);
+Q1 leans "resolve against declared `grade`/`sort` names first" (mode
+well-formedness is an M2 deliverable in pl-0002); Q6 (`op ... grade G`
+trailing clause) — recommend drop, one mode notation; Q2 (`~>` inside
+`G`) — still recommend rejecting; Q3/Q4/Q5/Q7/Q8 unchanged, tracked in
+pl-0002 phases.
 
 ---
 
