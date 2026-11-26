@@ -3430,6 +3430,8 @@ do {
     b_deep := if b_arr { dim_b > k + 1 } else { false }
     mode_a := if a_arr { get_or(a, "mode", null) } else { null }
     mode_b := if b_arr { get_or(b, "mode", null) } else { null }
+    mc := funcs.mode_compose_(funcs, s, mode_a, mode_b)
+    s_mc := mc["state"]
     if a_deep || b_deep {
       do {
         out_dim := if a_deep { dim_a } else { dim_b }
@@ -3437,9 +3439,10 @@ do {
         a_tgt := if a_deep { get_or(a, "output", null) } else { a }
         b_src := if b_deep { get_or(b, "inputs", null) } else { b }
         b_tgt := if b_deep { get_or(b, "output", null) } else { b }
-        r_in := funcs.cell_paste_(funcs, s, a_src, b_src, k)
+        r_in := funcs.cell_paste_(funcs, s_mc, a_src, b_src, k)
         r_out := funcs.cell_paste_(funcs, r_in["state"], a_tgt, b_tgt, k)
-        cell_rec := funcs.make_type("Arrow", set(set(set(set({}, "inputs", r_in.val), "grade", funcs.make_type("type.number", {})), "output", r_out.val), "dim", out_dim))
+        base_rec := funcs.make_type("Arrow", set(set(set(set({}, "inputs", r_in.val), "grade", funcs.make_type("type.number", {})), "output", r_out.val), "dim", out_dim))
+        cell_rec := if mc.val == null { base_rec } else { set(base_rec, "mode", mc.val) }
         { val: cell_rec, state: r_out["state"] }
       }
     } else {
@@ -3451,8 +3454,9 @@ do {
         } else {
           if b_arr { get_or(b, "grade", funcs.make_type("type.number", {})) } else { funcs.make_type("type.number", {}) }
         }
-        cell_rec := funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", grade_t), "output", new_output), "dim", k + 1))
-        { val: cell_rec, state: s }
+        base_rec := funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", grade_t), "output", new_output), "dim", k + 1))
+        cell_rec := if mc.val == null { base_rec } else { set(base_rec, "mode", mc.val) }
+        { val: cell_rec, state: s_mc }
       }
     }
   }
