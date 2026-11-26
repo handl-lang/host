@@ -32,14 +32,19 @@ mode.algebra.default:
   unit: null
   order: "eq"
 
-# `mode.algebra.effects` — the effect-row instance shipped for the M4
-# assessment (design/effects-as-modes.md §5): `compose` is record-row
-# union with entry merge (shared ops must agree — `==` keeps, a
-# conflict is the honest bound), `unit` the empty row, `order` row-width
-# subsumption (`s' ⊇ s` — the `io_headed` direction, consumed by M3).
-# `IO<sig>`/`handle`/`perform` remain the canonical effect mechanism;
-# this only *permits* `~[{io: S}]~>` / `~[Effects(row)]~>` annotations.
-mode.algebra.effects:
+# `mode.algebra.Effects` — the canonical effect-row algebra (PL-0004
+# E0; design/effects-ambient-modes.md §2): `compose` is record-row
+# union with the entry-merge rule (a shared op keeps its entry iff the
+# two entries unify; a decided conflict degrades that entry to a fresh
+# meta — the honest bound), `unit` the empty row `{}`, `order`
+# row-width subsumption (`s' ⊇ s` — the `io_headed` direction,
+# consumed by M3). The head is capitalized to match the surface
+# spelling `Effects(S)` — `~[Effects(row)]~>` / `@ [Effects(S)]`
+# resolve `mode.algebra.<Head>` by the call head as written.
+# `IO<sig>`/`handle`/`perform` remain the canonical effect mechanism
+# until E1; this only *permits* `~[{io: S}]~>` / `~[Effects(row)]~>`
+# annotations today.
+mode.algebra.Effects:
   compose: "row_union"
   unit: {}
   order: "row_width"
