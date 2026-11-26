@@ -990,7 +990,8 @@ do {
     mode_metas: {},
     performed_effects: [],
     binding_modes: [],
-    algebra_heads: []
+    algebra_heads: [],
+    algebra_meta: {}
   })
 
   prelude_contains := [prelude, name]~> while { found: false, idx: 0 } {
@@ -1839,10 +1840,16 @@ do {
           --- composing through the head still takes the honest bound
           --- until the bridge lands (E2+). Mirrors the NBE
           --- `synth_new_decl` Algebra arm.
+          --- PL-0004 G0: the dict child may also carry `op : A ~> B`
+          --- (the canonical effect signature `perform` resolves) and
+          --- `requires : [Head, …]` (declared effect implication,
+          --- design §4.1) — both read into `algebra_meta[name]`.
           s_head := if schema != null && schema.schema == "Algebra" {
             do {
               heads := get_or(s, "algebra_heads", [])
-              set(s, "algebra_heads", if name_in_list_(heads, name) { heads } else { [...heads, name] })
+              s_h := set(s, "algebra_heads", if name_in_list_(heads, name) { heads } else { [...heads, name] })
+              meta := funcs.algebra_decl_meta_(funcs, s_h, dict_idx)
+              set(meta["state"], "algebra_meta", set(get_or(meta["state"], "algebra_meta", {}), name, set(set({}, "op", meta.op), "requires", meta.requires)))
             }
           } else {
             s
@@ -2202,11 +2209,12 @@ do {
       s5 := set(s4, "mode_metas", if is_obj(get_or(s, "mode_metas", {})) { get_or(s, "mode_metas", {}) } else { {} })
       s6 := set(s5, "performed_effects", if type_of(get_or(s, "performed_effects", [])) == "arr" { get_or(s, "performed_effects", []) } else { [] })
       s7 := set(s6, "binding_modes", if type_of(get_or(s, "binding_modes", [])) == "arr" { get_or(s, "binding_modes", []) } else { [] })
-      set(s7, "algebra_heads", if type_of(get_or(s, "algebra_heads", [])) == "arr" { get_or(s, "algebra_heads", []) } else { [] })
+      s8 := set(s7, "algebra_heads", if type_of(get_or(s, "algebra_heads", [])) == "arr" { get_or(s, "algebra_heads", []) } else { [] })
+      set(s8, "algebra_meta", if is_obj(get_or(s, "algebra_meta", {})) { get_or(s, "algebra_meta", {}) } else { {} })
     }
   } else {
     do {
-      fallback := { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {}, instances: {}, instance_count: 0, pending_instances: [], ambient_mode: null, node_modes: {}, mode_set_cache: {}, mode_metas: {}, performed_effects: [], binding_modes: [], algebra_heads: [] }
+      fallback := { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {}, instances: {}, instance_count: 0, pending_instances: [], ambient_mode: null, node_modes: {}, mode_set_cache: {}, mode_metas: {}, performed_effects: [], binding_modes: [], algebra_heads: [], algebra_meta: {} }
       if s == null {
         fallback
       } else {
@@ -5117,6 +5125,42 @@ do {
   --- the meta inside `mode_payload_value_` first, so this arm is the
   --- defensive leftover).
   bare_element_ := [funcs, s, idx]~> do {
+    --- PL-0004 G0: a bare `var` naming a declared `new Algebra` head
+    --- is a *bare-head* mode element (`@ [ReadFile]` — effect heads
+    --- carry no payload; the algebra record's `op` field is the
+    --- signature, design §2). `head` names the algebra, `arg` stays
+    --- `null` (payload absent/unit), `raw` is the self-describing
+    --- `var` term. Non-algebra vars keep the bare-mode path.
+    vstep := while { cur: idx, n: 0 } {
+      [st]~> if st.n >= 8 {
+        { out: st.cur }
+      } else {
+        do {
+          cn := ast_node(s.ast, st.cur)
+          if cn == null {
+            { out: st.cur }
+          } else {
+            do {
+              cch := node_children(cn)
+              if node_kind(cn) == "paren" && !is_empty(cch) {
+                { state: { cur: first_value(cch), n: st.n + 1 } }
+              } else {
+                { out: st.cur }
+              }
+            }
+          }
+        }
+      }
+    }
+    vn := ast_node(s.ast, vstep)
+    vnp := if vn == null { null } else { node_payload(vn) }
+    vname := if vn != null && node_kind(vn) == "var" {
+      if type_of(vnp) == "str" { vnp } else { get_or(vnp, "name", "") }
+    } else { "" }
+    if vname != "" && name_in_list_(get_or(s, "algebra_heads", []), vname) {
+      { head: vname, element: mode_set_element_(vname, null, make_type("var", set({}, "name", vname))), state: s }
+    } else {
+    do {
     pv := funcs.mode_payload_value_(funcs, s, idx)
     rv := pv.val
     rtag := type_tag(rv)
@@ -5135,6 +5179,258 @@ do {
     } else {
       { head: null, element: mode_set_element_(null, null, rv), state: pv["state"] }
     }
+    }
+    }
+  }
+
+  --- `mode_set_find_head_(mu, head)` — the mode-set element carrying
+  --- algebra `head`, or `null` (PL-0004 G0 head lookup).
+  mode_set_find_head_ := [mu, head]~> while { found: null, remaining: get_or(mu, "modes", []) } {
+    [st]~> if st.found != null || is_empty(st.remaining) {
+      { out: st.found }
+    } else {
+      do {
+        e := first_value(st.remaining)
+        { state: { found: if get_or(e, "head", null) == head { e } else { null }, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- `mode_head_present_(modes, h)` — does a mode-element list already
+  --- carry head `h`?
+  mode_head_present_ := [modes, h]~> while { found: false, remaining: modes } {
+    [st]~> if st["found"] || is_empty(st.remaining) {
+      { out: st["found"] }
+    } else {
+      do {
+        e := first_value(st.remaining)
+        { state: { found: if get_or(e, "head", null) == h { true } else { st["found"] }, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- `mode_set_close_requires_(funcs, s, mu)` — PL-0004 G0
+  --- transitive `requires` closure (design §4.1): every declared
+  --- effect head's implications join the mode set as bare-head
+  --- elements until fixpoint (`@ [ReadFile]` elaborates to
+  --- `@ [ReadFile, FsRead]`). `mu` is a `type.mode_set` value (or
+  --- `null` → the empty set); returns `{val, state}`. Required heads
+  --- not declared anywhere still join — with a warning (honest
+  --- bound), matching the unknown-head posture.
+  mode_set_close_requires_ := [funcs, s, mu]~> do {
+    meta_map := get_or(s, "algebra_meta", {})
+    declared := get_or(s, "algebra_heads", [])
+    modes0 := if mu == null { [] } else { get_or(mu, "modes", []) }
+    modes0_ok := if type_of(modes0) == "arr" { modes0 } else { [] }
+    loop := while { modes: modes0_ok, state: s, rounds: 0 } {
+      [st]~> if st.rounds >= 128 {
+        { out: { val: mode_set_mint_(st.modes), state: st["state"] } }
+      } else {
+        do {
+          scan := while { adds: [], state: st["state"], remaining: st.modes } {
+            [w]~> if is_empty(w.remaining) {
+              { out: { adds: w.adds, state: w["state"] } }
+            } else {
+              do {
+                e := first_value(w.remaining)
+                h := get_or(e, "head", null)
+                m := if h == null { null } else { get_or(meta_map, h, null) }
+                reqs := if m == null { [] } else { get_or(m, "requires", []) }
+                reqs_ok := if type_of(reqs) == "arr" { reqs } else { [] }
+                step := while { adds: w.adds, state: w["state"], remaining: reqs_ok } {
+                  [v]~> if is_empty(v.remaining) {
+                    { out: { adds: v.adds, state: v["state"] } }
+                  } else {
+                    do {
+                      r := first_value(v.remaining)
+                      rn := if type_of(r) == "str" { r } else { "" }
+                      have := rn == "" || mode_head_present_(st.modes, rn) || name_in_list_(v.adds, rn)
+                      s_v := if !have && rn != "" && !name_in_list_(declared, rn) && funcs.mode_algebra_(funcs, v["state"], rn) == null {
+                        tc_add_diagnostic(v["state"], "warning", "mode ascription: algebra `" + h + "` requires undeclared head `" + rn + "` — adding it anyway (honest bound)")
+                      } else {
+                        v["state"]
+                      }
+                      { state: { adds: if have { v.adds } else { [...v.adds, rn] }, state: s_v, remaining: drop(v.remaining, 1) } }
+                    }
+                  }
+                }
+                { state: { adds: step.adds, state: step["state"], remaining: drop(w.remaining, 1) } }
+              }
+            }
+          }
+          if is_empty(scan.adds) {
+            { out: { val: mode_set_mint_(st.modes), state: scan["state"] } }
+          } else {
+            do {
+              grown := while { result: st.modes, remaining: scan.adds } {
+                [w]~> if is_empty(w.remaining) {
+                  { out: w.result }
+                } else {
+                  do {
+                    r := first_value(w.remaining)
+                    { state: { result: [...w.result, mode_set_element_(r, null, make_type("var", set({}, "name", r)))], remaining: drop(w.remaining, 1) } }
+                  }
+                }
+              }
+              { state: { modes: grown, state: scan["state"], rounds: st.rounds + 1 } }
+            }
+          }
+        }
+      }
+    }
+    loop
+  }
+
+  --- `algebra_requires_list_(funcs, s, idx)` — the `requires :
+  --- [Head, …]` payload reader (PL-0004 G0): an `array`/`list` of
+  --- `var`/literal head names (a single `var`/literal is accepted).
+  --- Returns `{names, state}`; a non-name payload warns and yields
+  --- `[]` (honest bound).
+  algebra_requires_list_ := [funcs, s, idx]~> do {
+    node := ast_node(s.ast, idx)
+    un := while { cur: idx, n: 0 } {
+      [st]~> if st.n >= 8 {
+        { out: st.cur }
+      } else {
+        do {
+          cn := ast_node(s.ast, st.cur)
+          if cn == null {
+            { out: st.cur }
+          } else {
+            do {
+              cch := node_children(cn)
+              if node_kind(cn) == "paren" && !is_empty(cch) {
+                { state: { cur: first_value(cch), n: st.n + 1 } }
+              } else {
+                { out: st.cur }
+              }
+            }
+          }
+        }
+      }
+    }
+    rn := ast_node(s.ast, un)
+    rkind := if rn == null { "" } else { node_kind(rn) }
+    rch := if rn == null { [] } else { node_children(rn) }
+    if rkind == "array" || rkind == "list" {
+      acc := while { names: [], remaining: rch } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.names }
+        } else {
+          do {
+            ci := first_value(st.remaining)
+            cn := ast_node(s.ast, ci)
+            cch := if cn == null { [] } else { node_children(cn) }
+            inn := if cn != null && node_kind(cn) == "paren" && !is_empty(cch) { ast_node(s.ast, first_value(cch)) } else { cn }
+            ip := if inn == null { null } else { node_payload(inn) }
+            ik := if inn == null { "" } else { node_kind(inn) }
+            pv := if type_of(ip) == "obj" { get_or(ip, "value", null) } else { ip }
+            nm := if ik == "var" {
+              if type_of(ip) == "str" { ip } else { get_or(ip, "name", "") }
+            } else {
+              if type_of(pv) == "str" { pv } else { "" }
+            }
+            { state: { names: if nm == "" { st.names } else { [...st.names, nm] }, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+      { names: acc, state: s }
+    } else {
+      rp := if rn == null { null } else { node_payload(rn) }
+      single := if rkind == "var" {
+        if type_of(rp) == "str" { rp } else { get_or(rp, "name", "") }
+      } else {
+        if type_of(rp) == "str" { rp } else { "" }
+      }
+      if single == "" {
+        { names: [], state: tc_add_diagnostic(s, "warning", "algebra `requires` expects a list of algebra head names — ignoring") }
+      } else {
+        { names: [single], state: s }
+      }
+    }
+  }
+
+  --- `algebra_decl_meta_(funcs, s, dict_idx)` — read the optional
+  --- `op : A ~> B` / `requires : [Head, …]` fields of a
+  --- `new Algebra` declaration's dict child (PL-0004 G0; design
+  --- effects-ambient-modes.md §2/§4). Returns `{op, requires,
+  --- state}` — `op` the synthesized operation type (`null` when the
+  --- record declares none, e.g. `Cost`'s `{compose, unit, order}`),
+  --- `requires` the declared implication heads. Dict shapes mirror
+  --- `io_sig_`: `object` `entry` children and `block`
+  --- `type-annot` children; every other shape yields empty fields.
+  algebra_decl_meta_ := [funcs, s, dict_idx]~> do {
+    node := ast_node(s.ast, dict_idx)
+    children := if node == null { [] } else { node_children(node) }
+    pairs := while { result: [], remaining: children } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          ci := first_value(st.remaining)
+          cn := ast_node(s.ast, ci)
+          ck := if cn == null { "" } else { node_kind(cn) }
+          cch := if cn == null { [] } else { node_children(cn) }
+          step := if ck == "entry" && len(cch) >= 2 {
+            do {
+              kn := ast_node(s.ast, first_value(cch))
+              kp := if kn == null { null } else { node_payload(kn) }
+              key := if type_of(kp) == "str" { kp } else { get_or(kp, "name", get_or(kp, "value", "")) }
+              { key: key, idx: at(cch, 1) }
+            }
+          } else {
+            if ck == "type-annot" {
+              do {
+                srole := child_role_index(s, "type-annot", "subject")
+                arole := child_role_index(s, "type-annot", "annot")
+                spos := if srole == null { 0 } else { srole }
+                apos := if arole == null { 1 } else { arole }
+                if spos < len(cch) && apos < len(cch) {
+                  do {
+                    sn := ast_node(s.ast, at(cch, spos))
+                    sp := if sn == null { null } else { node_payload(sn) }
+                    key := if type_of(sp) == "str" { sp } else { get_or(sp, "name", get_or(sp, "value", "")) }
+                    { key: key, idx: at(cch, apos) }
+                  }
+                } else {
+                  { key: "", idx: null }
+                }
+              }
+            } else {
+              { key: "", idx: null }
+            }
+          }
+          { state: { result: if step.key == "" || step.idx == null { st.result } else { [...st.result, step] }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    acc := while { op: null, requires: [], state: s, remaining: pairs } {
+      [st]~> if is_empty(st.remaining) {
+        { out: { op: st.op, requires: st.requires, state: st["state"] } }
+      } else {
+        do {
+          p := first_value(st.remaining)
+          pk := get_or(p, "key", "")
+          pidx := get_or(p, "idx", null)
+          if pk == "op" {
+            do {
+              tr := funcs.mode_sig_type_(funcs, st["state"], pidx)
+              { state: { op: tr.val, requires: st.requires, state: tr["state"], remaining: drop(st.remaining, 1) } }
+            }
+          } else {
+            if pk == "requires" {
+              do {
+                rl := funcs.algebra_requires_list_(funcs, st["state"], pidx)
+                { state: { op: st.op, requires: rl.names, state: rl["state"], remaining: drop(st.remaining, 1) } }
+              }
+            } else {
+              { state: { op: st.op, requires: st.requires, state: st["state"], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      }
+    }
+    acc
   }
 
   --- `elaborate_mode_set_inner_(funcs, s, mode_idx)` — the
@@ -5183,7 +5479,11 @@ do {
             }
           }
         }
-        { val: mode_set_mint_(acc.modes), state: acc["state"] }
+        --- PL-0004 G0: close the elaborated set under each head's
+        --- declared `requires` (design §4.1) — `@ [ReadFile]`
+        --- elaborates to `@ [ReadFile, FsRead]`.
+        closed := funcs.mode_set_close_requires_(funcs, acc["state"], mode_set_mint_(acc.modes))
+        { val: closed.val, state: closed["state"] }
       }
     }
   }
@@ -5364,11 +5664,51 @@ do {
     }
   } else {
     do {
+      --- PL-0004 G0: a declared *effect* head (algebra record with an
+      --- `op` field) composes by set union — two computations
+      --- performing `PutStr` still perform `PutStr` (design §2).
+      --- Payloads are parameters: absent on either side keeps the
+      --- present one; equal payloads keep; differing payloads try
+      --- `unify`, else the honest bound (warn + fresh meta — M3
+      --- posture, no solver merges arbitrary heads).
+      meta := if head == null { null } else { get_or(get_or(s, "algebra_meta", {}), head, null) }
+      if meta != null && get_or(meta, "op", null) != null {
+        do {
+          res := if a_arg == null && b_arg == null {
+            { val: null, state: s }
+          } else {
+            if a_arg == null {
+              { val: b_arg, state: s }
+            } else {
+              if b_arg == null {
+                { val: a_arg, state: s }
+              } else {
+                if a_arg == b_arg {
+                  { val: a_arg, state: s }
+                } else {
+                  do {
+                    ur := unify(funcs, a_arg, b_arg, s.metas)
+                    if ur.ok {
+                      { val: zonk(zonk, a_arg, ur.metas), state: set(s, "metas", ur.metas) }
+                    } else {
+                      funcs.mode_honest_(funcs, s, "mode compose: effect `" + head + "` payloads do not unify — bound to a fresh meta (honest bound)")
+                    }
+                  }
+                }
+              }
+            }
+          }
+          { arg: res.val, raw: if res.val == null { make_type("var", set({}, "name", head)) } else { res.val }, state: res["state"] }
+        }
+      } else {
+      do {
       da := make_type("mode", set(set(set({}, "head", head), "arg", a_arg), "raw", if a_raw == null { a_arg } else { a_raw }))
       db := make_type("mode", set(set(set({}, "head", head), "arg", b_arg), "raw", if b_raw == null { b_arg } else { b_raw }))
       mc := funcs.mode_compose_(funcs, s, da, db)
       mv := mc.val
       { arg: get_or(mv, "arg", null), raw: get_or(mv, "raw", null), state: mc["state"] }
+      }
+      }
     }
   }
 
@@ -5433,7 +5773,11 @@ do {
   --- (`?μ := S`; a pure value instantiates it to `{}`). A *symbolic
   --- actual* row, a symbolic non-meta expected row, and failed
   --- instantiation all warn+pass — the honest bound.
-  check_mode_subsumption_ := [funcs, s, actual, expected]~> do {
+  ---
+  --- PL-0004 G0: this is the `Effects`-row half only — the
+  --- granular-head inclusion check lives in `mode_sets_subsumed_`,
+  --- composed by `check_mode_subsumption_` below.
+  check_mode_subsumption_effects_ := [funcs, s, actual, expected]~> do {
     a_pay := mode_set_effects_payload_(actual)
     e_pay := mode_set_effects_payload_(expected)
     a_pay_z := if a_pay.found { { found: true, val: zonk(zonk, a_pay.val, s.metas) } } else { a_pay }
@@ -5516,6 +5860,101 @@ do {
           }
         }
       }
+    }
+  }
+
+  --- `mode_sets_subsumed_(funcs, s, actual, expected)` — the
+  --- granular-head half of mode subsumption (PL-0004 G0; design
+  --- §2/§3 widening = set inclusion + per-head `order` on payloads).
+  --- Every *named* non-`Effects` element of `actual` must be present
+  --- in `expected` by head; same-head payloads (parameters) must
+  --- unify — a decided payload mismatch warns+passes (per-head
+  --- `order` is not yet enforced — the M3 honest bound). A missing
+  --- head is an error unless `expected` carries a bare/symbolic
+  --- element (head `null` — a mode metavariable), which makes
+  --- coverage undecidable → warn+pass.
+  mode_sets_subsumed_ := [funcs, s, actual, expected]~> do {
+    els_a := get_or(actual, "modes", [])
+    els_a_ok := if type_of(els_a) == "arr" { els_a } else { [] }
+    els_e := get_or(expected, "modes", [])
+    sym_expected := while { found: false, remaining: if type_of(els_e) == "arr" { els_e } else { [] } } {
+      [st]~> if st["found"] || is_empty(st.remaining) {
+        { out: st["found"] }
+      } else {
+        do {
+          e := first_value(st.remaining)
+          { state: { found: if get_or(e, "head", null) == null { true } else { st["found"] }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    acc := while { state: s, bad: null, remaining: els_a_ok } {
+      [st]~> if st.bad != null || is_empty(st.remaining) {
+        { out: { bad: st.bad, state: st["state"] } }
+      } else {
+        do {
+          e := first_value(st.remaining)
+          h := get_or(e, "head", null)
+          named := h != null && h != "Effects"
+          step := if !named {
+            { state: st["state"], bad: null }
+          } else {
+            do {
+              slot := mode_set_find_head_(expected, h)
+              if slot == null {
+                if sym_expected {
+                  do {
+                    s2 := tc_add_diagnostic(st["state"], "warning", "mode subsumption: effect `" + h + "` is not among the ascription's named heads — the set carries a symbolic element, passing (honest bound)")
+                    { state: s2, bad: null }
+                  }
+                } else {
+                  { state: st["state"], bad: "typecheck: ambient mode subsumption: effect `" + h + "` is not permitted by the ascription's mode set" }
+                }
+              } else {
+                do {
+                  pa := zonk(zonk, get_or(e, "arg", null), st["state"].metas)
+                  pb := zonk(zonk, get_or(slot, "arg", null), st["state"].metas)
+                  check := pa != null && pb != null && !is_meta(pa) && !is_meta(pb) && pa != pb
+                  if !check {
+                    { state: st["state"], bad: null }
+                  } else {
+                    do {
+                      ur := unify(funcs, pa, pb, st["state"].metas)
+                      if ur.ok {
+                        { state: set(st["state"], "metas", ur.metas), bad: null }
+                      } else {
+                        do {
+                          s2 := tc_add_diagnostic(st["state"], "warning", "mode subsumption: effect `" + h + "`'s payloads do not unify — passing (honest bound)")
+                          { state: s2, bad: null }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          { state: { state: step["state"], bad: step.bad, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    if acc.bad != null {
+      { ok: false, state: tc_add_diagnostic(acc["state"], "error", acc.bad) }
+    } else {
+      { ok: true, state: acc["state"] }
+    }
+  }
+
+  --- `check_mode_subsumption_(funcs, s, actual, expected)` — effect
+  --- widening at an `@ μ` ascription (PL-0004 E2/E3 + G0): the
+  --- `Effects`-row check (`check_mode_subsumption_effects_`) runs
+  --- first — unchanged transition semantics — then the granular
+  --- head-inclusion check (`mode_sets_subsumed_`). Both must pass.
+  check_mode_subsumption_ := [funcs, s, actual, expected]~> do {
+    eff := funcs.check_mode_subsumption_effects_(funcs, s, actual, expected)
+    if !eff.ok {
+      eff
+    } else {
+      funcs.mode_sets_subsumed_(funcs, eff["state"], actual, expected)
     }
   }
 
@@ -5962,6 +6401,63 @@ do {
                 }
               }
             } else {
+              --- PL-0004 G0 granular path: `op_name` names a declared
+              --- `new Algebra` head whose record carries an `op`
+              --- signature — `perform` resolves domain/codomain from
+              --- that field (design §2/§3). A head absent from μ
+              --- extends the ambient mode (requires-closed); the op
+              --- journals on `performed_effects` like the row path.
+              --- Checked only when the `Effects` row did not claim
+              --- the op — the row path stays the transition default.
+              gmeta := get_or(get_or(s_arg, "algebra_meta", {}), op_name, null)
+              gop_raw := if gmeta == null { null } else { get_or(gmeta, "op", null) }
+              gop := if gop_raw == null { null } else { zonk(zonk, gop_raw, s_arg.metas) }
+              if gop != null {
+                do {
+                  modes_now := if mu == null { [] } else { get_or(mu, "modes", []) }
+                  modes_now_ok := if type_of(modes_now) == "arr" { modes_now } else { [] }
+                  have := mode_head_present_(modes_now_ok, op_name)
+                  s_g := s_arg
+                  if !have {
+                    do {
+                      bare_el := mode_set_element_(op_name, null, make_type("var", set({}, "name", op_name)))
+                      ext := funcs.mode_set_close_requires_(funcs, s_arg, mode_set_mint_([...modes_now_ok, bare_el]))
+                      s_g := set(ext["state"], "ambient_mode", ext.val)
+                    }
+                  }
+                  gop_z := zonk(zonk, gop, s_g.metas)
+                  if type_tag(gop_z) == "type.function" {
+                    do {
+                      gdom := get_or(gop_z, "param", null)
+                      gcod := get_or(gop_z, "body", null)
+                      gur := unify(funcs, arg_ty, gdom, s_g.metas)
+                      if gur.ok {
+                        do {
+                          s_j := set(s_g, "metas", gur.metas)
+                          s_p := set(s_j, "performed_effects", [...get_or(s_j, "performed_effects", []), { name: op_name, entry: gop_z }])
+                          out := { val: zonk(zonk, gcod, gur.metas), state: s_p }
+                          ambient_done := true
+                        }
+                      } else {
+                        do {
+                          s_e := tc_add_diagnostic(s_g, "error", "typecheck: perform: argument does not match op `" + op_name + "`'s `op` domain")
+                          out := { val: gcod, state: s_e }
+                          ambient_done := true
+                        }
+                      }
+                    }
+                  } else {
+                    do {
+                      s_w := tc_add_diagnostic(s_g, "warning", "perform: algebra `" + op_name + "`'s `op` field is not an arrow `A ~> B` — treating it as domain and codomain (honest bound)")
+                      gur := unify(funcs, arg_ty, gop_z, s_w.metas)
+                      s_u := if gur.ok { set(s_w, "metas", gur.metas) } else { s_w }
+                      s_p := set(s_u, "performed_effects", [...get_or(s_u, "performed_effects", []), { name: op_name, entry: gop_z }])
+                      out := { val: gop_z, state: s_p }
+                      ambient_done := true
+                    }
+                  }
+                }
+              } else {
               if row != null {
                 do {
                   s_w := tc_add_diagnostic(s_arg, "warning", "perform: op `" + op_name + "` is not in the ambient mode's `Effects` row — minting `IO{…}` (deprecated transition path)")
@@ -5976,6 +6472,7 @@ do {
                 } else {
                   out := { val: null, state: s_arg }
                 }
+              }
               }
             }
             if ambient_done {
@@ -12171,6 +12668,11 @@ do {
     mode_payload_value_: mode_payload_value_,
     mode_element_: mode_element_,
     bare_element_: bare_element_,
+    mode_set_find_head_: mode_set_find_head_,
+    mode_head_present_: mode_head_present_,
+    mode_set_close_requires_: mode_set_close_requires_,
+    algebra_requires_list_: algebra_requires_list_,
+    algebra_decl_meta_: algebra_decl_meta_,
     elaborate_mode_set_inner_: elaborate_mode_set_inner_,
     elaborate_mode_set_: elaborate_mode_set_,
     mode_ascribe_mode_child_: mode_ascribe_mode_child_,
@@ -12178,6 +12680,8 @@ do {
     mode_sets_compose_: mode_sets_compose_,
     compose_mode_element_: compose_mode_element_,
     effects_rows_union_: effects_rows_union_,
+    check_mode_subsumption_effects_: check_mode_subsumption_effects_,
+    mode_sets_subsumed_: mode_sets_subsumed_,
     check_mode_subsumption_: check_mode_subsumption_,
     handler_op_fields_: handler_op_fields_,
     effects_residual_row_: effects_residual_row_,
