@@ -49,9 +49,9 @@ pure.
 
 ## 2. Granular effect algebras (v2)
 
-Every effect operation is declared as its own algebra. The payload
-of a mode element is the operation's *type* `A ~> B` — or a
-parameter for parameterized operations:
+Every effect operation is declared as its own algebra. The operation
+signature lives in the algebra record's `op` field — it is declared
+once, canonically, and `perform` reads domain/codomain from it:
 
 ```hnl
 PutStr  := new Algebra { op : Str ~> Unit }
@@ -60,14 +60,19 @@ Raise   := new Algebra { op : Err ~> a }        -- parametric codomain
 Cost    := new Algebra { compose: (+), unit: 0, order: (<=) }
 ```
 
-- `op` is the operation signature — `perform` reads domain/codomain
-  from it. One shape, no dual declared-vs-payload form.
+- **Payload convention (pinned):** for effect algebras the mode
+  element is the *bare head* — `@ [ReadFile]`, payload absent/unit.
+  The `op` field is the signature; the payload slot is reserved for
+  *parameters* (e.g. `Raise(Nat)` instantiating `a := Nat`, or a
+  `State` effect carrying its cell type). `perform` resolves the op
+  type from the head's `op` field, unified with any payload
+  instantiation. One shape, no dual declared-vs-payload form.
+- `requires` (see §4) declares implication between heads.
 - Effect algebras need no `compose`/`order` of their own: their
   composition is **set union** (two computations performing `PutStr`
   still perform `PutStr`), and their subsumption is **set inclusion**
   (a context allowing `{PutStr, ReadFile}` satisfies one needing
   `{PutStr}`). The generic mode machinery handles both.
-- `requires` (see §4) declares implication between heads.
 - `Effects(S)` — the single algebra wrapping a whole signature row —
   is **retired**. A signature `S = {puts: Str ~> Unit}` elaborates to
   the *set* `[PutStr, ...]`, one element per op. There is no row type;
