@@ -1400,7 +1400,18 @@ impl ModuleResolver for CharResolver {
 }
 
 /// Build and install the handl loader over the `char`/`str` floors.
+///
+/// `LOADER` is a `OnceLock` — first install wins — so once a loader is
+/// present there is nothing to do. Rebuilding `str-handl` anyway would
+/// run `analyze_source` per file *through the installed loader*
+/// (interpreted `loader.analyze` over ~46 modules): an eval-cost
+/// explosion under parallel test load that has flaked this binary
+/// (resource kill, not a correctness bug — the eval path is
+/// thread-local/`OnceLock` only).
 fn install() {
+    if loader().is_some() {
+        return;
+    }
     let str_module = build_str_handl_module(&CharResolver);
     let _ = install_loader(HandlLoader::new(vec![
         Arc::new(CharModule),
