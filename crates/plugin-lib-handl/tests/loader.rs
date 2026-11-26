@@ -732,6 +732,199 @@ mod bootstrap {
         }
     }
 
+    /// Whether a non-binding top-level `seg` continues the in-flight
+    /// item instead of opening a new statement. Mirrors `loader.hnl`'s
+    /// `segment_continues_item` — see
+    /// `handl_runtime::module_prep::segment_continues_item` for the full
+    /// rationale; `lines` is the item's accumulated expression text
+    /// (oldest-first — the oracle appends).
+    fn segment_continues_item(lines: &[String], seg: &str) -> bool {
+        let seg = seg.trim_start();
+        let Some(&b) = seg.as_bytes().first() else {
+            return false;
+        };
+        if matches!(
+            b,
+            b'.' | b')'
+                | b']'
+                | b'}'
+                | b','
+                | b';'
+                | b':'
+                | b'?'
+                | b'|'
+                | b'&'
+                | b'='
+                | b'<'
+                | b'>'
+                | b'+'
+                | b'*'
+                | b'/'
+                | b'%'
+                | b'^'
+                | b'~'
+                | b'@'
+                | b'#'
+                | b'$'
+                | b'`'
+                | b'-'
+                | b'!'
+        ) {
+            return true;
+        }
+        let first_word = seg
+            .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .next()
+            .unwrap_or("");
+        if matches!(
+            first_word,
+            "else"
+                | "catch"
+                | "finally"
+                | "then"
+                | "elif"
+                | "otherwise"
+                | "and"
+                | "or"
+                | "xor"
+                | "not"
+                | "in"
+                | "of"
+                | "is"
+                | "as"
+                | "mod"
+                | "div"
+                | "rem"
+                | "where"
+                | "with"
+                | "when"
+                | "unless"
+                | "until"
+                | "by"
+                | "via"
+        ) {
+            return true;
+        }
+        if b == b'{' && item_expects_block(lines) {
+            return true;
+        }
+        item_expression_incomplete(lines)
+    }
+
+    /// Whether the accumulated expression text ends mid-expression.
+    /// Mirrors `loader.hnl`'s `item_expression_incomplete`; `lines` is
+    /// oldest-first here (the oracle appends), so the tail is `last()`.
+    fn item_expression_incomplete(lines: &[String]) -> bool {
+        let Some(tail) = lines.last().map(|l| l.trim_end()) else {
+            return false;
+        };
+        let Some(&tb) = tail.as_bytes().last() else {
+            return false;
+        };
+        if matches!(
+            tb,
+            b'+' | b'-'
+                | b'*'
+                | b'/'
+                | b'%'
+                | b'='
+                | b'<'
+                | b'>'
+                | b'!'
+                | b'&'
+                | b'|'
+                | b'^'
+                | b'~'
+                | b'?'
+                | b':'
+                | b','
+                | b'.'
+        ) {
+            return true;
+        }
+        if tail.ends_with("->")
+            || tail.ends_with("=>")
+            || tail.ends_with("~>")
+            || tail.ends_with("|>")
+            || tail.ends_with("<|")
+        {
+            return true;
+        }
+        let word = tail
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .find(|w| !w.is_empty())
+            .unwrap_or("");
+        matches!(
+            word,
+            "if" | "else"
+                | "match"
+                | "while"
+                | "for"
+                | "handle"
+                | "do"
+                | "then"
+                | "in"
+                | "of"
+                | "and"
+                | "or"
+                | "xor"
+                | "not"
+                | "is"
+                | "as"
+                | "mod"
+                | "div"
+                | "rem"
+                | "return"
+                | "yield"
+                | "where"
+                | "with"
+        )
+    }
+
+    /// Whether the accumulated expression ends inside a construct still
+    /// owed its `{ … }` block. Mirrors `loader.hnl`'s
+    /// `item_expects_block`; `lines` is oldest-first (the oracle
+    /// appends), joined directly.
+    fn item_expects_block(lines: &[String]) -> bool {
+        const KEYWORDS: &[&str] = &[
+            "if", "else", "match", "while", "for", "handle", "do", "then", "in", "of",
+        ];
+        let text = lines.join("\n");
+        let bytes = text.as_bytes();
+        let mut last_end: Option<usize> = None;
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let c = bytes[i];
+            if c.is_ascii_alphanumeric() || c == b'_' {
+                let start = i;
+                while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+                    i += 1;
+                }
+                if KEYWORDS.contains(&&text[start..i]) {
+                    last_end = Some(i);
+                }
+            } else {
+                i += 1;
+            }
+        }
+        let Some(pos) = last_end else {
+            return false;
+        };
+        let mut depth = 0i32;
+        let mut seen_open = false;
+        for &c in &bytes[pos..] {
+            match c {
+                b'{' => {
+                    depth += 1;
+                    seen_open = true;
+                }
+                b'}' => depth -= 1,
+                _ => {}
+            }
+        }
+        !seen_open || depth > 0
+    }
+
     pub fn transform_export_to_object(src: &str) -> String {
         // Mirrors `loader.hnl`'s `transform_export_to_object`: the source is
         // segmented into top-level statements (`top_level_segments`), so an
@@ -758,6 +951,14 @@ mod bootstrap {
         }
         impl Cur {
             fn lines_mut(&mut self) -> &mut Vec<String> {
+                match self {
+                    Cur::Bind { lines, .. } | Cur::Decl { lines, .. } => lines,
+                }
+            }
+
+            /// Read-only view of the accumulated lines — used by the
+            /// continuation check. Mirrors `loader.hnl`'s `c.lines`.
+            fn lines(&self) -> &[String] {
                 match self {
                     Cur::Bind { lines, .. } | Cur::Decl { lines, .. } => lines,
                 }
@@ -901,15 +1102,25 @@ mod bootstrap {
                     continue;
                 }
             }
-            // A non-binding statement that does not continue an in-flight
-            // binding means the module's last statement is a bare
-            // expression — its value is the module record, so no
-            // projection is appended. Otherwise the segment continues the
-            // current binding's expression verbatim.
-            if current.is_none() {
+            // A non-binding segment that cannot continue the in-flight
+            // item is a new top-level statement. When it is the module's
+            // last statement and is itself a bare expression (`do { … }`,
+            // a record literal, call) its value is the module record —
+            // no projection is appended. Segments that *do* continue join
+            // the item's expression verbatim — mirrors `loader.hnl`'s
+            // `segment_continues_item` gate.
+            let continues = match &current {
+                Some(item) => segment_continues_item(item.lines(), trimmed),
+                None => false,
+            };
+            if continues {
+                if let Some(item) = &mut current {
+                    item.lines_mut().push(seg.clone());
+                }
+            } else {
+                finalize!();
+                current_is_private = false;
                 tail_is_binding = false;
-            } else if let Some(item) = &mut current {
-                item.lines_mut().push(seg.clone());
             }
         }
         finalize!();

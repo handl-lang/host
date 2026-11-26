@@ -389,6 +389,66 @@ fn export_data_alongside_plain_exports() {
     std::fs::remove_dir_all(&root).ok();
 }
 
+/// Regression: a no-`export` module whose last top-level statement is a
+/// bare `do { … }`/record literal must evaluate to *that* record — not
+/// to a `{ name: name }` projection of the preceding bindings. Any
+/// top-level binding before the trailing record (a private helper, or
+/// the `local := "spec"` line a host-module `from "spec" import * as m`
+/// lowers to) used to absorb the record segment into the binding and
+/// export only the binding names — lib-pred's `from "char" import * as
+/// char` + trailing combinator record evaluated to
+/// `{ "char": "char" }`, so every `pred.*` call failed
+/// `callee is not an arrow-value`.
+#[test]
+fn no_export_trailing_do_record_is_module_value() {
+    let root = scratch_dir("tail-do-record");
+    let src = "helper := x ~> x + 1\ndo {\n  { f: helper, g: x ~> x * 2 }\n}\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import * as m; { a: m.f(20), b: m.g(21) } }"#,
+    )
+    .expect("trailing do-record module must evaluate");
+    assert_eq!(value, json!({ "a": 21, "b": 42 }));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Same shape with a bare record literal tail (no `do` wrapper) and a
+/// host-module wildcard import ahead of it — the lib-pred reproduction:
+/// `from "nohost" import * as nh` lowers to `nh := "nohost"`, a binding
+/// that must not swallow the trailing record.
+#[test]
+fn host_import_then_trailing_record_keeps_record() {
+    let root = scratch_dir("host-import-tail");
+    let src = "from \"nohost\" import * as nh\nhelper := x ~> x + 1\n{ f: helper }\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import * as m; m.f(41) }"#,
+    )
+    .expect("module must evaluate to its trailing record");
+    assert_eq!(value, json!(42));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Wrapped-RHS continuations still join the binding: an operator-led
+/// operand on the next line and an `if` whose `{ … }` block opens on
+/// the following line are part of the expression, not new statements —
+/// the trailing `do { … }` record remains the module value.
+#[test]
+fn wrapped_rhs_continuations_still_join() {
+    let root = scratch_dir("wrapped-rhs");
+    let src = "x := 1 +\n2\ny := if true\n{ 10 } else { 20 }\ndo {\n  { a: x, b: y }\n}\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import * as m; m.a + m.b }"#,
+    )
+    .expect("wrapped RHS module must evaluate");
+    assert_eq!(value, json!(13), "x = 1 + 2 = 3, y = 10");
+    std::fs::remove_dir_all(&root).ok();
+}
+
 /// Coverage provenance end-to-end: module prep re-serializes the source,
 /// but the registered `CoverageSource` carries a prepared-line → file-line
 /// map, so hits and declaration lines resolve to the `.hnl` file on disk

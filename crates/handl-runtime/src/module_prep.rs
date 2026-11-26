@@ -338,6 +338,15 @@ impl PrepItem {
             PrepItem::Bind { pieces, .. } | PrepItem::Decl { pieces, .. } => pieces,
         }
     }
+
+    /// Read-only view of the accumulated pieces — used by the
+    /// continuation check to see whether the item's expression is
+    /// still incomplete.
+    fn pieces(&self) -> &[Piece] {
+        match self {
+            PrepItem::Bind { pieces, .. } | PrepItem::Decl { pieces, .. } => pieces,
+        }
+    }
 }
 
 /// Transform top-level `export name <:=|:> expr` declarations into an
@@ -609,16 +618,31 @@ fn transform_export_to_object(
                 continue;
             }
         }
-        // A non-binding statement that does not continue an in-flight
-        // binding means the module's last statement is a bare expression
-        // (`do { … }`, record literal, call) — its value is the module
-        // record, so no projection is appended. Otherwise the segment
-        // continues the current binding's expression verbatim (a `}`
-        // closing a `do` block, a wrapped expression tail, …).
-        if current.is_none() {
+        // A non-binding segment that cannot continue the in-flight
+        // item is a new top-level statement. When it is the module's
+        // last statement and is itself a bare expression (`do { … }`,
+        // a record literal, a call) its value is the module record —
+        // no `{ name: name }` projection is appended. Segments that
+        // *do* continue (a `}`/`)` closer, `.field`, an operator-led
+        // operand, `else { … }`, or the `{ … }` body of a pending
+        // `if`/`match`/`do`) join the item's expression verbatim.
+        // Unconditionally absorbing the segment kept `tail_is_binding`
+        // true, so a binding followed by a trailing `do { … }` record
+        // exported `{ name: name }` and silently dropped the record —
+        // e.g. `from "char" import * as char` lowers to `char :=
+        // "char"`, after which lib-pred's trailing record evaluated to
+        // `{ "char": "char" }` instead of the combinator table.
+        let continues = match &current {
+            Some(item) => segment_continues_item(item.pieces(), trimmed),
+            None => false,
+        };
+        if continues {
+            if let Some(item) = &mut current {
+                item.pieces_mut().push(Piece::new(seg, Some(seg_line)));
+            }
+        } else {
+            finalize!();
             tail_is_binding = false;
-        } else if let Some(item) = &mut current {
-            item.pieces_mut().push(Piece::new(seg, Some(seg_line)));
         }
     }
     finalize!();
@@ -812,6 +836,243 @@ fn transform_export_to_object(
     out.push(" }", None);
     out.push("\n}", None);
     Ok((out.text, out.map.into_vec()))
+}
+
+/// Whether a non-binding top-level `seg` continues the in-flight item
+/// (`name := …` / `export data …`) instead of opening a new statement.
+///
+/// The emitted text is verbatim either way — this decides only whether
+/// the item's expression is *complete* (so a trailing bare expression
+/// keeps its own module-record value) and, for `export` modules,
+/// whether the segment is absorbed into the binding's RHS.
+///
+/// A segment continues when:
+/// - it opens with a fragment token that cannot begin a statement — a
+///   closer/delimiter (`.`, `)`, `]`, `}`, `,`, `;`, `:`), an operator
+///   or arrow (`+`, `==`, `~>`, `->`, `=>`, `|>`, …), or a continuation
+///   keyword (`else`, `catch`, `finally`, `and`, `or`, …);
+/// - the accumulated expression is *incomplete* — it ends with a binary
+///   operator or dangling keyword (`x := a +` ⏎ `b`), or its last
+///   block-introducing keyword has not yet seen its `{ … }` body
+///   (`x := if cond` ⏎ `{ … } else { … }`).
+///
+/// `(`, `[`, and `{`-led segments are *not* fragment continuations —
+/// the parser does not join `f` ⏎ `(args)` across a newline, and a
+/// `{ … }` after a complete expression is a record literal (a valid
+/// module-record tail), not a block. They continue only via the
+/// incompleteness checks above.
+fn segment_continues_item(pieces: &[Piece], seg: &str) -> bool {
+    let seg = seg.trim_start();
+    let Some(&b) = seg.as_bytes().first() else {
+        return false;
+    };
+    // Fragment-led: punctuation that cannot open a statement.
+    if matches!(
+        b,
+        b'.' | b')'
+            | b']'
+            | b'}'
+            | b','
+            | b';'
+            | b':'
+            | b'?'
+            | b'|'
+            | b'&'
+            | b'='
+            | b'<'
+            | b'>'
+            | b'+'
+            | b'*'
+            | b'/'
+            | b'%'
+            | b'^'
+            | b'~'
+            | b'@'
+            | b'#'
+            | b'$'
+            | b'`'
+            | b'-'
+            | b'!'
+    ) {
+        return true;
+    }
+    // Continuation keywords: `else { … }`, `and`/`or`/`in`/`of`/`as`/…
+    // operand tails, `catch`/`finally` handlers.
+    let first_word = seg
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .next()
+        .unwrap_or("");
+    if matches!(
+        first_word,
+        "else"
+            | "catch"
+            | "finally"
+            | "then"
+            | "elif"
+            | "otherwise"
+            | "and"
+            | "or"
+            | "xor"
+            | "not"
+            | "in"
+            | "of"
+            | "is"
+            | "as"
+            | "mod"
+            | "div"
+            | "rem"
+            | "where"
+            | "with"
+            | "when"
+            | "unless"
+            | "until"
+            | "by"
+            | "via"
+    ) {
+        return true;
+    }
+    // A `{`-led segment continues a pending block construct
+    // (`if cond` ⏎ `{ … }`); otherwise it is a record literal — a new
+    // statement whose value can be the module record.
+    if b == b'{' && item_expects_block(pieces) {
+        return true;
+    }
+    item_expression_incomplete(pieces)
+}
+
+/// Whether the accumulated expression text ends mid-expression — a
+/// binary operator, comma, colon, dot, or arrow tail whose operand
+/// arrives on the next segment (`x := a +` ⏎ `b`, `f ~>` ⏎ `g`), or a
+/// dangling keyword (`… if`, `… else`, `… and`, `… in`, …) still owed
+/// its operand/block.
+fn item_expression_incomplete(pieces: &[Piece]) -> bool {
+    let Some(last) = pieces.last() else {
+        return false;
+    };
+    let tail = last.text.trim_end();
+    let Some(&tb) = tail.as_bytes().last() else {
+        return false;
+    };
+    if matches!(
+        tb,
+        b'+' | b'-'
+            | b'*'
+            | b'/'
+            | b'%'
+            | b'='
+            | b'<'
+            | b'>'
+            | b'!'
+            | b'&'
+            | b'|'
+            | b'^'
+            | b'~'
+            | b'?'
+            | b':'
+            | b','
+            | b'.'
+    ) {
+        return true;
+    }
+    if tail.ends_with("->")
+        || tail.ends_with("=>")
+        || tail.ends_with("~>")
+        || tail.ends_with("|>")
+        || tail.ends_with("<|")
+    {
+        return true;
+    }
+    // The last word of the accumulated expression: a keyword that
+    // requires a following operand or block means the expression is
+    // still open.
+    let word = tail
+        .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .find(|w| !w.is_empty())
+        .unwrap_or("");
+    matches!(
+        word,
+        "if" | "else"
+            | "match"
+            | "while"
+            | "for"
+            | "handle"
+            | "do"
+            | "then"
+            | "in"
+            | "of"
+            | "and"
+            | "or"
+            | "xor"
+            | "not"
+            | "is"
+            | "as"
+            | "mod"
+            | "div"
+            | "rem"
+            | "return"
+            | "yield"
+            | "where"
+            | "with"
+    )
+}
+
+/// Whether the accumulated expression ends inside a construct still
+/// owed its `{ … }` block — the last block-introducing keyword
+/// (`if`/`match`/`while`/`for`/`handle`/`do`/`else`/`then`/`in`/`of`)
+/// has no balanced `{…}` after it. Covers wrapped heads like
+/// `x := if cond` ⏎ `{ … } else { … }` and `x := match scrut` ⏎
+/// `{ … }`.
+///
+/// String literals are not stripped: a `"if"` inside a string can
+/// produce a false "pending" verdict, which only preserves the old
+/// merge behavior — never a wrong split.
+fn item_expects_block(pieces: &[Piece]) -> bool {
+    const KEYWORDS: &[&str] = &[
+        "if", "else", "match", "while", "for", "handle", "do", "then", "in", "of",
+    ];
+    let text = pieces
+        .iter()
+        .map(|p| p.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let bytes = text.as_bytes();
+    // Byte offset just after the last block keyword (word-boundary
+    // scan — keywords inside string literals are not excluded; see the
+    // doc comment).
+    let mut last_end: Option<usize> = None;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let c = bytes[i];
+        if c.is_ascii_alphanumeric() || c == b'_' {
+            let start = i;
+            while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+                i += 1;
+            }
+            if KEYWORDS.contains(&&text[start..i]) {
+                last_end = Some(i);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    let Some(pos) = last_end else {
+        return false;
+    };
+    // Pending while no `{` has opened after the keyword, or the braces
+    // it opened are still unclosed.
+    let mut depth = 0i32;
+    let mut seen_open = false;
+    for &c in &bytes[pos..] {
+        match c {
+            b'{' => {
+                depth += 1;
+                seen_open = true;
+            }
+            b'}' => depth -= 1,
+            _ => {}
+        }
+    }
+    !seen_open || depth > 0
 }
 
 /// The text after the `export` keyword when `trimmed` begins an export
