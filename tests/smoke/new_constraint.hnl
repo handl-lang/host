@@ -1,0 +1,39 @@
+--- tests/smoke/new_constraint.hnl — `X := new Constraint(S…) { shape }`
+--- constraint declarations (design/instance-unified-registry.md §2,
+--- MTT migration). Driven by `hnl typecheck` (see `ci.sh smoke`).
+---
+--- `new Constraint(Type)` binds `Eq` as a `type.family` — the same
+--- head the record-spelling `Eq<a : Type>` inductive-family form
+--- produces — so `instance Eq(Nat) := dict` registers and implicit
+--- `<ev : Eq(a)>` evidence binders discharge by the unchanged
+--- dictionary search (`synth_instance`/`resolve_instance`). The `{…}`
+--- child is the evidence *shape* — a signature record, not a
+--- dictionary — kept as `Eq.shape` for the deferred instance-site
+--- check; it is never registered as an instance entry itself.
+---
+--- Check-side only: `hnl run` has no evidence values to dispatch on
+--- (the same erasure caveat as instance.hnl).
+
+Nat := {
+  Zero : Nat,
+  Succ : (pred : Nat) ~> Nat
+}
+
+Bool := {
+  True : Bool,
+  False : Bool
+}
+
+--- The `Constraint` schema: `Type` is the index sort; the dict child
+--- is the evidence shape (`a` implicitly generalizes over the index).
+Eq := new Constraint(Type) {
+  evidence : a ~> a ~> Bool
+}
+
+instance Eq(Nat) := { eq: (x, y) ~> x == y }
+
+--- `<a, ev : Eq(a)>` — the evidence binder discharges `Eq(Nat)` by
+--- dictionary search at the call site; no explicit dict argument.
+eq_refl<a, ev : Eq(a)> : a ~> a := v ~> v
+
+r := eq_refl(Zero)
