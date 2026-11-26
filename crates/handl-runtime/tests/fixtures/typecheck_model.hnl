@@ -980,7 +980,10 @@ do {
     fuel: 50000,
     exhausted: false,
     prelude: if prelude == null { [] } else { prelude },
-    globals: if globals == null { {} } else { globals }
+    globals: if globals == null { {} } else { globals },
+    instances: {},
+    instance_count: 0,
+    pending_instances: []
   })
 
   prelude_contains := [prelude, name]~> while { found: false, idx: 0 } {
@@ -1058,6 +1061,887 @@ do {
     diag := set(set({}, "severity", severity), "message", message)
     new_diags := [...get_or(s, "diagnostics", []), diag]
     set(s, "diagnostics", new_diags)
+  }
+
+  --- Instance registry (unified `new`/`instance` declarations —
+  --- design/instance-unified-registry.md, the `.hnl` port of the NBE
+  --- engine's `synth_instance`/`synth_new_decl`/`resolve_instance`/
+  --- `implicit_pi_fill` in tool-typecheck-nbe `src/dependent.rs`).
+  ---
+  --- State fields (see `tc_new`/`tc_sanitize`):
+  ---   * `instances` — head name → array of `{name, args}` entries;
+  ---     `args` is the frozen index shape, `name` the dict's Γ name.
+  ---   * `instance_count` — declaration counter for `$instance:` names.
+  ---   * `pending_instances` — deferred evidence obligations
+  ---     `{meta, goal}`: an implicit former-app binder whose index args
+  ---     still held unsolved metas at the call site, retried by
+  ---     `retry_pending_instances_` at end-of-call (`final` = false)
+  ---     and end-of-module (`final` = true).
+  ---
+  --- Port notes vs the NBE engine:
+  ---   * `unify` is functional in `metas` (returns the solved array),
+  ---     so candidate search needs no store mark/restore — a failed
+  ---     candidate's meta solutions are simply not adopted.
+  ---   * `unify` has no rigid-`var` binding arm, so generic instance
+  ---     shapes (`instance Eq (List a)`) do not yet match concrete
+  ---     goals — the NBE `unify_index` var-arm has no model analog.
+  ---     Rigid goal vars still *fail* to unify with concrete candidate
+  ---     indices, which is the safety property `guard_rigid_vars`
+  ---     protects in NBE.
+
+  --- `type.family_app{head, args}` / `type.family{head}` →
+  --- `{head, args}` or `null` (the NBE `instance_goal_parts`).
+  instance_goal_parts_ := [v]~> if type_of(v) == "obj" {
+    do {
+      tag := type_tag(v)
+      if tag == "type.family_app" {
+        do {
+          head := get_or(v, "name", "")
+          if head == "" { null } else { { head: head, args: get_or(v, "args", []) } }
+        }
+      } else {
+        if tag == "type.family" {
+          do {
+            head := get_or(v, "name", "")
+            if head == "" { null } else { { head: head, args: [] } }
+          }
+        } else {
+          null
+        }
+      }
+    }
+  } else {
+    null
+  }
+
+  --- Whether `v` contains a meta leaf whose cell is still unsolved.
+  --- Callers pass an already-`zonk`ed value, so any `is_meta` leaf is
+  --- by construction unsolved; the `metas` read stays defensive.
+  has_unsolved_meta_ := [self, v, metas]~> if is_meta(v) {
+    metas_lookup(metas, meta_id(v)) == null
+  } else {
+    if is_obj(v) {
+      while { found: false, remaining: keys(v) } {
+        [st]~> if st["found"] || is_empty(st.remaining) {
+          { out: st["found"] }
+        } else {
+          do {
+            hit := self(self, get_or(v, first_value(st.remaining), null), metas)
+            { state: { found: hit, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      if type_of(v) == "arr" {
+        while { found: false, remaining: v } {
+          [st]~> if st["found"] || is_empty(st.remaining) {
+            { out: st["found"] }
+          } else {
+            do {
+              hit := self(self, first_value(st.remaining), metas)
+              { state: { found: hit, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      } else {
+        false
+      }
+    }
+  }
+
+  --- Rewrite each meta leaf in `v` to a per-instance rigid var
+  --- `$instvar<inst>_<pos>` (the NBE `freeze_metas`) — a registered
+  --- instance shape is *instantiated* per lookup so a lookup can never
+  --- solve the declaration's shared meta cell. Returns
+  --- `{val, pos}` with `pos` threaded through the walk.
+  freeze_metas_ := [self, v, inst, pos]~> if is_meta(v) {
+    do {
+      p := pos + 1
+      { val: make_type("var", set({}, "name", "$instvar" + typeof.to_string(inst) + "_" + typeof.to_string(p - 1))), pos: p }
+    }
+  } else {
+    if is_obj(v) {
+      while { result: {}, pos: pos, remaining: keys(v) } {
+        [st]~> if is_empty(st.remaining) {
+          { out: { val: st.result, pos: st.pos } }
+        } else {
+          do {
+            k := first_value(st.remaining)
+            r := self(self, get_or(v, k, null), inst, st.pos)
+            { state: { result: set(st.result, k, r.val), pos: r.pos, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      if type_of(v) == "arr" {
+        while { result: [], pos: pos, remaining: v } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { val: st.result, pos: st.pos } }
+          } else {
+            do {
+              r := self(self, first_value(st.remaining), inst, st.pos)
+              { state: { result: [...st.result, r.val], pos: r.pos, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      } else {
+        { val: v, pos: pos }
+      }
+    }
+  }
+
+  --- Substitute a constraint shape's schematic index vars with a
+  --- `family_app`'s index args — the `ev.<field>` projection path
+  --- (`record_field_type`/`field_access` on `type.family_app{head,
+  --- args}`). `vars` is the declaration's first-appearance var order
+  --- (`"<head>.shape.vars"`); `args` is the goal's index telescope,
+  --- positional. Vars without a corresponding arg stay rigid.
+  subst_shape_vars_ := [self, v, vars, args]~> if is_obj(v) {
+    do {
+      tag := type_tag(v)
+      if tag == "var" {
+        do {
+          nm := get_or(v, "name", "")
+          vi := while { idx: 0, found: -1 } {
+            [st]~> if st["found"] >= 0 || st.idx >= len(vars) {
+              { out: st["found"] }
+            } else {
+              do {
+                hit := if at(vars, st.idx) == nm { st.idx } else { -1 }
+                { state: { idx: st.idx + 1, found: hit } }
+              }
+            }
+          }
+          if vi >= 0 && vi < len(args) {
+            at(args, vi)
+          } else {
+            v
+          }
+        }
+      } else {
+        while { result: v, remaining: keys(v) } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              k := first_value(st.remaining)
+              { state: { result: set(st.result, k, self(self, get_or(v, k, null), vars, args)), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      }
+    }
+  } else {
+    if type_of(v) == "arr" {
+      while { result: [], remaining: v } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.result }
+        } else {
+          do {
+            { state: { result: [...st.result, self(self, first_value(st.remaining), vars, args)], remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      v
+    }
+  }
+
+  --- Pairwise index-arg unification for instance search/coherence —
+  --- the model's stand-in for the NBE `unify_index`: each pair goes
+  --- through `unify` (metas solve, rigid `var`s fail rather than
+  --- binding). Returns `{ok, metas}`; `metas` is only meaningful when
+  --- `ok`.
+  unify_index_args_ := [funcs, cand_args, goal_args, metas]~> if len(cand_args) != len(goal_args) {
+    { ok: false, metas: metas }
+  } else {
+    while { ok: true, metas: metas, idx: 0 } {
+      [st]~> if st.idx >= len(cand_args) || !st.ok {
+        { out: { ok: st.ok, metas: st.metas } }
+      } else {
+        do {
+          u := unify(funcs, at(cand_args, st.idx), at(goal_args, st.idx), st.metas)
+          { state: { ok: u.ok, metas: u.metas, idx: st.idx + 1 } }
+        }
+      }
+    }
+  }
+
+  --- Dictionary search over `s.instances[head]` in declaration order —
+  --- the first candidate whose frozen index shape unifies with the
+  --- goal args wins (the NBE `resolve_instance`). Returns
+  --- `{found, name, metas}`; `name` is the dict's Γ binding.
+  resolve_instance_ := [funcs, s, head, args]~> do {
+    cands := get_or(get_or(s, "instances", {}), head, [])
+    scan := while { result: null, metas: s.metas, idx: 0 } {
+      [st]~> if st["result"] != null || st.idx >= len(cands) {
+        { out: { cand: st["result"], metas: st.metas } }
+      } else {
+        do {
+          cand := at(cands, st.idx)
+          carg := get_or(cand, "args", [])
+          u := unify_index_args_(funcs, carg, args, st.metas)
+          if u.ok {
+            { state: { result: cand, metas: u.metas, idx: st.idx + 1 } }
+          } else {
+            { state: { result: null, metas: st.metas, idx: st.idx + 1 } }
+          }
+        }
+      }
+    }
+    if scan.cand == null {
+      { found: false, name: "", metas: s.metas }
+    } else {
+      { found: true, name: get_or(scan.cand, "name", ""), metas: scan.metas }
+    }
+  }
+
+  --- The term filling one implicit `type.pi` binder at a call site —
+  --- the NBE `implicit_pi_fill`. A former-app domain whose head has
+  --- registered instances is *evidence*: discharged by dictionary
+  --- search. A goal whose index args still hold unsolved metas
+  --- becomes a deferred obligation (`pending_instances`) filled by a
+  --- plain meta meanwhile; anything else gets a fresh meta.
+  implicit_pi_fill_ := [funcs, s, param]~> do {
+    zparam := zonk(zonk, param, s.metas)
+    parts := instance_goal_parts_(zparam)
+    head := if parts == null { "" } else { parts.head }
+    cands := if head == "" { [] } else { get_or(get_or(s, "instances", {}), head, []) }
+    if parts == null || is_empty(cands) {
+      do {
+        m := tc_fresh_meta(s)
+        { val: meta_value(m.id), state: m["state"] }
+      }
+    } else {
+      do {
+        args := parts.args
+        --- Only the *args* matter — a meta elsewhere in the goal
+        --- shape cannot defer spuriously.
+        unsolved_args := while { found: false, remaining: args } {
+          [st]~> if st["found"] || is_empty(st.remaining) {
+            { out: st["found"] }
+          } else {
+            do {
+              hit := has_unsolved_meta_(has_unsolved_meta_, first_value(st.remaining), s.metas)
+              { state: { found: hit, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        if unsolved_args {
+          do {
+            m := tc_fresh_meta(s)
+            pend := set(set({}, "meta", m.id), "goal", zparam)
+            new_pending := [...get_or(s, "pending_instances", []), pend]
+            { val: meta_value(m.id), state: set(m["state"], "pending_instances", new_pending) }
+          }
+        } else {
+          do {
+            r := resolve_instance_(funcs, s, head, args)
+            if r.found {
+              { val: make_type("var", set({}, "name", r.name)), state: set(s, "metas", r.metas) }
+            } else {
+              do {
+                m := tc_fresh_meta(s)
+                msg := "typecheck: no instance for `" + type_tag(zparam) + "` head `" + head + "`"
+                { val: meta_value(m.id), state: tc_add_diagnostic(m["state"], "error", msg) }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- Retry deferred evidence obligations — end-of-call (`final` =
+  --- false: determined goals resolve or requeue; underdetermined ones
+  --- stay pending) and end-of-module (`final` = true: every still-open
+  --- obligation is an honest `no instance` error diagnostic).
+  retry_pending_instances_ := [funcs, s, final]~> do {
+    pending := get_or(s, "pending_instances", [])
+    if is_empty(pending) {
+      s
+    } else {
+      do {
+        out := while { result: [], state: s, remaining: pending } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { pend: st.result, state: st["state"] } }
+          } else {
+            do {
+              p := first_value(st.remaining)
+              pmeta := get_or(p, "meta", 0)
+              zgoal := zonk(zonk, get_or(p, "goal", null), st["state"].metas)
+              parts := instance_goal_parts_(zgoal)
+              --- Each branch yields `{keep: bool, state}` — `keep`
+              --- requeues the obligation (with the zonked goal),
+              --- otherwise it is discharged or reported.
+              step := if parts == null {
+                { keep: false, state: st["state"] }
+              } else {
+                do {
+                  args := parts.args
+                  unsolved_args := while { found: false, remaining: args } {
+                    [w]~> if w["found"] || is_empty(w.remaining) {
+                      { out: w["found"] }
+                    } else {
+                      do {
+                        hit := has_unsolved_meta_(has_unsolved_meta_, first_value(w.remaining), st["state"].metas)
+                        { state: { found: hit, remaining: drop(w.remaining, 1) } }
+                      }
+                    }
+                  }
+                  if unsolved_args {
+                    if final {
+                      { keep: false, state: tc_add_diagnostic(st["state"], "error", "typecheck: no instance — the constraint's index is underdetermined") }
+                    } else {
+                      { keep: true, state: st["state"] }
+                    }
+                  } else {
+                    do {
+                      r := resolve_instance_(funcs, st["state"], parts.head, args)
+                      if r.found {
+                        do {
+                          s1 := set(st["state"], "metas", r.metas)
+                          s2 := tc_solve_meta(s1, pmeta, make_type("var", set({}, "name", r.name)))
+                          { keep: false, state: s2 }
+                        }
+                      } else {
+                        if final {
+                          { keep: false, state: tc_add_diagnostic(st["state"], "error", "typecheck: no instance for constraint head `" + parts.head + "`") }
+                        } else {
+                          --- Determined but unresolvable for now — a
+                          --- later `instance` declaration may still
+                          --- satisfy it; the final drain owns the error.
+                          { keep: true, state: st["state"] }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              new_result := if step.keep { [...st.result, set(p, "goal", zgoal)] } else { st.result }
+              { state: { result: new_result, state: step["state"], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        set(out["state"], "pending_instances", out.pend)
+      }
+    }
+  }
+
+  name_in_list_ := [names, nm]~> while { found: false, remaining: names } {
+    [st]~> if st["found"] || is_empty(st.remaining) {
+      { out: st["found"] }
+    } else {
+      do {
+        { state: { found: first_value(st.remaining) == nm, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- The builtin type-position identifier table `dep_builtin_or_tag`
+  --- resolves — the NBE `is_builtin_type_name`.
+  is_builtin_type_name_ := [name]~> name_in_list_([
+    "Int", "Nat", "Number", "Bool", "String", "Str", "Unit", "Null",
+    "IO", "Type", "Universe", "Type0", "List", "Family", "Sig",
+    "Pi", "Sigma", "Forall", "I", "Interval"
+  ], name)
+
+  --- The `var` names in an AST subtree that bind to nothing — the
+  --- instance constraint's implicit index parameters
+  --- (`instance Eq (List a)` generalizes `a`). Γ/results/globals-bound
+  --- and builtin type names are excluded (the NBE
+  --- `collect_unbound_index_vars`). Returns an array of names.
+  collect_unbound_index_vars_ := [self, s, node_idx, acc]~> do {
+    node := ast_node(s.ast, node_idx)
+    kind := node_kind(node)
+    if kind == "var" {
+      do {
+        p := node_payload(node)
+        nm := if type_of(p) == "str" { p } else { get_or(p, "name", "") }
+        results_hit := if nm == "" { true } else {
+          while { found: false, remaining: keys(get_or(s, "results", {})) } {
+            [st]~> if st["found"] || is_empty(st.remaining) {
+              { out: st["found"] }
+            } else {
+              do {
+                { state: { found: first_value(st.remaining) == nm, remaining: drop(st.remaining, 1) } }
+              }
+            }
+          }
+        }
+        in_acc := while { found: false, remaining: acc } {
+          [st]~> if st["found"] || is_empty(st.remaining) {
+            { out: st["found"] }
+          } else {
+            do {
+              { state: { found: first_value(st.remaining) == nm, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        if nm == "" || results_hit || in_acc || tc_lookup(s, nm) != null || is_builtin_type_name_(nm) {
+          acc
+        } else {
+          [...acc, nm]
+        }
+      }
+    } else {
+      do {
+        children := node_children(node)
+        while { result: acc, remaining: children } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              ci := first_value(st.remaining)
+              { state: { result: self(self, s, ci, st.result), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- Shared tail of `synth_instance` and `synth_new_decl`: coherence
+  --- scan, dictionary well-formedness synth, and `(head, args) ↦
+  --- dict-name` registration — the NBE `register_instance`.
+  register_instance_ := [funcs, s, head, args, constraint, dict_idx]~> do {
+    cands := get_or(get_or(s, "instances", {}), head, [])
+    conflict := while { found: false, idx: 0 } {
+      [st]~> if st["found"] || st.idx >= len(cands) {
+        { out: st["found"] }
+      } else {
+        do {
+          carg := get_or(at(cands, st.idx), "args", [])
+          u := unify_index_args_(funcs, carg, args, s.metas)
+          { state: { found: u.ok, idx: st.idx + 1 } }
+        }
+      }
+    }
+    if conflict {
+      { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_instance: overlapping instance for `" + head + "` — an instance with a unifiable index shape is already declared") }
+    } else {
+      do {
+        dict_res := funcs.synth_node_(funcs, s, dict_idx)
+        inst_no := get_or(s, "instance_count", 0)
+        inst_name := "$instance:" + head + ":" + typeof.to_string(inst_no)
+        s1 := set(dict_res["state"], "instance_count", inst_no + 1)
+        s2 := tc_extend(s1, inst_name, constraint)
+        s3 := tc_bind_result(s2, inst_name, make_type("var", set({}, "name", inst_name)))
+        new_entry := set(set({}, "name", inst_name), "args", args)
+        new_cands := [...cands, new_entry]
+        s4 := set(s3, "instances", set(get_or(s3, "instances", {}), head, new_cands))
+        { val: make_type("type.unit", {}), state: s4 }
+      }
+    }
+  }
+
+  --- The `instance <C(i⃗)> := <dict>` judgment — the NBE
+  --- `synth_instance_judgment`. Unbound index vars in the constraint
+  --- implicitly generalize (bound rigidly in `results` for the
+  --- elaboration, then restored); the head must name a declared
+  --- `type.family`; coherence is declaration-time no-overlap.
+  synth_instance_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    kind := node_kind(node)
+    constraint_role := child_role_index(s, kind, "constraint")
+    dict_role := child_role_index(s, kind, "dict")
+    if constraint_role == null || dict_role == null {
+      { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_instance: instance needs [constraint, dict] children") }
+    } else {
+      do {
+        constraint_idx := child_ref(s.ast, node_idx, constraint_role)
+        dict_idx := child_ref(s.ast, node_idx, dict_role)
+        gen_vars := collect_unbound_index_vars_(collect_unbound_index_vars_, s, constraint_idx, [])
+        old_results := get_or(s, "results", {})
+        s_gen := while { state: s, remaining: gen_vars } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st["state"] }
+          } else {
+            do {
+              n := first_value(st.remaining)
+              { state: { state: tc_bind_result(st["state"], n, make_type("var", set({}, "name", n))), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        cres := funcs.synth_type_(funcs, s_gen, constraint_idx)
+        zc := zonk(zonk, cres.val, cres["state"].metas)
+        s2 := set(cres["state"], "results", old_results)
+        parts := instance_goal_parts_(zc)
+        if parts == null {
+          { val: make_type("type.unit", {}), state: tc_add_diagnostic(s2, "error", "synth_instance: constraint must be a former application `C(i⃗)`") }
+        } else {
+          do {
+            head := parts.head
+            bound := tc_lookup(s2, head)
+            if bound == null || type_tag(bound) != "type.family" {
+              { val: make_type("type.unit", {}), state: tc_add_diagnostic(s2, "error", "synth_instance: `" + head + "` is not a declared family") }
+            } else {
+              do {
+                --- Arity: the constraint must apply the family's full
+                --- index telescope (a bare `instance Eq` self-application
+                --- still counts — its args are fresh metas).
+                base_elems := get_or(get_or(bound, "base", {}), "elements", [])
+                declared_arity := len(base_elems)
+                frozen := while { result: [], pos: 0, remaining: parts.args } {
+                  [st]~> if is_empty(st.remaining) {
+                    { out: { args: st.result, pos: st.pos } }
+                  } else {
+                    do {
+                      r := freeze_metas_(freeze_metas_, first_value(st.remaining), get_or(s2, "instance_count", 0), st.pos)
+                      { state: { result: [...st.result, r.val], pos: r.pos, remaining: drop(st.remaining, 1) } }
+                    }
+                  }
+                }
+                if declared_arity != len(parts.args) {
+                  { val: make_type("type.unit", {}), state: tc_add_diagnostic(s2, "error", "synth_instance: instance constraint `" + head + "` takes " + typeof.to_string(declared_arity) + " index argument(s), got " + typeof.to_string(len(parts.args))) }
+                } else {
+                  register_instance_(funcs, s2, head, frozen.args, zc, dict_idx)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `new_decl_schema` — the `type` child's head names the registry
+  --- kind (`Constraint`/`Algebra`/`Inductive`/…). Returns
+  --- `{schema, args}` (schema-arg child indices) or `null`.
+  new_decl_schema_ := [s, type_idx]~> do {
+    --- Unwrap `paren` nodes (bounded — ASTs are finite).
+    paren_loop := while { idx: type_idx, n: 0 } {
+      [st]~> if st.n >= 32 {
+        { out: st.idx }
+      } else {
+        do {
+          cn := ast_node(s.ast, st.idx)
+          if node_kind(cn) == "paren" {
+            ch := node_children(cn)
+            if is_empty(ch) {
+              { out: st.idx }
+            } else {
+              { state: { idx: first_value(ch), n: st.n + 1 } }
+            }
+          } else {
+            { out: st.idx }
+          }
+        }
+      }
+    }
+    cur_node := ast_node(s.ast, paren_loop)
+    cur_kind := node_kind(cur_node)
+    if cur_kind == "var" {
+      do {
+        p := node_payload(cur_node)
+        nm := if type_of(p) == "str" { p } else { get_or(p, "name", "") }
+        if nm == "" { null } else { { schema: nm, args: [] } }
+      }
+    } else {
+      if cur_kind == "call" || cur_kind == "index_app" || cur_kind == "dimension" {
+        do {
+          kids := node_children(cur_node)
+          callee_role := child_role_index(s, cur_kind, "callee")
+          callee_pos := if callee_role == null { 0 } else { callee_role }
+          args_role := child_role_index(s, cur_kind, "args")
+          args_pos := if args_role == null { callee_pos + 1 } else { args_role }
+          if callee_pos >= len(kids) {
+            null
+          } else {
+            do {
+              callee_idx := at(kids, callee_pos)
+              cparen := while { idx: callee_idx, n: 0 } {
+                [st]~> if st.n >= 32 {
+                  { out: st.idx }
+                } else {
+                  do {
+                    cn := ast_node(s.ast, st.idx)
+                    if node_kind(cn) == "paren" {
+                      ch := node_children(cn)
+                      if is_empty(ch) {
+                        { out: st.idx }
+                      } else {
+                        { state: { idx: first_value(ch), n: st.n + 1 } }
+                      }
+                    } else {
+                      { out: st.idx }
+                    }
+                  }
+                }
+              }
+              cnode := ast_node(s.ast, cparen)
+              cp := node_payload(cnode)
+              nm := if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") }
+              if nm == "" {
+                null
+              } else {
+                arg_idxs := while { result: [], idx: args_pos } {
+                  [st]~> if st.idx >= len(kids) {
+                    { out: st.result }
+                  } else {
+                    { state: { result: [...st.result, at(kids, st.idx)], idx: st.idx + 1 } }
+                  }
+                }
+                { schema: nm, args: arg_idxs }
+              }
+            }
+          }
+        }
+      } else {
+        null
+      }
+    }
+  }
+
+  --- Elaborate a `new Constraint` dict child `{ field : T, … }` into
+  --- the `type.record` dictionary *shape* — the NBE
+  --- `synth_constraint_shape`. Each field's type goes through
+  --- `synth_type_` so schematic vars (`a` in `a ~> a ~> Bool`)
+  --- resolve to the rigid `var{a}` leaves `"<name>.shape.vars"`
+  --- substitutes against. A non-`object` dict falls back to
+  --- `synth_node` (well-formedness only).
+  synth_constraint_shape_ := [funcs, s, dict_idx]~> do {
+    node := ast_node(s.ast, dict_idx)
+    if node_kind(node) != "object" {
+      do {
+        r := funcs.synth_node_(funcs, s, dict_idx)
+        { val: r.typ, state: r["state"] }
+      }
+    } else {
+      do {
+        children := node_children(node)
+        collected := while { result: {}, state: s, remaining: children } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { fields: st.result, state: st["state"] } }
+          } else {
+            do {
+              entry_idx := first_value(st.remaining)
+              entry := ast_node(s.ast, entry_idx)
+              entry_children := node_children(entry)
+              if is_empty(entry_children) || len(entry_children) < 2 {
+                { state: { result: st.result, state: st["state"], remaining: drop(st.remaining, 1) } }
+              } else {
+                do {
+                  key_node := ast_node(s.ast, first_value(entry_children))
+                  kp := node_payload(key_node)
+                  key := if type_of(kp) == "str" { kp } else { get_or(kp, "name", get_or(kp, "value", "")) }
+                  value_idx := at(entry_children, 1)
+                  vr := funcs.synth_type_(funcs, st["state"], value_idx)
+                  { state: { result: funcs.set(st.result, key, vr.val), state: vr["state"], remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+          }
+        }
+        { val: funcs.make_type("type.record", funcs.set({}, "fields", collected["fields"])), state: collected["state"] }
+      }
+    }
+  }
+
+  --- `X := new Constraint(S…) { shape }` — the `Constraint` schema of
+  --- the unified `new` registry (the NBE `synth_new_constraint_decl`).
+  --- Binds `X` as `type.family{name: X, base: [S₁,…,Sₙ]}` (the schema
+  --- args are index *sorts*), synthesizes the dict child as the
+  --- evidence shape under implicitly-generalized index vars, and
+  --- records `"<name>.shape"`/`"<name>.shape.vars"` in `results`.
+  --- No instance entry registers — instances come from `instance`
+  --- declarations alone.
+  synth_new_constraint_decl_ := [funcs, s, name, type_idx, dict_idx]~> do {
+    schema := new_decl_schema_(s, type_idx)
+    if schema == null {
+      { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_new: `new Constraint` needs a `Constraint(S…)` type child") }
+    } else {
+      do {
+        elems_acc := while { result: [], state: s, idx: 0 } {
+          [st]~> if st.idx >= len(schema.args) {
+            { out: { elems: st.result, state: st["state"] } }
+          } else {
+            do {
+              tr := funcs.synth_type_(funcs, st["state"], at(schema.args, st.idx))
+              { state: { result: [...st.result, tr.val], state: tr["state"], idx: st.idx + 1 } }
+            }
+          }
+        }
+        base := make_type("type.array", set({}, "elements", elems_acc.elems))
+        family := make_type("type.family", set(set({}, "name", name), "base", base))
+        s1 := tc_extend(elems_acc["state"], name, family)
+        gen_vars := collect_unbound_index_vars_(collect_unbound_index_vars_, s1, dict_idx, [])
+        s_vars := tc_bind_result(s1, name + ".shape.vars", gen_vars)
+        old_results := get_or(s_vars, "results", {})
+        s_gen := while { state: s_vars, remaining: gen_vars } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st["state"] }
+          } else {
+            do {
+              n := first_value(st.remaining)
+              { state: { state: tc_bind_result(st["state"], n, make_type("var", set({}, "name", n))), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        shape := synth_constraint_shape_(funcs, s_gen, dict_idx)
+        s_rest := set(shape["state"], "results", old_results)
+        if shape.val == null {
+          { val: make_type("type.unit", {}), state: tc_add_diagnostic(s_rest, "warning", "synth_new: constraint `" + name + "` dictionary shape failed to synthesize") }
+        } else {
+          { val: make_type("type.unit", {}), state: tc_bind_result(s_rest, name + ".shape", shape.val) }
+        }
+      }
+    }
+  }
+
+  --- `X := new T(args) { members }` — the `new` declaration form,
+  --- schema-dispatched (the NBE `synth_new_decl_judgment`). `Constraint`
+  --- heads take the constraint path; every other head keeps the
+  --- mode-family path: `X : type.family{name: X, base: [carrier]}` plus
+  --- a `(X, [_]) ↦ dict` instance entry.
+  synth_new_decl_ := [funcs, s, name, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    kind := node_kind(node)
+    type_role := child_role_index(s, kind, "type")
+    dict_role := child_role_index(s, kind, "dict")
+    type_pos := if type_role == null { 0 } else { type_role }
+    dict_pos := if dict_role == null { 1 } else { dict_role }
+    kids := node_children(node)
+    if type_pos >= len(kids) || dict_pos >= len(kids) {
+      { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_new: new needs [type, dict] children") }
+    } else {
+      do {
+        type_idx := at(kids, type_pos)
+        dict_idx := at(kids, dict_pos)
+        schema := new_decl_schema_(s, type_idx)
+        if schema != null && schema.schema == "Constraint" {
+          do {
+            r := synth_new_constraint_decl_(funcs, s, name, type_idx, dict_idx)
+            { val: r.val, state: r["state"] }
+          }
+        } else {
+          do {
+            alg := funcs.synth_type_(funcs, s, type_idx)
+            carrier := if type_tag(alg.val) == "type.family_app" {
+              do {
+                a0 := get_or(alg.val, "args", [])
+                if is_empty(a0) {
+                  do {
+                    m := tc_fresh_meta(alg["state"])
+                    { val: meta_value(m.id), state: m["state"] }
+                  }
+                } else {
+                  { val: first_value(a0), state: alg["state"] }
+                }
+              }
+            } else {
+              do {
+                m := tc_fresh_meta(alg["state"])
+                { val: meta_value(m.id), state: m["state"] }
+              }
+            }
+            base := make_type("type.array", set({}, "elements", [carrier.val]))
+            family := make_type("type.family", set(set({}, "name", name), "base", base))
+            s1 := tc_extend(carrier["state"], name, family)
+            rigid := make_type("var", set({}, "name", "__" + name + "_payload"))
+            constraint := make_type("type.family_app", set(set({}, "name", name), "args", [rigid]))
+            r := register_instance_(funcs, s1, name, [rigid], constraint, dict_idx)
+            { val: r.val, state: r["state"] }
+          }
+        }
+      }
+    }
+  }
+
+  --- `new` reached *outside* an `assign` value — no target name to
+  --- bind the family under (the NBE `synth_new_judgment`). Synthesizes
+  --- both children for well-formedness, warns, degrades to
+  --- `type.unknown`.
+  synth_new_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    kind := node_kind(node)
+    kids := node_children(node)
+    s1 := if len(kids) >= 1 {
+      do {
+        tr := funcs.synth_type_(funcs, s, at(kids, 0))
+        tr["state"]
+      }
+    } else {
+      s
+    }
+    s2 := if len(kids) >= 2 {
+      do {
+        dr := funcs.synth_node_(funcs, s1, at(kids, 1))
+        dr["state"]
+      }
+    } else {
+      s1
+    }
+    { val: make_type("type.unknown", {}), state: tc_add_diagnostic(s2, "warning", "`new` is only meaningful as the value of `X := new T(args) { … }` — no declaration target to bind") }
+  }
+
+  --- `name<b, …>` / `name<b : S, …>` lhs — the implicit index/evidence
+  --- binder head (the NBE `implicit_binder_head`). `index_app`/
+  --- `dimension` nodes only; each binder is `{name, sort}` where `sort`
+  --- is the annotation child index or `null`.
+  implicit_binder_head_ := [s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    kind := node_kind(node)
+    if kind != "index_app" && kind != "dimension" {
+      null
+    } else {
+      do {
+        kids := node_children(node)
+        if is_empty(kids) {
+          null
+        } else {
+          do {
+            callee := ast_node(s.ast, first_value(kids))
+            cp := node_payload(callee)
+            nm := if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") }
+            if nm == "" {
+              null
+            } else {
+              do {
+                binders := while { result: [], idx: 1 } {
+                  [st]~> if st.idx >= len(kids) {
+                    { out: st.result }
+                  } else {
+                    do {
+                      b := ast_node(s.ast, at(kids, st.idx))
+                      bk := node_kind(b)
+                      bkids := node_children(b)
+                      if bk == "type-annot" || child_role_index(s, bk, "annot") != null {
+                        if is_empty(bkids) {
+                          { state: { result: st.result, idx: st.idx + 1 } }
+                        } else {
+                          do {
+                            subj := ast_node(s.ast, first_value(bkids))
+                            sp := node_payload(subj)
+                            bn := if type_of(sp) == "str" { sp } else { get_or(sp, "name", "") }
+                            annot_role := child_role_index(s, bk, "annot")
+                            sort_idx := if annot_role != null {
+                              child_ref(s.ast, at(kids, st.idx), annot_role)
+                            } else {
+                              if len(bkids) >= 2 { at(bkids, 1) } else { null }
+                            }
+                            entry := set(set({}, "name", bn), "sort", sort_idx)
+                            { state: { result: [...st.result, entry], idx: st.idx + 1 } }
+                          }
+                        }
+                      } else {
+                        do {
+                          bp := node_payload(b)
+                          bn := if type_of(bp) == "str" { bp } else { get_or(bp, "name", "") }
+                          entry := set(set({}, "name", bn), "sort", null)
+                          { state: { result: [...st.result, entry], idx: st.idx + 1 } }
+                        }
+                      }
+                    }
+                  }
+                }
+                { name: nm, binders: binders }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   --- Non-recursive helpers (defined before the mutually-recursive group) ---
@@ -1259,6 +2143,9 @@ do {
       raw_exhausted := get_or(s, "exhausted", false)
       raw_prelude := get_or(s, "prelude", [])
       raw_globals := get_or(s, "globals", {})
+      raw_instances := get_or(s, "instances", {})
+      raw_instance_count := get_or(s, "instance_count", 0)
+      raw_pending_instances := get_or(s, "pending_instances", [])
       ast := if type_of(raw_ast) == "arr" { raw_ast } else { [] }
       type_index := if is_obj(raw_type_index) { raw_type_index } else { {} }
       ast_index := if is_obj(raw_ast_index) { raw_ast_index } else { {} }
@@ -1271,11 +2158,15 @@ do {
       exhausted := if type_of(raw_exhausted) == "bool" { raw_exhausted } else { false }
       prelude := if type_of(raw_prelude) == "arr" { raw_prelude } else { [] }
       globals := if is_obj(raw_globals) { raw_globals } else { {} }
-      set(set(set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted), "prelude", prelude), "globals", globals)
+      instances := if is_obj(raw_instances) { raw_instances } else { {} }
+      instance_count := if type_of(raw_instance_count) == "num" { raw_instance_count } else { 0 }
+      pending_instances := if type_of(raw_pending_instances) == "arr" { raw_pending_instances } else { [] }
+      rebuilt := set(set(set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted), "prelude", prelude), "globals", globals)
+      set(set(set(rebuilt, "instances", instances), "instance_count", instance_count), "pending_instances", pending_instances)
     }
   } else {
     do {
-      fallback := { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {} }
+      fallback := { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {}, instances: {}, instance_count: 0, pending_instances: [] }
       if s == null {
         fallback
       } else {
@@ -1517,6 +2408,30 @@ do {
         }
       }
     } else {
+    --- Implicit `type.pi` binders (`name<b, …>` index binders and
+    --- `<ev : C(i⃗)>` evidence binders — phase-3 WS-A, the NBE
+    --- `dep_intro_implicit`): bind the binder *without* consuming a
+    --- lambda parameter, then check the same node against the body.
+    --- Index binders get the rigid `var{b}` type; evidence binders
+    --- (`evidence: true`, a `type.family_app` domain) keep the domain
+    --- itself in Γ so `ev.<field>` sees the constraint shape.
+    impl_pi := expected != null && type_tag(expected) == "type.pi" && get_or(expected, "implicit", false) == true
+    if impl_pi {
+      do {
+        binder := get_or(expected, "binder", "_i")
+        param := get_or(expected, "param", null)
+        evidence := get_or(expected, "evidence", false) == true
+        bind_typ := if evidence { param } else { funcs.make_type("var", set({}, "name", binder)) }
+        mark := tc_mark(s)
+        old_results := get_or(s, "results", {})
+        s1 := tc_extend(s, binder, bind_typ)
+        s2 := tc_bind_result(s1, binder, funcs.make_type("var", set({}, "name", binder)))
+        r := funcs.check_node_(funcs, s2, node_idx, get_or(expected, "body", null))
+        restored := set(tc_restore(r["state"], mark), "results", old_results)
+        { ok: r.ok, state: restored }
+      }
+    } else {
+    do {
     dep_tag := if expected == null { "" } else { type_tag(expected) }
     is_dep_intro := dep_tag == "type.pi" || dep_tag == "type.sigma" || dep_tag == "type.family" || dep_tag == "type.forall" || dep_tag == "Path" || dep_tag == "type.equiv"
     if is_dep_intro {
@@ -1552,6 +2467,8 @@ do {
           }
         }
       }
+    }
+    }
     }
     }
     }
@@ -6925,10 +7842,38 @@ do {
       if type_tag(container) == "type.array" {
         { val: get_or(container, "element", null), state: container_result["state"] }
       } else {
-        do {
-          field_name := field_value
-          fields := get_or(container, "fields", {})
-          { val: get_or(fields, field_name, null), state: container_result["state"] }
+        if type_tag(container) == "type.family_app" {
+          --- `ev.<field>` through the type-rule path: project the
+          --- constraint's `"<head>.shape"` record, substituting the
+          --- schematic vars (`"<head>.shape.vars"`) with the goal's
+          --- index args — same projection as the canonical
+          --- `field_access` arm.
+          do {
+            head := get_or(container, "name", "")
+            shape := tc_lookup_result(container_result["state"], head + ".shape")
+            shape_vars := tc_lookup_result(container_result["state"], head + ".shape.vars")
+            vars_arr := if type_of(shape_vars) == "arr" { shape_vars } else { [] }
+            fval := if shape == null {
+              null
+            } else {
+              do {
+                sh_fields := get_or(shape, "fields", {})
+                raw_f := get_or(sh_fields, field_value, null)
+                if raw_f == null {
+                  null
+                } else {
+                  subst_shape_vars_(subst_shape_vars_, raw_f, vars_arr, get_or(container, "args", []))
+                }
+              }
+            }
+            { val: fval, state: container_result["state"] }
+          }
+        } else {
+          do {
+            field_name := field_value
+            fields := get_or(container, "fields", {})
+            { val: get_or(fields, field_name, null), state: container_result["state"] }
+          }
         }
       }
     },
@@ -7284,6 +8229,8 @@ do {
         }
       }
     },
+    "synth_instance": synth_instance_(funcs, s, node_idx),
+    "synth_new": synth_new_(funcs, s, node_idx),
     "assign": do {
       target_idx := child_role_index(s, kind, "target")
       value_idx := child_role_index(s, kind, "value")
@@ -7316,9 +8263,40 @@ do {
               ""
             }
           }
+          --- `name<b, …>` / `name<b : S, …>` implicit binder heads —
+          --- `eqv<a, ev : Eq(a)> : … := …` (phase-3 WS-A: index binders
+          --- and evidence binders). The head lives in the type-annot
+          --- subject, or the bare target for the unannotated form
+          --- (the NBE `implicit_binder_head`).
+          ib_subject_idx := if target_kind == "type-annot" {
+            do {
+              sr := child_role_index(s, target_kind, "subject")
+              if sr == null { target_node_idx } else { child_ref(s.ast, target_node_idx, sr) }
+            }
+          } else {
+            target_node_idx
+          }
+          ib := implicit_binder_head_(s, ib_subject_idx)
+          target_name := if ib != null { ib.name } else { target_name }
+          implicit_binders := if ib != null { ib.binders } else { [] }
           if target_name == "" {
             { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s, "warning", "assign: could not determine target name") }
           } else {
+            do {
+            value_node := ast_node(s.ast, value_node_idx)
+            --- `X := new T(args) { members }` — the unified `new`
+            --- declaration (design/instance-unified-registry.md):
+            --- binds `X` as a `type.family` (Constraint schema) or a
+            --- mode family + instance entry (other schemas), whole —
+            --- the family/instance head is the assign target, which a
+            --- `new`-node-local judgment cannot see (the NBE
+            --- `synth_new_decl_judgment` assign interception).
+            if node_kind(value_node) == "new" {
+              do {
+                nd := synth_new_decl_(funcs, s, target_name, value_node_idx)
+                { val: funcs.make_type("type.unit", {}), state: nd["state"] }
+              }
+            } else {
             if target_kind == "type-annot" {
               do {
                 annot_role := child_role_index(s, target_kind, "annot")
@@ -7332,12 +8310,60 @@ do {
                 } else {
                   do {
                     annot_idx := child_ref(s.ast, target_node_idx, annot_role)
-                    ann := funcs.synth_type_(funcs, s, annot_idx)
-                    check_result := funcs.check_node_(funcs, ann["state"], value_node_idx, ann.val)
+                    --- Implicit index/evidence binders scope rigidly
+                    --- over the annotation (`var{b}` in results and Γ),
+                    --- then wrap it in one implicit `type.pi` per
+                    --- binder — `implicit` marks it non-lambda-consuming
+                    --- and a `type.family_app` domain is *evidence*
+                    --- (discharged by dictionary search at call sites).
+                    mark := tc_mark(s)
+                    old_results := get_or(s, "results", {})
+                    s_b := while { state: s, remaining: implicit_binders } {
+                      [st]~> if is_empty(st.remaining) {
+                        { out: st["state"] }
+                      } else {
+                        do {
+                          bn := get_or(first_value(st.remaining), "name", "")
+                          s1 := if bn == "" { st["state"] } else { tc_bind_result(st["state"], bn, funcs.make_type("var", set({}, "name", bn))) }
+                          s2 := if bn == "" { s1 } else { tc_extend(s1, bn, funcs.make_type("var", set({}, "name", bn))) }
+                          { state: { state: s2, remaining: drop(st.remaining, 1) } }
+                        }
+                      }
+                    }
+                    ann := funcs.synth_type_(funcs, s_b, annot_idx)
+                    --- Wrap innermost-last: the first binder is the
+                    --- outermost implicit pi.
+                    wrap := while { cur: ann.val, state: ann["state"], idx: len(implicit_binders) - 1 } {
+                      [st]~> if st.idx < 0 {
+                        { out: { typ: st.cur, state: st["state"] } }
+                      } else {
+                        do {
+                          b := at(implicit_binders, st.idx)
+                          bn := get_or(b, "name", "_i")
+                          sort_idx := get_or(b, "sort", null)
+                          pr := if sort_idx == null {
+                            do {
+                              m := tc_fresh_meta(st["state"])
+                              { val: meta_value(m.id), state: m["state"] }
+                            }
+                          } else {
+                            funcs.synth_type_(funcs, st["state"], sort_idx)
+                          }
+                          pi := set(set(set(set({}, "param", pr.val), "body", st.cur), "implicit", true), "binder", bn)
+                          pi2 := if type_tag(pr.val) == "type.family_app" { set(pi, "evidence", true) } else { pi }
+                          { state: { cur: pi2, state: pr["state"], idx: st.idx - 1 } }
+                        }
+                      }
+                    }
+                    --- Binder scope ends here — the wrapped type keeps
+                    --- the elaborated sorts/metas, not the bindings.
+                    s_ann := set(tc_restore(wrap["state"], mark), "results", old_results)
+                    ann_val := wrap.typ
+                    check_result := funcs.check_node_(funcs, s_ann, value_node_idx, ann_val)
                     if check_result.ok {
                       do {
-                        extended := tc_extend(check_result["state"], target_name, ann.val)
-                        bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, s, value_node_idx))
+                        extended := tc_extend(check_result["state"], target_name, ann_val)
+                        bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, check_result["state"], value_node_idx))
                         { val: funcs.make_type("type.unit", {}), state: bound }
                       }
                     } else {
@@ -7348,11 +8374,33 @@ do {
               }
             } else {
               do {
-                value_result := funcs.synth_node_(funcs, s, value_node_idx)
-                extended := tc_extend(value_result["state"], target_name, value_result.typ)
-                bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, s, value_node_idx))
+                --- `name<b,…>` on a bare assign scopes its generic
+                --- binders over the initializer only (the NBE
+                --- implicit-binder convention) — bound rigidly in
+                --- results and Γ, restored afterwards; the inferred
+                --- type is not wrapped.
+                mark := tc_mark(s)
+                old_results := get_or(s, "results", {})
+                s_b := while { state: s, remaining: implicit_binders } {
+                  [st]~> if is_empty(st.remaining) {
+                    { out: st["state"] }
+                  } else {
+                    do {
+                      bn := get_or(first_value(st.remaining), "name", "")
+                      s1 := if bn == "" { st["state"] } else { tc_bind_result(st["state"], bn, funcs.make_type("var", set({}, "name", bn))) }
+                      s2 := if bn == "" { s1 } else { tc_extend(s1, bn, funcs.make_type("var", set({}, "name", bn))) }
+                      { state: { state: s2, remaining: drop(st.remaining, 1) } }
+                    }
+                  }
+                }
+                value_result := funcs.synth_node_(funcs, s_b, value_node_idx)
+                restored := set(tc_restore(value_result["state"], mark), "results", old_results)
+                extended := tc_extend(restored, target_name, value_result.typ)
+                bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, restored, value_node_idx))
                 { val: funcs.make_type("type.unit", {}), state: bound }
               }
+            }
+            }
             }
           }
         }
@@ -7456,6 +8504,23 @@ do {
               { out: { current: st["current"], state: st["state"] } }
             } else {
               do {
+              --- Implicit `type.pi` binders drain *before* each
+              --- explicit argument (phase-3 WS-A): a former-app domain
+              --- whose head has registered instances is evidence —
+              --- discharged by dictionary search (`implicit_pi_fill_`)
+              --- or deferred to `pending_instances`; anything else
+              --- gets a fresh meta. The fill substitutes the binder
+              --- in the body but does NOT consume an argument.
+              cur_implicit := type_tag(st["current"]) == "type.pi" && get_or(st["current"], "implicit", false) == true
+              if cur_implicit {
+                do {
+                  fill := implicit_pi_fill_(funcs, st["state"], get_or(st["current"], "param", null))
+                  binder := get_or(st["current"], "binder", "_i")
+                  fbody := get_or(st["current"], "body", null)
+                  new_cur := if fbody == null { fbody } else { subst_term_(subst_term_, fbody, binder, fill.val) }
+                  { state: { current: new_cur, state: fill["state"], idx: st.idx } }
+                }
+              } else {
               cur_tag := type_tag(st["current"])
               if cur_tag == "type.pi" || cur_tag == "type.forall" {
                 --- Dependent application (ADR-0120 Phase 4): `f(a)` with
@@ -7497,10 +8562,16 @@ do {
               }
               }
               }
+              }
             }
           }
-          final_state := call_state["state"]
-          final_typ := call_state["current"]
+          --- End-of-call retry of deferred evidence obligations —
+          --- determined goals resolve now that the explicit args have
+          --- solved their index metas (the NBE
+          --- `retry_pending_instances(final_=false)`).
+          call_state2 := { current: call_state["current"], state: retry_pending_instances_(funcs, call_state["state"], false) }
+          final_state := call_state2["state"]
+          final_typ := call_state2["current"]
           zonked := zonk(zonk, final_typ, final_state.metas)
           norm := normalize_type_(normalize_type_, funcs, final_state, zonked)
           { val: norm, state: final_state }
@@ -7525,6 +8596,41 @@ do {
           } else {
             do {
               target_tag := type_tag(target_result.typ)
+              if target_tag == "type.family_app" {
+                --- `ev.<field>` on an evidence binder (`ev : Eq(a)`)
+                --- projects the constraint's declared dictionary
+                --- *shape* — `"<head>.shape"`/`"<head>.shape.vars"`
+                --- recorded by `new Constraint` — with the schematic
+                --- vars substituted by the goal's index args (the NBE
+                --- `record_field_type` family_app path).
+                do {
+                  head := get_or(target_result.typ, "name", "")
+                  shape := tc_lookup_result(target_result["state"], head + ".shape")
+                  shape_vars := tc_lookup_result(target_result["state"], head + ".shape.vars")
+                  vars_arr := if type_of(shape_vars) == "arr" { shape_vars } else { [] }
+                  fval := if shape == null {
+                    null
+                  } else {
+                    do {
+                      sh_fields := get_or(shape, "fields", {})
+                      raw_f := get_or(sh_fields, field_name, null)
+                      if raw_f == null {
+                        null
+                      } else {
+                        subst_shape_vars_(subst_shape_vars_, raw_f, vars_arr, get_or(target_result.typ, "args", []))
+                      }
+                    }
+                  }
+                  if fval == null {
+                    do {
+                      fresh := tc_fresh_meta(target_result["state"])
+                      { val: meta_value(fresh.id), state: fresh["state"] }
+                    }
+                  } else {
+                    { val: fval, state: target_result["state"] }
+                  }
+                }
+              } else {
               if target_tag == "type.record" {
                 do {
                   fields := get_or(target_result.typ, "fields", {})
@@ -7540,6 +8646,7 @@ do {
                   fresh := tc_fresh_meta(target_result["state"])
                   { val: meta_value(fresh.id), state: fresh["state"] }
                 }
+              }
               }
             }
           }
@@ -8984,8 +10091,13 @@ do {
       ast_index := if prebuilt_ast_index == null { index_type_rules(ast_arr) } else { prebuilt_ast_index }
       s := tc_new(ast, type_index, ast_index, prelude, get_or(lang, "globals", {}))
       result := funcs.synth_node_(funcs, s, root_idx)
-      zonked := zonk(zonk, result.typ, result["state"].metas)
-      final_state := if zonked == null { funcs.add_diagnostic(result["state"], "warning", "typecheck result was null; defaulting to type.unknown") } else { result["state"] }
+      --- End-of-module drain of deferred evidence obligations — every
+      --- still-open `pending_instances` entry is an honest `no
+      --- instance` error diagnostic (the NBE
+      --- `retry_pending_instances(final_=true)`).
+      drained := retry_pending_instances_(funcs, result["state"], true)
+      zonked := zonk(zonk, result.typ, drained.metas)
+      final_state := if zonked == null { funcs.add_diagnostic(drained, "warning", "typecheck result was null; defaulting to type.unknown") } else { drained }
       final_typ := if zonked == null { funcs.make_type("type.unknown", {}) } else { zonked }
       { typ: final_typ, diagnostics: final_state.diagnostics, node_types: final_state.node_types }
     }
