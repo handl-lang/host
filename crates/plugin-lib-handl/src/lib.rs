@@ -3996,9 +3996,24 @@ impl HandlLoader {
     /// arrows cross the `Function::call` boundary. For the same speedup,
     /// build the `str` dep with `HandlModule::with_eval_engine("bytecode")`
     /// too.
+    ///
+    /// The `error` floor (`error.raise`/`error.try`, I-006) is wired
+    /// automatically — `loader.hnl` needs it to fail loudly; pass an
+    /// `error` dep yourself only to override it.
     pub fn new(deps: Vec<Arc<dyn Module + Send + Sync>>) -> Self {
         let mut module =
             HandlModule::new_raw("loader", LOADER_HNL, LOADER_FUNCS).with_eval_engine("bytecode");
+        // `loader.hnl` reports contract violations via `error.raise`
+        // (lib-loader `src/index.hnl`). Without an `error` module in the
+        // runtime's module chain the raise cannot resolve — the eval
+        // fails with an unbound-name/`call_host` miss instead of the
+        // intended message, and `loader_call`'s bootstrap fallback then
+        // masks the real loader bug (I-006). Wire the canonical `error`
+        // floor (`handl-lib-error` atoms) unless the caller supplied its
+        // own `error` dep.
+        if !deps.iter().any(|dep| dep.name() == "error") {
+            module = module.with_dependency_arc(loader_error_module());
+        }
         for dep in deps {
             module = module.with_dependency_arc(dep);
         }
@@ -4016,6 +4031,24 @@ impl HandlLoader {
             &mut EvalContext::new(),
         )
     }
+}
+
+/// The `error` floor [`HandlLoader`] wires into the loader runtime
+/// (I-006): an ops-only [`HandlModule`] over the `handl-lib-error`
+/// kernel atoms (`error.raise`/`error.try`), imported into the host
+/// [`OpRegistry`] the same way `plugin-lib-stdlib`'s
+/// `RegistrySource::Kernel` path does. `loader.hnl`'s
+/// `error.raise(msg)` calls then resolve through the ordinary
+/// `call_host` → [`ModuleLookup`] leaf dispatch every dep uses — the
+/// `Raise` op returns `Err(OpError::Other(msg))`, which surfaces as a
+/// normal eval error out of `HandlLoader::call`.
+fn loader_error_module() -> Arc<dyn Module + Send + Sync> {
+    let mut registry = OpRegistry::new();
+    registry.import_kernel(&handl_lib_error::error_op_registry());
+    Arc::new(
+        HandlModule::new("error", handl_lib_error::ERROR_HNL, &[])
+            .with_ops(&["error.raise", "error.try"], Arc::new(registry)),
+    )
 }
 
 /// The process-wide installed loader (ADR-0094).

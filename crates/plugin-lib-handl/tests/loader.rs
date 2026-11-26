@@ -569,10 +569,7 @@ mod bootstrap {
                     b'(' | b'[' | b'{' => depth += 1,
                     b')' | b']' | b'}' => depth -= 1,
                     b':' if depth == 0 => {
-                        if bytes
-                            .get(i + 1)
-                            .is_some_and(|&n| n == b':' || n == b'=')
-                        {
+                        if bytes.get(i + 1).is_some_and(|&n| n == b':' || n == b'=') {
                             return None;
                         }
                         let key = item[..i].trim();
@@ -1495,15 +1492,17 @@ fn separatorless_export_fails_loudly() {
     ensure_lang();
     install();
 
-    // The handl loader itself errors (eval failure via `error.raise`).
+    // The handl loader itself errors — via `error.raise`, which the
+    // loader runtime provides (I-006): the message is the loader's own
+    // diagnostic, not an unbound-name/`call_host` miss.
     let err = loader()
         .expect("loader installed")
         .call("transform_export_to_object", "export just_a_name\n")
         .expect_err("loader must fail on a separator-less export");
     let msg = format!("{err}");
     assert!(
-        !msg.is_empty(),
-        "loader-side failure should carry a message, got: {msg}"
+        msg.contains("module prep: cannot transform `export` declaration"),
+        "loader-side failure should carry the error.raise diagnostic, got: {msg}"
     );
 
     // The bootstrap mirror panics with the diagnostic.
@@ -1531,12 +1530,13 @@ fn separatorless_export_fails_loudly() {
 fn nameless_export_fails_loudly() {
     ensure_lang();
     install();
+    let err = loader()
+        .expect("loader installed")
+        .call("transform_export_to_object", "export := 1\n")
+        .expect_err("loader must fail on a nameless export");
     assert!(
-        loader()
-            .expect("loader installed")
-            .call("transform_export_to_object", "export := 1\n")
-            .is_err(),
-        "loader must fail on a nameless export"
+        format!("{err}").contains("no binding name"),
+        "loader-side failure should carry the error.raise diagnostic, got: {err}"
     );
     let caught =
         std::panic::catch_unwind(|| bootstrap::transform_export_to_object("export := 1\n"));

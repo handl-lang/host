@@ -20,6 +20,10 @@ hnl-exec-tree-walk = { git = "https://github.com/handl-lang/exec-tree-walk", bra
 hnl-exec-bytecode = { git = "https://github.com/handl-lang/exec-bytecode", branch = "main" }
 hnl-tool-transform = { git = "https://github.com/handl-lang/tool-transform", branch = "main" }
 handl-plugin-lib-char-native = { git = "https://github.com/handl-lang/lib-char-native", branch = "main" }
+# The `error` floor the loader runtime needs: `loader.hnl` reports
+# contract violations via `error.raise` — an ops-only module over the
+# kernel atoms (`HandlLoader::new` wires it as a dep automatically).
+handl-lib-error = { git = "https://github.com/handl-lang/lib-error", branch = "main" }
 hnl-engine = { git = "https://github.com/handl-lang/engine", branch = "main" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
