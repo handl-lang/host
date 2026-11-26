@@ -1464,6 +1464,16 @@ impl ImportResolver for Runtime {
         })?;
         resolver.resolve_import_tagged(path)
     }
+
+    fn resolve_import_namespace_tagged(
+        &self,
+        path: &str,
+    ) -> Result<Rc<TaggedValue>, LangError> {
+        let resolver = self.import_resolver.as_ref().ok_or_else(|| {
+            LangError::engine("import: no import resolver configured for this runtime")
+        })?;
+        resolver.resolve_import_namespace_tagged(path)
+    }
 }
 
 /// A self-contained module loader for `import "path"` statements
@@ -1540,6 +1550,12 @@ struct CachedModule {
     bindings: Rc<TaggedValue>,
     /// The module's post-desugar AST, kept for `seal_module_value`.
     ast: Rc<Ast>,
+    /// The star-import namespace (`resolve_import_namespace_tagged`):
+    /// `bindings` itself when the module declares `export`s, else an
+    /// empty record — a no-`export` module's evaluated value may be an
+    /// all-bindings/trailing record, but star imports bind only declared
+    /// exports (I-007).
+    namespace: Rc<TaggedValue>,
 }
 
 impl ModuleLoader {
@@ -1967,10 +1983,22 @@ impl ModuleLoader {
 
         // Collect the module's top-level bindings into a tagged record.
         let bindings = collect_module_bindings_tagged(self.lang.as_ref(), &ast, value);
+        let bindings = Rc::new(bindings);
+        // Star-import namespace (I-007): declared exports only. A module
+        // with `export` declarations evaluates to exactly that record;
+        // a no-`export` module's value (all-bindings projection or a
+        // trailing record literal) stays reachable through named imports
+        // but yields an empty star namespace.
+        let namespace = if prepared.has_exports {
+            Rc::clone(&bindings)
+        } else {
+            Rc::new(TaggedValue::Obj(Rc::new(FxHashMap::default())))
+        };
 
         Ok(CachedModule {
-            bindings: Rc::new(bindings),
+            bindings,
             ast: Rc::new(ast),
+            namespace,
         })
     }
 
@@ -2247,6 +2275,19 @@ impl ImportResolver for ModuleLoader {
     /// `serde_json::Value` expansion per import.
     fn resolve_import_tagged(&self, path: &str) -> Result<Rc<TaggedValue>, LangError> {
         self.load_module_tagged(path)
+    }
+
+    /// Star-import namespace (I-007): the cached exports-only record —
+    /// `bindings` for a module with `export` declarations, an empty
+    /// record otherwise. Named imports keep using
+    /// [`resolve_import_tagged`](Self::resolve_import_tagged), which
+    /// still projects the full evaluated module record.
+    fn resolve_import_namespace_tagged(
+        &self,
+        path: &str,
+    ) -> Result<Rc<TaggedValue>, LangError> {
+        let module = self.load_module_cached(path)?;
+        self.scoped_bindings(path, &module.namespace)
     }
 }
 

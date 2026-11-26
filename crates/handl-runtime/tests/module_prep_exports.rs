@@ -399,6 +399,11 @@ fn export_data_alongside_plain_exports() {
 /// char` + trailing combinator record evaluated to
 /// `{ "char": "char" }`, so every `pred.*` call failed
 /// `callee is not an arrow-value`.
+///
+/// I-007: named imports still project the full module record, so the
+/// trailing-record fields stay reachable by name; star imports bind
+/// only *declared* exports (empty here — see
+/// `star_import_of_exportless_module_binds_empty_namespace`).
 #[test]
 fn no_export_trailing_do_record_is_module_value() {
     let root = scratch_dir("tail-do-record");
@@ -406,7 +411,7 @@ fn no_export_trailing_do_record_is_module_value() {
     let value = run(
         &root,
         src,
-        r#"do { from "mod.hnl" import * as m; { a: m.f(20), b: m.g(21) } }"#,
+        r#"do { from "mod.hnl" import { f, g }; { a: f(20), b: g(21) } }"#,
     )
     .expect("trailing do-record module must evaluate");
     assert_eq!(value, json!({ "a": 21, "b": 42 }));
@@ -424,7 +429,7 @@ fn host_import_then_trailing_record_keeps_record() {
     let value = run(
         &root,
         src,
-        r#"do { from "mod.hnl" import * as m; m.f(41) }"#,
+        r#"do { from "mod.hnl" import f; f(41) }"#,
     )
     .expect("module must evaluate to its trailing record");
     assert_eq!(value, json!(42));
@@ -442,10 +447,37 @@ fn wrapped_rhs_continuations_still_join() {
     let value = run(
         &root,
         src,
-        r#"do { from "mod.hnl" import * as m; m.a + m.b }"#,
+        r#"do { from "mod.hnl" import { a, b }; a + b }"#,
     )
     .expect("wrapped RHS module must evaluate");
     assert_eq!(value, json!(13), "x = 1 + 2 = 3, y = 10");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// I-007: star forms (`import * as m`, `import "…"`) bind only the
+/// module's *declared* exports. A module with no `export` declarations
+/// yields an empty namespace even though its evaluated value is the
+/// trailing record — `m.f` is absent while `from "…" import f` still
+/// reaches the record field.
+#[test]
+fn star_import_of_exportless_module_binds_empty_namespace() {
+    let root = scratch_dir("star-empty-ns");
+    let src = "helper := x ~> x + 1\ndo {\n  { f: helper }\n}\n";
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import * as m; m }"#,
+    )
+    .expect("star import of export-less module must evaluate");
+    assert_eq!(value, json!({}));
+    // Named import still sees the trailing record's fields.
+    let value = run(
+        &root,
+        src,
+        r#"do { from "mod.hnl" import f; f(41) }"#,
+    )
+    .expect("named import still projects the module record");
+    assert_eq!(value, json!(42));
     std::fs::remove_dir_all(&root).ok();
 }
 

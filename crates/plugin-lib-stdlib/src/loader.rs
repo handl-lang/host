@@ -286,29 +286,18 @@ fn strip_declaration_lines(src: &str) -> String {
 }
 
 fn collect_export_names(src: &str) -> Vec<String> {
-    // `names` collects explicit `export` declarations; `all` collects
-    // every top-level bound name. A module with no `export` declarations
-    // exports every top-level binding (see `transform_export_to_object`).
+    // `names` collects explicit `export` declarations only. A module with
+    // no `export` declarations exposes an empty function surface (I-007:
+    // star imports bind declared exports, not the implicit all-bindings /
+    // trailing-record module value — mirrors
+    // `handl_runtime::module_prep::module_export_names`).
     let mut names: Vec<String> = Vec::new();
-    let mut all: Vec<String> = Vec::new();
-    let push_all = |all: &mut Vec<String>, name: String| {
-        if !all.iter().any(|n| *n == name) {
-            all.push(name);
-        }
-    };
     for seg in top_level_segments(src) {
         let trimmed = seg.trim();
         if is_import_line(trimmed) {
             if let Some((_, reexports)) = from_export_to_import(trimmed) {
-                for (name, _) in &reexports {
-                    names.push(name.clone());
-                }
                 for (name, _) in reexports {
-                    push_all(&mut all, name);
-                }
-            } else if import_line_spec(trimmed).is_some() {
-                for local in import_bound_locals(trimmed) {
-                    push_all(&mut all, local);
+                    names.push(name);
                 }
             }
             continue;
@@ -317,27 +306,10 @@ fn collect_export_names(src: &str) -> Vec<String> {
             if let Some((sep_pos, _)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
                 names.push(name.clone());
-                push_all(&mut all, name);
-            }
-        } else if let Some((sep_pos, _)) = find_binding_sep(trimmed) {
-            let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
-            if is_valid_ident(&name) {
-                push_all(&mut all, name);
             }
         }
     }
-    if names.is_empty() {
-        // A no-exports module whose last statement is a `do { … }` or
-        // record literal produces that value as the module record —
-        // merge its field keys so the registered functions cover them
-        // (mirrors `handl_runtime::module_prep::module_export_names`).
-        for key in trailing_record_keys(&strip_comment_lines(src)) {
-            push_all(&mut all, key);
-        }
-        all
-    } else {
-        names
-    }
+    names
 }
 
 /// Split a module source into its top-level statements, returning each
@@ -1031,120 +1003,6 @@ fn item_expects_block(lines: &[String]) -> bool {
         }
     }
     !seen_open || depth > 0
-}
-
-/// Split `s` at commas at bracket depth zero (strings respected) —
-/// mirrors `handl_runtime::module_prep::split_top_commas`.
-fn split_top_commas(s: &str) -> Vec<&str> {
-    let bytes = s.as_bytes();
-    let mut items = Vec::new();
-    let mut depth = 0i32;
-    let mut in_str: Option<u8> = None;
-    let mut start = 0usize;
-    let mut i = 0usize;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if let Some(q) = in_str {
-            if c == b'\\' {
-                i += 1;
-            } else if c == q {
-                in_str = None;
-            }
-        } else {
-            match c {
-                b'"' | b'\'' => in_str = Some(c),
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                b',' if depth == 0 => {
-                    items.push(&s[start..i]);
-                    start = i + 1;
-                }
-                _ => {}
-            }
-        }
-        i += 1;
-    }
-    items.push(&s[start..]);
-    items
-}
-
-/// The field key of a `name : value` record entry — an identifier
-/// followed by a depth-zero `:` that is not `::`. Mirrors
-/// `handl_runtime::module_prep::record_field_key`.
-fn record_field_key(item: &str) -> Option<String> {
-    let item = item.trim();
-    let bytes = item.as_bytes();
-    let mut depth = 0i32;
-    let mut in_str: Option<u8> = None;
-    let mut i = 0usize;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if let Some(q) = in_str {
-            if c == b'\\' {
-                i += 1;
-            } else if c == q {
-                in_str = None;
-            }
-        } else {
-            match c {
-                b'"' | b'\'' => in_str = Some(c),
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                b':' if depth == 0 => {
-                    if bytes.get(i + 1) == Some(&b':') {
-                        return None;
-                    }
-                    let key = item[..i].trim();
-                    return is_valid_ident(key).then(|| key.to_string());
-                }
-                _ => {}
-            }
-        }
-        i += 1;
-    }
-    None
-}
-
-/// Field names of the last record literal in `text` — the value a
-/// trailing `do { … }` or bare `{ … }` produces. Mirrors
-/// `handl_runtime::module_prep::trailing_record_keys`.
-fn trailing_record_keys(text: &str) -> Vec<String> {
-    let mut text = text.trim_end();
-    loop {
-        if !text.ends_with('}') {
-            return Vec::new();
-        }
-        let bytes = text.as_bytes();
-        let mut depth = 0i32;
-        let mut open = None;
-        for i in (0..bytes.len()).rev() {
-            match bytes[i] {
-                b'}' => depth += 1,
-                b'{' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        open = Some(i);
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        let Some(open) = open else { return Vec::new() };
-        let inner = text[open + 1..bytes.len() - 1].trim_end();
-        let items: Vec<&str> = split_top_commas(inner)
-            .into_iter()
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-            .collect();
-        if !items.is_empty() && items.iter().all(|item| record_field_key(item).is_some()) {
-            return items
-                .iter()
-                .filter_map(|item| record_field_key(item))
-                .collect();
-        }
-        text = inner;
-    }
 }
 
 /// True when `s` is a plausible Handl identifier: starts with an

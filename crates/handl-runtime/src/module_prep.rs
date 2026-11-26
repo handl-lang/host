@@ -33,6 +33,13 @@ pub struct PreparedModule {
     pub line_map: Vec<Option<u32>>,
     /// Total lines in the input source.
     pub origin_lines: u32,
+    /// Whether the source declares any `export` (including `export data`,
+    /// `from "…" export …` re-exports, host-module `export` imports, and
+    /// `op "…"` declarations). Star imports (`import *`, `import * as`,
+    /// bare `import "…"`) bind only the declared-export record — a module
+    /// with `has_exports == false` yields an empty namespace even though
+    /// its evaluated value may be an all-bindings/trailing record (I-007).
+    pub has_exports: bool,
 }
 
 /// Prepare a module source for evaluation: strip comments and declarations,
@@ -71,7 +78,7 @@ pub fn prepare_module_mapped(
     let (src, map_comments) = strip_comment_lines_mapped(src);
     let op_names = collect_op_decl_names(&src);
     let (src, map_decls) = strip_declaration_lines_mapped(&src);
-    let (prepared, mut map) =
+    let (prepared, mut map, has_exports) =
         transform_export_to_object(&src, is_file_spec, &op_names, is_bindable)?;
     // Compose the stage maps: `map` entries are lines of the
     // decl-stripped source — resolve each through `map_decls` (→
@@ -86,6 +93,7 @@ pub fn prepare_module_mapped(
         source: prepared,
         line_map: map,
         origin_lines,
+        has_exports,
     })
 }
 
@@ -99,25 +107,21 @@ pub fn line_number_at(src: &str, offset: usize) -> u32 {
         + 1) as u32
 }
 
-/// Collect the names a module source exports — the keys of the record
-/// [`prepare_module`] would produce — without preparing or evaluating it.
-/// Hosts use this to learn which names a spliced `import "<spec>"` /
-/// `from "<spec>" import *` binds (e.g. seeding a pre-run typecheck scope).
+/// Collect the names a module source exports — the keys of the
+/// declared-export record star imports bind — without preparing or
+/// evaluating it. Hosts use this to learn which names a spliced
+/// `import "<spec>"` / `from "<spec>" import *` binds (e.g. seeding a
+/// pre-run typecheck scope).
+///
+/// Only *declared* exports are reported (I-007): a module with no
+/// `export` declarations yields an empty list even though its evaluated
+/// value may be an all-bindings or trailing-record value — star imports
+/// bind the empty namespace, not that record.
 pub fn module_export_names(src: &str) -> Vec<String> {
     let src = strip_comment_lines(src);
     let op_names = collect_op_decl_names(&src);
     let src = strip_declaration_lines(&src);
-    // `exported` collects names from `export` declarations (including
-    // re-exports and `op` decls); `all` collects every top-level bound
-    // name. A module with no `export` declarations exports every
-    // top-level binding (see `transform_export_to_object`).
     let mut exported: Vec<String> = Vec::new();
-    let mut all: Vec<String> = Vec::new();
-    let push_all = |all: &mut Vec<String>, name: String| {
-        if !all.iter().any(|n| *n == name) {
-            all.push(name);
-        }
-    };
     for seg in top_level_segments(&src) {
         let trimmed = seg.trim();
         if trimmed.is_empty() {
@@ -130,18 +134,11 @@ pub fn module_export_names(src: &str) -> Vec<String> {
             // module exports.
             if let Some((_, reexports)) = from_export_to_import(trimmed) {
                 exported.extend(reexports.iter().map(|(name, _)| name.clone()));
-                for (name, _) in reexports {
-                    push_all(&mut all, name);
-                }
             } else {
                 for (local, _, exp) in host_import_bindings(trimmed) {
                     if exp {
                         exported.push(local.clone());
                     }
-                    push_all(&mut all, local);
-                }
-                for local in import_bound_locals(trimmed) {
-                    push_all(&mut all, local);
                 }
             }
             continue;
@@ -151,44 +148,23 @@ pub fn module_export_names(src: &str) -> Vec<String> {
                 // `export data F := …` exports the family and each
                 // constructor the declaration binds.
                 if let Some(names) = data_decl_bound_names(rest) {
-                    for name in names {
-                        exported.push(name.clone());
-                        push_all(&mut all, name);
-                    }
+                    exported.extend(names);
                 }
             } else if let Some((sep_pos, _)) = find_binding_sep(rest) {
                 let name = strip_export_name(&rest[..sep_pos]);
                 exported.push(name.clone());
-                push_all(&mut all, name);
             }
             // A separator-less `export` is skipped here (name seeding is
             // best-effort); `prepare_module` reports it as an error.
-        } else if let Some((sep_pos, _)) = find_binding_sep(trimmed) {
-            let name = strip_export_name(&trimmed[..sep_pos]).trim().to_string();
-            if is_valid_ident(&name) {
-                push_all(&mut all, name);
-            }
         }
     }
     for qualified in op_names {
         let local = qualified.rsplit('.').next().unwrap_or(&qualified);
         if !local.is_empty() && is_valid_ident(local) && !exported.iter().any(|n| n == local) {
             exported.push(local.to_string());
-            push_all(&mut all, local.to_string());
         }
     }
-    if exported.is_empty() {
-        // A no-exports module whose last statement is a `do { … }` or
-        // record literal produces that value as the module record — merge
-        // its field keys so the seed covers them (extra seeds are
-        // harmless; missing ones break `hnl run`'s splice pre-check).
-        for key in trailing_record_keys(&src) {
-            push_all(&mut all, key);
-        }
-        all
-    } else {
-        exported
-    }
+    exported
 }
 
 /// Collect the qualified names from `op "<name>" : ...` declaration lines
@@ -425,7 +401,7 @@ fn transform_export_to_object(
     is_file_spec: &dyn Fn(&str) -> bool,
     op_names: &[String],
     is_bindable: &dyn Fn(&str) -> bool,
-) -> Result<(String, Vec<Option<u32>>), LangError> {
+) -> Result<(String, Vec<Option<u32>>, bool), LangError> {
     // Line index for provenance: piece origins are computed as
     // `line_of(byte_offset)` where offsets come from subslice pointer
     // arithmetic against `src` (every `rest`/`trimmed`/`rhs` below is a
@@ -749,7 +725,7 @@ fn transform_export_to_object(
             }
         }
         out.push("\n}", None);
-        return Ok((out.text, out.map.into_vec()));
+        return Ok((out.text, out.map.into_vec(), false));
     }
 
     // Build the body: every binding as a do-block assignment in source
@@ -835,7 +811,7 @@ fn transform_export_to_object(
     }
     out.push(" }", None);
     out.push("\n}", None);
-    Ok((out.text, out.map.into_vec()))
+    Ok((out.text, out.map.into_vec(), has_exports))
 }
 
 /// Whether a non-binding top-level `seg` continues the in-flight item
@@ -1759,51 +1735,6 @@ fn record_field_key(item: &str) -> Option<String> {
         i += 1;
     }
     None
-}
-
-/// Field names of the last record literal in `text` — the value a
-/// trailing `do { … }` or bare `{ … }` produces. Walks the final
-/// balanced `{…}` group; when its depth-one entries are all `name : …`
-/// fields the keys are returned, otherwise the search recurses into the
-/// group's interior (the record may be the last expression inside a
-/// `do` block). Best-effort static extraction for name seeding.
-fn trailing_record_keys(text: &str) -> Vec<String> {
-    let mut text = text.trim_end();
-    loop {
-        if !text.ends_with('}') {
-            return Vec::new();
-        }
-        let bytes = text.as_bytes();
-        let mut depth = 0i32;
-        let mut open = None;
-        for i in (0..bytes.len()).rev() {
-            match bytes[i] {
-                b'}' => depth += 1,
-                b'{' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        open = Some(i);
-                        break;
-                    }
-                }
-                _ => {}
-            }
-        }
-        let Some(open) = open else { return Vec::new() };
-        let inner = text[open + 1..bytes.len() - 1].trim_end();
-        let items: Vec<&str> = split_top_commas(inner)
-            .into_iter()
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-            .collect();
-        if !items.is_empty() && items.iter().all(|item| record_field_key(item).is_some()) {
-            return items
-                .iter()
-                .filter_map(|item| record_field_key(item))
-                .collect();
-        }
-        text = inner;
-    }
 }
 
 /// Drop every top-level import statement, as provenance-tracked

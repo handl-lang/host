@@ -475,6 +475,16 @@ impl ImportResolver for SharedImportResolver {
     ) -> Result<Rc<handl_value::TaggedValue>, handl_language::LangError> {
         self.0.resolve_import_tagged(path)
     }
+
+    /// Forward the declared-exports namespace view (I-007) so a wrapped
+    /// resolver that distinguishes star-import namespaces (e.g.
+    /// `ModuleLoader`) keeps that behavior through the `Arc` adapter.
+    fn resolve_import_namespace_tagged(
+        &self,
+        path: &str,
+    ) -> Result<Rc<handl_value::TaggedValue>, handl_language::LangError> {
+        self.0.resolve_import_namespace_tagged(path)
+    }
 }
 
 // ---------------------------------------------------------------------------
