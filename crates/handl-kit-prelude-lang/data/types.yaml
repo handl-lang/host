@@ -302,7 +302,14 @@
           lit: 2
 
 # ---------------------------------------------------------------------------
-# Binary arithmetic — both children type.number, result type.number
+# Binary `+` — overloaded at runtime: `bin_add_pair` concatenates Str+Str
+# and adds Num+Num (any other pairing is a runtime type error). The type
+# language has no union type, so the rule is the homogeneous
+# approximation: both operands must unify with each other and the result
+# is the operand type (the `binary.eq` pattern, returning the operand
+# type instead of `type.bool`). This admits same-typed pairs the runtime
+# still rejects (Bool+Bool, Arr+Arr, …) — a known over-approximation
+# until a `num|string` union or a multi-type `unify` judgment op exists.
 # ---------------------------------------------------------------------------
 
 - id: type.binary.add
@@ -329,33 +336,19 @@
               source: Judgment
               lit: a
             - !Op
-              name: construct
+              name: synth_child
               args: []
               source: Judgment
-              lit: type.number
+              lit: 1
           source: Judgment
-        snd: !Seq
-          fst: !Op
-            name: unify
-            args:
-              - !Op
-                name: synth_child
-                args: []
-                source: Judgment
-                lit: 1
-              - !Op
-                name: construct
-                args: []
-                source: Judgment
-                lit: type.number
-            source: Judgment
-          snd: !Op
-            name: construct
-            args: []
-            source: Judgment
-            lit: type.number
-  # Directed check: verify the expected type is type.number, then check both
-  # operands against type.number (ADR-0054 directed checking).
+        snd: !Op
+          name: result
+          args: []
+          source: Judgment
+          lit: a
+  # Directed check: the result type is the operand type, so the expected
+  # type must equal the synthesized type of child 0; both children are
+  # then checked against that operand type (ADR-0054 directed checking).
   check: !Seq
     fst: !Op
       name: bind
@@ -364,40 +357,52 @@
       lit: expected
     snd: !Seq
       fst: !Op
-        name: unify
-        args:
-          - !Op
-            name: result
-            args: []
-            source: Judgment
-            lit: expected
-          - !Op
-            name: construct
-            args: []
-            source: Judgment
-            lit: type.number
+        name: synth_child
+        args: []
         source: Judgment
+        lit: 0
       snd: !Seq
         fst: !Op
-          name: check_child
-          args:
-            - !Op
-              name: construct
-              args: []
-              source: Judgment
-              lit: type.number
+          name: bind
+          args: []
           source: Judgment
-          lit: 0
-        snd: !Op
-          name: check_child
-          args:
-            - !Op
-              name: construct
-              args: []
+          lit: operand_type
+        snd: !Seq
+          fst: !Op
+            name: unify
+            args:
+              - !Op
+                name: result
+                args: []
+                source: Judgment
+                lit: expected
+              - !Op
+                name: result
+                args: []
+                source: Judgment
+                lit: operand_type
+            source: Judgment
+          snd: !Seq
+            fst: !Op
+              name: check_child
+              args:
+                - !Op
+                  name: result
+                  args: []
+                  source: Judgment
+                  lit: operand_type
               source: Judgment
-              lit: type.number
-          source: Judgment
-          lit: 1
+              lit: 0
+            snd: !Op
+              name: check_child
+              args:
+                - !Op
+                  name: result
+                  args: []
+                  source: Judgment
+                  lit: operand_type
+              source: Judgment
+              lit: 1
 
 - id: type.binary.sub
   node_kind: binary.sub
