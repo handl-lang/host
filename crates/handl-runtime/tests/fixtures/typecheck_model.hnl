@@ -983,7 +983,14 @@ do {
     globals: if globals == null { {} } else { globals },
     instances: {},
     instance_count: 0,
-    pending_instances: []
+    pending_instances: [],
+    ambient_mode: null,
+    node_modes: {},
+    mode_set_cache: {},
+    mode_metas: {},
+    performed_effects: [],
+    binding_modes: [],
+    algebra_heads: []
   })
 
   prelude_contains := [prelude, name]~> while { found: false, idx: 0 } {
@@ -1825,8 +1832,23 @@ do {
             --- of minting a mode family named `X`.
             { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_new: `new Inductive` expects a constructor record `{ C : F(i⃗), … }` whose codomains name the declared family `F` — well-formed `X := new Inductive { … }` declarations lower to `data` at parse time") }
           } else {
+          --- PL-0004 E1: `X := new Algebra(…)` heads resolve in
+          --- `@ [X(p), …]` mode ascriptions — name-level registration
+          --- only; the algebra's `compose`/`unit`/`order` live in the
+          --- instance table the `Val` domain cannot evaluate, so
+          --- composing through the head still takes the honest bound
+          --- until the bridge lands (E2+). Mirrors the NBE
+          --- `synth_new_decl` Algebra arm.
+          s_head := if schema != null && schema.schema == "Algebra" {
+            do {
+              heads := get_or(s, "algebra_heads", [])
+              set(s, "algebra_heads", if name_in_list_(heads, name) { heads } else { [...heads, name] })
+            }
+          } else {
+            s
+          }
           do {
-            alg := funcs.synth_type_(funcs, s, type_idx)
+            alg := funcs.synth_type_(funcs, s_head, type_idx)
             carrier := if type_tag(alg.val) == "type.family_app" {
               do {
                 a0 := get_or(alg.val, "args", [])
@@ -2173,11 +2195,18 @@ do {
       instance_count := if type_of(raw_instance_count) == "num" { raw_instance_count } else { 0 }
       pending_instances := if type_of(raw_pending_instances) == "arr" { raw_pending_instances } else { [] }
       rebuilt := set(set(set(set(set(set(set(set(set(set(set(set({}, "ast", ast), "type_index", type_index), "ast_index", ast_index), "gamma", gamma), "metas", metas), "results", results), "node_types", node_types), "diagnostics", diagnostics), "fuel", fuel), "exhausted", exhausted), "prelude", prelude), "globals", globals)
-      set(set(set(rebuilt, "instances", instances), "instance_count", instance_count), "pending_instances", pending_instances)
+      s1 := set(set(set(rebuilt, "instances", instances), "instance_count", instance_count), "pending_instances", pending_instances)
+      s2 := set(s1, "ambient_mode", get_or(s, "ambient_mode", null))
+      s3 := set(s2, "node_modes", if is_obj(get_or(s, "node_modes", {})) { get_or(s, "node_modes", {}) } else { {} })
+      s4 := set(s3, "mode_set_cache", if is_obj(get_or(s, "mode_set_cache", {})) { get_or(s, "mode_set_cache", {}) } else { {} })
+      s5 := set(s4, "mode_metas", if is_obj(get_or(s, "mode_metas", {})) { get_or(s, "mode_metas", {}) } else { {} })
+      s6 := set(s5, "performed_effects", if type_of(get_or(s, "performed_effects", [])) == "arr" { get_or(s, "performed_effects", []) } else { [] })
+      s7 := set(s6, "binding_modes", if type_of(get_or(s, "binding_modes", [])) == "arr" { get_or(s, "binding_modes", []) } else { [] })
+      set(s7, "algebra_heads", if type_of(get_or(s, "algebra_heads", [])) == "arr" { get_or(s, "algebra_heads", []) } else { [] })
     }
   } else {
     do {
-      fallback := { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {}, instances: {}, instance_count: 0, pending_instances: [] }
+      fallback := { ast: [], type_index: {}, ast_index: {}, gamma: [], metas: [null], results: {}, node_types: [], diagnostics: [], fuel: 50000, exhausted: false, prelude: [], globals: {}, instances: {}, instance_count: 0, pending_instances: [], ambient_mode: null, node_modes: {}, mode_set_cache: {}, mode_metas: {}, performed_effects: [], binding_modes: [], algebra_heads: [] }
       if s == null {
         fallback
       } else {
@@ -4262,41 +4291,63 @@ do {
     }
   }
 
-  --- `mode_rows_union_(funcs, s, a, b)` — record-row union: shared keys
-  --- must agree (`==` keeps the entry); a conflict is the honest bound,
-  --- never a silent pick. Non-record operands are the honest bound too.
+  --- `mode_merge_entry_(funcs, s, w, v)` — merge one shared row entry
+  --- (PL-0004 E0; `Checker::mode_merge_entry`): `w ≡ v` under `unify`
+  --- keeps the left entry (meta solutions made by the check persist
+  --- in `s.metas`); a decided mismatch yields a fresh-meta entry —
+  --- the per-entry honest bound — with a warning recorded. `unify`
+  --- is functional in `metas`, so a failed check simply keeps the
+  --- old store (the NBE `store_mark`/`store_restore` pair).
+  mode_merge_entry_ := [funcs, s, w, v]~> do {
+    ur := unify(funcs, w, v, s.metas)
+    if ur.ok {
+      { val: zonk(zonk, w, ur.metas), state: set(s, "metas", ur.metas) }
+    } else {
+      do {
+        m := tc_fresh_meta(s)
+        { val: meta_value(m.id), state: tc_add_diagnostic(m.state, "warning", "mode compose: record rows conflict on a shared key — entry is a fresh meta") }
+      }
+    }
+  }
+
+  --- `mode_rows_union_(funcs, s, a, b)` — record-row union with the
+  --- effects entry-merge rule (PL-0004 E0;
+  --- design/effects-ambient-modes.md §2): disjoint keys union; a
+  --- shared key keeps its entry iff the two entries *unify*
+  --- (`unify` — metas inside the entries solve as a side effect, a
+  --- decided failure degrades *that entry* to a fresh meta — the
+  --- per-entry honest bound — never a whole-row bound that would
+  --- discard the disjoint ops). Non-record operands are the honest
+  --- bound.
   mode_rows_union_ := [funcs, s, a, b]~> if type_of(a) == "obj" && type_of(b) == "obj" {
     do {
-      conflict := while { bad: false, ks: keys(b) } {
-        [st]~> if st["bad"] || is_empty(st.ks) {
-          { out: st["bad"] }
+      merged := while { result: a, ks: keys(b), state: s } {
+        [st]~> if is_empty(st.ks) {
+          { out: { result: st.result, state: st["state"] } }
         } else {
           do {
             k := first_value(st.ks)
-            in_a := mode_row_has_(a, k)
-            same := if in_a { get_or(a, k, null) == get_or(b, k, null) } else { true }
-            { state: { bad: if in_a && !same { true } else { st["bad"] }, ks: drop(st.ks, 1) } }
-          }
-        }
-      }
-      if conflict {
-        funcs.mode_honest_(funcs, s, "mode compose: record rows conflict on a shared key")
-      } else {
-        do {
-          merged := while { result: a, ks: keys(b) } {
-            [st]~> if is_empty(st.ks) {
-              { out: st.result }
-            } else {
+            step := if mode_row_has_(st.result, k) {
               do {
-                k := first_value(st.ks)
-                nv := if mode_row_has_(st.result, k) { st.result } else { set(st.result, k, get_or(b, k, null)) }
-                { state: { result: nv, ks: drop(st.ks, 1) } }
+                wa := get_or(st.result, k, null)
+                wb := get_or(b, k, null)
+                if wa == wb {
+                  { val: st.result, state: st["state"] }
+                } else {
+                  do {
+                    mg := funcs.mode_merge_entry_(funcs, st["state"], wa, wb)
+                    { val: set(st.result, k, mg.val), state: mg["state"] }
+                  }
+                }
               }
+            } else {
+              { val: set(st.result, k, get_or(b, k, null)), state: st["state"] }
             }
+            { state: { result: step.val, ks: drop(st.ks, 1), state: step["state"] } }
           }
-          { val: merged, state: s }
         }
       }
+      { val: merged.result, state: merged["state"] }
     }
   } else {
     funcs.mode_honest_(funcs, s, "mode compose: row union needs record modes")
@@ -4494,6 +4545,1509 @@ do {
             }
           }
         }
+      }
+    }
+  }
+
+  --- ------------------------------------------------------------------
+  --- Ambient modes — effects as modes (PL-0004 E1–E3;
+  --- design/effects-ambient-modes.md §1/§3). The `.hnl` port of the
+  --- NBE engine's `ambient_mode`/`node_modes`/`mode_set_cache`/
+  --- `mode_metas`/`performed_effects`/`binding_modes`/`algebra_heads`
+  --- context fields.
+  ---
+  --- The ambient mode `μ` of `Γ ⊢ t : A @ μ` is a tagged
+  --- `type.mode_set` value — `{"__tag__": "type.mode_set", "modes":
+  --- [{head, arg, raw}, …]}` — distinct from the `type.mode`
+  --- descriptors the graded-arrow machinery composes above. `null`
+  --- ambient mode is the pure/empty mode: un-annotated code is
+  --- unaffected. `Effects` payloads are op rows `{name: A ~> B}`
+  --- (every entry an operation type — the payload-only `perform`
+  --- mint is gone on this path).
+  --- ------------------------------------------------------------------
+
+  --- `ms_key_(i)` — object key for node-indexed mode maps
+  --- (`node_modes`, `mode_set_cache`).
+  ms_key_ := [i]~> typeof.to_string(i)
+
+  ms_get_ := [m, i]~> get_or(m, ms_key_(i), null)
+
+  ms_set_ := [m, i, v]~> set(m, ms_key_(i), v)
+
+  --- `str_join_(xs, sep)` — comma-style join for diagnostic lists
+  --- (the model has no `str` module; `+` on an array is not a join).
+  str_join_ := [xs, sep]~> while { out: "", first: true, remaining: xs } {
+    [st]~> if is_empty(st.remaining) {
+      { out: st.out }
+    } else {
+      do {
+        x := first_value(st.remaining)
+        piece := if type_of(x) == "str" { x } else { typeof.to_string(x) }
+        { state: { out: if st.first { piece } else { st.out + sep + piece }, first: false, remaining: drop(st.remaining, 1) } }
+      }
+    }
+  }
+
+  --- `mode_set_mint_(elements)` — the canonical `type.mode_set`
+  --- value (`{"__tag__": "type.mode_set", "modes": […]}`); `raw`
+  --- mirrors `arg` on rebuild (consumers read `head`/`arg` only).
+  mode_set_mint_ := [elements]~> make_type("type.mode_set", set({}, "modes", elements))
+
+  --- `mode_set_element_(head, arg, raw)` — one `{head, arg, raw}`
+  --- triple; `head` `null` marks a bare mode.
+  mode_set_element_ := [head, arg, raw]~> set(set(set({}, "head", head), "arg", arg), "raw", raw)
+
+  --- The `Effects` element's payload (`arg`) of an ambient
+  --- `type.mode_set` value — `{found, val}`: `found` false when the
+  --- set has no `Effects` element. `val` may be a record *or* a
+  --- symbolic payload (mode metavariable / bound row var — E3 splits
+  --- the cases so consumers honest-bound the latter).
+  mode_set_effects_payload_ := [mu]~> do {
+    found := while { el: null, remaining: get_or(mu, "modes", []) } {
+      [st]~> if st.el != null || is_empty(st.remaining) {
+        { out: st.el }
+      } else {
+        do {
+          e := first_value(st.remaining)
+          { state: { el: if get_or(e, "head", null) == "Effects" { e } else { null }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    if found == null {
+      { found: false, val: null }
+    } else {
+      { found: true, val: get_or(found, "arg", null) }
+    }
+  }
+
+  --- A *concrete* `Effects` row payload: a plain record
+  --- (`{op: A ~> B}` entries). Symbolic payloads — `__meta__`
+  --- metavariables (E3 mode metas), `__tag__` var terms (bound mode
+  --- vars) — are not rows; callers treat them as the honest bound.
+  plain_effects_row_ := [v]~> is_obj(v)
+
+  --- The `Effects` row of an ambient `type.mode_set` value — the
+  --- `arg` record of the `Effects` element. `null` when the set has
+  --- no `Effects` element *or* its payload is symbolic.
+  mode_set_effects_row_ := [mu]~> do {
+    p := mode_set_effects_payload_(mu)
+    if p.found && plain_effects_row_(p.val) { p.val } else { null }
+  }
+
+  --- `mode_set_with_effects_(base, row)` — the modality result
+  --- `μ → μ′` (design §3): `base`'s elements with the `Effects` row
+  --- replaced by `row` — other algebra elements (`Cost(3)`, …)
+  --- survive untouched. `base` `null` mints a set holding only the
+  --- residual row.
+  mode_set_with_effects_ := [base, row]~> do {
+    els := if base == null { [] } else { get_or(base, "modes", []) }
+    kept := while { result: [], remaining: els } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          e := first_value(st.remaining)
+          { state: { result: if get_or(e, "head", null) == "Effects" { st.result } else { [...st.result, e] }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    mode_set_mint_([...kept, mode_set_element_("Effects", row, row)])
+  }
+
+  --- Whether a mode-expression `var` name resolves to something real
+  --- — a `results` binding, a Γ entry, or a global. Unresolvable
+  --- names are mode metavariables (PL-0004 E3).
+  mode_name_resolvable_ := [s, name]~> tc_lookup_result(s, name) != null || tc_lookup(s, name) != null || get_or(get_or(s, "globals", {}), name, null) != null
+
+  --- The elaboration-scoped mode metavariable for `name` (PL-0004
+  --- E3): one meta per name per `elaborate_mode_set_` call —
+  --- repeated occurrences share it (they unify/substitute), distinct
+  --- ascriptions mint distinct metas (no cross-binding
+  --- generalization).
+  mode_meta_id_ := [s, name]~> do {
+    mm := get_or(s, "mode_metas", {})
+    existing := get_or(mm, name, null)
+    if existing != null {
+      { id: existing, state: s }
+    } else {
+      do {
+        m := tc_fresh_meta(s)
+        { id: m.id, state: set(m.state, "mode_metas", set(mm, name, m.id)) }
+      }
+    }
+  }
+
+  --- Record a named binding's ambient mode (PL-0004 E2; the NBE
+  --- `bind_mode`). Call *after* `tc_extend` so the `gamma` stamp
+  --- marks the binding's scope: the entry stays valid while
+  --- `len(gamma) >= stamp` and is ignored once `tc_restore` pops past
+  --- it. `mode` `null` pushes the pure marker — an un-annotated
+  --- binding shadows an outer mode-carrying binding of the same name.
+  bind_mode_ := [s, name, mode]~> do {
+    bm := get_or(s, "binding_modes", [])
+    set(s, "binding_modes", [...bm, { name: name, mode: mode, stamp: len(s.gamma) }])
+  }
+
+  --- The ambient mode recorded for `name` by `bind_mode_` — reverse
+  --- scan (innermost first), skipping entries whose scope stamp
+  --- outlived a `tc_restore`. Returns `{found, mode}` — `found`
+  --- false when no live entry exists; `mode` `null` marks "bound
+  --- without a mode" (pure).
+  lookup_binding_mode_ := [s, name]~> while { found: null, idx: len(get_or(s, "binding_modes", [])) - 1 } {
+    [st]~> if st.found != null || st.idx < 0 {
+      { out: st.found }
+    } else {
+      do {
+        bm := get_or(s, "binding_modes", [])
+        e := at(bm, st.idx)
+        hit := get_or(e, "name", null) == name && get_or(e, "stamp", 0) <= len(s.gamma)
+        { state: { found: if hit { e } else { null }, idx: st.idx - 1 } }
+      }
+    }
+  }
+
+  --- The judgement mode recorded for an AST node (PL-0004 E2; the
+  --- NBE `mode_of_node`): `node_modes` first (`mode_ascribe`
+  --- ascriptions, `>>>`-composed modes, `handle` residuals), then
+  --- `var` operands resolve through `binding_modes`. `paren`s
+  --- unwrap; anything else is `null` — no recorded mode (pure/unit
+  --- for composition purposes).
+  mode_of_node_ := [funcs, s, idx]~> do {
+    loop := while { cur: idx, n: 0 } {
+      [st]~> if st.n >= 32 {
+        { out: null }
+      } else {
+        do {
+          recorded := ms_get_(get_or(s, "node_modes", {}), st.cur)
+          if recorded != null {
+            { out: recorded }
+          } else {
+            do {
+              node := ast_node(s.ast, st.cur)
+              nk := node_kind(node)
+              ch := node_children(node)
+              if nk == "paren" && !is_empty(ch) {
+                { state: { cur: first_value(ch), n: st.n + 1 } }
+              } else {
+                if nk == "var" {
+                  do {
+                    p := node_payload(node)
+                    nm := if type_of(p) == "str" { p } else { get_or(p, "name", "") }
+                    hit := if nm == "" { null } else { lookup_binding_mode_(s, nm) }
+                    { out: if hit != null && get_or(hit, "mode", null) != null { get_or(hit, "mode", null) } else { null } }
+                  }
+                } else {
+                  { out: null }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    loop
+  }
+
+  --- `io_sig_(funcs, s, idx)` — the `{op: A ~> B}` op-row reader
+  --- (the NBE `io_sig`): object literals elaborate entry-wise —
+  --- each value child synthesizes as a *type* through
+  --- `mode_sig_type_` (arrow payloads mint `type.function`/`Arrow`
+  --- records); bare `var` children declare the op with an unstated
+  --- request (`type.unknown`). `block` position reads `type-annot`
+  --- children as `entry` pairs. Returns `{val, state}`; `val` `null`
+  --- when the node is not a record shape.
+  io_sig_ := [funcs, s, idx]~> do {
+    node := ast_node(s.ast, idx)
+    kind := node_kind(node)
+    children := node_children(node)
+    if kind == "object" {
+      do {
+        acc := while { result: {}, state: s, remaining: children } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { fields: st.result, state: st["state"] } }
+          } else {
+            do {
+              e_idx := first_value(st.remaining)
+              e_node := ast_node(st["state"].ast, e_idx)
+              ek := node_kind(e_node)
+              ech := node_children(e_node)
+              if ek == "var" {
+                do {
+                  ep := node_payload(e_node)
+                  en := if type_of(ep) == "str" { ep } else { get_or(ep, "name", "") }
+                  { state: { result: if en == "" { st.result } else { set(st.result, en, make_type("type.unknown", {})) }, state: st["state"], remaining: drop(st.remaining, 1) } }
+                }
+              } else {
+                if ek == "entry" && len(ech) >= 2 {
+                  do {
+                    k_node := ast_node(st["state"].ast, first_value(ech))
+                    kp := node_payload(k_node)
+                    key := if type_of(kp) == "str" { kp } else { get_or(kp, "name", get_or(kp, "value", "")) }
+                    tr := funcs.mode_sig_type_(funcs, st["state"], at(ech, 1))
+                    { state: { result: if key == "" { st.result } else { set(st.result, key, tr.val) }, state: tr["state"], remaining: drop(st.remaining, 1) } }
+                  }
+                } else {
+                  { state: { result: st.result, state: st["state"], remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+          }
+        }
+        { val: acc.fields, state: acc["state"] }
+      }
+    } else {
+      if kind == "block" {
+        do {
+          acc := while { result: {}, count: 0, state: s, remaining: children } {
+            [st]~> if is_empty(st.remaining) {
+              { out: { fields: st.result, count: st.count, state: st["state"] } }
+            } else {
+              do {
+                t_idx := first_value(st.remaining)
+                t_node := ast_node(st["state"].ast, t_idx)
+                if node_kind(t_node) == "type-annot" {
+                  do {
+                    tch := node_children(t_node)
+                    if len(tch) >= 2 {
+                      do {
+                        subj_node := ast_node(st["state"].ast, first_value(tch))
+                        sp := node_payload(subj_node)
+                        key := if type_of(sp) == "str" { sp } else { get_or(sp, "name", get_or(sp, "value", "")) }
+                        tr := funcs.mode_sig_type_(funcs, st["state"], at(tch, 1))
+                        { state: { result: if key == "" { st.result } else { set(st.result, key, tr.val) }, count: st.count + 1, state: tr["state"], remaining: drop(st.remaining, 1) } }
+                      }
+                    } else {
+                      { state: { result: st.result, count: st.count, state: st["state"], remaining: drop(st.remaining, 1) } }
+                    }
+                  }
+                } else {
+                  { state: { result: st.result, count: st.count, state: st["state"], remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+          }
+          if acc.count > 0 {
+            { val: acc.fields, state: acc["state"] }
+          } else {
+            { val: null, state: acc["state"] }
+          }
+        }
+      } else {
+        { val: null, state: s }
+      }
+    }
+  }
+
+  --- `mode_sig_type_(funcs, s, idx)` — synthesize one op-row entry
+  --- type. `function` nodes mint `type.function{param, body}` (the
+  --- NBE `dep_synth_type` `function` arm's untyped reading — the
+  --- params child is the domain, a `paren` list takes its last
+  --- child); `dim_arrow`/`graded_arrow` mint `Arrow` records through
+  --- the same endpoint/mode-descriptor reads `synth_dim_arrow`/
+  --- `synth_graded_arrow` use; everything else delegates to
+  --- `synth_type_`.
+  mode_sig_type_ := [funcs, s, idx]~> do {
+    node := ast_node(s.ast, idx)
+    kind := node_kind(node)
+    if kind == "function" {
+      do {
+        children := node_children(node)
+        params_role := child_role_index(s, kind, "params")
+        body_role := child_role_index(s, kind, "body")
+        params_pos := if params_role == null { 0 } else { params_role }
+        body_pos := if body_role == null { 1 } else { body_role }
+        if params_pos >= len(children) || body_pos >= len(children) {
+          { val: make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "mode sig: arrow entry missing params or body") }
+        } else {
+          do {
+            params_idx := at(children, params_pos)
+            pnode := ast_node(s.ast, params_idx)
+            pchildren := node_children(pnode)
+            --- Typed binders `(x : A, …) ~> B` are a dependent arrow —
+            --- the `type.pi` reading (single binder; a multi-binder
+            --- row entry is the honest bound).
+            p_kinds := while { result: true, remaining: if node_kind(pnode) == "paren" { pchildren } else { [params_idx] } } {
+              [st]~> if st.result == false || is_empty(st.remaining) {
+                { out: st.result }
+              } else {
+                do {
+                  pn := ast_node(s.ast, first_value(st.remaining))
+                  { state: { result: node_kind(pn) == "type-annot", remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+            if p_kinds {
+              do {
+                bnode := ast_node(s.ast, first_value(if node_kind(pnode) == "paren" { pchildren } else { [params_idx] }))
+                bch := node_children(bnode)
+                if is_empty(bch) {
+                  { val: make_type("type.unknown", {}), state: s }
+                } else {
+                  do {
+                    subj_role := child_role_index(s, "type-annot", "subject")
+                    annot_role := child_role_index(s, "type-annot", "annot")
+                    s_pos := if subj_role == null { 0 } else { subj_role }
+                    a_pos := if annot_role == null { 1 } else { annot_role }
+                    if s_pos >= len(bch) || a_pos >= len(bch) {
+                      { val: make_type("type.unknown", {}), state: s }
+                    } else {
+                      do {
+                        sn := ast_node(s.ast, at(bch, s_pos))
+                        sp := node_payload(sn)
+                        bname := if type_of(sp) == "str" { sp } else { get_or(sp, "name", "") }
+                        dom := funcs.synth_type_(funcs, s, at(bch, a_pos))
+                        pi := make_type("type.pi", set(set(set({}, "param", dom.val), "body", make_type("type.unknown", {})), "body_closure", set(set({}, "var_name", bname), "body_child_idx", at(children, body_pos))))
+                        { val: pi, state: dom["state"] }
+                      }
+                    }
+                  }
+                }
+              }
+            } else {
+              do {
+                dom_idx := if node_kind(pnode) == "paren" && !is_empty(pchildren) { last(pchildren) } else { params_idx }
+                dom := funcs.synth_type_(funcs, s, dom_idx)
+                cod := funcs.synth_type_(funcs, dom["state"], at(children, body_pos))
+                { val: make_type("type.function", set(set({}, "param", dom.val), "body", cod.val)), state: cod["state"] }
+              }
+            }
+          }
+        }
+      }
+    } else {
+      if kind == "dim_arrow" || kind == "graded_arrow" {
+        do {
+          children := node_children(node)
+          if len(children) < 3 {
+            { val: make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "mode sig: arrow entry missing operands") }
+          } else {
+            do {
+              src := funcs.synth_type_(funcs, s, at(children, 0))
+              dimnode := ast_node(s.ast, at(children, 1))
+              dim_payload := node_payload(dimnode)
+              dim_val := if type_of(dim_payload) == "obj" { get_or(dim_payload, "value", null) } else { dim_payload }
+              dim_lit := if node_kind(dimnode) == "value" && type_of(dim_val) == "num" { dim_val } else { null }
+              mid := if kind == "dim_arrow" {
+                do {
+                  dm := tc_fresh_meta(src["state"])
+                  { val: meta_value(dm.id), state: dm["state"] }
+                }
+              } else {
+                funcs.mode_descriptor_(funcs, src["state"], at(children, 1))
+              }
+              tgt := funcs.synth_type_(funcs, mid["state"], at(children, 2))
+              grade_t := if kind == "dim_arrow" { make_type("type.number", {}) } else { mid.val }
+              arrow := make_type("Arrow", set(set(set(set(set({}, "inputs", src.val), "grade", grade_t), "output", tgt.val), "dim", if kind == "dim_arrow" { if dim_lit == null { null } else { dim_lit } } else { 1 }), "mode", if kind == "graded_arrow" { mid.val } else { null }))
+              { val: arrow, state: tgt["state"] }
+            }
+          }
+        }
+      } else {
+        funcs.synth_type_(funcs, s, idx)
+      }
+    }
+  }
+
+  --- `mode_payload_value_(funcs, s, idx)` — a mode payload value:
+  --- record literals (`{op: A ~> B}` — the `Effects(S)` row shape)
+  --- elaborate entry-wise through `io_sig_`; every other payload
+  --- evaluates as an annotation term first (`eval_node_`), falling
+  --- back to type synthesis for type-expression payloads and to a
+  --- fresh meta + warning — the honest bound — when neither works.
+  --- PL-0004 E3: a bare `var` payload that resolves nowhere mints
+  --- (or reuses, within this elaboration) the elaboration-scoped
+  --- tagged meta.
+  mode_payload_value_ := [funcs, s, idx]~> do {
+    node := ast_node(s.ast, idx)
+    if node == null {
+      do {
+        h := funcs.mode_honest_(funcs, s, "mode ascription: payload node out of bounds — honest bound")
+        { val: h.val, state: h["state"] }
+      }
+    } else {
+      do {
+        kind := node_kind(node)
+        if kind == "object" || kind == "block" {
+          do {
+            sig := funcs.io_sig_(funcs, s, idx)
+            if sig.val == null {
+              do {
+                h := funcs.mode_honest_(funcs, sig["state"], "mode ascription: payload does not elaborate — bound to a fresh meta (honest bound)")
+                { val: h.val, state: h["state"] }
+              }
+            } else {
+              { val: sig.val, state: sig["state"] }
+            }
+          }
+        } else {
+          do {
+            --- E3 mode metavariable: unwrap `paren`s; a `var` that
+            --- resolves nowhere mints the scoped meta.
+            vstep := while { cur: idx, n: 0 } {
+              [st]~> if st.n >= 8 {
+                { out: st.cur }
+              } else {
+                do {
+                  cn := ast_node(s.ast, st.cur)
+                  if cn == null {
+                    { out: st.cur }
+                  } else {
+                    do {
+                      cch := node_children(cn)
+                      if node_kind(cn) == "paren" && !is_empty(cch) {
+                        { state: { cur: first_value(cch), n: st.n + 1 } }
+                      } else {
+                        { out: st.cur }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            vn := ast_node(s.ast, vstep)
+            vnk := if vn == null { "" } else { node_kind(vn) }
+            vnp := if vn == null { null } else { node_payload(vn) }
+            vname := if vnk == "var" { if type_of(vnp) == "str" { vnp } else { get_or(vnp, "name", "") } } else { "" }
+            if vnk == "var" && vname != "" && !mode_name_resolvable_(s, vname) {
+              do {
+                mid := mode_meta_id_(s, vname)
+                s1 := mid["state"]
+                s2 := tc_add_diagnostic(s1, "warning", "mode ascription: mode metavariable `" + vname + "` does not resolve — bound to a fresh meta (honest bound)")
+                { val: meta_value(mid.id), state: s2 }
+              }
+            } else {
+              --- Type-expression kinds synthesize as types first (an
+              --- arrow payload is a *type*, not a closure value);
+              --- everything else evaluates as a term first.
+              type_first := kind == "function" || kind == "dim_arrow" || kind == "graded_arrow" || kind == "pi" || kind == "sigma" || kind == "forall" || kind == "exists" || kind == "family" || kind == "type-annot" || kind == "mode_ascribe"
+              if type_first {
+                funcs.synth_type_(funcs, s, idx)
+              } else {
+                do {
+                  ev := funcs.eval_node_(funcs, s, idx)
+                  ev_tag := type_tag(ev.val)
+                  term_like := ev_tag == "App" || ev_tag == "Lam" || ev_tag == "Comp" || ev_tag == "Bin" || ev_tag == "Un" || ev_tag == "If" || ev_tag == "ArrLit" || ev_tag == "var"
+                  if !term_like {
+                    { val: ev.val, state: ev["state"] }
+                  } else {
+                    --- The evaluator could not reduce it — try type
+                    --- synthesis for type-ish kinds, else the honest
+                    --- bound.
+                    typeish := kind == "var" || kind == "call" || kind == "field-access" || kind == "paren" || kind == "type-annot" || kind == "dim_arrow" || kind == "graded_arrow" || kind == "mode_ascribe" || kind == "index_app" || kind == "dimension"
+                    if typeish {
+                      funcs.synth_type_(funcs, ev["state"], idx)
+                    } else {
+                      do {
+                        h := funcs.mode_honest_(funcs, ev["state"], "mode ascription: payload does not elaborate — bound to a fresh meta (honest bound)")
+                        { val: h.val, state: h["state"] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `mode_element_(funcs, s, idx)` — one `@ […]` element →
+  --- `{head, element, state}` where `element` is the `{head, arg,
+  --- raw}` triple. `Algebra(payload)` — a `call` whose callee
+  --- unwraps to a `var` — is a call-head mode; anything else
+  --- evaluates as a bare mode (`head`/`arg` `null`, `raw` the
+  --- payload).
+  mode_element_ := [funcs, s, idx]~> do {
+    node0 := ast_node(s.ast, idx)
+    ch0 := node_children(node0)
+    e_idx := if node_kind(node0) == "paren" && !is_empty(ch0) { first_value(ch0) } else { idx }
+    e := ast_node(s.ast, e_idx)
+    ek := node_kind(e)
+    ech := node_children(e)
+    if ek == "call" {
+      do {
+        callee_role := child_role_index(s, "call", "callee")
+        args_role := child_role_index(s, "call", "args")
+        cpos := if callee_role == null { 0 } else { callee_role }
+        apos := if args_role == null { cpos + 1 } else { args_role }
+        if cpos < len(ech) {
+          do {
+            cidx := at(ech, cpos)
+            cnode0 := ast_node(s.ast, cidx)
+            cch0 := node_children(cnode0)
+            cref := if node_kind(cnode0) == "paren" && !is_empty(cch0) { first_value(cch0) } else { cidx }
+            cnode := ast_node(s.ast, cref)
+            cp := node_payload(cnode)
+            cname := if node_kind(cnode) == "var" { if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") } } else { "" }
+            if cname != "" {
+              do {
+                acc := while { vals: [], state: s, i: apos } {
+                  [st]~> if st.i >= len(ech) {
+                    { out: { vals: st.vals, state: st["state"] } }
+                  } else {
+                    do {
+                      pv := funcs.mode_payload_value_(funcs, st["state"], at(ech, st.i))
+                      { state: { vals: [...st.vals, pv.val], state: pv["state"], i: st.i + 1 } }
+                    }
+                  }
+                }
+                payload := if is_empty(acc.vals) { null } else { first_value(acc.vals) }
+                raw := make_type("App", set(set({}, "callee", make_type("var", set({}, "name", cname))), "args", acc.vals))
+                { head: cname, element: mode_set_element_(cname, payload, raw), state: acc["state"] }
+              }
+            } else {
+              funcs.bare_element_(funcs, s, e_idx)
+            }
+          }
+        } else {
+          funcs.bare_element_(funcs, s, e_idx)
+        }
+      }
+    } else {
+      funcs.bare_element_(funcs, s, e_idx)
+    }
+  }
+
+  --- `bare_element_(funcs, s, idx)` — the non-call `@ […]` element:
+  --- the whole child is the payload (`head`/`arg` `null`, `raw` the
+  --- evaluated mode value). A `var` payload that resolves nowhere is
+  --- a mode metavariable — the M3 honest bound: it passes, with a
+  --- warning naming the gap (rigid bound vars stay silent — E3 mints
+  --- the meta inside `mode_payload_value_` first, so this arm is the
+  --- defensive leftover).
+  bare_element_ := [funcs, s, idx]~> do {
+    pv := funcs.mode_payload_value_(funcs, s, idx)
+    rv := pv.val
+    rtag := type_tag(rv)
+    if rtag == "var" {
+      do {
+        rn := get_or(rv, "name", "")
+        if rn != "" && !mode_name_resolvable_(pv["state"], rn) {
+          do {
+            s2 := tc_add_diagnostic(pv["state"], "warning", "mode ascription: mode metavariable `" + rn + "` does not resolve — passing (honest bound)")
+            { head: null, element: mode_set_element_(null, null, rv), state: s2 }
+          }
+        } else {
+          { head: null, element: mode_set_element_(null, null, rv), state: pv["state"] }
+        }
+      }
+    } else {
+      { head: null, element: mode_set_element_(null, null, rv), state: pv["state"] }
+    }
+  }
+
+  --- `elaborate_mode_set_inner_(funcs, s, mode_idx)` — the
+  --- `elaborate_mode_set` body (PL-0004 E1/E3): runs with
+  --- `s.mode_metas` freshly scoped for this mode expression.
+  elaborate_mode_set_inner_ := [funcs, s, mode_idx]~> do {
+    node := ast_node(s.ast, mode_idx)
+    if node == null {
+      do {
+        h := funcs.mode_honest_(funcs, s, "mode ascription: mode node out of bounds — honest bound")
+        { val: mode_set_mint_([]), state: h["state"] }
+      }
+    } else {
+      do {
+        children := node_children(node)
+        element_idxs := if node_kind(node) == "array" { children } else { [mode_idx] }
+        acc := while { modes: [], heads: [], state: s, remaining: element_idxs } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { modes: st.modes, state: st["state"] } }
+          } else {
+            do {
+              ei := first_value(st.remaining)
+              el := funcs.mode_element_(funcs, st["state"], ei)
+              h := el.head
+              enode := ast_node(st["state"].ast, ei)
+              dup := h != null && name_in_list_(st.heads, h)
+              s_step := if dup {
+                tc_add_diagnostic(el["state"], "error", "mode ascription: duplicate algebra head `" + h + "` — a mode set holds one element per algebra")
+              } else {
+                el["state"]
+              }
+              s_step2 := if h != null && !dup {
+                do {
+                  alg := funcs.mode_algebra_(funcs, s_step, h)
+                  declared := name_in_list_(get_or(s_step, "algebra_heads", []), h)
+                  if alg == null && !declared {
+                    tc_add_diagnostic(s_step, "warning", "mode ascription: unknown algebra head `" + h + "` — passing (honest bound; declare it with `new Algebra` or register `mode.algebra." + h + "`)")
+                  } else {
+                    s_step
+                  }
+                }
+              } else {
+                s_step
+              }
+              { state: { modes: if dup { st.modes } else { [...st.modes, el.element] }, heads: if h == null || dup { st.heads } else { [...st.heads, h] }, state: s_step2, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        { val: mode_set_mint_(acc.modes), state: acc["state"] }
+      }
+    }
+  }
+
+  --- `elaborate_mode_set_(funcs, s, mode_idx)` — elaborate a `@ μ`
+  --- mode expression into the canonical `type.mode_set` value,
+  --- cached per mode-expression node (PL-0004 E1). `mode_metas` is
+  --- scoped to one elaboration (E3): repeated occurrences of one
+  --- name share the meta, distinct ascriptions mint distinct metas.
+  elaborate_mode_set_ := [funcs, s, mode_idx]~> do {
+    cached := ms_get_(get_or(s, "mode_set_cache", {}), mode_idx)
+    if cached != null {
+      { val: cached, state: s }
+    } else {
+      do {
+        saved := get_or(s, "mode_metas", {})
+        s1 := set(s, "mode_metas", {})
+        inner := funcs.elaborate_mode_set_inner_(funcs, s1, mode_idx)
+        s2 := set(inner["state"], "mode_metas", saved)
+        s3 := set(s2, "mode_set_cache", ms_set_(get_or(s2, "mode_set_cache", {}), mode_idx, inner.val))
+        { val: inner.val, state: s3 }
+      }
+    }
+  }
+
+  --- `mode_ascribe_mode_child_(funcs, s, idx)` — the mode child
+  --- index of a `mode_ascribe` node at `idx`, unwrapping `paren`
+  --- layers — `null` for any other kind (the NBE
+  --- `mode_ascribe_mode_child`).
+  mode_ascribe_mode_child_ := [funcs, s, idx]~> do {
+    loop := while { cur: idx, n: 0 } {
+      [st]~> if st.n >= 32 {
+        { out: null }
+      } else {
+        do {
+          node := ast_node(s.ast, st.cur)
+          if node == null {
+            { out: null }
+          } else {
+            do {
+              nk := node_kind(node)
+              ch := node_children(node)
+              if nk == "paren" && !is_empty(ch) {
+                { state: { cur: first_value(ch), n: st.n + 1 } }
+              } else {
+                if nk == "mode_ascribe" {
+                  do {
+                    mrole := child_role_index(s, "mode_ascribe", "mode")
+                    mpos := if mrole == null { 1 } else { mrole }
+                    { out: if mpos < len(ch) { at(ch, mpos) } else { null } }
+                  }
+                } else {
+                  { out: null }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    loop
+  }
+
+  --- `mode_ascription_at_(funcs, s, idx)` — the ambient mode a
+  --- `type`-position node ascribes, if it is a `mode_ascribe`
+  --- (possibly under `paren`s): `{mu, state}` with `mu` the
+  --- elaborated `type.mode_set` or `null` (pure — the un-annotated
+  --- default). `synth_type_annot`/`assign` call this to scope the
+  --- ambient mode over the judged subject/value.
+  mode_ascription_at_ := [funcs, s, idx]~> do {
+    --- `synth_type_`'s `mode_ascribe` arm already elaborated and
+    --- cached this node's mode set in `node_modes` — read it back so
+    --- the ambient scope shares the same elaborated metas (the NBE
+    --- `mode_ascription_at` reads the `dep_synth_type` cache). Only a
+    --- node that was never type-synthesized falls through to a fresh
+    --- elaboration.
+    cached := ms_get_(get_or(s, "node_modes", {}), idx)
+    if cached != null {
+      { mu: cached, state: s }
+    } else {
+      do {
+        mode_idx := funcs.mode_ascribe_mode_child_(funcs, s, idx)
+        if mode_idx == null {
+          { mu: null, state: s }
+        } else {
+          do {
+            el := funcs.elaborate_mode_set_(funcs, s, mode_idx)
+            { mu: el.val, state: el["state"] }
+          }
+        }
+      }
+    }
+  }
+
+  --- `mode_sets_compose_(funcs, s, a, b)` — `a ⋄ b` on ambient
+  --- `type.mode_set` values — the `>>>` composition seam
+  --- (PL-0004 E2/E3). Elements merge by algebra head: `Effects`
+  --- payloads union via `effects_rows_union_` (the E0 entry-merge
+  --- rule); every other head — and bare modes — crosses the
+  --- `type.mode`-descriptor bridge (`mode_compose_`, the model's
+  --- `Val`-domain compose: `Cost(1) ⋄ Cost(2)` runs the canonical
+  --- default algebra). Heads present on one side only pass through.
+  mode_sets_compose_ := [funcs, s, a, b]~> do {
+    els_a := get_or(a, "modes", [])
+    els_b := get_or(b, "modes", [])
+    acc := while { out: els_a, state: s, remaining: els_b } {
+      [st]~> if is_empty(st.remaining) {
+        { out: { out: st.out, state: st["state"] } }
+      } else {
+        do {
+          eb := first_value(st.remaining)
+          hb := get_or(eb, "head", null)
+          slot := while { found: null, remaining: st.out } {
+            [w]~> if w.found != null || is_empty(w.remaining) {
+              { out: w.found }
+            } else {
+              do {
+                e := first_value(w.remaining)
+                { state: { found: if get_or(e, "head", null) == hb { e } else { null }, remaining: drop(w.remaining, 1) } }
+              }
+            }
+          }
+          if slot == null {
+            { state: { out: [...st.out, eb], state: st["state"], remaining: drop(st.remaining, 1) } }
+          } else {
+            do {
+              comp := funcs.compose_mode_element_(funcs, st["state"], hb, get_or(slot, "arg", null), get_or(slot, "raw", null), get_or(eb, "arg", null), get_or(eb, "raw", null))
+              new_el := mode_set_element_(hb, comp.arg, comp.raw)
+              new_out := while { result: [], remaining: st.out } {
+                [w]~> if is_empty(w.remaining) {
+                  { out: w.result }
+                } else {
+                  do {
+                    e := first_value(w.remaining)
+                    { state: { result: if get_or(e, "head", null) == hb { [...w.result, new_el] } else { [...w.result, e] }, remaining: drop(w.remaining, 1) } }
+                  }
+                }
+              }
+              { state: { out: new_out, state: comp["state"], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      }
+    }
+    { val: mode_set_mint_(acc.out), state: acc["state"] }
+  }
+
+  --- `compose_mode_element_(funcs, s, head, a_arg, a_raw, b_arg,
+  --- b_raw)` — one same-head element composition inside
+  --- `mode_sets_compose_` — returns `{arg, raw, state}`.
+  ---
+  --- `Effects` rows union with the E0 entry-merge rule
+  --- (`effects_rows_union_`); a symbolic payload cannot union
+  --- without a solver — honest bound: fresh meta + warning.
+  ---
+  --- Every other head — and bare modes — crosses the `type.mode`
+  --- descriptor bridge (PL-0004 E3): the `(head, arg, raw)` triples
+  --- mint `type.mode` descriptors, `mode_compose_` composes them
+  --- under the governing `mode.algebra.*`, and the composite's
+  --- `arg`/`raw` quote back (the model's single representation makes
+  --- the NBE `domain_lift`/`domain_quote`/`quote_domain_metas` hop a
+  --- no-op).
+  compose_mode_element_ := [funcs, s, head, a_arg, a_raw, b_arg, b_raw]~> if head == "Effects" {
+    do {
+      ma := if plain_effects_row_(a_arg) { a_arg } else { null }
+      mb := if plain_effects_row_(b_arg) { b_arg } else { null }
+      if ma != null && mb != null {
+        do {
+          ur := funcs.effects_rows_union_(funcs, s, ma, mb)
+          { arg: ur.val, raw: ur.val, state: ur["state"] }
+        }
+      } else {
+        do {
+          h := funcs.mode_honest_(funcs, s, "mode compose: `Effects` payload is not a row record — bound to a fresh meta (honest bound)")
+          { arg: h.val, raw: h.val, state: h["state"] }
+        }
+      }
+    }
+  } else {
+    do {
+      da := make_type("mode", set(set(set({}, "head", head), "arg", a_arg), "raw", if a_raw == null { a_arg } else { a_raw }))
+      db := make_type("mode", set(set(set({}, "head", head), "arg", b_arg), "raw", if b_raw == null { b_arg } else { b_raw }))
+      mc := funcs.mode_compose_(funcs, s, da, db)
+      mv := mc.val
+      { arg: get_or(mv, "arg", null), raw: get_or(mv, "raw", null), state: mc["state"] }
+    }
+  }
+
+  --- `effects_rows_union_(funcs, s, a, b)` — `Effects` row union
+  --- with the E0 entry-merge rule (PL-0004 E0; the `Value`-domain
+  --- counterpart of `mode_rows_union_`): disjoint keys union; a
+  --- shared key keeps its entry iff the two entries unify (`unify`
+  --- — metas inside solve as a side effect); a decided conflict
+  --- degrades *that entry* to a fresh meta + warning, never the
+  --- whole row.
+  effects_rows_union_ := [funcs, s, a, b]~> do {
+    merged := while { result: a, ks: keys(b), state: s } {
+      [st]~> if is_empty(st.ks) {
+        { out: { result: st.result, state: st["state"] } }
+      } else {
+        do {
+          k := first_value(st.ks)
+          step := if mode_row_has_(st.result, k) {
+            do {
+              va := get_or(st.result, k, null)
+              vb := get_or(b, k, null)
+              if va == vb {
+                { val: st.result, state: st["state"] }
+              } else {
+                do {
+                  ur := unify(funcs, va, vb, st["state"].metas)
+                  if ur.ok {
+                    do {
+                      s2 := set(st["state"], "metas", ur.metas)
+                      { val: set(st.result, k, zonk(zonk, va, ur.metas)), state: s2 }
+                    }
+                  } else {
+                    do {
+                      m := tc_fresh_meta(st["state"])
+                      s3 := tc_add_diagnostic(m.state, "warning", "mode compose: `Effects` rows conflict on op `" + k + "` — entry bound to a fresh meta (honest bound)")
+                      { val: set(st.result, k, meta_value(m.id)), state: s3 }
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            { val: set(st.result, k, get_or(b, k, null)), state: st["state"] }
+          }
+          { state: { result: step.val, ks: drop(st.ks, 1), state: step["state"] } }
+        }
+      }
+    }
+    { val: merged.result, state: merged["state"] }
+  }
+
+  --- `check_mode_subsumption_(funcs, s, actual, expected)` — effect
+  --- widening at an `@ μ` ascription (PL-0004 E2/E3; the ambient
+  --- site of the `Effects` algebra's `order`/`row_width`): the
+  --- judged term's own mode `actual` must be usable where `expected`
+  --- is ascribed — every `Effects` row key `actual` names must be
+  --- present in `expected`'s row with a unifiable entry (`{puts} ≤
+  --- {puts, fs}`; `{puts, fs} ≰ {puts}`).
+  ---
+  --- PL-0004 E3 mode metavariables: an *expected*-side `Effects`
+  --- payload that is an unsolved meta instantiates to the actual row
+  --- (`?μ := S`; a pure value instantiates it to `{}`). A *symbolic
+  --- actual* row, a symbolic non-meta expected row, and failed
+  --- instantiation all warn+pass — the honest bound.
+  check_mode_subsumption_ := [funcs, s, actual, expected]~> do {
+    a_pay := mode_set_effects_payload_(actual)
+    e_pay := mode_set_effects_payload_(expected)
+    a_pay_z := if a_pay.found { { found: true, val: zonk(zonk, a_pay.val, s.metas) } } else { a_pay }
+    e_pay_z := if e_pay.found { { found: true, val: zonk(zonk, e_pay.val, s.metas) } } else { e_pay }
+    a_row := if a_pay_z.found && plain_effects_row_(a_pay_z.val) { a_pay_z.val } else { null }
+    actual_known := a_row != null || !a_pay_z.found
+    if actual_known && e_pay_z.found && is_meta(e_pay_z.val) {
+      do {
+        row := if a_row == null { {} } else { a_row }
+        ur := unify(funcs, e_pay_z.val, row, s.metas)
+        if ur.ok {
+          { ok: true, state: set(s, "metas", ur.metas) }
+        } else {
+          do {
+            s2 := tc_add_diagnostic(s, "warning", "mode subsumption: expected `Effects` row metavariable would not instantiate — passing (honest bound)")
+            { ok: true, state: s2 }
+          }
+        }
+      }
+    } else {
+      if a_row == null {
+        do {
+          s2 := if a_pay_z.found {
+            tc_add_diagnostic(s, "warning", "mode subsumption: the value's `Effects` row is symbolic — passing (honest bound)")
+          } else {
+            s
+          }
+          { ok: true, state: s2 }
+        }
+      } else {
+        do {
+          e_row := if !e_pay_z.found {
+            {}
+          } else {
+            if plain_effects_row_(e_pay_z.val) {
+              e_pay_z.val
+            } else {
+              null
+            }
+          }
+          if e_row == null {
+            do {
+              s2 := tc_add_diagnostic(s, "warning", "mode subsumption: the ascription's `Effects` row is symbolic — passing (honest bound)")
+              { ok: true, state: s2 }
+            }
+          } else {
+            do {
+              acc := while { state: s, bad: null, ks: keys(a_row) } {
+                [st]~> if st.bad != null || is_empty(st.ks) {
+                  { out: { bad: st.bad, state: st["state"] } }
+                } else {
+                  do {
+                    k := first_value(st.ks)
+                    va := get_or(a_row, k, null)
+                    ve := get_or(e_row, k, null)
+                    if !mode_row_has_(e_row, k) {
+                      { state: { bad: "typecheck: ambient mode subsumption: effect `" + k + "` is not permitted by the ascription's `Effects` row", state: st["state"] } }
+                    } else {
+                      do {
+                        ur := unify(funcs, va, ve, st["state"].metas)
+                        if ur.ok {
+                          { state: { bad: null, state: set(st["state"], "metas", ur.metas), ks: drop(st.ks, 1) } }
+                        } else {
+                          do {
+                            s2 := tc_add_diagnostic(st["state"], "warning", "mode subsumption: effect `" + k + "`'s row entries do not unify — passing (honest bound)")
+                            { state: { bad: null, state: s2, ks: drop(st.ks, 1) } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              if acc.bad != null {
+                { ok: false, state: tc_add_diagnostic(acc["state"], "error", acc.bad) }
+              } else {
+                { ok: true, state: acc["state"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `handler_op_fields_(funcs, s, t_impl)` — the handler's declared
+  --- op impls: `type.record{fields}` minus the `return` unit clause
+  --- and `__*__` reserved slots (ADR-0158). `null` for non-record
+  --- handlers (meta / `type.Obj` / `type.unknown`) whose op set is
+  --- unknowable statically — passthrough (honest bound).
+  handler_op_fields_ := [funcs, s, t_impl]~> do {
+    ti := zonk(zonk, t_impl, s.metas)
+    if type_tag(ti) == "type.record" {
+      do {
+        f := get_or(ti, "fields", {})
+        --- `__*__` reserved slots (ADR-0158): the `.hnl` model has
+        --- no string-prefix primitive, so the denylist names the
+        --- value-level reserved keys a record field could carry.
+        reserved := ["__tag__", "__meta__", "__registry__", "__pair__", "__either__", "__arrow__", "__arr__", "__loop_closure__", "__dim__", "__sym__", "__former__", "__src__", "__tgt__", "__value__"]
+        filtered := while { result: {}, remaining: keys(f) } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              k := first_value(st.remaining)
+              keep := k != "return" && !name_in_list_(reserved, k)
+              { state: { result: if keep { set(st.result, k, get_or(f, k, null)) } else { st.result }, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        filtered
+      }
+    } else {
+      null
+    }
+  }
+
+  --- `effects_residual_row_(funcs, s, sig_obj, fields, op_entries)` —
+  --- the residual row `(S ∖ S_h) ∪ {op ↦ ret}` shared by the `IO(S)`
+  --- codomain path and the ambient-mode modality (PL-0004 E2; the
+  --- NBE `effects_residual_row`). `op_entries` selects the ambient
+  --- reading — row entries are operation types `name : A ~> B`, so
+  --- the impl domain must accept the op's *domain* `A`; `false` keeps
+  --- the `IO`-sig reading where the entry *is* the request payload
+  --- type.
+  ---
+  --- Coverage rules (the same three diagnostic classes both paths
+  --- emit):
+  --- - Spurious impls — `h` declares ops `S` never names → error.
+  --- - `S` non-empty with `h` covering none of it → error.
+  --- - A covered impl `h_k : dom ~> ret` whose domain rejects the
+  ---   op's declared signature → error.
+  --- Returns `{ok, row, state}` — `ok` false carries the coverage
+  --- error diagnostic already recorded.
+  effects_residual_row_ := [funcs, s, sig_obj, fields, op_entries]~> do {
+    sig_keys := keys(sig_obj)
+    field_keys := keys(fields)
+    spurious := while { result: [], remaining: field_keys } {
+      [st]~> if is_empty(st.remaining) {
+        { out: st.result }
+      } else {
+        do {
+          k := first_value(st.remaining)
+          { state: { result: if mode_row_has_(sig_obj, k) { st.result } else { [...st.result, k] }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+    if !is_empty(spurious) {
+      do {
+        s2 := tc_add_diagnostic(s, "error", "typecheck: handle: handler declares impls for ops the body's sig never names: " + str_join_(spurious, ", "))
+        { ok: false, row: null, state: s2 }
+      }
+    } else {
+      do {
+        covered := while { result: [], remaining: sig_keys } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              k := first_value(st.remaining)
+              { state: { result: if mode_row_has_(fields, k) { [...st.result, k] } else { st.result }, remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        if !is_empty(sig_keys) && is_empty(covered) {
+          do {
+            s2 := tc_add_diagnostic(s, "error", "typecheck: handle: handler covers none of the body's declared ops (" + str_join_(sig_keys, ", ") + ") — the handle is a guaranteed no-op")
+            { ok: false, row: null, state: s2 }
+          }
+        } else {
+          do {
+            acc := while { out: {}, state: s, bad: null, remaining: sig_keys } {
+              [st]~> if st.bad != null || is_empty(st.remaining) {
+                { out: { out: st.out, state: st["state"], bad: st.bad } }
+              } else {
+                do {
+                  k := first_value(st.remaining)
+                  req := get_or(sig_obj, k, null)
+                  step := if mode_row_has_(fields, k) {
+                    do {
+                      it := zonk(zonk, get_or(fields, k, null), st["state"].metas)
+                      req_check := if op_entries && type_tag(req) == "type.function" { get_or(req, "param", req) } else { req }
+                      ret := if type_tag(it) == "type.function" {
+                        do {
+                          dom := get_or(it, "param", null)
+                          body_it := get_or(it, "body", null)
+                          if type_tag(req_check) == "type.unknown" {
+                            --- `IO<{ puts }>`-style unstated requests:
+                            --- skip the domain check; an unsolved
+                            --- return meta defaults to the request.
+                            do {
+                              bm := if is_meta(body_it) { meta_id(body_it) } else { null }
+                              s_body := if bm != null { metas_solve(st["state"].metas, bm, req_check) } else { st["state"].metas }
+                              { ok2: true, val: zonk(zonk, body_it, s_body), state: set(st["state"], "metas", s_body) }
+                            }
+                          } else {
+                            do {
+                              ur := unify(funcs, req_check, dom, st["state"].metas)
+                              if ur.ok {
+                                { ok2: true, val: body_it, state: set(st["state"], "metas", ur.metas) }
+                              } else {
+                                do {
+                                  s_err := tc_add_diagnostic(st["state"], "error", "typecheck: handle: impl '" + k + "' domain does not accept the op's declared signature")
+                                  { ok2: false, val: null, state: s_err }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      } else {
+                        { ok2: true, val: it, state: st["state"] }
+                      }
+                      if ret.ok2 {
+                        { out: set(st.out, k, ret.val), state: ret["state"], bad: null }
+                      } else {
+                        { out: st.out, state: ret["state"], bad: k }
+                      }
+                    }
+                  } else {
+                    { out: set(st.out, k, req), state: st["state"], bad: null }
+                  }
+                  { state: { out: step.out, state: step["state"], bad: step.bad, remaining: drop(st.remaining, 1) } }
+                }
+              }
+            }
+            if acc.bad != null {
+              { ok: false, row: null, state: acc["state"] }
+            } else {
+              { ok: true, row: acc.out, state: acc["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `ambient_handle_modality_(funcs, s, target_mode, used_effects,
+  --- eff_mark, t_impl, handle_idx)` — the ambient-mode half of
+  --- `handle` (PL-0004 E2/E3; design §3): `handle m with h` as a
+  --- modality `μ → μ′` over the `Effects` row. The handled
+  --- computation's effect row `S` is its own judgement mode
+  --- (`>>>`-composed, ascribed, or binding-carried —
+  --- `mode_of_node_`) unioned with the ops literally `perform`ed
+  --- while synthesizing the target. Coverage and the residual
+  --- `(S ∖ S_h) ∪ {op ↦ ret}` run through `effects_residual_row_` —
+  --- the same code the `IO(S)` path uses (`op_entries` true: ambient
+  --- rows are `A ~> B` op types). The residual mode set is recorded
+  --- on the handle node (`node_modes`) so a binding inherits it, and
+  --- the effects journal is rewritten to the residual so an outer
+  --- `handle` sees exactly the surviving ops. A non-record handler
+  --- or absent effects context is the honest bound — passthrough.
+  ambient_handle_modality_ := [funcs, s, target_mode, used_effects, eff_mark, t_impl, handle_idx]~> do {
+    --- E3: a symbolic `Effects` payload on the handled computation
+    --- (mode metavariable / bound row var) makes coverage
+    --- undecidable — honest bound, passthrough.
+    t_pay := if target_mode == null { { found: false, val: null } } else { mode_set_effects_payload_(target_mode) }
+    t_row := if target_mode == null { null } else { mode_set_effects_row_(target_mode) }
+    symbolic_target := t_pay.found && t_row == null
+    if symbolic_target {
+      { ok: true, state: s }
+    } else {
+      do {
+        sig_obj := if t_row == null { {} } else { t_row }
+        sig_with_used := while { result: sig_obj, remaining: used_effects } {
+          [st]~> if is_empty(st.remaining) {
+            { out: st.result }
+          } else {
+            do {
+              pe := first_value(st.remaining)
+              { state: { result: set(st.result, get_or(pe, "name", ""), get_or(pe, "entry", null)), remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+        has_ambient_row := get_or(s, "ambient_mode", null) != null && mode_set_effects_row_(get_or(s, "ambient_mode", null)) != null
+        sig_present := target_mode != null && (t_row != null || t_pay.found)
+        if !sig_present && !has_ambient_row {
+          { ok: true, state: s }
+        } else {
+          do {
+            fields := handler_op_fields_(funcs, s, t_impl)
+            if fields == null {
+              { ok: true, state: s }
+            } else {
+              do {
+                sig := if sig_present { sig_with_used } else { {} }
+                rr := effects_residual_row_(funcs, s, sig, fields, true)
+                if !rr.ok {
+                  { ok: false, state: rr["state"] }
+                } else {
+                  do {
+                    base := if get_or(s, "ambient_mode", null) != null { get_or(s, "ambient_mode", null) } else { target_mode }
+                    mu2 := mode_set_with_effects_(base, rr.row)
+                    s_nm := set(rr["state"], "node_modes", ms_set_(get_or(rr["state"], "node_modes", {}), handle_idx, mu2))
+                    --- Rewrite the journal slice to the residual so
+                    --- an outer `handle` sees exactly the surviving
+                    --- `op ↦ ret` / uncovered ops.
+                    kept := slice(get_or(s_nm, "performed_effects", []), 0, eff_mark)
+                    rewritten := while { result: kept, remaining: keys(rr.row) } {
+                      [st]~> if is_empty(st.remaining) {
+                        { out: st.result }
+                      } else {
+                        do {
+                          k := first_value(st.remaining)
+                          { state: { result: [...st.result, { name: k, entry: get_or(rr.row, k, null) }], remaining: drop(st.remaining, 1) } }
+                        }
+                      }
+                    }
+                    { ok: true, state: set(s_nm, "performed_effects", rewritten) }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `is_perform_call_(funcs, s, node_idx)` — the `perform` op-emission
+  --- builtin detector (the NBE `is_perform_call`, ADR-0153 §4 +
+  --- PL-0004 E2): the callee is `var("perform")`, or a
+  --- `field-access` selecting `.perform` off `var("io")`
+  --- (`io.perform`). A Γ/results binding for `perform` shadows the
+  --- builtin — the source-level-shadows-builtin convention.
+  is_perform_call_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    perform_shadowed := tc_lookup(s, "perform") != null || get_or(get_or(s, "results", {}), "perform", null) != null
+    if perform_shadowed || is_empty(children) {
+      false
+    } else {
+      do {
+        callee := ast_node(s.ast, first_value(children))
+        if callee == null {
+          false
+        } else {
+          do {
+            ck := node_kind(callee)
+            cp := node_payload(callee)
+            cname := if ck == "var" { if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") } } else { "" }
+            if cname == "perform" {
+              true
+            } else {
+              if ck == "field-access" {
+                do {
+                  trole := child_role_index(s, "field-access", "target")
+                  frole := child_role_index(s, "field-access", "field")
+                  tpos := if trole == null { 0 } else { trole }
+                  fpos := if frole == null { 1 } else { frole }
+                  cch := node_children(callee)
+                  receiver_ok := false
+                  field_ok := false
+                  if tpos < len(cch) {
+                    do {
+                      rn := ast_node(s.ast, at(cch, tpos))
+                      rp := node_payload(rn)
+                      rname := if node_kind(rn) == "var" { if type_of(rp) == "str" { rp } else { get_or(rp, "name", "") } } else { "" }
+                      receiver_ok := rname == "io" && tc_lookup(s, "io") == null
+                    }
+                  }
+                  if fpos < len(cch) {
+                    do {
+                      fn := ast_node(s.ast, at(cch, fpos))
+                      fp := node_payload(fn)
+                      fname := if type_of(fp) == "str" { fp } else { get_or(fp, "name", get_or(fp, "field", "")) }
+                      field_ok := fname == "perform"
+                    }
+                  }
+                  receiver_ok && field_ok
+                }
+              } else {
+                false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `perform_op_name_(funcs, s, op_idx)` — the op *name* a perform
+  --- operand denotes (the NBE `synth_perform` op-operand reader): a
+  --- `var` reads as the op name (an unbound var evaluates to its name
+  --- string at runtime), a string literal reads directly, and
+  --- `sym("name")`/`sym.seeded("name")` reads its seed. `null` when
+  --- the operand does not name an op.
+  perform_op_name_ := [funcs, s, op_idx]~> do {
+    node := ast_node(s.ast, op_idx)
+    if node == null {
+      null
+    } else {
+      do {
+        kind := node_kind(node)
+        payload := node_payload(node)
+        if kind == "var" {
+          if type_of(payload) == "str" { payload } else { get_or(payload, "name", "") }
+        } else {
+          if kind == "value" || kind == "lit" || kind == "string" {
+            if type_of(payload) == "obj" { get_or(payload, "value", null) } else { payload }
+          } else {
+            if kind == "call" {
+              do {
+                children := node_children(node)
+                callee_role := child_role_index(s, "call", "callee")
+                args_role := child_role_index(s, "call", "args")
+                cpos := if callee_role == null { 0 } else { callee_role }
+                apos := if args_role == null { cpos + 1 } else { args_role }
+                cname := ""
+                if cpos < len(children) {
+                  do {
+                    cn := ast_node(s.ast, at(children, cpos))
+                    cp := node_payload(cn)
+                    cpn := if type_of(cp) == "str" { cp } else { get_or(cp, "name", "") }
+                    --- `sym.seeded("x")` — field-access callee.
+                    if node_kind(cn) == "field-access" {
+                      do {
+                        fr := child_role_index(s, "field-access", "field")
+                        fp2 := if fr == null { 1 } else { fr }
+                        cch2 := node_children(cn)
+                        if fp2 < len(cch2) {
+                          do {
+                            fn := ast_node(s.ast, at(cch2, fp2))
+                            fpn := node_payload(fn)
+                            cpn := if type_of(fpn) == "str" { fpn } else { get_or(fpn, "name", get_or(fpn, "field", cpn)) }
+                          }
+                        }
+                      }
+                    }
+                    cname := cpn
+                  }
+                }
+                if (cname == "sym" || cname == "seeded") && apos < len(children) {
+                  do {
+                    an := ast_node(s.ast, at(children, apos))
+                    ap := node_payload(an)
+                    if type_of(ap) == "obj" { get_or(ap, "value", null) } else { ap }
+                  }
+                } else {
+                  null
+                }
+              }
+            } else {
+              null
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `synth_perform_(funcs, s, node_idx)` — `perform(op, arg)`
+  --- (ADR-0153 §4 + PL-0004 E2/E3): with an ambient `type.mode_set`
+  --- whose `Effects` row names `op`, the call *is* the effect — the
+  --- argument checks against the op's declared domain `A`, the
+  --- codomain `B` is the result, and the performed op journals on
+  --- `performed_effects` for `handle`'s residual. A missing op, a
+  --- non-arrow entry, or a symbolic row keeps the legacy `IO{op:T}`
+  --- mint (`{"__tag__": "type.io", "sig": {op: T}}`) with the
+  --- documented warnings — the dual-path transition.
+  synth_perform_ := [funcs, s, node_idx]~> do {
+    node := ast_node(s.ast, node_idx)
+    children := node_children(node)
+    callee_role := child_role_index(s, "call", "callee")
+    args_role := child_role_index(s, "call", "args")
+    cpos := if callee_role == null { 0 } else { callee_role }
+    apos := if args_role == null { cpos + 1 } else { args_role }
+    op_idx := if apos < len(children) { at(children, apos) } else { null }
+    arg_idx := if apos + 1 < len(children) { at(children, apos + 1) } else { null }
+    if op_idx == null {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "perform: expected perform(op, arg)") }
+    } else {
+      do {
+        op_name := perform_op_name_(funcs, s, op_idx)
+        if op_name == null || op_name == "" {
+          { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "perform: op operand must name an op — a bare identifier, a string literal, or sym(\"name\")") }
+        } else {
+          do {
+            arg_res := if arg_idx == null {
+              { val: funcs.make_type("type.unit", {}), state: s }
+            } else {
+              do {
+                r := funcs.synth_node_(funcs, s, arg_idx)
+                { val: r.typ, state: r["state"] }
+              }
+            }
+            arg_ty := arg_res.val
+            s_arg := arg_res["state"]
+            --- Ambient `perform` — `op ∈ μ`'s `Effects` row.
+            mu := get_or(s_arg, "ambient_mode", null)
+            row := if mu == null { null } else { mode_set_effects_row_(mu) }
+            pay := if mu == null { { found: false, val: null } } else { mode_set_effects_payload_(mu) }
+            ambient_done := false
+            out := { val: null, state: s_arg }
+            if row != null && mode_row_has_(row, op_name) {
+              do {
+                entry := zonk(zonk, get_or(row, op_name, null), s_arg.metas)
+                if type_tag(entry) == "type.function" {
+                  do {
+                    dom := get_or(entry, "param", null)
+                    cod := get_or(entry, "body", null)
+                    ur := unify(funcs, arg_ty, dom, s_arg.metas)
+                    if ur.ok {
+                      do {
+                        s_j := set(s_arg, "metas", ur.metas)
+                        s_p := set(s_j, "performed_effects", [...get_or(s_j, "performed_effects", []), { name: op_name, entry: entry }])
+                        out := { val: zonk(zonk, cod, ur.metas), state: s_p }
+                        ambient_done := true
+                      }
+                    } else {
+                      do {
+                        s_e := tc_add_diagnostic(s_arg, "error", "typecheck: perform: argument does not match op `" + op_name + "`'s domain")
+                        out := { val: cod, state: s_e }
+                        ambient_done := true
+                      }
+                    }
+                  }
+                } else {
+                  do {
+                    s_w := tc_add_diagnostic(s_arg, "warning", "perform: op `" + op_name + "`'s ambient row entry is not an arrow type `A ~> B` — treating it as domain and codomain (honest bound)")
+                    ur := unify(funcs, arg_ty, entry, s_w.metas)
+                    s_u := if ur.ok { set(s_w, "metas", ur.metas) } else { s_w }
+                    s_p := set(s_u, "performed_effects", [...get_or(s_u, "performed_effects", []), { name: op_name, entry: entry }])
+                    out := { val: entry, state: s_p }
+                    ambient_done := true
+                  }
+                }
+              }
+            } else {
+              if row != null {
+                do {
+                  s_w := tc_add_diagnostic(s_arg, "warning", "perform: op `" + op_name + "` is not in the ambient mode's `Effects` row — minting `IO{…}` (deprecated transition path)")
+                  out := { val: null, state: s_w }
+                }
+              } else {
+                if pay.found {
+                  do {
+                    s_w := tc_add_diagnostic(s_arg, "warning", "perform: op `" + op_name + "` — the ambient `Effects` row is symbolic (mode metavariable) — minting `IO{…}` (honest bound)")
+                    out := { val: null, state: s_w }
+                  }
+                } else {
+                  out := { val: null, state: s_arg }
+                }
+              }
+            }
+            if ambient_done {
+              out
+            } else {
+              --- Legacy `IO{op: T}` mint — the deprecated transition
+              --- path (ADR-0153 §4 spelling in the model's tagged
+              --- type values).
+              do {
+                sig := set({}, op_name, arg_ty)
+                { val: funcs.make_type("type.io", set({}, "sig", sig)), state: out["state"] }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `handle_sig_check_(funcs, s, io_val, t_impl)` — the `IO(S)`
+  --- codomain residual (the NBE `handle_sig_check`, PL-0004 E2):
+  --- `IO{sig}`'s sig record loses covered ops to the impl's declared
+  --- returns (`op_entries` false — `IO` entries are request payload
+  --- types); uncovered ops and non-record sigs pass through.
+  handle_sig_check_ := [funcs, s, io_val, t_impl]~> do {
+    sig := zonk(zonk, get_or(io_val, "sig", null), s.metas)
+    if type_of(sig) != "obj" {
+      { val: io_val, state: s }
+    } else {
+      do {
+        fields := handler_op_fields_(funcs, s, t_impl)
+        if fields == null {
+          { val: io_val, state: s }
+        } else {
+          do {
+            rr := effects_residual_row_(funcs, s, sig, fields, false)
+            if !rr.ok {
+              { val: io_val, state: rr["state"] }
+            } else {
+              { val: set(io_val, "sig", rr.row), state: rr["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `handle_result_type_(funcs, s, t_body, t_impl)` — the `handle`
+  --- result type (the NBE `handle_result_type`): an `IO(S)`-headed
+  --- body rewrites its sig through `handle_sig_check_`; a
+  --- `type.function` whose codomain is `IO` rewrites the codomain —
+  --- `handle (x ~> perform …) with h` yields `x ~> IO(S')`. Anything
+  --- else passes through unchanged.
+  handle_result_type_ := [funcs, s, t_body, t_impl]~> do {
+    tb := zonk(zonk, t_body, s.metas)
+    if type_tag(tb) == "type.io" {
+      funcs.handle_sig_check_(funcs, s, tb, t_impl)
+    } else {
+      if type_tag(tb) == "type.function" {
+        do {
+          body := zonk(zonk, get_or(tb, "body", null), s.metas)
+          if type_tag(body) == "type.io" {
+            do {
+              res := funcs.handle_sig_check_(funcs, s, body, t_impl)
+              { val: set(tb, "body", res.val), state: res["state"] }
+            }
+          } else {
+            { val: tb, state: s }
+          }
+        }
+      } else {
+        { val: tb, state: s }
       }
     }
   }
@@ -7954,8 +9508,41 @@ do {
         do {
           expr_idx := first_value(children)
           annot_idx := at(children, 1)
-          expr_result := funcs.synth_node_(funcs, s, expr_idx)
-          ann := funcs.synth_type_(funcs, expr_result["state"], annot_idx)
+          --- PL-0004 E1: `expr : T @ μ` — a `mode_ascribe`
+          --- annotation carries the judgement's ambient mode.
+          --- Elaborate it *before* judging the subject so the subject
+          --- checks under `μ` (`null` = pure — the un-annotated
+          --- default); `mode_ascription_at_` reads the
+          --- `node_modes`/`mode_set_cache` the annotation's own
+          --- `synth_type_` elaboration shares, so elaboration stays
+          --- single (the NBE `synth_type_annot` arm).
+          mu_res := funcs.mode_ascription_at_(funcs, s, annot_idx)
+          s_mu := mu_res["state"]
+          mu_val := mu_res.mu
+          has_mu := mu_val != null
+          prev_mode := if has_mu { get_or(s_mu, "ambient_mode", null) } else { null }
+          s_scope := if has_mu { set(s_mu, "ambient_mode", mu_val) } else { s_mu }
+          expr_result := funcs.synth_node_(funcs, s_scope, expr_idx)
+          s_expr := if has_mu { set(expr_result["state"], "ambient_mode", prev_mode) } else { expr_result["state"] }
+          --- PL-0004 E2: effect widening — the subject's own ambient
+          --- mode must be ≤ the ascribed μ; terms with no recorded
+          --- mode pass (pure/unit).
+          sub_res := if has_mu {
+            do {
+              mu_v := funcs.mode_of_node_(funcs, s_expr, expr_idx)
+              if mu_v != null {
+                funcs.check_mode_subsumption_(funcs, s_expr, mu_v, mu_val)
+              } else {
+                { ok: true, state: s_expr }
+              }
+            }
+          } else {
+            { ok: true, state: s_expr }
+          }
+          if !sub_res.ok {
+            { val: funcs.make_type("type.unknown", {}), state: sub_res["state"] }
+          } else {
+          ann := funcs.synth_type_(funcs, sub_res["state"], annot_idx)
           --- Field projections stay symbolic post-Phase-1: `type.F`
           --- evaluates to `RecordProj{record: "type", field: F}` rather
           --- than the `type.F` record. Resolve the projection here.
@@ -7996,6 +9583,7 @@ do {
                 { val: ann_resolved, state: tc_add_diagnostic(unify_result["state"], "error", "type annotation mismatch: expected " + type_tag(ann_resolved) + ", got " + type_tag(expr_result.typ)) }
               }
             }
+          }
           }
         }
       }
@@ -8507,7 +10095,9 @@ do {
                     value_result := funcs.synth_node_(funcs, s, value_node_idx)
                     extended := tc_extend(value_result["state"], target_name, value_result.typ)
                     bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, s, value_node_idx))
-                    { val: funcs.make_type("type.unit", {}), state: bound }
+                    bm := funcs.mode_of_node_(funcs, value_result["state"], value_node_idx)
+                    s_bm := bind_mode_(bound, target_name, bm)
+                    { val: funcs.make_type("type.unit", {}), state: s_bm }
                   }
                 } else {
                   do {
@@ -8561,15 +10151,54 @@ do {
                     --- the elaborated sorts/metas, not the bindings.
                     s_ann := set(tc_restore(wrap["state"], mark), "results", old_results)
                     ann_val := wrap.typ
-                    check_result := funcs.check_node_(funcs, s_ann, value_node_idx, ann_val)
+                    --- PL-0004 E1: `x : T @ μ := v` — the annotation's
+                    --- ambient mode scopes over the *value* judgement
+                    --- (`Γ ⊢ v : T @ μ`); restore on exit so the mode
+                    --- never leaks past the binding. An annotation
+                    --- without `@` leaves the ambient mode untouched
+                    --- (the NBE `mode_scope`/`prev_mode` arm).
+                    mu_res := funcs.mode_ascription_at_(funcs, s_ann, annot_idx)
+                    s_mu := mu_res["state"]
+                    mu_val := mu_res.mu
+                    has_mu := mu_val != null
+                    prev_mode := if has_mu { get_or(s_mu, "ambient_mode", null) } else { null }
+                    s_scope := if has_mu { set(s_mu, "ambient_mode", mu_val) } else { s_mu }
+                    check_result := funcs.check_node_(funcs, s_scope, value_node_idx, ann_val)
+                    s_chk := if has_mu { set(check_result["state"], "ambient_mode", prev_mode) } else { check_result["state"] }
                     if check_result.ok {
                       do {
-                        extended := tc_extend(check_result["state"], target_name, ann_val)
-                        bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, check_result["state"], value_node_idx))
-                        { val: funcs.make_type("type.unit", {}), state: bound }
+                        --- PL-0004 E2: effect widening — the value's own
+                        --- ambient mode must be ≤ the ascribed μ; terms
+                        --- with no recorded mode pass (pure/unit).
+                        sub_res := if has_mu {
+                          do {
+                            mu_v := funcs.mode_of_node_(funcs, s_chk, value_node_idx)
+                            if mu_v != null {
+                              funcs.check_mode_subsumption_(funcs, s_chk, mu_v, mu_val)
+                            } else {
+                              { ok: true, state: s_chk }
+                            }
+                          }
+                        } else {
+                          { ok: true, state: s_chk }
+                        }
+                        if !sub_res.ok {
+                          { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(sub_res["state"], "error", "assign: ambient mode subsumption failed for " + target_name) }
+                        } else {
+                          do {
+                            --- The binding records the ascribed mode
+                            --- (the contract); an annotation without `@`
+                            --- inherits the value's own ambient mode.
+                            bm := if has_mu { mu_val } else { funcs.mode_of_node_(funcs, sub_res["state"], value_node_idx) }
+                            extended := tc_extend(sub_res["state"], target_name, ann_val)
+                            bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, sub_res["state"], value_node_idx))
+                            s_bm := bind_mode_(bound, target_name, bm)
+                            { val: funcs.make_type("type.unit", {}), state: s_bm }
+                          }
+                        }
                       }
                     } else {
-                      { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(check_result["state"], "error", "assign: type annotation mismatch for " + target_name) }
+                      { val: funcs.make_type("type.unit", {}), state: tc_add_diagnostic(s_chk, "error", "assign: type annotation mismatch for " + target_name) }
                     }
                   }
                 }
@@ -8599,7 +10228,13 @@ do {
                 restored := set(tc_restore(value_result["state"], mark), "results", old_results)
                 extended := tc_extend(restored, target_name, value_result.typ)
                 bound := tc_bind_result(extended, target_name, funcs.node_term_(funcs, restored, value_node_idx))
-                { val: funcs.make_type("type.unit", {}), state: bound }
+                --- PL-0004 E2: an un-annotated binding inherits the
+                --- value's ambient mode — `h := g >>> f` carries the
+                --- composed row; `bind_mode_` runs after `tc_extend`
+                --- so the scope stamp is correct.
+                bm := funcs.mode_of_node_(funcs, restored, value_node_idx)
+                s_bm := bind_mode_(bound, target_name, bm)
+                { val: funcs.make_type("type.unit", {}), state: s_bm }
               }
             }
             }
@@ -8678,7 +10313,15 @@ do {
           } else {
             ""
           }
-          if call_cname == "ua" || call_cname == "Univalence" {
+          --- `perform(op, arg)` — the `IO<sig>` op-emission builtin
+          --- (ADR-0153 §4 + PL-0004 E2): intercepted by callee
+          --- *shape* (a `var("perform")` or `io.perform`
+          --- field-access, unbound in Γ/results) before the name
+          --- table — `perform` stays an ordinary identifier when
+          --- user-bound.
+          if funcs.is_perform_call_(funcs, s, node_idx) {
+            funcs.synth_perform_(funcs, s, node_idx)
+          } else if call_cname == "ua" || call_cname == "Univalence" {
             n_call_args := len(children) - args_idx
             if n_call_args != 1 {
               { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "ua/Univalence needs exactly one equivalence operand") }
@@ -9002,7 +10645,34 @@ do {
         do {
           f_result := funcs.synth_node_(funcs, s, first_value(children))
           g_result := funcs.synth_node_(funcs, f_result["state"], at(children, 1))
-          funcs.flow_compose_(funcs, f_result.typ, g_result.typ, g_result["state"])
+          --- PL-0004 E2: `>>>` computes the ambient-mode rows — the
+          --- operands' judgement modes compose through the `Effects`
+          --- algebra (`{puts} ⋄ {fs} = {puts,fs}`); the composite is
+          --- recorded on the node so a binding/`handle`/ascription
+          --- reads it back via `mode_of_node_`. An operand with no
+          --- recorded mode composes as the algebra unit (its known
+          --- side passes through — the honest bound).
+          mode_a := funcs.mode_of_node_(funcs, g_result["state"], first_value(children))
+          mode_b := funcs.mode_of_node_(funcs, g_result["state"], at(children, 1))
+          comp := if mode_a == null && mode_b == null {
+            { val: null, state: g_result["state"] }
+          } else {
+            if mode_a == null {
+              { val: mode_b, state: g_result["state"] }
+            } else {
+              if mode_b == null {
+                { val: mode_a, state: g_result["state"] }
+              } else {
+                funcs.mode_sets_compose_(funcs, g_result["state"], mode_a, mode_b)
+              }
+            }
+          }
+          flow_state := if comp.val == null {
+            comp["state"]
+          } else {
+            set(comp["state"], "node_modes", ms_set_(get_or(comp["state"], "node_modes", {}), node_idx, comp.val))
+          }
+          funcs.flow_compose_(funcs, f_result.typ, g_result.typ, flow_state)
         }
       }
     },
@@ -9105,6 +10775,72 @@ do {
           --- `raw` is a meta — honest, no silent loss.
           mres := funcs.mode_descriptor_(funcs, tgt_result["state"], at(children, 1))
           { val: funcs.make_type("Arrow", set(set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", 1), "mode", mres.val)), state: mres["state"] }
+        }
+      }
+    },
+    --- `synth_mode_ascribe` — term-position `e @ μ` (PL-0004 E1;
+    --- the NBE `synth_mode_ascribe_judgment`): elaborate the mode
+    --- expression first (annotation discipline — diagnostics fire
+    --- even when the subject fails), synthesize the subject under
+    --- the ascribed ambient mode, restore it, and record the mode
+    --- set on the node (`node_modes`) for `mode_of_node_`.
+    "synth_mode_ascribe": do {
+      node := ast_node(s.ast, node_idx)
+      children := node_children(node)
+      type_role := child_role_index(s, "mode_ascribe", "type")
+      mode_role := child_role_index(s, "mode_ascribe", "mode")
+      spos := if type_role == null { 0 } else { type_role }
+      mpos := if mode_role == null { 1 } else { mode_role }
+      if spos >= len(children) || mpos >= len(children) {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "synth_mode_ascribe: needs [type, mode] children") }
+      } else {
+        do {
+          mu_res := funcs.elaborate_mode_set_(funcs, s, at(children, mpos))
+          prev_mode := get_or(mu_res["state"], "ambient_mode", null)
+          s_amb := set(mu_res["state"], "ambient_mode", mu_res.val)
+          subj := funcs.synth_node_(funcs, s_amb, at(children, spos))
+          s3 := set(subj["state"], "ambient_mode", prev_mode)
+          s4 := set(s3, "node_modes", ms_set_(get_or(s3, "node_modes", {}), node_idx, mu_res.val))
+          { val: subj.typ, state: s4 }
+        }
+      }
+    },
+    --- `synth_handle` — `handle <target> with <impl> [acc s0]`
+    --- (phase-2 WS-F + PL-0004 E2): synthesize the target under an
+    --- effects-journal mark, the impl, and the optional `acc` seed;
+    --- `handle_result_type_` rewrites an `IO(S)` codomain through
+    --- the coverage residual, and `ambient_handle_modality_` records
+    --- the ambient `μ → μ′` residual on the node and rewrites the
+    --- journal slice.
+    "synth_handle": do {
+      node := ast_node(s.ast, node_idx)
+      children := node_children(node)
+      trole := child_role_index(s, "handle", "target")
+      irole := child_role_index(s, "handle", "impl")
+      arole := child_role_index(s, "handle", "acc")
+      tpos := if trole == null { 0 } else { trole }
+      ipos := if irole == null { 1 } else { irole }
+      if tpos >= len(children) || ipos >= len(children) {
+        { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "error", "handle: missing target or impl child") }
+      } else {
+        do {
+          eff_mark := len(get_or(s, "performed_effects", []))
+          tbody := funcs.synth_node_(funcs, s, at(children, tpos))
+          pe_now := get_or(tbody["state"], "performed_effects", [])
+          used := slice(pe_now, eff_mark, len(pe_now) - eff_mark)
+          tmode := funcs.mode_of_node_(funcs, tbody["state"], at(children, tpos))
+          timpl := funcs.synth_node_(funcs, tbody["state"], at(children, ipos))
+          s_acc := if arole != null && arole < len(children) {
+            do {
+              ar := funcs.synth_node_(funcs, timpl["state"], at(children, arole))
+              ar["state"]
+            }
+          } else {
+            timpl["state"]
+          }
+          hrt := funcs.handle_result_type_(funcs, s_acc, tbody.typ, timpl.typ)
+          amb := funcs.ambient_handle_modality_(funcs, hrt["state"], tmode, used, eff_mark, timpl.typ, node_idx)
+          { val: hrt.val, state: amb["state"] }
         }
       }
     },
@@ -9246,7 +10982,27 @@ do {
           }
         }
       }
-      if cname == "transport" {
+      --- `perform(op, arg)` in check position (PL-0004 E2): the op
+      --- operand is a *name*, not a checkable value — synthesize the
+      --- call (`synth_perform_` mints `IO{op:T}` or runs the ambient
+      --- `Effects` row) and unify against the expected type.
+      if funcs.is_perform_call_(funcs, s, node_idx) {
+        do {
+          pr := funcs.synth_node_(funcs, s, node_idx)
+          if incoming == null {
+            { val: pr.typ, state: pr["state"] }
+          } else {
+            do {
+              ud := funcs.unify_dependent_(funcs, pr.typ, incoming, pr["state"])
+              if ud.ok {
+                { val: pr.typ, state: ud["state"] }
+              } else {
+                { val: pr.typ, state: tc_add_diagnostic(ud["state"], "error", "type mismatch") }
+              }
+            }
+          }
+        }
+      } else if cname == "transport" {
         if args_role == null {
           { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(s, "warning", "check_call: call missing args role") }
         } else {
@@ -9355,6 +11111,15 @@ do {
                   if name == "Unit" {
                     { val: funcs.make_type("type.unit", {}), state: st }
                   } else {
+                  if name == "IO" {
+                    --- Bare `IO` = `IO(⊤)` — the arity-0 effect
+                    --- former (PL-0004 E1 deprecation: effects are
+                    --- ambient modes — `T @ [Effects(S)]`).
+                    do {
+                      s_w := tc_add_diagnostic(st, "warning", "`IO` is deprecated (PL-0004 effects-as-ambient-modes): effects are ambient modes — write the judgement `T @ [Effects(S)]` instead")
+                      { val: funcs.make_type("type.io", {}), state: s_w }
+                    }
+                  } else {
                     found := tc_lookup(st, name)
                     if found == null {
                       do {
@@ -9398,6 +11163,7 @@ do {
                       }
                       }
                     }
+                  }
                   }
                 }
                 }
@@ -9531,6 +11297,29 @@ do {
                     --- `synth_type_call_cubical_`.
                     funcs.synth_type_call_cubical_(funcs, st, node_idx, callee_name)
                   } else {
+                  if callee_name == "IO" {
+                    --- `IO(sig)` — the typed-effect former
+                    --- (ADR-0153 §4): mints `type.io{sig}` where the
+                    --- sig record's entries synthesize as types
+                    --- (`io_sig_`); `IO()` is `IO(⊤)`. PL-0004 E1
+                    --- deprecation: effects are ambient modes
+                    --- (`T @ [Effects(S)]`) — warn, don't reject.
+                    do {
+                      s_w := tc_add_diagnostic(st, "warning", "`IO(…)`/`IO<…>` is deprecated (PL-0004 effects-as-ambient-modes): effects are ambient modes — write the judgement `T @ [Effects(S)]` instead")
+                      ch2 := node_children(node)
+                      sig_res := if args_role < len(ch2) {
+                        funcs.io_sig_(funcs, s_w, at(ch2, args_role))
+                      } else {
+                        { val: null, state: s_w }
+                      }
+                      io_val := if sig_res.val == null {
+                        funcs.make_type("type.io", {})
+                      } else {
+                        funcs.make_type("type.io", set({}, "sig", sig_res.val))
+                      }
+                      { val: io_val, state: sig_res["state"] }
+                    }
+                  } else {
                   if bound_callee != null {
                     funcs.eval_node_(funcs, st, node_idx)
                   } else {
@@ -9597,6 +11386,7 @@ do {
             }
             }
             }
+            }
           } else {
             if kind == "glue" {
               --- `glue A, φ, T̂` in annotation position (ADR-0208
@@ -9642,7 +11432,40 @@ do {
     }
   }
 
-  synth_type_ := [funcs, st, node_idx]~> synth_type_impl_(funcs, st, node_idx)
+  --- `synth_mode_ascribe_type_(funcs, st, node_idx)` — `T @ μ` in
+  --- *type* position (PL-0004 E1; the NBE `dep_synth_type`
+  --- `mode_ascribe` arm): the `type` child synthesizes unchanged —
+  --- the mode is judgement metadata (`Γ ⊢ t : A @ μ` keeps `A` and
+  --- `μ` separate), never part of the type. The elaborated mode set
+  --- is recorded on the node (`node_modes`) for `mode_ascription_at_`
+  --- /`assign` to scope the ambient mode over the judged value.
+  synth_mode_ascribe_type_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    children := node_children(node)
+    type_role := child_role_index(st, "mode_ascribe", "type")
+    mode_role := child_role_index(st, "mode_ascribe", "mode")
+    tpos := if type_role == null { 0 } else { type_role }
+    mpos := if mode_role == null { 1 } else { mode_role }
+    if tpos >= len(children) || mpos >= len(children) {
+      { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(st, "error", "synth_type: mode_ascribe missing type or mode child") }
+    } else {
+      do {
+        ty_res := funcs.synth_type_(funcs, st, at(children, tpos))
+        mu_res := funcs.elaborate_mode_set_(funcs, ty_res["state"], at(children, mpos))
+        s2 := set(mu_res["state"], "node_modes", ms_set_(get_or(mu_res["state"], "node_modes", {}), node_idx, mu_res.val))
+        { val: ty_res.val, state: s2 }
+      }
+    }
+  }
+
+  synth_type_ := [funcs, st, node_idx]~> do {
+    node := ast_node(st.ast, node_idx)
+    if node != null && node_kind(node) == "mode_ascribe" {
+      synth_mode_ascribe_type_(funcs, st, node_idx)
+    } else {
+      synth_type_impl_(funcs, st, node_idx)
+    }
+  }
 
   --- Fuel wrappers: ensure the main typecheck driver and every
   --- recursive fixpoint step burns a little fuel, and return a
@@ -10327,6 +12150,44 @@ do {
     mode_apply_compose_: mode_apply_compose_,
     mode_descriptor_: mode_descriptor_,
     mode_compose_: mode_compose_,
+    mode_merge_entry_: mode_merge_entry_,
+    str_join_: str_join_,
+    ms_key_: ms_key_,
+    ms_get_: ms_get_,
+    ms_set_: ms_set_,
+    mode_set_mint_: mode_set_mint_,
+    mode_set_element_: mode_set_element_,
+    mode_set_effects_payload_: mode_set_effects_payload_,
+    plain_effects_row_: plain_effects_row_,
+    mode_set_effects_row_: mode_set_effects_row_,
+    mode_set_with_effects_: mode_set_with_effects_,
+    mode_name_resolvable_: mode_name_resolvable_,
+    mode_meta_id_: mode_meta_id_,
+    bind_mode_: bind_mode_,
+    lookup_binding_mode_: lookup_binding_mode_,
+    mode_of_node_: mode_of_node_,
+    io_sig_: io_sig_,
+    mode_sig_type_: mode_sig_type_,
+    mode_payload_value_: mode_payload_value_,
+    mode_element_: mode_element_,
+    bare_element_: bare_element_,
+    elaborate_mode_set_inner_: elaborate_mode_set_inner_,
+    elaborate_mode_set_: elaborate_mode_set_,
+    mode_ascribe_mode_child_: mode_ascribe_mode_child_,
+    mode_ascription_at_: mode_ascription_at_,
+    mode_sets_compose_: mode_sets_compose_,
+    compose_mode_element_: compose_mode_element_,
+    effects_rows_union_: effects_rows_union_,
+    check_mode_subsumption_: check_mode_subsumption_,
+    handler_op_fields_: handler_op_fields_,
+    effects_residual_row_: effects_residual_row_,
+    ambient_handle_modality_: ambient_handle_modality_,
+    is_perform_call_: is_perform_call_,
+    perform_op_name_: perform_op_name_,
+    synth_perform_: synth_perform_,
+    handle_sig_check_: handle_sig_check_,
+    handle_result_type_: handle_result_type_,
+    synth_mode_ascribe_type_: synth_mode_ascribe_type_,
     cell_type_name_: cell_type_name_,
     axis_flow_compose_: axis_flow_compose_,
     make_type: make_type,
