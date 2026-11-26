@@ -4025,8 +4025,21 @@ pub fn loader() -> Option<&'static HandlLoader> {
 }
 
 /// Call a transform on the installed loader; `None` when no loader is
-/// installed or the call fails (callers fall back to `bootstrap`).
+/// installed, the call fails, or the caller is inside
+/// [`with_loader_disabled`] (callers fall back to `bootstrap`).
+///
+/// `SKIP_LOADER` is checked here — not only in [`analyze_source`] — so the
+/// public transform functions (`transform_export_to_object`, `strip_*`,
+/// `parse_*`, `expand_tag_declarations`) genuinely run the bootstrap
+/// implementations inside a `with_loader_disabled` scope. Without this,
+/// a test/host that installs a loader and then wraps a transform call in
+/// `with_loader_disabled` silently gets the *loader* output — which is
+/// textually different from `bootstrap` (e.g. `name: expr` inline vs the
+/// `name := expr;` prelude + `name: name` projection).
 fn loader_call(func: &str, src: &str) -> Option<serde_json::Value> {
+    if SKIP_LOADER.with(|s| s.get()) {
+        return None;
+    }
     match loader()?.call(func, src) {
         Ok(v) => Some(v),
         Err(e) => {
