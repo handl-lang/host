@@ -2663,6 +2663,221 @@ do {
     funcs.make_type("inductive.spec", set(set(set({}, "name", name), "params", p_acc), "ctors", c_acc))
   }
 
+  --- ------------------------------------------------------------------
+  --- Spec-driven constructor resolution (PL-0003 I2): `match` consumes
+  --- `<family>.spec` `inductive.spec` values — the declaration's spec
+  --- as ordinary data — instead of *only* the gamma `type.ctor_sig`
+  --- bindings. The spec's owned type-expr nodes are re-elaborated as
+  --- fresh `s.ast` entries (`materialize_owned_`), then read by the
+  --- same `instantiate_ctor_` the gamma sigs feed — dependent match
+  --- refinement (`refine_scrutinee_`, `eq_*` witnesses, auto-discharge)
+  --- is unchanged; only the sig *source* differs. The gamma binding
+  --- stays the fallback for families without a spec (hand-built
+  --- payloads, imports, non-family scrutinees).
+  --- ------------------------------------------------------------------
+
+  --- `is_owned_node_` — an owned spec type-expr node record
+  --- (`{kind, span, payload}`) vs a scalar payload entry; `children`/
+  --- `body` slots hold the former.
+  is_owned_node_ := v ~> type_of(v) == "obj" && type_of(get_or(v, "kind", null)) == "str"
+
+  --- `materialize_owned_` — re-elaborate one owned spec type-expr node
+  --- as a fresh `s.ast` entry: `children`/`body` node records are
+  --- recursively materialized and replaced by their new arena indices;
+  --- scalar payloads (`var` name strings, literals) pass through
+  --- verbatim. Returns `{idx, state}` — `state.ast` has grown, and
+  --- every consumer of the index sees the same appended arena (the
+  --- model's `s.ast` is the single arena; NBE mirrors this with the
+  --- `spec_ast` side arena).
+  materialize_owned_ := [funcs, s, owned]~> do {
+    payload := get_or(owned, "payload", null)
+    is_obj := type_of(payload) == "obj"
+    pobj := if is_obj { payload } else { {} }
+    raw_children := get_or(pobj, "children", null)
+    child_res := if type_of(raw_children) == "arr" {
+      while { result: [], state: s, remaining: raw_children } {
+        [st]~> if is_empty(st.remaining) {
+          { out: { items: st.result, state: st["state"] } }
+        } else {
+          do {
+            c := first_value(st.remaining)
+            if is_owned_node_(c) {
+              do {
+                r := funcs.materialize_owned_(funcs, st["state"], c)
+                { state: { result: [...st.result, r.idx], state: r["state"], remaining: drop(st.remaining, 1) } }
+              }
+            } else {
+              { state: { result: [...st.result, c], state: st["state"], remaining: drop(st.remaining, 1) } }
+            }
+          }
+        }
+      }
+    } else {
+      { items: raw_children, state: s }
+    }
+    s1 := child_res["state"]
+    raw_body := get_or(pobj, "body", null)
+    body_res := if is_owned_node_(raw_body) {
+      do {
+        r := funcs.materialize_owned_(funcs, s1, raw_body)
+        { idx: r.idx, state: r["state"] }
+      }
+    } else {
+      { idx: raw_body, state: s1 }
+    }
+    s2 := body_res["state"]
+    new_payload := if is_obj {
+      while { result: {}, remaining: keys(pobj) } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.result }
+        } else {
+          do {
+            k := first_value(st.remaining)
+            v := get_or(pobj, k, null)
+            nv := if k == "children" && type_of(child_res.items) == "arr" {
+              child_res.items
+            } else {
+              if k == "body" && is_owned_node_(raw_body) { body_res.idx } else { v }
+            }
+            { state: { result: set(st.result, k, nv), remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+    } else {
+      payload
+    }
+    node := set(set(set({}, "kind", get_or(owned, "kind", "")), "span", get_or(owned, "span", null)), "payload", new_payload)
+    ast1 := get_or(s2, "ast", [])
+    idx := len(ast1)
+    { idx: idx, state: set(s2, "ast", [...ast1, node]) }
+  }
+
+  --- `spec_family_of_` — the `inductive.spec` family a type value
+  --- belongs to: `type.family_app`/`type.family` carry `name`; anything
+  --- else has no spec.
+  spec_family_of_ := t ~> do {
+    tag := type_tag(t)
+    if tag == "type.family_app" || tag == "type.family" { get_or(t, "name", "") } else { "" }
+  }
+
+  --- `spec_declares_ctor_` — pure membership: does
+  --- `results["<family>.spec"]` declare `ctor_name`? No arena
+  --- materialization — for coverage/catchall classification where only
+  --- membership matters.
+  spec_declares_ctor_ := [s, family, ctor_name]~> do {
+    spec := if family == "" { null } else { tc_lookup_result(s, family + ".spec") }
+    if type_tag(spec) != "inductive.spec" {
+      false
+    } else {
+      ctors := get_or(spec, "ctors", [])
+      while { found: false, remaining: ctors } {
+        [st]~> if is_empty(st.remaining) || st.found {
+          { out: st.found }
+        } else {
+          { state: { found: st.found || get_or(first_value(st.remaining), "name", "") == ctor_name, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+  }
+
+  --- `spec_ctor_sig_` — rebuild the `type.ctor_sig` for `ctor_name` of
+  --- `family` from the family's `inductive.spec` results value. The
+  --- spec's owned type-expr nodes materialize into `s.ast` (fresh
+  --- indices — `instantiate_ctor_` reads `params[].node`/`args[].node`/
+  --- `result` as arena indices, so the sig shape mirrors the gamma
+  --- binding `synth_data` mints). Returns `{sig, state}`; `sig` null
+  --- when the spec is absent/misshapen or does not declare the ctor —
+  --- the caller falls back to gamma.
+  spec_ctor_sig_ := [funcs, s, family, ctor_name]~> do {
+    spec := if family == "" { null } else { tc_lookup_result(s, family + ".spec") }
+    if type_tag(spec) != "inductive.spec" {
+      { sig: null, state: s }
+    } else {
+      ctors := get_or(spec, "ctors", [])
+      found := while { hit: null, remaining: ctors } {
+        [st]~> if is_empty(st.remaining) {
+          { out: st.hit }
+        } else {
+          do {
+            c := first_value(st.remaining)
+            { state: { hit: if get_or(c, "name", "") == ctor_name { c } else { st.hit }, remaining: drop(st.remaining, 1) } }
+          }
+        }
+      }
+      if found == null {
+        { sig: null, state: s }
+      } else {
+        p_res := while { result: [], state: s, remaining: get_or(spec, "params", []) } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { items: st.result, state: st["state"] } }
+          } else {
+            do {
+              p := first_value(st.remaining)
+              psort := get_or(p, "sort", null)
+              if is_owned_node_(psort) {
+                do {
+                  r := funcs.materialize_owned_(funcs, st["state"], psort)
+                  { state: { result: [...st.result, { name: get_or(p, "name", ""), node: r.idx, nat: get_or(p, "nat", false) }], state: r["state"], remaining: drop(st.remaining, 1) } }
+                }
+              } else {
+                { state: { result: [...st.result, { name: get_or(p, "name", ""), node: null, nat: get_or(p, "nat", false) }], state: st["state"], remaining: drop(st.remaining, 1) } }
+              }
+            }
+          }
+        }
+        s1 := p_res["state"]
+        a_res := while { result: [], state: s1, remaining: get_or(found, "args", []) } {
+          [st]~> if is_empty(st.remaining) {
+            { out: { items: st.result, state: st["state"] } }
+          } else {
+            do {
+              a := first_value(st.remaining)
+              aty := get_or(a, "type", null)
+              if is_owned_node_(aty) {
+                do {
+                  r := funcs.materialize_owned_(funcs, st["state"], aty)
+                  { state: { result: [...st.result, { name: get_or(a, "name", ""), node: r.idx }], state: r["state"], remaining: drop(st.remaining, 1) } }
+                }
+              } else {
+                { state: { result: [...st.result, { name: get_or(a, "name", ""), node: null }], state: st["state"], remaining: drop(st.remaining, 1) } }
+              }
+            }
+          }
+        }
+        s2 := a_res["state"]
+        rnode := get_or(found, "result", null)
+        res_res := if is_owned_node_(rnode) {
+          do {
+            r := funcs.materialize_owned_(funcs, s2, rnode)
+            { idx: r.idx, state: r["state"] }
+          }
+        } else {
+          { idx: null, state: s2 }
+        }
+        s3 := res_res["state"]
+        sig := set(set(set(set(set(set({}, "__tag__", "type.ctor_sig"), "ctor", true), "family", get_or(spec, "name", family)), "params", p_res.items), "args", a_res.items), "result", res_res.idx)
+        sig_bare := set(sig, "bare", get_or(found, "bare", false))
+        { sig: sig_bare, state: s3 }
+      }
+    }
+  }
+
+  --- `pattern_ctor_sig_` — resolve a constructor-pattern name to its
+  --- `type.ctor_sig`: spec-first (the expected type's family
+  --- `inductive.spec`, materializing owned type-exprs into `s.ast`),
+  --- gamma `type.ctor_sig` as fallback. Returns `{sig, state}`; `sig`
+  --- null when neither source has it — the pattern is a plain binder.
+  pattern_ctor_sig_ := [funcs, s, expected_type, ctor_name]~> do {
+    fam := spec_family_of_(expected_type)
+    cand := if fam == "" { { sig: null, state: s } } else { funcs.spec_ctor_sig_(funcs, s, fam, ctor_name) }
+    if cand.sig != null {
+      cand
+    } else {
+      g := tc_lookup(cand["state"], ctor_name)
+      { sig: if type_tag(g) == "type.ctor_sig" { g } else { null }, state: cand["state"] }
+    }
+  }
+
   --- Instantiate a `type.ctor_sig` spec into a fresh `type.function`
   --- chain ending in `type.family_app`. One index metavariable is
   --- minted per family parameter and bound to the parameter name in
@@ -2905,7 +3120,290 @@ do {
     }
   }
 
-  --- `cell_paste_(a, b, k)` — the type-level `∘ₖ` composite once
+  --- ------------------------------------------------------------------
+  --- Mode algebra (graded-arrows.md §3 adj. 1 / §4, pl-0002 M2).
+  ---
+  --- A mode is an arbitrary Handl data value; `A ~[m]~> B` ∘
+  --- `B ~[n]~> C` yields `A ~[m ⋄ n]~> C` where `⋄` is resolved by the
+  --- mode algebra governing the composition. Algebras are Handl data —
+  --- `lang.globals` records `mode.algebra.<Head>` shaped
+  --- `{compose, unit, order}` — and mode payloads are *calls*:
+  --- `Cost(3)` selects `mode.algebra.Cost`, `3` is the payload. Bare
+  --- non-call modes compose under `mode.algebra.default` (record-row
+  --- union for rows, numeric add for literal counts, equality for
+  --- named grades, fresh meta + deferred diagnostic otherwise).
+  --- Subsumption/enforcement is M3 — `mode_compose_` only computes.
+  --- ------------------------------------------------------------------
+
+  --- `mode_honest_(s, what)` — the honest-bound fallback: a fresh meta
+  --- stands for the unresolvable mode and a warning diagnostic records
+  --- the deferral (the `infer_hom`/`handle_sig_check` convention).
+  mode_honest_ := [funcs, s, what]~> do {
+    m := tc_fresh_meta(s)
+    { val: meta_value(m.id), state: tc_add_diagnostic(m.state, "warning", what) }
+  }
+
+  --- `mode_algebra_(s, head)` — the registry lookup: `mode.algebra.<head>`
+  --- for a call-head mode, `mode.algebra.default` for bare modes (and as
+  --- the fallback when a named algebra is not registered). `null` when
+  --- the globals carry no algebra at all.
+  mode_algebra_ := [funcs, s, head]~> do {
+    globals := get_or(s, "globals", {})
+    name := if head == null { "mode.algebra.default" } else { "mode.algebra." + head }
+    alg := get_or(globals, name, null)
+    if alg == null && head != null {
+      get_or(globals, "mode.algebra.default", null)
+    } else {
+      alg
+    }
+  }
+
+  --- `mode_row_has_(obj, key)` — record membership for row union.
+  mode_row_has_ := [obj, key]~> while { found: false, ks: keys(obj) } {
+    [st]~> if st["found"] || is_empty(st.ks) {
+      { out: st["found"] }
+    } else {
+      { state: { found: if first_value(st.ks) == key { true } else { st["found"] }, ks: drop(st.ks, 1) } }
+    }
+  }
+
+  --- `mode_rows_union_(funcs, s, a, b)` — record-row union: shared keys
+  --- must agree (`==` keeps the entry); a conflict is the honest bound,
+  --- never a silent pick. Non-record operands are the honest bound too.
+  mode_rows_union_ := [funcs, s, a, b]~> if type_of(a) == "obj" && type_of(b) == "obj" {
+    do {
+      conflict := while { bad: false, ks: keys(b) } {
+        [st]~> if st["bad"] || is_empty(st.ks) {
+          { out: st["bad"] }
+        } else {
+          do {
+            k := first_value(st.ks)
+            in_a := mode_row_has_(a, k)
+            same := if in_a { get_or(a, k, null) == get_or(b, k, null) } else { true }
+            { state: { bad: if in_a && !same { true } else { st["bad"] }, ks: drop(st.ks, 1) } }
+          }
+        }
+      }
+      if conflict {
+        funcs.mode_honest_(funcs, s, "mode compose: record rows conflict on a shared key")
+      } else {
+        do {
+          merged := while { result: a, ks: keys(b) } {
+            [st]~> if is_empty(st.ks) {
+              { out: st.result }
+            } else {
+              do {
+                k := first_value(st.ks)
+                nv := if mode_row_has_(st.result, k) { st.result } else { set(st.result, k, get_or(b, k, null)) }
+                { state: { result: nv, ks: drop(st.ks, 1) } }
+              }
+            }
+          }
+          { val: merged, state: s }
+        }
+      }
+    }
+  } else {
+    funcs.mode_honest_(funcs, s, "mode compose: row union needs record modes")
+  }
+
+  --- `mode_canonical_compose_` — the canonical default algebra's
+  --- `compose`: numeric add for literal counts, record-row union for
+  --- rows, equality for named grades, fresh meta + deferred diagnostic
+  --- otherwise.
+  mode_canonical_compose_ := [funcs, s, a, b]~> if type_of(a) == "num" && type_of(b) == "num" {
+    { val: a + b, state: s }
+  } else {
+    if type_of(a) == "obj" && type_of(b) == "obj" {
+      funcs.mode_rows_union_(funcs, s, a, b)
+    } else {
+      if a == b {
+        { val: a, state: s }
+      } else {
+        if is_meta(a) {
+          { val: a, state: s }
+        } else {
+          if is_meta(b) {
+            { val: b, state: s }
+          } else {
+            funcs.mode_honest_(funcs, s, "mode compose: no canonical rule for these mode values")
+          }
+        }
+      }
+    }
+  }
+
+  --- `mode_apply_compose_(funcs, s, alg, a, b)` — run the algebra's
+  --- `compose` field over two payloads. The field is data: a string
+  --- tag naming a builtin operation (`canonical`, `row_union`, `add`,
+  --- `eq`) or an applicable Handl function (algebra transformers are
+  --- ordinary arrows — applied through `apply_val_`). Anything else is
+  --- the honest bound.
+  mode_apply_compose_ := [funcs, s, alg, a, b]~> do {
+    opname := if alg == null { null } else { get_or(alg, "compose", null) }
+    if type_of(opname) == "str" {
+      if opname == "canonical" {
+        funcs.mode_canonical_compose_(funcs, s, a, b)
+      } else {
+        if opname == "row_union" {
+          funcs.mode_rows_union_(funcs, s, a, b)
+        } else {
+          if opname == "add" {
+            if type_of(a) == "num" && type_of(b) == "num" {
+              { val: a + b, state: s }
+            } else {
+              funcs.mode_honest_(funcs, s, "mode compose: `add` needs numeric modes")
+            }
+          } else {
+            if opname == "eq" {
+              if a == b {
+                { val: a, state: s }
+              } else {
+                funcs.mode_honest_(funcs, s, "mode compose: modes differ under `eq`")
+              }
+            } else {
+              funcs.mode_honest_(funcs, s, "mode compose: unknown algebra compose op `" + opname + "`")
+            }
+          }
+        }
+      }
+    } else {
+      if alg != null && funcs.is_applicable_(funcs, opname) {
+        funcs.apply_val_(funcs, s, opname, [a, b])
+      } else {
+        funcs.mode_honest_(funcs, s, "mode compose: algebra has no applicable compose")
+      }
+    }
+  }
+
+  --- `mode_descriptor_(funcs, s, node_idx)` — describe a grade/mode
+  --- child as a `{head, arg, raw}` record (tag `mode`):
+  ---   * `Cost(3)` — a `call` whose callee is a `var` — head `Cost`,
+  ---     `arg` the evaluated payload, `raw` the canonical
+  ---     `Cost(payload)` application (the self-describing call-head
+  ---     form, graded-arrows.md "Algebra selection: call-head
+  ---     instances");
+  ---   * anything else — head/arg `null`, `raw` the evaluated mode
+  ---     value (bare modes compose under the default algebra).
+  --- Evaluation goes through `eval_node_` — the same fuel-bounded
+  --- evaluator annotation checks already use.
+  mode_descriptor_ := [funcs, s, node_idx]~> do {
+    node0 := ast_node(s.ast, node_idx)
+    kind0 := node_kind(node0)
+    children0 := node_children(node0)
+    gidx := if kind0 == "paren" && len(children0) >= 1 { first_value(children0) } else { node_idx }
+    gnode := ast_node(s.ast, gidx)
+    gkind := node_kind(gnode)
+    gchildren := node_children(gnode)
+    --- `call_info` collects the call-head detection without relying on
+    --- `do`-block bindings escaping their scope: `{is_call, head, args,
+    --- state}` — `state` carries any diagnostics `eval_node_` raised
+    --- while reducing the payload arguments.
+    call_info := if gkind == "call" {
+      do {
+        callee_role := child_role_index(s, gkind, "callee")
+        args_role := child_role_index(s, gkind, "args")
+        if callee_role != null && args_role != null && args_role < len(gchildren) {
+          do {
+            callee_ref := at(gchildren, callee_role)
+            cnode0 := ast_node(s.ast, callee_ref)
+            cchildren0 := node_children(cnode0)
+            cref := if node_kind(cnode0) == "paren" && len(cchildren0) >= 1 { first_value(cchildren0) } else { callee_ref }
+            cnode := ast_node(s.ast, cref)
+            cpayload := node_payload(cnode)
+            cname := if node_kind(cnode) == "var" {
+              if type_of(cpayload) == "str" { cpayload } else { get_or(cpayload, "name", "") }
+            } else { "" }
+            if cname != "" {
+              do {
+                arg_res := while { result: [], state: s, idx: args_role } {
+                  [w]~> if w.idx >= len(gchildren) {
+                    { out: { vals: w.result, state: w["state"] } }
+                  } else {
+                    do {
+                      ev := funcs.eval_node_(funcs, w["state"], at(gchildren, w.idx))
+                      { state: { result: [...w.result, ev.val], state: ev["state"], idx: w.idx + 1 } }
+                    }
+                  }
+                }
+                { is_call: true, head: cname, args: arg_res.vals, state: arg_res["state"] }
+              }
+            } else {
+              { is_call: false, head: null, args: [], state: s }
+            }
+          }
+        } else {
+          { is_call: false, head: null, args: [], state: s }
+        }
+      }
+    } else {
+      { is_call: false, head: null, args: [], state: s }
+    }
+    if call_info.is_call {
+      do {
+        arg_val := if is_empty(call_info.args) { null } else { first_value(call_info.args) }
+        raw := funcs.make_type("App", set(set({}, "callee", funcs.make_type("var", set({}, "name", call_info.head))), "args", call_info.args))
+        { val: funcs.make_type("mode", set(set(set({}, "head", call_info.head), "arg", arg_val), "raw", raw)), state: call_info["state"] }
+      }
+    } else {
+      do {
+        ev := funcs.eval_node_(funcs, call_info["state"], gidx)
+        { val: funcs.make_type("mode", set(set(set({}, "head", null), "arg", null), "raw", ev.val)), state: ev["state"] }
+      }
+    }
+  }
+
+  --- `mode_compose_(funcs, s, desc_a, desc_b)` — compose two mode
+  --- descriptors (`mode` records from `mode_descriptor_`, `null` for an
+  --- ungraded operand) into the composite's descriptor. A `null` side is
+  --- the algebra unit — the other mode passes through. Same-head call
+  --- modes compose their payloads under `mode.algebra.<head>` and
+  --- rebuild the `Head(payload)` canonical form; bare modes compose
+  --- their raw values under `mode.algebra.default`; mismatched heads
+  --- are the honest bound (no single algebra governs the pair).
+  mode_compose_ := [funcs, s, desc_a, desc_b]~> if desc_a == null {
+    { val: desc_b, state: s }
+  } else {
+    if desc_b == null {
+      { val: desc_a, state: s }
+    } else {
+      do {
+        ha := get_or(desc_a, "head", null)
+        hb := get_or(desc_b, "head", null)
+        if ha != null && ha == hb {
+          do {
+            alg := funcs.mode_algebra_(funcs, s, ha)
+            pa := get_or(desc_a, "arg", null)
+            pb := get_or(desc_b, "arg", null)
+            sa := if pa == null { get_or(desc_a, "raw", null) } else { pa }
+            sb := if pb == null { get_or(desc_b, "raw", null) } else { pb }
+            cres := funcs.mode_apply_compose_(funcs, s, alg, sa, sb)
+            raw := funcs.make_type("App", set(set({}, "callee", funcs.make_type("var", set({}, "name", ha))), "args", [cres.val]))
+            { val: funcs.make_type("mode", set(set(set({}, "head", ha), "arg", cres.val), "raw", raw)), state: cres["state"] }
+          }
+        } else {
+          if ha == null && hb == null {
+            do {
+              alg := funcs.mode_algebra_(funcs, s, null)
+              ra := get_or(desc_a, "raw", null)
+              rb := get_or(desc_b, "raw", null)
+              cres := funcs.mode_apply_compose_(funcs, s, alg, ra, rb)
+              { val: funcs.make_type("mode", set(set(set({}, "head", null), "arg", null), "raw", cres.val)), state: cres["state"] }
+            }
+          } else {
+            do {
+              hname := if ha == null { "<default>" } else { ha }
+              gname := if hb == null { "<default>" } else { hb }
+              h := funcs.mode_honest_(funcs, s, "mode compose: mismatched mode algebras (" + hname + " vs " + gname + ")")
+              { val: funcs.make_type("mode", set(set(set({}, "head", null), "arg", null), "raw", h.val)), state: h["state"] }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `cell_paste_(s, a, b, k)` — the type-level `∘ₖ` composite once
   --- `tgt_k(a) = src_k(b)` has unified. An `Arrow` operand with
   --- `dim = k+1` pastes at its top level: the composite keeps the left
   --- `inputs` and takes the right `output` (`cell2(src_a, tgt_b)`).
@@ -2916,8 +3414,10 @@ do {
   --- always a `dim-(k+1)` `Arrow`, matching the runtime's unconditional
   --- `Cell2` lift: `a >>>[k] b` evaluates to a
   --- `{__tag__: "Cell2", __src__, __tgt__}` record — a (k+1)-cell whose
-  --- boundaries are the operands.
-  cell_paste_ := [funcs, a, b, k]~> do {
+  --- boundaries are the operands. The `mode` field carries the M2 mode
+  --- composition (`mode_compose_` over the operands' descriptors —
+  --- `null` when neither side is mode-annotated).
+  cell_paste_ := [funcs, s, a, b, k]~> do {
     tag_a := type_tag(a)
     tag_b := type_tag(b)
     dim_a := get_or(a, "dim", null)
@@ -2928,6 +3428,8 @@ do {
     --- literal-free `dim` (or a non-`Arrow` type) never reaches `binary.gt`.
     a_deep := if a_arr { dim_a > k + 1 } else { false }
     b_deep := if b_arr { dim_b > k + 1 } else { false }
+    mode_a := if a_arr { get_or(a, "mode", null) } else { null }
+    mode_b := if b_arr { get_or(b, "mode", null) } else { null }
     if a_deep || b_deep {
       do {
         out_dim := if a_deep { dim_a } else { dim_b }
@@ -2935,9 +3437,10 @@ do {
         a_tgt := if a_deep { get_or(a, "output", null) } else { a }
         b_src := if b_deep { get_or(b, "inputs", null) } else { b }
         b_tgt := if b_deep { get_or(b, "output", null) } else { b }
-        new_inputs := funcs.cell_paste_(funcs, a_src, b_src, k)
-        new_output := funcs.cell_paste_(funcs, a_tgt, b_tgt, k)
-        funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", funcs.make_type("type.number", {})), "output", new_output), "dim", out_dim))
+        r_in := funcs.cell_paste_(funcs, s, a_src, b_src, k)
+        r_out := funcs.cell_paste_(funcs, r_in["state"], a_tgt, b_tgt, k)
+        cell_rec := funcs.make_type("Arrow", set(set(set(set({}, "inputs", r_in.val), "grade", funcs.make_type("type.number", {})), "output", r_out.val), "dim", out_dim))
+        { val: cell_rec, state: r_out["state"] }
       }
     } else {
       do {
@@ -2948,7 +3451,8 @@ do {
         } else {
           if b_arr { get_or(b, "grade", funcs.make_type("type.number", {})) } else { funcs.make_type("type.number", {}) }
         }
-        funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", grade_t), "output", new_output), "dim", k + 1))
+        cell_rec := funcs.make_type("Arrow", set(set(set(set({}, "inputs", new_inputs), "grade", grade_t), "output", new_output), "dim", k + 1))
+        { val: cell_rec, state: s }
       }
     }
   }
@@ -3008,7 +3512,10 @@ do {
           sb := funcs.cell_boundary_(funcs, g, 1, "src", tb["state"])
           boundary := funcs.unify_dependent_(funcs, tb.val, sb.val, sb["state"])
           if boundary.ok {
-            { val: funcs.cell_paste_(funcs, f, g, 1), state: boundary["state"] }
+            do {
+              paste := funcs.cell_paste_(funcs, boundary["state"], f, g, 1)
+              { val: paste.val, state: paste["state"] }
+            }
           } else {
             { val: funcs.make_type("type.unknown", {}), state: tc_add_diagnostic(boundary["state"], "error", "axis_flow: cell composition along axis 1: boundary mismatch — tgt of the first cell does not equal src of the second (got " + funcs.cell_type_name_(tb.val) + " vs " + funcs.cell_type_name_(sb.val) + ")") }
           }
@@ -5515,16 +6022,19 @@ do {
               --- constructor *pattern*, not a binder — `match n { Zero:
               --- ... }` must not bind a variable `Zero`. Anything else
               --- binds at the expected type.
-              is_ctor := type_tag(tc_lookup(st["state"], pattern_name)) == "type.ctor_sig"
+              ctor_res := funcs.pattern_ctor_sig_(funcs, st["state"], expected, pattern_name)
+              sig0 := ctor_res.sig
+              st_sig := ctor_res["state"]
+              is_ctor := type_tag(sig0) == "type.ctor_sig"
               new_bindings := if pattern_name != "" && !is_ctor { [...st.bindings, set(set({}, "name", pattern_name), "type", expected)] } else { st.bindings }
               --- Dependent elimination: instantiate the nullary
               --- constructor at the top level so `synth_match_arms`
               --- can unify its result (`Vec(0, a)`) with the
               --- scrutinee's index.
               inst := if is_ctor && is_top {
-                funcs.instantiate_ctor_(funcs, st["state"], tc_lookup(st["state"], pattern_name))
+                funcs.instantiate_ctor_(funcs, st_sig, sig0)
               } else {
-                { val: null, state: st["state"] }
+                { val: null, state: st_sig }
               }
               new_ctor_result := if inst.val == null { st.ctor_result } else { peel_ctor_result_(peel_ctor_result_, inst.val) }
               { state: { stack: rest_stack, bindings: new_bindings, ctor_result: new_ctor_result, state: inst["state"] } }
@@ -5566,12 +6076,14 @@ do {
                   } else {
                     ""
                   }
-                  sig := if cname == "" { null } else { tc_lookup(st["state"], cname) }
+                  ctor_res := if cname == "" { { sig: null, state: st["state"] } } else { funcs.pattern_ctor_sig_(funcs, st["state"], expected, cname) }
+                  sig := ctor_res.sig
+                  st_sig := ctor_res["state"]
                   if type_tag(sig) != "type.ctor_sig" {
-                    { state: { stack: rest_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st["state"] } }
+                    { state: { stack: rest_stack, bindings: st.bindings, ctor_result: st.ctor_result, state: st_sig } }
                   } else {
                     do {
-                      inst := funcs.instantiate_ctor_(funcs, st["state"], sig)
+                      inst := funcs.instantiate_ctor_(funcs, st_sig, sig)
                       peeled := while { cur: inst.val, result: [], idx: args_role } {
                         [inner]~> if inner.idx >= len(pat_children) {
                           { out: { pairs: inner.result, cur: inner.cur } }
@@ -6187,8 +6699,11 @@ do {
                     --- A `var` that names a `data` constructor is a
                     --- nullary ctor pattern, not a catchall — `Zero` in
                     --- `match n { Zero: …, Succ(p): … }` must not
-                    --- terminate arm unification.
-                    is_catchall := pat_kind == "var" && type_tag(tc_lookup(st["state"], pat_name)) != "type.ctor_sig"
+                    --- terminate arm unification. PL-0003 I2: the
+                    --- scrutinee family's `inductive.spec` is the
+                    --- primary ctor census; the gamma `type.ctor_sig`
+                    --- check stays as fallback.
+                    is_catchall := pat_kind == "var" && type_tag(tc_lookup(st["state"], pat_name)) != "type.ctor_sig" && !funcs.spec_declares_ctor_(st["state"], spec_family_of_(scrutinee_type), pat_name)
                     next := if refined.impossible || body_out.typ == null {
                       { result: st.result, failed: st.failed, state: restored }
                     } else {
@@ -7225,7 +7740,17 @@ do {
           src_result := funcs.synth_node_(funcs, s, first_value(children))
           grade_result := funcs.synth_node_(funcs, src_result["state"], at(children, 1))
           tgt_result := funcs.synth_node_(funcs, grade_result["state"], at(children, 2))
-          { val: funcs.make_type("Arrow", set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", 1)), state: tgt_result["state"] }
+          --- `mode` carries the *mode descriptor* (pl-0002 M2), not the
+          --- grade's type: `mode_descriptor_` evaluates the grade child
+          --- (`Cost(3)` → `{head: Cost, arg: 3, raw: Cost(3)}`, a bare
+          --- mode → `{head: null, arg: null, raw: value}`) so
+          --- `cell_paste_`/`mode_compose_` can compose mode payloads
+          --- through the Handl-data algebras. The `grade` field keeps
+          --- the grade's *type* (the `dim_arrow` convention). Modes
+          --- the evaluator cannot reduce stay `mode` records whose
+          --- `raw` is a meta — honest, no silent loss.
+          mres := funcs.mode_descriptor_(funcs, tgt_result["state"], at(children, 1))
+          { val: funcs.make_type("Arrow", set(set(set(set(set({}, "inputs", src_result.typ), "grade", grade_result.typ), "output", tgt_result.typ), "dim", 1), "mode", mres.val)), state: mres["state"] }
         }
       }
     },
@@ -8401,6 +8926,10 @@ do {
     owned_node_: owned_node_,
     owned_payload_: owned_payload_,
     inductive_spec_: inductive_spec_,
+    materialize_owned_: materialize_owned_,
+    spec_declares_ctor_: spec_declares_ctor_,
+    spec_ctor_sig_: spec_ctor_sig_,
+    pattern_ctor_sig_: pattern_ctor_sig_,
     instantiate_ctor_: instantiate_ctor_,
     flow_cod_: flow_cod_,
     flow_compose_: flow_compose_,
@@ -8408,6 +8937,14 @@ do {
     cell_cod_: cell_cod_,
     cell_boundary_: cell_boundary_,
     cell_paste_: cell_paste_,
+    mode_honest_: mode_honest_,
+    mode_algebra_: mode_algebra_,
+    mode_row_has_: mode_row_has_,
+    mode_rows_union_: mode_rows_union_,
+    mode_canonical_compose_: mode_canonical_compose_,
+    mode_apply_compose_: mode_apply_compose_,
+    mode_descriptor_: mode_descriptor_,
+    mode_compose_: mode_compose_,
     cell_type_name_: cell_type_name_,
     axis_flow_compose_: axis_flow_compose_,
     make_type: make_type,
