@@ -9,9 +9,13 @@ priority = "med"
 title: '`lib-*` repos are language packages, not crates'
 type: adr
 date: 2026-10-28
-status: proposed
+status: accepted
 status_note: |-
-  Proposed — 2026-10-28. Owners: every `lib-*` repo, `host` (loader),
+  Accepted 2026-11-26 — shipped and extended: atom specs unified to
+  `module:` + `atoms:` (`atoms-<module>.yaml` siblings), cdylib atom
+  drivers (`libhnl_ext_*`), `pkg.hnl` `name:` = repo minus `lib-`,
+  CI moved to `workflows/gate.yaml` + `scripts/hnl-gate.sh`.
+  Proposed 2026-10-28; owners: every `lib-*` repo, `host` (loader),
   `automation` (gates).
 ---
 
@@ -24,9 +28,11 @@ status_note: |-
 **Treat every `lib-*` repo as a Handl package with a fixed shape, and delete the
 Rust shells as the loader learns to fetch deps.**
 
-1. **Repo shape is fixed** (all 113):
-   `pkg.hnl` · `src/**/*.hnl` · `README.md` · `LICENSE` (MIT) · `ci.sh` ·
-   `bupha.toml`, and no `.github/`.
+1. **Repo shape is fixed** (all 136):
+   `pkg.hnl` · `src/**/*.hnl` · `README.md` · `LICENSE` (MIT) ·
+   `scripts/hnl-gate.sh` · `workflows/gate.yaml` · `bupha.toml`, and no
+   `.github/`. `pkg.hnl` declares `name:` as the repo name minus the
+   `lib-` prefix.
 
    **The 89 repos whose payload is `.hnl` carry no `Cargo.toml` and no
    `src/lib.rs`.** The 24 whose *implementation* is Rust — the `-native`, `-c`,
@@ -35,17 +41,22 @@ Rust shells as the loader learns to fetch deps.**
    a repo with `.hnl` sources is a package; a repo with none is a backend.
 
    **Backend suffixes name the binding, not the repo's language.** `-native`
-   is an *atom provider* (P-013: `atoms.yaml` + `KernelAtomProvider`, or a
-   `libhnl_ext_*` cdylib driver — implementation-agnostic); `-c` is an *FFI
+   is an *atom provider* (P-013: an `atoms.yaml` spec — `module:` +
+   `atoms:` entries, one module per document with `atoms-<module>.yaml`
+   siblings — resolved via `KernelAtomProvider`/
+   `registry_from_atoms_kernel`, or a `libhnl_ext_*` cdylib driver —
+   implementation-agnostic); `-c` is an *FFI
    binding* into an actual C library; `-js` binds a JS engine. A Rust
    implementation behind the atoms mechanism is `-native`, never `-c` —
    `lib-ip-c` was renamed `lib-ip-native` for exactly this reason.
 2. **License is MIT only**, one `LICENSE` file. `LICENSE-APACHE`/`LICENSE-MIT`
    pairs fold into it; `license = "MIT OR Apache-2.0"` disappears with the
    crates.
-3. **CI is bupha-only**: root `ci.sh` (the repo's gate) + a committed
-   `bupha.toml` with `runner.kind = "script"`, `cmd = "bash ci.sh"` and
-   `status.context = "ci/bupha"`.
+3. **CI is bupha-only**: a committed `bupha.toml` (`runner.kind =
+   "script"`, `status.context = "ci/bupha"`) runs the repo's
+   `workflows/gate.yaml` campaign — the shared `handl-gates` bundle via
+   `include:` — and `scripts/hnl-gate.sh` is the local `hnl
+   typecheck`/`lint`/`test` gate (`ci.sh` is retired fleet-wide).
 4. **The shell is a bug, not a feature.** It is removed in the same change that
    gives the loader git deps — never repo-by-repo, because a repo whose shell is
    gone while the loader cannot fetch it becomes unbuildable for its consumers.
