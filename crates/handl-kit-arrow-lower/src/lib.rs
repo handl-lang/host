@@ -2674,7 +2674,10 @@ fn lower_match(
 ///   (`literal_children`), or a computed key (`[expr]`/`(expr)` —
 ///   desugared to `paren`) that lowers to a compile-time constant such
 ///   as an env binding `k :: "a"`; nested sub-patterns per key,
-///   `...rest` via `obj_except`; the empty `{}` pattern is the `is_obj`
+///   `...rest` via `obj_except`; bare leaf children are the `{x, y}`
+///   shorthand (`entry{key: x, value: x}` — non-wildcard names bind,
+///   wildcards require no field); the empty `{}` pattern is the
+///   `is_obj`
 ///   test. A *runtime-valued* computed key lowers through
 ///   `lower_node(pat_env)` into a tuple-evaluated term: when any entry's
 ///   key is dynamic the pattern emits `Check(is_obj)` then
@@ -2921,7 +2924,12 @@ fn compile_pattern(
     //    guard: non-objects and missing keys fall through.
     if role("entries", "object") {
         let mut rest: Option<usize> = None;
-        let mut entry_indices: Vec<usize> = Vec::new();
+        // Pattern children in source order: `Some(name)` marks a
+        // shorthand leaf child (`{x, y}` — key and binder are the same
+        // name, the `entry{key: x, value: x}` reading
+        // `try_object_pattern` gives); `None` marks a real `entry`
+        // node whose key resolves below.
+        let mut item_indices: Vec<(usize, Option<String>)> = Vec::new();
         for &c in children(pat).iter() {
             let en = ast
                 .get(AstRef::new(c))
@@ -2941,9 +2949,24 @@ fn compile_pattern(
                 }
                 rest = Some(c);
             } else if is_entry {
-                entry_indices.push(c);
+                item_indices.push((c, None));
+            } else {
+                // Shorthand entry (`{x, y}`): the parser leaves the
+                // `var` itself as the object child. A non-wildcard
+                // leaf binds field `name` to `var name`; a wildcard
+                // binds nothing and requires no field —
+                // `try_object_pattern`'s non-entry-child arm. Other
+                // children are ignored, mirroring it.
+                let is_leaf = lang
+                    .pattern_role_is(&en.kind, "leaf")
+                    .unwrap_or(en.kind == "var");
+                if is_leaf
+                    && let Some(name) = en.payload.as_str()
+                    && !is_wildcard_name(name)
+                {
+                    item_indices.push((c, Some(name.to_string())));
+                }
             }
-            // Other children are ignored, mirroring `try_object_pattern`.
         }
 
         // Resolve each entry's key first so a runtime-valued key can be
@@ -2965,9 +2988,21 @@ fn compile_pattern(
             val_idx: usize,
         }
         let mut entries: Vec<Entry> = Vec::new();
-        for &e in &entry_indices {
+        for (e, shorthand) in &item_indices {
+            if let Some(name) = shorthand {
+                // Shorthand leaf child — a static key equal to the
+                // binder name, and the child itself as the value
+                // sub-pattern (a `var` leaf binds `name` to the
+                // field's value, exactly like `entry{key: x, value: x}`).
+                entries.push(Entry {
+                    static_key: Some(name.clone()),
+                    dyn_key: None,
+                    val_idx: *e,
+                });
+                continue;
+            }
             let en = ast
-                .get(AstRef::new(e))
+                .get(AstRef::new(*e))
                 .ok_or_else(|| format!("object entry {e} out of bounds"))?;
             let key_idx = child_at_role_or_pos(en, lang, "key", 0)
                 .ok_or_else(|| format!("object entry {e} missing key child"))?;

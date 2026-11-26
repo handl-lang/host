@@ -324,16 +324,22 @@ fn object_patterns() {
 }
 
 #[test]
-fn object_pattern_bare_var_child_binds_nothing() {
+fn object_pattern_bare_var_child_binds() {
     // `{x}` — the parser emits a bare `var` child, not an `entry`.
-    // `try_object_pattern` ignores non-entry children, and the lowerer
-    // mirrors it ("Other children are ignored"), so the pattern is the
-    // *empty* object pattern: it matches any object and binds nothing.
-    // Field punning (`{x}` ≡ `{x: x}`) is not a language feature —
-    // T-007b, wontfix by eval semantics.
-    assert_lowered(r#"match { "a": 1 } { {x}: "obj", _: "no" }"#);
+    // `try_object_pattern` reads it as the shorthand
+    // `entry{key: x, value: x}` (exec 6703b33, I-010): field `x` binds
+    // `x`, a missing field falls through, and a wildcard binds nothing
+    // and requires no field.
+    assert_lowered(r#"match { "x": 7 } { {x}: x, _: 0 }"#);
+    assert_lowered(r#"match { "x": 7, "y": 2 } { {x, y}: x + y, _: 0 }"#);
+    assert_lowered(r#"match { "y": 2 } { {x, y}: x + y, _: 0 }"#);
     assert_lowered(r#"match 5 { {x}: "obj", _: "no" }"#);
-    // The spelled-out entry form does bind.
+    // A wildcard shorthand child requires no field and binds nothing.
+    assert_lowered(r#"match { "a": 1 } { {_}: "obj", _: "no" }"#);
+    assert_lowered(r#"match { "a": 1 } { {_, x}: x, _: 0 }"#);
+    // Mixed shorthand + spelled-out entries, and `...rest`.
+    assert_lowered(r#"match { "x": 1, "a": 5, "b": 2 } { {x, "a": y, ...r}: x + y + r.b, _: 0 }"#);
+    // The spelled-out entry form binds identically.
     assert_lowered(r#"match { "x": 7 } { {x: x}: x, _: 0 }"#);
 }
 
