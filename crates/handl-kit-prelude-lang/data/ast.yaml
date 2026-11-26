@@ -896,6 +896,31 @@
     required:
       - type
     type: object
+# `mode_ascribe` — ambient-mode ascription `T @ μ` (PL-0004 E1;
+# design/effects-ambient-modes.md §1). Roles `type`/`mode`: the type
+# (or subject, in term position) and the mode expression — a bracketed
+# set `[Algebra(payload), …]`, a bare `Algebra(payload)` call, a mode
+# variable, or `[]` (pure). The mode is judgement metadata
+# (`Γ ⊢ t : A @ μ`), never part of `A`: `eval.mode_ascribe` erases to
+# the `type` child like `eval.type-annot`, and `type.mode_ascribe`'s
+# `synth_mode_ascribe` judgment records the elaborated mode set on the
+# node while synthesizing the `type` child unchanged.
+- id: ast.mode_ascribe
+  node_kind: mode_ascribe
+  children:
+    - role: type
+    - role: mode
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
 - id: ast.unary.neg
   node_kind: unary.neg
   children:

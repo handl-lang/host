@@ -423,3 +423,11 @@
   node_kind: type-annot
   rule: !Replace
     path: [0]
+# `mode_ascribe` — `T @ μ` erases to its `type`/subject child (child 0
+# per `ast.mode_ascribe`'s role layout), same convention as
+# `type-annot`: the mode set is checker-owned judgement metadata.
+- id: transform.exec-erasure.mode_ascribe
+  pass: exec-erasure
+  node_kind: mode_ascribe
+  rule: !Replace
+    path: [0]

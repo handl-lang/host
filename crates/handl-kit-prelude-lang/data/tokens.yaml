@@ -303,6 +303,15 @@
 - id: token.at_right
   label: "@>"
   category: operator
+# `@` — ambient-mode ascription `T @ [Algebra(payload), …]` / `T @ m`
+# (PL-0004 E1; design/effects-ambient-modes.md §1). Infix on a type
+# expression; the right operand is a mode expression — the bracketed
+# set of algebra applications, a mode variable, or a single
+# `Algebra(payload)` call. Distinct from the `<@`/`@>` whiskers.
+- id: token.at
+  label: "@"
+  category: operator
+  doc: "**Ambient mode ascription** `T @ [Algebra(payload), …]`\n\n```\n`f` : (`A` ~> `B`) @ [`Effects`(`S`)]\n```\n\nJudgement suffix `Γ ⊢ t : A @ μ` — `μ` is a set of applications of declared mode algebras (`[]` is pure)."
 - id: token.sharp
   label: "#"
   category: operator

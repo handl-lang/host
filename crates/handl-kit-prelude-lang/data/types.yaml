@@ -2370,6 +2370,24 @@
     args: []
     source: Judgment
 
+# `mode_ascribe` — ambient-mode ascription `T @ μ` (PL-0004 E1). In
+# *type* position `dep_synth_type` consumes the node directly (the
+# `type` child synthesizes unchanged; the mode set is judgement
+# metadata recorded on the node — `A` and `μ` stay separate per
+# `Γ ⊢ t : A @ μ`). This rule covers the *term*-position reading
+# `e @ μ`: `synth_mode_ascribe` synthesizes the subject and records
+# the elaborated mode set the same way.
+- id: type.mode_ascribe
+  node_kind: mode_ascribe
+  synth: !Op
+    name: synth_mode_ascribe
+    args: []
+    source: Judgment
+  check: !Op
+    name: synth_mode_ascribe
+    args: []
+    source: Judgment
+
 # `template` — template literals always produce strings. The eval scheme
 # uses `eval_template` (a foreign op); the type is always `type.string`
 # (ADR-0054 legacy migration).

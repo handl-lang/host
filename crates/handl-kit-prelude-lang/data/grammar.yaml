@@ -116,6 +116,25 @@
     payload_extract:
       - child: 0
         field: name
+# `mode_ascribe.infix` — ambient-mode ascription `T @ μ`
+# (PL-0004 E1; design/effects-ambient-modes.md §1). The judgement
+# suffix `Γ ⊢ t : A @ μ`: child 0 is the type/subject expression,
+# child 1 the mode expression — the bracketed set
+# `@ [Effects(S), Cost(3)]`, a bare `Algebra(payload)` call, a mode
+# variable (`@ m`, E3), or `[]` (pure). `lbp` 13 keeps `@` inside the
+# `:` annotation's right operand (rbp 9) and inside `~>`'s; the right
+# operand parses at rbp 90 — a postfix-level mode expression (call,
+# field-access, index, array literal, var), never a full term, so
+# `T @ [μ] := e` and `T @ m ~> U` split correctly.
+- id: grammar.mode_ascribe.infix
+  token: token.at
+  position: Infix
+  binding_power:
+    - 13
+    - 90
+  child_shape:
+    node_kind: mode_ascribe
+    arity: 2
 - id: grammar.field-access.postfix
   token: token.dot
   position: Infix
