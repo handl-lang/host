@@ -8,3 +8,38 @@
 # (including `match` patterns, where a bound name compares by equality).
 true: true
 false: false
+
+# Mode algebras (graded-arrows.md §3 adj. 1, MTT migration pl-0002 M2).
+#
+# An `Algebra` is a Handl data record `{compose, unit, order}` — the
+# operations `mode_compose` needs, exposed as data fields so algebras are
+# selectable per composition site. `compose`/`order` are either a string
+# tag naming a builtin operation or an applicable Handl function;
+# `unit` is a mode value (the identity for `compose`).
+#
+# Mode payloads are *calls*: `~[Cost(3)]~>` reads "mode `3` in the
+# `Cost` algebra" — the call head selects `mode.algebra.<Head>` here,
+# the argument is the grade payload. Bare non-call modes
+# (`~[{io: S}]~>`, `~[Addable]~>`) compose under
+# `mode.algebra.default`.
+#
+# `mode.algebra.default` — the canonical default algebra
+# (graded-arrows.md §4.2/§6): numeric add for literal counts,
+# record-row union for rows, equality for named grades, fresh meta +
+# deferred diagnostic otherwise (`compose: "canonical"`).
+mode.algebra.default:
+  compose: "canonical"
+  unit: null
+  order: "eq"
+
+# `mode.algebra.effects` — the effect-row instance shipped for the M4
+# assessment (design/effects-as-modes.md §5): `compose` is record-row
+# union with entry merge (shared ops must agree — `==` keeps, a
+# conflict is the honest bound), `unit` the empty row, `order` row-width
+# subsumption (`s' ⊇ s` — the `io_headed` direction, consumed by M3).
+# `IO<sig>`/`handle`/`perform` remain the canonical effect mechanism;
+# this only *permits* `~[{io: S}]~>` / `~[Effects(row)]~>` annotations.
+mode.algebra.effects:
+  compose: "row_union"
+  unit: {}
+  order: "row_width"
