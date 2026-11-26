@@ -5,7 +5,7 @@
 //! ```json
 //! { "paths": ["tests"], "filter": "name", "tags": ["slow"],
 //!   "list": false, "changed": false, "jobs": 4, "report": "human",
-//!   "cache": false }
+//!   "cache": false, "timeout": 30 }
 //! ```
 //!
 //! - `paths` (required, array of strings) — roots to discover under. The
@@ -22,6 +22,8 @@
 //!   render the run report returned in `report`.
 //! - `cache` (optional, bool, default `false`) — use the ADR-0089 on-disk
 //!   result cache.
+//! - `timeout` (optional, positive number, seconds) — per-test evaluation
+//!   bound (`RunConfig::timeout`); omitted = unbounded.
 //!
 //! ## Response
 //!
@@ -34,6 +36,7 @@
 //! failure regardless of `status`, matching `hnl test`'s exit code.
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 use handl_platform::{
     CapabilityId, CapabilityMetadata, CapabilityRequest, CapabilityResponse, PlatformError, Plugin,
@@ -134,6 +137,7 @@ fn run_test(
         .get("report")
         .and_then(|v| v.as_str())
         .unwrap_or("human");
+    let timeout = parse_timeout(payload)?;
 
     let plan = if changed {
         engine::discover_with(&engine::ChangedProvider, source, &paths, None)
@@ -193,6 +197,9 @@ fn run_test(
     }
     if use_coverage {
         config = config.with_coverage(engine::coverage::CoverageSession::new());
+    }
+    if let Some(limit) = timeout {
+        config = config.with_timeout(limit);
     }
 
     let report = engine::run_with_config(source, &plan, &mut config);
@@ -292,6 +299,25 @@ fn parse_string_array(
             "test: `{field}` must be an array of strings"
         ))),
     }
+}
+
+/// Parse the optional `timeout`: a positive number of seconds.
+fn parse_timeout(payload: &serde_json::Value) -> Result<Option<Duration>, PlatformError> {
+    let raw = match payload.get("timeout") {
+        None | Some(serde_json::Value::Null) => return Ok(None),
+        Some(v) => v,
+    };
+    let secs = raw.as_f64().ok_or_else(|| {
+        PlatformError::InvalidMetadata(
+            "test: `timeout` must be a positive number of seconds".into(),
+        )
+    })?;
+    if !(secs.is_finite() && secs > 0.0) {
+        return Err(PlatformError::InvalidMetadata(
+            "test: `timeout` must be a positive number of seconds".into(),
+        ));
+    }
+    Ok(Some(Duration::from_secs_f64(secs)))
 }
 
 /// Translate the discovery parse errors into JSON.
@@ -526,6 +552,41 @@ mod tests {
                 .expect("4 ok")
                 .is_some()
         );
+    }
+
+    #[test]
+    fn timeout_accepts_positive_numbers_of_seconds() {
+        assert!(
+            parse_timeout(&serde_json::json!({}))
+                .expect("absent ok")
+                .is_none()
+        );
+        assert_eq!(
+            parse_timeout(&serde_json::json!({ "timeout": 30 }))
+                .expect("30 ok"),
+            Some(Duration::from_secs(30))
+        );
+        assert_eq!(
+            parse_timeout(&serde_json::json!({ "timeout": 0.5 }))
+                .expect("0.5 ok"),
+            Some(Duration::from_millis(500))
+        );
+    }
+
+    #[test]
+    fn timeout_rejects_non_positive_and_non_numeric_values() {
+        for bad in [
+            serde_json::json!({ "timeout": 0 }),
+            serde_json::json!({ "timeout": -1 }),
+            serde_json::json!({ "timeout": "fast" }),
+            serde_json::json!({ "timeout": true }),
+        ] {
+            let err = parse_timeout(&bad).expect_err("must fail");
+            assert!(
+                matches!(err, PlatformError::InvalidMetadata(_)),
+                "got {err:?}"
+            );
+        }
     }
 
     #[test]
