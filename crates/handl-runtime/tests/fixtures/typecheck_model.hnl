@@ -1815,6 +1815,16 @@ do {
             { val: r.val, state: r["state"] }
           }
         } else {
+          if schema != null && schema.schema == "Inductive" {
+            --- `Inductive` is not a `new` schema the checker expands
+            --- here (PL-0003 I2): the parse layer lowers a well-formed
+            --- `X := new Inductive { C : F(i⃗), … }` family record to
+            --- the `data` node `synth_data` consumes, so a surviving
+            --- `new` node is malformed — report honestly (the NBE
+            --- `synth_new_decl` `Inductive` arm's hard error) instead
+            --- of minting a mode family named `X`.
+            { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_new: `new Inductive` expects a constructor record `{ C : F(i⃗), … }` whose codomains name the declared family `F` — well-formed `X := new Inductive { … }` declarations lower to `data` at parse time") }
+          } else {
           do {
             alg := funcs.synth_type_(funcs, s, type_idx)
             carrier := if type_tag(alg.val) == "type.family_app" {
@@ -1842,6 +1852,7 @@ do {
             constraint := make_type("type.family_app", set(set({}, "name", name), "args", [rigid]))
             r := register_instance_(funcs, s1, name, [rigid], constraint, dict_idx)
             { val: r.val, state: r["state"] }
+          }
           }
         }
       }
@@ -3893,6 +3904,173 @@ do {
     }
     restored := set(tc_restore(res["state"], mark), "results", old_results)
     { val: fn_ty, state: restored }
+  }
+
+  --- ------------------------------------------------------------------
+  --- `check_inductive_spec` (PL-0003 I2): strict positivity over an
+  --- `inductive.spec` VALUE — the spec-value twin of the retired AST
+  --- positivity walk. Every `ctors[].args[].type` owned type-expr node
+  --- must be positive in the spec's `name`: `function` params and
+  --- `->`/`~>` call domains are negative positions; every other child
+  --- position is positive. `synth_data` runs it on the spec it binds
+  --- (declaration-time, the same point the AST walk had); the
+  --- `check_inductive_spec` judgment op re-checks computed specs.
+  --- The desugar native keeps its source-level early-error mirror.
+  --- ------------------------------------------------------------------
+
+  --- `owned_children_` — `payload.children` of an owned spec node
+  --- (the nested owned records), `[]` when absent — the value-rep
+  --- twin of the AST `children` walk.
+  owned_children_ := [v]~> do {
+    payload := get_or(v, "payload", null)
+    if type_of(payload) == "obj" {
+      kids := get_or(payload, "children", [])
+      if type_of(kids) == "arr" { kids } else { [] }
+    } else {
+      []
+    }
+  }
+
+  --- `owned_occurs_name_` — any-occurrence walk over an owned spec
+  --- type-expr value: does it mention `name` (a `var` leaf whose
+  --- payload is the name) anywhere? `children` are walked first, then
+  --- `body` — the same order the AST walk used.
+  owned_occurs_name_ := [funcs, v, name]~> do {
+    if !is_owned_node_(v) {
+      false
+    } else {
+      do {
+        if get_or(v, "kind", "") == "var" {
+          get_or(v, "payload", null) == name
+        } else {
+          do {
+            payload := get_or(v, "payload", null)
+            kids := owned_children_(v)
+            child_hit := while { found: false, remaining: kids } {
+              [st]~> if is_empty(st.remaining) || st.found {
+                { out: st.found }
+              } else {
+                { state: { found: st.found || funcs.owned_occurs_name_(funcs, first_value(st.remaining), name), remaining: drop(st.remaining, 1) } }
+              }
+            }
+            body := if type_of(payload) == "obj" { get_or(payload, "body", null) } else { null }
+            body_hit := is_owned_node_(body) && funcs.owned_occurs_name_(funcs, body, name)
+            child_hit || body_hit
+          }
+        }
+      }
+    }
+  }
+
+  --- `owned_children_positive_` — every child of `kids` is positive
+  --- in `name` (the "all children" reading of the positivity walk).
+  owned_children_positive_ := [funcs, kids, name]~> while { bad: false, remaining: kids } {
+    [st]~> if is_empty(st.remaining) || st.bad {
+      { out: !st.bad }
+    } else {
+      { state: { bad: st.bad || !funcs.owned_positivity_ok_(funcs, first_value(st.remaining), name), remaining: drop(st.remaining, 1) } }
+    }
+  }
+
+  --- `owned_positivity_ok_` — the owned type-expr `v` must not mention
+  --- `name` in a domain (negative) position.
+  owned_positivity_ok_ := [funcs, v, name]~> do {
+    if !is_owned_node_(v) {
+      --- Scalar payload entries and non-node children carry no
+      --- occurrence — the same "absent child" reading the AST walk
+      --- gives an out-of-bounds index.
+      true
+    } else {
+      do {
+        kind := get_or(v, "kind", "")
+        kids := owned_children_(v)
+        if kind == "function" {
+          do {
+            --- params child (0) is the domain — the former must not
+            --- occur; the codomain (1) stays positive.
+            dom_bad := len(kids) >= 1 && funcs.owned_occurs_name_(funcs, at(kids, 0), name)
+            if dom_bad {
+              false
+            } else {
+              len(kids) < 2 || funcs.owned_positivity_ok_(funcs, at(kids, 1), name)
+            }
+          }
+        } else {
+          do {
+            callee := if len(kids) >= 1 { at(kids, 0) } else { null }
+            callee_is_arrow := is_owned_node_(callee) && get_or(callee, "kind", "") == "var" && (get_or(callee, "payload", null) == "->" || get_or(callee, "payload", null) == "~>")
+            if kind == "call" && len(kids) >= 3 && callee_is_arrow {
+              do {
+                --- `call(->, dom, cod)`: the domain is the negative
+                --- position; the codomain stays positive.
+                dom_bad := funcs.owned_occurs_name_(funcs, at(kids, 1), name)
+                if dom_bad {
+                  false
+                } else {
+                  funcs.owned_positivity_ok_(funcs, at(kids, 2), name)
+                }
+              }
+            } else {
+              --- Other applications and every other node kind: all
+              --- children are positive positions.
+              funcs.owned_children_positive_(funcs, kids, name)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  --- `spec_positivity_violation_` — the name of the first ctor whose
+  --- arg domains violate positivity in `family`, or `""`.
+  spec_positivity_violation_ := [funcs, spec, family]~> do {
+    raw_ctors := get_or(spec, "ctors", [])
+    ctors := if type_of(raw_ctors) == "arr" { raw_ctors } else { [] }
+    while { bad: "", remaining: ctors } {
+      [st]~> if is_empty(st.remaining) || st.bad != "" {
+        { out: st.bad }
+      } else {
+        do {
+          c := first_value(st.remaining)
+          cname := get_or(c, "name", "")
+          raw_args := get_or(c, "args", [])
+          args := if type_of(raw_args) == "arr" { raw_args } else { [] }
+          arg_bad := while { found: false, remaining: args } {
+            [a_st]~> if is_empty(a_st.remaining) || a_st.found {
+              { out: a_st.found }
+            } else {
+              do {
+                a := first_value(a_st.remaining)
+                aty := get_or(a, "type", null)
+                hit := is_owned_node_(aty) && !funcs.owned_positivity_ok_(funcs, aty, family)
+                { state: { found: a_st.found || hit, remaining: drop(a_st.remaining, 1) } }
+              }
+            }
+          }
+          { state: { bad: if arg_bad { cname } else { st.bad }, remaining: drop(st.remaining, 1) } }
+        }
+      }
+    }
+  }
+
+  --- `check_inductive_spec_` — `{val: ok, state}`: `ok` is `true` when
+  --- `spec` is a well-formed `inductive.spec` value with no negative
+  --- occurrence; otherwise `state` carries an `error` diagnostic (the
+  --- model's diagnostic-channel twin of NBE's hard `Err`).
+  check_inductive_spec_ := [funcs, s, spec]~> do {
+    if type_tag(spec) != "inductive.spec" {
+      { val: false, state: tc_add_diagnostic(s, "error", "check_inductive_spec: expected an inductive.spec value") }
+    } else {
+      do {
+        family := get_or(spec, "name", "")
+        bad := funcs.spec_positivity_violation_(funcs, spec, family)
+        if bad == "" {
+          { val: true, state: s }
+        } else {
+          { val: false, state: tc_add_diagnostic(s, "error", "check_inductive_spec: strict positivity violated: constructor '" + bad + "' mentions '" + family + "' in a negative position") }
+        }
+      }
+    }
   }
 
   --- Composition `f >>> g` in `type.function` coordinates (used by the
@@ -7869,10 +8047,34 @@ do {
             { val: fval, state: container_result["state"] }
           }
         } else {
-          do {
-            field_name := field_value
-            fields := get_or(container, "fields", {})
-            { val: get_or(fields, field_name, null), state: container_result["state"] }
+          if type_tag(container) == "type.family" {
+            --- `F.<field>` scope bindings (PL-0003 I2): `synth_data`
+            --- gamma-binds `"<F>.spec"` to the `inductive.spec` value,
+            --- so `Nat.spec` resolves through the same
+            --- `"<family>.<field>"` lookup NBE's `record_field_type`
+            --- `type.family` arm performs. Other projections keep the
+            --- pre-existing `null` reading (the model binds no `.rec`
+            --- eliminator type — NBE's is stricter).
+            do {
+              fname := get_or(container, "name", "")
+              field_str := if type_of(field_value) == "str" { field_value } else { "" }
+              bound := tc_lookup(container_result["state"], fname + "." + field_str)
+              { val: bound, state: container_result["state"] }
+            }
+          } else {
+            if type_tag(container) == "inductive.spec" {
+              --- The spec value itself is the container: `.ctors` /
+              --- `.params` / `.name` project its fields — the field
+              --- *value* rides the type channel (the NBE
+              --- `record_field_type` `inductive.spec` arm).
+              { val: get_or(container, field_value, null), state: container_result["state"] }
+            } else {
+              do {
+                field_name := field_value
+                fields := get_or(container, "fields", {})
+                { val: get_or(fields, field_name, null), state: container_result["state"] }
+              }
+            }
           }
         }
       }
@@ -8631,6 +8833,45 @@ do {
                   }
                 }
               } else {
+              if target_tag == "type.family" {
+                --- `F.<field>` scope bindings (PL-0003 I2): `synth_data`
+                --- gamma-binds `"<F>.spec"` to the `inductive.spec`
+                --- value, so `Nat.spec` resolves through the same
+                --- `"<family>.<field>"` lookup NBE's
+                --- `record_field_type` `type.family` arm performs.
+                --- Other projections keep the pre-existing fresh-meta
+                --- reading (the model binds no `.rec` eliminator type —
+                --- NBE's arm is stricter).
+                do {
+                  fname := get_or(target_result.typ, "name", "")
+                  bound := tc_lookup(target_result["state"], fname + "." + field_name)
+                  if bound == null {
+                    do {
+                      fresh := tc_fresh_meta(target_result["state"])
+                      { val: meta_value(fresh.id), state: fresh["state"] }
+                    }
+                  } else {
+                    { val: bound, state: target_result["state"] }
+                  }
+                }
+              } else {
+              if target_tag == "inductive.spec" {
+                --- The spec value itself is the container: `.ctors` /
+                --- `.params` / `.name` project its fields — the field
+                --- *value* rides the type channel (the NBE
+                --- `record_field_type` `inductive.spec` arm).
+                do {
+                  fv := get_or(target_result.typ, field_name, null)
+                  if fv == null {
+                    do {
+                      fresh := tc_fresh_meta(target_result["state"])
+                      { val: meta_value(fresh.id), state: fresh["state"] }
+                    }
+                  } else {
+                    { val: fv, state: target_result["state"] }
+                  }
+                }
+              } else {
               if target_tag == "type.record" {
                 do {
                   fields := get_or(target_result.typ, "fields", {})
@@ -8646,6 +8887,8 @@ do {
                   fresh := tc_fresh_meta(target_result["state"])
                   { val: meta_value(fresh.id), state: fresh["state"] }
                 }
+              }
+              }
               }
               }
             }
@@ -8941,21 +9184,43 @@ do {
           }
         }
       }
-      --- PL-0003 I1: materialize the `inductive.spec` value — the
+      --- PL-0003 I1/I2: materialize the `inductive.spec` value — the
       --- declaration's spec as ordinary data (owned type-expr nodes,
-      --- not arena indices) — into `results` under `"<name>.spec"`,
-      --- alongside the `type.family`/`type.ctor_sig` gamma bindings.
-      --- Inert for now; I2+ consumes it. `results` (not gamma) is the
-      --- value channel — the spec is data, not a type.
+      --- not arena indices). `check_inductive_spec` runs strict
+      --- positivity over the spec value at declaration-bind time — a
+      --- violation lands as an `error` diagnostic, the model's
+      --- diagnostic-channel twin of NBE's hard `Err`. `"<name>.spec"`
+      --- binds in `results` (the value channel spec consumers read:
+      --- `spec_ctor_sig_`, match coverage) AND in gamma (the `F.spec`
+      --- projection surface — the `F.rec` scope-binding convention;
+      --- the spec is data, not a `type.*` former).
       spec_state := if name == "" {
         bound
       } else {
         do {
           spec_val := funcs.inductive_spec_(funcs, bound, name, params, ctor_specs)
-          tc_bind_result(bound, name + ".spec", spec_val)
+          chk := funcs.check_inductive_spec_(funcs, bound, spec_val)
+          s_chk := chk["state"]
+          s_ext := tc_extend(s_chk, name + ".spec", spec_val)
+          tc_bind_result(s_ext, name + ".spec", spec_val)
         }
       }
       { val: funcs.make_type("type.unit", {}), state: spec_state }
+    },
+    "check_inductive_spec": do {
+      --- PL-0003 I2: strict positivity over an `inductive.spec` *value*
+      --- — `incoming` (Seq-threaded, e.g. after a `result "F.spec"`
+      --- op) or args[0]'s scheme value. `type.unit` on success; a
+      --- negative occurrence adds an `error` diagnostic — the model's
+      --- diagnostic-channel twin of NBE's hard `Err`. This is what
+      --- makes computed specs re-checkable at use sites.
+      spec_res := if is_empty(args) {
+        { val: incoming, state: s }
+      } else {
+        funcs.eval_scheme_(funcs, s, node_idx, first_value(args), incoming)
+      }
+      chk := funcs.check_inductive_spec_(funcs, spec_res["state"], spec_res.val)
+      { val: funcs.make_type("type.unit", {}), state: chk["state"] }
     },
     "check_call": do {
       --- `transport(p, v)` in check position — the call-form twin of
@@ -10041,6 +10306,12 @@ do {
     spec_declares_ctor_: spec_declares_ctor_,
     spec_ctor_sig_: spec_ctor_sig_,
     pattern_ctor_sig_: pattern_ctor_sig_,
+    owned_children_: owned_children_,
+    owned_occurs_name_: owned_occurs_name_,
+    owned_children_positive_: owned_children_positive_,
+    owned_positivity_ok_: owned_positivity_ok_,
+    spec_positivity_violation_: spec_positivity_violation_,
+    check_inductive_spec_: check_inductive_spec_,
     instantiate_ctor_: instantiate_ctor_,
     flow_cod_: flow_cod_,
     flow_compose_: flow_compose_,
