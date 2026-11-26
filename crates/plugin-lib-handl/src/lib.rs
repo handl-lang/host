@@ -299,6 +299,7 @@ pub fn wrap_dep_fn_with_sig(
         params: Rc::from(Vec::<String>::new()),
         rest: Some(Rc::from(DEP_WRAP_REST)),
         array_pattern: false,
+        param_defs: None,
         body_def: Rc::new(handl_value::TaggedValue::from(handl_language::ast_value(
             &body,
         ))),
