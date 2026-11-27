@@ -140,9 +140,6 @@
 - id: token.keyword.axiom
   label: axiom
   category: keyword
-- id: token.keyword.data
-  label: data
-  category: keyword
 - id: token.keyword.acc
   label: acc
   category: keyword

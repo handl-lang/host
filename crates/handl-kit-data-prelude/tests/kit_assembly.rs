@@ -34,12 +34,18 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (ADR-0158) — landed upstream after the `exists` bump.
     // -1 `token.bind` removed — `:=` (`token.colon_equal`) is the only
     // binding operator; `=`/`==` lex to `token.equal` (equality).
+    // -1 `token.keyword.data` removed — the `data` declaration keyword
+    // is retired; `data` lexes as `token.identifier` and family
+    // declarations use `X := new Inductive { … }`.
     // +5 cubical-judgment keywords (ADR-0208 P2): `transp`/`hcomp`/
     // `Comp`/`trans`/`symm` (`Comp` capitalized — lowercase `comp` is a
     // live identifier, the `J` precedent).
     // +1 `token.dim_arrow_open` for `~>[` (dimension-arrow operator +
     // trailing bracket — the `>>>[` precedent; mints `dim_arrow`).
-    assert_eq!(lang.tokens.len(), 113);
+    // +2 `token.{at,keyword.new}` for the `X := new T(args) {…}`
+    // mode/algebra declaration syntax (PL-0002) — landed without a
+    // count refresh; measured count is authoritative.
+    assert_eq!(lang.tokens.len(), 114);
 
     // Lexer rules: 91 v0.1 + 8 Option B frontier operators/keywords;
     // `lex.keyword.handler` removed with the `handler` keyword.
@@ -51,8 +57,8 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `lex.keyword.exists` for the `Sigma` shorthand keyword.
     // -1 `lex.keyword.let` tombstone removed — `let` is not a keyword and
     // lexes as `token.identifier`.
-    // -1 `lex.keyword.data` — the `data` keyword is retired (its token
-    // stays as a keyword tombstone; `acc` is deliberately NOT reserved,
+    // -1 `lex.keyword.data` — the `data` keyword is retired; `data`
+    // lexes as `token.identifier` (`acc` is deliberately NOT reserved,
     // so the ADR-0158 clause adds no lexer rule).
     // -1 `lex.bind` (`::`) removed with `token.bind`.
     // +5 `lex.keyword.{transp,hcomp,comp,trans,symm}` for the cubical
@@ -63,7 +69,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `lex.keyword.univalence` for `univalence(e)` (ADR-0208
     // P4) — same frontier-pass gap.
     // +1 `lex.dim_arrow_open` for `~>[` (priority 7 — before `~>`).
-    assert_eq!(lang.lexer_rules.len(), 112);
+    // +2 `lex.{at,new}` for the `X := new T(args) {…}` mode/algebra
+    // declaration syntax (PL-0002) — landed without a count refresh.
+    assert_eq!(lang.lexer_rules.len(), 114);
 
     // Grammar rows: 64 — v0.1 surface syntax (ADR-0074) + `::`/`data`
     // additions; `|` pipe re-added for `data` constructor alternatives;
@@ -90,7 +98,9 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // (ADR-0208 P2).
     // +1 `grammar.dim_arrow.bare.infix` for `A ~>[n] B` (same
     // `dim_arrow` node as `~[n]~>`; `]` separator).
-    assert_eq!(lang.grammar.len(), 92);
+    // +2 `grammar.{at,new}` rows for the `X := new T(args) {…}`
+    // mode/algebra declaration syntax (PL-0002) — same count drift.
+    assert_eq!(lang.grammar.len(), 94);
 
     // +13 Term frontier eval rules + 1 transport rule.
     // +1 `eval.dimension` for the dimension specialization `f<...>`
@@ -111,7 +121,10 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +2 `eval.{glue,fibrant}` proof/type-erasure schemes
     // (ADR-0208 P3).
     // +1 `eval.univalence` proof-erasure scheme (ADR-0208 P4).
-    assert_eq!(lang.eval.len(), 99);
+    // +2 `eval.{graded_arrow,mode_ascribe}` — graded-arrow erasure
+    // (graded-arrows P1) and `@ [Algebra(payload), …]` mode-ascription
+    // erasure (PL-0004 E1) — landed without a count refresh.
+    assert_eq!(lang.eval.len(), 101);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
     // `flow` (arrow-parser refinement roles) additions + arrow-combinator
@@ -136,7 +149,11 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `ast.exists` for the `exists` sugar node (mirrors `ast.forall`).
     // +5 `ast.{transp,hcomp,comp,trans,symm}` child-role shapes
     // (ADR-0208 P2).
-    assert_eq!(lang.ast.len(), 103);
+    // +3 `ast.{new,mode_ascribe,graded_arrow}` — `X := new T(args) {…}`
+    // declaration (PL-0002), `@ [Algebra(payload), …]` mode ascription
+    // (PL-0004 E1), and graded arrows (graded-arrows P1) — landed
+    // without a count refresh.
+    assert_eq!(lang.ast.len(), 106);
 
     // Capabilities: lex + parse (from `tokens`) + textmate (from `textmate`).
     assert_eq!(lang.caps.len(), 3);
@@ -173,8 +190,8 @@ fn assemble_canonical_into_runtime_binds_engines() {
     let rt = Runtime::from_registry(kit.lang().clone(), &registry, &config)
         .expect("runtime should build");
     // The runtime's language matches the assembled language.
-    assert_eq!(rt.lang().tokens.len(), 113);
-    assert_eq!(rt.lang().grammar.len(), 92);
+    assert_eq!(rt.lang().tokens.len(), 114);
+    assert_eq!(rt.lang().grammar.len(), 94);
 }
 
 #[test]
