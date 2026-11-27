@@ -632,6 +632,10 @@ mod tests {
         // the resolver across a payload language.
         let bare = LintContext::new(Language::new());
         assert!(bare.lang().lints.is_empty());
+        // Resolver-less context: `lint_engine` skips `add_resolver`.
+        // The empty language has no lexer rules, so the result is
+        // whatever the engine makes of it — the point is the path runs.
+        let _ = lint_source_with(&bare, "");
         let ctx = canonical_ctx();
         let swapped = ctx.for_language(Language::new());
         assert!(swapped.lang().lints.is_empty());

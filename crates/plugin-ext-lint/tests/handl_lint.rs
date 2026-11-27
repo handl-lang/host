@@ -92,12 +92,16 @@ fn test_registry() -> NativeLintRegistry {
     reg
 }
 
-/// ast: 0: foo with span [1,3).
+/// ast: 0: foo with span [1,3) and one foo child at index 1 — the child
+/// exercises `serialize_node`'s recursive descent.
 fn test_ast() -> (Ast, AstRef) {
     let mut ast = Ast::new();
-    let mut node = AstNode::new("foo").with_payload(json!({"children": []}));
+    let mut node = AstNode::new("foo").with_payload(json!({"children": [1]}));
     node.span = Some(Span { start: 1, end: 3 });
     ast.push(node);
+    let mut child = AstNode::new("foo").with_payload(json!({"children": []}));
+    child.span = Some(Span { start: 1, end: 2 });
+    ast.push(child);
     (ast, AstRef::new(0))
 }
 
