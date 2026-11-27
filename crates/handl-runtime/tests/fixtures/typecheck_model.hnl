@@ -4269,7 +4269,8 @@ do {
 
   --- `mode_honest_(s, what)` — the honest-bound fallback: a fresh meta
   --- stands for the unresolvable mode and a warning diagnostic records
-  --- the deferral (the `infer_hom`/`handle_sig_check` convention).
+  --- the deferral (the `infer_hom`/`ambient_handle_modality_`
+  --- convention).
   mode_honest_ := [funcs, s, what]~> do {
     m := tc_fresh_meta(s)
     { val: meta_value(m.id), state: tc_add_diagnostic(m.state, "warning", what) }
@@ -4299,34 +4300,18 @@ do {
     }
   }
 
-  --- `mode_merge_entry_(funcs, s, w, v)` — merge one shared row entry
-  --- (PL-0004 E0; `Checker::mode_merge_entry`): `w ≡ v` under `unify`
-  --- keeps the left entry (meta solutions made by the check persist
-  --- in `s.metas`); a decided mismatch yields a fresh-meta entry —
-  --- the per-entry honest bound — with a warning recorded. `unify`
-  --- is functional in `metas`, so a failed check simply keeps the
-  --- old store (the NBE `store_mark`/`store_restore` pair).
-  mode_merge_entry_ := [funcs, s, w, v]~> do {
-    ur := unify(funcs, w, v, s.metas)
-    if ur.ok {
-      { val: zonk(zonk, w, ur.metas), state: set(s, "metas", ur.metas) }
-    } else {
-      do {
-        m := tc_fresh_meta(s)
-        { val: meta_value(m.id), state: tc_add_diagnostic(m.state, "warning", "mode compose: record rows conflict on a shared key — entry is a fresh meta") }
-      }
-    }
-  }
-
-  --- `mode_rows_union_(funcs, s, a, b)` — record-row union with the
-  --- effects entry-merge rule (PL-0004 E0;
-  --- design/effects-ambient-modes.md §2): disjoint keys union; a
-  --- shared key keeps its entry iff the two entries *unify*
-  --- (`unify` — metas inside the entries solve as a side effect, a
-  --- decided failure degrades *that entry* to a fresh meta — the
-  --- per-entry honest bound — never a whole-row bound that would
-  --- discard the disjoint ops). Non-record operands are the honest
-  --- bound.
+  --- `mode_rows_union_(funcs, s, a, b)` — record-payload union for the
+  --- canonical default algebra and the `row_union`-free compose path
+  --- (PL-0004 E0; design/effects-ambient-modes.md §2): disjoint keys
+  --- union; a shared key keeps its entry iff the two entries are
+  --- structurally equal — a decided conflict degrades *that entry* to
+  --- a fresh meta (the honest bound), never a silent pick and never a
+  --- whole-row bound that would discard the disjoint keys.
+  --- PL-0004 G1/G2: the `Effects`-row entry-merge rule
+  --- (`mode_merge_entry_`'s `unify` check) is deleted with the row
+  --- encoding — record payloads are ordinary mode data now, so a
+  --- shared key compares by equality, not unification.
+  --- Non-record operands are the honest bound.
   mode_rows_union_ := [funcs, s, a, b]~> if type_of(a) == "obj" && type_of(b) == "obj" {
     do {
       merged := while { result: a, ks: keys(b), state: s } {
@@ -4343,8 +4328,9 @@ do {
                   { val: st.result, state: st["state"] }
                 } else {
                   do {
-                    mg := funcs.mode_merge_entry_(funcs, st["state"], wa, wb)
-                    { val: set(st.result, k, mg.val), state: mg["state"] }
+                    m := tc_fresh_meta(st["state"])
+                    s_w := tc_add_diagnostic(m.state, "warning", "mode compose: record rows conflict on a shared key — entry is a fresh meta")
+                    { val: set(st.result, k, meta_value(m.id)), state: s_w }
                   }
                 }
               }
@@ -4362,9 +4348,9 @@ do {
   }
 
   --- `mode_canonical_compose_` — the canonical default algebra's
-  --- `compose`: numeric add for literal counts, record-row union for
-  --- rows, equality for named grades, fresh meta + deferred diagnostic
-  --- otherwise.
+  --- `compose`: numeric add for literal counts, record-payload union
+  --- for records (`mode_rows_union_`), equality for named grades,
+  --- fresh meta + deferred diagnostic otherwise.
   mode_canonical_compose_ := [funcs, s, a, b]~> if type_of(a) == "num" && type_of(b) == "num" {
     { val: a + b, state: s }
   } else {
@@ -4389,20 +4375,18 @@ do {
 
   --- `mode_apply_compose_(funcs, s, alg, a, b)` — run the algebra's
   --- `compose` field over two payloads. The field is data: a string
-  --- tag naming a builtin operation (`canonical`, `row_union`, `add`,
-  --- `eq`) or an applicable Handl function (algebra transformers are
-  --- ordinary arrows — applied through `apply_val_`). Anything else is
-  --- the honest bound.
+  --- tag naming a builtin operation (`canonical`, `add`, `eq`) or an
+  --- applicable Handl function (algebra transformers are ordinary
+  --- arrows — applied through `apply_val_`). Anything else —
+  --- including the retired `row_union`/`row_width` `Effects`-row
+  --- opcodes (PL-0004 G1/G2) — is the honest bound.
   mode_apply_compose_ := [funcs, s, alg, a, b]~> do {
     opname := if alg == null { null } else { get_or(alg, "compose", null) }
     if type_of(opname) == "str" {
       if opname == "canonical" {
         funcs.mode_canonical_compose_(funcs, s, a, b)
       } else {
-        if opname == "row_union" {
-          funcs.mode_rows_union_(funcs, s, a, b)
-        } else {
-          if opname == "add" {
+        if opname == "add" {
             if type_of(a) == "num" && type_of(b) == "num" {
               { val: a + b, state: s }
             } else {
@@ -4420,7 +4404,6 @@ do {
             }
           }
         }
-      }
     } else {
       if alg != null && funcs.is_applicable_(funcs, opname) {
         funcs.apply_val_(funcs, s, opname, [a, b])
@@ -5791,127 +5774,12 @@ do {
     }
   }
 
-  --- `effects_residual_row_(funcs, s, sig_obj, fields, op_entries)` —
-  --- the residual row `(S ∖ S_h) ∪ {op ↦ ret}` of the `IO(S)`
-  --- codomain path (PL-0004 E2; the NBE `effects_residual_row`).
-  --- PL-0004 G1: the ambient-mode modality no longer calls this —
-  --- `handle`'s ambient residual is computed over mode *elements* in
-  --- `ambient_handle_modality_` below; this function survives for
-  --- the deprecated `IO(S)`/`IO<sig>` spelling until the G2 corpus
-  --- migration removes it. `op_entries` selects the op-type reading
-  --- (`name : A ~> B` entries — the impl domain must accept the
-  --- op's *domain* `A`); `false` keeps the `IO`-sig reading where
-  --- the entry *is* the request payload type (the only caller now).
-  ---
-  --- Coverage rules (the same three diagnostic classes both paths
-  --- emit):
-  --- - Spurious impls — `h` declares ops `S` never names → error.
-  --- - `S` non-empty with `h` covering none of it → error.
-  --- - A covered impl `h_k : dom ~> ret` whose domain rejects the
-  ---   op's declared signature → error.
-  --- Returns `{ok, row, state}` — `ok` false carries the coverage
-  --- error diagnostic already recorded.
-  effects_residual_row_ := [funcs, s, sig_obj, fields, op_entries]~> do {
-    sig_keys := keys(sig_obj)
-    field_keys := keys(fields)
-    spurious := while { result: [], remaining: field_keys } {
-      [st]~> if is_empty(st.remaining) {
-        { out: st.result }
-      } else {
-        do {
-          k := first_value(st.remaining)
-          { state: { result: if mode_row_has_(sig_obj, k) { st.result } else { [...st.result, k] }, remaining: drop(st.remaining, 1) } }
-        }
-      }
-    }
-    if !is_empty(spurious) {
-      do {
-        s2 := tc_add_diagnostic(s, "error", "typecheck: handle: handler declares impls for ops the body's sig never names: " + str_join_(spurious, ", "))
-        { ok: false, row: null, state: s2 }
-      }
-    } else {
-      do {
-        covered := while { result: [], remaining: sig_keys } {
-          [st]~> if is_empty(st.remaining) {
-            { out: st.result }
-          } else {
-            do {
-              k := first_value(st.remaining)
-              { state: { result: if mode_row_has_(fields, k) { [...st.result, k] } else { st.result }, remaining: drop(st.remaining, 1) } }
-            }
-          }
-        }
-        if !is_empty(sig_keys) && is_empty(covered) {
-          do {
-            s2 := tc_add_diagnostic(s, "error", "typecheck: handle: handler covers none of the body's declared ops (" + str_join_(sig_keys, ", ") + ") — the handle is a guaranteed no-op")
-            { ok: false, row: null, state: s2 }
-          }
-        } else {
-          do {
-            acc := while { out: {}, state: s, bad: null, remaining: sig_keys } {
-              [st]~> if st.bad != null || is_empty(st.remaining) {
-                { out: { out: st.out, state: st["state"], bad: st.bad } }
-              } else {
-                do {
-                  k := first_value(st.remaining)
-                  req := get_or(sig_obj, k, null)
-                  step := if mode_row_has_(fields, k) {
-                    do {
-                      it := zonk(zonk, get_or(fields, k, null), st["state"].metas)
-                      req_check := if op_entries && type_tag(req) == "type.function" { get_or(req, "param", req) } else { req }
-                      ret := if type_tag(it) == "type.function" {
-                        do {
-                          dom := get_or(it, "param", null)
-                          body_it := get_or(it, "body", null)
-                          if type_tag(req_check) == "type.unknown" {
-                            --- `IO<{ puts }>`-style unstated requests:
-                            --- skip the domain check; an unsolved
-                            --- return meta defaults to the request.
-                            do {
-                              bm := if is_meta(body_it) { meta_id(body_it) } else { null }
-                              s_body := if bm != null { metas_solve(st["state"].metas, bm, req_check) } else { st["state"].metas }
-                              { ok2: true, val: zonk(zonk, body_it, s_body), state: set(st["state"], "metas", s_body) }
-                            }
-                          } else {
-                            do {
-                              ur := unify(funcs, req_check, dom, st["state"].metas)
-                              if ur.ok {
-                                { ok2: true, val: body_it, state: set(st["state"], "metas", ur.metas) }
-                              } else {
-                                do {
-                                  s_err := tc_add_diagnostic(st["state"], "error", "typecheck: handle: impl '" + k + "' domain does not accept the op's declared signature")
-                                  { ok2: false, val: null, state: s_err }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      } else {
-                        { ok2: true, val: it, state: st["state"] }
-                      }
-                      if ret.ok2 {
-                        { out: set(st.out, k, ret.val), state: ret["state"], bad: null }
-                      } else {
-                        { out: st.out, state: ret["state"], bad: k }
-                      }
-                    }
-                  } else {
-                    { out: set(st.out, k, req), state: st["state"], bad: null }
-                  }
-                  { state: { out: step.out, state: step["state"], bad: step.bad, remaining: drop(st.remaining, 1) } }
-                }
-              }
-            }
-            if acc.bad != null {
-              { ok: false, row: null, state: acc["state"] }
-            } else {
-              { ok: true, row: acc.out, state: acc["state"] }
-            }
-          }
-        }
-      }
-    }
-  }
+  --- PL-0004 G2: `effects_residual_row_`/`handle_sig_check_`/
+  --- `handle_result_type_` are deleted with the `IO(S)`/`IO<sig>`
+  --- codomain former — `handle`'s residual is computed over mode
+  --- *elements* in `ambient_handle_modality_` below, and the body's
+  --- type passes through unchanged (effects live in the mode, not
+  --- the type).
 
   --- `ambient_handle_modality_(funcs, s, target_mode, used_effects,
   --- eff_mark, t_impl, handle_idx)` — the ambient-mode half of
@@ -6330,11 +6198,12 @@ do {
   --- residual. A declared-op head absent from a concrete μ is a
   --- capability error — `not permitted`, the same phrasing
   --- subsumption uses; a symbolic μ (a bare/meta element) makes
-  --- membership undecidable → warn + pass (honest bound). No ambient
-  --- mode, or an op name no declared algebra claims, keeps the
-  --- legacy `IO{op:T}` mint (`{"__tag__": "type.io", "sig": {op:
-  --- T}}`) — the deprecated transition path until the G2 corpus
-  --- migration.
+  --- membership undecidable → warn + pass (honest bound). PL-0004
+  --- G2: the legacy `IO{op:T}` mint is gone — an op name no declared
+  --- effect algebra claims is the honest bound (warn + fresh meta),
+  --- and a declared op with no ambient mode (`mu == null`) still
+  --- checks its `op` domain, journals on `performed_effects`, and
+  --- yields the declared codomain (no ambient constraint to check).
   synth_perform_ := [funcs, s, node_idx]~> do {
     node := ast_node(s.ast, node_idx)
     children := node_children(node)
@@ -6363,20 +6232,21 @@ do {
             }
             arg_ty := arg_res.val
             s_arg := arg_res["state"]
-            --- Ambient `perform` — PL-0004 G1: head lookup in μ is
-            --- authoritative for declared-op heads (the `Effects`
-            --- row is gone). `mu == null` (no ambient bound) and op
-            --- names no declared algebra claims keep the legacy
-            --- `IO{op:T}` mint below.
+            --- Ambient `perform` — PL-0004 G1/G2: head lookup in μ
+            --- is authoritative for declared-op heads (the `Effects`
+            --- row is gone). `gop != null` (a declared `op : A ~> B`)
+            --- runs the ambient path with or without a bound mode —
+            --- `mu == null` simply has no membership constraint; an
+            --- op name no declared algebra claims is the honest
+            --- bound below (the `IO{op:T}` mint is retired).
             mu := get_or(s_arg, "ambient_mode", null)
             gmeta := get_or(get_or(s_arg, "algebra_meta", {}), op_name, null)
             gop_raw := if gmeta == null { null } else { get_or(gmeta, "op", null) }
             gop := if gop_raw == null { null } else { zonk(zonk, gop_raw, s_arg.metas) }
-            ambient_done := false
             out := { val: null, state: s_arg }
-            if mu != null && gop != null {
+            if gop != null {
               do {
-                modes_now := get_or(mu, "modes", [])
+                modes_now := if mu == null { [] } else { get_or(mu, "modes", []) }
                 modes_now_ok := if type_of(modes_now) == "arr" { modes_now } else { [] }
                 have := mode_head_present_(modes_now_ok, op_name)
                 --- A bare/meta element (head `null`) makes membership
@@ -6392,7 +6262,7 @@ do {
                     }
                   }
                 }
-                if !have && !sym {
+                if mu != null && !have && !sym {
                   do {
                     --- Capability violation — the ascribed mode does
                     --- not permit this op; still report the op's
@@ -6402,7 +6272,6 @@ do {
                     ret_t := if type_tag(gop_z0) == "type.function" { zonk(zonk, get_or(gop_z0, "body", null), s_arg.metas) } else { gop_z0 }
                     s_e := tc_add_diagnostic(s_arg, "error", "typecheck: perform: op `" + op_name + "` is not permitted by the ambient mode set")
                     out := { val: ret_t, state: s_e }
-                    ambient_done := true
                   }
                 } else {
                   do {
@@ -6422,13 +6291,11 @@ do {
                             s_j := set(s_g, "metas", gur.metas)
                             s_p := set(s_j, "performed_effects", [...get_or(s_j, "performed_effects", []), { name: op_name, entry: gop_z }])
                             out := { val: zonk(zonk, gcod, gur.metas), state: s_p }
-                            ambient_done := true
                           }
                         } else {
                           do {
                             s_e := tc_add_diagnostic(s_g, "error", "typecheck: perform: argument does not match op `" + op_name + "`'s `op` domain")
                             out := { val: gcod, state: s_e }
-                            ambient_done := true
                           }
                         }
                       }
@@ -6439,92 +6306,23 @@ do {
                         s_u := if gur.ok { set(s_w, "metas", gur.metas) } else { s_w }
                         s_p := set(s_u, "performed_effects", [...get_or(s_u, "performed_effects", []), { name: op_name, entry: gop_z }])
                         out := { val: gop_z, state: s_p }
-                        ambient_done := true
                       }
                     }
                   }
                 }
               }
             } else {
-              if mu != null {
-                do {
-                  s_w := tc_add_diagnostic(s_arg, "warning", "perform: op `" + op_name + "` is not a declared effect algebra — minting `IO{…}` (deprecated transition path)")
-                  out := { val: null, state: s_w }
-                }
-              } else {
-                out := { val: null, state: s_arg }
-              }
-            }
-            if ambient_done {
-              out
-            } else {
-              --- Legacy `IO{op: T}` mint — the deprecated transition
-              --- path (ADR-0153 §4 spelling in the model's tagged
-              --- type values).
+              --- G2: no `IO{op:T}` mint — an op name no declared
+              --- effect algebra claims is the honest bound (the
+              --- `mode_honest_` convention: warn + fresh meta).
               do {
-                sig := set({}, op_name, arg_ty)
-                { val: funcs.make_type("type.io", set({}, "sig", sig)), state: out["state"] }
+                h := funcs.mode_honest_(funcs, s_arg, "perform: op `" + op_name + "` is not a declared effect algebra (`new Algebra` with an `op : A ~> B` field) — result bound to a fresh meta (honest bound)")
+                out := { val: h.val, state: h["state"] }
               }
             }
+            out
           }
         }
-      }
-    }
-  }
-
-  --- `handle_sig_check_(funcs, s, io_val, t_impl)` — the `IO(S)`
-  --- codomain residual (the NBE `handle_sig_check`, PL-0004 E2):
-  --- `IO{sig}`'s sig record loses covered ops to the impl's declared
-  --- returns (`op_entries` false — `IO` entries are request payload
-  --- types); uncovered ops and non-record sigs pass through.
-  handle_sig_check_ := [funcs, s, io_val, t_impl]~> do {
-    sig := zonk(zonk, get_or(io_val, "sig", null), s.metas)
-    if type_of(sig) != "obj" {
-      { val: io_val, state: s }
-    } else {
-      do {
-        fields := handler_op_fields_(funcs, s, t_impl)
-        if fields == null {
-          { val: io_val, state: s }
-        } else {
-          do {
-            rr := effects_residual_row_(funcs, s, sig, fields, false)
-            if !rr.ok {
-              { val: io_val, state: rr["state"] }
-            } else {
-              { val: set(io_val, "sig", rr.row), state: rr["state"] }
-            }
-          }
-        }
-      }
-    }
-  }
-
-  --- `handle_result_type_(funcs, s, t_body, t_impl)` — the `handle`
-  --- result type (the NBE `handle_result_type`): an `IO(S)`-headed
-  --- body rewrites its sig through `handle_sig_check_`; a
-  --- `type.function` whose codomain is `IO` rewrites the codomain —
-  --- `handle (x ~> perform …) with h` yields `x ~> IO(S')`. Anything
-  --- else passes through unchanged.
-  handle_result_type_ := [funcs, s, t_body, t_impl]~> do {
-    tb := zonk(zonk, t_body, s.metas)
-    if type_tag(tb) == "type.io" {
-      funcs.handle_sig_check_(funcs, s, tb, t_impl)
-    } else {
-      if type_tag(tb) == "type.function" {
-        do {
-          body := zonk(zonk, get_or(tb, "body", null), s.metas)
-          if type_tag(body) == "type.io" {
-            do {
-              res := funcs.handle_sig_check_(funcs, s, body, t_impl)
-              { val: set(tb, "body", res.val), state: res["state"] }
-            }
-          } else {
-            { val: tb, state: s }
-          }
-        }
-      } else {
-        { val: tb, state: s }
       }
     }
   }
@@ -11284,12 +11082,12 @@ do {
       }
     },
     --- `synth_handle` — `handle <target> with <impl> [acc s0]`
-    --- (phase-2 WS-F + PL-0004 E2): synthesize the target under an
+    --- (phase-2 WS-F + PL-0004 E2/G2): synthesize the target under an
     --- effects-journal mark, the impl, and the optional `acc` seed;
-    --- `handle_result_type_` rewrites an `IO(S)` codomain through
-    --- the coverage residual, and `ambient_handle_modality_` records
-    --- the ambient `μ → μ′` residual on the node and rewrites the
-    --- journal slice.
+    --- `ambient_handle_modality_` records the ambient `μ → μ′`
+    --- residual on the node and rewrites the journal slice — the
+    --- body's *type* passes through unchanged (PL-0004 G2: the
+    --- `IO(S)` codomain rewrite is retired with the former).
     "synth_handle": do {
       node := ast_node(s.ast, node_idx)
       children := node_children(node)
@@ -11316,9 +11114,8 @@ do {
           } else {
             timpl["state"]
           }
-          hrt := funcs.handle_result_type_(funcs, s_acc, tbody.typ, timpl.typ)
-          amb := funcs.ambient_handle_modality_(funcs, hrt["state"], tmode, used, eff_mark, timpl.typ, node_idx)
-          { val: hrt.val, state: amb["state"] }
+          amb := funcs.ambient_handle_modality_(funcs, s_acc, tmode, used, eff_mark, timpl.typ, node_idx)
+          { val: tbody.typ, state: amb["state"] }
         }
       }
     },
@@ -11591,12 +11388,14 @@ do {
                     { val: funcs.make_type("type.unit", {}), state: st }
                   } else {
                   if name == "IO" {
-                    --- Bare `IO` = `IO(⊤)` — the arity-0 effect
-                    --- former (PL-0004 E1 deprecation: effects are
-                    --- ambient modes — `T @ [Effects(S)]`).
+                    --- Bare `IO` — retired former (PL-0004 G2):
+                    --- effects are ambient modes — write the
+                    --- judgement `T @ [Algebra(…)]`. Honest bound:
+                    --- fresh meta + error diagnostic.
                     do {
-                      s_w := tc_add_diagnostic(st, "warning", "`IO` is deprecated (PL-0004 effects-as-ambient-modes): effects are ambient modes — write the judgement `T @ [Effects(S)]` instead")
-                      { val: funcs.make_type("type.io", {}), state: s_w }
+                      m := tc_fresh_meta(st)
+                      s_e := tc_add_diagnostic(m.state, "error", "`IO` is retired (PL-0004 effects-as-modes): effects are ambient modes — write the judgement `T @ [Algebra(…)]` instead")
+                      { val: meta_value(m.id), state: s_e }
                     }
                   } else {
                     found := tc_lookup(st, name)
@@ -11777,26 +11576,23 @@ do {
                     funcs.synth_type_call_cubical_(funcs, st, node_idx, callee_name)
                   } else {
                   if callee_name == "IO" {
-                    --- `IO(sig)` — the typed-effect former
-                    --- (ADR-0153 §4): mints `type.io{sig}` where the
-                    --- sig record's entries synthesize as types
-                    --- (`io_sig_`); `IO()` is `IO(⊤)`. PL-0004 E1
-                    --- deprecation: effects are ambient modes
-                    --- (`T @ [Effects(S)]`) — warn, don't reject.
+                    --- `IO(sig)`/`IO<sig>` — retired former
+                    --- (PL-0004 G2): effects are ambient modes —
+                    --- write the judgement `T @ [Algebra(…)]`. The
+                    --- sig record is still elaborated through
+                    --- `io_sig_` for node-type coverage, then
+                    --- discarded; the result is the honest bound
+                    --- (fresh meta + error diagnostic).
                     do {
-                      s_w := tc_add_diagnostic(st, "warning", "`IO(…)`/`IO<…>` is deprecated (PL-0004 effects-as-ambient-modes): effects are ambient modes — write the judgement `T @ [Effects(S)]` instead")
                       ch2 := node_children(node)
                       sig_res := if args_role < len(ch2) {
-                        funcs.io_sig_(funcs, s_w, at(ch2, args_role))
+                        funcs.io_sig_(funcs, st, at(ch2, args_role))
                       } else {
-                        { val: null, state: s_w }
+                        { val: null, state: st }
                       }
-                      io_val := if sig_res.val == null {
-                        funcs.make_type("type.io", {})
-                      } else {
-                        funcs.make_type("type.io", set({}, "sig", sig_res.val))
-                      }
-                      { val: io_val, state: sig_res["state"] }
+                      m := tc_fresh_meta(sig_res["state"])
+                      s_e := tc_add_diagnostic(m.state, "error", "`IO(…)`/`IO<…>` is retired (PL-0004 effects-as-modes): effects are ambient modes — write the judgement `T @ [Algebra(…)]` instead")
+                      { val: meta_value(m.id), state: s_e }
                     }
                   } else {
                   if bound_callee != null {
@@ -12629,7 +12425,6 @@ do {
     mode_apply_compose_: mode_apply_compose_,
     mode_descriptor_: mode_descriptor_,
     mode_compose_: mode_compose_,
-    mode_merge_entry_: mode_merge_entry_,
     str_join_: str_join_,
     ms_key_: ms_key_,
     ms_get_: ms_get_,
@@ -12660,13 +12455,10 @@ do {
     mode_sets_subsumed_: mode_sets_subsumed_,
     check_mode_subsumption_: check_mode_subsumption_,
     handler_op_fields_: handler_op_fields_,
-    effects_residual_row_: effects_residual_row_,
     ambient_handle_modality_: ambient_handle_modality_,
     is_perform_call_: is_perform_call_,
     perform_op_name_: perform_op_name_,
     synth_perform_: synth_perform_,
-    handle_sig_check_: handle_sig_check_,
-    handle_result_type_: handle_result_type_,
     synth_mode_ascribe_type_: synth_mode_ascribe_type_,
     cell_type_name_: cell_type_name_,
     axis_flow_compose_: axis_flow_compose_,
