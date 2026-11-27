@@ -2,26 +2,262 @@ name: handl-plugin-compile
 path: crates/plugin-compile/Cargo.toml
 purpose: Contract crate for the `hnl compile` plugin architecture (ADR-0114).
 api:
-- name: handl-plugin-compile
-  kind: module
-  file: crates/plugin-compile/Cargo.toml
-  line: 1
+- name: ALL
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 636
   module: handl-plugin-compile
+- name: ApplyClosureFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 557
+  module: handl-plugin-compile
+- name: ApplyNativeFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 610
+  module: handl-plugin-compile
+- name: Arrow
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 130
+  module: handl-plugin-compile
+- name: Artifact
+  kind: type
+  file: crates/plugin-compile/src/output.rs
+  line: 8
+  module: handl-plugin-compile
+- name: ArtifactContent
+  kind: type
+  file: crates/plugin-compile/src/output.rs
+  line: 47
+  module: handl-plugin-compile
+- name: CallFfiRawFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 506
+  module: handl-plugin-compile
+- name: CallForeignFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 563
+  module: handl-plugin-compile
+- name: CloneFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 501
+  module: handl-plugin-compile
+- name: CompileError
+  kind: type
+  file: crates/plugin-compile/src/compiler.rs
+  line: 7
+  module: handl-plugin-compile
+- name: Compiler
+  kind: trait
+  file: crates/plugin-compile/src/compiler.rs
+  line: 51
+  module: handl-plugin-compile
+- name: CompilerConfig
+  kind: trait
+  file: crates/plugin-compile/src/config.rs
+  line: 5
+  module: handl-plugin-compile
+- name: CompilerInput
+  kind: type
+  file: crates/plugin-compile/src/input.rs
+  line: 7
+  module: handl-plugin-compile
+- name: CompilerOutput
+  kind: trait
+  file: crates/plugin-compile/src/output.rs
+  line: 73
+  module: handl-plugin-compile
+- name: DebugInfo
+  kind: trait
+  file: crates/plugin-compile/src/debug_info.rs
+  line: 2
+  module: handl-plugin-compile
+- name: DerivedStepArgIncomingFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 604
+  module: handl-plugin-compile
+- name: DropValueFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 552
+  module: handl-plugin-compile
+- name: EitherIsLeftFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 594
+  module: handl-plugin-compile
+- name: EitherLeftFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 584
+  module: handl-plugin-compile
+- name: EitherRightFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 589
+  module: handl-plugin-compile
+- name: EitherValueFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 599
+  module: handl-plugin-compile
+- name: EvalChildFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 532
+  module: handl-plugin-compile
+- name: EvalCtx
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 86
+  module: handl-plugin-compile
+- name: ExtendEnvFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 537
+  module: handl-plugin-compile
+- name: ExtendEnvPayloadFn
+  kind: type
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 542
+  module: handl-plugin-compile
+- name: HELPER_V2_APPLY_CLOSURE
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 555
+  module: handl-plugin-compile
+- name: HELPER_V2_APPLY_NATIVE
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 608
+  module: handl-plugin-compile
+- name: HELPER_V2_CALL_FFI_RAW
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 504
+  module: handl-plugin-compile
+- name: HELPER_V2_CALL_FOREIGN
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 561
+  module: handl-plugin-compile
+- name: HELPER_V2_CLONE
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 499
+  module: handl-plugin-compile
+- name: HELPER_V2_DERIVED_STEP_ARG_INCOMING
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 602
+  module: handl-plugin-compile
+- name: HELPER_V2_DROP_VALUE
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 550
+  module: handl-plugin-compile
+- name: HELPER_V2_EITHER_IS_LEFT
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 592
+  module: handl-plugin-compile
+- name: HELPER_V2_EITHER_LEFT
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 582
+  module: handl-plugin-compile
+- name: HELPER_V2_EITHER_RIGHT
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 587
+  module: handl-plugin-compile
+- name: HELPER_V2_EITHER_VALUE
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 597
+  module: handl-plugin-compile
+- name: HELPER_V2_EVAL_CHILD
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 530
+  module: handl-plugin-compile
+- name: HELPER_V2_EXTEND_ENV
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 535
+  module: handl-plugin-compile
+- name: HELPER_V2_EXTEND_ENV_PAYLOAD
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 540
+  module: handl-plugin-compile
+- name: HELPER_V2_INT_ARITH
+  kind: const
+  file: crates/plugin-compile/src/value_abi.rs
+  line: 619
+  module: handl-plugin-compile
+api_omitted: 104
 deps:
 - handl-language
-- plugin-engine
-- plugin-tool-typecheck
-- rayon
+- hnl-engine
+- hnl-tool-typecheck
 - serde_json
 - thiserror
+- rayon
+- handl_language
+- hnl_engine
+- hnl_tool_typecheck
+- serde_json
+- compiler
+- config
+- debug_info
+- input
+- output
+- source_map
+- value_abi
 notes: ''
 verify:
 - crates/plugin-compile/Cargo.toml
+- crates/plugin-compile/src/lib.rs
+- crates/plugin-compile/src/compiler.rs
+- crates/plugin-compile/src/config.rs
+- crates/plugin-compile/src/debug_info.rs
+- crates/plugin-compile/src/input.rs
+- crates/plugin-compile/src/output.rs
+- crates/plugin-compile/src/source_map.rs
+- crates/plugin-compile/src/tests.rs
+- crates/plugin-compile/src/value_abi/tests.rs
 provenance:
   files:
   - crates/plugin-compile/Cargo.toml
+  - crates/plugin-compile/src/compiler.rs
+  - crates/plugin-compile/src/config.rs
+  - crates/plugin-compile/src/debug_info.rs
+  - crates/plugin-compile/src/input.rs
+  - crates/plugin-compile/src/lib.rs
+  - crates/plugin-compile/src/output.rs
+  - crates/plugin-compile/src/source_map.rs
+  - crates/plugin-compile/src/tests.rs
+  - crates/plugin-compile/src/value_abi/tests.rs
+  - crates/plugin-compile/src/value_abi.rs
   hashes:
-  - 745d4cdd08081ec915a593c604c6a55d34b5c1e1
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 21eb42d85754c60040f83d82cc8885ab0ef3ba24
+  - 1c290b29e63d21fd693f869ce762541f847be461
+  - 03efc88532be0199bd89a4f18dd3393d17b8d1a8
+  - 5c3bad4206001e841386826c47608788d1e1d840
+  - acefb18014c64fe65b309b3e32a3f36c02954f74
+  - fc766e63a23906c2a8f95ebbdfd39c868f249ba1
+  - 052dccec0ae47ed476bc0f426caaea292f0f6d71
+  - bf7c15bea0f6fb2f4badd151e86693a8eba2ce75
+  - 5a782c96da34b1500706e1f9945248a7814cb01b
+  - 493db8c93c646f3453266902d32fca07e161a321
+  - eecfef27b2e8573814b46b3b66885df33ae2461f
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

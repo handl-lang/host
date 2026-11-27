@@ -1,0 +1,382 @@
+name: handl-plugin-lib-stdlib
+path: crates/plugin-lib-stdlib/Cargo.toml
+purpose: 'The handl-backed standard library, consolidated per the "library-as-data" architecture: every `plugin-lib-*` shell crate is replaced by a row in [`packages::PACKAGES`] / ...'
+api:
+- name: ARCHIVE_TAR_MODULES
+  kind: const
+  file: crates/plugin-lib-stdlib/src/packages.rs
+  line: 1475
+  module: handl-plugin-lib-stdlib
+- name: ARRAY_OPS
+  kind: const
+  file: crates/plugin-lib-stdlib/src/ops/collections/mod.rs
+  line: 130
+  module: handl-plugin-lib-stdlib
+- name: Add
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/hash_set.rs
+  line: 131
+  module: handl-plugin-lib-stdlib
+- name: Add
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 140
+  module: handl-plugin-lib-stdlib
+- name: AlwaysFailGuarantee
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/base64.rs
+  line: 193
+  module: handl-plugin-lib-stdlib
+- name: AlwaysFailGuarantee
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/hex.rs
+  line: 170
+  module: handl-plugin-lib-stdlib
+- name: Atan2
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 748
+  module: handl-plugin-lib-stdlib
+- name: BitAnd
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 420
+  module: handl-plugin-lib-stdlib
+- name: BitNot
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 459
+  module: handl-plugin-lib-stdlib
+- name: BitOr
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 433
+  module: handl-plugin-lib-stdlib
+- name: BitXor
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 446
+  module: handl-plugin-lib-stdlib
+- name: CACHE
+  kind: const
+  file: crates/plugin-lib-stdlib/src/loader.rs
+  line: 26
+  module: handl-plugin-lib-stdlib
+- name: CACHE
+  kind: const
+  file: crates/plugin-lib-stdlib/src/loader.rs
+  line: 35
+  module: handl-plugin-lib-stdlib
+- name: CACHE
+  kind: const
+  file: crates/plugin-lib-stdlib/src/loader.rs
+  line: 54
+  module: handl-plugin-lib-stdlib
+- name: CACHE
+  kind: const
+  file: crates/plugin-lib-stdlib/src/packages.rs
+  line: 2090
+  module: handl-plugin-lib-stdlib
+- name: CACHE
+  kind: const
+  file: crates/plugin-lib-stdlib/src/packages.rs
+  line: 2123
+  module: handl-plugin-lib-stdlib
+- name: CLOCK_GETTIME_MODULE
+  kind: const
+  file: crates/plugin-lib-stdlib/src/packages.rs
+  line: 88
+  module: handl-plugin-lib-stdlib
+- name: COLLECTIONS_MODULES
+  kind: const
+  file: crates/plugin-lib-stdlib/src/packages.rs
+  line: 1467
+  module: handl-plugin-lib-stdlib
+- name: CharAt
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/strs.rs
+  line: 560
+  module: handl-plugin-lib-stdlib
+- name: CharFloor
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/base64.rs
+  line: 33
+  module: handl-plugin-lib-stdlib
+- name: CharFloor
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/ip.rs
+  line: 36
+  module: handl-plugin-lib-stdlib
+- name: CharFloor
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/json.rs
+  line: 37
+  module: handl-plugin-lib-stdlib
+- name: CharFloor
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/url_rfc.rs
+  line: 31
+  module: handl-plugin-lib-stdlib
+- name: CharFloor
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/url_whatwg.rs
+  line: 31
+  module: handl-plugin-lib-stdlib
+- name: Clamp
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 228
+  module: handl-plugin-lib-stdlib
+- name: CollectionsError
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/error.rs
+  line: 5
+  module: handl-plugin-lib-stdlib
+- name: CollectionsModule
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/mod.rs
+  line: 254
+  module: handl-plugin-lib-stdlib
+- name: Concat
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/strs.rs
+  line: 122
+  module: handl-plugin-lib-stdlib
+- name: Copysign
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 706
+  module: handl-plugin-lib-stdlib
+- name: Count
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/strs.rs
+  line: 327
+  module: handl-plugin-lib-stdlib
+- name: DEFAULT_RESOLVER
+  kind: const
+  file: crates/plugin-lib-stdlib/src/packages.rs
+  line: 1761
+  module: handl-plugin-lib-stdlib
+- name: DEP_HNL
+  kind: const
+  file: crates/plugin-lib-stdlib/tests/module_env.rs
+  line: 167
+  module: handl-plugin-lib-stdlib
+- name: DEQUE_OPS
+  kind: const
+  file: crates/plugin-lib-stdlib/src/ops/collections/mod.rs
+  line: 74
+  module: handl-plugin-lib-stdlib
+- name: DeepGet
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/hash_map.rs
+  line: 282
+  module: handl-plugin-lib-stdlib
+- name: DeepMerge
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/hash_map.rs
+  line: 664
+  module: handl-plugin-lib-stdlib
+- name: DepStub
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/module_env.rs
+  line: 139
+  module: handl-plugin-lib-stdlib
+- name: DepStubWho
+  kind: type
+  file: crates/plugin-lib-stdlib/tests/module_env.rs
+  line: 127
+  module: handl-plugin-lib-stdlib
+- name: Difference
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/hash_set.rs
+  line: 263
+  module: handl-plugin-lib-stdlib
+- name: Div
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/math.rs
+  line: 179
+  module: handl-plugin-lib-stdlib
+- name: DropWhile
+  kind: type
+  file: crates/plugin-lib-stdlib/src/ops/collections/array.rs
+  line: 113
+  module: handl-plugin-lib-stdlib
+api_omitted: 1501
+deps:
+- base64
+- handl-language
+- handl-lib-bytes
+- handl-lib-cmp
+- handl-lib-comb
+- handl-lib-error
+- handl-lib-mood
+- handl-lib-obj
+- handl-lib-ops
+- handl-lib-prim
+- handl-lib-prim-handl
+- handl-lib-serialize
+- handl-lib-transform
+- handl-lib-type
+- handl-ops
+- handl-platform
+- handl-plugin-lib-handl
+- handl-plugin-lib-otlp-c
+- handl-plugin-lib-otlp-std
+- handl-plugin-lib-serialize-toml-c
+- handl-plugin-lib-serialize-yaml-c
+- handl-plugin-module
+- handl-value
+- hex
+- iri-string
+- serde_json
+- serde_yaml
+- tar
+- toml
+- url
+- handl-kit-data-prelude
+- handl-lib-base64
+- handl-lib-hex
+- handl-plugin-lib-tag
+- handl-runtime
+- hnl-engine
+- hnl-exec-tree-walk
+- handl-pkg-vendor
+- handl-platform
+- handl-plugin-lib-handl
+- handl-plugin-lib-tag
+- serde_json
+- handl_ops
+- handl-plugin-module
+- handl_lib_serialize
+- handl_plugin_lib_otlp_c
+- handl_language
+- hnl_engine
+- hnl_exec_tree_walk
+- handl_lib_transform
+- handl_lib_ops
+- loader
+- otlp_module
+- packages
+- string_unary_fn
+- string_predicate_fn
+- unary_fn
+- bool_unary_fn
+- error
+- seq
+notes: ''
+verify:
+- crates/plugin-lib-stdlib/Cargo.toml
+- crates/plugin-lib-stdlib/src/lib.rs
+- crates/plugin-lib-stdlib/src/ops/collections/mod.rs
+- crates/plugin-lib-stdlib/src/ops/mod.rs
+- crates/plugin-lib-stdlib/build.rs
+- crates/plugin-lib-stdlib/src/arrow_iter.rs
+- crates/plugin-lib-stdlib/src/loader.rs
+- crates/plugin-lib-stdlib/src/ops/collections/array.rs
+- crates/plugin-lib-stdlib/src/ops/collections/common.rs
+- crates/plugin-lib-stdlib/src/ops/collections/error.rs
+provenance:
+  files:
+  - crates/plugin-lib-stdlib/Cargo.toml
+  - crates/plugin-lib-stdlib/build.rs
+  - crates/plugin-lib-stdlib/src/arrow_iter.rs
+  - crates/plugin-lib-stdlib/src/lib.rs
+  - crates/plugin-lib-stdlib/src/loader.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/array.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/common.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/error.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/hash_map.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/hash_set.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/mod.rs
+  - crates/plugin-lib-stdlib/src/ops/collections/seq.rs
+  - crates/plugin-lib-stdlib/src/ops/math.rs
+  - crates/plugin-lib-stdlib/src/ops/mod.rs
+  - crates/plugin-lib-stdlib/src/ops/strs.rs
+  - crates/plugin-lib-stdlib/src/ops/toml.rs
+  - crates/plugin-lib-stdlib/src/ops/yaml.rs
+  - crates/plugin-lib-stdlib/src/otlp_module.rs
+  - crates/plugin-lib-stdlib/src/packages.rs
+  - crates/plugin-lib-stdlib/tests/arrow_iter.rs
+  - crates/plugin-lib-stdlib/tests/base64.rs
+  - crates/plugin-lib-stdlib/tests/bytes.rs
+  - crates/plugin-lib-stdlib/tests/cmp.rs
+  - crates/plugin-lib-stdlib/tests/collections.rs
+  - crates/plugin-lib-stdlib/tests/default_env.rs
+  - crates/plugin-lib-stdlib/tests/hello.rs
+  - crates/plugin-lib-stdlib/tests/hex.rs
+  - crates/plugin-lib-stdlib/tests/ip.rs
+  - crates/plugin-lib-stdlib/tests/json.rs
+  - crates/plugin-lib-stdlib/tests/math.rs
+  - crates/plugin-lib-stdlib/tests/math_arithmetic.rs
+  - crates/plugin-lib-stdlib/tests/module_env.rs
+  - crates/plugin-lib-stdlib/tests/mood.rs
+  - crates/plugin-lib-stdlib/tests/named_import.rs
+  - crates/plugin-lib-stdlib/tests/option.rs
+  - crates/plugin-lib-stdlib/tests/otlp.rs
+  - crates/plugin-lib-stdlib/tests/prim.rs
+  - crates/plugin-lib-stdlib/tests/result.rs
+  - crates/plugin-lib-stdlib/tests/self_import.rs
+  - crates/plugin-lib-stdlib/tests/stats.rs
+  - crates/plugin-lib-stdlib/tests/str_basic.rs
+  - crates/plugin-lib-stdlib/tests/str_case.rs
+  - crates/plugin-lib-stdlib/tests/str_search.rs
+  - crates/plugin-lib-stdlib/tests/str_transform.rs
+  - crates/plugin-lib-stdlib/tests/toml.rs
+  - crates/plugin-lib-stdlib/tests/type_utilities.rs
+  - crates/plugin-lib-stdlib/tests/url_rfc.rs
+  - crates/plugin-lib-stdlib/tests/url_whatwg.rs
+  - crates/plugin-lib-stdlib/tests/yaml.rs
+  hashes:
+  - b5d3ee0a2eae14ad4a7f9fdfc874b25d29e1c99c
+  - 5c86f3b22c5472db77602a6d0f91fdd748a2f2ff
+  - 29c2029323d4bed1de6ba8f114cb42426ebfa0cf
+  - 2c68ca341415eaec2d9924f2e19e78237a8a6703
+  - 47a89f9853836347c32242c5d3c20aac281936ab
+  - 2c5256616cdebdaf76b10fff6c5287a9b6171f2c
+  - 59c4fbe0ae5f25614f3ba4c6c4b404ec153e677c
+  - 33eb5df4df8d89f576cdaeea2139eedb95ebce4f
+  - 6297509c3c7015d4f484889f3ed2127807626773
+  - 0b2bd96ab772e518540f30f350f67349187cd638
+  - ee7617fa5c02bbe7085fb5ee93bd500398687f6c
+  - edda416d92b8e9e77b674b08152b7e119d918c5b
+  - 78b3771853d2eab13d1ee7134c296e9b2bc30f2d
+  - 2a47f15e20fbed1cb3273c4480b31ba636fd51f3
+  - 3a07866e74e4ff81c6f4f0d17cb3a9cb9f0615ce
+  - 321df654e83ea14ff433e67bedab7d03f9590998
+  - 07530349108c65e4a99e9be34625cc021a43d6ac
+  - c53d4a69da2affbc43abba649f0056de4104a21d
+  - fd868fb132e934f9532ffe4182773fd7f45d8002
+  - b11323c2b6ad5b888a8de38d0e6c40d2588ec81a
+  - 79ba8a6b47cf49a4653ba9dfd3acfda2d4b13ffd
+  - a8b27917880f718e8d112bf6f8bbe6d1fd114d89
+  - 8910af136f97778d73f0a2101beae1100b9e08ac
+  - 96565a78ad21b80d924cdd447a311db7ef7ba5ca
+  - fe38682f611ce8ecf1a6302134be645d6a2e58ab
+  - 8cb70383e7c94c44709a7f849f8247e9e3490268
+  - ba4e6c60dd4f01b679e77567e3d7099796407058
+  - 4a91517a1d33ce720216bb4e718d48086fc6ee72
+  - 9e8844edcc36f91f01d426c8afa340ce7f3be09b
+  - 9a11611de08b854c49940bd8df09340c13fa564c
+  - 886549278b09b66c2587aad548f61228ebdc8b2c
+  - fa44111b12bfd38ec70e96ef088ff128f1e0d742
+  - 01cccad26b6185a6e46328e57eba4c55a6cc91f3
+  - e0a416476dff61d354e968558765da8b3d0d5bcb
+  - d44063f59ffe30e689e9ab42c6ac939931e8a43e
+  - b10987ec832ef5e9942b2e3bf0ab0b663201c58d
+  - 9753ee2b1629325f028540b65b5c916bec57f947
+  - d9cf509b254e74e046e56d8237f7af24b034d3f6
+  - a046bb14ad2e16ef4566a796d4508e48f4146859
+  - 6fec87c45af663ca3596693ec706550fb62bc9c0
+  - 8e98e2b6a40b800f8d1175d2399acddf5d596dde
+  - d688e0d057205153e5f643c3b9f33c910a2a4133
+  - 8077114e27b46fb3c250d0d21bc2d885a5e2402f
+  - 6b9f902ffecf14ee70375ef72c6bfbd1ab780591
+  - f578dccec929586a93f8de284298886ce6b5ff97
+  - 8269f5b14db219a2cb0d30eaff9d2dc27814ae95
+  - cddca5ceee176d198221a84758c0c6fdec9bc377
+  - 68c2a180e9eb1d833c569b28510a292322b4b5f4
+  - 8b93f276bbbe2cfd1392e5752e5cac22a62e3556
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

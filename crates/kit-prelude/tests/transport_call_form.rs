@@ -58,8 +58,6 @@ fn transport_call_form_unbound_without_wire() {
     // warns rather than erroring (the `ua` precedent: the call form
     // is captured by name before ordinary application).
     let kit = kit();
-    kit.typecheck_source(&format!(
-        "do {{\n{SETUP}\n  t := transport(pu)\n}}"
-    ))
-    .expect("wrong-arity transport(...) warns, not errors");
+    kit.typecheck_source(&format!("do {{\n{SETUP}\n  t := transport(pu)\n}}"))
+        .expect("wrong-arity transport(...) warns, not errors");
 }

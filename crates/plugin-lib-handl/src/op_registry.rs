@@ -204,9 +204,7 @@ impl OpRegistry {
     /// The declared type signature of an op, if one was registered
     /// (P-013 T-148). Returns the tagged type value verbatim.
     pub fn signature(&self, op_name: &str) -> Option<Value> {
-        self.signatures
-            .get(op_name)
-            .map(|s| s.type_signature())
+        self.signatures.get(op_name).map(|s| s.type_signature())
     }
 
     /// Borrow the signature carrier for an op — cloned out as an `Arc`
@@ -318,11 +316,7 @@ impl OpFunction {
     /// to attach the `op "name" : Sig` declaration's interpreted type
     /// value. The explicit signature takes precedence over any registry
     /// entry.
-    pub fn new_with_sig(
-        op_name: impl Into<String>,
-        registry: Arc<OpRegistry>,
-        sig: Value,
-    ) -> Self {
+    pub fn new_with_sig(op_name: impl Into<String>, registry: Arc<OpRegistry>, sig: Value) -> Self {
         Self {
             op_name: op_name.into(),
             registry,
@@ -378,9 +372,7 @@ impl Function for OpFunction {
     /// falls back to the dynamic `type.function` top, preserving the
     /// pre-T-148 behavior for unannotated ops.
     fn as_type_signature(&self) -> Option<&dyn TypeSignature> {
-        self.signature
-            .as_deref()
-            .map(|s| s as &dyn TypeSignature)
+        self.signature.as_deref().map(|s| s as &dyn TypeSignature)
     }
 }
 

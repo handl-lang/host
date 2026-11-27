@@ -54,13 +54,13 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // -1 `lex.keyword.data` — the `data` keyword is retired (its token
     // stays as a keyword tombstone; `acc` is deliberately NOT reserved,
     // so the ADR-0158 clause adds no lexer rule).
-        // -1 `lex.bind` (`::`) removed with `token.bind`.
-        // +5 `lex.keyword.{transp,hcomp,comp,trans,symm}` for the cubical
+    // -1 `lex.bind` (`::`) removed with `token.bind`.
+    // +5 `lex.keyword.{transp,hcomp,comp,trans,symm}` for the cubical
     // judgments (ADR-0208 P2).
-        // +2 `lex.keyword.{glue,fibrant}` for the cubical Glue/fibrancy
+    // +2 `lex.keyword.{glue,fibrant}` for the cubical Glue/fibrancy
     // surface forms (ADR-0208 P3) — the token kinds and grammar rows
     // existed since the frontier pass but had no lexer rule.
-        // +1 `lex.keyword.univalence` for `univalence(e)` (ADR-0208
+    // +1 `lex.keyword.univalence` for `univalence(e)` (ADR-0208
     // P4) — same frontier-pass gap.
     // +1 `lex.dim_arrow_open` for `~>[` (priority 7 — before `~>`).
     assert_eq!(lang.lexer_rules.len(), 112);
@@ -86,7 +86,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // -1 `grammar.data.prefix` — retired with the `data` keyword.
     // -1 `grammar.assign.infix` (`::`/`token.bind` → `assign`) removed —
     // `grammar.colon_equal.infix` (`:=`) is the only binding row.
-        // +5 `grammar.{transp,hcomp,comp,trans,symm}.prefix` rows
+    // +5 `grammar.{transp,hcomp,comp,trans,symm}.prefix` rows
     // (ADR-0208 P2).
     // +1 `grammar.dim_arrow.bare.infix` for `A ~>[n] B` (same
     // `dim_arrow` node as `~[n]~>`; `]` separator).
@@ -106,11 +106,11 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // +1 `eval.j` — the J eliminator's runtime iota (`J p, motive, base`
     // → `base`), the `transport`-style runtime backstop for the
     // `type.j` checker rule.
-        // +5 `eval.{transp,hcomp,comp,trans,symm}` proof-erasure schemes
+    // +5 `eval.{transp,hcomp,comp,trans,symm}` proof-erasure schemes
     // (ADR-0208 P2).
-        // +2 `eval.{glue,fibrant}` proof/type-erasure schemes
+    // +2 `eval.{glue,fibrant}` proof/type-erasure schemes
     // (ADR-0208 P3).
-        // +1 `eval.univalence` proof-erasure scheme (ADR-0208 P4).
+    // +1 `eval.univalence` proof-erasure scheme (ADR-0208 P4).
     assert_eq!(lang.eval.len(), 99);
 
     // AST shapes: 68 — v0.1 surface syntax (ADR-0074) + `data`/`entry`/
@@ -134,7 +134,7 @@ fn assemble_canonical_has_expected_fragment_counts() {
     // Phase 4 dependent structure).
     // +1 `ast.absurd` for absurd match arms.
     // +1 `ast.exists` for the `exists` sugar node (mirrors `ast.forall`).
-        // +5 `ast.{transp,hcomp,comp,trans,symm}` child-role shapes
+    // +5 `ast.{transp,hcomp,comp,trans,symm}` child-role shapes
     // (ADR-0208 P2).
     assert_eq!(lang.ast.len(), 103);
 

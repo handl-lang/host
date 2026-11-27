@@ -2,10 +2,80 @@ name: handl-plugin-applier-bootstrap
 path: crates/plugin-applier-bootstrap/Cargo.toml
 purpose: Bootstrap applier — chooses the first applier and wires applier factories (ADR-0036).
 api:
+- name: BootstrapPlugin
+  kind: type
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 11
+  module: handl-plugin-applier-bootstrap
+- name: bootstrap_loads_kit_via_applier
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 21
+  module: handl-plugin-applier-bootstrap
+- name: bootstrap_rejects_unknown_applier
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 47
+  module: handl-plugin-applier-bootstrap
+- name: capabilities
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 53
+  module: handl-plugin-applier-bootstrap
+- name: contribute
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 61
+  module: handl-plugin-applier-bootstrap
 - name: handl-plugin-applier-bootstrap
   kind: module
   file: crates/plugin-applier-bootstrap/Cargo.toml
   line: 1
+  module: handl-plugin-applier-bootstrap
+- name: id
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 45
+  module: handl-plugin-applier-bootstrap
+- name: kit_module_names
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 9
+  module: handl-plugin-applier-bootstrap
+- name: lib_tests
+  kind: module
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 86
+  module: handl-plugin-applier-bootstrap
+- name: libraries
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib_tests.rs
+  line: 16
+  module: handl-plugin-applier-bootstrap
+- name: metadata
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 57
+  module: handl-plugin-applier-bootstrap
+- name: name
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 49
+  module: handl-plugin-applier-bootstrap
+- name: new
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 19
+  module: handl-plugin-applier-bootstrap
+- name: run
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 76
+  module: handl-plugin-applier-bootstrap
+- name: with_factories
+  kind: function
+  file: crates/plugin-applier-bootstrap/src/lib.rs
+  line: 35
   module: handl-plugin-applier-bootstrap
 deps:
 - handl-kit-data
@@ -13,16 +83,27 @@ deps:
 - handl-plugin-applier
 - handl-plugin-applier-default
 - handl-plugin-ext-kit
-- handl-kit-canonical
-- handl-kit-data-canonical
+- handl-kit-data-prelude
+- handl-kit-prelude
+- handl-kit-data
+- handl-platform
+- handl-plugin-applier
+- handl-plugin-applier-default
+- handl-plugin-ext-kit
 notes: ''
 verify:
 - crates/plugin-applier-bootstrap/Cargo.toml
+- crates/plugin-applier-bootstrap/src/lib.rs
+- crates/plugin-applier-bootstrap/src/lib_tests.rs
 provenance:
   files:
   - crates/plugin-applier-bootstrap/Cargo.toml
+  - crates/plugin-applier-bootstrap/src/lib.rs
+  - crates/plugin-applier-bootstrap/src/lib_tests.rs
   hashes:
-  - 7c6bda5cc84369d894fc486517c3a596d3d7fd1a
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 585e5b150d4240da61f01e992fcf3e1f94776110
+  - 76c30872d4e65eadbe00752f242f5c73a1950bac
+  - 88e3b3258615d886995ac29b35be900fe37b7148
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

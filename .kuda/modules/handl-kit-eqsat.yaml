@@ -1,0 +1,129 @@
+name: handl-kit-eqsat
+path: crates/handl-kit-eqsat/Cargo.toml
+purpose: 'kit-eqsat — the eqsat law/cost corpus as kit data (ADR-0175 kit layer / ADR-0177 §1): LAW_FORMAT=2 records embedded from data/laws/*.json, exposed as static JSON for any search-engine consumer.'
+api:
+- name: EXPECTED_COUNTS
+  kind: const
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 53
+  module: handl-kit-eqsat
+- name: KIT_NAME
+  kind: const
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 98
+  module: handl-kit-eqsat
+- name: LAW_PACKS
+  kind: const
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 127
+  module: handl-kit-eqsat
+- name: LawPack
+  kind: type
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 103
+  module: handl-kit-eqsat
+- name: corpus
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 190
+  module: handl-kit-eqsat
+- name: corpus_is_flattened_packs
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 239
+  module: handl-kit-eqsat
+- name: corpus_json
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 210
+  module: handl-kit-eqsat
+- name: data_laws_dir
+  kind: function
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 39
+  module: handl-kit-eqsat
+- name: handl-kit-eqsat
+  kind: module
+  file: crates/handl-kit-eqsat/Cargo.toml
+  line: 1
+  module: handl-kit-eqsat
+- name: law_pack
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 171
+  module: handl-kit-eqsat
+- name: law_pack_names
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 176
+  module: handl-kit-eqsat
+- name: law_packs_table_matches_files_on_disk
+  kind: function
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 67
+  module: handl-kit-eqsat
+- name: lookup_by_name
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 249
+  module: handl-kit-eqsat
+- name: pack_record_counts_match_documented_table
+  kind: function
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 148
+  module: handl-kit-eqsat
+- name: packs_parse_and_total_524
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 219
+  module: handl-kit-eqsat
+- name: record_names_unique
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 225
+  module: handl-kit-eqsat
+- name: records
+  kind: function
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 120
+  module: handl-kit-eqsat
+- name: records_are_law_format_2
+  kind: function
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 107
+  module: handl-kit-eqsat
+- name: reshape_flatten_demo_stays_engine_only
+  kind: function
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 163
+  module: handl-kit-eqsat
+- name: sibling_laws_dir
+  kind: function
+  file: crates/handl-kit-eqsat/tests/corpus_drift.rs
+  line: 44
+  module: handl-kit-eqsat
+- name: tests
+  kind: module
+  file: crates/handl-kit-eqsat/src/lib.rs
+  line: 215
+  module: handl-kit-eqsat
+deps:
+- serde_json
+- serde_json
+notes: ''
+verify:
+- crates/handl-kit-eqsat/Cargo.toml
+- crates/handl-kit-eqsat/src/lib.rs
+- crates/handl-kit-eqsat/tests/corpus_drift.rs
+provenance:
+  files:
+  - crates/handl-kit-eqsat/Cargo.toml
+  - crates/handl-kit-eqsat/src/lib.rs
+  - crates/handl-kit-eqsat/tests/corpus_drift.rs
+  hashes:
+  - 309fc98495ff5e78699c8afea8d3aa729bf2e757
+  - 65dad4c34fa93d4d58af8fdbdac5e55b4e1c8440
+  - 3a4e9c63f66ccc6a39f3a25ca6a92a96cc7b206d
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

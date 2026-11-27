@@ -27,8 +27,14 @@ pub fn bytes_impls() -> Vec<KernelAtomImpl> {
         ("bytes_slice", Arc::new(handl_lib_bytes::ops::Slice)),
         ("bytes_len", Arc::new(handl_lib_bytes::ops::Len)),
         ("bytes_at", Arc::new(handl_lib_bytes::ops::At)),
-        ("bytes_utf8_encode", Arc::new(handl_lib_bytes::ops::Utf8Encode)),
-        ("bytes_utf8_decode", Arc::new(handl_lib_bytes::ops::Utf8Decode)),
+        (
+            "bytes_utf8_encode",
+            Arc::new(handl_lib_bytes::ops::Utf8Encode),
+        ),
+        (
+            "bytes_utf8_decode",
+            Arc::new(handl_lib_bytes::ops::Utf8Decode),
+        ),
     ]
 }
 
@@ -72,7 +78,10 @@ pub fn cmp_impls() -> Vec<KernelAtomImpl> {
         ("cmp_between", Arc::new(handl_lib_cmp::ops::Between)),
         ("cmp_in_range", Arc::new(handl_lib_cmp::ops::InRange)),
         ("cmp_is_sorted", Arc::new(handl_lib_cmp::ops::IsSorted)),
-        ("cmp_is_sorted_desc", Arc::new(handl_lib_cmp::ops::IsSortedDesc)),
+        (
+            "cmp_is_sorted_desc",
+            Arc::new(handl_lib_cmp::ops::IsSortedDesc),
+        ),
         ("cmp_sort", Arc::new(handl_lib_cmp::ops::Sort)),
         ("cmp_sort_desc", Arc::new(handl_lib_cmp::ops::SortDesc)),
         ("cmp_sort_by", Arc::new(handl_lib_cmp::ops::SortBy)),
@@ -149,7 +158,10 @@ pub fn obj_impls() -> Vec<KernelAtomImpl> {
         ("obj_values", Arc::new(handl_lib_obj::ops::Values)),
         ("obj_entries", Arc::new(handl_lib_obj::ops::Entries)),
         ("obj_set", Arc::new(handl_lib_obj::ops::Set)),
-        ("obj_from_entries", Arc::new(handl_lib_obj::ops::FromEntries)),
+        (
+            "obj_from_entries",
+            Arc::new(handl_lib_obj::ops::FromEntries),
+        ),
     ]
 }
 
@@ -160,18 +172,30 @@ pub fn obj_impls() -> Vec<KernelAtomImpl> {
 /// `type_op_registry`.
 pub fn typeof_impls() -> Vec<KernelAtomImpl> {
     vec![
-        ("typeof_string_tag", Arc::new(handl_lib_type::ops::STRING_TAG)),
+        (
+            "typeof_string_tag",
+            Arc::new(handl_lib_type::ops::STRING_TAG),
+        ),
         ("typeof_str_tag", Arc::new(handl_lib_type::ops::STR_TAG)),
-        ("typeof_number_tag", Arc::new(handl_lib_type::ops::NUMBER_TAG)),
+        (
+            "typeof_number_tag",
+            Arc::new(handl_lib_type::ops::NUMBER_TAG),
+        ),
         ("typeof_num_tag", Arc::new(handl_lib_type::ops::NUM_TAG)),
         ("typeof_bool_tag", Arc::new(handl_lib_type::ops::BOOL_TAG)),
         ("typeof_null_tag", Arc::new(handl_lib_type::ops::NULL_TAG)),
         ("typeof_array_tag", Arc::new(handl_lib_type::ops::ARRAY_TAG)),
         ("typeof_arr_tag", Arc::new(handl_lib_type::ops::ARR_TAG)),
-        ("typeof_object_tag", Arc::new(handl_lib_type::ops::OBJECT_TAG)),
+        (
+            "typeof_object_tag",
+            Arc::new(handl_lib_type::ops::OBJECT_TAG),
+        ),
         ("typeof_obj_tag", Arc::new(handl_lib_type::ops::OBJ_TAG)),
         ("typeof_any_tag", Arc::new(handl_lib_type::ops::ANY_TAG)),
-        ("typeof_unknown_tag", Arc::new(handl_lib_type::ops::UNKNOWN_TAG)),
+        (
+            "typeof_unknown_tag",
+            Arc::new(handl_lib_type::ops::UNKNOWN_TAG),
+        ),
         ("typeof_is", Arc::new(handl_lib_type::ops::TypeIs)),
         ("typeof_must", Arc::new(handl_lib_type::ops::TypeMust)),
         ("typeof_may", Arc::new(handl_lib_type::ops::TypeMay)),

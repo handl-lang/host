@@ -2,24 +2,238 @@ name: handl-plugin-lib-tag
 path: crates/plugin-lib-tag/Cargo.toml
 purpose: The **tagged-values** capability as a composable `plugin-lib-*` leaf crate (ADR-0055 — Tagged Values).
 api:
+- name: CANONICAL_REGISTRY_ID
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 174
+  module: handl-plugin-lib-tag
+- name: IS_TAG
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 235
+  module: handl-plugin-lib-tag
+- name: IsTag
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 148
+  module: handl-plugin-lib-tag
+- name: MATCH_TYPE
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 236
+  module: handl-plugin-lib-tag
+- name: MatchType
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 188
+  module: handl-plugin-lib-tag
+- name: TAG_HNL
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 71
+  module: handl-plugin-lib-tag
+- name: TAG_OF
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 234
+  module: handl-plugin-lib-tag
+- name: TAG_OPS
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 78
+  module: handl-plugin-lib-tag
+- name: TYPE_TAG_PREFIX
+  kind: const
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 24
+  module: handl-plugin-lib-tag
+- name: TagLibraryPlugin
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 297
+  module: handl-plugin-lib-tag
+- name: TagModule
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 247
+  module: handl-plugin-lib-tag
+- name: TagOf
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 128
+  module: handl-plugin-lib-tag
+- name: TypeRegistry
+  kind: type
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 28
+  module: handl-plugin-lib-tag
+- name: UNTAG
+  kind: const
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 233
+  module: handl-plugin-lib-tag
+- name: Untag
+  kind: type
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 109
+  module: handl-plugin-lib-tag
+- name: as_type_tag
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 108
+  module: handl-plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 112
+  module: handl-plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 131
+  module: handl-plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 151
+  module: handl-plugin-lib-tag
+- name: call
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 191
+  module: handl-plugin-lib-tag
+- name: call_fn
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 10
+  module: handl-plugin-lib-tag
+- name: capabilities
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 327
+  module: handl-plugin-lib-tag
+- name: construct
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 66
+  module: handl-plugin-lib-tag
+- name: contribute
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 338
+  module: handl-plugin-lib-tag
+- name: default
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 313
+  module: handl-plugin-lib-tag
+- name: function
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 254
+  module: handl-plugin-lib-tag
+- name: functions
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 264
+  module: handl-plugin-lib-tag
 - name: handl-plugin-lib-tag
   kind: module
   file: crates/plugin-lib-tag/Cargo.toml
   line: 1
   module: handl-plugin-lib-tag
+- name: id
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 319
+  module: handl-plugin-lib-tag
+- name: is_tag_recognizes_tagged_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 61
+  module: handl-plugin-lib-tag
+- name: is_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 89
+  module: handl-plugin-lib-tag
+- name: main
+  kind: function
+  file: crates/plugin-lib-tag/build.rs
+  line: 5
+  module: handl-plugin-lib-tag
+- name: match_type
+  kind: function
+  file: crates/plugin-lib-tag/src/registry.rs
+  line: 126
+  module: handl-plugin-lib-tag
+- name: match_type_host_function_dispatches
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 239
+  module: handl-plugin-lib-tag
+- name: match_type_host_function_no_default_fallback
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 268
+  module: handl-plugin-lib-tag
+- name: match_type_host_function_rejects_wrong_arity
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 279
+  module: handl-plugin-lib-tag
+- name: match_type_host_function_returns_null_for_non_type_value
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 261
+  module: handl-plugin-lib-tag
+- name: match_type_host_function_returns_null_when_no_case
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 250
+  module: handl-plugin-lib-tag
+- name: metadata
+  kind: function
+  file: crates/plugin-lib-tag/src/lib.rs
+  line: 331
+  module: handl-plugin-lib-tag
+- name: module_exposes_all_callables
+  kind: function
+  file: crates/plugin-lib-tag/src/tests.rs
+  line: 76
+  module: handl-plugin-lib-tag
+api_omitted: 31
 deps:
 - handl-language
 - handl-platform
 - handl-plugin-lib-handl
 - serde_json
+- handl-pkg-vendor
+- handl_language
+- handl-platform
+- serde_json
+- handl-plugin-lib-handl
+- registry
 notes: ''
 verify:
 - crates/plugin-lib-tag/Cargo.toml
+- crates/plugin-lib-tag/build.rs
+- crates/plugin-lib-tag/src/lib.rs
+- crates/plugin-lib-tag/src/registry.rs
+- crates/plugin-lib-tag/src/tests.rs
 provenance:
   files:
   - crates/plugin-lib-tag/Cargo.toml
+  - crates/plugin-lib-tag/build.rs
+  - crates/plugin-lib-tag/src/lib.rs
+  - crates/plugin-lib-tag/src/registry.rs
+  - crates/plugin-lib-tag/src/tests.rs
   hashes:
-  - bcb4ab7d82c3e06bb7a27b5886741bd0b6a7b8a2
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - bcd1972dedb7cd7524ed9b58bd2f2209f139c65d
+  - 0c314ba88b9a397795b341a444bada6774472350
+  - 5d8d47454777d8944f233956f895b97ccc32bd97
+  - 9ea5e90b5871eac55e08890354c9b33a36bed4e5
+  - b4260649a6802d8c5eceec2adf041048c5b6ce08
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

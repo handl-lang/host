@@ -2,6 +2,81 @@ name: handl-bench
 path: crates/bench/Cargo.toml
 purpose: Shared fixtures for the handl benchmark suite.
 api:
+- name: EVAL_SAMPLE
+  kind: const
+  file: crates/bench/src/lib.rs
+  line: 36
+  module: handl-bench
+- name: INFERENCE_SAMPLE
+  kind: const
+  file: crates/bench/src/lib.rs
+  line: 44
+  module: handl-bench
+- name: SAMPLE
+  kind: const
+  file: crates/bench/src/lib.rs
+  line: 20
+  module: handl-bench
+- name: bench_core
+  kind: function
+  file: crates/bench/benches/core.rs
+  line: 35
+  module: handl-bench
+- name: bench_infer
+  kind: function
+  file: crates/bench/benches/infer.rs
+  line: 22
+  module: handl-bench
+- name: bench_lex_and_parse
+  kind: function
+  file: crates/bench/benches/parser.rs
+  line: 39
+  module: handl-bench
+- name: bench_lex_batch
+  kind: function
+  file: crates/bench/benches/lexer.rs
+  line: 19
+  module: handl-bench
+- name: bench_parse
+  kind: function
+  file: crates/bench/benches/pipeline.rs
+  line: 17
+  module: handl-bench
+- name: bench_parse_and_eval
+  kind: function
+  file: crates/bench/benches/pipeline.rs
+  line: 24
+  module: handl-bench
+- name: bench_parse_only
+  kind: function
+  file: crates/bench/benches/parser.rs
+  line: 19
+  module: handl-bench
+- name: bench_typecheck
+  kind: function
+  file: crates/bench/benches/typecheck.rs
+  line: 21
+  module: handl-bench
+- name: canonical_lang
+  kind: function
+  file: crates/bench/benches/lexer.rs
+  line: 12
+  module: handl-bench
+- name: canonical_lang
+  kind: function
+  file: crates/bench/benches/parser.rs
+  line: 10
+  module: handl-bench
+- name: canonical_lang
+  kind: function
+  file: crates/bench/benches/typecheck.rs
+  line: 17
+  module: handl-bench
+- name: document
+  kind: function
+  file: crates/bench/benches/core.rs
+  line: 27
+  module: handl-bench
 - name: handl-bench
   kind: module
   file: crates/bench/Cargo.toml
@@ -10,23 +85,53 @@ api:
 deps:
 - handl-language
 - criterion
-- handl-kit-canonical
-- handl-kit-data-canonical
-- handl-plugin-tool-lex
-- handl-plugin-tool-lex-pattern
-- handl-plugin-tool-parse
-- handl-plugin-tool-parse-pratt
-- handl-plugin-tool-typecheck
+- handl-kit-data-prelude
+- handl-kit-prelude
 - handl-value
+- hnl-tool-lex
+- hnl-tool-lex-pattern
+- hnl-tool-parse
+- hnl-tool-parse-pratt
+- hnl-tool-typecheck
+- serde_json
+- criterion
+- handl-kit-prelude
+- handl_language
+- hnl_tool_lex
+- hnl_tool_lex_pattern
+- hnl_tool_parse
+- hnl_tool_parse_pratt
+- handl_value
 - serde_json
 notes: ''
 verify:
 - crates/bench/Cargo.toml
+- crates/bench/benches/core.rs
+- crates/bench/benches/infer.rs
+- crates/bench/benches/lexer.rs
+- crates/bench/benches/parser.rs
+- crates/bench/benches/pipeline.rs
+- crates/bench/benches/typecheck.rs
+- crates/bench/src/lib.rs
 provenance:
   files:
   - crates/bench/Cargo.toml
+  - crates/bench/benches/core.rs
+  - crates/bench/benches/infer.rs
+  - crates/bench/benches/lexer.rs
+  - crates/bench/benches/parser.rs
+  - crates/bench/benches/pipeline.rs
+  - crates/bench/benches/typecheck.rs
+  - crates/bench/src/lib.rs
   hashes:
-  - 1e2eb4fbd95bd1bd5a321224a1f7f3b3ae9b7397
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - eb1f8e7057206b06bf01c0c039016a0ab8e0b0fa
+  - aa88d9f65170a877b7b42050c8e8c26736ce03a3
+  - 25db603433d36f50e9244213417ddadfe4fd2e68
+  - e2853347e8ea9c3e1029a89744aded02ad354f5c
+  - b4f94d6e1128f81bede7f477a2358c1cc454fbd7
+  - 64137990071962b76b17ce140e96362a31da1af4
+  - 3c1682083ed086de66988940191fdac906f65416
+  - 806d6cf333e69ee80a78731e5e306eb39ad8169f
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

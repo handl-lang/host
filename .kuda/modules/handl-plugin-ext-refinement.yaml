@@ -2,34 +2,321 @@ name: handl-plugin-ext-refinement
 path: crates/plugin-ext-refinement/Cargo.toml
 purpose: '`handl-plugin-ext-refinement` -- annotation-free refinement inference for handl''s `Term` IR.'
 api:
-- name: handl-plugin-ext-refinement
-  kind: module
-  file: crates/plugin-ext-refinement/Cargo.toml
-  line: 1
+- name: AddFn
+  kind: type
+  file: crates/plugin-ext-refinement/src/checker_tests.rs
+  line: 505
   module: handl-plugin-ext-refinement
+- name: Arr
+  kind: type
+  file: crates/plugin-ext-refinement/src/partial_eval.rs
+  line: 82
+  module: handl-plugin-ext-refinement
+- name: ArrayRecSpec
+  kind: type
+  file: crates/plugin-ext-refinement/src/partial_eval.rs
+  line: 480
+  module: handl-plugin-ext-refinement
+- name: AxiomIter
+  kind: type
+  file: crates/plugin-ext-refinement/src/loader.rs
+  line: 166
+  module: handl-plugin-ext-refinement
+- name: BACKTRACK_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/backtrack_tests.rs
+  line: 34
+  module: handl-plugin-ext-refinement
+- name: BUFFER_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/state_tests.rs
+  line: 36
+  module: handl-plugin-ext-refinement
+- name: BaseTy
+  kind: type
+  file: crates/plugin-ext-refinement/src/types.rs
+  line: 15
+  module: handl-plugin-ext-refinement
+- name: BasicRefiner
+  kind: type
+  file: crates/plugin-ext-refinement/src/plugin.rs
+  line: 59
+  module: handl-plugin-ext-refinement
+- name: COUNTER_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/state_tests.rs
+  line: 35
+  module: handl-plugin-ext-refinement
+- name: CachingResolver
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_loader.rs
+  line: 543
+  module: handl-plugin-ext-refinement
+- name: CapDecl
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_parser.rs
+  line: 214
+  module: handl-plugin-ext-refinement
+- name: ChainResolver
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_loader.rs
+  line: 509
+  module: handl-plugin-ext-refinement
+- name: Config
+  kind: type
+  file: crates/plugin-ext-refinement/examples/hnlc.rs
+  line: 35
+  module: handl-plugin-ext-refinement
+- name: Contract
+  kind: type
+  file: crates/plugin-ext-refinement/src/types.rs
+  line: 488
+  module: handl-plugin-ext-refinement
+- name: ContractChecker
+  kind: type
+  file: crates/plugin-ext-refinement/src/checker.rs
+  line: 52
+  module: handl-plugin-ext-refinement
+- name: ContractRegistry
+  kind: type
+  file: crates/plugin-ext-refinement/src/contracts.rs
+  line: 40
+  module: handl-plugin-ext-refinement
+- name: CountingResolver
+  kind: type
+  file: crates/plugin-ext-refinement/src/loader_tests.rs
+  line: 726
+  module: handl-plugin-ext-refinement
+- name: DROP_RICH_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  line: 61
+  module: handl-plugin-ext-refinement
+- name: Directive
+  kind: type
+  file: crates/plugin-ext-refinement/src/partial_eval.rs
+  line: 54
+  module: handl-plugin-ext-refinement
+- name: Err
+  kind: type
+  file: crates/plugin-ext-refinement/examples/hnlc.rs
+  line: 51
+  module: handl-plugin-ext-refinement
+- name: ExportDecl
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_parser.rs
+  line: 141
+  module: handl-plugin-ext-refinement
+- name: FILTER_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  line: 55
+  module: handl-plugin-ext-refinement
+- name: FIXPOINT_MAX_ITERATIONS
+  kind: const
+  file: crates/plugin-ext-refinement/src/loop_invariant.rs
+  line: 28
+  module: handl-plugin-ext-refinement
+- name: FOLD_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  line: 56
+  module: handl-plugin-ext-refinement
+- name: FileResolver
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_loader.rs
+  line: 416
+  module: handl-plugin-ext-refinement
+- name: HandlDecl
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_parser.rs
+  line: 195
+  module: handl-plugin-ext-refinement
+- name: INSERT_HNL
+  kind: const
+  file: crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  line: 52
+  module: handl-plugin-ext-refinement
+- name: INSERT_SRC
+  kind: const
+  file: crates/plugin-ext-refinement/src/loader_tests.rs
+  line: 1933
+  module: handl-plugin-ext-refinement
+- name: ImportDecl
+  kind: type
+  file: crates/plugin-ext-refinement/src/arrow_parser.rs
+  line: 128
+  module: handl-plugin-ext-refinement
+- name: Item
+  kind: type
+  file: crates/plugin-ext-refinement/src/loader.rs
+  line: 181
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/src/arrow_lang.rs
+  line: 251
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  line: 29
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/src/backtrack_tests.rs
+  line: 26
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/src/loader_tests.rs
+  line: 30
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/src/parse_tests.rs
+  line: 25
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/src/state_tests.rs
+  line: 27
+  module: handl-plugin-ext-refinement
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-refinement/tests/module_integration.rs
+  line: 31
+  module: handl-plugin-ext-refinement
+- name: LIST_CONTRACTS
+  kind: const
+  file: crates/plugin-ext-refinement/src/loader.rs
+  line: 63
+  module: handl-plugin-ext-refinement
+- name: Law
+  kind: type
+  file: crates/plugin-ext-refinement/src/trait_inference.rs
+  line: 75
+  module: handl-plugin-ext-refinement
+- name: LawAnnotation
+  kind: type
+  file: crates/plugin-ext-refinement/src/trait_inference.rs
+  line: 467
+  module: handl-plugin-ext-refinement
+api_omitted: 955
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-tool-lex-pattern
-- handl-plugin-tool-parse
-- handl-plugin-tool-parse-pratt
 - handl-plugin-ext-detect
 - handl-plugin-lib-handl
-- plugin-engine
+- hnl-engine
+- hnl-tool-lex-pattern
+- hnl-tool-parse
+- hnl-tool-parse-pratt
 - serde
 - serde_json
 - z3
-- handl-kit-data-canonical
+- handl-kit-data-prelude
 - handl-plugin-lib-char-native
+- handl-pkg-vendor
+- handl_language
+- hnl_engine
+- handl-platform
+- handl-plugin-lib-handl
 - serde_json
+- hnl_tool_parse
+- hnl_tool_parse_pratt
+- z3
+- arrow_loader
+- arrow_parser
+- checker
+- contracts
+- inference
+- loader
+- loop_invariant
+- partial_eval
+- plugin
+- smt
+- termination
+- trait_inference
+- types
+- handl-plugin-ext-detect
 notes: ''
 verify:
 - crates/plugin-ext-refinement/Cargo.toml
+- crates/plugin-ext-refinement/src/lib.rs
+- crates/plugin-ext-refinement/build.rs
+- crates/plugin-ext-refinement/examples/demo.rs
+- crates/plugin-ext-refinement/examples/hnlc.rs
+- crates/plugin-ext-refinement/src/arrow_lang.rs
+- crates/plugin-ext-refinement/src/arrow_loader.rs
+- crates/plugin-ext-refinement/src/arrow_parser.rs
+- crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+- crates/plugin-ext-refinement/src/backtrack_tests.rs
 provenance:
   files:
   - crates/plugin-ext-refinement/Cargo.toml
+  - crates/plugin-ext-refinement/build.rs
+  - crates/plugin-ext-refinement/examples/demo.rs
+  - crates/plugin-ext-refinement/examples/hnlc.rs
+  - crates/plugin-ext-refinement/src/arrow_lang.rs
+  - crates/plugin-ext-refinement/src/arrow_loader.rs
+  - crates/plugin-ext-refinement/src/arrow_parser.rs
+  - crates/plugin-ext-refinement/src/arrow_parser_tests.rs
+  - crates/plugin-ext-refinement/src/backtrack_tests.rs
+  - crates/plugin-ext-refinement/src/checker.rs
+  - crates/plugin-ext-refinement/src/checker_tests.rs
+  - crates/plugin-ext-refinement/src/contracts.rs
+  - crates/plugin-ext-refinement/src/e2e_tests.rs
+  - crates/plugin-ext-refinement/src/inference.rs
+  - crates/plugin-ext-refinement/src/lib.rs
+  - crates/plugin-ext-refinement/src/loader.rs
+  - crates/plugin-ext-refinement/src/loader_tests.rs
+  - crates/plugin-ext-refinement/src/loop_invariant.rs
+  - crates/plugin-ext-refinement/src/parse_tests.rs
+  - crates/plugin-ext-refinement/src/partial_eval.rs
+  - crates/plugin-ext-refinement/src/plugin.rs
+  - crates/plugin-ext-refinement/src/smt.rs
+  - crates/plugin-ext-refinement/src/state_tests.rs
+  - crates/plugin-ext-refinement/src/termination.rs
+  - crates/plugin-ext-refinement/src/tests.rs
+  - crates/plugin-ext-refinement/src/trait_inference.rs
+  - crates/plugin-ext-refinement/src/trait_inference_tests.rs
+  - crates/plugin-ext-refinement/src/types.rs
+  - crates/plugin-ext-refinement/tests/module_integration.rs
+  - crates/plugin-ext-refinement/tests/str_contract.rs
+  - crates/plugin-ext-refinement/tests/time_contract.rs
   hashes:
-  - 1cc2e7634f95ee66ff76ceef553f7c8980a6cfd6
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 94dc6c390f3770f601604dac4bd46838f3f55252
+  - a94ab108fa28543842320671ad3c38100f796eef
+  - 957a5eec1159f7d8ca6ca834fb52e3f2e36c67bc
+  - 7968728be3b11e0abc11ae6779a87e2746e1d3b0
+  - 614ab1de0b534cbff27486ff6b3b667085745237
+  - 5455a8f91eea3dff679853264f7bee270fd2b0fa
+  - ff5271dd3219a20e692712efcdeeb934f26f52be
+  - 46b2d00177cdb7b64ef6e0d3690b21156dc69519
+  - a5c6326b430120fa443485e03688eae0662a4ec0
+  - d619824dc980104c51a04fb86c435d806b9e7650
+  - ad13b71a6d2fb3e55dba86e291edc59e2e866fdc
+  - bb3e5a144872fd21b3de3c9476846548c65c82fa
+  - 195566e8ad998c3821cbd4977139b28fb3f1a3aa
+  - c2df9cf7d4b71569cbb9fc27ad9fb183142e56a7
+  - ce6d91a5add1d4e299f1c58071c75cf8f3c692e2
+  - c9f5a0e4901465d0fdcf94557e14c7736446b4d4
+  - 17b7b8eeb81c2c5e8f3ad1f25a750b84845b997c
+  - 6a1653adb0f072d3d2ff51ca0c78b0eb6e1cafba
+  - 9c559f5ad509ad98173b0fe1d1d425d14d125535
+  - 92990abba088b35471fd7e61c4b33af83241adec
+  - 8509546e91be761b9130a5d9493bc5051181ae6d
+  - e8fbccc1702cfaeb01c2f3482bb15956c9957fac
+  - cf414a9659200a5c1818c3b4877daee2d12d4c4b
+  - 57cbb6142a37343feee777bd6195e317702f8260
+  - 9ec3a179a5b251e1d2ff8314b54b981c78bc53c0
+  - 055213f5b9540547f8847e67608757f3bbc6c994
+  - fc80bae460d2ceee2ab466a1205de35c17ec9ced
+  - ff0d14736b45458edaa0180a32cd8329f9f5ab5b
+  - bb746f64f0c937f6494ab154299e3ab8a0c1a795
+  - 4382b9d1f1b19a86cd50ef2a0adf6a4c90b30849
+  - ef1d66516b9ac7e794bb5a9e478acb6b617af381
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

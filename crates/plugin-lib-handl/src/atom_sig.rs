@@ -78,9 +78,7 @@ pub fn parse_op_declarations(src: &str) -> Vec<(String, String)> {
         }
         // Whole-word `op` prefix (same discipline as the `cap` scan).
         let rest = match trimmed.strip_prefix("op") {
-            Some(rest)
-                if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') =>
-            {
+            Some(rest) if rest.is_empty() || rest.starts_with(' ') || rest.starts_with('\t') => {
                 rest.trim_start()
             }
             _ => continue,
@@ -384,10 +382,7 @@ mod tests {
         assert_eq!(tag(&v), "type.function");
         assert_eq!(tag(&v["param"]), "type.number");
         assert_eq!(tag(&v["body"]), "type.number");
-        assert_eq!(
-            v["__registry__"].as_str().unwrap(),
-            TYPE_SIG_REGISTRY_ID
-        );
+        assert_eq!(v["__registry__"].as_str().unwrap(), TYPE_SIG_REGISTRY_ID);
     }
 
     #[test]
@@ -456,7 +451,15 @@ mod tests {
 
     #[test]
     fn malformed_sigs_return_none() {
-        for bad in ["", "Float", "~>", "Float ~>", "(Float *", "Float * * Float", "Float ~> ~>"] {
+        for bad in [
+            "",
+            "Float",
+            "~>",
+            "Float ~>",
+            "(Float *",
+            "Float * * Float",
+            "Float ~> ~>",
+        ] {
             // `Float` alone is actually a valid bare-type sig — keep it.
             if bad == "Float" {
                 assert!(sig_to_type_value(bad).is_some());

@@ -1,0 +1,45 @@
+name: handl-kit-lang
+path: crates/handl-kit-lang/Cargo.toml
+purpose: Lang kit — the self-hosting meta chain (lex/parse/eval/typecheck/compile/run_compiled host modules).
+api:
+- name: handl-kit-lang
+  kind: module
+  file: crates/handl-kit-lang/Cargo.toml
+  line: 1
+  module: handl-kit-lang
+- name: meta_chain
+  kind: function
+  file: crates/handl-kit-lang/src/lib.rs
+  line: 28
+  module: handl-kit-lang
+deps:
+- handl-platform
+- handl-plugin-lib-lang-compile
+- handl-plugin-lib-lang-eval
+- handl-plugin-lib-lang-lex
+- handl-plugin-lib-lang-parse
+- handl-plugin-lib-lang-run-compiled
+- handl-plugin-lib-lang-typecheck
+- handl-runtime
+- handl-platform
+- handl_plugin_lib_lang_compile
+- handl_plugin_lib_lang_eval
+- handl_plugin_lib_lang_lex
+- handl_plugin_lib_lang_parse
+- handl_plugin_lib_lang_run_compiled
+- handl_plugin_lib_lang_typecheck
+- handl-runtime
+notes: ''
+verify:
+- crates/handl-kit-lang/Cargo.toml
+- crates/handl-kit-lang/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-lang/Cargo.toml
+  - crates/handl-kit-lang/src/lib.rs
+  hashes:
+  - 7cbd011a046832b3c70686a43a2a941df4ac8435
+  - 6f651d5a5229cdbe13ac746e43a1b420033331c7
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

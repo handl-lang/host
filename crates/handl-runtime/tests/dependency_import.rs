@@ -300,7 +300,11 @@ fn pkg_hnl_modules_resolve_through_the_dep_dir() {
         "{ name: \"single\", modules: [\"main\"] }\n",
     )
     .unwrap();
-    std::fs::write(dep_single.join("src/index.hnl"), "export h := (x) ~> x - 2\n").unwrap();
+    std::fs::write(
+        dep_single.join("src/index.hnl"),
+        "export h := (x) ~> x - 2\n",
+    )
+    .unwrap();
 
     std::fs::write(
         project.join("consumer.hnl"),

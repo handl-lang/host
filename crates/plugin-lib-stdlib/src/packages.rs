@@ -475,10 +475,7 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: &[],
         values: &[],
         registry: Some(RegistrySource::KernelAtoms {
-            spec: include_str!(concat!(
-                env!("OUT_DIR"),
-                "/lib-serialize-toml-c/atoms.yaml"
-            )),
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize-toml-c/atoms.yaml")),
             impls: ops::kernel_impls::toml_c_impls,
         }),
     },
@@ -495,10 +492,7 @@ pub static MODULES: &[ModuleSpec] = &[
         ops: &[],
         values: &[],
         registry: Some(RegistrySource::KernelAtoms {
-            spec: include_str!(concat!(
-                env!("OUT_DIR"),
-                "/lib-serialize-yaml-c/atoms.yaml"
-            )),
+            spec: include_str!(concat!(env!("OUT_DIR"), "/lib-serialize-yaml-c/atoms.yaml")),
             impls: ops::kernel_impls::yaml_c_impls,
         }),
     },

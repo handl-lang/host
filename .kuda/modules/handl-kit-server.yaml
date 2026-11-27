@@ -1,0 +1,52 @@
+name: handl-kit-server
+path: crates/handl-kit-server/Cargo.toml
+purpose: Server kit — OS-adjacent and C-library-backed modules (crypto/intl_c/unicode_c/entropy) plus the config/server manifests' library rows.
+api:
+- name: MODULES
+  kind: const
+  file: crates/handl-kit-server/src/lib.rs
+  line: 20
+  module: handl-kit-server
+- name: ONCE
+  kind: const
+  file: crates/handl-kit-server/src/lib.rs
+  line: 183
+  module: handl-kit-server
+- name: handl-kit-server
+  kind: module
+  file: crates/handl-kit-server/Cargo.toml
+  line: 1
+  module: handl-kit-server
+- name: populate_libraries
+  kind: function
+  file: crates/handl-kit-server/src/lib.rs
+  line: 193
+  module: handl-kit-server
+- name: register
+  kind: function
+  file: crates/handl-kit-server/src/lib.rs
+  line: 182
+  module: handl-kit-server
+deps:
+- handl-kit-core
+- handl-kit-data
+- handl-plugin-lib-handl
+- handl-plugin-lib-otlp-std
+- handl-plugin-lib-stdlib
+- handl-kit-core
+- handl-kit-data
+- handl-plugin-lib-handl
+notes: ''
+verify:
+- crates/handl-kit-server/Cargo.toml
+- crates/handl-kit-server/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-server/Cargo.toml
+  - crates/handl-kit-server/src/lib.rs
+  hashes:
+  - 9f0772cf3d583385e6bec0c0811c67b204fb6995
+  - 0efd4d721553c99ea5b7f4c093835347d925909b
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

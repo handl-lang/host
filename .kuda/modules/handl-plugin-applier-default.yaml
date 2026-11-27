@@ -2,10 +2,115 @@ name: handl-plugin-applier-default
 path: crates/plugin-applier-default/Cargo.toml
 purpose: Factory for the default applier, selected by `--applier applier.default`.
 api:
+- name: DefaultApplierFactory
+  kind: type
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 17
+  module: handl-plugin-applier-default
+- name: DefaultApplierPlugin
+  kind: type
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 55
+  module: handl-plugin-applier-default
+- name: applier_loads_kit_from_config
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 24
+  module: handl-plugin-applier-default
+- name: capabilities
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 94
+  module: handl-plugin-applier-default
+- name: contribute
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 102
+  module: handl-plugin-applier-default
+- name: excludes_remove_plugin_by_id
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 108
+  module: handl-plugin-applier-default
+- name: full_config_flow_kits_plugins_options
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 44
+  module: handl-plugin-applier-default
 - name: handl-plugin-applier-default
   kind: module
   file: crates/plugin-applier-default/Cargo.toml
   line: 1
+  module: handl-plugin-applier-default
+- name: id
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 34
+  module: handl-plugin-applier-default
+- name: id
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 86
+  module: handl-plugin-applier-default
+- name: kit_module_names
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 11
+  module: handl-plugin-applier-default
+- name: lib_tests
+  kind: module
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 187
+  module: handl-plugin-applier-default
+- name: libraries
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 19
+  module: handl-plugin-applier-default
+- name: metadata
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 98
+  module: handl-plugin-applier-default
+- name: name
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 90
+  module: handl-plugin-applier-default
+- name: new
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 25
+  module: handl-plugin-applier-default
+- name: new
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 66
+  module: handl-plugin-applier-default
+- name: per_kit_exclude_removes_plugin
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 145
+  module: handl-plugin-applier-default
+- name: register
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 38
+  module: handl-plugin-applier-default
+- name: register_accepts_unresolved_declaration
+  kind: function
+  file: crates/plugin-applier-default/src/lib_tests.rs
+  line: 79
+  module: handl-plugin-applier-default
+- name: run
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 177
+  module: handl-plugin-applier-default
+- name: with_fallback_kit
+  kind: function
+  file: crates/plugin-applier-default/src/lib.rs
+  line: 79
   module: handl-plugin-applier-default
 deps:
 - handl-kit-data
@@ -14,16 +119,27 @@ deps:
 - handl-plugin-ext-kit
 - handl-plugin-load
 - serde_json
-- handl-kit-canonical
-- handl-kit-data-canonical
+- handl-kit-data-prelude
+- handl-kit-prelude
+- handl-kit-data
+- handl-platform
+- handl-plugin-load
+- handl-plugin-applier
+- handl-plugin-ext-kit
 notes: ''
 verify:
 - crates/plugin-applier-default/Cargo.toml
+- crates/plugin-applier-default/src/lib.rs
+- crates/plugin-applier-default/src/lib_tests.rs
 provenance:
   files:
   - crates/plugin-applier-default/Cargo.toml
+  - crates/plugin-applier-default/src/lib.rs
+  - crates/plugin-applier-default/src/lib_tests.rs
   hashes:
-  - 98f40229b4a0700deecc94d6f21e63c8c4acc04f
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 0f009f458271cc634e0b972283a588e821ef8322
+  - 660277422c19556e61bb603f0a0e2fda23368d06
+  - ec4d8acc637fcfeb636af1aa86e38f1a2f76d709
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

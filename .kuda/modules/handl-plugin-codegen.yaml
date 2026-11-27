@@ -1,0 +1,237 @@
+name: handl-plugin-codegen
+path: crates/plugin-codegen/Cargo.toml
+purpose: 'Handl codegen registry: IR families, CodegenRequest/CodegenTarget records, and the Source -> Emitter -> Change -> Engine lifecycle wiring (P-001/PL-004, renamed from plugin-sdkgen).'
+api:
+- name: AnyEmitter
+  kind: trait
+  file: crates/plugin-codegen/src/registry.rs
+  line: 178
+  module: handl-plugin-codegen
+- name: AnySource
+  kind: trait
+  file: crates/plugin-codegen/src/registry.rs
+  line: 171
+  module: handl-plugin-codegen
+- name: Arg
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 232
+  module: handl-plugin-codegen
+- name: CodegenEmitterDef
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 271
+  module: handl-plugin-codegen
+- name: CodegenRegistry
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 326
+  module: handl-plugin-codegen
+- name: CodegenRequest
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 55
+  module: handl-plugin-codegen
+- name: CodegenSourceDef
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 263
+  module: handl-plugin-codegen
+- name: CodegenSpecInput
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 287
+  module: handl-plugin-codegen
+- name: CodegenTarget
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 296
+  module: handl-plugin-codegen
+- name: CodegenTargetError
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 335
+  module: handl-plugin-codegen
+- name: CodegenTypedTarget
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 317
+  module: handl-plugin-codegen
+- name: DocSource
+  kind: trait
+  file: crates/plugin-codegen/src/lib.rs
+  line: 259
+  module: handl-plugin-codegen
+- name: EmitterAdapter
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 203
+  module: handl-plugin-codegen
+- name: EnumConst
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 248
+  module: handl-plugin-codegen
+- name: ErasedModule
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 131
+  module: handl-plugin-codegen
+- name: Field
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 193
+  module: handl-plugin-codegen
+- name: Function
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 208
+  module: handl-plugin-codegen
+- name: ModuleImport
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 176
+  module: handl-plugin-codegen
+- name: Record
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 183
+  module: handl-plugin-codegen
+- name: RecordingSource
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 313
+  module: handl-plugin-codegen
+- name: SdkgenModule
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 42
+  module: handl-plugin-codegen
+- name: SourceAdapter
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 188
+  module: handl-plugin-codegen
+- name: SpecDump
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 89
+  module: handl-plugin-codegen
+- name: SpecModule
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 109
+  module: handl-plugin-codegen
+- name: SpecStubEmitter
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 781
+  module: handl-plugin-codegen
+- name: SpecStubSource
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 774
+  module: handl-plugin-codegen
+- name: StubEmitter
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 760
+  module: handl-plugin-codegen
+- name: StubSource
+  kind: type
+  file: crates/plugin-codegen/src/registry.rs
+  line: 750
+  module: handl-plugin-codegen
+- name: Typedef
+  kind: type
+  file: crates/plugin-codegen/src/lib.rs
+  line: 239
+  module: handl-plugin-codegen
+- name: apply
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 653
+  module: handl-plugin-codegen
+- name: check_source_filters
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 529
+  module: handl-plugin-codegen
+- name: contains
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 391
+  module: handl-plugin-codegen
+- name: default_true
+  kind: function
+  file: crates/plugin-codegen/src/lib.rs
+  line: 226
+  module: handl-plugin-codegen
+- name: destroy
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 471
+  module: handl-plugin-codegen
+- name: downcast_mut
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 155
+  module: handl-plugin-codegen
+- name: downcast_ref
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 150
+  module: handl-plugin-codegen
+- name: emit_context
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 96
+  module: handl-plugin-codegen
+- name: emit_diagnostics
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 734
+  module: handl-plugin-codegen
+- name: emit_spec_dump
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 715
+  module: handl-plugin-codegen
+- name: erase_emitter
+  kind: function
+  file: crates/plugin-codegen/src/registry.rs
+  line: 245
+  module: handl-plugin-codegen
+api_omitted: 51
+deps:
+- handl-language
+- hnl-tool-codegen
+- serde
+- serde_json
+- serde_yaml
+- ureq
+- tempfile
+- handl_language
+- hnl_tool_codegen
+- registry
+- serde
+notes: ''
+verify:
+- crates/plugin-codegen/Cargo.toml
+- crates/plugin-codegen/src/lib.rs
+- crates/plugin-codegen/src/registry.rs
+- crates/plugin-codegen/tests/round_trip.rs
+provenance:
+  files:
+  - crates/plugin-codegen/Cargo.toml
+  - crates/plugin-codegen/src/lib.rs
+  - crates/plugin-codegen/src/registry.rs
+  - crates/plugin-codegen/tests/round_trip.rs
+  hashes:
+  - eba2ce189bbee27c9ca11767572dfa521f0d7f0b
+  - 58cae8170904acc7e6373f00d76efc669e769d58
+  - a86096223b91b9cca0c18b83e4a586e550aecbd2
+  - 11e2df55eb25f93b831190db171cd9f3f2872a3f
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

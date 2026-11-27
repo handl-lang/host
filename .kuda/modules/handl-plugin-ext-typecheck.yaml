@@ -2,24 +2,172 @@ name: handl-plugin-ext-typecheck
 path: crates/plugin-ext-typecheck/Cargo.toml
 purpose: '`handl-plugin-ext-typecheck` — the `typecheck` capability adapter.'
 api:
+- name: TYPECHECK_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 37
+  module: handl-plugin-ext-typecheck
+- name: TypecheckFn
+  kind: type
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 48
+  module: handl-plugin-ext-typecheck
+- name: TypecheckPlugin
+  kind: type
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 51
+  module: handl-plugin-ext-typecheck
+- name: a_non_array_prelude_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 296
+  module: handl-plugin-ext-typecheck
+- name: a_null_prelude_is_treated_as_absent
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 215
+  module: handl-plugin-ext-typecheck
+- name: a_well_typed_module_reports_ok_with_a_type
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 312
+  module: handl-plugin-ext-typecheck
+- name: a_wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 266
+  module: handl-plugin-ext-typecheck
+- name: an_explicit_prelude_is_honoured
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 347
+  module: handl-plugin-ext-typecheck
+- name: an_unparseable_source_is_an_error_status_not_a_platform_error
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 328
+  module: handl-plugin-ext-typecheck
+- name: canonical_check
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 171
+  module: handl-plugin-ext-typecheck
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 79
+  module: handl-plugin-ext-typecheck
+- name: declares_the_typecheck_capability
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 256
+  module: handl-plugin-ext-typecheck
+- name: default_is_new_and_name_is_reported
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 208
+  module: handl-plugin-ext-typecheck
+- name: dump
+  kind: function
+  file: crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs
+  line: 5
+  module: handl-plugin-ext-typecheck
 - name: handl-plugin-ext-typecheck
   kind: module
   file: crates/plugin-ext-typecheck/Cargo.toml
   line: 1
   module: handl-plugin-ext-typecheck
+- name: id
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 71
+  module: handl-plugin-ext-typecheck
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 83
+  module: handl-plugin-ext-typecheck
+- name: missing_source_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 285
+  module: handl-plugin-ext-typecheck
+- name: name
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 75
+  module: handl-plugin-ext-typecheck
+- name: new
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 62
+  module: handl-plugin-ext-typecheck
+- name: plugin
+  kind: module
+  file: crates/plugin-ext-typecheck/src/lib.rs
+  line: 30
+  module: handl-plugin-ext-typecheck
+- name: plugin
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 186
+  module: handl-plugin-ext-typecheck
+- name: req
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 200
+  module: handl-plugin-ext-typecheck
+- name: run
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 93
+  module: handl-plugin-ext-typecheck
+- name: scratch_dump
+  kind: function
+  file: crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs
+  line: 23
+  module: handl-plugin-ext-typecheck
+- name: tests
+  kind: module
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 157
+  module: handl-plugin-ext-typecheck
+- name: type_errors_are_reported_as_a_distinct_status
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 229
+  module: handl-plugin-ext-typecheck
+- name: with_ctx
+  kind: function
+  file: crates/plugin-ext-typecheck/src/plugin.rs
+  line: 190
+  module: handl-plugin-ext-typecheck
 deps:
 - handl-language
 - handl-platform
 - serde_json
-- handl-kit-canonical
+- handl-kit-prelude
+- handl-kit-prelude
+- handl_language
+- handl-platform
+- plugin
 notes: ''
 verify:
 - crates/plugin-ext-typecheck/Cargo.toml
+- crates/plugin-ext-typecheck/src/lib.rs
+- crates/plugin-ext-typecheck/src/plugin.rs
+- crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs
 provenance:
   files:
   - crates/plugin-ext-typecheck/Cargo.toml
+  - crates/plugin-ext-typecheck/src/lib.rs
+  - crates/plugin-ext-typecheck/src/plugin.rs
+  - crates/plugin-ext-typecheck/tests/scratch_ast_dump.rs
   hashes:
-  - 71eb6ac9672f1dc9c1df9eae8909651f91f144af
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 3280e888da8a5a79ec26c60a6ef4f2d65ca8c2bb
+  - 8d7c849f08c70aecbdcf8e69d78f46ed19535e79
+  - df546ee30b2c05fe223c21f12e71394f686f6910
+  - 95fc9aeabf36fcabe2fcdbaa7cca0f222104c821
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

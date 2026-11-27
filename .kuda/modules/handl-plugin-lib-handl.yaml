@@ -2,45 +2,301 @@ name: handl-plugin-lib-handl
 path: crates/plugin-lib-handl/Cargo.toml
 purpose: A generic crate that lets `.hnl` files replace hand-rolled Rust `plugin-lib-*` bridge crates for pure-logic libraries.
 api:
-- name: handl-plugin-lib-handl
-  kind: module
-  file: crates/plugin-lib-handl/Cargo.toml
-  line: 1
+- name: AlwaysPassChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 315
   module: handl-plugin-lib-handl
+- name: BothChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 492
+  module: handl-plugin-lib-handl
+- name: CHAR_MODULE
+  kind: const
+  file: crates/plugin-lib-handl/src/char_module.rs
+  line: 25
+  module: handl-plugin-lib-handl
+- name: CHAR_OPS
+  kind: const
+  file: crates/plugin-lib-handl/src/char_module.rs
+  line: 23
+  module: handl-plugin-lib-handl
+- name: CORPUS
+  kind: const
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 1216
+  module: handl-plugin-lib-handl
+- name: CharModule
+  kind: type
+  file: crates/plugin-lib-handl/src/char_module.rs
+  line: 58
+  module: handl-plugin-lib-handl
+- name: CharResolver
+  kind: type
+  file: crates/plugin-lib-handl/examples/loader_bench.rs
+  line: 16
+  module: handl-plugin-lib-handl
+- name: CharResolver
+  kind: type
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 1195
+  module: handl-plugin-lib-handl
+- name: Cur
+  kind: type
+  file: crates/plugin-lib-handl/tests/loader.rs
+  line: 747
+  module: handl-plugin-lib-handl
+- name: DEFAULT_ENV_FUNCS
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 481
+  module: handl-plugin-lib-handl
+- name: DEFAULT_ENV_SRC
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 474
+  module: handl-plugin-lib-handl
+- name: DEFAULT_LANGUAGE
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2315
+  module: handl-plugin-lib-handl
+- name: DEP_CALL_FUNCS
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 369
+  module: handl-plugin-lib-handl
+- name: DEP_CALL_SRC
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 362
+  module: handl-plugin-lib-handl
+- name: DEP_WRAP_REST
+  kind: const
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 215
+  module: handl-plugin-lib-handl
+- name: DESUGAR_FUNCS
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 546
+  module: handl-plugin-lib-handl
+- name: DESUGAR_HNL
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 536
+  module: handl-plugin-lib-handl
+- name: DefaultEnv
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 371
+  module: handl-plugin-lib-handl
+- name: DependencyImportResolver
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 167
+  module: handl-plugin-lib-handl
+- name: Double
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 268
+  module: handl-plugin-lib-handl
+- name: EAGER_SRC
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 393
+  module: handl-plugin-lib-handl
+- name: FRESH_KEY
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 125
+  module: handl-plugin-lib-handl
+- name: FUNCS
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 115
+  module: handl-plugin-lib-handl
+- name: GhostCat
+  kind: type
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 508
+  module: handl-plugin-lib-handl
+- name: GhostFn
+  kind: type
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 417
+  module: handl-plugin-lib-handl
+- name: GhostLookup
+  kind: type
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 423
+  module: handl-plugin-lib-handl
+- name: GhostModule
+  kind: type
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 503
+  module: handl-plugin-lib-handl
+- name: GhostWho
+  kind: type
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 507
+  module: handl-plugin-lib-handl
+- name: GuaranteeEvenChecker
+  kind: type
+  file: crates/plugin-lib-handl/src/op_registry.rs
+  line: 345
+  module: handl-plugin-lib-handl
+- name: Guard
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2225
+  module: handl-plugin-lib-handl
+- name: HANDL_PREFIX
+  kind: const
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 117
+  module: handl-plugin-lib-handl
+- name: HandlFunction
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 2588
+  module: handl-plugin-lib-handl
+- name: HandlLibraryPlugin
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 3881
+  module: handl-plugin-lib-handl
+- name: HandlLoader
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 3613
+  module: handl-plugin-lib-handl
+- name: HandlModel
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 30
+  module: handl-plugin-lib-handl
+- name: HandlModelAdapter
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 135
+  module: handl-plugin-lib-handl
+- name: HandlModelEngine
+  kind: type
+  file: crates/plugin-lib-handl/src/model.rs
+  line: 77
+  module: handl-plugin-lib-handl
+- name: HandlModule
+  kind: type
+  file: crates/plugin-lib-handl/src/lib.rs
+  line: 3025
+  module: handl-plugin-lib-handl
+- name: HandlNativeRewrite
+  kind: type
+  file: crates/plugin-lib-handl/src/transform.rs
+  line: 168
+  module: handl-plugin-lib-handl
+- name: IMPORT_SRC
+  kind: const
+  file: crates/plugin-lib-handl/tests/scope_bound_env.rs
+  line: 262
+  module: handl-plugin-lib-handl
+api_omitted: 438
 deps:
 - handl-language
-- handl-lib-dedent
-- handl-lib-str-handl
+- handl-ops
 - handl-platform
-- handl-plugin-exec
-- handl-plugin-exec-bytecode
-- handl-plugin-exec-tree-walk
-- handl-plugin-tool-lex-pattern
-- handl-plugin-tool-lint
-- handl-plugin-tool-parse-pratt
-- handl-plugin-tool-transform
 - handl-plugin-lib-char-native
 - handl-plugin-module
 - handl-runtime
 - handl-value
-- plugin-engine
+- hnl-engine
+- hnl-exec
+- hnl-exec-bytecode
+- hnl-exec-tree-walk
+- hnl-tool-lex-pattern
+- hnl-tool-parse-pratt
+- hnl-tool-transform
 - serde_json
-- handl-kit-data-canonical
-- handl-plugin-exec
-- handl-plugin-tool-lex
-- handl-plugin-tool-parse
-- handl-plugin-tool-transform-rewrite
-- handl-plugin-lib-char-native
+- handl-kit-data-prelude
 - handl-plugin-lib-stdlib
+- hnl-tool-lex
+- hnl-tool-parse
+- hnl-tool-transform-rewrite
+- handl-pkg-vendor
+- handl-platform
+- handl-kit-data-prelude
+- handl_language
+- handl-plugin-module
 - handl-runtime
+- hnl_exec
+- hnl_exec_bytecode
+- hnl_exec_tree_walk
+- hnl_tool_lex_pattern
+- hnl_tool_parse_pratt
+- serde_json
+- hnl_tool_lex
+- hnl_tool_parse
+- hnl_tool_transform_rewrite
+- handl_ops
+- hnl_engine
+- char_module
+- model
+- op_registry
+- transform
+- str_handl
 notes: ''
 verify:
 - crates/plugin-lib-handl/Cargo.toml
+- crates/plugin-lib-handl/src/lib.rs
+- crates/plugin-lib-handl/build.rs
+- crates/plugin-lib-handl/examples/loader_bench.rs
+- crates/plugin-lib-handl/src/char_module.rs
+- crates/plugin-lib-handl/src/model.rs
+- crates/plugin-lib-handl/src/op_registry.rs
+- crates/plugin-lib-handl/src/pkg.rs
+- crates/plugin-lib-handl/src/str_handl.rs
+- crates/plugin-lib-handl/src/transform.rs
 provenance:
   files:
   - crates/plugin-lib-handl/Cargo.toml
+  - crates/plugin-lib-handl/build.rs
+  - crates/plugin-lib-handl/examples/loader_bench.rs
+  - crates/plugin-lib-handl/src/char_module.rs
+  - crates/plugin-lib-handl/src/lib.rs
+  - crates/plugin-lib-handl/src/model.rs
+  - crates/plugin-lib-handl/src/op_registry.rs
+  - crates/plugin-lib-handl/src/pkg.rs
+  - crates/plugin-lib-handl/src/str_handl.rs
+  - crates/plugin-lib-handl/src/transform.rs
+  - crates/plugin-lib-handl/tests/closure_parity.rs
+  - crates/plugin-lib-handl/tests/env_manifest.rs
+  - crates/plugin-lib-handl/tests/handl_desugar.rs
+  - crates/plugin-lib-handl/tests/handl_transform.rs
+  - crates/plugin-lib-handl/tests/loader.rs
+  - crates/plugin-lib-handl/tests/multi_env.rs
+  - crates/plugin-lib-handl/tests/scope_bound_env.rs
+  - crates/plugin-lib-handl/tests/scope_isolation.rs
   hashes:
-  - 617c353ded40d2ac12c9c0ab7ca0cf9e75a4589d
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 71d1bd3dd3149144e3145ed3e0a88e1499fbe6f9
+  - 228cf6381d5c6c82749607e998e86188c7d48cdc
+  - df0c6dbb5c39af15db624e351cdaf9f94ad7ad1e
+  - 307019d4f94c94b34ac9395b706cec57457a18e9
+  - cf35ff991c546205f101f18719c758d0814c9a84
+  - 96c222ad11b34652bc8382330205e9a8322a2ba4
+  - 1db8ab56d311fdf407610c22af538a110fd9cc70
+  - 7196b96f73a37f811fbd7549ffeb3ef3c0ad9a9d
+  - bfdfb709f5072a60506b44d12e8a237182156dd5
+  - adbc5a6f4dc0be09c63f6c37dc185ecb0385cb2c
+  - 3e84c92654f71ce22666c4cbc2765dcfc67ed4af
+  - 610e9f0817b884797809b0afc08cabba0fdaaa75
+  - b742a6674c7943a61428a2b667d9a214723d1fac
+  - 00981b987846b914cef8e415912e4bb2b2f336bd
+  - 30ffc0fdd7e6e4035582c0e0e4ea3c377df0cd2b
+  - 22838969bbd885d27102783209469f7eb4e36ff2
+  - 9915b07dad3a63d27d1abc9e4e729cf8221cb2aa
+  - dc15c180a50f62287cd0398f57255b68f1aa25b3
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

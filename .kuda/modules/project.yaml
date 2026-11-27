@@ -1,0 +1,1170 @@
+name: project
+path: project/BACKLOG.md
+purpose: myco work ledger — tasks, ADRs, issues, plans, handoffs
+api:
+- name: ADR-0001
+  kind: record
+  file: project/adrs/0001-host-bundles.md
+  line: 2
+  module: project
+- name: ADR-0001
+  kind: record
+  file: project/adrs/archived/0002-handl-platform-composable-host.md
+  line: 460
+  module: project
+- name: ADR-0001
+  kind: record
+  file: project/adrs/archived/0033-unified-plugin-crate-naming.md
+  line: 205
+  module: project
+- name: ADR-0001
+  kind: record
+  file: project/adrs/archived/0034-zero-monolith-plugin-driven-platform.md
+  line: 108
+  module: project
+- name: ADR-0001
+  kind: record
+  file: project/design/0039-kits-are-curated-plugin-lists.md
+  line: 307
+  module: project
+- name: ADR-0002
+  kind: record
+  file: project/adrs/0002-adr-0002-remaining-plugin-library-conversion-and-module-abstraction.md
+  line: 2
+  module: project
+- name: ADR-0002
+  kind: record
+  file: project/adrs/archived/0002-handl-platform-composable-host-v1-complete.md
+  line: 69
+  module: project
+- name: ADR-0002
+  kind: record
+  file: project/adrs/archived/0033-unified-plugin-crate-naming.md
+  line: 207
+  module: project
+- name: ADR-0002
+  kind: record
+  file: project/adrs/archived/0034-zero-monolith-plugin-driven-platform.md
+  line: 109
+  module: project
+- name: ADR-0002
+  kind: record
+  file: project/design/0035-loaders-as-plugins.md
+  line: 87
+  module: project
+- name: ADR-0002
+  kind: record
+  file: project/design/0036-host-applier-as-plugin.md
+  line: 57
+  module: project
+- name: ADR-0003
+  kind: record
+  file: project/adrs/0003-library-crates-are-exposed-as-platform-plugins.md
+  line: 2
+  module: project
+- name: ADR-0004
+  kind: record
+  file: project/adrs/0004-platform-is-agnostic-of-language-specific-plugins.md
+  line: 2
+  module: project
+- name: ADR-0009
+  kind: record
+  file: project/adrs/0009-adr-0009-strategy-c-runtime-module-loading-as-handler-interpreted-ops.md
+  line: 2
+  module: project
+- name: ADR-0010
+  kind: record
+  file: project/adrs/0010-package-manager-content-addressed-diff-based-composable-stores.md
+  line: 2
+  module: project
+- name: ADR-0012
+  kind: record
+  file: project/adrs/0012-versioning-for-language-artifacts.md
+  line: 2
+  module: project
+- name: ADR-0014
+  kind: record
+  file: project/adrs/0014-handl-formatter.md
+  line: 2
+  module: project
+- name: ADR-0015
+  kind: record
+  file: project/adrs/0015-adr-0015-linter.md
+  line: 2
+  module: project
+- name: ADR-0022
+  kind: record
+  file: project/adrs/0022-lexer-architecture-self-hosted-streaming-with-runtime-config.md
+  line: 2
+  module: project
+- name: ADR-0023
+  kind: record
+  file: project/adrs/0023-modular-ast-ast-common-and-handl-ast.md
+  line: 2
+  module: project
+- name: ADR-0024
+  kind: record
+  file: project/adrs/0024-agnostic-parser-engine-handl-parser-common-and-handl-parser-canonical-on-top.md
+  line: 2
+  module: project
+- name: ADR-0024
+  kind: record
+  file: project/design/0038-ignored-test-inventory-and-triage.md
+  line: 176
+  module: project
+- name: ADR-0027
+  kind: record
+  file: project/adrs/0027-vm-crate-restructure.md
+  line: 2
+  module: project
+- name: ADR-0027
+  kind: record
+  file: project/design/0038-ignored-test-inventory-and-triage.md
+  line: 177
+  module: project
+- name: ADR-0028
+  kind: record
+  file: project/adrs/0028-adr-0028-pluggable-module-composition.md
+  line: 2
+  module: project
+- name: ADR-0029
+  kind: record
+  file: project/design/0038-ignored-test-inventory-and-triage.md
+  line: 178
+  module: project
+- name: ADR-0030
+  kind: record
+  file: project/adrs/0030-adr-0030-lib-lang-expose-the-handl-language-as-a-reusable-library.md
+  line: 2
+  module: project
+- name: ADR-0031
+  kind: record
+  file: project/adrs/0031-adr-0031-platform-abstractions.md
+  line: 2
+  module: project
+- name: ADR-0031
+  kind: record
+  file: project/design/0038-ignored-test-inventory-and-triage.md
+  line: 179
+  module: project
+- name: ADR-0032
+  kind: record
+  file: project/adrs/archived/0032-types-as-values-v1-complete.md
+  line: 51
+  module: project
+- name: ADR-0033
+  kind: record
+  file: project/adrs/archived/0009-typegen-json-schema.md
+  line: 451
+  module: project
+- name: ADR-0033
+  kind: record
+  file: project/adrs/archived/0034-zero-monolith-plugin-driven-platform.md
+  line: 110
+  module: project
+- name: ADR-0033
+  kind: record
+  file: project/design/0035-loaders-as-plugins.md
+  line: 88
+  module: project
+- name: ADR-0033
+  kind: record
+  file: project/design/0039-kits-are-curated-plugin-lists.md
+  line: 309
+  module: project
+- name: ADR-0034
+  kind: record
+  file: project/adrs/0037-adr-0037-plugin-resolution-and-excludes.md
+  line: 68
+  module: project
+- name: ADR-0034
+  kind: record
+  file: project/design/0039-kits-are-curated-plugin-lists.md
+  line: 310
+  module: project
+- name: ADR-0035
+  kind: record
+  file: project/adrs/0035-adr-0035-loaders-as-abstract-plugins.md
+  line: 2
+  module: project
+- name: ADR-0035
+  kind: record
+  file: project/adrs/0037-adr-0037-plugin-resolution-and-excludes.md
+  line: 69
+  module: project
+- name: ADR-0035
+  kind: record
+  file: project/design/0036-host-applier-as-plugin.md
+  line: 58
+  module: project
+- name: ADR-0036
+  kind: record
+  file: project/adrs/0036-adr-0036-host-applier-as-a-plugin.md
+  line: 2
+  module: project
+api_omitted: 355
+deps: []
+warnings:
+- 'project/README.md: schema: {"title":"`project/` — what goes where","type":"readme","date":"2026-10-28","refs":["ADR-0161","ADR-0163"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/DECISIONS.md: schema: {"title":"Decisions","type":"index"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/0126-dead-code-cleanup.md: schema: {"title":"dead-code cleanup and the kernel boundary (ADR-0126)","type":"task","date":"2026-10-13","status_note":"**A (part 1), C, E done; B and D measured.** Remaining: A part 2 (needs a\nmaintainer call — see below), B (a migration, deserves its own ADR), D (mechanical\nre-enable). Plan agreed with the maintainer."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/kit-data-prelude-0128-extraction.md: schema: {"title":"Task 0128 — `lang/` extraction (ADR-0128 Phase 11)","type":"task","date":"2026-10-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/0129-project-docs-split.md: schema: {"title":"Task 0129 — Project-docs split (ADR-0129)","type":"task","date":"2026-10-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/0085-tooling-capability-wiring.md: schema: {"title":"ADR-0085..0094 follow-up: routing the tooling through capability contracts","type":"task","date":"2026-10-10","status_note":"**done for `fmt` / `lint` / `typecheck` / `test`.** Every step below\nexcept the \"third parties\" part of step 1''s motivation is implemented and\nverified:"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/0081-remaining-kind-dispatch.md: schema: {"title":"ADR-0081 follow-up: the remaining kind-dispatch sites","type":"task","date":"2026-10-10","status_note":"**proposal** (analysis complete; no code changed for these sites).\nCompanion to [ADR-0081](../adrs/0081-data-driven-ast-child-roles.md)."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/0128-target-repo-split.md: schema: {"title":"Task 0128 — Target-repo split (ADR-0128)","type":"task","date":"2026-10-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/misc.md: schema: {"title":"Misc tasks — ADR-0068 / 0082 / 0083 follow-ups","type":"task","date":"2026-09-04"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/adr0032-proof-erasure.md: schema: {"title":"ADR-0032 Item 6: Proof Erasure at Runtime","type":"task","date":"2026-09-05","status_note":"in progress"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/adr0200-steps5-6.md: schema: {"title":"ADR-0200 Steps 5–6: Inductive Families and Dependent Pattern Matching","type":"task","date":"2026-09-05","status_note":"completed."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/tasks/0114-compile-plugin-phases.md: schema: {"title":"Task plan: ADR-0114 — Handl Compile Plugin Architecture","type":"task","date":"2026-09-14","status_note":"Ready for implementation, one subagent per phase."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/registry/INDEX.md: schema: {"title":"ADR index","type":"index"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0185-custom-fields.md: schema: {"title":"Custom Fields via `*.field.yml` — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0185"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0041-languages-as-first-class-values.md: schema: {"title":"Languages as First-Class Values — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0041"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0043-proofs-as-first-class-values.md: schema: {"title":"Proofs as First-Class Values — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0043"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/phase3-typesystem-spec.md: schema: {"title":"Phase-3 implementation spec — unified type system","type":"design","date":"2026-10-23","refs":["ADR-0106","ADR-0149"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/semantics.md: schema: {"title":"Denotational semantics — `Val` as the domain, `[[·]]` as the evaluator","type":"design","date":"2026-10-25","refs":["ADR-0106","ADR-0154","ADR-0158"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0124-capability-language-handoff.md: schema: {"title":"Handing a `Language` to capability plugins — design detail","type":"design","date":"2026-10-10","updated":"2026-10-29","refs":["ADR-0124"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0093-string-char-unicode-layering.md: schema: {"title":"String / Char / Unicode Layering — design detail","type":"design","date":"2026-09-07","updated":"2026-10-29","refs":["ADR-0093"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0188-modality-as-projection.md: schema: {"title":"Modality as Set-Theoretic Projection — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0188"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0040-vm-is-an-operation-not-a-subsystem.md: schema: {"title":"VM is an Operation, Not a Subsystem — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0040"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0098-one-language-multiple-interpreters.md: schema: {"title":"One Language, Multiple Interpreters — design detail","type":"design","date":"2026-09-08","updated":"2026-10-29","refs":["ADR-0098"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0060-generic-call-dispatch.md: schema: {"title":"Generic Call Dispatch — design detail","type":"design","date":"2026-09-01","updated":"2026-10-29","refs":["ADR-0060"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0128-target-repos.md: schema: {"title":"Target repos — ports stay in `host`, modules live in ecosystem repositories — design detail","type":"design","date":"2026-10-15","updated":"2026-10-29","refs":["ADR-0128"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0047-meta-functions-as-plugin-lib-crates.md: schema: {"title":"Meta Functions as `plugin-lib-*` Crates — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0047"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0065-derived-artifact-cache-and-compression.md: schema: {"title":"Derived-Artifact Cache and Compression — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0065"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/phase1-typesystem-spec.md: schema: {"title":"Phase-1 implementation spec — unified type system","type":"design","date":"2026-10-22","refs":["ADR-0154","ADR-0152","ADR-0153"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0028-pluggable-module-composition.md: schema: {"title":"Pluggable Module Composition — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0028"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0036-host-applier-as-plugin.md: schema: {"title":"Host Applier as a Plugin — design detail","type":"design","date":"2026-08-29","updated":"2026-10-29","refs":["ADR-0036"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/phase2-typesystem-spec.md: schema: {"title":"Phase-2 implementation spec — unified type system","type":"design","date":"2026-10-22","refs":["ADR-0106","ADR-0155"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0202-frontier-calculus.md: schema: {"title":"Frontier Calculus `Term` Variants — design detail","type":"design","date":"2026-09-09","updated":"2026-10-29","refs":["ADR-0202"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0114-handl-compile-plugin-architecture.md: schema: {"title":"Handl Compile Plugin Architecture — design detail","type":"design","date":"2026-09-14","updated":"2026-10-29","refs":["ADR-0114"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0086-bootstrap-formatter.md: schema: {"title":"Bootstrap Formatter (`plugin-ext-fmt`) — design detail","type":"design","date":"2026-10-15","updated":"2026-10-29","refs":["ADR-0086"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0024-parser-common.md: schema: {"title":"Agnostic parser engine: `handl-parser-common` and `handl-parser-canonical` on top — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0024"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0100-canonical-term-arrows.md: schema: {"title":"Canonical surface as the arrow calculus — design detail","type":"design","date":"2026-09-14","updated":"2026-10-29","refs":["ADR-0100"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0038-ignored-test-inventory-and-triage.md: schema: {"title":"Ignored Test Inventory and Triage — design detail","type":"design","date":"2026-08-29","updated":"2026-10-29","refs":["ADR-0038"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0092-test-framework-in-handl.md: schema: {"title":"Test Framework in Handl (`handl-packages/test`), Delete `plugin-lib-test` — design detail","type":"design","date":"2026-09-05","updated":"2026-10-29","refs":["ADR-0092"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0049-modules-are-evaluated-environments.md: schema: {"title":"Modules are Evaluated Environments — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0049"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0035-loaders-as-plugins.md: schema: {"title":"Loaders as Abstract Plugins — design detail","type":"design","date":"2026-08-29","updated":"2026-10-29","refs":["ADR-0035"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0081-data-driven-ast-child-roles.md: schema: {"title":"Data-Driven AST Child Roles — Closing the Last Engine Hardcoding — design detail","type":"design","date":"2026-09-04","updated":"2026-10-29","refs":["ADR-0081"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0183-type-aliases.md: schema: {"title":"Generic Type Aliases for handl Type System — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0183"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0194-state-machine-invariants.md: schema: {"title":"State Machine Invariants via Fixpoint Discovery — design detail","type":"design","date":"2026-09-01","updated":"2026-10-29","refs":["ADR-0194"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0099-plugin-engine-vs-ext-crate-boundaries.md: schema: {"title":"Principled Boundaries Between `plugin-engine-*` and `plugin-ext-*` Crates — design detail","type":"design","date":"2026-09-08","updated":"2026-10-29","refs":["ADR-0099"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0042-transformations-as-first-class-values.md: schema: {"title":"Transformations as First-Class Values — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0042"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/multishot-resume.md: schema: {"title":"Multi-shot `resume` for `handle` effects — design + tree-walk prototype","type":"design","date":"2026-10-26","refs":["ADR-0158","ADR-0106"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0100-directed-hott-limit.md: schema: {"title":"Directed Homotopy Type Theory as the Theoretical Limit — design detail","type":"design","date":"2026-09-08","updated":"2026-10-29","refs":["ADR-0100"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0181-s-schema-vocabulary.md: schema: {"title":"handl-native `s.*` Schema Vocabulary — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0181"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0096-module-resolution.md: schema: {"title":"Module Resolution — Path-Based Imports + `.handl.toml` Path Dependencies — design detail","type":"design","date":"2026-09-08","updated":"2026-10-29","refs":["ADR-0096"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0010-package-manager.md: schema: {"title":"Package Manager: Content-Addressed, Diff-Based, Composable Stores — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0010"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0069-arrow-native-modules.md: schema: {"title":"Files Are Arrows — Arrow-Native Modules — design detail","type":"design","date":"2026-09-01","updated":"2026-10-29","refs":["ADR-0069"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0046-capability-discipline-at-the-language-level.md: schema: {"title":"Capability Discipline at the Language Level (ADR-0041 Phase 5) — design detail","type":"design","date":"2026-08-30","updated":"2026-10-29","refs":["ADR-0046"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0054-generic-typecheck-engine.md: schema: {"title":"Generic Typecheck Engine — design detail","type":"design","date":"2026-09-01","updated":"2026-10-29","refs":["ADR-0054"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0192-predicates-as-types.md: schema: {"title":"Predicates as Types — Unified Dependent Typing Without a Sublanguage — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0192"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0160-lib-repos-are-language-packages.md: schema: {"title":"`lib-*` repos are language packages, not crates — design detail","type":"design","date":"2026-10-28","updated":"2026-10-29","refs":["ADR-0160"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0201-arrow-macros.md: schema: {"title":"Arrow Macros — Type-Safe Compile-Time Metaprogramming — design detail","type":"design","date":"2026-09-04","updated":"2026-10-29","refs":["ADR-0201"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0197-decoupled-trait-layer.md: schema: {"title":"Decoupled Trait Layer — Laws, Bundles, and Handlers — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0197"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0056-import-export-and-multi-file-programs.md: schema: {"title":"Import / Export and Multi-File Programs as Evaluated Environments — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0056"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0061-generic-pattern-match.md: schema: {"title":"Generic Pattern Match — design detail","type":"design","date":"2026-09-01","updated":"2026-10-29","refs":["ADR-0061"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0015-linter.md: schema: {"title":"handl Linter — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0015"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0195-arrow-syntax-v0_1-surface-redesign.md: schema: {"title":"Arrow Surface Syntax v0.1 — Redesign — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0195"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0207-generic-arrow-calculus-any-dimension.md: schema: {"title":"ADR: Generic Arrow Calculus for Any Dimension — design detail","type":"design","date":"2026-10-16","updated":"2026-10-29","refs":["ADR-0207"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0182-schema-refs.md: schema: {"title":"JSON Schema 2020-12 Reference & Composition Support in the Typechecker — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0182"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0044-language-as-data-and-runtime-split.md: schema: {"title":"Language as Data and Runtime Split — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0044"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0087-bootstrap-linter.md: schema: {"title":"Bootstrap Linter (`plugin-ext-lint`) — design detail","type":"design","date":"2026-10-15","updated":"2026-10-29","refs":["ADR-0087"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0039-kits-are-curated-plugin-lists.md: schema: {"title":"Kits Are Curated Plugin Lists, Not Implementations — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0039"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0053-generic-pratt-parser.md: schema: {"title":"Generic Pratt Parser — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0053"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0063-scheme-core-completeness.md: schema: {"title":"Scheme-Core Completeness for Self-Hosting — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0063"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0094-generic-ast-transform-engine.md: schema: {"title":"Generic AST Transform Engine (`plugin-tool-transform` + `plugin-tool-transform-rewrite`) — design detail","type":"design","date":"2026-09-06","updated":"2026-10-29","refs":["ADR-0094"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0002-handl-platform-composable-host-remaining.md: schema: {"title":"ADR-0002 (Remaining): Plugin Library Conversion and Module Abstraction — design detail","type":"design","date":"2026-08-29","updated":"2026-10-29","refs":["ADR-0002"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0031-platform-abstractions.md: schema: {"title":"Platform abstractions and plugin system — design detail","type":"design","date":"2026-08-25","updated":"2026-10-29","refs":["ADR-0031"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0107-handl-sdk-generator.md: schema: {"title":"Handl SDK Generator — Port-Adapter Foreign SDK Generation — design detail","type":"design","date":"2026-09-13","updated":"2026-10-29","refs":["ADR-0107"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0052-arrow-calculus-kernel.md: schema: {"title":"Arrow Calculus Kernel — design detail","type":"design","date":"2026-08-31","updated":"2026-10-29","refs":["ADR-0052"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0055-branded-values.md: schema: {"title":"Tagged Values — design detail","type":"design","date":"2026-09-01","updated":"2026-10-29","refs":["ADR-0055"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0083-ffi-native-stdlib.md: schema: {"title":"FFI-Native Stdlib — Handl over Direct C/POSIX Bindings — design detail","type":"design","date":"2026-09-04","updated":"2026-10-29","refs":["ADR-0083"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0064-computational-language-authoring.md: schema: {"title":"Computational Language Authoring — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0064"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0196-traits-as-arrow-signatures.md: schema: {"title":"Traits as Arrow Signatures — Graph-Based Interfaces and Contracts — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0196"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0103-kernel-is-evaluator-not-calculus.md: schema: {"title":"ADR-0103 Phase 2: The Kernel is the Evaluator, Not the Calculus — design detail","type":"design","date":"2026-09-10","updated":"2026-10-29","refs":["ADR-0103"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0009-strategy-c-runtime-module-loading.md: schema: {"title":"Strategy C — Runtime Module Loading as Handler Interpreted Ops — design detail","type":"design","date":"2026-10-16","updated":"2026-10-29","refs":["ADR-0009"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0152-data-nominal-inductive-families.md: schema: {"title":"`data` is a nominal former + constructor arrows + dependent eliminator — design detail","type":"design","date":"2026-10-21","updated":"2026-10-29","refs":["ADR-0152"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0089-bootstrap-test-runner.md: schema: {"title":"Bootstrap Test Runner (`plugin-tool-test`) — design detail","type":"design","date":"2026-10-15","updated":"2026-10-29","refs":["ADR-0089"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0184-annotations.md: schema: {"title":"Document Annotations — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0184"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0200-inductive-types.md: schema: {"title":"Inductive Types as Desugared Predicates — design detail","type":"design","date":"2026-09-04","updated":"2026-10-29","refs":["ADR-0200"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0198-value-types-as-data.md: schema: {"title":"Value Types as Data — Composable Capabilities and Target Representations — design detail","type":"design","date":"2026-09-03","updated":"2026-10-29","refs":["ADR-0198"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0186-dependencies-field.md: schema: {"title":"Dependencies Field for Custom Fields — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0186"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0066-dependency-graph-chunking.md: schema: {"title":"Dependency-Graph Chunking — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0066"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0050-plugin-system-in-handl.md: schema: {"title":"Plugin System in handl Itself — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0050"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0014-formatter.md: schema: {"title":"handl Formatter — design detail","type":"design","date":"2026-08-24","updated":"2026-10-29","refs":["ADR-0014"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0105-typechecker-in-handl.md: schema: {"title":"The Typechecker is Handl, Not Rust — design detail","type":"design","date":"2026-09-10","updated":"2026-10-29","refs":["ADR-0105"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/phase4-typesystem-spec.md: schema: {"title":"Phase-4 implementation spec — unified type system","type":"design","date":"2026-10-25","refs":["ADR-0095","ADR-0106","ADR-0074"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0155-scope-bound-arrow-environments.md: schema: {"title":"Scope-bound arrow environments — deps as lexical arrow records, no registry dispatch — design detail","type":"design","date":"2026-10-22","updated":"2026-10-29","refs":["ADR-0155"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0106-object-arrow-kernel.md: schema: {"title":"The Object/Arrow Kernel — `sym()`, `Obj`, and Native Arrow Calculus — design detail","type":"design","date":"2026-09-11","updated":"2026-10-29","refs":["ADR-0106"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0205-n-dimensional-arrow-calculus.md: schema: {"title":"N-Dimensional Arrow Calculus — design detail","type":"design","date":"2026-09-15","updated":"2026-10-29","refs":["ADR-0205"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0067-chunk-certificates.md: schema: {"title":"Chunk Certificates — design detail","type":"design","date":"2026-09-02","updated":"2026-10-29","refs":["ADR-0067"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0095-formatter-as-production-pipeline.md: schema: {"title":"Formatter as a Production Pipeline (`FormatEngine` stage contracts) — design detail","type":"design","date":"2026-09-08","updated":"2026-10-29","refs":["ADR-0095"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0190-vau-as-a-typed-escape.md: schema: {"title":"Vau as a Typed Escape (ADR-0041 Phase 4) — design detail","type":"design","date":"2026-08-30","updated":"2026-10-29","refs":["ADR-0190"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0203-session-types-grades.md: schema: {"title":"Session Types as Grade Morphisms — design detail","type":"design","date":"2026-09-09","updated":"2026-10-29","refs":["ADR-0203"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/0120-paper-implementation-alignment.md: schema: {"title":"Paper–Implementation Alignment Plan — design detail","type":"design","date":"2026-09-18","updated":"2026-10-29","refs":["ADR-0120"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/adr0103/vm_design.md: schema: {"title":"ADR-0103 Phase 1: VM Instruction Set + Hardware Boundary Design","type":"design","date":"2026-09-10","status_note":"Design specification — Phase 1 of the ADR-0103 migration plan."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/adr0103/deletion-plan.md: schema: {"title":"Plan: Delete the Rust NBE typechecker after `hnl typecheck --handl` is production-ready","type":"design","date":"2026-09-11"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/design/adr0103/kernel_extraction_plan.md: schema: {"title":"ADR-0103 Phase 2: The Kernel is the Evaluator, Not the Calculus","type":"design","date":"2026-09-10","status_note":"Proposed"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0002-handl-platform-composable-host.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Single `Plugin` Model for Host, Operations, Libraries, Targets, and Options","type":"adr","date":"2026-08-29","status":"accepted","status_note":"Accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0083-flatten-handl-packages-layout.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Flatten `handl-packages/` Layout","type":"adr","date":"2026-09-04","status":"accepted","status_note":"Accepted and implemented.","supersedes":["ADR-0069"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0001-generic-node-and-plugin-driven-canonical-kit.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Generic Node, Trait-Based Capabilities, and Plugin-Driven Canonical Kit","type":"adr","date":"2026-08-29","status":"accepted","status_note":"Accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0033-unified-plugin-crate-naming.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Unified Plugin Crate Naming","type":"adr","date":"2026-08-29","status":"accepted","status_note":"Accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0032-types-as-values-v1-complete.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"ADR-0032 (Archived v1): Types are Values — Universe Levels and Core Type System","type":"adr","date":"2026-09-02","status":"accepted","status_note":"Accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0001-generic-node-and-plugin-driven-canonical-kit-remaining-archived.md: schema: {"title":"ADR-0001 (Remaining): Canonical Token/Grammar/Value Plugin Cleanup","type":"adr","date":"2026-09-02","status":"proposed","status_note":"Proposed"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0009-typegen-json-schema.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Type generation from handl field declarations","type":"adr","date":"2026-08-29","status":"accepted","status_note":"Accepted (implemented — see implementation notes inline)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0002-handl-platform-composable-host-v1-complete.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"ADR-0002 (Archived v1): Single Plugin Model — Core Architecture","type":"adr","date":"2026-09-02","status":"accepted","status_note":"Accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0006-generics.md: schema: "implemented" is not one of "open", "proposed" or 7 other candidates; {"title":"Parametric Polymorphism (Generics) for handl Type System","type":"adr","date":"2026-08-29","status":"implemented","status_note":"Implemented."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0032-types-as-values.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Types are values, runtime and typechecker share one value space","type":"adr","date":"2026-08-29","status":"accepted","status_note":"accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/adrs/archived/0034-zero-monolith-plugin-driven-platform.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Zero-Monolith, Plugin-Driven Platform","type":"adr","date":"2026-08-29","status":"accepted","status_note":"Accepted"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/scope-assessment-types-as-values.md: schema: {"title":"Scope Assessment: Types as handl Values","type":"note","date":"2026-10-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/ast-based-inlining.md: schema: {"title":"AST-based inlining for `substitute_param`","type":"note","date":"2026-08-24","status_note":"Backlog — deferred architectural improvement. Current implementation is correct for all tested cases."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/module-async-operations.md: schema: {"title":"Module System: Async + Operation Dispatch","type":"note","date":"2026-08-24"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/rust-to-handl.md: schema: {"title":"Rust → Handl cheat-sheet","type":"note","date":"2026-09-19"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/tree-shaking.md: schema: {"title":"Tree-shaking in handl","type":"note","date":"2026-08-24"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/split-branches.md: schema: {"title":"`split/*` scratch branches — retired (ADR-0129 4.3)","type":"note","date":"2026-10-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/kit-data-prelude-references.md: schema: {"title":"Canonical ADR references","type":"reference","date":"2026-10-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/notes/multishot-resume-cranelift.md: schema: {"title":"Multi-shot `resume` on the cranelift engine — landing note","type":"note","date":"2026-10-26","status_note":"Landed. `resume` (ADR-0158 replay-journal model) runs on all three eval\nengines: tree-walk (reference), bytecode (native replay) and cranelift\n(journal through the shared `handle_dyn` hook + the tree-walk arrow\ninterpreter). Design: `design/multishot-resume.md`.\n\nThis note is the changeset manifest — the working tree is not a git\ncheckout, so the file inventory below is the hand-off record."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_kitonnx_codec.md: schema: "complete — branch committed, not pushed (report-first per task)" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — kit-onnx Term-JSON codec migration dry-run","type":"report","date":"2026-11-17","status":"complete — branch committed, not pushed (report-first per task)","scope":"kit-onnx codec-site census, mlopt_core.ir → mlopt_core.term repoint, parity vs source-onnx eb87b63"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_6.md: schema: {"title":"Audit pass 6 — arch-family wave (bert/vit/gpt2/llama/whisper-combined) + tensor.load sidecar channel","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/wp4_parity_sweep_v2.md: schema: {"title":"WP4 parity sweep v2 — `engine=\"eqsat\"` vs default Python `EGraph`","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/wp4_parity_sweep_v4.md: schema: {"title":"WP4 parity sweep v4 — `engine=\"eqsat\"` vs default Python `EGraph` (post-243-corpus)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_4.md: schema: {"title":"ADR-0174 exit-criteria audit — pass 4 (kit-eqsat corpus migration wave)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_eqsat_conststr_flip.md: schema: "GO — landed on branch stepe-eqsat-arr-leaf @ 595bb35 (pushed; main merge + v0.1.13 tag are parent''s call)" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E flip","type":"report","date":"2026-11-17","status":"GO — landed on branch stepe-eqsat-arr-leaf @ 595bb35 (pushed; main merge + v0.1.13 tag are parent''s call)","repo":"/home/luis/GitHub/handl-lang/eqsat","census":"stepe_dialect_census.md §7 item 1"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/hnl_laws_spike.md: schema: {"title":"Spike: can `.hnl` programs BE eqsat law definitions?","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/wp4_parity_sweep_v3.md: schema: {"title":"WP4 parity sweep v3 — `engine=\"eqsat\"` vs default Python `EGraph` (post-F2)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_14.md: schema: {"title":"Audit pass 14 — D-1c kit-cuda split + da1dc25 fixes + radon re-baseline + kit-carriers gates","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_5.md: schema: {"title":"ADR-0174/0176/0178 audit — pass 5 (eqsat default-engine flip + mlopt emit/arch wave + source-onnx arch assembler)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_18.md: schema: {"title":"Audit pass 18 — ADR-0179 __tensor_bin__ wire audits clean across kernel/host-tensor/graphopt (eq/hash, threshold, base64, recursion, payload-as-wire all verified); hnl-run egress covered but ext-eval `hnl run` print path still leaks bin records (named follow-up); engine-eqsat arr-leaf + parse-pratt multi-statement + whisper alias meta all clean; kit-discovery still unlanded","type":"report","date":"2026-11-17"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/mlopt_step_e_plan.md: schema: "plan (read-only analysis; binds ADR-0174 done-means, ADR-0175 dissolution map, ADR-0178 D5/D6)" is not one of "open", "proposed" or 7 other candidates; {"title":"P3 Step E plan — Term-native adapters, `mlopt_core.ir` retirement, emit decision, D5/D6","type":"report","date":"2026-11-2x","status":"plan (read-only analysis; binds ADR-0174 done-means, ADR-0175 dissolution map, ADR-0178 D5/D6)","inputs":"mlopt_dissolution_plan.md, mlopt_step_d_impact_map.md, live census of mlopt/graphopt/eqsat/kernelopt/discoverykit/kit-onnx/kit-carriers"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/tensor_load_spike.md: schema: {"title":"Spike: tensor.load — the missing out-of-band weight channel for .hnl artifacts","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/post_cascade_landing.md: schema: "executable today — remaining work is graphopt bench-codec + repin, mlopt stage-codec rebase, kernelopt dry-run, and the D-1e/D-2 merges" is not one of "open", "proposed" or 7 other candidates; {"title":"Post-cascade landing runbook — banked Step-E + perf work","type":"runbook","date":"2026-11-19","revised":"post-landing revision — kit-discovery v0.1.3/v0.1.4, kit-torch v0.1.4, kit-onnx v0.1.4, source-onnx eb87b63, eqsat v0.1.13 all landed; mlopt/kernelopt repin commits pushed; graphopt packages/mlopt-torch removal still in flight","status":"executable today — remaining work is graphopt bench-codec + repin, mlopt stage-codec rebase, kernelopt dry-run, and the D-1e/D-2 merges","scope":"ordered landing sequence for all banked Step-E codec branches + consumer repins + D-2 timing"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_leafkits_codec.md: schema: "dry-run complete — zero codec sites found in either repo; no source changes" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — codec migration dry-runs for kit-host-tensor + kit-carriers","type":"report","date":"2026-11-17","status":"dry-run complete — zero codec sites found in either repo; no source changes","scope":"Term-JSON codec census of the two leaf-kit repos against eqsat v0.1.12"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- |
+  project/reports/adr_binary_tensor_channel.md: frontmatter: TOML parse error at line 8, column 4
+    |
+  8 | ---
+    |    ^
+  expected `.`, `=`
+- 'project/reports/stepe_discoverykit_codec.md: schema: "census complete — no class-b codec sites; verdict \"rides shim\"; no source changes" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — discoverykit codec census","type":"report","date":"2026-11-19","status":"census complete — no class-b codec sites; verdict \"rides shim\"; no source changes","scope":"Term-JSON codec census of discoverykit against eqsat v0.1.12 (`d67d1fc8`)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/step_e_dryrun.md: schema: "dry-run complete — feasibility validated, worktree left at /home/luis/tmp/eqsat-step-e (detached @ 4eae588, uncommitted)" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E dry-run — plan B (term repr convergence) feasibility, E-2a + E-3 codec delegation","type":"report","date":"2026-11-17","status":"dry-run complete — feasibility validated, worktree left at /home/luis/tmp/eqsat-step-e (detached @ 4eae588, uncommitted)","scope":"eqsat only — packages/mlopt-core/{term.py,term_json.py,ir.py} + packages/mlopt-orchestrator/eqsat.py + tests/test_term_json.py; kit_discovery.hnl_codec shim NOT exercised (different repo)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_15.md: schema: {"title":"Audit pass 15 — kit-cuda ci.sh gate fix, graphopt layers restore, source-onnx streaming safetensors, D-1d still unlanded, eqsat tag drift","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_17.md: schema: {"title":"Audit pass 17 — dtype_ctx creator-dtype fix audited clean, verify-run payload tolerance verified coarser-only, qwen2 bf16 fix landed, but v0.1.17 pin drift leaves mlopt''s venv a hand-patched frankenstein","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_16.md: schema: {"title":"Audit pass 16 — mlopt streaming/F32 sidecar verified clean, qwen2+distilbert arch families audited (one spec dtype bug), gpt2 canonical PASS sound, D-1d repo exists but is empty","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_21.md: schema: {"title":"Audit pass 21 — Step E plan B landed clean (eqsat v0.1.12 term/term_json split, ir.py shim verified name-complete); I-003 layout-law expansive tags consistent across kit-eqsat/engine-eqsat/eqsat with parity tests run; kit-torch cascade advanced (v0.1.0+v0.1.1 pushed, eqsat-pin conflict resolved) but mlopt venv carries a file:// kit-torch install and a lockfile with zero kit-torch entries — env drift again; D-2 B1 blocker resolved, lint debt still open on mlopt main; llama22 still time-walled at ~5.3 GB peak","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_19.md: schema: {"title":"Audit pass 19 — D-1d landed clean (kit-discovery repo + v0.1.0/v0.1.1 tags verified on remote, graphopt v0.1.19 shrunk consistent); D-1f Phase 1+2 landed (kit-host-tensor v0.1.2, mlopt repinned, forbidden-name renames tagged across four repos, eqsat-pin revert verified correct); deliver v6 paired-round protocol audits sound (one INFO: seeded shuffle can fail to alternate); ext-eval materialize egress closes P18-N1; pin sweep finds only superseded-but-benign tags plus one real corpus skew (eqsat v0.1.9=468 laws vs canonical 524)","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/adr-0095-formatter-pipeline.md: schema: {"title":"Formatter as a Production Pipeline — Implementation Report","type":"report","date":"2026-09-08","status_note":"Implemented (committed at `8fb2616b`). Formatter logic proven correct;\n`plugin-ext-fmt` golden/idempotence tests blocked by a **pre-existing kit-data\ncollision** unrelated to this work (see _Blocker_)."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_20.md: schema: {"title":"Audit pass 20 — kit-cuda v0.1.2 UAF fix + mlopt poisoned-context skip verified (CUDA unit test passes live; mlopt .venv still runs the buggy 0.1.0 build — env drift, not repo defect); kit-torch D-1e repo landed clean at e579e714, untagged, zero consumers; delivery_v6 corpus 19/21 oracle-positive confirmed against persisted drains (all picks verified, t5 backed by safe-drain summary only); llama22 v3 peak 5.29 GB exit=143 consistent with ADR-0179 memory claims but verify still incomplete; carry-forwards: eqsat repin in flight in graphopt worktree, mlopt-torch pins still v0.1.16","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/hnl-run-spike.md: schema: {"title":"Spike: `hnl run` — the ADR-0175 pipeline-script layer","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/p3_codec_consolidation_spike.md: schema: {"title":"P3 codec consolidation + `mlopt_core.ir` demotion — spike","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/mlopt_dissolution_plan.md: schema: "plan (post-search-arc; binds ADR-0174 P3 tail, ADR-0175 dissolution map, ADR-0176/0178)" is not one of "open", "proposed" or 7 other candidates; {"title":"mlopt dissolution plan — module disposition + ordered migration","type":"report","date":"2026-11-2x","status":"plan (post-search-arc; binds ADR-0174 P3 tail, ADR-0175 dissolution map, ADR-0176/0178)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/step_e_ir_census.md: schema: "frozen census for step_e_term_repr_b_plan.md §7 / ADR-0178 D5" is not one of "open", "proposed" or 7 other candidates; {"title":"E-1 census freeze — every `mlopt_core.ir` import site org-wide (the D5 scoreboard)","type":"report","date":"2026-11-17","status":"frozen census for step_e_term_repr_b_plan.md §7 / ADR-0178 D5","method":"ripgrep `from mlopt_core.ir import|from mlopt_core import ir|import mlopt_core.ir` + `mlopt_core.ir.` across /home/luis/GitHub/handl-lang/* and /home/luis/tmp/kit-torch-work; multi-line import blocks read for exact name lists; `mlopt_core.ir.` qualified uses verified to be docstrings/comments only.","classes":"(a) term-construction · (b) term-consumption/walk · (c) lemma-store codec only (term_to_data/term_from_data — does NOT migrate to term_json) · (d) tests · (e) docs/comments/non-Python"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/tagged-value-tensor.md: schema: {"title":"Report: `TaggedValue::Tensor` — the opaque-tensor kernel variant","type":"report","date":"2026-10-17"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_2.md: schema: {"title":"ADR-0174 exit-criteria audit — pass 2 (fix verification)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/step_e_term_repr_b_plan.md: schema: "implementation-ready plan (read-only analysis; binds mlopt_step_e_plan.md E-1/E-2/E-3, ADR-0178 D5)" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E-1 design — Term representation option B (\"thin Python view over a kernel-Term envelope\") for mlopt adapters","type":"report","date":"2026-11-17","status":"implementation-ready plan (read-only analysis; binds mlopt_step_e_plan.md E-1/E-2/E-3, ADR-0178 D5)","inputs":"mlopt_step_e_plan.md, ADR-0178, p3_codec_consolidation_spike.md, live code census (mlopt adapters, kit-discovery hnl_codec/hnl_import, eqsat mlopt-orchestrator eqsat.py, eqsat mlopt-core ir.py/attrs.py, engine-eqsat dag.rs/eqsat-run.rs/pat.rs, kernel engine term.rs, egraph term_bridge.rs, source-onnx term.rs)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/hnl_run_scale_spike.md: schema: {"title":"Spike: hnl-run scale limit — where the 206 MB whisper-tiny-encoder .hnl dies","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_13.md: schema: {"title":"Audit pass 13 — WP2 law-port closure + identity memos + T5 flatten + D-1b installability cascade","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_kernelopt_codec.md: schema: "dry-run complete — worktree branch committed, nothing pushed" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — kernelopt codec-migration dry-run (eqsat v0.1.12)","type":"report","date":"2026-11-17","status":"dry-run complete — worktree branch committed, nothing pushed","scope":"eqsat v0.1.10→v0.1.12 repin, Term-JSON codec-site audit, ir_bridge repoint, go/no-go"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_11.md: schema: {"title":"Audit pass 11 — D-1a kit-onnx split + WP2 law ports (layout 77, prior_art §2 tail 31) + gpt2 key_prefix + T-101 WIP","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_sourceonnx_dialect.md: schema: "complete — aligned to mlopt_core.term_json canonical; committed on branch stepe-canonical-dialect in worktree /home/luis/tmp/source-onnx-stepe (not pushed)" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — source-onnx Term-JSON dialect alignment (canonical emit landed)","type":"report","date":"2026-11-17","status":"complete — aligned to mlopt_core.term_json canonical; committed on branch stepe-canonical-dialect in worktree /home/luis/tmp/source-onnx-stepe (not pushed)","scope":"source-onnx/src/term.rs emit dialect vs eqsat v0.1.12 mlopt_core.term_json; consumer audit; cargo gates"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_3.md: schema: {"title":"ADR-0174 exit-criteria audit — pass 3 (post-pass-2 wave)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_dialect_census.md: schema: "census complete — read-only; one live conformance probe run against engine-eqsat binaries" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E dialect census — remaining producers/consumers of the transitional Term-JSON wire dialects","type":"report","date":"2026-11-17","status":"census complete — read-only; one live conformance probe run against engine-eqsat binaries","scope":"every remaining producer/consumer of const-str leaves, Foreign source, nested-record dag dim, lit.__mlopt_attrs__, and direct mlopt_core.term_json bypassers, across /home/luis/GitHub/handl-lang/* (plus the canonical kit-torch checkout at /home/luis/tmp/kit-torch-work and the kit-discovery-stepe worktree)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_1.md: schema: {"title":"ADR-0174 exit-criteria audit — pass 1 (today''s shipped surface)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/rust-adapter-spike.md: schema: {"title":"Rust adapter spike — feasibility evidence for ADR-0176","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/onnx_lifter_rust_spike.md: schema: {"title":"ONNX→IR lifter → Rust — feasibility spike","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_kittorch_codec.md: schema: "complete — branch pushed, no main merge (cascade coordination)" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — kit-torch Term-JSON codec migration dry-run","type":"report","date":"2026-11-17","status":"complete — branch pushed, no main merge (cascade coordination)","scope":"codec-site census, mlopt_core.ir → mlopt_core.term repoints, engine-wire profile check"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_12.md: schema: {"title":"Audit pass 12 — kit-onnx gates + key_prefix injectivity + T-101 emit fix + WP2 prior_art tail + D-1b kit-carriers split + gpt2 scale-profile fix","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/dogfood-json-report.md: schema: {"title":"lib-json-handl dogfood report (round 3)","type":"report","date":"2026-10-25"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/2026-02-language-cleanup.md: schema: {"title":"Report: Language cleanup, transform engine, and engine-parity push","type":"report","date":"2026-02"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/arrow-automated-proof-landing.md: schema: {"title":"Landing Report: Automated Proof for Arrow Programs — Dω Generalization + Decidable Loop-Free Fragment","type":"report","date":"2026-09-07","status_note":"Landed — `lake build` clean (24 jobs), zero `sorry`, axiom-checked."} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_mlopt_stage.md: schema: "dry-run complete — worktree /home/luis/tmp/mlopt-stepe, branch stepe/mlopt-stage-codec @ 5bf44fa (detached-base origin/main 37f5902); nothing pushed; real checkout untouched" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — mlopt stage.py + emit.py codec migration dry-run","type":"report","date":"2026-11-17","status":"dry-run complete — worktree /home/luis/tmp/mlopt-stepe, branch stepe/mlopt-stage-codec @ 5bf44fa (detached-base origin/main 37f5902); nothing pushed; real checkout untouched","scope":"mlopt only — pyproject eqsat repin, stage.py codec path, emit.py + adapter mlopt_core.ir→term repoints, tests"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_kitdiscovery_hnlcodec.md: schema: "complete — worktree /home/luis/tmp/kit-discovery-stepe (detached @ fbb61e7, uncommitted); nothing pushed" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail — kit_discovery.hnl_codec shim over mlopt_core.term_json","type":"report","date":"2026-11-17","status":"complete — worktree /home/luis/tmp/kit-discovery-stepe (detached @ fbb61e7, uncommitted); nothing pushed","scope":"kit-discovery only — src/kit_discovery/hnl_codec.py, tests/test_hnl_codec.py, pyproject/uv.lock (worktree-only eqsat v0.1.12 test pin)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/repo_hygiene_sweep.md: schema: {"title":"Repo hygiene sweep — handl-lang (2026-… audit)","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/audit_pass_10.md: schema: {"title":"Audit pass 10 — eqsat v0.1.8 propagation + ADR-0178 P3 Steps A–C (stage v3, kit-mlopt shim, emit canonicalization) + law-parity allowlist emptying","type":"report","date":"2026-11-16"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/mlopt_egraph_demotion_plan.md: schema: "plan (P2-finish; binds ADR-0174 phase P2/P3 and ADR-0178 WP4–WP5)" is not one of "open", "proposed" or 7 other candidates; {"title":"`mlopt_core.egraph` demotion plan — Python e-graph → oracle/edge-fallback","type":"report","date":"2026-11-20","status":"plan (P2-finish; binds ADR-0174 phase P2/P3 and ADR-0178 WP4–WP5)"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/stepe_tail_plan.md: schema: "audit complete — read-only; no source changes made" is not one of "open", "proposed" or 7 other candidates; {"title":"Step E tail plan — remaining Term-JSON codec migration after plan B (eqsat v0.1.12)","type":"report","date":"2026-11-17","status":"audit complete — read-only; no source changes made","scope":"ordered codec-site migration, wire-dialect matrix, deprecation schedule, effort/dependency graph, D-2 interaction"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/engine-eqsat-spike.md: schema: {"title":"Spike: P2 `engine-eqsat` — the e-graph as a search interpretation over kernel `Term`s","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/reports/wp4_parity_sweep.md: schema: {"title":"WP4 parity sweep — `engine=\"eqsat\"` vs default Python `EGraph`","type":"report","date":"2026-11-15"} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+- 'project/rfcs/0077-stdlib-migration.md: schema: "accepted" is not one of "open", "proposed" or 7 other candidates; {"title":"Stdlib migration to Handl — file requirements, phases, inventory","type":"rfc","date":"2026-09-03","updated":"2026-10-29","status":"accepted","refs":["ADR-0077"]} is not valid under any of the schemas listed in the ''anyOf'' keyword'
+notes: ''
+verify:
+- project/BACKLOG.md
+- project/DECISIONS.md
+- project/DONE.md
+- project/README.md
+- project/TODO.md
+- project/adrs/0001-host-bundles.md
+- project/adrs/0002-adr-0002-remaining-plugin-library-conversion-and-module-abstraction.md
+- project/adrs/0003-library-crates-are-exposed-as-platform-plugins.md
+- project/adrs/0004-platform-is-agnostic-of-language-specific-plugins.md
+- project/adrs/0009-adr-0009-strategy-c-runtime-module-loading-as-handler-interpreted-ops.md
+provenance:
+  files:
+  - project/BACKLOG.md
+  - project/DECISIONS.md
+  - project/DONE.md
+  - project/README.md
+  - project/TODO.md
+  - project/adrs/0001-host-bundles.md
+  - project/adrs/0002-adr-0002-remaining-plugin-library-conversion-and-module-abstraction.md
+  - project/adrs/0003-library-crates-are-exposed-as-platform-plugins.md
+  - project/adrs/0004-platform-is-agnostic-of-language-specific-plugins.md
+  - project/adrs/0009-adr-0009-strategy-c-runtime-module-loading-as-handler-interpreted-ops.md
+  - project/adrs/0010-package-manager-content-addressed-diff-based-composable-stores.md
+  - project/adrs/0012-versioning-for-language-artifacts.md
+  - project/adrs/0014-handl-formatter.md
+  - project/adrs/0015-adr-0015-linter.md
+  - project/adrs/0022-lexer-architecture-self-hosted-streaming-with-runtime-config.md
+  - project/adrs/0023-modular-ast-ast-common-and-handl-ast.md
+  - project/adrs/0024-agnostic-parser-engine-handl-parser-common-and-handl-parser-canonical-on-top.md
+  - project/adrs/0027-vm-crate-restructure.md
+  - project/adrs/0028-adr-0028-pluggable-module-composition.md
+  - project/adrs/0030-adr-0030-lib-lang-expose-the-handl-language-as-a-reusable-library.md
+  - project/adrs/0031-adr-0031-platform-abstractions.md
+  - project/adrs/0035-adr-0035-loaders-as-abstract-plugins.md
+  - project/adrs/0036-adr-0036-host-applier-as-a-plugin.md
+  - project/adrs/0037-adr-0037-plugin-resolution-and-excludes.md
+  - project/adrs/0038-adr-0038-ignored-test-inventory-and-triage.md
+  - project/adrs/0039-adr-0039-kits-are-curated-plugin-lists-not-implementations.md
+  - project/adrs/0040-adr-0040-vm-is-an-operation-not-a-subsystem.md
+  - project/adrs/0041-adr-0041-languages-as-first-class-values.md
+  - project/adrs/0042-adr-0042-transformations-as-first-class-values.md
+  - project/adrs/0043-adr-0043-proofs-as-first-class-values.md
+  - project/adrs/0044-adr-0044-language-as-data-and-runtime-split.md
+  - project/adrs/0046-adr-0046-capability-discipline-at-the-language-level.md
+  - project/adrs/0047-adr-0047-meta-functions-as-plugin-lib-crates.md
+  - project/adrs/0048-adr-0048-modules-as-first-class-values.md
+  - project/adrs/0049-adr-0049-modules-are-evaluated-environments.md
+  - project/adrs/0050-adr-0050-plugin-system-in-handl.md
+  - project/adrs/0051-adr-0051-ffi-rust-generic-rust-binding-facade.md
+  - project/adrs/0052-adr-0052-arrow-calculus-kernel.md
+  - project/adrs/0053-adr-0053-generic-pratt-parser-grammar-data-replaces-per-construct-branches.md
+  - project/adrs/0054-adr-0054-generic-typecheck-engine-plugin-tool-typecheck-plugin-tool-typecheck-nbe.md
+  - project/adrs/0055-adr-0055-tagged-values.md
+  - project/adrs/0056-adr-0056-import-export-and-multi-file-programs.md
+  - project/adrs/0058-adr-0058-generic-data-driven-engines.md
+  - project/adrs/0059-adr-0059-generic-object-key-evaluation.md
+  - project/adrs/0060-adr-0060-generic-call-dispatch.md
+  - project/adrs/0061-adr-0061-generic-pattern-match.md
+  - project/adrs/0063-adr-0063-scheme-core-completeness-for-self-hosting.md
+  - project/adrs/0064-adr-0064-computational-language-authoring.md
+  - project/adrs/0065-adr-0065-derived-artifact-cache-and-compression.md
+  - project/adrs/0066-adr-0066-dependency-graph-chunking.md
+  - project/adrs/0067-adr-0067-chunk-certificates.md
+  - project/adrs/0069-adr-0069-arrow-native-modules.md
+  - project/adrs/0070-adr-0070-refinement-inference-scope-deterministic-dataflow.md
+  - project/adrs/0072-adr-0072-concurrent-arrow-calculus.md
+  - project/adrs/0077-adr-0077-stdlib-migration-to-handl-op-declarations-axioms-and-the-elimination-of-per-library-rust.md
+  - project/adrs/0081-adr-0081-data-driven-ast-child-roles-closing-the-last-engine-hardcoding.md
+  - project/adrs/0083-adr-0083-ffi-native-stdlib-handl-over-direct-c-posix-bindings.md
+  - project/adrs/0085-adr-0085-bootstrap-tooling-strategy-rust-tooling-on-the-generic-substrate.md
+  - project/adrs/0086-adr-0086-bootstrap-formatter-plugin-ext-fmt.md
+  - project/adrs/0087-adr-0087-bootstrap-linter-plugin-ext-lint.md
+  - project/adrs/0088-adr-0088-bootstrap-typechecker-plugin-tool-typecheck.md
+  - project/adrs/0089-adr-0089-bootstrap-test-runner-plugin-tool-test.md
+  - project/adrs/0090-adr-0090-bootstrap-cli-host-cli.md
+  - project/adrs/0091-adr-0091-shared-diagnostics-crate-plugin-ext-diag.md
+  - project/adrs/0092-adr-0092-test-framework-in-handl.md
+  - project/adrs/0093-adr-0093-string-char-unicode-layering.md
+  - project/adrs/0094-adr-0094-generic-ast-transform-engine-plugin-tool-transform-plugin-tool-transform-rewrite.md
+  - project/adrs/0095-adr-0095-formatter-as-a-production-pipeline.md
+  - project/adrs/0096-adr-0096-module-resolution-path-based-imports-handl-toml-path-dependencies.md
+  - project/adrs/0097-adr-0097-lint-rules-as-language-data.md
+  - project/adrs/0098-adr-0098-one-language-multiple-interpreters-a-graded-arrow-calculus.md
+  - project/adrs/0099-adr-0099-principled-boundaries-between-plugin-engine-and-plugin-ext-crates.md
+  - project/adrs/0100-adr-0100-canonical-term-arrows.md
+  - project/adrs/0101-adr-0101-the-directed-hott-limit-of-the-term-calculus.md
+  - project/adrs/0102-wiring-hnl-modules-into-handlnativelint-and-handlnativerewrite.md
+  - project/adrs/0103-adr-0103-the-kernel-is-the-evaluator-not-the-calculus.md
+  - project/adrs/0105-adr-0105-typechecker-in-handl.md
+  - project/adrs/0106-adr-0106-the-object-arrow-kernel.md
+  - project/adrs/0107-adr-0107-handl-sdk-generator.md
+  - project/adrs/0114-adr-0114-handl-compile-plugin-architecture.md
+  - project/adrs/0120-adr-0120-paper-implementation-alignment.md
+  - project/adrs/0123-implementation-finding.md
+  - project/adrs/0124-adr-0124-handing-a-language-to-capability-plugins.md
+  - project/adrs/0126-adr-0126-kernel-boundary-and-the-idea-ledger-for-retired-reifications.md
+  - project/adrs/0127-adr-0127-transformrule-replace-a-rule-form-for-root-eliminating-rewrites.md
+  - project/adrs/0128-adr-0128-target-repos-repo-target-module-one-port-implementation.md
+  - project/adrs/0129-adr-0129-project-docs-topology-for-the-target-repo-split.md
+  - project/adrs/0147-adr-0147-lower-the-while-state-fold-to-loop-explicit-protocol-ops.md
+  - project/adrs/0148-adr-0148-lower-call-dimension-application-to-app-terms.md
+  - project/adrs/0149-adr-0149-host-cli-is-a-dumb-host-ext-extensions-load-dynamically.md
+  - project/adrs/0150-adr-0150-repo-visibility-is-derived-from-the-dep-closure-not-chosen-per-repo.md
+  - project/adrs/0151-adr-0151-exec-erases-type-annotations-signatures-are-typecheck-owned-metadata.md
+  - project/adrs/0152-adr-0152-data-is-a-nominal-former-constructor-arrows-dependent-eliminator.md
+  - project/adrs/0153-adr-0153-n-is-a-dimension-index-n-cells-as-one-indexed-former.md
+  - project/adrs/0154-adr-0154-typecheck-semantics-identity-equality-universes-literals-erasure.md
+  - project/adrs/0155-adr-0155-scope-bound-arrow-environments.md
+  - project/adrs/0156-adr-0156-module-environments-are-parameters-not-construction-state.md
+  - project/adrs/0157-adr-0157-mlopt-on-the-fragment-tower-domain-vocabularies-as-language-fragments.md
+  - project/adrs/0158-adr-0158-effect-resumption-semantics-perform-handle-as-algebra-homomorphisms-on-free-arrow-algebras.md
+  - project/adrs/0159-adr-0159-optimizer-domains-dissolve-into-ext-tools-on-a-trigger.md
+  - project/adrs/0160-adr-0160-lib-repos-are-language-packages-not-crates.md
+  - project/adrs/0161-adr-0161-an-adr-is-a-one-page-decision-record.md
+  - project/adrs/0162-adr-0162-project-holds-process-artifacts-published-docs-live-in-the-org-docs.md
+  - project/adrs/0163-adr-0163-every-project-artifact-declares-its-metadata-in-yaml-frontmatter.md
+  - project/adrs/0164-adr-0164-ports-are-types-implementations-are-named-for-what-they-do.md
+  - project/adrs/0165-adr-0165-the-kernel-ir-is-a-term-plus-kit-declared-ops.md
+  - project/adrs/0166-adr-0166-the-ir-gains-pipeline-depth-and-the-schedule-programme-stops-there.md
+  - project/adrs/0167-adr-0104b-minimal-term-core-with-generic-combinators.md
+  - project/adrs/0168-adr-index.md
+  - project/adrs/0169-adr-review-and-archive-summary.md
+  - project/adrs/0170-adr-nnnn-the-decision-stated-as-a-fact-x-is-y-not-about-x.md
+  - project/adrs/0171-adr-0171-the-kernel-ir-gains-layout-and-pointwise-ops-the-mlopt-bridge-s-blocking-gap.md
+  - project/adrs/0172-adr-0172-tensor-programs-are-handl-terms-the-e-graph-is-a-search-interpretation-not-a-second-ir.md
+  - project/adrs/0173-adr-0173-term-attrs-are-op-metadata-program-sharing-is-derived-form-data-and-non-finite-floats-are-a-codec-tag.md
+  - project/adrs/0174-adr-0174-the-end-state-architecture-one-term-many-interpretations-verified-delivery.md
+  - project/adrs/0175-adr-0175-the-dissolution-map-every-repo-finds-its-layer-mlopt-becomes-a-kit.md
+  - project/adrs/0176-adr-0176-the-language-end-state-python-only-at-ecosystem-edges-rust-and-data-in-the-middle.md
+  - project/adrs/0177-adr-0177-engine-eqsat-search-contracts-laws-guards-and-costs-as-kit-data.md
+  - project/adrs/0178-adr-0178-p3-codec-consolidation-and-mlopt-core-ir-demotion-sequencing.md
+  - project/adrs/0179-options-object-over-named-arguments.md
+  - project/adrs/0180-expression-object-and-array-literals.md
+  - project/adrs/0181-handl-native-s-schema-vocabulary.md
+  - project/adrs/0182-json-schema-2020-12-reference-composition-support-in-the-typechecker.md
+  - project/adrs/0183-adr-0183-type-aliases-in-defs.md
+  - project/adrs/0184-adr-0184-annotations.md
+  - project/adrs/0185-adr-0185-custom-fields.md
+  - project/adrs/0186-adr-0186-the-dependencies-field.md
+  - project/adrs/0187-parameter-naming-convention.md
+  - project/adrs/0188-adr-0188-modality-as-projection.md
+  - project/adrs/0189-adr-0189-remaining-types-are-values-advanced-type-system-roadmap.md
+  - project/adrs/0190-adr-0190-vau-as-a-typed-escape.md
+  - project/adrs/0191-adr-0191-computed-object-keys-via-bracket-syntax.md
+  - project/adrs/0192-adr-0192-predicates-as-types-unified-dependent-typing-without-a-sublanguage.md
+  - project/adrs/0193-adr-0193-failure-tracking-arrows-for-backtracking-parsers.md
+  - project/adrs/0194-adr-0194-state-machine-invariants-via-fixpoint-discovery.md
+  - project/adrs/0195-adr-0195-arrow-surface-syntax-v0-1-redesign.md
+  - project/adrs/0196-adr-0196-traits-as-arrow-signatures-graph-based-interfaces-and-contracts.md
+  - project/adrs/0197-adr-0197-decoupled-trait-layer-laws-bundles-and-handlers.md
+  - project/adrs/0198-adr-0198-value-types-as-data-composable-capabilities-and-target-representations.md
+  - project/adrs/0199-adr-0199-unify-arrow-dialects-graph-blocks-no-let-no-in.md
+  - project/adrs/0200-adr-0200-inductive-types-as-desugared-predicates.md
+  - project/adrs/0201-adr-0201-arrow-macros-type-safe-compile-time-metaprogramming.md
+  - project/adrs/0202-adr-0202-the-frontier-calculus.md
+  - project/adrs/0203-adr-0203-session-types-as-grades.md
+  - project/adrs/0204-adr-0204-type-level-total-evaluation-of-handl-expressions.md
+  - project/adrs/0205-adr-0205-n-dimensional-arrow-calculus.md
+  - project/adrs/0206-adr-0206-language-data-assembly-in-the-lang-repo.md
+  - project/adrs/0207-adr-generic-arrow-calculus-for-any-dimension.md
+  - project/adrs/archived/0001-generic-node-and-plugin-driven-canonical-kit-remaining-archived.md
+  - project/adrs/archived/0001-generic-node-and-plugin-driven-canonical-kit.md
+  - project/adrs/archived/0002-handl-platform-composable-host-v1-complete.md
+  - project/adrs/archived/0002-handl-platform-composable-host.md
+  - project/adrs/archived/0006-generics.md
+  - project/adrs/archived/0009-typegen-json-schema.md
+  - project/adrs/archived/0032-types-as-values-v1-complete.md
+  - project/adrs/archived/0032-types-as-values.md
+  - project/adrs/archived/0033-unified-plugin-crate-naming.md
+  - project/adrs/archived/0034-zero-monolith-plugin-driven-platform.md
+  - project/adrs/archived/0083-flatten-handl-packages-layout.md
+  - project/design/0002-handl-platform-composable-host-remaining.md
+  - project/design/0009-strategy-c-runtime-module-loading.md
+  - project/design/0010-package-manager.md
+  - project/design/0014-formatter.md
+  - project/design/0015-linter.md
+  - project/design/0024-parser-common.md
+  - project/design/0028-pluggable-module-composition.md
+  - project/design/0031-platform-abstractions.md
+  - project/design/0035-loaders-as-plugins.md
+  - project/design/0036-host-applier-as-plugin.md
+  - project/design/0038-ignored-test-inventory-and-triage.md
+  - project/design/0039-kits-are-curated-plugin-lists.md
+  - project/design/0040-vm-is-an-operation-not-a-subsystem.md
+  - project/design/0041-languages-as-first-class-values.md
+  - project/design/0042-transformations-as-first-class-values.md
+  - project/design/0043-proofs-as-first-class-values.md
+  - project/design/0044-language-as-data-and-runtime-split.md
+  - project/design/0046-capability-discipline-at-the-language-level.md
+  - project/design/0047-meta-functions-as-plugin-lib-crates.md
+  - project/design/0049-modules-are-evaluated-environments.md
+  - project/design/0050-plugin-system-in-handl.md
+  - project/design/0052-arrow-calculus-kernel.md
+  - project/design/0053-generic-pratt-parser.md
+  - project/design/0054-generic-typecheck-engine.md
+  - project/design/0055-branded-values.md
+  - project/design/0056-import-export-and-multi-file-programs.md
+  - project/design/0060-generic-call-dispatch.md
+  - project/design/0061-generic-pattern-match.md
+  - project/design/0063-scheme-core-completeness.md
+  - project/design/0064-computational-language-authoring.md
+  - project/design/0065-derived-artifact-cache-and-compression.md
+  - project/design/0066-dependency-graph-chunking.md
+  - project/design/0067-chunk-certificates.md
+  - project/design/0069-arrow-native-modules.md
+  - project/design/0081-data-driven-ast-child-roles.md
+  - project/design/0083-ffi-native-stdlib.md
+  - project/design/0086-bootstrap-formatter.md
+  - project/design/0087-bootstrap-linter.md
+  - project/design/0089-bootstrap-test-runner.md
+  - project/design/0092-test-framework-in-handl.md
+  - project/design/0093-string-char-unicode-layering.md
+  - project/design/0094-generic-ast-transform-engine.md
+  - project/design/0095-formatter-as-production-pipeline.md
+  - project/design/0096-module-resolution.md
+  - project/design/0098-one-language-multiple-interpreters.md
+  - project/design/0099-plugin-engine-vs-ext-crate-boundaries.md
+  - project/design/0100-canonical-term-arrows.md
+  - project/design/0100-directed-hott-limit.md
+  - project/design/0103-kernel-is-evaluator-not-calculus.md
+  - project/design/0105-typechecker-in-handl.md
+  - project/design/0106-object-arrow-kernel.md
+  - project/design/0107-handl-sdk-generator.md
+  - project/design/0114-handl-compile-plugin-architecture.md
+  - project/design/0120-paper-implementation-alignment.md
+  - project/design/0124-capability-language-handoff.md
+  - project/design/0128-target-repos.md
+  - project/design/0152-data-nominal-inductive-families.md
+  - project/design/0155-scope-bound-arrow-environments.md
+  - project/design/0160-lib-repos-are-language-packages.md
+  - project/design/0181-s-schema-vocabulary.md
+  - project/design/0182-schema-refs.md
+  - project/design/0183-type-aliases.md
+  - project/design/0184-annotations.md
+  - project/design/0185-custom-fields.md
+  - project/design/0186-dependencies-field.md
+  - project/design/0188-modality-as-projection.md
+  - project/design/0190-vau-as-a-typed-escape.md
+  - project/design/0192-predicates-as-types.md
+  - project/design/0194-state-machine-invariants.md
+  - project/design/0195-arrow-syntax-v0_1-surface-redesign.md
+  - project/design/0196-traits-as-arrow-signatures.md
+  - project/design/0197-decoupled-trait-layer.md
+  - project/design/0198-value-types-as-data.md
+  - project/design/0200-inductive-types.md
+  - project/design/0201-arrow-macros.md
+  - project/design/0202-frontier-calculus.md
+  - project/design/0203-session-types-grades.md
+  - project/design/0205-n-dimensional-arrow-calculus.md
+  - project/design/0207-generic-arrow-calculus-any-dimension.md
+  - project/design/adr0103/deletion-plan.md
+  - project/design/adr0103/kernel_extraction_plan.md
+  - project/design/adr0103/vm_design.md
+  - project/design/multishot-resume.md
+  - project/design/phase1-typesystem-spec.md
+  - project/design/phase2-typesystem-spec.md
+  - project/design/phase3-typesystem-spec.md
+  - project/design/phase4-typesystem-spec.md
+  - project/design/semantics.md
+  - project/handoffs/I-001.md
+  - project/handoffs/T-101.md
+  - project/index.md
+  - project/issues/issue-0001-pushed-commits-fail-to-compile-handl-lib-base64-missing.md
+  - project/issues/issue-0002-nondeterministic-cuda-context-poison-in-delivery-eval.md
+  - project/issues/issue-0003-eqsat-joint-pass-perf-regression-layout-laws-unbounded-in-compositional-cross-pairs.md
+  - project/notes/ast-based-inlining.md
+  - project/notes/kit-data-prelude-references.md
+  - project/notes/module-async-operations.md
+  - project/notes/multishot-resume-cranelift.md
+  - project/notes/rust-to-handl.md
+  - project/notes/scope-assessment-types-as-values.md
+  - project/notes/split-branches.md
+  - project/notes/tree-shaking.md
+  - project/proposals/proposal-0001-weekend-org-wide-readme-license-metadata-normalization-pkg-hnl-annotations-repo-renames-kit-lib-hnl-only-migration.md
+  - project/proposals/proposal-0002-kit-lib-hnl-only-migration-plan.md
+  - project/proposals/proposal-0003-lib-truly-hnl-only-ffi-call-bindings-tool-sdkgen-emits-hnl-atoms-stay-in-rust-registries.md
+  - project/proposals/proposal-0004-kit-system-kit-hnl-manifests-use-case-kits-lib-gap-analysis.md
+  - project/proposals/proposal-0005-lib-http-route-v3-pattern-compiler.md
+  - project/proposals/proposal-0006-lib-http-route-resources-resource-rest-generators.md
+  - project/proposals/proposal-0007-lib-http-middleware-request-scoped-pipeline.md
+  - project/proposals/proposal-0008-lib-route-transport-agnostic-router-middleware-pipeline.md
+  - project/proposals/proposal-0009-lib-lex-data-driven-lexer.md
+  - project/proposals/proposal-0010-hnl-repl.md
+  - project/proposals/proposal-0011-lib-route-transport-agnostic-router-pipeline.md
+  - project/registry/INDEX.md
+  - project/reports/2026-02-language-cleanup.md
+  - project/reports/adr-0095-formatter-pipeline.md
+  - project/reports/adr_binary_tensor_channel.md
+  - project/reports/arch_coverage_wave2.md
+  - project/reports/arrow-automated-proof-landing.md
+  - project/reports/audit_pass_1.md
+  - project/reports/audit_pass_10.md
+  - project/reports/audit_pass_11.md
+  - project/reports/audit_pass_12.md
+  - project/reports/audit_pass_13.md
+  - project/reports/audit_pass_14.md
+  - project/reports/audit_pass_15.md
+  - project/reports/audit_pass_16.md
+  - project/reports/audit_pass_17.md
+  - project/reports/audit_pass_18.md
+  - project/reports/audit_pass_19.md
+  - project/reports/audit_pass_2.md
+  - project/reports/audit_pass_20.md
+  - project/reports/audit_pass_21.md
+  - project/reports/audit_pass_22.md
+  - project/reports/audit_pass_24.md
+  - project/reports/audit_pass_3.md
+  - project/reports/audit_pass_4.md
+  - project/reports/audit_pass_5.md
+  - project/reports/audit_pass_6.md
+  - project/reports/d1e_kit_torch_done.md
+  - project/reports/d1e_kit_torch_prep.md
+  - project/reports/d1f_kit_host_tensor_prep.md
+  - project/reports/d2_dryrun.md
+  - project/reports/d2_dryrun_refresh.md
+  - project/reports/d2_execution_runbook.md
+  - project/reports/d2_gh_preflight.md
+  - project/reports/d2_merge_prep.md
+  - project/reports/d2_merged_smoke.md
+  - project/reports/delivery_prior_autopsy.md
+  - project/reports/delivery_prior_v5_negative.md
+  - project/reports/delivery_prior_v6_result.md
+  - project/reports/delivery_v6_corpus.md
+  - project/reports/delivery_v7_corpus.md
+  - project/reports/delivery_v7_training.md
+  - project/reports/delivery_v7_training_retry.md
+  - project/reports/dogfood-json-report.md
+  - project/reports/engine-eqsat-spike.md
+  - project/reports/engine_eqsat_post_i003_verify.md
+  - project/reports/eqsat_gpt2_scale_profile.md
+  - project/reports/eqsat_v0110_perf_check.md
+  - project/reports/gpt2_e2e.md
+  - project/reports/gpt2_e2e_canonical.md
+  - project/reports/graphopt_gates_v0121.md
+  - project/reports/hnl-run-spike.md
+  - project/reports/hnl_laws_spike.md
+  - project/reports/hnl_run_scale_spike.md
+  - project/reports/hnl_run_stdin_flake.md
+  - project/reports/i002_cuda_poison_rca.md
+  - project/reports/joint_safe_merge_prep.md
+  - project/reports/joint_safe_preset.md
+  - project/reports/layout_law_budgets_fix.md
+  - project/reports/llama1_verify_run.md
+  - project/reports/llama22_verify_run.md
+  - project/reports/llama8_verify_run.md
+  - project/reports/llama_e2e.md
+  - project/reports/llama_e2e_retry.md
+  - project/reports/mlopt_dissolution_plan.md
+  - project/reports/mlopt_egraph_demotion_plan.md
+  - project/reports/mlopt_step_d_impact_map.md
+  - project/reports/mlopt_step_e_plan.md
+  - project/reports/onnx_lifter_rust_spike.md
+  - project/reports/p3_codec_consolidation_spike.md
+  - project/reports/post_cascade_landing.md
+  - project/reports/repin_cascade_eqsat_v0110.md
+  - project/reports/repin_cascade_eqsat_v0112.md
+  - project/reports/repo_hygiene_sweep.md
+  - project/reports/rust-adapter-spike.md
+  - project/reports/rust_corpus_pin_check.md
+  - project/reports/session_2026-11-19.md
+  - project/reports/step_e_dryrun.md
+  - project/reports/step_e_ir_census.md
+  - project/reports/step_e_term_repr_b_plan.md
+  - project/reports/stepe_dialect_census.md
+  - project/reports/stepe_discoverykit_codec.md
+  - project/reports/stepe_eqsat_conststr_flip.md
+  - project/reports/stepe_graphopt_bench.md
+  - project/reports/stepe_kernelopt_codec.md
+  - project/reports/stepe_kitdiscovery_hnlcodec.md
+  - project/reports/stepe_kitonnx_codec.md
+  - project/reports/stepe_kittorch_codec.md
+  - project/reports/stepe_leafkits_codec.md
+  - project/reports/stepe_mlopt_stage.md
+  - project/reports/stepe_remaining_lanes.md
+  - project/reports/stepe_sourceonnx_dialect.md
+  - project/reports/stepe_tail_plan.md
+  - project/reports/t5_verify_run.md
+  - project/reports/tagged-value-tensor.md
+  - project/reports/tensor_load_spike.md
+  - project/reports/wp4_parity_sweep.md
+  - project/reports/wp4_parity_sweep_v2.md
+  - project/reports/wp4_parity_sweep_v3.md
+  - project/reports/wp4_parity_sweep_v4.md
+  - project/rfcs/0077-stdlib-migration.md
+  - project/tasks/0081-remaining-kind-dispatch.md
+  - project/tasks/0085-tooling-capability-wiring.md
+  - project/tasks/0114-compile-plugin-phases.md
+  - project/tasks/0126-dead-code-cleanup.md
+  - project/tasks/0128-target-repo-split.md
+  - project/tasks/0129-project-docs-split.md
+  - project/tasks/adr0032-proof-erasure.md
+  - project/tasks/adr0200-steps5-6.md
+  - project/tasks/kit-data-prelude-0128-extraction.md
+  - project/tasks/misc.md
+  hashes:
+  - dac7766158a8b3d4f31bfb73e4bbef2a0fddceae
+  - a9c70db438d9d49f7b69c6d3b0c8a20540a2ef05
+  - d864722cda73af8070402493f66635568d20c520
+  - e106199793e8517e9bcbe14726348c78b5086da8
+  - 29109e33c38514272f6bfdd4cf36f4f0295d5a95
+  - 430b43b6171c0e595ac2c0828b2b5ff00e9e70ea
+  - 83cb5386b62a6022b92b962e4f01636f63b0b732
+  - b8634cdd060fd120dd65b8d6026a658e3df55138
+  - 6c258a4d2379770316b4d72b0f59de89a2cd6b16
+  - 274036271a4609ec730d2ecb76d921073d91dd6e
+  - 58cb6b851d9b321721f9a674a6016b1955fd02e6
+  - efc425d5842c7e3d0022706c54ae18a9ce8257d6
+  - 00713310d46f1a8a469cb6af792011c3a96237fa
+  - da1713ad39e344cbc1148ac49a630982fd2de782
+  - 9b6a410a5201a785f4103a9f058b55e31c1d9bf1
+  - d79331a41767786d561dd364af0a564434b8bc02
+  - 7e745cdc83c4d5cf95c57019e57b66a04ff5f0e8
+  - 2797694f5768a490c812e5bcecf738fd8f810c8b
+  - 0a06339ca6df7953be4a93a3d2885f47865ab8f3
+  - 3ab871c637cd081ea41398c96c38b02aaf38c70e
+  - b2722425594d1e13f1ed3a85b712f887d05eb4dd
+  - d68f7af133c67ecfbf7a561ae06d21d9f2d58562
+  - 8af63fb9a3cdeb98f012cd12c48d24dcc94a6535
+  - 82571faeeb7eeb90ed4d99e0e6a8cd96230f484c
+  - 1bb1468f562286f28df5c10be18d2bb5fa9747c6
+  - 04952ddb4057e88a8a8b69af31b4fa1a49677b8f
+  - f9dc35dccf4af9de1a0de55e24a97b910a4510a7
+  - 57186854c7b4873fad7e898b52c4d84f4b2b4b3e
+  - 2fd0c563a413974a362930d56c559af767b90943
+  - a0382ede5860b2ee2edefbdbcdb1621c1f1eda4f
+  - 7b512e1153d467a95e28c5f8541e30aec84f0273
+  - dd1613dda50f29cf13ffe7ee26d9cd2b4f153394
+  - 501132ebf31b45ea402b29bd966730b45c09004a
+  - 404ccaca8af7913f024b5526b357c7c9eb15f136
+  - bf9c1fb4922d7a11ccd81ca1b6fd291bc9b4302c
+  - ae6fab5ac3d8610db9443fb1915a10fc53821a30
+  - 55ba9224f15a6b6ddf6d4d737eec5be2a34b66fd
+  - 4c080c2d095d548ab4f86844067fc6570fb1005a
+  - 508338235386f4f662f63b068aa3ce21f9a723ad
+  - dccf5eacc236a5a50fd9c62408e02d747effb4a3
+  - ab39286b8acc2114efba0e4787b6cea6db04887a
+  - 43bcf884c97e9c0eb24c82ac26c51e74dd6af2e0
+  - c92d7ff698a1ff0d5522dc04be84502b6cd2f6bf
+  - de053415b2e66d4777c325f9964f80fa3f8fdc54
+  - 0d01334be86746c5186381ca21b5734f434b6ea6
+  - 3bfec855bde07e6989c34a4a152369aa4815a155
+  - 642762150787972c13e6cd3509d4e45325cfe7f6
+  - 02b18e991339f2778069666cf6412e86f8fccedc
+  - 3d833199feb66d29cbb2cc90bad10ef8700c03aa
+  - eda9f22fd26dc79c148dd05334d4b26bab9bac99
+  - 9c8eb8d931ef2035cfbd591c600fd6abdc28683c
+  - 7f3c99332eacbff2d12a5de76a834f807ad80490
+  - 27872e657fdce0a6df3b40caac555878d7852378
+  - c0eed5010dc3a14a95144b7159608fa0b2a2ab0e
+  - 0d96b3cd9f5d16557920c715fed5e2b4d955f332
+  - 83e99751bc4b8a83bc2cade19fff8f211b4c96d7
+  - d4eba2a9822f1bc726c68428a09b082277c607d0
+  - 0cdb98bf27f9e5a84f997bda1012066dbe22e851
+  - 110ac8ab209cf9c9deefe99de279ddaa983a1fa1
+  - 48249424d6880753b6a940776e9f5dc8983fe49e
+  - 3766b266f72523059f0e10f58c0ec06bba551b8f
+  - 6876444495456e5fb76489648ff1bd06adfbb554
+  - ed14796daed004d33726819e6f1a53988192c89a
+  - 74ae6556a54cf32bae1f078616c5e4e85c5e9023
+  - 3856ed576da7c781e2c7dda87a309c897c4a76ce
+  - 3d3c79a1073acbb11512c78516031c667a21212f
+  - 0c6163638f08f809bba99025b9f46d5ce6c29046
+  - 4d0cbed41eaeb7ad7c644dd57c73a5b52185b81a
+  - b3bfc70bb2188f635bb8f8df67eaab8eece4ee1e
+  - 8e508e2c71b1ca714c92cc6681abaf4e7b872efe
+  - e465b0417d65f40371cd7b60833403f136271245
+  - 49374925d27ca91567d5039bb82f152ecc47d03f
+  - fe844b24c85af280fb5a4c290225efc1cf33127b
+  - 412a672f63d4d7beba9951a9747c79dc62d43f97
+  - 431299afef06e3acb7e34c296b43362b613ddc7b
+  - 7ab4da26e0f11afb41c081a940544deed20130f4
+  - dc0b89e2c56be790dee6453b202f9dbf61377899
+  - 5a469e4548e2664b1d5a336e7a10546c75d2ec9e
+  - 7cdf84dc6fc9eaeb1a71437ee613d3e26de5a5b1
+  - fe633ff956a9c2dc540842489c1e839c888e1b21
+  - e8044c5c1287af2fb0745b09590827e60c72bdbf
+  - 314aa9082b0554b4dcbd0abe38918e4cadf17d6f
+  - 0650db27bb4f5d0b4ea128cee22a64cd90232cc2
+  - f130237fe4da326cfa82f7a779a102a1f1b884cd
+  - 88bfc577c11ea8d26902c5ae7726865c87962084
+  - 50033a4b7dfe937dd1ade66b74fe05134ac1fff1
+  - 8f272827fa49a223f50c8cd7a1bdc8d0de64557e
+  - d7f82f83a03bb7da1165a9f38891b9a5157f550f
+  - 768ad6fff58177b9fb95a78809c4ed0e1cedd666
+  - b86b109f29241b03893d2961999a11e6468f0b04
+  - a02db0d3dac0d3048301443aa4648c2a116fe3c3
+  - 1e10a015e935d4b0fb555a3dccfece02e88b1118
+  - 66db40807b3ec8330251091c22880caa17a0d80f
+  - 543f82e882ce600815622f552f5bee021e43f661
+  - d2795b3e0758b13751cb04c81c25b6a776d19311
+  - 8ead043439df43596326673d75b03291c0700253
+  - 9d589b6df2415a4b8687f22898a1e136fbf4f677
+  - fbb5f7dc98035a724f94ee8c9d1e945a0a31a5da
+  - d2b3ed36eedcb6fce202712d61415addbf5b2dc5
+  - 3689acf0b97c21cfaf409281b0bea02787ef4e5b
+  - 0dc3c9d4d8264112a8438795a94c1126b3884ed7
+  - f245999c0a2d76774e77523888e793ba11a16931
+  - cce7a247820354685d118db07ba1a351d574a637
+  - 8a2a7ea8d364b56704a497475d970313ebaa7a8a
+  - b2e4b6d282a91fb4bce4c90e4590d86977a6da9f
+  - 1c924a7c1689ac292337dd67652be4d815f1424a
+  - 101a564fe2f8d068de2076da7e21a239170c7da5
+  - 785a6f97834f30100e9f74c8c4dfa2a98c5aac43
+  - 9078751a43fab61491d1280f98b855831b2f32db
+  - fd0ab5c34ac61971aff251d41bdb19774ae3b109
+  - f94d383ebab08b3da8dd28849ef198c7cec48204
+  - 08b23511125bc48fb19bf839a10f76eeb54279f1
+  - f2e419d7609e975d694ba625e17cd8ed65db5fab
+  - 864f9223ea57be3030f38d13f4719c77608d62d6
+  - 60088ddb9686ea0a4c89404dff8b740a30864695
+  - 6e16af5537918bb4095c93a63a6d2c1eed448032
+  - 888b642afaba1df3269653088899ca51a055bdda
+  - 78a396df16e8817b79efc81611ac4736fa508452
+  - 0a29dbf4003c9bfd0a01dc2c378ef6d427d1afcd
+  - dbfb1ec48900b278671c2505ead5097ec2d4cd9c
+  - 45362c6f45203f674a1d248c34298933cd91f38e
+  - 928d555c45a06201e86d042a72cfd0e124ee2caa
+  - 691a7fe74795f9d50b345b91593b8954a711f0fb
+  - f61ece8170bc48e6d6fc3ba7bae6e619f2f0937b
+  - 8c60f891e3ea93e776a8f5b28acb8abdd4740e7a
+  - 0c46c833072d1ae9a13a4d4c07662ef2cc04a49b
+  - 6c5886faf194740d584becdd4b4cb33df3e06088
+  - 36a076a90410c2d4fbf773492071353b2fe3de68
+  - eabb3fd52a6b874512c23f389b0ef847d1d3fea7
+  - 39427452b2cdbf5ae7a80e2e25b382f6022e4281
+  - f595e63595b18edca40e66ee5ade8516a02bcb56
+  - 7efea9057fb395d901d225593837f08a0feae16f
+  - 7e1864e0db2085109843a9a632086d44db7e3807
+  - b7542ac6cbc6d654b7707ff257616ec52c1adba2
+  - 2eca539861def8bdd6c91ba26dc56bf6774d18ab
+  - bf941afe81b312e5730299997fb03fbb68e1b6b9
+  - dce982371fe3c1369348fafe9a6e87654aef38ad
+  - 8839f2e54b0872e66f5e69a62f6d8b9352396db8
+  - 3d6cb941eacf16bea9fb89ff20abdea83702b012
+  - b4d585e271f9041b1ebe4afd1c95219401538497
+  - a9dc7f09f6df1ce1ba24cf3f4103acd015afb11f
+  - b1971affc9085a4ba4b5c4365ff18331480fcd5d
+  - 13d1ee0ea946359429bef2f9a8790e8a4dd2455b
+  - 6d50945fbd1e691101d57f25c66ded053b79e827
+  - 33f921375cf242f89a4a122cc678bc5928c3e25d
+  - 0e39d2e03ca58b5df5898373eef92c452fddac6a
+  - 7422e5a78ac3e470eea6eacd2874656413a3c570
+  - ab1b6f32ed53db86dbd732b07b800a1bcd69a054
+  - 06a35818cd031925160cb8eba2f5376c64761051
+  - f1443561c795987ab1411878f58c6678059fabdf
+  - d629288ea0e41251973827cb2c93105eab477a1d
+  - 77bdd091043fbb2eaa7f834bf3afc32b45bd04ec
+  - fe88ee4d95c8255ea657ec90c66b385322c16b2d
+  - c1fcf1bc7e2dd4000ad4769ec6be12733eb29970
+  - f24cbd227368d0409d1c86c65b8ff40ff794a26b
+  - 4dbd6ee32f4931527a368f350cefaa663e1ca431
+  - bb86a62916f653ed767d8024ca204fab89a079cb
+  - befe21feb1d150aa7746f21d04eed9feb2b10b2a
+  - a175bb3a975dbb9c45b34741b53c7f1cfc02919f
+  - 680911f0a614bc447b6b0bf84fc5da86dfa33259
+  - 0d6a66e069ded48c5fc7b9a66a24d635b9ee493a
+  - a4d7250464e479e12753c0b335c66dbbf9606d59
+  - 98b862686c52397a516595ea20c518ecb0ffdfa4
+  - 4e84746ebc427580619db21f761ad8f7bd42d3e6
+  - baf9e9ed8836f7fd9e0873077c48b9a7090ea644
+  - 6081a67bfa3898855bd1b285ed28011c72303140
+  - 563ce62d203f9313146a1c538095c3c9e419b783
+  - 84a3d6d18b37d3a3527e003c570e59de8bc59ffc
+  - edd39b9c9487e15be62898b19d151fc9baa1a75a
+  - 8ab1e2f43b7f25b954e8ca85d77d203ec0bf15c3
+  - c7c1499c493f1c702e2d488cae0cb3d920e62c89
+  - 169f6a2ae8f3a358d72414683565917c2bb2d2a3
+  - 111db38cb871bc935a421b84389c974e4a1f67ce
+  - a255ef85942e3184967b3ffc77990be2aaaacce3
+  - a1570ffdbc10232d3cc77b6e7ea1b9dbc934990b
+  - 8305b4ebc58618cb4b13aeccb3a3bd9a8e5d3dda
+  - b07a6a6d22d802963c4a16a765c6f0346be7dd49
+  - f087066c17d9a9b27c675b6dde87c9d2c6e78fe3
+  - 1f000ef0104531452b92ddde0fb1ed8f585277bf
+  - 231311f42c9affeeeeb901c8ecb454b2acc8dd2e
+  - 92144e8881227db10aeeeee2f6106d980df33917
+  - 6d6d0de45f6396893cc8ba920e9fa6e2d3ba28da
+  - 3bef0f88a755c6d41404f70975e8ff8f98df34dc
+  - 5477b66338a982672d50aeea6b1587fd48668f57
+  - 11176775198ef9249c82dcf5eb69aa9a6e21149b
+  - 4306d2f41b19da164d0dab9190cfb14e98f314ab
+  - 6926353f8dc52d5b19bf10b91298059717c1102d
+  - 99e8cf5c7e0940c12e0515427fd264b7aa0fac40
+  - 0085978863b43d928a5f4798951ac700625ca644
+  - 1d84c15d35dfe5c382f6c7f39734ca6ce23fa96d
+  - cf17f0e3442b67c82f4ae2ddba52c71c6592fbcb
+  - 03d3a5bc87296b0f1da7cb1f8bec7bb0112c0fb0
+  - 6f6ea7232ea179380c78a311701244b0438e20ab
+  - 2bf984c0ed600dfd913175c567ba84d056ed47e5
+  - f4f3f0dd7ac27ad17d7ff3bf85686d6782887f2d
+  - 591c535a4f12196a693f088b0461862dec66f2a2
+  - f8fe5d088cb5e06a2d1b43143464ef9460bf5bdf
+  - 80579b8e71b4c43aad2b39bb009e6d74f377c4ef
+  - 46ae0c9ae2173d6f473cb60edebdafbac9572b13
+  - 18f501d448d86119f2cf0ccb4c8c9bea795f04d9
+  - 71fe6b357bf4f09044434964ac251168f0f2063f
+  - 23ce0a7b5ba3fcfd480033ccba965cb38583e4fc
+  - b64b90b3f9f6347b4becaaa547865c8d21021fd9
+  - 8286745655d53fc3689e0d7a0c6d4c70753592f9
+  - 98ab178384c834cff1f7b2426c81a42634991968
+  - 04b25b921f706898270f7f52913f58e1644b4ed0
+  - 3a11f3546508d84fbef027d90bb83a8bd5d613cf
+  - 51049ceeaca25511f6d726fdd615097b85637c0d
+  - a4a831770da3fa0389fa3bb08ab0b3d98c85720f
+  - 4add8fec20f48f6e9fa48de6c1ff6fe653b32276
+  - 74bd941d1647d19affff2a9787b5a7eb48d5ac9e
+  - 425daf5ec864b96e6c582d382ac15fc04004c432
+  - 0f59a24515226fe57d9ac0a4e77cde926ada7315
+  - 5ec29b7e6dc0f7ecbf1e2170f17c3471422a5179
+  - 91e6917d05b332fbb060e5a02b792257dddd94c8
+  - 2e016ce207bb8de63ca71edb296106999a99eb88
+  - 70753685e5ff961be5ac7a1402d8d50a0531d3e7
+  - f352ce9ed36bd2a38d380fdf3ed09e846ae0fcc8
+  - 14a576a9474337738069f6c284807e05335ce349
+  - 29e104321aefd23c4336efb0b7b5bbcbcc84aab6
+  - a016da6c19821cd8551cec0f0728a0a9a5c467e8
+  - e8f3bd6be4ee9e572f1fa858e99524a793ed4b59
+  - 423ea010f4a476f5ce2dac88137fc94da90e32ca
+  - 5fc571bd2c501de919719d77d1f9ff4eb8a72601
+  - 9d15eb6c7b13355a13041a62fc44f48777558e28
+  - 8d19c46390644b365b1c77e1bf871bd1feb5ac45
+  - f5911738e4ba08786ca6736502221e3750519d56
+  - b79e8a4a99e2d22fd1f3c79e02b65cd7fb7c594d
+  - 19035ed66552736d7a76280c0b8396176fbd2771
+  - ec114df494a7e0c44b3527bd54cc130f0a6d0cea
+  - 167cccfa9fea82727642c51a3f73fe8b1a749aa3
+  - 31ec4bc6092509188c2e3b70db91de510eb1505e
+  - a23e512483a1d12744f1bb859cf36b5f9dfc1f2a
+  - 3cdad5419d675c4cb872f9f3b9233bc935ce4978
+  - 6b3fd1db7ef7deb86076bf6c03badf8dc154631a
+  - b20febf9c5a0ddb99ca8b3cf749a4a322dd362fd
+  - 6efa7aef09736d5a66c6cef8a4f4a6e6b4298afd
+  - 5b06a06f6a493d46d6d948c83a056eb0bfe7121a
+  - 644f21b90bfe6fcab1f7ae02317ce5a855bfdb8d
+  - bfad10a0264882646682c0dd767d7ca0d38d6946
+  - 6660c34561b86e18eca5b8bbd4f4081a82e4dde2
+  - 653fe956e1b5044650829908ae5b403df7e11429
+  - 07ff344b8bb947b18cc9e9befaec70c5ddcdb12d
+  - 90999f64cb51a7646e526ce9c28af0f1e45f1a6e
+  - d4966c925d4b6968351506ca83fbb160bd2ccac2
+  - 3a493f43170b5d8135d9c6fcc3e10b83cc34272b
+  - 9f746725ddd372da1ae058c2aa8573100a274bc9
+  - a65e1dd6e9b325b1af8efd996d1df1dbed9beaa6
+  - 365431648adb3de21fffe5e8c164d5564ec25de2
+  - 61313adc9c764ffaea1808abe0c6a8f37cd4c44a
+  - 71ced3a55bb539d624a9bb53a74270114be69802
+  - ca6c229eb8cb1fe2b9c8e7ea27821d688717e399
+  - f675a2d0d2dff4a3fdcd93e709f7d9db3044d1fb
+  - 438b90de140c6699d52ff23c2e1988047690ed71
+  - 7e8d2f183a0ae4e699d4818b88cf9dc03822942d
+  - c82acf5090417af5065fc50089cbfffb836fa23d
+  - e0f3f5a3778aeff0a252470be0aa26f884f3c407
+  - eb20bd84bc8f0bd8ee85a5b3ab5260318929ae56
+  - 647cf78e7acd5012577b2503dbf991e577e198c3
+  - 6be6abedf6651c8c3e9872952d5c053a70d7f5c3
+  - 2bab0ad79f22d6fb5edffb98bdad6f9ddd080caa
+  - 977b2a36727c91e253bb7038620f0f81127bfb4c
+  - ffff1e1282f084a8d767e7fd62bf60adc69c4f79
+  - fe35ae097c1c567bf83069f69a1e083d1213899f
+  - 112ce0a85ca8555d23ca915abd849e58e493d79c
+  - 6639850781964821e320ef8f9c303b2a02968db7
+  - 1947a4cc5cab1d785421b6834eb100ad45da6b3b
+  - 8060f6c3b9379c32bf9c03445e4270e7f8d31387
+  - 8dfad7086a61d1b1feeba90e4a60063da58a5267
+  - f9344d404dafeb3d77d6127241a7ab3240c70f47
+  - c4f4a25c136c0b3109b464ddc629ec3251b9bba9
+  - 314f32d8aceff1e5e571a31089c7d60dda6acac1
+  - c23f997703ab2e4ae23e08a471d1c86657fdffaa
+  - ec1da8adfad0ccd8a02066387009f49a0b743969
+  - c0dfcfaf15ccd8f72d52908a2214ce8f2387c6b3
+  - 7c1eee6f7bb4b862fcc9877cc62df02d375a7a50
+  - 5f8956d27043820625134771cb4ecf19c5132c3a
+  - 71357ad0107e5c42af8d1634fbb902e3e0eab757
+  - 866dabc54804c630b9f7b1c343846f58fe2ec891
+  - 0ca3e62ad28acc490da478c30389607e305a4016
+  - 096fd2c22e4095384d90f6b7ac4dbd3d65b4453e
+  - 43b943580690ace63339d5ea021ac3ca10d99003
+  - 027830abda19539fba96c93ac8c4623439e70ffb
+  - 5816975f210589c17a08c68905a604f217eff39f
+  - 363282ae381af552cee165a5d1df1fc67e918e40
+  - feaadbefa0473c6beae28289468f364fabbfc2d1
+  - 7d5547a2d49fe06e5e0f94f1ecd65ca90d752f63
+  - c600dac123536989d70118cd1457df2c40ea24a1
+  - cabc2baa52a799c530e1b38ad8539e24110cbe1a
+  - 20266be20520258f3b7120af66037f2206691a88
+  - 3500a850b9a1d363623bf117fa27fa0372b30ea0
+  - d655b749ea7a50cd13f5783e5149eea629fb5e34
+  - 3e7d918720a85b390e1adb2f150297e1a6b4c71c
+  - 3f36e9a289b2c3861a4b32ac8b4470241aaa8811
+  - d8390cc54b34ad107a2d6efc4574918b44720409
+  - cad92a8bdf6b7428e9ee46b4e99d4fc392a314c9
+  - 94b4877546e9935b1aa18303d6357ce0edbaef4f
+  - 7082235a8b480323b380b50b046066693d15ce23
+  - 18cd9424348d51db4e752ffb3fc3e4e2e5fe227d
+  - 41fb74b0715318047906f78abd8f17f265ae8803
+  - 638e38c764a417322f4c41deddb4bf3f653bd282
+  - 65caadfa57845a029483d233f134c22a4f36157d
+  - 0dcb648da22ecc63ee7fedfc8eff3930832d96d9
+  - c74975b23dcdf92b2643915239b8a3294db13057
+  - 6fa215895d5e1025b51ea16e2974d9a072e931a2
+  - 7e99cc52a013eef9dd46f98d52043b739fabab07
+  - 4eb524922c51be84f8b4e4f31e4029a62365436a
+  - b7dc504735b631eeb8433ad34be63715aee1eeaf
+  - f2935752f39f927db697cd65824c9aabe29b2c5d
+  - 05d391458cf98562768c75fe5ca120b99cd75453
+  - 15dd8f4da988c0afbe11c7898c8ae2b6318448d7
+  - 43bd323cafbf63acec747391da19dc7083320276
+  - ddec985268c3114515c482a02cbb2379ef7d3316
+  - da63893e25a45a236f8fa5e049ed8e64fabba76d
+  - 36b2a25f1c473beec07836acdc436158d6ba9ad2
+  - 6ba24638dab20d115814742bcc88a120149da255
+  - e89f9de59e3e2d0d23e4bc7ad219d664c83dc1ee
+  - 00b8c9ccde8ee1ba99efd9a62355c5d8e8a30ee0
+  - 283ee3c78d8176bf6dd2c1493caaf1d8de1a4a6b
+  - 7dc5b84df24022afdd4c956d192b89ded95aac29
+  - 2a789832f6fd56ac26f6c9332b3afa6acf28ea72
+  - 4a544c52e32eb0035847d8260639202eb169d124
+  - de1d9893f1b3aa71c980351bda839a98fc5f7c18
+  - 0df73ebd38ce59da0cd9cf28d77c3d9ebf79aa63
+  - 2938ee5041d20b594db8e2ce25c11e1bf5747c0f
+  - 8a2bddcb9e44cf6477896674e5272beb602d6690
+  - 70081f3fdbb39187f4f67d7fbaeb148caa1af809
+  - 3d0b369500f17721adcb5ae580dfc96dcf045f38
+  - d6653904bddd9995a3ee21a12cfc20c73f02c056
+  - 54ead89a3adc41947a8dd05b608018d05749e0fa
+  - 493eb8f66eceaa19d9b32985cc39a395a6897ccc
+  - a73ca5bb25b5610676dec36dd28f8b3ee4e7cf18
+  - 7689e4c99ef5a53038a2a08cc6ce7b7288f80798
+  - 0e583e24711860f05391647330b78bc8d3cb36bf
+  - c703c887754ec2bafaa8fd3284579e3dd7c2e11d
+  - 535051137b820afdba3b80cf5bbff5463f916bf4
+  - 0c5251d3c86a2054864577376d028e2a182de31a
+  - 606d62182aaecbaa5edc726507574903311ac27f
+  - 262ae98dca0b644101184bf017eb8c5739192caa
+  - 39e676c7fa848e95bb37a6795264d26e2185574b
+  - 409655053350a117eb4d3e472e20dad9e69e672d
+  - a8d78732f824bab979659a8d1cf1e9bd952e0de7
+  - a75e63a62bcb8af3ba86f28dce797aef5e7892e2
+  - 8edce265b2adb5965b7727f2bb3f2fa09c0fcff0
+  - 0dc26339ab8be3916a75f68482e927796fe193b0
+  - ef9f5428c7ff8c2088e7d119f3e3daada0467df4
+  - 96584fcc2731ae76a86347e771d193914ea9832d
+  - 061cc7fde828dcf8b3b8493ee7af7115530d0beb
+  - a0812479f42dcfda343220876d22198e0b1b76ea
+  - 2ffd7da014b18bf4769118b404ac268f3696f9a7
+  - 805f14fd0b800548c9cd268d8f001199e24094b1
+  - b186a98f853529e9a5556d743b209e42596e4535
+  - f19722029ac06ff125e6bace9593fc9b855ea857
+  - 82fff87dda0279a263a876821ea687a721c2f34a
+  - ede25337bf08daee2566e319f2cbbb8a7ed33b7a
+  - a04fd06093d13353058669f45d1fc8249edf337f
+  - ce5a1071ef0408eb4076d3796e6e7fe3002a5abe
+  - 1a57a12dfcbd609a5a778111df22f870c5f6f2ad
+  - a13ed070f1295fc3487e3d5a85e8513b24c3d658
+  - a095805ee2813890fde5a7b6e6513434a1e87a01
+  - adb5ae5a4ce033d44ef3ae9d9e15abcf60ae8a78
+  - 09871138a8bfb058633da8ad23a5d594a97d14b1
+  - 3b8041595c8139423e296ee40071a3069d2f91e6
+  - ea8f4f91997ea90f51e65027ac40cd277a3e6eff
+  - c2392d56974288f2b500cbf4033a7c9aa0281145
+  - b8512d148e56417f63c6d574bc1110579a57f5aa
+  - 241b1503b3738b5ee3a2642f3c6e54e6e279f622
+  - e262b4c2080526ee3bec7c6f6d2005bb742df2fd
+  - fce60d8b6526767da0f5fc76171dcc85648f9f15
+  - f64f98995c7697326ce6be2e90b1ee2a700bd405
+  - e213f648f815e840622a248e006492cc93335741
+  - 073797a3b519414d86bdd9d9e106c854388e44d0
+  - f4cbd27f005839b4187e0b7ac9b1977c64e62c14
+  - 3c273690328ff0570d2e886954bd4f5f0db4a1a8
+  - 212ad30a9f47ba48637fdd26b1c4d62a8c213e52
+  - e1bfb03637c3476ee1030908a1890d32dc104189
+  - 1d66fed031fef27bf9b2fddab54a694057a57572
+  - 4856c2aa345025c80d207c82af16e57b83b58fab
+  - fc9b2e443d298f7fdd16df45f50a813a7c77ecd5
+  - d0abd5088e412fbe40780a48a85950178bb95b30
+  - 81edb62619cf2eba8cf853b558fa2930576dde04
+  - ce6ab2b5f435bc35c87c3e1405a3e8a7076a4d24
+  commit_sha: 0836bfeed30ca5902f6878a64113112beeed2b68
+  generated_at: '1795484422'
+  generator: kuda-template/0.1.4

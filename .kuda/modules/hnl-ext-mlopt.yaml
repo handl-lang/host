@@ -1,0 +1,62 @@
+name: hnl-ext-mlopt
+path: crates/hnl-ext-mlopt/Cargo.toml
+purpose: '`hnl mlopt optimize|export|doctor|models` — the mlopt product commands as a dynamic `hnl` extension (ADR-0149), forwarding to `python -m mlopt` via handl-kit-mlopt.'
+api:
+- name: dispatch
+  kind: function
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 39
+  module: hnl-ext-mlopt
+- name: hnl-ext-mlopt
+  kind: module
+  file: crates/hnl-ext-mlopt/Cargo.toml
+  line: 1
+  module: hnl-ext-mlopt
+- name: missing_interpreter_is_loud_error
+  kind: function
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 101
+  module: hnl-ext-mlopt
+- name: mlopt_covers_the_full_cli_surface
+  kind: function
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 81
+  module: hnl-ext-mlopt
+- name: mlopt_forwards_argv_to_python_m_mlopt
+  kind: function
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 69
+  module: hnl-ext-mlopt
+- name: req
+  kind: function
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 58
+  module: hnl-ext-mlopt
+- name: tests
+  kind: module
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 54
+  module: hnl-ext-mlopt
+- name: unknown_command_declines
+  kind: function
+  file: crates/hnl-ext-mlopt/src/lib.rs
+  line: 94
+  module: hnl-ext-mlopt
+deps:
+- handl-ext
+- handl-kit-mlopt
+- handl_ext
+notes: ''
+verify:
+- crates/hnl-ext-mlopt/Cargo.toml
+- crates/hnl-ext-mlopt/src/lib.rs
+provenance:
+  files:
+  - crates/hnl-ext-mlopt/Cargo.toml
+  - crates/hnl-ext-mlopt/src/lib.rs
+  hashes:
+  - 92c56e828e4b1ac577e6c910e8f01084c9a03de4
+  - b337d7034e0dfa4ae667bdf794271cb4ff846381
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

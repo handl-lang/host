@@ -35,11 +35,9 @@ fn inner() -> &'static HandlModule {
         // `CHAR_OPS`/`char_op_registry`/`cap`-`op`-`handle` hand-wiring.
         // The spec is the source of truth for op names *and* signatures
         // (the stripped `op` decls used to feed `with_ops`' sig attach).
-        let decls = crate::atoms::module_atoms(
-            handl_plugin_lib_char_native::CHAR_ATOMS_YAML,
-            "char",
-        )
-        .expect("char atoms spec");
+        let decls =
+            crate::atoms::module_atoms(handl_plugin_lib_char_native::CHAR_ATOMS_YAML, "char")
+                .expect("char atoms spec");
         let registry = crate::atoms::registry_from_atoms_kernel(
             &decls,
             &handl_plugin_lib_char_native::char_impls(),

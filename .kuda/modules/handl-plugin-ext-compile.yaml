@@ -1,34 +1,83 @@
 name: handl-plugin-ext-compile
 path: crates/plugin-ext-compile/Cargo.toml
-purpose: 'Compile extension: re-export of the `handl-platform` compile operation plus the feature-gated compiler dispatcher (ADR-0114 Phase 14, ADR-0128 §0.3).'
+purpose: 'Compile extension: the `hnl compile` CLI request seam (ADR-0114 Phase 14) plus a re-export of the `handl-platform` compile operation.'
 api:
+- name: CompileFileRequest
+  kind: type
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 13
+  module: handl-plugin-ext-compile
+- name: build_ast
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 137
+  module: handl-plugin-ext-compile
+- name: build_input
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 109
+  module: handl-plugin-ext-compile
+- name: compile_file_request_builds_input_with_root_ref
+  kind: function
+  file: crates/plugin-ext-compile/src/tests.rs
+  line: 12
+  module: handl-plugin-ext-compile
+- name: from_args
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 34
+  module: handl-plugin-ext-compile
 - name: handl-plugin-ext-compile
   kind: module
   file: crates/plugin-ext-compile/Cargo.toml
   line: 1
   module: handl-plugin-ext-compile
+- name: request
+  kind: module
+  file: crates/plugin-ext-compile/src/lib.rs
+  line: 14
+  module: handl-plugin-ext-compile
+- name: root_term_for
+  kind: function
+  file: crates/plugin-ext-compile/src/request.rs
+  line: 128
+  module: handl-plugin-ext-compile
+- name: tests
+  kind: module
+  file: crates/plugin-ext-compile/src/lib.rs
+  line: 17
+  module: handl-plugin-ext-compile
 deps:
 - handl-language
 - handl-platform
 - handl-plugin-compile
-- handl-plugin-compile-dot
-- handl-plugin-compile-handl
-- handl-plugin-compile-js
-- handl-plugin-compile-llvm
-- handl-plugin-compile-sexp
-- handl-plugin-compile-term
-- plugin-engine
-- plugin-tool-typecheck
+- hnl-engine
+- hnl-tool-typecheck
 - serde_json
+- handl_language
+- handl-plugin-compile
+- hnl_engine
+- hnl_tool_typecheck
 - serde_json
+- handl-platform
+- request
 notes: ''
 verify:
 - crates/plugin-ext-compile/Cargo.toml
+- crates/plugin-ext-compile/src/lib.rs
+- crates/plugin-ext-compile/src/request.rs
+- crates/plugin-ext-compile/src/tests.rs
 provenance:
   files:
   - crates/plugin-ext-compile/Cargo.toml
+  - crates/plugin-ext-compile/src/lib.rs
+  - crates/plugin-ext-compile/src/request.rs
+  - crates/plugin-ext-compile/src/tests.rs
   hashes:
-  - dc3eb4bb68c48046e34c78fdcc7d8b4cf07ced2d
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 6bf10d16776c5d9a8258ca4c0e1c84ce701fa787
+  - 2c1c3a742a02198c3bbe94f610466865dc4e0aa7
+  - 5e7cceffaf2c0e6f27807f94cddc3fdfcd400cf5
+  - 417a7eb6c86f523d95f3a7d3b0e1ce2902a793d9
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

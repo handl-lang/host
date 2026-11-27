@@ -2,30 +2,255 @@ name: handl-plugin-ext-lint
 path: crates/plugin-ext-lint/Cargo.toml
 purpose: '`handl-plugin-ext-lint` — bootstrap linter for the v0.1 arrow surface syntax (ADR-0087, rules-as-data per ADR-0097).'
 api:
-- name: handl-plugin-ext-lint
-  kind: module
-  file: crates/plugin-ext-lint/Cargo.toml
-  line: 1
+- name: CTX
+  kind: const
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 542
   module: handl-plugin-ext-lint
+- name: CTX
+  kind: const
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 209
+  module: handl-plugin-ext-lint
+- name: CTX
+  kind: const
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 19
+  module: handl-plugin-ext-lint
+- name: HandlNativeLint
+  kind: type
+  file: crates/plugin-ext-lint/src/handl_lint.rs
+  line: 114
+  module: handl-plugin-ext-lint
+- name: LINT_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 57
+  module: handl-plugin-ext-lint
+- name: LintContext
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 98
+  module: handl-plugin-ext-lint
+- name: LintError
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 64
+  module: handl-plugin-ext-lint
+- name: LintFileFix
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 277
+  module: handl-plugin-ext-lint
+- name: LintPlugin
+  kind: type
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 63
+  module: handl-plugin-ext-lint
+- name: MAX_FIX_ITERATIONS
+  kind: const
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 251
+  module: handl-plugin-ext-lint
+- name: T_HNL
+  kind: const
+  file: crates/plugin-ext-lint/tests/handl_lint.rs
+  line: 28
+  module: handl-plugin-ext-lint
+- name: UNLEXABLE
+  kind: const
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 651
+  module: handl-plugin-ext-lint
+- name: Warn
+  kind: type
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 560
+  module: handl-plugin-ext-lint
+- name: a_malformed_language_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 467
+  module: handl-plugin-ext-lint
+- name: a_non_array_prelude_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 424
+  module: handl-plugin-ext-lint
+- name: a_serialized_language_is_accepted
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 440
+  module: handl-plugin-ext-lint
+- name: a_wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 314
+  module: handl-plugin-ext-lint
+- name: an_explicit_empty_prelude_is_honoured
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 291
+  module: handl-plugin-ext-lint
+- name: apply
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 567
+  module: handl-plugin-ext-lint
+- name: canonical_ctx
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 541
+  module: handl-plugin-ext-lint
+- name: canonical_ctx
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 208
+  module: handl-plugin-ext-lint
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 88
+  module: handl-plugin-ext-lint
+- name: check_source
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 33
+  module: handl-plugin-ext-lint
+- name: check_source_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 400
+  module: handl-plugin-ext-lint
+- name: check_source_has_errors
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 407
+  module: handl-plugin-ext-lint
+- name: check_source_with
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 194
+  module: handl-plugin-ext-lint
+- name: check_source_with_prelude
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 201
+  module: handl-plugin-ext-lint
+- name: check_source_with_prelude_propagates_a_parse_error
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 758
+  module: handl-plugin-ext-lint
+- name: check_source_with_prelude_seeds_the_wire_scope
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 748
+  module: handl-plugin-ext-lint
+- name: convert
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 505
+  module: handl-plugin-ext-lint
+- name: convert_maps_every_severity_level
+  kind: function
+  file: crates/plugin-ext-lint/src/lib.rs
+  line: 727
+  module: handl-plugin-ext-lint
+- name: ctx
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 18
+  module: handl-plugin-ext-lint
+- name: dead_branch_clean
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 196
+  module: handl-plugin-ext-lint
+- name: dead_branch_constant_false
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 174
+  module: handl-plugin-ext-lint
+- name: dead_branch_constant_true
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 163
+  module: handl-plugin-ext-lint
+- name: dead_branch_ternary_true
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 185
+  module: handl-plugin-ext-lint
+- name: declares_the_lint_capability
+  kind: function
+  file: crates/plugin-ext-lint/src/plugin.rs
+  line: 240
+  module: handl-plugin-ext-lint
+- name: diagnostics_sorted_by_span
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 440
+  module: handl-plugin-ext-lint
+- name: ensure_lang
+  kind: function
+  file: crates/plugin-ext-lint/tests/handl_lint.rs
+  line: 20
+  module: handl-plugin-ext-lint
+- name: fix
+  kind: function
+  file: crates/plugin-ext-lint/tests/canonical.rs
+  line: 38
+  module: handl-plugin-ext-lint
+api_omitted: 105
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-tool-lint
-- handl-plugin-tool-typecheck
 - handl-plugin-ext-diag
 - handl-plugin-ext-fmt
+- handl-plugin-lib-handl
+- hnl-tool-codegen
+- hnl-tool-codemod
+- hnl-tool-lex-pattern
+- hnl-tool-lint
+- hnl-tool-parse-pratt
+- hnl-tool-typecheck
 - serde_json
-- handl-kit-canonical
-- handl-kit-data-canonical
+- handl-kit-data-prelude
+- handl-kit-prelude
+- tempfile
+- handl-plugin-ext-diag
+- handl_language
+- handl-plugin-lib-handl
+- hnl_tool_lint
 - serde_json
+- handl-platform
+- handl_lint
+- plugin
+- hnl_tool_codegen
 notes: ''
 verify:
 - crates/plugin-ext-lint/Cargo.toml
+- crates/plugin-ext-lint/src/handl_lint.rs
+- crates/plugin-ext-lint/src/lib.rs
+- crates/plugin-ext-lint/src/plugin.rs
+- crates/plugin-ext-lint/tests/canonical.rs
+- crates/plugin-ext-lint/tests/handl_lint.rs
 provenance:
   files:
   - crates/plugin-ext-lint/Cargo.toml
+  - crates/plugin-ext-lint/src/handl_lint.rs
+  - crates/plugin-ext-lint/src/lib.rs
+  - crates/plugin-ext-lint/src/plugin.rs
+  - crates/plugin-ext-lint/tests/canonical.rs
+  - crates/plugin-ext-lint/tests/handl_lint.rs
   hashes:
-  - 7432304e12049e385dfdec2ef83fd01953b3c05d
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 9c03d3e6d45eaa5484536c35e4ab8433a4a33a6e
+  - 8b8170f5f1dc0f63e4e082a23c9bd4f8c1307874
+  - 1410897f742371a96a1965ace7fe8153770fcda0
+  - 689ea787bae707f47cb951383b28e6023b488e7b
+  - 303023b825aae2b5aad0d15ee18743af161a2473
+  - 728006c81eddb00f468fa9a19808dab864fa5f1b
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

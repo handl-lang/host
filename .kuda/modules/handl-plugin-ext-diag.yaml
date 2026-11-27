@@ -2,26 +2,226 @@ name: handl-plugin-ext-diag
 path: crates/plugin-ext-diag/Cargo.toml
 purpose: Shared diagnostics infrastructure for handl tooling.
 api:
+- name: CANNOT_END
+  kind: const
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 409
+  module: handl-plugin-ext-diag
+- name: Diagnostic
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 128
+  module: handl-plugin-ext-diag
+- name: Fix
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 119
+  module: handl-plugin-ext-diag
+- name: FixError
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 168
+  module: handl-plugin-ext-diag
+- name: Severity
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 18
+  module: handl-plugin-ext-diag
+- name: Span
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 49
+  module: handl-plugin-ext-diag
+- name: StatementChunk
+  kind: type
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 300
+  module: handl-plugin-ext-diag
+- name: apply_fixes
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 220
+  module: handl-plugin-ext-diag
+- name: apply_fixes_adjacent_not_overlapping
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 709
+  module: handl-plugin-ext-diag
+- name: apply_fixes_empty
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 688
+  module: handl-plugin-ext-diag
+- name: apply_fixes_idempotent_when_no_fixes
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 735
+  module: handl-plugin-ext-diag
+- name: apply_fixes_non_overlapping_descending
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 673
+  module: handl-plugin-ext-diag
+- name: apply_fixes_out_of_bounds
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 724
+  module: handl-plugin-ext-diag
+- name: apply_fixes_rejects_overlapping
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 694
+  module: handl-plugin-ext-diag
+- name: apply_fixes_to_fixpoint
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 266
+  module: handl-plugin-ext-diag
+- name: apply_fixes_to_fixpoint_accepts_convergence_on_the_final_check
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 914
+  module: handl-plugin-ext-diag
+- name: apply_fixes_to_fixpoint_converges
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 742
+  module: handl-plugin-ext-diag
+- name: apply_fixes_to_fixpoint_converges_within_budget
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 774
+  module: handl-plugin-ext-diag
+- name: apply_fixes_to_fixpoint_reports_non_convergence
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 940
+  module: handl-plugin-ext-diag
+- name: apply_fixes_to_fixpoint_respects_max_iterations
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 760
+  module: handl-plugin-ext-diag
+- name: as_label
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 30
+  module: handl-plugin-ext-diag
+- name: compute_line_col
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 101
+  module: handl-plugin-ext-diag
+- name: compute_line_col_at_newline
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 584
+  module: handl-plugin-ext-diag
+- name: compute_line_col_multiple_lines
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 602
+  module: handl-plugin-ext-diag
+- name: compute_line_col_offset_zero
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 579
+  module: handl-plugin-ext-diag
+- name: compute_line_col_past_end_clamps
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 593
+  module: handl-plugin-ext-diag
+- name: diagnostic_new_and_with_fix
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 608
+  module: handl-plugin-ext-diag
+- name: fmt
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 40
+  module: handl-plugin-ext-diag
+- name: from
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 499
+  module: handl-plugin-ext-diag
+- name: from_byte_range
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 66
+  module: handl-plugin-ext-diag
+- name: from_lang_span
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 481
+  module: handl-plugin-ext-diag
+- name: from_lang_span_computes_line_col
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 852
+  module: handl-plugin-ext-diag
+- name: from_lang_span_without_source_defaults
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 864
+  module: handl-plugin-ext-diag
+- name: from_platform_span
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 81
+  module: handl-plugin-ext-diag
 - name: handl-plugin-ext-diag
   kind: module
   file: crates/plugin-ext-diag/Cargo.toml
   line: 1
   module: handl-plugin-ext-diag
+- name: is_empty
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 91
+  module: handl-plugin-ext-diag
+- name: is_import_chunk
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 446
+  module: handl-plugin-ext-diag
+- name: is_newline_boundary
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 405
+  module: handl-plugin-ext-diag
+- name: lang_span
+  kind: module
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 475
+  module: handl-plugin-ext-diag
+- name: len
+  kind: function
+  file: crates/plugin-ext-diag/src/lib.rs
+  line: 86
+  module: handl-plugin-ext-diag
+api_omitted: 29
 deps:
 - handl-language
 - handl-platform
 - serde
 - serde_json
 - thiserror
-- serde_json
+- serde
+- thiserror
 notes: ''
 verify:
 - crates/plugin-ext-diag/Cargo.toml
+- crates/plugin-ext-diag/src/lib.rs
 provenance:
   files:
   - crates/plugin-ext-diag/Cargo.toml
+  - crates/plugin-ext-diag/src/lib.rs
   hashes:
-  - e4bb3f3ec0f0740c35e60eae7ce690820984da62
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - f11e198af3436b7909fdde91bb2a4108f253731d
+  - c54896c12ab8633339d50538e7b126dc694bdcc5
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

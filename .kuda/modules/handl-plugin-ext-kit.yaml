@@ -2,27 +2,227 @@ name: handl-plugin-ext-kit
 path: crates/plugin-ext-kit/Cargo.toml
 purpose: Kit extension — the `kit` capability adapter (library registry + kit-manifest resolution).
 api:
+- name: BasicKit
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 294
+  module: handl-plugin-ext-kit
+- name: BasicKitLoaderPlugin
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 355
+  module: handl-plugin-ext-kit
+- name: KitManagerPlugin
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 15
+  module: handl-plugin-ext-kit
+- name: KitModuleNames
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 352
+  module: handl-plugin-ext-kit
+- name: ManifestKit
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 157
+  module: handl-plugin-ext-kit
+- name: ModuleKit
+  kind: type
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 215
+  module: handl-plugin-ext-kit
+- name: add_registers_kit
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 485
+  module: handl-plugin-ext-kit
+- name: add_registers_kit_from_args
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 540
+  module: handl-plugin-ext-kit
+- name: builtin_kit_module_names_resolve
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 452
+  module: handl-plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 38
+  module: handl-plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 185
+  module: handl-plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 253
+  module: handl-plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 316
+  module: handl-plugin-ext-kit
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 409
+  module: handl-plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 193
+  module: handl-plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 261
+  module: handl-plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 324
+  module: handl-plugin-ext-kit
+- name: contribute
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 417
+  module: handl-plugin-ext-kit
+- name: default
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 28
+  module: handl-plugin-ext-kit
+- name: default
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 169
+  module: handl-plugin-ext-kit
 - name: handl-plugin-ext-kit
   kind: module
   file: crates/plugin-ext-kit/Cargo.toml
   line: 1
   module: handl-plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 177
+  module: handl-plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 245
+  module: handl-plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 302
+  module: handl-plugin-ext-kit
+- name: id
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 401
+  module: handl-plugin-ext-kit
+- name: info_lists_kits_from_args
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 565
+  module: handl-plugin-ext-kit
+- name: info_lists_registered_kits
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 510
+  module: handl-plugin-ext-kit
+- name: invalid_action_rejected
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 595
+  module: handl-plugin-ext-kit
+- name: is_kit_path
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 437
+  module: handl-plugin-ext-kit
+- name: load
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 377
+  module: handl-plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 42
+  module: handl-plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 189
+  module: handl-plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 257
+  module: handl-plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 320
+  module: handl-plugin-ext-kit
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 413
+  module: handl-plugin-ext-kit
+- name: metadata_returns_command_and_description
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 477
+  module: handl-plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 34
+  module: handl-plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 181
+  module: handl-plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 249
+  module: handl-plugin-ext-kit
+- name: name
+  kind: function
+  file: crates/plugin-ext-kit/src/lib.rs
+  line: 309
+  module: handl-plugin-ext-kit
+api_omitted: 11
 deps:
 - handl-kit-data
 - handl-platform
 - handl-plugin-module
 - serde_json
-- handl-kit-canonical
-- handl-kit-data-canonical
-- serde_json
+- handl-kit-data-prelude
+- handl-kit-prelude
+- handl-kit-data
+- handl-platform
 notes: ''
 verify:
 - crates/plugin-ext-kit/Cargo.toml
+- crates/plugin-ext-kit/src/lib.rs
 provenance:
   files:
   - crates/plugin-ext-kit/Cargo.toml
+  - crates/plugin-ext-kit/src/lib.rs
   hashes:
-  - de54825efadefd668b9c7a37c7d4332efbd4c92b
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 57d855bc56c6e47a717e6a332640b9b9c59b9346
+  - 81c742dd18acc60381ebe5a6c6d8a2063426a827
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

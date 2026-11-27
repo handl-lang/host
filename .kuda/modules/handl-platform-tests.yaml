@@ -2,24 +2,216 @@ name: handl-platform-tests
 path: crates/platform-tests/Cargo.toml
 purpose: 'Integration-test support for the `handl-platform` host: a recording mock plugin, a manifest builder, and a request helper.'
 api:
+- name: EntryPoint
+  kind: type
+  file: crates/platform-tests/tests/wiring.rs
+  line: 32
+  module: handl-platform-tests
+- name: Ledger
+  kind: type
+  file: crates/platform-tests/tests/wiring.rs
+  line: 23
+  module: handl-platform-tests
+- name: MockPlugin
+  kind: type
+  file: crates/platform-tests/src/lib.rs
+  line: 36
+  module: handl-platform-tests
+- name: Retired
+  kind: type
+  file: crates/platform-tests/tests/wiring.rs
+  line: 39
+  module: handl-platform-tests
+- name: adr_exists
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 354
+  module: handl-platform-tests
+- name: calls
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 61
+  module: handl-platform-tests
+- name: capabilities
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 71
+  module: handl-platform-tests
+- name: core_host
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 10
+  module: handl-platform-tests
+- name: dep_keys
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 82
+  module: handl-platform-tests
+- name: dispatch_through_the_host_reaches_the_mock
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 39
+  module: handl-platform-tests
+- name: every_capability_dispatches_to_its_own_plugin
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 42
+  module: handl-platform-tests
+- name: every_ignored_test_states_a_reason
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 263
+  module: handl-platform-tests
+- name: every_member_is_wired_or_declared
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 159
+  module: handl-platform-tests
 - name: handl-platform-tests
   kind: module
   file: crates/platform-tests/Cargo.toml
   line: 1
+  module: handl-platform-tests
+- name: host_reports_every_registered_capability
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 27
+  module: handl-platform-tests
+- name: kit_resolves_by_name_and_composes_its_selected_plugins
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 65
+  module: handl-platform-tests
+- name: ledger
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 57
+  module: handl-platform-tests
+- name: ledger_is_not_stale
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 197
+  module: handl-platform-tests
+- name: members
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 119
+  module: handl-platform-tests
+- name: metadata
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 75
+  module: handl-platform-tests
+- name: mock_manifest
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 99
+  module: handl-platform-tests
+- name: mock_plugin_exposes_name_capabilities_and_metadata
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 7
+  module: handl-platform-tests
+- name: name
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 67
+  module: handl-platform-tests
+- name: new
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 45
+  module: handl-platform-tests
+- name: no_silently_disabled_compilation
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 317
+  module: handl-platform-tests
+- name: pkg_name
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 65
+  module: handl-platform-tests
+- name: registry_reports_the_mock_capabilities_with_metadata
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 20
+  module: handl-platform-tests
+- name: repo_root
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 50
+  module: handl-platform-tests
+- name: request
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 117
+  module: handl-platform-tests
+- name: retired_crates_are_no_longer_members
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 141
+  module: handl-platform-tests
+- name: run
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 84
+  module: handl-platform-tests
+- name: simulated_host_loads_kit_and_dispatches
+  kind: function
+  file: crates/platform-tests/tests/e2e.rs
+  line: 13
+  module: handl-platform-tests
+- name: unknown_capability_is_an_error_at_the_host_boundary
+  kind: function
+  file: crates/platform-tests/tests/integration.rs
+  line: 105
+  module: handl-platform-tests
+- name: unknown_capability_is_reported_and_logged_nowhere
+  kind: function
+  file: crates/platform-tests/tests/mock.rs
+  line: 54
+  module: handl-platform-tests
+- name: visit
+  kind: function
+  file: crates/platform-tests/tests/wiring.rs
+  line: 295
+  module: handl-platform-tests
+- name: with_output
+  kind: function
+  file: crates/platform-tests/src/lib.rs
+  line: 55
   module: handl-platform-tests
 deps:
 - handl-platform
 - serde_json
 - serde
 - serde_yaml
+- handl-platform
+- serde
 notes: ''
 verify:
 - crates/platform-tests/Cargo.toml
+- crates/platform-tests/src/lib.rs
+- crates/platform-tests/tests/e2e.rs
+- crates/platform-tests/tests/integration.rs
+- crates/platform-tests/tests/mock.rs
+- crates/platform-tests/tests/wiring.rs
 provenance:
   files:
   - crates/platform-tests/Cargo.toml
+  - crates/platform-tests/src/lib.rs
+  - crates/platform-tests/tests/e2e.rs
+  - crates/platform-tests/tests/integration.rs
+  - crates/platform-tests/tests/mock.rs
+  - crates/platform-tests/tests/wiring.rs
   hashes:
-  - 41e68dd341d24e40b8f1e92f80589299bdaeec4d
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 41b4ef3ee7ebe7989f165d2505d59cdeb39ef53f
+  - f4c96bdcfcbea6c09a0f9c64d1511b8ad8ed1050
+  - 6767cae8214484d769b5500cf3e9c3a454304425
+  - b8d4f3bf167f056c4673917e96e0374aac699996
+  - 486d509177c4e4cc2dca1e298984b2c59c6a14f4
+  - c6f02a956e49dc929ce5fcbca343ceae7ab1cb67
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

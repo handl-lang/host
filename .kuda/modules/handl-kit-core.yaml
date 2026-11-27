@@ -1,0 +1,238 @@
+name: handl-kit-core
+path: crates/handl-kit-core/Cargo.toml
+purpose: Shared kit substrate — module table, resolver, caches, registry builder.
+api:
+- name: ENV_SRC
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 775
+  module: handl-kit-core
+- name: EnvStubDep
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 787
+  module: handl-kit-core
+- name: EnvStubWho
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 779
+  module: handl-kit-core
+- name: HANDL_MODULE_CACHE
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 135
+  module: handl-kit-core
+- name: HANDL_MODULE_ENV_CACHE
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 163
+  module: handl-kit-core
+- name: HandlModules
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 276
+  module: handl-kit-core
+- name: KitModules
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 315
+  module: handl-kit-core
+- name: KitResolver
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 215
+  module: handl-kit-core
+- name: MODULE_CACHE
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 111
+  module: handl-kit-core
+- name: MODULE_TABLE
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 65
+  module: handl-kit-core
+- name: ModuleCtor
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 53
+  module: handl-kit-core
+- name: ModuleEntry
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 40
+  module: handl-kit-core
+- name: TYPE_CONSTS
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 665
+  module: handl-kit-core
+- name: TYPE_HANDL_FUNCS
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 413
+  module: handl-kit-core
+- name: TYPE_HANDL_HNL
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 408
+  module: handl-kit-core
+- name: TYPE_OPS
+  kind: const
+  file: crates/handl-kit-core/src/lib.rs
+  line: 475
+  module: handl-kit-core
+- name: TypeConst
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 564
+  module: handl-kit-core
+- name: TypeInstanceof
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 610
+  module: handl-kit-core
+- name: TypeIsNominal
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 589
+  module: handl-kit-core
+- name: TypeOf
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 517
+  module: handl-kit-core
+- name: TypeTy
+  kind: type
+  file: crates/handl-kit-core/src/lib.rs
+  line: 644
+  module: handl-kit-core
+- name: build_registry
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 344
+  module: handl-kit-core
+- name: build_type_module
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 747
+  module: handl-kit-core
+- name: call
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 520
+  module: handl-kit-core
+- name: call
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 570
+  module: handl-kit-core
+- name: call
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 592
+  module: handl-kit-core
+- name: call
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 613
+  module: handl-kit-core
+- name: call
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 647
+  module: handl-kit-core
+- name: call
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 782
+  module: handl-kit-core
+- name: call_ask
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 813
+  module: handl-kit-core
+- name: coerce_handl
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 200
+  module: handl-kit-core
+- name: ensure_lang
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 767
+  module: handl-kit-core
+- name: env_keyed_handl_module_cache_serves_one_instance_per_env
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 824
+  module: handl-kit-core
+- name: env_probe_ctor
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 849
+  module: handl-kit-core
+- name: function
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 804
+  module: handl-kit-core
+- name: functions
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 808
+  module: handl-kit-core
+- name: get_handl_module
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 143
+  module: handl-kit-core
+- name: get_handl_module_with_env
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 180
+  module: handl-kit-core
+- name: get_module
+  kind: function
+  file: crates/handl-kit-core/src/lib.rs
+  line: 115
+  module: handl-kit-core
+- name: handl-kit-core
+  kind: module
+  file: crates/handl-kit-core/Cargo.toml
+  line: 1
+  module: handl-kit-core
+api_omitted: 20
+deps:
+- handl-language
+- handl-ops
+- handl-platform
+- handl-plugin-ext-lint
+- handl-plugin-lib-handl
+- handl-plugin-lib-stdlib
+- handl-plugin-module
+- handl-value
+- serde_json
+- handl-kit-data-prelude
+- handl-pkg-vendor
+- handl_language
+- handl-platform
+- handl-plugin-lib-handl
+- handl-plugin-module
+notes: ''
+verify:
+- crates/handl-kit-core/Cargo.toml
+- crates/handl-kit-core/build.rs
+- crates/handl-kit-core/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-core/Cargo.toml
+  - crates/handl-kit-core/build.rs
+  - crates/handl-kit-core/src/lib.rs
+  hashes:
+  - ecb449ee725409adf57fa8212ada5b9dc31e4f77
+  - 5236c665a548179f1391acff4e0440e794b29012
+  - 19a959e99285dd775ddadde72a9213e5228d1701
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

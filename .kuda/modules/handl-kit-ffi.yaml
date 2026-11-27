@@ -1,0 +1,119 @@
+name: handl-kit-ffi
+path: crates/handl-kit-ffi/Cargo.toml
+purpose: FFI kit — the `ffi` handl module (`ffi.hnl` + native ops over handl-plugin-ffi, or stubs).
+api:
+- name: DISABLED
+  kind: const
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 58
+  module: handl-kit-ffi
+- name: FFI_FUNCS
+  kind: const
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 20
+  module: handl-kit-ffi
+- name: FFI_HNL
+  kind: const
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 19
+  module: handl-kit-ffi
+- name: FFI_OPS
+  kind: const
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 23
+  module: handl-kit-ffi
+- name: FfiProbeUnsupported
+  kind: type
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 77
+  module: handl-kit-ffi
+- name: FfiUnsupported
+  kind: type
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 62
+  module: handl-kit-ffi
+- name: MODULES
+  kind: const
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 125
+  module: handl-kit-ffi
+- name: ONCE
+  kind: const
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 131
+  module: handl-kit-ffi
+- name: build_ffi_module
+  kind: function
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 114
+  module: handl-kit-ffi
+- name: call
+  kind: function
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 65
+  module: handl-kit-ffi
+- name: call
+  kind: function
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 80
+  module: handl-kit-ffi
+- name: ffi_op_registry
+  kind: function
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 33
+  module: handl-kit-ffi
+- name: ffi_op_registry
+  kind: function
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 91
+  module: handl-kit-ffi
+- name: ffi_stubs
+  kind: module
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 53
+  module: handl-kit-ffi
+- name: handl-kit-ffi
+  kind: module
+  file: crates/handl-kit-ffi/Cargo.toml
+  line: 1
+  module: handl-kit-ffi
+- name: main
+  kind: function
+  file: crates/handl-kit-ffi/build.rs
+  line: 3
+  module: handl-kit-ffi
+- name: register
+  kind: function
+  file: crates/handl-kit-ffi/src/lib.rs
+  line: 130
+  module: handl-kit-ffi
+deps:
+- handl-kit-core
+- handl-platform
+- handl-plugin-ffi
+- handl-plugin-lib-handl
+- serde_json
+- handl-pkg-vendor
+- handl-kit-core
+- handl-plugin-lib-handl
+- handl-plugin-ffi
+- handl-platform
+- serde_json
+- ffi_stubs
+notes: ''
+verify:
+- crates/handl-kit-ffi/Cargo.toml
+- crates/handl-kit-ffi/build.rs
+- crates/handl-kit-ffi/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-ffi/Cargo.toml
+  - crates/handl-kit-ffi/build.rs
+  - crates/handl-kit-ffi/src/lib.rs
+  hashes:
+  - e393544d88a4dd26e60769e358c820a285956658
+  - 37dff0ec1267c2ccef99b1f8e18bfa1dce80e59b
+  - fc51853f309ce2b98ceb3f27bdc2577e080867cd
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

@@ -1,0 +1,155 @@
+name: handl-plugin-ext-codemod
+path: crates/plugin-ext-codemod/Cargo.toml
+purpose: '`hnl codemod` CLI extension (PL-004 T-086) — declarative codemods over the hnl-tool-codemod spec model and the hnl-tool-codegen lifecycle kernel (plan/apply/revert, never destroy).'
+api:
+- name: ChangeJson
+  kind: type
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 449
+  module: handl-plugin-ext-codemod
+- name: Fixture
+  kind: type
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 30
+  module: handl-plugin-ext-codemod
+- name: PlanJson
+  kind: type
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 439
+  module: handl-plugin-ext-codemod
+- name: SPEC
+  kind: const
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 16
+  module: handl-plugin-ext-codemod
+- name: SpecFlags
+  kind: type
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 220
+  module: handl-plugin-ext-codemod
+- name: Verb
+  kind: type
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 68
+  module: handl-plugin-ext-codemod
+- name: argv
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 12
+  module: handl-plugin-ext-codemod
+- name: codemod_command
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 94
+  module: handl-plugin-ext-codemod
+- name: codemod_command_with
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 104
+  module: handl-plugin-ext-codemod
+- name: fixture
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 37
+  module: handl-plugin-ext-codemod
+- name: handl-plugin-ext-codemod
+  kind: module
+  file: crates/plugin-ext-codemod/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-codemod
+- name: lang
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 8
+  module: handl-plugin-ext-codemod
+- name: missing_spec_is_usage_error_and_bad_spec_is_failure
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 121
+  module: handl-plugin-ext-codemod
+- name: parse
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 78
+  module: handl-plugin-ext-codemod
+- name: plan_apply_revert_roundtrip
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 68
+  module: handl-plugin-ext-codemod
+- name: plan_json
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 456
+  module: handl-plugin-ext-codemod
+- name: print_apply_report
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 524
+  module: handl-plugin-ext-codemod
+- name: print_plan
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 483
+  module: handl-plugin-ext-codemod
+- name: print_revert_report
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 543
+  module: handl-plugin-ext-codemod
+- name: read_manifest_run_id
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 422
+  module: handl-plugin-ext-codemod
+- name: revert_command
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 340
+  module: handl-plugin-ext-codemod
+- name: revert_with_explicit_run_and_json_plan
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 104
+  module: handl-plugin-ext-codemod
+- name: run_spec_command
+  kind: function
+  file: crates/plugin-ext-codemod/src/lib.rs
+  line: 233
+  module: handl-plugin-ext-codemod
+- name: usage_errors
+  kind: function
+  file: crates/plugin-ext-codemod/tests/cli.rs
+  line: 54
+  module: handl-plugin-ext-codemod
+deps:
+- handl-language
+- handl-plugin-codemod
+- hnl-tool-codegen
+- hnl-tool-transform
+- serde
+- serde_json
+- handl-kit-data-prelude
+- tempfile
+- handl-kit-data-prelude
+- handl_language
+- handl-plugin-codemod
+- hnl_tool_codegen
+- serde
+notes: ''
+verify:
+- crates/plugin-ext-codemod/Cargo.toml
+- crates/plugin-ext-codemod/src/lib.rs
+- crates/plugin-ext-codemod/tests/cli.rs
+provenance:
+  files:
+  - crates/plugin-ext-codemod/Cargo.toml
+  - crates/plugin-ext-codemod/src/lib.rs
+  - crates/plugin-ext-codemod/tests/cli.rs
+  hashes:
+  - 5bb1f12a5c60bfeb56f2a857ed8ec8a473915723
+  - 910d5a8d7dc4f56166ee7b77939c0b6519cfc446
+  - f281150a73d410b91e6e1754151d028a23f648a9
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

@@ -2,30 +2,243 @@ name: handl-plugin-ext-fmt
 path: crates/plugin-ext-fmt/Cargo.toml
 purpose: '`handl-plugin-ext-fmt` — canonical bootstrap formatter for the v0.1 arrow surface syntax (ADR-0086), composed over the staged engine pipeline (ADR-0095).'
 api:
-- name: handl-plugin-ext-fmt
-  kind: module
-  file: crates/plugin-ext-fmt/Cargo.toml
-  line: 1
+- name: Echo
+  kind: type
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 588
   module: handl-plugin-ext-fmt
+- name: FMT_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 43
+  module: handl-plugin-ext-fmt
+- name: FmtPlugin
+  kind: type
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 50
+  module: handl-plugin-ext-fmt
+- name: FormatError
+  kind: type
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 68
+  module: handl-plugin-ext-fmt
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 200
+  module: handl-plugin-ext-fmt
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-fmt/tests/golden.rs
+  line: 14
+  module: handl-plugin-ext-fmt
+- name: LANG
+  kind: const
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 14
+  module: handl-plugin-ext-fmt
+- name: a_parse_error_carries_a_structured_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 207
+  module: handl-plugin-ext-fmt
+- name: adds_blank_line_between_bindings
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 371
+  module: handl-plugin-ext-fmt
+- name: adds_blank_line_between_imports_and_binding
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 354
+  module: handl-plugin-ext-fmt
+- name: apply
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 595
+  module: handl-plugin-ext-fmt
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 74
+  module: handl-plugin-ext-fmt
+- name: check_on_a_lex_error_carries_a_structured_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 287
+  module: handl-plugin-ext-fmt
+- name: check_reports_not_canonical_for_unformatted_source
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 266
+  module: handl-plugin-ext-fmt
+- name: check_reports_whether_source_is_formatted
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 188
+  module: handl-plugin-ext-fmt
+- name: check_source
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 210
+  module: handl-plugin-ext-fmt
+- name: check_source_false_for_extra_spaces
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 480
+  module: handl-plugin-ext-fmt
+- name: check_source_false_for_missing_blank_line
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 486
+  module: handl-plugin-ext-fmt
+- name: check_source_tolerates_extra_trailing_blank_lines
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 233
+  module: handl-plugin-ext-fmt
+- name: check_source_true_for_canonical
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 468
+  module: handl-plugin-ext-fmt
+- name: check_source_true_for_canonical_no_trailing_newline
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 474
+  module: handl-plugin-ext-fmt
+- name: check_source_true_for_empty
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 492
+  module: handl-plugin-ext-fmt
+- name: check_source_with_language
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 127
+  module: handl-plugin-ext-fmt
+- name: classify_known_tokens
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 528
+  module: handl-plugin-ext-fmt
+- name: collapses_multiple_blank_lines
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 340
+  module: handl-plugin-ext-fmt
+- name: comment_preserved
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 378
+  module: handl-plugin-ext-fmt
+- name: comment_with_blank_line_to_binding
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 388
+  module: handl-plugin-ext-fmt
+- name: declares_the_fmt_capability
+  kind: function
+  file: crates/plugin-ext-fmt/src/plugin.rs
+  line: 178
+  module: handl-plugin-ext-fmt
+- name: enforces_single_trailing_newline
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 347
+  module: handl-plugin-ext-fmt
+- name: find_hnl_files
+  kind: function
+  file: crates/plugin-ext-fmt/tests/idempotence.rs
+  line: 25
+  module: handl-plugin-ext-fmt
+- name: fixes_extra_spaces_around_operator
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 398
+  module: handl-plugin-ext-fmt
+- name: fmt
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 76
+  module: handl-plugin-ext-fmt
+- name: format_alias_import
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 326
+  module: handl-plugin-ext-fmt
+- name: format_ast
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 144
+  module: handl-plugin-ext-fmt
+- name: format_ast_renders_a_parsed_arena
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 217
+  module: handl-plugin-ext-fmt
+- name: format_binding_no_trailing_newline
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 266
+  module: handl-plugin-ext-fmt
+- name: format_composition
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 284
+  module: handl-plugin-ext-fmt
+- name: format_empty_input
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 248
+  module: handl-plugin-ext-fmt
+- name: format_error_display
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 499
+  module: handl-plugin-ext-fmt
+- name: format_error_to_diagnostic
+  kind: function
+  file: crates/plugin-ext-fmt/src/lib.rs
+  line: 156
+  module: handl-plugin-ext-fmt
+api_omitted: 57
 deps:
 - handl-language
 - handl-platform
-- handl-plugin-tool-fmt
-- handl-plugin-tool-lex-pattern
-- handl-plugin-tool-parse
-- handl-plugin-tool-parse-pratt
 - handl-plugin-ext-diag
+- hnl-tool-fmt
+- hnl-tool-lex-pattern
+- hnl-tool-parse
+- hnl-tool-parse-pratt
 - serde_json
-- handl-kit-data-canonical
-- serde_json
+- handl-kit-data-prelude
+- handl-platform
+- handl_language
+- hnl_tool_fmt
+- plugin
+- hnl_tool_lex_pattern
+- handl-plugin-ext-diag
 notes: ''
 verify:
 - crates/plugin-ext-fmt/Cargo.toml
+- crates/plugin-ext-fmt/src/lib.rs
+- crates/plugin-ext-fmt/src/plugin.rs
+- crates/plugin-ext-fmt/tests/golden.rs
+- crates/plugin-ext-fmt/tests/idempotence.rs
 provenance:
   files:
   - crates/plugin-ext-fmt/Cargo.toml
+  - crates/plugin-ext-fmt/src/lib.rs
+  - crates/plugin-ext-fmt/src/plugin.rs
+  - crates/plugin-ext-fmt/tests/golden.rs
+  - crates/plugin-ext-fmt/tests/idempotence.rs
   hashes:
-  - 44e8fc1f959b149d1b042838f01223a298863fcb
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - d5a3b283f3fa719943794db1a477dc25c1425b97
+  - 001e427b18adc83a5f83fb0de86ded0c28b9eba3
+  - b96db441778aafeb0f993e67367b926e59a82914
+  - 7d4846555b1deed7c7c670c4cf92e24048ecc080
+  - 6e6306d7cd287b85628584aedff49889c84a3eb2
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

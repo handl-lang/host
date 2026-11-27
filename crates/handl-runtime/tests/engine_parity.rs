@@ -386,7 +386,10 @@ fn while_fold() {
     // Post-test `do { body } while cond` — desugars to the same loop
     // machinery; runs the body at least once.
     assert_parity("do { x := 0; do { x := x + 1 } while x < 5; x }", json!(5));
-    assert_parity("do { x := 10; do { x := x + 1 } while x < 5; x }", json!(11));
+    assert_parity(
+        "do { x := 10; do { x := x + 1 } while x < 5; x }",
+        json!(11),
+    );
 }
 
 #[test]

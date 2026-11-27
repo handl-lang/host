@@ -1,0 +1,165 @@
+name: handl-plugin-ext-codegen
+path: crates/plugin-ext-codegen/Cargo.toml
+purpose: '`hnl codegen` CLI extension (PL-004 T-076) — desired-state codegen over the hnl-tool-codegen kernel.'
+api:
+- name: Verb
+  kind: type
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 48
+  module: handl-plugin-ext-codegen
+- name: codegen_command
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 110
+  module: handl-plugin-ext-codegen
+- name: destroy_rejects_spec_and_run_flag_on_apply
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 45
+  module: handl-plugin-ext-codegen
+- name: empty_args_is_usage
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 15
+  module: handl-plugin-ext-codegen
+- name: fetch_spec
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 547
+  module: handl-plugin-ext-codegen
+- name: fmt_target_is_registered_and_plans
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 64
+  module: handl-plugin-ext-codegen
+- name: handl-plugin-ext-codegen
+  kind: module
+  file: crates/plugin-ext-codegen/Cargo.toml
+  line: 1
+  module: handl-plugin-ext-codegen
+- name: linked_targets
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 81
+  module: handl-plugin-ext-codegen
+- name: manifest_apply_and_plan_roundtrip
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 142
+  module: handl-plugin-ext-codegen
+- name: manifest_missing_dir_is_failure_not_usage
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 168
+  module: handl-plugin-ext-codegen
+- name: manifest_mode_usage_errors
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 126
+  module: handl-plugin-ext-codegen
+- name: missing_output_is_usage
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 25
+  module: handl-plugin-ext-codegen
+- name: needs_spec
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 70
+  module: handl-plugin-ext-codegen
+- name: parse
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 60
+  module: handl-plugin-ext-codegen
+- name: plan_flag_rejects_store_verbs
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 56
+  module: handl-plugin-ext-codegen
+- name: plan_verb_reaches_the_pipeline
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 75
+  module: handl-plugin-ext-codegen
+- name: print_apply_report
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 510
+  module: handl-plugin-ext-codegen
+- name: print_plan
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 491
+  module: handl-plugin-ext-codegen
+- name: print_revert_report
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 526
+  module: handl-plugin-ext-codegen
+- name: report_error
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 476
+  module: handl-plugin-ext-codegen
+- name: run
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 8
+  module: handl-plugin-ext-codegen
+- name: run_manifest
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 432
+  module: handl-plugin-ext-codegen
+- name: spec_and_from_url_are_mutually_exclusive
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 30
+  module: handl-plugin-ext-codegen
+- name: stage_manifest
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 92
+  module: handl-plugin-ext-codegen
+- name: unknown_target_is_usage
+  kind: function
+  file: crates/plugin-ext-codegen/tests/cli.rs
+  line: 20
+  module: handl-plugin-ext-codegen
+- name: verb_name
+  kind: function
+  file: crates/plugin-ext-codegen/src/lib.rs
+  line: 465
+  module: handl-plugin-ext-codegen
+deps:
+- handl-kit-mlopt
+- handl-language
+- handl-plugin-codegen
+- handl-plugin-codegen-backend-c
+- handl-plugin-codegen-backend-webidl
+- handl-plugin-codegen-cli
+- handl-plugin-codegen-emitter-file
+- handl-plugin-codegen-emitter-python
+- hnl-tool-fmt
+- serde_json
+- tempfile
+- handl_language
+- handl-plugin-codegen
+notes: ''
+verify:
+- crates/plugin-ext-codegen/Cargo.toml
+- crates/plugin-ext-codegen/src/lib.rs
+- crates/plugin-ext-codegen/tests/cli.rs
+provenance:
+  files:
+  - crates/plugin-ext-codegen/Cargo.toml
+  - crates/plugin-ext-codegen/src/lib.rs
+  - crates/plugin-ext-codegen/tests/cli.rs
+  hashes:
+  - f5421e5ad63d1f47069d21737cf883dedeee1ba3
+  - be33f997e05b3176f59399f0432274efeb1e2b1f
+  - 923831db0ee6ee20f47de25ee71f950283080896
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

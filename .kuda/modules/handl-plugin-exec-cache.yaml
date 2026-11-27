@@ -2,10 +2,155 @@ name: handl-plugin-exec-cache
 path: crates/plugin-exec-cache/Cargo.toml
 purpose: '`ExecControl` rule that memoises evaluation results.'
 api:
+- name: AstKey
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 33
+  module: handl-plugin-exec-cache
+- name: CacheControl
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 60
+  module: handl-plugin-exec-cache
+- name: Compute
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 209
+  module: handl-plugin-exec-cache
+- name: ExecCachePlugin
+  kind: type
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 136
+  module: handl-plugin-exec-cache
+- name: after_eval
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 121
+  module: handl-plugin-exec-cache
+- name: apply
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 216
+  module: handl-plugin-exec-cache
+- name: before_eval
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 107
+  module: handl-plugin-exec-cache
+- name: cache
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 152
+  module: handl-plugin-exec-cache
+- name: capabilities
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 172
+  module: handl-plugin-exec-cache
+- name: clear
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 91
+  module: handl-plugin-exec-cache
+- name: compute
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 240
+  module: handl-plugin-exec-cache
+- name: contribute
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 180
+  module: handl-plugin-exec-cache
+- name: default
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 158
+  module: handl-plugin-exec-cache
+- name: distinct_payloads_are_not_cached_hits
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 273
+  module: handl-plugin-exec-cache
+- name: fmt
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 99
+  module: handl-plugin-exec-cache
+- name: from_ast
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 42
+  module: handl-plugin-exec-cache
+- name: get
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 81
+  module: handl-plugin-exec-cache
 - name: handl-plugin-exec-cache
   kind: module
   file: crates/plugin-exec-cache/Cargo.toml
   line: 1
+  module: handl-plugin-exec-cache
+- name: id
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 164
+  module: handl-plugin-exec-cache
+- name: is_empty
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 76
+  module: handl-plugin-exec-cache
+- name: kind
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 213
+  module: handl-plugin-exec-cache
+- name: len
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 71
+  module: handl-plugin-exec-cache
+- name: metadata
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 176
+  module: handl-plugin-exec-cache
+- name: name
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 168
+  module: handl-plugin-exec-cache
+- name: new
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 66
+  module: handl-plugin-exec-cache
+- name: new
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 144
+  module: handl-plugin-exec-cache
+- name: run
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 188
+  module: handl-plugin-exec-cache
+- name: run_eval
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 224
+  module: handl-plugin-exec-cache
+- name: second_identical_call_returns_cached_result_without_dispatch
+  kind: function
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 245
+  module: handl-plugin-exec-cache
+- name: tests
+  kind: module
+  file: crates/plugin-exec-cache/src/lib.rs
+  line: 198
   module: handl-plugin-exec-cache
 deps:
 - handl-platform
@@ -15,11 +160,14 @@ deps:
 notes: ''
 verify:
 - crates/plugin-exec-cache/Cargo.toml
+- crates/plugin-exec-cache/src/lib.rs
 provenance:
   files:
   - crates/plugin-exec-cache/Cargo.toml
+  - crates/plugin-exec-cache/src/lib.rs
   hashes:
-  - 62ebd5168e1dbf6c762c7e4a81ae8bf4ac5e4eea
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 32277563af1db74de3a8ec5fea75b85f50a933ba
+  - f54210f47a0167f1ec96ee98f7778aeddbec1539
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

@@ -1,0 +1,274 @@
+name: handl-kit-data-prelude
+path: crates/handl-kit-data-prelude/Cargo.toml
+purpose: The **data-driven canonical kit** — the ADR-0044 §6 end state.
+api:
+- name: KIT_MANIFESTS
+  kind: const
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 128
+  module: handl-kit-data-prelude
+- name: KIT_NAME
+  kind: const
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 36
+  module: handl-kit-data-prelude
+- name: LINTS_YAML
+  kind: const
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 42
+  module: handl-kit-data-prelude
+- name: LSP_YAML
+  kind: const
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 43
+  module: handl-kit-data-prelude
+- name: arrow_grammar_row_exists
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/proc_notation.rs
+  line: 67
+  module: handl-kit-data-prelude
+- name: arrow_multi_param_parses_as_function_with_array_params
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/proc_notation.rs
+  line: 159
+  module: handl-kit-data-prelude
+- name: arrow_token_kind_exists
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/proc_notation.rs
+  line: 58
+  module: handl-kit-data-prelude
+- name: arrow_x_to_x_evaluates_to_the_identity_op
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/proc_notation.rs
+  line: 101
+  module: handl-kit-data-prelude
+- name: arrow_x_to_x_plus_1_parses_as_function
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/proc_notation.rs
+  line: 126
+  module: handl-kit-data-prelude
+- name: assemble
+  kind: function
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 187
+  module: handl-kit-data-prelude
+- name: assemble_canonical_has_expected_fragment_counts
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/kit_assembly.rs
+  line: 8
+  module: handl-kit-data-prelude
+- name: assemble_canonical_into_runtime_binds_engines
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/kit_assembly.rs
+  line: 126
+  module: handl-kit-data-prelude
+- name: assemble_canonical_runtime_config_is_pratt_tree_walk
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/kit_assembly.rs
+  line: 118
+  module: handl-kit-data-prelude
+- name: assemble_canonical_specific_fragments_present
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/kit_assembly.rs
+  line: 150
+  module: handl-kit-data-prelude
+- name: assemble_config_extends_canonical_caps
+  kind: function
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 388
+  module: handl-kit-data-prelude
+- name: assemble_config_inherits_parent_runtime
+  kind: function
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 421
+  module: handl-kit-data-prelude
+- name: assemble_config_kit_merges_caps_via_extends
+  kind: function
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 290
+  module: handl-kit-data-prelude
+- name: assemble_produces_nonempty_language
+  kind: function
+  file: crates/handl-kit-data-prelude/src/lib.rs
+  line: 218
+  module: handl-kit-data-prelude
+- name: axis_flow_chains_with_flow
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 405
+  module: handl-kit-data-prelude
+- name: axis_flow_nonzero_axis_enforces_boundary
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 448
+  module: handl-kit-data-prelude
+- name: axis_flow_opener_lexes_as_single_token
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 416
+  module: handl-kit-data-prelude
+- name: axis_flow_parses
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 363
+  module: handl-kit-data-prelude
+- name: axis_flow_variable_axis_parses
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 381
+  module: handl-kit-data-prelude
+- name: axis_flow_zero_evaluates_like_flow
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 430
+  module: handl-kit-data-prelude
+- name: bare_sort_parses_without_grades
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 154
+  module: handl-kit-data-prelude
+- name: canonical_lang
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/kit_swap_engine.rs
+  line: 30
+  module: handl-kit-data-prelude
+- name: canonical_lsp_validates_clean
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/lsp_validation.rs
+  line: 5
+  module: handl-kit-data-prelude
+- name: cases
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/loop_engines.rs
+  line: 64
+  module: handl-kit-data-prelude
+- name: catopt_fragment_dir_assembles_a_language
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  line: 34
+  module: handl-kit-data-prelude
+- name: catopt_full_bank_loads
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  line: 85
+  module: handl-kit-data-prelude
+- name: catopt_law_fires_through_the_rewrite_engine
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  line: 124
+  module: handl-kit-data-prelude
+- name: catopt_law_survives_as_data
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  line: 46
+  module: handl-kit-data-prelude
+- name: catopt_root_eliminating_law_returns_the_subterm
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  line: 179
+  module: handl-kit-data-prelude
+- name: children
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 48
+  module: handl-kit-data-prelude
+- name: children
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/with_handle.rs
+  line: 38
+  module: handl-kit-data-prelude
+- name: cnode
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  line: 119
+  module: handl-kit-data-prelude
+- name: command_package_parses
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/parse_packages.rs
+  line: 42
+  module: handl-kit-data-prelude
+- name: dim_arrow_parses
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 199
+  module: handl-kit-data-prelude
+- name: dimension_bracket_lowers_to_call_through_real_lexer
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 233
+  module: handl-kit-data-prelude
+- name: dimension_bracket_takes_multiple_arguments_through_real_lexer
+  kind: function
+  file: crates/handl-kit-data-prelude/tests/graded_theory.rs
+  line: 291
+  module: handl-kit-data-prelude
+api_omitted: 76
+deps:
+- handl-kit-data
+- handl-kit-prelude-lang
+- handl-language
+- serde_json
+- serde_yaml
+- handl-plugin-ext-diag
+- handl-runtime
+- hnl-exec-bytecode
+- hnl-exec-cranelift
+- hnl-exec-tree-walk
+- hnl-tool-lex-pattern
+- hnl-tool-parse-pratt
+- hnl-tool-transform
+- hnl-tool-transform-rewrite
+- handl-runtime
+- hnl_exec_tree_walk
+- hnl_tool_lex_pattern
+- hnl_tool_parse_pratt
+- handl_language
+- serde_json
+- handl-kit-data
+- hnl_exec_bytecode
+- hnl_exec_cranelift
+- hnl_tool_transform_rewrite
+- handl-plugin-ext-diag
+- handl-kit-prelude-lang
+notes: ''
+verify:
+- crates/handl-kit-data-prelude/Cargo.toml
+- crates/handl-kit-data-prelude/src/lib.rs
+- crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+- crates/handl-kit-data-prelude/tests/full_language_parity.rs
+- crates/handl-kit-data-prelude/tests/graded_theory.rs
+- crates/handl-kit-data-prelude/tests/kit_assembly.rs
+- crates/handl-kit-data-prelude/tests/kit_swap_engine.rs
+- crates/handl-kit-data-prelude/tests/loop_engines.rs
+- crates/handl-kit-data-prelude/tests/lsp_validation.rs
+- crates/handl-kit-data-prelude/tests/parse_packages.rs
+provenance:
+  files:
+  - crates/handl-kit-data-prelude/Cargo.toml
+  - crates/handl-kit-data-prelude/src/lib.rs
+  - crates/handl-kit-data-prelude/tests/catopt_fragments.rs
+  - crates/handl-kit-data-prelude/tests/full_language_parity.rs
+  - crates/handl-kit-data-prelude/tests/graded_theory.rs
+  - crates/handl-kit-data-prelude/tests/kit_assembly.rs
+  - crates/handl-kit-data-prelude/tests/kit_swap_engine.rs
+  - crates/handl-kit-data-prelude/tests/loop_engines.rs
+  - crates/handl-kit-data-prelude/tests/lsp_validation.rs
+  - crates/handl-kit-data-prelude/tests/parse_packages.rs
+  - crates/handl-kit-data-prelude/tests/proc_notation.rs
+  - crates/handl-kit-data-prelude/tests/with_handle.rs
+  hashes:
+  - bfff91a9f9384d7c01442380e3ac83de9d6d2c66
+  - 986a461622844145c0e562f5de30ea1aee9a310e
+  - a70765a636d09c0645e8223a90ab2d4fa40f1921
+  - e41d06776c86d9f9af9a08f5ca624434e1c37518
+  - 63be4f38452c8871c783c4da1542d7b6bf1bb76d
+  - 8ea06432d3cc5355a71d69f9c93a194751b2a26e
+  - 62638340be913a481520947076d200272115e208
+  - 7563518b73a53286e9c3b55c48cd1b48e5ab5a2d
+  - 90836f6cd0c8080f74a477ca8867d48ae0cdd1f4
+  - 7e9816aa52e3a826b01fb83c8ad87e0faa930de4
+  - 83945755673d05cb61e184cffabe6404836f6010
+  - 5847fea3f75bde89c4084f1c75f8dce81bd5756e
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

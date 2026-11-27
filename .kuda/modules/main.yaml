@@ -1,0 +1,48 @@
+name: main
+path: dagger/sdk/runtime/template/pyproject.toml
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: Main
+  kind: type
+  file: dagger/sdk/runtime/template/main.py
+  line: 6
+  module: main
+- name: container_echo
+  kind: function
+  file: dagger/sdk/runtime/template/main.py
+  line: 8
+  module: main
+- name: grep_dir
+  kind: function
+  file: dagger/sdk/runtime/template/main.py
+  line: 13
+  module: main
+- name: main
+  kind: module
+  file: dagger/sdk/runtime/template/pyproject.toml
+  line: 1
+  module: main
+deps:
+- dagger-io
+- dagger
+- sys
+notes: ''
+verify:
+- dagger/sdk/runtime/template/__init__.py
+- dagger/sdk/runtime/template/main.py
+- dagger/sdk/runtime/template/pyproject.toml
+- dagger/sdk/runtime/template/runtime.py
+provenance:
+  files:
+  - dagger/sdk/runtime/template/__init__.py
+  - dagger/sdk/runtime/template/main.py
+  - dagger/sdk/runtime/template/pyproject.toml
+  - dagger/sdk/runtime/template/runtime.py
+  hashes:
+  - ae84e4a815f03d568176ed6d8c26a7938ea2be3b
+  - 3fa51ba6ffc8846b8da095965cbdbf3c2a7753f8
+  - bb963863c203b3b9885f5448626d64fa53d45279
+  - ab9a30250bc49af4031494dad4f4ed4b54f751b4
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

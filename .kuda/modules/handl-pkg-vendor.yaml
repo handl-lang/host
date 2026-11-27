@@ -1,0 +1,80 @@
+name: handl-pkg-vendor
+path: crates/pkg-vendor/Cargo.toml
+purpose: 'Build-script helper: vendor a lib-* package''s .hnl sources into OUT_DIR (ADR-0160 P3).'
+api:
+- name: copy_hnl
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 89
+  module: handl-pkg-vendor
+- name: handl-pkg-vendor
+  kind: module
+  file: crates/pkg-vendor/Cargo.toml
+  line: 1
+  module: handl-pkg-vendor
+- name: missing_directory_is_an_error_but_a_manifest_is_optional
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 202
+  module: handl-pkg-vendor
+- name: module_file
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 116
+  module: handl-pkg-vendor
+- name: module_file_follows_the_manifest
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 181
+  module: handl-pkg-vendor
+- name: normalize_single_module
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 70
+  module: handl-pkg-vendor
+- name: package
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 144
+  module: handl-pkg-vendor
+- name: temp
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 137
+  module: handl-pkg-vendor
+- name: tests
+  kind: module
+  file: crates/pkg-vendor/src/lib.rs
+  line: 134
+  module: handl-pkg-vendor
+- name: vendor
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 24
+  module: handl-pkg-vendor
+- name: vendor_into
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 32
+  module: handl-pkg-vendor
+- name: vendors_manifest_and_hnl_only
+  kind: function
+  file: crates/pkg-vendor/src/lib.rs
+  line: 157
+  module: handl-pkg-vendor
+deps:
+- handl-platform
+notes: ''
+verify:
+- crates/pkg-vendor/Cargo.toml
+- crates/pkg-vendor/src/lib.rs
+provenance:
+  files:
+  - crates/pkg-vendor/Cargo.toml
+  - crates/pkg-vendor/src/lib.rs
+  hashes:
+  - 55a56807176bfe98ede0a85a49e476c45571b52a
+  - 6ea49078d0977f1b8d3e8beb35add88c1c10f6bd
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

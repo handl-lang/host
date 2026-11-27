@@ -1,0 +1,76 @@
+name: ci
+path: dagger/pyproject.toml
+purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
+api:
+- name: Ci
+  kind: type
+  file: dagger/src/ci/main.py
+  line: 43
+  module: ci
+- name: ci
+  kind: module
+  file: dagger/pyproject.toml
+  line: 1
+  module: ci
+- name: ci
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 162
+  module: ci
+- name: coverage_gate
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 109
+  module: ci
+- name: coverage_report
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 98
+  module: ci
+- name: doctests
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 73
+  module: ci
+- name: doctor
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 47
+  module: ci
+- name: dogfood
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 122
+  module: ci
+- name: test
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 84
+  module: ci
+- name: test_shard
+  kind: function
+  file: dagger/src/ci/main.py
+  line: 58
+  module: ci
+deps:
+- dagger-io
+- asyncio
+- typing
+- dagger
+notes: ''
+verify:
+- dagger/pyproject.toml
+- dagger/src/ci/__init__.py
+- dagger/src/ci/main.py
+provenance:
+  files:
+  - dagger/pyproject.toml
+  - dagger/src/ci/__init__.py
+  - dagger/src/ci/main.py
+  hashes:
+  - 83d01a1ed864164bd904a87bd41edcc2e8b1a3c8
+  - c5ca1c809db47c100558211393c15c82de22717d
+  - ddbe7b7899731482073ecef6060e22654d0c72a1
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

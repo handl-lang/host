@@ -1451,6 +1451,7 @@ dependencies = [
  "handl-ext",
  "handl-kit-data-prelude",
  "handl-language",
+ "handl-lib-error",
  "handl-ops",
  "handl-pkg-vendor",
  "handl-platform",

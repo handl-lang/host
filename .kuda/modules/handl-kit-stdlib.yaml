@@ -1,0 +1,210 @@
+name: handl-kit-stdlib
+path: crates/handl-kit-stdlib/Cargo.toml
+purpose: Stdlib kit — data-format, codec, and utility .hnl modules (json/tar/url/kv/perlin/simplex/collections).
+api:
+- name: IP_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 111
+  module: handl-kit-stdlib
+- name: IP_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 110
+  module: handl-kit-stdlib
+- name: IP_SOURCES
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 127
+  module: handl-kit-stdlib
+- name: JSON_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 49
+  module: handl-kit-stdlib
+- name: JSON_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 48
+  module: handl-kit-stdlib
+- name: JSON_SOURCES
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 50
+  module: handl-kit-stdlib
+- name: MODULES
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 309
+  module: handl-kit-stdlib
+- name: ONCE
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 357
+  module: handl-kit-stdlib
+- name: PERLIN_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 27
+  module: handl-kit-stdlib
+- name: PERLIN_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 26
+  module: handl-kit-stdlib
+- name: SIMPLEX_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 34
+  module: handl-kit-stdlib
+- name: SIMPLEX_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 33
+  module: handl-kit-stdlib
+- name: TAR_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 244
+  module: handl-kit-stdlib
+- name: TAR_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 243
+  module: handl-kit-stdlib
+- name: TAR_SOURCES
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 245
+  module: handl-kit-stdlib
+- name: URL_RFC_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 181
+  module: handl-kit-stdlib
+- name: URL_RFC_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 180
+  module: handl-kit-stdlib
+- name: URL_RFC_SOURCES
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 182
+  module: handl-kit-stdlib
+- name: URL_WHATWG_FUNCS
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 213
+  module: handl-kit-stdlib
+- name: URL_WHATWG_HNL
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 211
+  module: handl-kit-stdlib
+- name: URL_WHATWG_SOURCES
+  kind: const
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 214
+  module: handl-kit-stdlib
+- name: build_base64_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 84
+  module: handl-kit-stdlib
+- name: build_hex_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 97
+  module: handl-kit-stdlib
+- name: build_ip_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 167
+  module: handl-kit-stdlib
+- name: build_json_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 71
+  module: handl-kit-stdlib
+- name: build_perlin_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 36
+  module: handl-kit-stdlib
+- name: build_serialize_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 289
+  module: handl-kit-stdlib
+- name: build_simplex_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 42
+  module: handl-kit-stdlib
+- name: build_tar_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 276
+  module: handl-kit-stdlib
+- name: build_url_rfc_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 198
+  module: handl-kit-stdlib
+- name: build_url_whatwg_module
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 230
+  module: handl-kit-stdlib
+- name: handl-kit-stdlib
+  kind: module
+  file: crates/handl-kit-stdlib/Cargo.toml
+  line: 1
+  module: handl-kit-stdlib
+- name: main
+  kind: function
+  file: crates/handl-kit-stdlib/build.rs
+  line: 5
+  module: handl-kit-stdlib
+- name: populate_libraries
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 370
+  module: handl-kit-stdlib
+- name: register
+  kind: function
+  file: crates/handl-kit-stdlib/src/lib.rs
+  line: 356
+  module: handl-kit-stdlib
+deps:
+- handl-kit-core
+- handl-kit-data
+- handl-lib-base64
+- handl-lib-hex
+- handl-lib-serialize
+- handl-platform
+- handl-plugin-lib-handl
+- handl-plugin-lib-kv-hashmap
+- handl-plugin-lib-stdlib
+- handl-pkg-vendor
+- handl-kit-core
+- handl-plugin-lib-handl
+- handl-kit-data
+notes: ''
+verify:
+- crates/handl-kit-stdlib/Cargo.toml
+- crates/handl-kit-stdlib/build.rs
+- crates/handl-kit-stdlib/src/lib.rs
+provenance:
+  files:
+  - crates/handl-kit-stdlib/Cargo.toml
+  - crates/handl-kit-stdlib/build.rs
+  - crates/handl-kit-stdlib/src/lib.rs
+  hashes:
+  - 87c5d08c6ecf339140bf647eda0bfb664178545d
+  - 4cbd34e098d1fb38b5de51eb85501c9915df041b
+  - 49564a59bd0596e5821d2777a1a3c5d0f06a8c61
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

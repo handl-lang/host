@@ -1,0 +1,282 @@
+name: docs
+path: docs/codegen/adding-a-target.md
+purpose: documentation corpus — pages as records, backticked refs as edges
+api:
+- name: Adding a target
+  kind: record
+  file: docs/codegen/adding-a-target.md
+  line: 1
+  module: docs
+- name: Build a host
+  kind: record
+  file: docs/site/tutorials/build-a-host.md
+  line: 1
+  module: docs
+- name: 'Comparison: Arrow Support vs Arrow-Native'
+  kind: record
+  file: docs/site/comparison.md
+  line: 1
+  module: docs
+- name: Dependent types in handl
+  kind: record
+  file: docs/site/tutorials/dependent-types.md
+  line: 1
+  module: docs
+- name: Design principles
+  kind: record
+  file: docs/site/explanation/design-principles.md
+  line: 1
+  module: docs
+- name: Explanations
+  kind: record
+  file: docs/site/explanation/index.md
+  line: 1
+  module: docs
+- name: Generated-artifact conventions
+  kind: record
+  file: docs/codegen/conventions.md
+  line: 1
+  module: docs
+- name: Graded Modal Sanada Arrow Calculus
+  kind: record
+  file: docs/site/explanation/graded-modal-sanada-arrow-calculus.md
+  line: 1
+  module: docs
+- name: Graded algebraic theory in Handl
+  kind: record
+  file: docs/site/explanation/graded-algebraic-theory.md
+  line: 1
+  module: docs
+- name: Handl Language
+  kind: record
+  file: docs/site/index.md
+  line: 5
+  module: docs
+- name: Host concepts
+  kind: record
+  file: docs/site/reference/host-concepts.md
+  line: 1
+  module: docs
+- name: How to build a host
+  kind: record
+  file: docs/site/how-to/build-a-host.md
+  line: 1
+  module: docs
+- name: How to configure options
+  kind: record
+  file: docs/site/how-to/configure-options.md
+  line: 1
+  module: docs
+- name: How to write a plugin
+  kind: record
+  file: docs/site/how-to/write-a-plugin.md
+  line: 1
+  module: docs
+- name: How-to guides
+  kind: record
+  file: docs/site/how-to/index.md
+  line: 1
+  module: docs
+- name: Kits and manifests
+  kind: record
+  file: docs/site/explanation/kits-and-manifests.md
+  line: 1
+  module: docs
+- name: Language as data
+  kind: record
+  file: docs/site/explanation/language-as-data.md
+  line: 1
+  module: docs
+- name: Name Explanation
+  kind: record
+  file: docs/site/explanation/lang-name.md
+  line: 1
+  module: docs
+- name: Options and configuration
+  kind: record
+  file: docs/site/explanation/options-and-configuration.md
+  line: 1
+  module: docs
+- name: Platform architecture
+  kind: record
+  file: docs/site/explanation/platform-architecture.md
+  line: 1
+  module: docs
+- name: Platform overview
+  kind: record
+  file: docs/site/overview.md
+  line: 1
+  module: docs
+- name: Plugins, rules, and operations
+  kind: record
+  file: docs/site/explanation/plugins-rules-operations.md
+  line: 1
+  module: docs
+- name: Reference
+  kind: record
+  file: docs/site/reference/index.md
+  line: 1
+  module: docs
+- name: Runtime
+  kind: record
+  file: docs/site/explanation/runtime.md
+  line: 1
+  module: docs
+- name: Security and trust
+  kind: record
+  file: docs/site/explanation/security-and-trust.md
+  line: 1
+  module: docs
+- name: Set up the platform
+  kind: record
+  file: docs/site/how-to/setup.md
+  line: 1
+  module: docs
+- name: Set up the platform
+  kind: record
+  file: docs/site/tutorials/setup.md
+  line: 1
+  module: docs
+- name: The codegen framework
+  kind: record
+  file: docs/codegen/index.md
+  line: 1
+  module: docs
+- name: The composable host
+  kind: record
+  file: docs/site/explanation/composable-host.md
+  line: 1
+  module: docs
+- name: The type system
+  kind: record
+  file: docs/site/explanation/type-system.md
+  line: 1
+  module: docs
+- name: Tutorials
+  kind: record
+  file: docs/site/tutorials/index.md
+  line: 1
+  module: docs
+- name: What is handl?
+  kind: record
+  file: docs/site/explanation/what-is-handl.md
+  line: 1
+  module: docs
+- name: Why the arrow calculus kernel is closed
+  kind: record
+  file: docs/site/explanation/arrow-calculus-kernel.md
+  line: 1
+  module: docs
+- name: Write a plugin
+  kind: record
+  file: docs/site/tutorials/write-a-plugin.md
+  line: 1
+  module: docs
+- name: '`handl` and other polyglot runtimes'
+  kind: record
+  file: docs/site/explanation/polyglot-runtimes.md
+  line: 1
+  module: docs
+- name: '`hnl codegen` — the CLI surface'
+  kind: record
+  file: docs/codegen/cli.md
+  line: 1
+  module: docs
+- name: handl library API design principles
+  kind: record
+  file: docs/site/explanation/ac-lib-api-design-principles.md
+  line: 1
+  module: docs
+deps: []
+notes: ''
+verify:
+- docs/codegen/adding-a-target.md
+- docs/codegen/cli.md
+- docs/codegen/conventions.md
+- docs/codegen/index.md
+- docs/site/comparison.md
+- docs/site/explanation/ac-lib-api-design-principles.md
+- docs/site/explanation/arrow-calculus-kernel.md
+- docs/site/explanation/composable-host.md
+- docs/site/explanation/design-principles.md
+- docs/site/explanation/graded-algebraic-theory.md
+provenance:
+  files:
+  - docs/codegen/adding-a-target.md
+  - docs/codegen/cli.md
+  - docs/codegen/conventions.md
+  - docs/codegen/index.md
+  - docs/site/comparison.md
+  - docs/site/explanation/ac-lib-api-design-principles.md
+  - docs/site/explanation/arrow-calculus-kernel.md
+  - docs/site/explanation/composable-host.md
+  - docs/site/explanation/design-principles.md
+  - docs/site/explanation/graded-algebraic-theory.md
+  - docs/site/explanation/graded-modal-sanada-arrow-calculus.md
+  - docs/site/explanation/index.md
+  - docs/site/explanation/kits-and-manifests.md
+  - docs/site/explanation/lang-name.md
+  - docs/site/explanation/language-as-data.md
+  - docs/site/explanation/options-and-configuration.md
+  - docs/site/explanation/platform-architecture.md
+  - docs/site/explanation/plugins-rules-operations.md
+  - docs/site/explanation/polyglot-runtimes.md
+  - docs/site/explanation/runtime.md
+  - docs/site/explanation/security-and-trust.md
+  - docs/site/explanation/type-system.md
+  - docs/site/explanation/what-is-handl.md
+  - docs/site/how-to/build-a-host.md
+  - docs/site/how-to/configure-options.md
+  - docs/site/how-to/index.md
+  - docs/site/how-to/setup.md
+  - docs/site/how-to/write-a-plugin.md
+  - docs/site/index.md
+  - docs/site/overview.md
+  - docs/site/reference/host-concepts.md
+  - docs/site/reference/index.md
+  - docs/site/tutorials/build-a-host.md
+  - docs/site/tutorials/dependent-types.md
+  - docs/site/tutorials/index.md
+  - docs/site/tutorials/setup.md
+  - docs/site/tutorials/write-a-plugin.md
+  hashes:
+  - 8f37c020bd533fd48cbd517f58cb76b5c450c500
+  - e1107bbd3068618542fbb17202c40d61ccd82f5a
+  - a872f92d916f73c05e6aeaad4f575da1f7085ecf
+  - 88665b74a9fe424715a59be6ffe2337aa16147c1
+  - efb7f2da86384a854e893a7da09ca83188d8db6c
+  - 05247d4ff021b990ecdb77f2b6fa04a27f018819
+  - d6eb45841184b31aed7a3ca4b5f7cfb98eeec5e7
+  - b5bc2998089ea9ab48bf216425209837039e8b61
+  - ab6e3ef40d485b62500f91885e17c47dd2e39523
+  - 9bbdeb00a6a3b97e8f9c3ed5583bc5309ffd7049
+  - 0b1d55d8f4f515b88c41137187f21bb0a312cd2d
+  - 1e50173527ecf46053d461b1ceeb2df4f446e0a2
+  - 23bf1d8ccde7756216214926800ff564622740d5
+  - aa3f91995eccb2e4c2fa2daaea344b498f617def
+  - 32a7685c4b0688ef65cf630e792bd0c9e8921c3f
+  - c14850aa1b686d55ecdd7ad8fccf73d09616d61c
+  - 66c2616366e77f6228810aa2cb6c14bee457eca3
+  - c51dc28dc388a0f797db438786b5439f8f24b5fd
+  - 3917a299470228f9ea5db38d5f79cb168c834530
+  - 99ffe33b5411de4d0a5b5f55b93d2fd2402fa1e2
+  - c7de0a136ce04fc74743e47a6dd3b758f97b0e47
+  - 8b13eb09fd3e24431d73a7fd99d1b36637ba0fb1
+  - f3955a2342284854021ee7996e4de7a79b3d5d95
+  - 1d77d3c278e0fbafed728eaa14170394d5590b61
+  - bd9c38ce9e336b49fe6f5dfa256da25ea4ab836f
+  - b22fbc2a4fdbc09246d439de72a6c7b223e3798d
+  - 9f2d069c7b77791250b1e79b30ca5068809d4377
+  - 138420115f1bf26eafb0d72dbd08913f4b180384
+  - a474e3ea388bdf12cd5fde1993a767cc149ed6de
+  - 769400b85a618cff2377f033a04a124a8af6840d
+  - e26de9b8f8d014c52bfd35db129d45b4e0865b95
+  - d63ccf8c3a261bf67426a0851dfd67078f273cc3
+  - 5f39df292c870d6bdcb0f112a55240903d382088
+  - 8416f63d7ea3d570e5499ecac61c33482f2736c5
+  - 2e2466d025d8845d020645f4e63fe6cbf56c8910
+  - 6a114772a911c81cbe331301c7796dc2b45d5a7b
+  - 19ed7a302bf8a37153015e7f55c141006696608a
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

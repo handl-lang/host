@@ -75,7 +75,5 @@ fn empty_parens_arrow_producing_arrow() {
 /// through the same `lower_call` path.
 #[test]
 fn empty_parens_inside_nested_arrow() {
-    assert_lowered(
-        "do {\n  f := () ~> 7\n  apply := () ~> f()\n  apply()\n}",
-    );
+    assert_lowered("do {\n  f := () ~> 7\n  apply := () ~> f()\n  apply()\n}");
 }

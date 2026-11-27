@@ -1,0 +1,240 @@
+name: handl-plugin-codemod
+path: crates/plugin-codemod/Cargo.toml
+purpose: 'Handl codemod wiring: spec loading, glob resolution, Language lookup, HandlNativeRewrite/native rewrite registries, engine-context providers, and the CodemodRuleProvider plugin seam (P-002/PL-004 T-085).'
+api:
+- name: ArcEngineContext
+  kind: type
+  file: crates/plugin-codemod/src/lib.rs
+  line: 157
+  module: handl-plugin-codemod
+- name: Codemod
+  kind: type
+  file: crates/plugin-codemod/src/lib.rs
+  line: 184
+  module: handl-plugin-codemod
+- name: CodemodRuleProvider
+  kind: trait
+  file: crates/plugin-codemod/src/lib.rs
+  line: 122
+  module: handl-plugin-codemod
+- name: CountingContext
+  kind: type
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 162
+  module: handl-plugin-codemod
+- name: ExtraRuleProvider
+  kind: type
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 117
+  module: handl-plugin-codemod
+- name: NativeRewriteFn
+  kind: type
+  file: crates/plugin-codemod/src/lib.rs
+  line: 58
+  module: handl-plugin-codemod
+- name: NativeRewriteMap
+  kind: type
+  file: crates/plugin-codemod/src/lib.rs
+  line: 69
+  module: handl-plugin-codemod
+- name: contains
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 91
+  module: handl-plugin-codemod
+- name: contexts
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 284
+  module: handl-plugin-codemod
+- name: delete_assign_rule
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 39
+  module: handl-plugin-codemod
+- name: engine
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 329
+  module: handl-plugin-codemod
+- name: engine_contexts
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 150
+  module: handl-plugin-codemod
+- name: engine_name
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 160
+  module: handl-plugin-codemod
+- name: engine_name
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 167
+  module: handl-plugin-codemod
+- name: engine_plan_runs_delete_rewrite_end_to_end
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 187
+  module: handl-plugin-codemod
+- name: engine_plan_with_native_rewrite_and_context
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 212
+  module: handl-plugin-codemod
+- name: engine_version
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 164
+  module: handl-plugin-codemod
+- name: engine_version
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 170
+  module: handl-plugin-codemod
+- name: handl-plugin-codemod
+  kind: module
+  file: crates/plugin-codemod/Cargo.toml
+  line: 1
+  module: handl-plugin-codemod
+- name: handl_modules
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 144
+  module: handl-plugin-codemod
+- name: id
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 123
+  module: handl-plugin-codemod
+- name: lang
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 22
+  module: handl-plugin-codemod
+- name: merge_spec
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 274
+  module: handl-plugin-codemod
+- name: merge_spec_appends_provider_rules
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 132
+  module: handl-plugin-codemod
+- name: merge_spec_rejects_duplicate_rule_ids
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 144
+  module: handl-plugin-codemod
+- name: natives
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 137
+  module: handl-plugin-codemod
+- name: new
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 75
+  module: handl-plugin-codemod
+- name: new
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 210
+  module: handl-plugin-codemod
+- name: provide
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 168
+  module: handl-plugin-codemod
+- name: provide
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 173
+  module: handl-plugin-codemod
+- name: provides
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 104
+  module: handl-plugin-codemod
+- name: register
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 86
+  module: handl-plugin-codemod
+- name: resolve_targets
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 366
+  module: handl-plugin-codemod
+- name: resolve_targets_extra_glob_narrows_and_parent_escape_is_dropped
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 78
+  module: handl-plugin-codemod
+- name: resolve_targets_matches_glob_and_skips_kernel_paths
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 53
+  module: handl-plugin-codemod
+- name: resolve_targets_reports_invalid_glob
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 108
+  module: handl-plugin-codemod
+- name: rewrite
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 97
+  module: handl-plugin-codemod
+- name: rewrite_resolver
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 297
+  module: handl-plugin-codemod
+- name: rules
+  kind: function
+  file: crates/plugin-codemod/src/lib.rs
+  line: 130
+  module: handl-plugin-codemod
+- name: rules
+  kind: function
+  file: crates/plugin-codemod/tests/codemod.rs
+  line: 126
+  module: handl-plugin-codemod
+api_omitted: 12
+deps:
+- glob
+- handl-language
+- handl-plugin-lib-handl
+- hnl-tool-codegen
+- hnl-tool-codemod
+- hnl-tool-transform
+- serde
+- serde_json
+- handl-kit-data-prelude
+- tempfile
+- handl-kit-data-prelude
+- handl_language
+- hnl_tool_codegen
+- hnl_tool_codemod
+- serde_json
+- glob
+- handl-plugin-lib-handl
+notes: ''
+verify:
+- crates/plugin-codemod/Cargo.toml
+- crates/plugin-codemod/src/lib.rs
+- crates/plugin-codemod/tests/codemod.rs
+provenance:
+  files:
+  - crates/plugin-codemod/Cargo.toml
+  - crates/plugin-codemod/src/lib.rs
+  - crates/plugin-codemod/tests/codemod.rs
+  hashes:
+  - caa5e432d47ea1a12a4455572a2ae92bd83d8e15
+  - 61a590de1d0112118a29f7cc5fd7fda19a5b0566
+  - 2082f1af72683d347968c8dbdead78a292b1611b
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

@@ -2,11 +2,207 @@ name: handl-host-tooling
 path: crates/host-tooling/Cargo.toml
 purpose: 'Tooling / LSP host: the plugin-host contract for tooling capabilities.'
 api:
-- name: handl-host-tooling
-  kind: module
-  file: crates/host-tooling/Cargo.toml
-  line: 1
+- name: ArgSpec
+  kind: type
+  file: crates/host-tooling/src/command.rs
+  line: 6
   module: handl-host-tooling
+- name: BasicIncrementalSync
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 246
+  module: handl-host-tooling
+- name: BasicSemanticTokens
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 389
+  module: handl-host-tooling
+- name: CLEAN
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 35
+  module: handl-host-tooling
+- name: CanonicalTokenClassifier
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 130
+  module: handl-host-tooling
+- name: CommandSpec
+  kind: type
+  file: crates/host-tooling/src/command.rs
+  line: 45
+  module: handl-host-tooling
+- name: CompletionItem
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 26
+  module: handl-host-tooling
+- name: CompletionPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 218
+  module: handl-host-tooling
+- name: CompletionRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 133
+  module: handl-host-tooling
+- name: CompletionResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 141
+  module: handl-host-tooling
+- name: Config
+  kind: type
+  file: crates/host-tooling/src/config.rs
+  line: 11
+  module: handl-host-tooling
+- name: ContextClassifier
+  kind: trait
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 110
+  module: handl-host-tooling
+- name: DocumentSymbol
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 69
+  module: handl-host-tooling
+- name: DocumentSymbolsPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 228
+  module: handl-host-tooling
+- name: DocumentSymbolsRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 203
+  module: handl-host-tooling
+- name: DocumentSymbolsResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 206
+  module: handl-host-tooling
+- name: FoldingRange
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 378
+  module: handl-host-tooling
+- name: FoldingRangePlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 417
+  module: handl-host-tooling
+- name: FoldingRangeRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 407
+  module: handl-host-tooling
+- name: FoldingRangeResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 414
+  module: handl-host-tooling
+- name: GotoDefPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 223
+  module: handl-host-tooling
+- name: GotoDefRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 144
+  module: handl-host-tooling
+- name: GotoDefResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 152
+  module: handl-host-tooling
+- name: GrammarCapture
+  kind: type
+  file: crates/host-tooling/src/grammar.rs
+  line: 451
+  module: handl-host-tooling
+- name: GrammarRule
+  kind: type
+  file: crates/host-tooling/src/grammar.rs
+  line: 374
+  module: handl-host-tooling
+- name: HoverPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 286
+  module: handl-host-tooling
+- name: HoverRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 272
+  module: handl-host-tooling
+- name: HoverResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 283
+  module: handl-host-tooling
+- name: IncrementalSyncPlugin
+  kind: trait
+  file: crates/host-tooling/src/lsp.rs
+  line: 236
+  module: handl-host-tooling
+- name: IncrementalSyncRequest
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 209
+  module: handl-host-tooling
+- name: IncrementalSyncResponse
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 215
+  module: handl-host-tooling
+- name: LEX_ERROR
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 48
+  module: handl-host-tooling
+- name: LineStarts
+  kind: type
+  file: crates/host-tooling/src/semantic_tokens.rs
+  line: 468
+  module: handl-host-tooling
+- name: Location
+  kind: type
+  file: crates/host-tooling/src/lsp.rs
+  line: 50
+  module: handl-host-tooling
+- name: NEEDS_FORMAT
+  kind: const
+  file: crates/host-tooling/tests/tooling.rs
+  line: 39
+  module: handl-host-tooling
+- name: PRIO_BOOLEAN
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 16
+  module: handl-host-tooling
+- name: PRIO_COMMENT
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 13
+  module: handl-host-tooling
+- name: PRIO_DELIMITER
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 20
+  module: handl-host-tooling
+- name: PRIO_DOC_COMMENT
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 12
+  module: handl-host-tooling
+- name: PRIO_IDENTIFIER
+  kind: const
+  file: crates/host-tooling/src/grammar.rs
+  line: 22
+  module: handl-host-tooling
+api_omitted: 185
 deps:
 - handl-language
 - handl-platform
@@ -15,17 +211,54 @@ deps:
 - handl-plugin-ext-lint
 - serde
 - serde_json
-- handl-kit-canonical
+- handl-kit-prelude
 - handl-plugin-loader-native
 - handl-plugin-loader-native-fixture-echo
+- handl-kit-prelude
+- handl-plugin-ext-lint
+- handl-platform
+- handl-plugin-loader-native
+- handl_language
+- serde
+- serde_json
+- handl-plugin-ext-diag
 notes: ''
 verify:
 - crates/host-tooling/Cargo.toml
+- crates/host-tooling/src/lib.rs
+- crates/host-tooling/src/command.rs
+- crates/host-tooling/src/config.rs
+- crates/host-tooling/src/grammar.rs
+- crates/host-tooling/src/grammar_tests.rs
+- crates/host-tooling/src/lsp.rs
+- crates/host-tooling/src/semantic_tokens.rs
+- crates/host-tooling/src/semantic_tokens_tests.rs
+- crates/host-tooling/tests/loader.rs
 provenance:
   files:
   - crates/host-tooling/Cargo.toml
+  - crates/host-tooling/src/command.rs
+  - crates/host-tooling/src/config.rs
+  - crates/host-tooling/src/grammar.rs
+  - crates/host-tooling/src/grammar_tests.rs
+  - crates/host-tooling/src/lib.rs
+  - crates/host-tooling/src/lsp.rs
+  - crates/host-tooling/src/semantic_tokens.rs
+  - crates/host-tooling/src/semantic_tokens_tests.rs
+  - crates/host-tooling/tests/loader.rs
+  - crates/host-tooling/tests/tooling.rs
   hashes:
-  - 895099e8f221de4344c9408601777362f4683414
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - a43eab50674d299397fd8339cceb14015fae8e48
+  - d3e443590544e5be85986b3aacd6661f879b8270
+  - 2b397bd41bd957037a925b88af10f52067a6ee26
+  - 0ff6afe8fd99622bb71ecafe3a7651bf53784243
+  - 331e559286c4d76fe5896392b5e4d3328a557899
+  - 414586b690e738889d76034a2844a295045897e0
+  - 9e4c81117cd38ef388c485046730ae924454888e
+  - 12f1f22195239e7ff863d8c4b55ee519e7166bc1
+  - 5e0dd31d5f76c71b9b7d2dc71361c16e524d6a9d
+  - 5e74f506e78302f02468cba2e6ccd766a96a407e
+  - 8ed3325d39dd458d46ee58df33b3b5cbd0ba168d
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

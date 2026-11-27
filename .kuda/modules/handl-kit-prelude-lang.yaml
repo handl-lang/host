@@ -1,0 +1,173 @@
+name: handl-kit-prelude-lang
+path: crates/handl-kit-prelude-lang/Cargo.toml
+purpose: The canonical eval-path Language as data — the YAML fragment set of the ADR-0044 §6 end state, split out of handl-kit-data-prelude (tooling fragments and kit manifests stay upstream).
+api:
+- name: AST_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 62
+  module: handl-kit-prelude-lang
+- name: CAPS_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 63
+  module: handl-kit-prelude-lang
+- name: EVAL_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 60
+  module: handl-kit-prelude-lang
+- name: EXCLUDED_FRAGMENT_IDS
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 47
+  module: handl-kit-prelude-lang
+- name: GLOBALS_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 67
+  module: handl-kit-prelude-lang
+- name: GRAMMAR_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 59
+  module: handl-kit-prelude-lang
+- name: LEXER_RULES_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 65
+  module: handl-kit-prelude-lang
+- name: OPTIONS_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 64
+  module: handl-kit-prelude-lang
+- name: TOKENS_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 58
+  module: handl-kit-prelude-lang
+- name: TRANSFORMS_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 66
+  module: handl-kit-prelude-lang
+- name: TYPES_YAML
+  kind: const
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 61
+  module: handl-kit-prelude-lang
+- name: canonical_transforms_validate_clean
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 129
+  module: handl-kit-prelude-lang
+- name: desugar_field_still_lowers_into_transforms
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 101
+  module: handl-kit-prelude-lang
+- name: excluded_fragments_absent
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 166
+  module: handl-kit-prelude-lang
+- name: handl-kit-prelude-lang
+  kind: module
+  file: crates/handl-kit-prelude-lang/Cargo.toml
+  line: 1
+  module: handl-kit-prelude-lang
+- name: language_from_dir
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 356
+  module: handl-kit-prelude-lang
+- name: language_from_yaml
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 100
+  module: handl-kit-prelude-lang
+- name: language_from_yaml_produces_language
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 7
+  module: handl-kit-prelude-lang
+- name: load_snapshot
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 154
+  module: handl-kit-prelude-lang
+- name: merge_globals
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 75
+  module: handl-kit-prelude-lang
+- name: merge_lang_fragments
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 192
+  module: handl-kit-prelude-lang
+- name: merge_lints
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 303
+  module: handl-kit-prelude-lang
+- name: merge_lsp
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 320
+  module: handl-kit-prelude-lang
+- name: merge_rejects_invalid_transform_rules
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 143
+  module: handl-kit-prelude-lang
+- name: snapshot_key
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 123
+  module: handl-kit-prelude-lang
+- name: snapshot_path
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 144
+  module: handl-kit-prelude-lang
+- name: store_snapshot
+  kind: function
+  file: crates/handl-kit-prelude-lang/src/lib.rs
+  line: 163
+  module: handl-kit-prelude-lang
+- name: transforms_yaml_loads_first_class_rules
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 39
+  module: handl-kit-prelude-lang
+- name: types_yaml_loads
+  kind: function
+  file: crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  line: 15
+  module: handl-kit-prelude-lang
+deps:
+- handl-language
+- handl-plugin-ext-diag
+- hnl-tool-transform
+- serde_json
+- serde_yaml
+- handl_language
+notes: ''
+verify:
+- crates/handl-kit-prelude-lang/Cargo.toml
+- crates/handl-kit-prelude-lang/src/lib.rs
+- crates/handl-kit-prelude-lang/tests/lang_merge.rs
+provenance:
+  files:
+  - crates/handl-kit-prelude-lang/Cargo.toml
+  - crates/handl-kit-prelude-lang/src/lib.rs
+  - crates/handl-kit-prelude-lang/tests/lang_merge.rs
+  hashes:
+  - f001a06cd655654fd13f00ea04aa464338fe3e8a
+  - 492cdcdbe8fd75d3b294810199e6ff54e1be47e7
+  - 266ad855f5485a48d944973c630164da84af11af
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

@@ -7,17 +7,60 @@ api:
   file: Cargo.toml
   line: 1
   module: handl
+- name: root_reexports_platform_types
+  kind: function
+  file: src/lib.rs
+  line: 11
+  module: handl
+- name: tests
+  kind: module
+  file: src/lib.rs
+  line: 9
+  module: handl
 deps:
 - handl-platform
 - serde_json
 notes: ''
 verify:
 - Cargo.toml
+- src/lib.rs
+- scripts/check-adrs.py
+- scripts/check-project-layout.py
+- scripts/dev-link-prune.py
+- scripts/docs_split.py
+- scripts/gen-adr-index.py
+- scripts/gen-decisions.py
+- scripts/gen-repo-docs.py
+- scripts/migrate-data-decl.py
 provenance:
   files:
   - Cargo.toml
+  - scripts/check-adrs.py
+  - scripts/check-project-layout.py
+  - scripts/dev-link-prune.py
+  - scripts/docs_split.py
+  - scripts/gen-adr-index.py
+  - scripts/gen-decisions.py
+  - scripts/gen-repo-docs.py
+  - scripts/migrate-data-decl.py
+  - scripts/mount-project-worktrees.py
+  - scripts/pin-git-revs.py
+  - scripts/project-frontmatter.py
+  - src/lib.rs
   hashes:
-  - 437b5351823a6c3b3f9320084b4761652c8d9e1b
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 0d0bf7f81e339ba07103efefd4101087f8448252
+  - 46515a29933a0fb7b07d3eb69ae617fae4e6c2bc
+  - df703498b1bacfa4ae1e1d1c093206ef68a792d0
+  - fdd2145b297517a395f023ed1d00667b0c1d5c38
+  - d408066148733c2128d402e67ef41313adf4fce6
+  - d83c426dd73f92a701a8d5cf2a8a008efecc2b18
+  - bed3862afd5c55678f2b61a24fa7f19a13a48624
+  - 09d0d98cc738782b02778782aa603e36b9371873
+  - 207540aae22187661ab14bad59ff3eaa3c2ffe30
+  - 3a6e52138dc80a68befaf6372e0b1410dcb9f14c
+  - 8c0bf0e97c52f3aea3b6c1fdd1b7368f0f2166eb
+  - 104b2b2c9f823d8636f8998e3b6a3bbc818cc66c
+  - ed2c3a07e4a4abe0c8a97698d14b308af6a49739
+  commit_sha: 0836bfeed30ca5902f6878a64113112beeed2b68
+  generated_at: '1795484422'
+  generator: kuda-template/0.1.4

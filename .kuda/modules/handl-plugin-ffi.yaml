@@ -1,0 +1,248 @@
+name: handl-plugin-ffi
+path: crates/plugin-ffi/Cargo.toml
+purpose: Generic FFI dispatcher for handl.
+api:
+- name: ArgClass
+  kind: type
+  file: crates/plugin-ffi/src/cranelift_shim.rs
+  line: 60
+  module: handl-plugin-ffi
+- name: BUF
+  kind: const
+  file: crates/plugin-ffi/src/tests.rs
+  line: 1283
+  module: handl-plugin-ffi
+- name: CArg
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 89
+  module: handl-plugin-ffi
+- name: CELL
+  kind: const
+  file: crates/plugin-ffi/src/tests.rs
+  line: 1272
+  module: handl-plugin-ffi
+- name: CRet
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 118
+  module: handl-plugin-ffi
+- name: CRetKind
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 106
+  module: handl-plugin-ffi
+- name: CraneliftShim
+  kind: type
+  file: crates/plugin-ffi/src/cranelift_shim.rs
+  line: 98
+  module: handl-plugin-ffi
+- name: DEFAULT_PTR_WIDTH
+  kind: const
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 869
+  module: handl-plugin-ffi
+- name: FFI_BIND
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 593
+  module: handl-plugin-ffi
+- name: FFI_CALL
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 594
+  module: handl-plugin-ffi
+- name: FFI_ERRNO
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 595
+  module: handl-plugin-ffi
+- name: FFI_LOAD
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 596
+  module: handl-plugin-ffi
+- name: FFI_READ
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 597
+  module: handl-plugin-ffi
+- name: FFI_SYM
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 598
+  module: handl-plugin-ffi
+- name: FIONREAD
+  kind: const
+  file: crates/plugin-ffi/src/tests.rs
+  line: 612
+  module: handl-plugin-ffi
+- name: FfiBind
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 406
+  module: handl-plugin-ffi
+- name: FfiCall
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 380
+  module: handl-plugin-ffi
+- name: FfiErrno
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 502
+  module: handl-plugin-ffi
+- name: FfiLoad
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 519
+  module: handl-plugin-ffi
+- name: FfiModule
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 603
+  module: handl-plugin-ffi
+- name: FfiOpFunction
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 223
+  module: handl-plugin-ffi
+- name: FfiRead
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 565
+  module: handl-plugin-ffi
+- name: FfiSym
+  kind: type
+  file: crates/plugin-ffi/src/lib.rs
+  line: 539
+  module: handl-plugin-ffi
+- name: FieldAux
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 675
+  module: handl-plugin-ffi
+- name: HEAD
+  kind: const
+  file: crates/plugin-ffi/src/tests.rs
+  line: 1315
+  module: handl-plugin-ffi
+- name: LIBRARY_CACHE
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 75
+  module: handl-plugin-ffi
+- name: MAX
+  kind: const
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 1224
+  module: handl-plugin-ffi
+- name: MarshalResult
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 296
+  module: handl-plugin-ffi
+- name: Node
+  kind: type
+  file: crates/plugin-ffi/src/tests.rs
+  line: 1303
+  module: handl-plugin-ffi
+- name: OutSlot
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 261
+  module: handl-plugin-ffi
+- name: OutTrim
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 244
+  module: handl-plugin-ffi
+- name: ParsedField
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 661
+  module: handl-plugin-ffi
+- name: S
+  kind: const
+  file: crates/plugin-ffi/src/tests.rs
+  line: 1340
+  module: handl-plugin-ffi
+- name: SHIM_CACHE
+  kind: const
+  file: crates/plugin-ffi/src/cranelift_shim.rs
+  line: 280
+  module: handl-plugin-ffi
+- name: SYMBOL_CACHE
+  kind: const
+  file: crates/plugin-ffi/src/lib.rs
+  line: 81
+  module: handl-plugin-ffi
+- name: ScalarSlot
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 277
+  module: handl-plugin-ffi
+- name: ShimFn
+  kind: type
+  file: crates/plugin-ffi/src/cranelift_shim.rs
+  line: 91
+  module: handl-plugin-ffi
+- name: ShimKey
+  kind: type
+  file: crates/plugin-ffi/src/cranelift_shim.rs
+  line: 78
+  module: handl-plugin-ffi
+- name: StructArg
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 689
+  module: handl-plugin-ffi
+- name: StructField
+  kind: type
+  file: crates/plugin-ffi/src/marshal.rs
+  line: 664
+  module: handl-plugin-ffi
+api_omitted: 134
+deps:
+- cranelift
+- cranelift-jit
+- cranelift-module
+- handl-platform
+- handl-value
+- libloading
+- serde_json
+- handl-platform
+- serde_json
+- handl_value
+- libloading
+- cranelift_jit
+- cranelift_module
+notes: ''
+verify:
+- crates/plugin-ffi/Cargo.toml
+- crates/plugin-ffi/build.rs
+- crates/plugin-ffi/src/cranelift_shim.rs
+- crates/plugin-ffi/src/error.rs
+- crates/plugin-ffi/src/lib.rs
+- crates/plugin-ffi/src/marshal.rs
+- crates/plugin-ffi/src/tests.rs
+provenance:
+  files:
+  - crates/plugin-ffi/Cargo.toml
+  - crates/plugin-ffi/build.rs
+  - crates/plugin-ffi/src/cranelift_shim.rs
+  - crates/plugin-ffi/src/error.rs
+  - crates/plugin-ffi/src/lib.rs
+  - crates/plugin-ffi/src/marshal.rs
+  - crates/plugin-ffi/src/tests.rs
+  hashes:
+  - 496919af05bb5b7a2248d7413c2357690d51ca1b
+  - 0faefb40b03448c25ceb0dd016693abc4761d4c4
+  - 1080720e5f7810fce8aa84006e4d920f32b7347f
+  - 497e37579655fa313ec39936836c81d3bc473784
+  - 3521c664d9c56b13ce7ddb445b72aa2b3b1f81eb
+  - 77378c1ee43df570f5909b229256ba8bf47dfaed
+  - 67f6946cf62ade2bac192d250b1d37053819c067
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

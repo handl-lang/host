@@ -1,0 +1,261 @@
+name: handl-run
+path: crates/run/Cargo.toml
+purpose: 'The `hnl run <script>` task runner (P-003): pkg.hnl script resolution, dependsOn scheduling, argv execution, and the fingerprinted `.handl/cache/run/` store.'
+api:
+- name: Argv
+  kind: type
+  file: crates/run/src/script.rs
+  line: 21
+  module: handl-run
+- name: CacheCheck
+  kind: type
+  file: crates/run/src/cache.rs
+  line: 119
+  module: handl-run
+- name: CacheMode
+  kind: type
+  file: crates/run/src/run.rs
+  line: 27
+  module: handl-run
+- name: DEPTH_ENV
+  kind: const
+  file: crates/run/src/exec.rs
+  line: 24
+  module: handl-run
+- name: ENV_LOCK
+  kind: const
+  file: crates/run/tests/runner.rs
+  line: 563
+  module: handl-run
+- name: EntryMeta
+  kind: type
+  file: crates/run/src/cache.rs
+  line: 133
+  module: handl-run
+- name: ExecOutcome
+  kind: type
+  file: crates/run/src/exec.rs
+  line: 36
+  module: handl-run
+- name: Frame
+  kind: type
+  file: crates/run/src/sched.rs
+  line: 35
+  module: handl-run
+- name: HNL_ENV
+  kind: const
+  file: crates/run/src/exec.rs
+  line: 32
+  module: handl-run
+- name: InputRecord
+  kind: type
+  file: crates/run/src/cache.rs
+  line: 153
+  module: handl-run
+- name: MAX_RUN_DEPTH
+  kind: const
+  file: crates/run/src/exec.rs
+  line: 28
+  module: handl-run
+- name: METACHARS
+  kind: const
+  file: crates/run/src/script.rs
+  line: 151
+  module: handl-run
+- name: MissReason
+  kind: type
+  file: crates/run/src/cache.rs
+  line: 79
+  module: handl-run
+- name: PkgScripts
+  kind: type
+  file: crates/run/src/pkg.rs
+  line: 17
+  module: handl-run
+- name: PlanReport
+  kind: type
+  file: crates/run/src/run.rs
+  line: 146
+  module: handl-run
+- name: PlanVerdict
+  kind: type
+  file: crates/run/src/run.rs
+  line: 122
+  module: handl-run
+- name: PlannedTask
+  kind: type
+  file: crates/run/src/run.rs
+  line: 133
+  module: handl-run
+- name: RunError
+  kind: type
+  file: crates/run/src/error.rs
+  line: 9
+  module: handl-run
+- name: RunOptions
+  kind: type
+  file: crates/run/src/run.rs
+  line: 36
+  module: handl-run
+- name: RunReport
+  kind: type
+  file: crates/run/src/run.rs
+  line: 101
+  module: handl-run
+- name: Runner
+  kind: type
+  file: crates/run/src/run.rs
+  line: 66
+  module: handl-run
+- name: Script
+  kind: type
+  file: crates/run/src/script.rs
+  line: 25
+  module: handl-run
+- name: ScriptBody
+  kind: type
+  file: crates/run/src/script.rs
+  line: 34
+  module: handl-run
+- name: Task
+  kind: type
+  file: crates/run/src/script.rs
+  line: 43
+  module: handl-run
+- name: TaskResult
+  kind: type
+  file: crates/run/src/run.rs
+  line: 90
+  module: handl-run
+- name: TaskStatus
+  kind: type
+  file: crates/run/src/run.rs
+  line: 73
+  module: handl-run
+- name: Toolchain
+  kind: type
+  file: crates/run/src/cache.rs
+  line: 57
+  module: handl-run
+- name: array_script_and_and_sequencing
+  kind: function
+  file: crates/run/tests/runner.rs
+  line: 84
+  module: handl-run
+- name: bad_cwd_is_a_diagnostic
+  kind: function
+  file: crates/run/tests/runner.rs
+  line: 159
+  module: handl-run
+- name: cache
+  kind: module
+  file: crates/run/src/lib.rs
+  line: 31
+  module: handl-run
+- name: cache_entries
+  kind: function
+  file: crates/run/tests/runner.rs
+  line: 40
+  module: handl-run
+- name: cache_false_and_no_cache_mode_bypass
+  kind: function
+  file: crates/run/tests/runner.rs
+  line: 477
+  module: handl-run
+- name: cache_hit_replays_streams_and_restores_outputs
+  kind: function
+  file: crates/run/tests/runner.rs
+  line: 228
+  module: handl-run
+- name: cache_root
+  kind: function
+  file: crates/run/src/cache.rs
+  line: 48
+  module: handl-run
+- name: cacheable
+  kind: function
+  file: crates/run/src/script.rs
+  line: 95
+  module: handl-run
+- name: canonical_task
+  kind: function
+  file: crates/run/src/script.rs
+  line: 182
+  module: handl-run
+- name: canonical_task_is_deterministic
+  kind: function
+  file: crates/run/src/script.rs
+  line: 297
+  module: handl-run
+- name: check
+  kind: function
+  file: crates/run/src/cache.rs
+  line: 315
+  module: handl-run
+- name: check_acyclic
+  kind: function
+  file: crates/run/src/sched.rs
+  line: 111
+  module: handl-run
+- name: cli_args_append_to_last_command
+  kind: function
+  file: crates/run/tests/runner.rs
+  line: 96
+  module: handl-run
+api_omitted: 99
+deps:
+- glob
+- handl-platform
+- hex
+- serde
+- serde_json
+- sha2
+- thiserror
+- thiserror
+- serde
+- sha2
+- cache
+- error
+- exec
+- pkg
+- run
+- sched
+- script
+notes: ''
+verify:
+- crates/run/Cargo.toml
+- crates/run/src/cache.rs
+- crates/run/src/error.rs
+- crates/run/src/exec.rs
+- crates/run/src/lib.rs
+- crates/run/src/pkg.rs
+- crates/run/src/run.rs
+- crates/run/src/sched.rs
+- crates/run/src/script.rs
+- crates/run/tests/runner.rs
+provenance:
+  files:
+  - crates/run/Cargo.toml
+  - crates/run/src/cache.rs
+  - crates/run/src/error.rs
+  - crates/run/src/exec.rs
+  - crates/run/src/lib.rs
+  - crates/run/src/pkg.rs
+  - crates/run/src/run.rs
+  - crates/run/src/sched.rs
+  - crates/run/src/script.rs
+  - crates/run/tests/runner.rs
+  hashes:
+  - 048eb1f2abeee0514879f60cfab794e66901525f
+  - 58964743e299d5bc34926d1441678894dcaa2fae
+  - e4f965547ec486f922003a209b35c766ced5297c
+  - 1f1aca1112fdd0e10eefba32c6e70d9141d0b109
+  - cc5b88963ee68a33cfbf613fc9f09c52bca8f266
+  - 5901487c43879af5934f4d9fb7e057b4e7f22475
+  - 0ac28fd71e41af86453267410250c64a71ed708c
+  - 6c3205a708d59b4b1b6d28f22e53c2708b4a24a7
+  - 1926a5f6037e04e1381e7de9ec5b5b268b0d8ac6
+  - 86889cf39ae06a9a00194e16693519e537c99458
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

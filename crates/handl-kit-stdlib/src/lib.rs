@@ -216,11 +216,9 @@ fn build_ip_module() -> HandlModule {
     // `Module::function` dispatch, so `ip.*` wires hit the native ops
     // while the module's evaluated record stays the `.hnl` surface.
     let decls = stdlib::atoms::module_atoms(IP_NATIVE_ATOMS, "ip").expect("ip-native atoms spec");
-    let registry = stdlib::atoms::registry_from_atoms_kernel(
-        &decls,
-        &handl_plugin_lib_ip_native::ip_impls(),
-    )
-    .expect("ip-native atoms registry");
+    let registry =
+        stdlib::atoms::registry_from_atoms_kernel(&decls, &handl_plugin_lib_ip_native::ip_impls())
+            .expect("ip-native atoms registry");
     let op_names: Vec<&str> = decls.iter().map(|a| a.name.as_str()).collect();
     handl_plugin_lib_handl::handl_module_from_sources(
         "ip",

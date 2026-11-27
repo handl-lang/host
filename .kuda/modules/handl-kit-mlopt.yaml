@@ -1,0 +1,235 @@
+name: handl-kit-mlopt
+path: crates/kit-mlopt/Cargo.toml
+purpose: mlopt kit — meta-tier pipeline stage-ops (lift/search/verify) as a native `pipeline` module, backed by `python -m mlopt stage <name>` over a JSON stdin/stdout protocol.
+api:
+- name: BLOB_DIRNAME
+  kind: const
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 80
+  module: handl-kit-mlopt
+- name: HASH_ALGORITHM
+  kind: const
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 76
+  module: handl-kit-mlopt
+- name: MANIFEST_FILENAME
+  kind: const
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 71
+  module: handl-kit-mlopt
+- name: MODULES
+  kind: const
+  file: crates/kit-mlopt/src/lib.rs
+  line: 410
+  module: handl-kit-mlopt
+- name: ManifestDoc
+  kind: type
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 86
+  module: handl-kit-mlopt
+- name: MloptResponse
+  kind: type
+  file: crates/kit-mlopt/src/lib.rs
+  line: 288
+  module: handl-kit-mlopt
+- name: ONCE
+  kind: const
+  file: crates/kit-mlopt/src/lib.rs
+  line: 419
+  module: handl-kit-mlopt
+- name: PipelineModule
+  kind: type
+  file: crates/kit-mlopt/src/lib.rs
+  line: 360
+  module: handl-kit-mlopt
+- name: RECORD_SCHEMA_VERSION
+  kind: const
+  file: crates/kit-mlopt/src/lib.rs
+  line: 104
+  module: handl-kit-mlopt
+- name: StageFn
+  kind: type
+  file: crates/kit-mlopt/src/lib.rs
+  line: 139
+  module: handl-kit-mlopt
+- name: WireChange
+  kind: type
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 106
+  module: handl-kit-mlopt
+- name: apply_is_idempotent_and_journaled
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 489
+  module: handl-kit-mlopt
+- name: apply_manifest
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 405
+  module: handl-kit-mlopt
+- name: apply_writes_artifacts_and_manifest
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 458
+  module: handl-kit-mlopt
+- name: args
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 598
+  module: handl-kit-mlopt
+- name: bad_json_stdout_is_loud_eval_error
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 495
+  module: handl-kit-mlopt
+- name: call
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 254
+  module: handl-kit-mlopt
+- name: call_with
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 440
+  module: handl-kit-mlopt
+- name: check_record_schema
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 113
+  module: handl-kit-mlopt
+- name: corrupt_blob_hash_is_refused
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 501
+  module: handl-kit-mlopt
+- name: deliver_threads_record_and_writes_artifact_stub
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 472
+  module: handl-kit-mlopt
+- name: echo_env
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 594
+  module: handl-kit-mlopt
+- name: env_cmd_prefix_appends_stage
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 568
+  module: handl-kit-mlopt
+- name: foreign_hash_algorithm_is_refused
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 513
+  module: handl-kit-mlopt
+- name: function
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 383
+  module: handl-kit-mlopt
+- name: functions
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 393
+  module: handl-kit-mlopt
+- name: handl-kit-mlopt
+  kind: module
+  file: crates/kit-mlopt/Cargo.toml
+  line: 1
+  module: handl-kit-mlopt
+- name: lift_returns_stub_record
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 446
+  module: handl-kit-mlopt
+- name: load_payload
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 229
+  module: handl-kit-mlopt
+- name: manifest
+  kind: module
+  file: crates/kit-mlopt/src/lib.rs
+  line: 86
+  module: handl-kit-mlopt
+- name: manifest_changes
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 321
+  module: handl-kit-mlopt
+- name: manifest_err
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 120
+  module: handl-kit-mlopt
+- name: missing_program_is_loud_eval_error
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 503
+  module: handl-kit-mlopt
+- name: mlopt_python
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 303
+  module: handl-kit-mlopt
+- name: mlopt_python_prefers_env_then_process_then_python3
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 655
+  module: handl-kit-mlopt
+- name: name
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 379
+  module: handl-kit-mlopt
+- name: new
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 368
+  module: handl-kit-mlopt
+- name: nonzero_exit_is_loud_eval_error
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 487
+  module: handl-kit-mlopt
+- name: pipeline_ctor
+  kind: function
+  file: crates/kit-mlopt/src/lib.rs
+  line: 405
+  module: handl-kit-mlopt
+- name: plan_manifest
+  kind: function
+  file: crates/kit-mlopt/src/manifest.rs
+  line: 385
+  module: handl-kit-mlopt
+api_omitted: 23
+deps:
+- base64
+- handl-kit-core
+- handl-platform
+- hnl-tool-codegen
+- serde_json
+- tempfile
+- serde_json
+- handl-kit-core
+- handl-platform
+notes: ''
+verify:
+- crates/kit-mlopt/Cargo.toml
+- crates/kit-mlopt/src/lib.rs
+- crates/kit-mlopt/src/manifest.rs
+- crates/kit-mlopt/tests/fixtures/stage_stub.py
+provenance:
+  files:
+  - crates/kit-mlopt/Cargo.toml
+  - crates/kit-mlopt/src/lib.rs
+  - crates/kit-mlopt/src/manifest.rs
+  - crates/kit-mlopt/tests/fixtures/stage_stub.py
+  hashes:
+  - 5b9b23f114489bc27402f0029c004e3286f2468f
+  - 3d6e45fefe5e6694f0b9742122d19a970d9cbb04
+  - c1b8882ba19700905cb4d6be21a172d482fa4712
+  - a3cca24ef9a1d1efa2a2f1de17aba7f835dd8396
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

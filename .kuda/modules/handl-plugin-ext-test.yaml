@@ -2,25 +2,230 @@ name: handl-plugin-ext-test
 path: crates/plugin-ext-test/Cargo.toml
 purpose: '`handl-plugin-ext-test` — the `test` capability adapter.'
 api:
+- name: CACHE_PATH
+  kind: const
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 106
+  module: handl-plugin-ext-test
+- name: LOCK
+  kind: const
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 785
+  module: handl-plugin-ext-test
+- name: Project
+  kind: type
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 582
+  module: handl-plugin-ext-test
+- name: TEST_CAPABILITY
+  kind: const
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 45
+  module: handl-plugin-ext-test
+- name: TestPlugin
+  kind: type
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 53
+  module: handl-plugin-ext-test
+- name: a_corrupt_cache_is_reported_and_ignored
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 815
+  module: handl-plugin-ext-test
+- name: a_failing_project_reports_failed
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 684
+  module: handl-plugin-ext-test
+- name: a_filter_narrows_the_case_list
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 655
+  module: handl-plugin-ext-test
+- name: a_non_array_paths_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 554
+  module: handl-plugin-ext-test
+- name: a_non_array_tags_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 453
+  module: handl-plugin-ext-test
+- name: a_passing_project_reports_ok_with_a_summary_and_a_human_report
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 668
+  module: handl-plugin-ext-test
+- name: a_tag_expression_narrows_the_case_list
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 743
+  module: handl-plugin-ext-test
+- name: a_wrong_capability_is_unknown
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 412
+  module: handl-plugin-ext-test
+- name: an_explicit_jobs_policy_is_applied
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 771
+  module: handl-plugin-ext-test
+- name: an_explicit_null_tags_is_treated_as_absent
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 638
+  module: handl-plugin-ext-test
+- name: an_unknown_report_format_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 493
+  module: handl-plugin-ext-test
+- name: an_unwritable_cache_location_is_reported_as_a_warning
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 845
+  module: handl-plugin-ext-test
+- name: cache_lock
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 784
+  module: handl-plugin-ext-test
+- name: canonical_source
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 356
+  module: handl-plugin-ext-test
+- name: capabilities
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 78
+  module: handl-plugin-ext-test
+- name: changed_discovery_degrades_gracefully_outside_a_repository
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 758
+  module: handl-plugin-ext-test
+- name: declares_the_test_capability
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 402
+  module: handl-plugin-ext-test
+- name: drop
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 620
+  module: handl-plugin-ext-test
+- name: empty_dir
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 395
+  module: handl-plugin-ext-test
+- name: empty_paths_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 442
+  module: handl-plugin-ext-test
 - name: handl-plugin-ext-test
   kind: module
   file: crates/plugin-ext-test/Cargo.toml
   line: 1
   module: handl-plugin-ext-test
+- name: id
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 70
+  module: handl-plugin-ext-test
+- name: jobs_accepts_auto_and_positive_integers
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 513
+  module: handl-plugin-ext-test
+- name: jobs_rejects_fractional_and_non_numeric_values
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 565
+  module: handl-plugin-ext-test
+- name: jobs_rejects_zero_and_non_numeric_strings
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 532
+  module: handl-plugin-ext-test
+- name: list_mode_on_an_empty_tree_returns_an_empty_case_list
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 469
+  module: handl-plugin-ext-test
+- name: list_mode_reports_the_discovered_cases
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 721
+  module: handl-plugin-ext-test
+- name: metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 82
+  module: handl-plugin-ext-test
+- name: missing_paths_is_invalid_metadata
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 431
+  module: handl-plugin-ext-test
+- name: name
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 74
+  module: handl-plugin-ext-test
+- name: name_is_reported
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 547
+  module: handl-plugin-ext-test
+- name: new
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 61
+  module: handl-plugin-ext-test
+- name: new
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 587
+  module: handl-plugin-ext-test
+- name: parse_errors_are_surfaced_in_the_response
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 707
+  module: handl-plugin-ext-test
+- name: parse_errors_json
+  kind: function
+  file: crates/plugin-ext-test/src/plugin.rs
+  line: 298
+  module: handl-plugin-ext-test
+api_omitted: 15
 deps:
 - handl-platform
-- handl-plugin-tool-test
 - handl-plugin-lib-scheduler
+- hnl-tool-test
 - serde_json
-- handl-kit-canonical
+- handl-kit-prelude
+- handl-platform
+- hnl_tool_test
+- plugin
 notes: ''
 verify:
 - crates/plugin-ext-test/Cargo.toml
+- crates/plugin-ext-test/src/lib.rs
+- crates/plugin-ext-test/src/plugin.rs
 provenance:
   files:
   - crates/plugin-ext-test/Cargo.toml
+  - crates/plugin-ext-test/src/lib.rs
+  - crates/plugin-ext-test/src/plugin.rs
   hashes:
-  - ef8c624e2db553b9ce8b98ea9749c03fcdd6e422
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 95dff6ed438998d11bcf7656b496fe8d3f1fb163
+  - 153243ca9afaed60163a1b442246ffde62fec0dd
+  - d13692e30ec963f4289ad80573f8986268f1aefe
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

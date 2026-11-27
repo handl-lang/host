@@ -1,0 +1,321 @@
+name: dagger-io
+path: dagger/sdk/pyproject.toml
+purpose: A client package for running [Dagger](https://dagger.io/) pipelines.
+api:
+- name: Address
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 748
+  module: dagger-io
+- name: AddressID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 15
+  module: dagger-io
+- name: Arg
+  kind: type
+  file: dagger/sdk/src/dagger/client/_core.py
+  line: 61
+  module: dagger-io
+- name: BadUsageError
+  kind: type
+  file: dagger/sdk/src/dagger/mod/_exceptions.py
+  line: 60
+  module: dagger-io
+- name: BaseConnection
+  kind: type
+  file: dagger/sdk/src/dagger/client/_session.py
+  line: 165
+  module: dagger-io
+- name: Binding
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 862
+  module: dagger-io
+- name: BindingID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 19
+  module: dagger-io
+- name: BuildArg
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 545
+  module: dagger-io
+- name: Bupha
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 1189
+  module: dagger-io
+- name: BuphaID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 23
+  module: dagger-io
+- name: CacheSharingMode
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 282
+  module: dagger-io
+- name: CacheVolume
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 1482
+  module: dagger-io
+- name: CacheVolumeID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 27
+  module: dagger-io
+- name: Changeset
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 1515
+  module: dagger-io
+- name: ChangesetID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 31
+  module: dagger-io
+- name: ChangesetMergeConflict
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 295
+  module: dagger-io
+- name: ChangesetsMergeConflict
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 315
+  module: dagger-io
+- name: Check
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 1761
+  module: dagger-io
+- name: CheckGroup
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 1963
+  module: dagger-io
+- name: CheckGroupID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 35
+  module: dagger-io
+- name: CheckID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 39
+  module: dagger-io
+- name: Client
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 14691
+  module: dagger-io
+- name: ClientConnectionError
+  kind: type
+  file: dagger/sdk/src/dagger/_exceptions.py
+  line: 22
+  module: dagger-io
+- name: ClientError
+  kind: type
+  file: dagger/sdk/src/dagger/_exceptions.py
+  line: 18
+  module: dagger-io
+- name: ClientFilesyncMirror
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 2029
+  module: dagger-io
+- name: ClientFilesyncMirrorID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 43
+  module: dagger-io
+- name: ClientSession
+  kind: type
+  file: dagger/sdk/src/dagger/client/_session.py
+  line: 66
+  module: dagger-io
+- name: Cloud
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 2062
+  module: dagger-io
+- name: CloudID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 47
+  module: dagger-io
+- name: ConnectConfig
+  kind: type
+  file: dagger/sdk/src/dagger/client/_config.py
+  line: 38
+  module: dagger-io
+- name: ConnectParams
+  kind: type
+  file: dagger/sdk/src/dagger/client/_session.py
+  line: 30
+  module: dagger-io
+- name: Constructor
+  kind: type
+  file: dagger/sdk/src/dagger/mod/_resolver.py
+  line: 234
+  module: dagger-io
+- name: Container
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 2116
+  module: dagger-io
+- name: ContainerID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 51
+  module: dagger-io
+- name: Context
+  kind: type
+  file: dagger/sdk/src/dagger/client/_core.py
+  line: 97
+  module: dagger-io
+- name: CurrentModule
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 4036
+  module: dagger-io
+- name: CurrentModuleID
+  kind: type
+  file: dagger/sdk/src/dagger/client/gen.py
+  line: 55
+  module: dagger-io
+- name: DaggerError
+  kind: type
+  file: dagger/sdk/src/dagger/_exceptions.py
+  line: 14
+  module: dagger-io
+- name: DefaultAddress
+  kind: type
+  file: dagger/sdk/src/dagger/mod/_arguments.py
+  line: 33
+  module: dagger-io
+- name: DefaultPath
+  kind: type
+  file: dagger/sdk/src/dagger/mod/_arguments.py
+  line: 56
+  module: dagger-io
+api_omitted: 1139
+deps:
+- anyio
+- cattrs
+- gql
+- yarl
+- httpcore
+- beartype
+- platformdirs
+- typing_extensions
+- rich
+- opentelemetry-sdk
+- opentelemetry-exporter-otlp-proto-http
+- opentelemetry-instrumentation-logging
+- exceptiongroup
+- codegen
+- ruff
+- mypy
+- aiohttp
+- pytest
+- pytest-httpx
+- pytest-mock
+- pytest-subprocess
+- sphinx
+- sphinx-rtd-theme
+- logging
+- os
+- typing
+- opentelemetry
+- contextlib
+- anyio
+- dataclasses
+- cattrs
+- gql
+- graphql
+- dagger
+- dagger_gen
+- enum
+- inspect
+- json
+- textwrap
+- collections
+- typing_extensions
+- importlib
+- ast
+- builtins
+- functools
+- operator
+- beartype
+- warnings
+- traceback
+- httpx
+- exceptiongroup
+notes: ''
+verify:
+- dagger/sdk/pyproject.toml
+- dagger/sdk/src/dagger/__init__.py
+- dagger/sdk/src/dagger/client/__init__.py
+- dagger/sdk/src/dagger/mod/__init__.py
+- dagger/sdk/src/dagger/_exceptions.py
+- dagger/sdk/src/dagger/_managers.py
+- dagger/sdk/src/dagger/client/_config.py
+- dagger/sdk/src/dagger/client/_connection.py
+- dagger/sdk/src/dagger/client/_core.py
+- dagger/sdk/src/dagger/client/_guards.py
+provenance:
+  files:
+  - dagger/sdk/pyproject.toml
+  - dagger/sdk/src/dagger/__init__.py
+  - dagger/sdk/src/dagger/_exceptions.py
+  - dagger/sdk/src/dagger/_managers.py
+  - dagger/sdk/src/dagger/client/__init__.py
+  - dagger/sdk/src/dagger/client/_config.py
+  - dagger/sdk/src/dagger/client/_connection.py
+  - dagger/sdk/src/dagger/client/_core.py
+  - dagger/sdk/src/dagger/client/_guards.py
+  - dagger/sdk/src/dagger/client/_session.py
+  - dagger/sdk/src/dagger/client/base.py
+  - dagger/sdk/src/dagger/client/gen.py
+  - dagger/sdk/src/dagger/log.py
+  - dagger/sdk/src/dagger/mod/__init__.py
+  - dagger/sdk/src/dagger/mod/_arguments.py
+  - dagger/sdk/src/dagger/mod/_converter.py
+  - dagger/sdk/src/dagger/mod/_exceptions.py
+  - dagger/sdk/src/dagger/mod/_module.py
+  - dagger/sdk/src/dagger/mod/_resolver.py
+  - dagger/sdk/src/dagger/mod/_types.py
+  - dagger/sdk/src/dagger/mod/_utils.py
+  - dagger/sdk/src/dagger/mod/cli.py
+  - dagger/sdk/src/dagger/telemetry.py
+  hashes:
+  - 7fc341d98a16d46c3b6b085f079e9ff713ed6dcb
+  - c82edfef8a8cf6b903b58e28c8a951d451eda84b
+  - 69849a1ba49e28346cf13a086480eb0fbbc81c66
+  - 3e3a9c633e04a86411556e03b4abb87f165b98fe
+  - e69de29bb2d1d6434b8b29ae775ad8c2e48c5391
+  - 73dceb8d2e421990a794294911a845b0e9b171ec
+  - 66403892f8add6e31d5c7c510f2ef9f6d764bede
+  - 7e0fd389264ed46a91fe44ce4a0be11a010224e5
+  - e931117fec952155b153a0f5cbbac3071de6d225
+  - b32b074231ed1aabebebcddcca8a0c273de12d43
+  - 2c6daaafd0450845f40a1517ce994f66a447adb2
+  - 5442402acef98cafa591201fb2c317735e164125
+  - 1d0d7ee7f13d5ef5e57e37a76f95dca14e06d8d6
+  - b4ae5e7f1de1792e460e387f022296ab8db58deb
+  - ccf8c0534bf9357a75f682fc7562140da2a4fa61
+  - 272ce7a0a6988ae39f2b7f8486cef08584e86a8f
+  - a55b09bf337595f002c2a0c8da06dc950da56011
+  - a502ebcbc7c65a82787125b657cb889871cf434f
+  - 83c0abf508c96f9a2a5e60aa8a261c560479bf29
+  - 290f9f2b75df53f066c3079e6182bd7751112b2b
+  - 6149876f35882f53c3feba131ba994e713661f4c
+  - 86d08666fd09a132b3271932f04fab5e3ff3c8e9
+  - 992ca9a9f59e242a31809b7d761b770fff3c8dc7
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

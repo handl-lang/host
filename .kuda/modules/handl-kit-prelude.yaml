@@ -1,0 +1,320 @@
+name: handl-kit-prelude
+path: crates/kit-prelude/Cargo.toml
+purpose: 'Prelude kit — the canonical ambient layer: Kit facade + ambient modules, composed over the kit-* crates.'
+api:
+- name: ANCHOR
+  kind: const
+  file: crates/kit-prelude/src/lib.rs
+  line: 530
+  module: handl-kit-prelude
+- name: CombModule
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 787
+  module: handl-kit-prelude
+- name: DEFAULT_KIT_SENTINEL
+  kind: const
+  file: crates/kit-prelude/src/lib.rs
+  line: 1442
+  module: handl-kit-prelude
+- name: GREET_HNL
+  kind: const
+  file: crates/kit-prelude/src/lib.rs
+  line: 77
+  module: handl-kit-prelude
+- name: HelloGreetHostFn
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 1005
+  module: handl-kit-prelude
+- name: HelloHostFunctions
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 1047
+  module: handl-kit-prelude
+- name: Kit
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 1092
+  module: handl-kit-prelude
+- name: ONCE
+  kind: const
+  file: crates/kit-prelude/src/lib.rs
+  line: 264
+  module: handl-kit-prelude
+- name: ONCE
+  kind: const
+  file: crates/kit-prelude/tests/pipeline_kit_spike.rs
+  line: 41
+  module: handl-kit-prelude
+- name: PRELUDE_MODULES
+  kind: const
+  file: crates/kit-prelude/src/lib.rs
+  line: 111
+  module: handl-kit-prelude
+- name: REGISTRY
+  kind: const
+  file: crates/kit-prelude/src/lib.rs
+  line: 1029
+  module: handl-kit-prelude
+- name: RESULTS
+  kind: const
+  file: crates/kit-prelude/tests/intl_c.rs
+  line: 23
+  module: handl-kit-prelude
+- name: RESULTS
+  kind: const
+  file: crates/kit-prelude/tests/unicode_c.rs
+  line: 29
+  module: handl-kit-prelude
+- name: TransformFilter
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 613
+  module: handl-kit-prelude
+- name: TransformMap
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 584
+  module: handl-kit-prelude
+- name: TransformModule
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 705
+  module: handl-kit-prelude
+- name: TransformReduce
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 647
+  module: handl-kit-prelude
+- name: TypeInspection
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 447
+  module: handl-kit-prelude
+- name: WirePreludeCache
+  kind: type
+  file: crates/kit-prelude/src/lib.rs
+  line: 498
+  module: handl-kit-prelude
+- name: add_sugar_parses
+  kind: function
+  file: crates/kit-prelude/tests/sugars.rs
+  line: 88
+  module: handl-kit-prelude
+- name: append_child_to_block
+  kind: function
+  file: crates/kit-prelude/tests/fp_integration.rs
+  line: 88
+  module: handl-kit-prelude
+- name: array_native_ops_resolve_and_run
+  kind: function
+  file: crates/kit-prelude/tests/arrow_boundary.rs
+  line: 121
+  module: handl-kit-prelude
+- name: artifact_key
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 506
+  module: handl-kit-prelude
+- name: artifact_key_tracks_the_loaded_image
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 2134
+  module: handl-kit-prelude
+- name: as_type_signature
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 1008
+  module: handl-kit-prelude
+- name: ast_to_platform_nodes
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 2063
+  module: handl-kit-prelude
+- name: bench_eval
+  kind: function
+  file: crates/kit-prelude/benches/perf.rs
+  line: 38
+  module: handl-kit-prelude
+- name: bench_parse
+  kind: function
+  file: crates/kit-prelude/benches/perf.rs
+  line: 26
+  module: handl-kit-prelude
+- name: build_greet_runtime
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 916
+  module: handl-kit-prelude
+- name: build_kit
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 1224
+  module: handl-kit-prelude
+- name: build_stdlib_registry
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 283
+  module: handl-kit-prelude
+- name: build_str_handl_module
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 97
+  module: handl-kit-prelude
+- name: call
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 587
+  module: handl-kit-prelude
+- name: call
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 616
+  module: handl-kit-prelude
+- name: call
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 650
+  module: handl-kit-prelude
+- name: call
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 1012
+  module: handl-kit-prelude
+- name: call_node
+  kind: function
+  file: crates/kit-prelude/tests/fp_integration.rs
+  line: 110
+  module: handl-kit-prelude
+- name: canonical_data_dir
+  kind: function
+  file: crates/kit-prelude/src/lib.rs
+  line: 2638
+  module: handl-kit-prelude
+- name: canonical_kit_run_evals_full_pipeline_with_deliver
+  kind: function
+  file: crates/kit-prelude/tests/pipeline_kit_spike.rs
+  line: 166
+  module: handl-kit-prelude
+- name: canonical_kit_run_evals_pipeline_stage_ops
+  kind: function
+  file: crates/kit-prelude/tests/pipeline_kit_spike.rs
+  line: 144
+  module: handl-kit-prelude
+api_omitted: 344
+deps:
+- handl-kit-core
+- handl-kit-data
+- handl-kit-data-prelude
+- handl-kit-ffi
+- handl-kit-lang
+- handl-kit-mlopt
+- handl-kit-server
+- handl-kit-stdlib
+- handl-kit-test
+- handl-language
+- handl-lib-comb
+- handl-platform
+- handl-plugin-ext-diag
+- handl-plugin-ext-lint
+- handl-plugin-lib-handl
+- handl-plugin-lib-stdlib
+- handl-plugin-lib-tag
+- handl-plugin-module
+- handl-runtime
+- hnl-exec
+- hnl-exec-bytecode
+- hnl-exec-cranelift
+- hnl-exec-tree-walk
+- hnl-tool-lex-pattern
+- hnl-tool-parse
+- hnl-tool-parse-pratt
+- hnl-tool-typecheck
+- hnl-tool-typecheck-nbe
+- serde
+- serde_json
+- criterion
+- tempfile
+- criterion
+- serde_json
+- handl_language
+- handl-runtime
+- hnl_tool_parse
+- handl-platform
+- hnl_exec
+- hnl_exec_tree_walk
+- handl-kit-data
+- library_registry
+- handl-kit-core
+- handl-kit-data-prelude
+- handl-plugin-ext-lint
+- handl-plugin-lib-handl
+- handl-plugin-lib-tag
+- hnl_tool_typecheck
+- hnl_tool_typecheck_nbe
+- hnl_tool_parse_pratt
+notes: ''
+verify:
+- crates/kit-prelude/Cargo.toml
+- crates/kit-prelude/src/lib.rs
+- crates/kit-prelude/tests/common/mod.rs
+- crates/kit-prelude/benches/perf.rs
+- crates/kit-prelude/src/library_registry.rs
+- crates/kit-prelude/tests/arrow_boundary.rs
+- crates/kit-prelude/tests/fp_integration.rs
+- crates/kit-prelude/tests/intl_c.rs
+- crates/kit-prelude/tests/meta_functions.rs
+- crates/kit-prelude/tests/noise_c.rs
+provenance:
+  files:
+  - crates/kit-prelude/Cargo.toml
+  - crates/kit-prelude/benches/perf.rs
+  - crates/kit-prelude/src/lib.rs
+  - crates/kit-prelude/src/library_registry.rs
+  - crates/kit-prelude/tests/arrow_boundary.rs
+  - crates/kit-prelude/tests/common/mod.rs
+  - crates/kit-prelude/tests/fp_integration.rs
+  - crates/kit-prelude/tests/intl_c.rs
+  - crates/kit-prelude/tests/meta_functions.rs
+  - crates/kit-prelude/tests/noise_c.rs
+  - crates/kit-prelude/tests/ordered_annotations.rs
+  - crates/kit-prelude/tests/parity.rs
+  - crates/kit-prelude/tests/perf.rs
+  - crates/kit-prelude/tests/pipeline_kit_spike.rs
+  - crates/kit-prelude/tests/posix_c.rs
+  - crates/kit-prelude/tests/posix_time.rs
+  - crates/kit-prelude/tests/rand_c.rs
+  - crates/kit-prelude/tests/runtime.rs
+  - crates/kit-prelude/tests/runtime_mint.rs
+  - crates/kit-prelude/tests/sugars.rs
+  - crates/kit-prelude/tests/sym_surface.rs
+  - crates/kit-prelude/tests/tagged_values.rs
+  - crates/kit-prelude/tests/unicode_c.rs
+  hashes:
+  - 9fe8720d2bd139a859d513a57768ae664a7ded0a
+  - c43eaeb2542ce4e95efc0ec88da8b18648dcc2bc
+  - 1e5e05c27ff54d541e4a91b01b089e63731e5511
+  - 82f49f434706ce42ccd0cbb1c42ed1c91148a998
+  - b601fac8abcb497bce264c1fd9ef709e88cc0b5c
+  - 618b8cb27cc483db217704aecbfdcbf06ca4c7e1
+  - 73e9402446e50e7b6c71908efdbfa44e796ee0c7
+  - 0b5a887118be24bb1de57e235ac0d87dfd6bc3b3
+  - 2f539a698d4a39a0cb9a95d4a812cc995d0ab6db
+  - 8b454ba3805873e89f2a6ca3689f92b2cb770ba9
+  - 6cdb7cec79c5f22e0fad51eb2ff8a81935515fd4
+  - 58e88450ec2b755bf42645206c8feaabc6e59c94
+  - 538fae488b175a7ee2d1663f5eabca8fec09741a
+  - 06b68918bffaf5e551c72ea88fb7d605e08a37c6
+  - 495e8e865e310ffd7fc4244000c3e61b34c87196
+  - 8b0fdb460ffaa28aaff26a71673eee620fbe7737
+  - 5c24c6788d124c7d9ceecc5799899d3ef5ff5654
+  - 741c77bb7e2d6bc214de4c5457be74e59ef28192
+  - 20a99800a2bacffb113e1966623a6d622ac0797b
+  - 185bcbba7b865893e977b3b94e249d58b592e937
+  - a71402b0af90201fdcad2e553075b5bebdae3a23
+  - d338d0925e7eeeefbbebda96fac9d55868131cca
+  - d4b080fb61b88832d88d660744b5e87bdd1b3134
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

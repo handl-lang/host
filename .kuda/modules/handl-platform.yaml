@@ -2,26 +2,278 @@ name: handl-platform
 path: crates/platform/Cargo.toml
 purpose: The `handl-platform` crate provides shared platform abstractions for the HAndL language toolchain, including plugins, capabilities, manifests, resolution, hosts, and boundaries.
 api:
-- name: handl-platform
-  kind: module
-  file: crates/platform/Cargo.toml
-  line: 1
+- name: AstKindDeclaration
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 61
   module: handl-platform
+- name: AstKindRole
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 51
+  module: handl-platform
+- name: AstNode
+  kind: type
+  file: crates/platform/src/ast_node.rs
+  line: 17
+  module: handl-platform
+- name: AsyncEcho
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1886
+  module: handl-platform
+- name: AsyncFunction
+  kind: trait
+  file: crates/platform/src/eval.rs
+  line: 371
+  module: handl-platform
+- name: BasicBuilder
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 45
+  module: handl-platform
+- name: BasicCompiler
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 45
+  module: handl-platform
+- name: BasicEvaluator
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1108
+  module: handl-platform
+- name: BasicEvaluatorCallback
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 158
+  module: handl-platform
+- name: BasicExecControl
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 282
+  module: handl-platform
+- name: BasicFormatter
+  kind: type
+  file: crates/platform/src/format.rs
+  line: 57
+  module: handl-platform
+- name: BasicLinter
+  kind: type
+  file: crates/platform/src/lint.rs
+  line: 45
+  module: handl-platform
+- name: Behavior
+  kind: trait
+  file: crates/platform/src/plugin_model.rs
+  line: 40
+  module: handl-platform
+- name: Boundary
+  kind: type
+  file: crates/platform/src/boundary.rs
+  line: 26
+  module: handl-platform
+- name: BoundaryKind
+  kind: type
+  file: crates/platform/src/boundary.rs
+  line: 5
+  module: handl-platform
+- name: Build
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 18
+  module: handl-platform
+- name: BuildBehavior
+  kind: trait
+  file: crates/platform/src/build.rs
+  line: 36
+  module: handl-platform
+- name: BuildRequest
+  kind: type
+  file: crates/platform/src/build.rs
+  line: 26
+  module: handl-platform
+- name: CallableLookup
+  kind: trait
+  file: crates/platform/src/host.rs
+  line: 10
+  module: handl-platform
+- name: Capability
+  kind: trait
+  file: crates/platform/src/capability.rs
+  line: 41
+  module: handl-platform
+- name: CapabilityDependency
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 104
+  module: handl-platform
+- name: CapabilityId
+  kind: type
+  file: crates/platform/src/capability.rs
+  line: 13
+  module: handl-platform
+- name: CapabilityMetadata
+  kind: type
+  file: crates/platform/src/capability.rs
+  line: 8
+  module: handl-platform
+- name: CapabilityRequest
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 16
+  module: handl-platform
+- name: CapabilityResponse
+  kind: type
+  file: crates/platform/src/plugin.rs
+  line: 25
+  module: handl-platform
+- name: CapabilitySelector
+  kind: type
+  file: crates/platform/src/resolve.rs
+  line: 19
+  module: handl-platform
+- name: Compile
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 18
+  module: handl-platform
+- name: CompileBehavior
+  kind: trait
+  file: crates/platform/src/compile.rs
+  line: 36
+  module: handl-platform
+- name: CompileRequest
+  kind: type
+  file: crates/platform/src/compile.rs
+  line: 26
+  module: handl-platform
+- name: ConflictDeclaration
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 153
+  module: handl-platform
+- name: Contribution
+  kind: trait
+  file: crates/platform/src/plugin_model.rs
+  line: 19
+  module: handl-platform
+- name: ContributionContext
+  kind: type
+  file: crates/platform/src/plugin_model.rs
+  line: 49
+  module: handl-platform
+- name: ControlFlow
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 222
+  module: handl-platform
+- name: CountingControl
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1512
+  module: handl-platform
+- name: DefaultHost
+  kind: type
+  file: crates/platform/src/host.rs
+  line: 18
+  module: handl-platform
+- name: DenyAll
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1582
+  module: handl-platform
+- name: Dependency
+  kind: type
+  file: crates/platform/src/manifest.rs
+  line: 71
+  module: handl-platform
+- name: DependencySpec
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 62
+  module: handl-platform
+- name: DiscoveredKit
+  kind: type
+  file: crates/platform/src/config.rs
+  line: 343
+  module: handl-platform
+- name: Double
+  kind: type
+  file: crates/platform/src/eval.rs
+  line: 1423
+  module: handl-platform
+api_omitted: 611
 deps:
+- handl-ops
+- handl-value
 - semver
 - serde
 - serde_json
 - thiserror
 - toml
+- thiserror
 - serde_json
+- serde
+- handl_ops
+- vm
+- semver
 notes: ''
 verify:
 - crates/platform/Cargo.toml
+- crates/platform/src/lib.rs
+- crates/platform/src/ast_node.rs
+- crates/platform/src/boundary.rs
+- crates/platform/src/build.rs
+- crates/platform/src/capability.rs
+- crates/platform/src/compile.rs
+- crates/platform/src/config.rs
+- crates/platform/src/error.rs
+- crates/platform/src/eval.rs
 provenance:
   files:
   - crates/platform/Cargo.toml
+  - crates/platform/src/ast_node.rs
+  - crates/platform/src/boundary.rs
+  - crates/platform/src/build.rs
+  - crates/platform/src/capability.rs
+  - crates/platform/src/compile.rs
+  - crates/platform/src/config.rs
+  - crates/platform/src/error.rs
+  - crates/platform/src/eval.rs
+  - crates/platform/src/format.rs
+  - crates/platform/src/host.rs
+  - crates/platform/src/kit.rs
+  - crates/platform/src/lib.rs
+  - crates/platform/src/lint.rs
+  - crates/platform/src/manifest.rs
+  - crates/platform/src/ops.rs
+  - crates/platform/src/options.rs
+  - crates/platform/src/plugin.rs
+  - crates/platform/src/plugin_model.rs
+  - crates/platform/src/resolve.rs
+  - crates/platform/src/vm.rs
   hashes:
-  - 2f0b60d6a4f3e55dd962fa7a1fef29a9ca6f7c00
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 87cb2c145bdd230fc46132a0f295b0ea9a2d49e5
+  - 99a8afd5e2d4e84d58864d42cd34a68d3a5e465d
+  - 7f2f487810c64c0e96adfae6d3617a2dafa5e535
+  - 73b9bef43d87990c2325fb32d536659837b85583
+  - a11088ef88b163d1eac8e7b3c2e25d92520e31db
+  - f0c26a079201b12ac444806ab42e292ce71efee4
+  - 33569c673e262341f5b418724483e378474bf526
+  - 0e1994c5f672d933ffe180fcce15fa64c636b044
+  - 77b240aab0abb6d63d93dac534c90039bd31fd93
+  - 6b14ab6af843bbf405b2d595535fa625ee17dc07
+  - 6b8856f51a76080dcc4c1a1d84041dc8249e817a
+  - fde548d062eebe5d5c8a00e96fd4e497bed71c0f
+  - 1eb14a6ff52cb3cf66405af5a47c89bc24a4b16e
+  - bc47c593b5a48d08623a22d16fa2307f59619863
+  - e7678501b4e3807ae741854cded3ae9153365e00
+  - ca3215eabee1713716127a3e696d160be7b3f65b
+  - db25faca30a84bea6421cb023c52919f4264dd68
+  - 9e7de89a4d5f08371f96d1ee27581c1c7ed1252d
+  - 959edb1dc08c845e6b172d634cbd72ab6de28ee7
+  - e27c386d2792d2bdc068b1ab92129c85cc99299f
+  - 1bf8e75c3fca63767baf0a19a381595f40193180
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

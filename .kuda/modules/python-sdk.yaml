@@ -2,11 +2,207 @@ name: python-sdk
 path: dagger/sdk/runtime/go.mod
 purpose: '`handl` is a small, embeddable, runtime-agnostic expression language and a pluggable language construction kit. This repository is the reference Rust platform: a Cargo workspace where the canonical syntax is assembled from tiny, swappable plugin crates (lexical rules, parser fragments, statements, formatting, diagnostics, LSP, runtime, and typecheck). The core contract lives in `handl-platform`, and everything from the canonical kit to the LSP host builds on top of it.'
 api:
-- name: python-sdk
-  kind: module
-  file: dagger/sdk/runtime/go.mod
-  line: 1
+- name: AbsoluteOffset
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 13900
   module: python-sdk
+- name: AddDirectory
+  kind: function
+  file: dagger/sdk/runtime/discovery.go
+  line: 157
+  module: python-sdk
+- name: AddFile
+  kind: function
+  file: dagger/sdk/runtime/discovery.go
+  line: 141
+  module: python-sdk
+- name: AddNewFile
+  kind: function
+  file: dagger/sdk/runtime/discovery.go
+  line: 136
+  module: python-sdk
+- name: AddedLines
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 4157
+  module: python-sdk
+- name: AddedPaths
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 1110
+  module: python-sdk
+- name: Address
+  kind: type
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 384
+  module: python-sdk
+- name: Address
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 12341
+  module: python-sdk
+- name: Address
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 15774
+  module: python-sdk
+- name: AddressDirectoryOpts
+  kind: type
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 407
+  module: python-sdk
+- name: AddressFileOpts
+  kind: type
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 445
+  module: python-sdk
+- name: AddressID
+  kind: type
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 152
+  module: python-sdk
+- name: After
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 1120
+  module: python-sdk
+- name: Args
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 7665
+  module: python-sdk
+- name: Args
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 9321
+  module: python-sdk
+- name: AsAddress
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 615
+  module: python-sdk
+- name: AsArray
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 9764
+  module: python-sdk
+- name: AsBoolean
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 9797
+  module: python-sdk
+- name: AsCacheVolume
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 624
+  module: python-sdk
+- name: AsChangeset
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 633
+  module: python-sdk
+- name: AsCheck
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 642
+  module: python-sdk
+- name: AsCheckGroup
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 651
+  module: python-sdk
+- name: AsCloud
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 660
+  module: python-sdk
+- name: AsContainer
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 669
+  module: python-sdk
+- name: AsDiffStat
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 678
+  module: python-sdk
+- name: AsDirectory
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 687
+  module: python-sdk
+- name: AsEnum
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 15004
+  module: python-sdk
+- name: AsEnv
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 696
+  module: python-sdk
+- name: AsEnvFile
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 705
+  module: python-sdk
+- name: AsEnvFile
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 7242
+  module: python-sdk
+- name: AsExportable
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 1354
+  module: python-sdk
+- name: AsExportable
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 3915
+  module: python-sdk
+- name: AsExportable
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 5133
+  module: python-sdk
+- name: AsExportable
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 7615
+  module: python-sdk
+- name: AsFile
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 714
+  module: python-sdk
+- name: AsFile
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 6564
+  module: python-sdk
+- name: AsGenerator
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 723
+  module: python-sdk
+- name: AsGeneratorGroup
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 732
+  module: python-sdk
+- name: AsGit
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 4306
+  module: python-sdk
+- name: AsGitRef
+  kind: function
+  file: dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  line: 741
+  module: python-sdk
+api_omitted: 2250
 deps:
 - github.com/dagger/otel-go
 - github.com/distribution/reference
@@ -53,14 +249,69 @@ deps:
 - google.golang.org/genproto/googleapis/rpc
 - google.golang.org/grpc
 - google.golang.org/protobuf
+- embed
+- encoding/json
+- fmt
+- regexp
+- strings
+- github.com/distribution/reference
+- github.com/iancoleman/strcase
+- context
+- log/slog
+- os
+- sort
+- github.com/dagger/otel-go
+- github.com/vektah/gqlparser/v2/gqlerror
+- go.opentelemetry.io/otel
+- go.opentelemetry.io/otel/sdk/resource
+- go.opentelemetry.io/otel/semconv/v1.40.0
+- go.opentelemetry.io/otel/trace
+- github.com/dagger/querybuilder
+- testing
+- github.com/stretchr/testify/require
+- path
+- sync
+- github.com/pelletier/go-toml/v2
+- golang.org/x/sync/errgroup
+- errors
+- net
+- net/http
+- reflect
+- strconv
+- github.com/Khan/genqlient/graphql
+- go.opentelemetry.io/otel/propagation
 notes: ''
 verify:
+- dagger/sdk/runtime/dagger.gen.go
+- dagger/sdk/runtime/discovery.go
+- dagger/sdk/runtime/extension.go
 - dagger/sdk/runtime/go.mod
+- dagger/sdk/runtime/image.go
+- dagger/sdk/runtime/internal/dagger/dagger.gen.go
+- dagger/sdk/runtime/main.go
+- dagger/sdk/runtime/python.go
+- dagger/sdk/runtime/python_test.go
 provenance:
   files:
+  - dagger/sdk/runtime/dagger.gen.go
+  - dagger/sdk/runtime/discovery.go
+  - dagger/sdk/runtime/extension.go
   - dagger/sdk/runtime/go.mod
+  - dagger/sdk/runtime/image.go
+  - dagger/sdk/runtime/internal/dagger/dagger.gen.go
+  - dagger/sdk/runtime/main.go
+  - dagger/sdk/runtime/python.go
+  - dagger/sdk/runtime/python_test.go
   hashes:
+  - 02ad917f5ddee69c063c27d66eab0bd30bd192b0
+  - a34cdf937bb2b985733f1325fdbc4ffded7b0485
+  - 6708df1097cddb194a7a07ee0f2f6530f961dcdd
   - 883bf8591668f2b8b633dded88f24cc400a89126
-  commit_sha: af0c08bdee7ef8a08ab5c97d293b2954491fd5d0
-  generated_at: '1792283902'
-  generator: kuda-template/0.1.0
+  - 6180befb81ba77b7065a661bc0c06f4a21a4d91c
+  - 5990e10109e49082ac70b450e98edd14e23e1e3d
+  - 0ab1d7b3d01f9f8470e6dfbf1d40aa42914b7843
+  - 3caa2ed50a099e4a15883e264b675a591d98a26a
+  - 06f870b243de1d671015494fab637716894595da
+  commit_sha: 38785b1b7bb34aed52b3d934f81faa45c4dc0191
+  generated_at: '1795482802'
+  generator: kuda-template/0.1.4

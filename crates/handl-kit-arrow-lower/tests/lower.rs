@@ -113,10 +113,7 @@ fn op_dim_arrow_signature_lowers_dim_to_dim_slot() {
     ast.push(with_children_and_name("op", vec![0, 4], "f"));
 
     let term = lower_ast(&ast, &Language::new(), AstRef::new(5)).expect("lower should succeed");
-    assert_eq!(
-        term,
-        Term::op_native_dim("f", Term::named_dim("S"), vec![])
-    );
+    assert_eq!(term, Term::op_native_dim("f", Term::named_dim("S"), vec![]));
     assert_eq!(term.op_grade(), None);
 }
 
