@@ -1831,7 +1831,7 @@ do {
             --- `new` node is malformed — report honestly (the NBE
             --- `synth_new_decl` `Inductive` arm's hard error) instead
             --- of minting a mode family named `X`.
-            { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_new: `new Inductive` expects a constructor record `{ C : F(i⃗), … }` whose codomains name the declared family `F` — well-formed `X := new Inductive { … }` declarations lower to `data` at parse time") }
+            { val: make_type("type.unit", {}), state: tc_add_diagnostic(s, "error", "synth_new: `new Inductive` expects a constructor record `{ C : F(i⃗), … }` whose codomains name the declared family `F` — well-formed `X := new Inductive { … }` declarations lower to the internal `data` node at parse time") }
           } else {
           --- PL-0004 E1: `X := new Algebra(…)` heads resolve in
           --- `@ [X(p), …]` mode ascriptions — name-level registration
