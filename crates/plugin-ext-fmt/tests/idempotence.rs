@@ -1,7 +1,7 @@
 //! Idempotence property test over the repo's own `.hnl` examples.
 //!
 //! Verifies that `format_source(format_source(src)) == format_source(src)`
-//! for every `.hnl` file in `research/arrow-calculus-kernel-poc/`.
+//! for every `.hnl` file in `kernel/research/arrow-calculus-kernel-poc/`.
 
 use std::fs;
 use std::path::PathBuf;
@@ -38,7 +38,8 @@ fn find_hnl_files(dir: &PathBuf, out: &mut Vec<PathBuf>) {
 #[test]
 fn idempotence_over_repo_examples() {
     let root =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../research/arrow-calculus-kernel-poc");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../kernel/research/arrow-calculus-kernel-poc");
     let mut files = Vec::new();
     find_hnl_files(&root, &mut files);
     assert!(
