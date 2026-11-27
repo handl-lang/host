@@ -1,16 +1,16 @@
 --- tests/smoke/sigma_err.hnl — expected-failure smoke: the Σ-intro pair
 --- checks the payload against the family at the *actual* witness, so
---- `[Succ(Zero), VNil]` is `Vec(0, Bool)` where `Vec(1, Bool)` is owed:
+--- `[Nat.succ(Nat.zero), Vec.vnil]` is `Vec(0, Bool)` where `Vec(1, Bool)` is owed:
 --- `cannot unify — expected Vec(1, Bool), got Vec(0, ?m)`.
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Vec<n : Nat, a : Type> := new Inductive {
-  VNil : Vec(0, a),
-  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+  vnil : Vec(0, a),
+  vcons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
-bad : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VNil]
+bad : Sigma(Nat, m ~> Vec(m, Bool)) := [Nat.succ(Nat.zero), Vec.vnil]

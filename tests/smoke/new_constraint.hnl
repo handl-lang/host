@@ -18,13 +18,13 @@
 --- (the same erasure caveat as instance.hnl).
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Bool := new Inductive {
-  True : Bool,
-  False : Bool
+  true : Bool,
+  false : Bool
 }
 
 --- The `Constraint` schema stub — `new Constraint(S…)` is
@@ -32,7 +32,7 @@ Bool := new Inductive {
 --- only binds the schema head as a wire for the scope pass, the same
 --- role the `Algebra` stub plays in new_decl.hnl.
 Constraint<s : Type> := new Inductive {
-  mkConstraint : (shape : Type) ~> Constraint
+  mkconstraint : (shape : Type) ~> Constraint
 }
 
 --- The `Constraint` schema: `Type` is the index sort; the dict child
@@ -47,13 +47,13 @@ instance Eq(Nat) := { evidence: (x, y) ~> x == y }
 --- dictionary search at the call site; no explicit dict argument.
 eq_refl<a, ev : Eq(a)> : a ~> a := v ~> v
 
-r := eq_refl(Zero)
+r := eq_refl(Nat.zero)
 
 --- The learn-doc example (docs/learn "Instances and evidence"): the
 --- dict field name matches the shape's `evidence` declaration, and
---- `ev.evidence` projects the shape field type — `eqv(Zero)(Zero)`
+--- `ev.evidence` projects the shape field type — `eqv(Nat.zero)(Nat.zero)`
 --- typechecks end to end.
 eqv<a, ev : Eq(a)> : a ~> a ~> Bool :=
   x ~> y ~> ev.evidence(x, y)
 
-nat_eq : Bool := eqv(Zero)(Zero)
+nat_eq : Bool := eqv(Nat.zero)(Nat.zero)

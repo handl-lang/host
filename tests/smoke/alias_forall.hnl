@@ -3,13 +3,13 @@
 --- `hnl typecheck` (see `ci.sh smoke`).
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Vec<n : Nat, a : Type> := new Inductive {
-  VNil : Vec(0, a),
-  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+  vnil : Vec(0, a),
+  vcons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
 -- ---------------------------------------------------------------------
@@ -22,23 +22,23 @@ type.NatAlias := Nat
 type.BoolVec := Vec(1, Bool)
 type.Hom2(a) := a ~>[2] a
 
-z2 : NatAlias := Succ(Zero)
-one_bool : BoolVec := VCons(true, VNil)
+z2 : NatAlias := Nat.succ(Nat.zero)
+one_bool : BoolVec := Vec.vcons(true, Vec.vnil)
 export endo2<a> : Hom2(a) ~> Hom2(a) := e ~> e
 
 -- ---------------------------------------------------------------------
 -- `forall n : Nat, T` — parse-level `Pi` shorthand: the binder's first
 -- argument is the index. Application instantiates it. A bare numeric
--- literal in `Nat`-expected position elaborates to the `Succ^k(Zero)`
--- index term, so `idn(2)` ≡ `idn(Succ(Succ(Zero)))`.
+-- literal in `Nat`-expected position elaborates to the `Nat.succ^k(Nat.zero)`
+-- index term, so `idn(2)` ≡ `idn(Nat.succ(Nat.succ(Nat.zero)))`.
 -- ---------------------------------------------------------------------
 
 idn : forall n : Nat, Nat := n ~> n
 polyv : forall n : Nat, Vec(n, Bool) ~> Vec(n, Bool) := n ~> v ~> v
 two : Nat := idn(2)
-two_b : Nat := idn(Succ(Succ(Zero)))
-v2 : Vec<1, Bool> := polyv(1)(VCons(true, VNil))
-v2_b : Vec<1, Bool> := polyv(Succ(Zero))(VCons(true, VNil))
+two_b : Nat := idn(Nat.succ(Nat.succ(Nat.zero)))
+v2 : Vec<1, Bool> := polyv(1)(Vec.vcons(true, Vec.vnil))
+v2_b : Vec<1, Bool> := polyv(Nat.succ(Nat.zero))(Vec.vcons(true, Vec.vnil))
 
 -- ---------------------------------------------------------------------
 -- `~[n]~>` — the dimension-indexed hom `Hom(n, s, t)` (a dimension

@@ -12,19 +12,19 @@
 --- exit code and stdout stay clean, the note is expected.
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
-to_num : Nat ~> Number := n ~> match n { Zero: 0, Succ(p): 1 + to_num(p) }
+to_num : Nat ~> Number := n ~> match n { Nat.zero: 0, Nat.succ(p): 1 + to_num(p) }
 
 Opt<a : Type> := new Inductive {
-  None : Opt,
-  Some : (x : a) ~> Opt
+  none : Opt,
+  some : (x : a) ~> Opt
 }
 
 get_or : Opt(Number) ~> Number ~> Number :=
-  o ~> d ~> match o { None: d, Some(x): x }
+  o ~> d ~> match o { Opt.none: d, Opt.some(x): x }
 
-two : Nat := Succ(Succ(Zero))
-result := [to_num(two), get_or(Some(41))(0), get_or(None)(7)]
+two : Nat := Nat.succ(Nat.succ(Nat.zero))
+result := [to_num(two), get_or(Opt.some(41))(0), get_or(Opt.none)(7)]

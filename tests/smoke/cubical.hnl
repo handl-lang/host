@@ -34,16 +34,16 @@
 ---     wire — the scope pass binds it through its own exemption list.
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Vec<n : Nat, a : Type> := new Inductive {
-  VNil : Vec(0, a),
-  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+  vnil : Vec(0, a),
+  vcons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
-v2 : Vec<2, Bool> := VCons(true, VCons(false, VNil))
+v2 : Vec<2, Bool> := Vec.vcons(true, Vec.vcons(false, Vec.vnil))
 
 -- ---------------------------------------------------------------------
 -- P1 — interval sort, dimension binders, Path/PathP, refl, eliminators.
@@ -58,13 +58,13 @@ e1 : Interval := i1
 
 --- A `Pi(I, i ~> T)` binder introduces a dimension variable `i : I`.
 fI : Pi(I, i ~> Bool) := i ~> true
-gI : Pi(I, i ~> Nat) := i ~> Zero
+gI : Pi(I, i ~> Nat) := i ~> Nat.zero
 
 --- `Path(A, x, y)` is the homogeneous interval function `(i:I) → A`:
 --- both a lambda path and `refl` (reflexive endpoints) inhabit it.
 cp : Path(Bool, true, true) := i ~> true
 cr : Path(Bool, true, true) := refl
-cn : Path(Nat, Zero, Zero) := refl
+cn : Path(Nat, Nat.zero, Nat.zero) := refl
 
 --- `PathP(F, x, y)` is the heterogeneous path `(i:I) → F i` for
 --- `F : I → Type`; `refl` inhabits the reflexive endpoint pair.
@@ -98,9 +98,9 @@ wcc : Bool := transport(cp, true)
 jv : Vec<2, Bool> := J p22, (i, w) ~> Vec(i, Bool), v2
 
 --- `J refl, motive, base` — the refl iota: the endpoints are
---- unidentified, so J computes on the base's own fibre — `VNil`'s
+--- unidentified, so J computes on the base's own fibre — `Vec.vnil`'s
 --- `Vec(0, Bool)`, not any path endpoint.
-jr : Vec<0, Bool> := J refl, (i, w) ~> Vec(i, Bool), VNil
+jr : Vec<0, Bool> := J refl, (i, w) ~> Vec(i, Bool), Vec.vnil
 
 -- ---------------------------------------------------------------------
 -- P2 — transp / hcomp / Comp / trans / symm.
@@ -127,15 +127,15 @@ c1 : Bool := Comp Pi(I, i ~> Bool), i0, fF, true, false
 
 --- `trans p, q` / `symm p` — derived path algebra over decided-distinct
 --- endpoints; the results are themselves path witnesses.
-pt : Path(Nat, Zero, Succ(Zero)) := i ~> Zero
-qt : Path(Nat, Succ(Zero), Succ(Succ(Zero))) := i ~> Succ(Zero)
-tt : Path(Nat, Zero, Succ(Succ(Zero))) := trans pt, qt
-st : Path(Nat, Succ(Succ(Zero)), Zero) := symm tt
+pt : Path(Nat, Nat.zero, Nat.succ(Nat.zero)) := i ~> Nat.zero
+qt : Path(Nat, Nat.succ(Nat.zero), Nat.succ(Nat.succ(Nat.zero))) := i ~> Nat.succ(Nat.zero)
+tt : Path(Nat, Nat.zero, Nat.succ(Nat.succ(Nat.zero))) := trans pt, qt
+st : Path(Nat, Nat.succ(Nat.succ(Nat.zero)), Nat.zero) := symm tt
 --- Call-form parity: unary prefix keywords already accept `f(x)` —
 --- the `(x)` parses as a transparent `paren` child (project/design/
 --- apply-forms-unification.md §1.1/§7). Multi-arg comma forms
 --- (`trans(p, q)`, `J(p, m, b)`) do NOT parse call-form yet.
-stc : Path(Nat, Succ(Succ(Zero)), Zero) := symm(tt)
+stc : Path(Nat, Nat.succ(Nat.succ(Nat.zero)), Nat.zero) := symm(tt)
 
 -- ---------------------------------------------------------------------
 -- P3 — Glue / isFibrant / unglue / fibrant (type-position surface).
@@ -169,8 +169,8 @@ fib : Pi(Type, A ~> isFibrant(A)) := A ~> fibrant A
 --- unification arm. `ua(e)` / `Univalence(e)` / `univalence(e)` mint
 --- the path `A ~ B` — a `type.pi` over `I` carrying the recorded
 --- equivalence (`path.equiv`).
-eBN : Equiv(Bool, Nat) := { to: x ~> Zero, fro: y ~> true }
-eNB : Equiv(Nat, Bool) := { to: n ~> true, fro: b ~> Zero }
+eBN : Equiv(Bool, Nat) := { to: x ~> Nat.zero, fro: y ~> true }
+eNB : Equiv(Nat, Bool) := { to: n ~> true, fro: b ~> Nat.zero }
 pu := ua(eBN)
 pv := Univalence(eBN)
 pw := univalence(eBN)
@@ -180,7 +180,7 @@ pw := univalence(eBN)
 --- `Nat` — and the result does *not* inhabit `Bool`.
 bv : Bool := true
 tv : Nat := pu # bv
-nv : Nat := Zero
+nv : Nat := Nat.zero
 spu := symm pu
 tb : Bool := spu # nv
 

@@ -3,7 +3,7 @@
 ---
 --- `instance <C(i⃗)> := <dict>` registers a dictionary; an `<ev : Eq(a)>`
 --- implicit binder discharges by dictionary search at the call site.
---- Members are projected by matching the `mkEq` constructor out of the
+--- Members are projected by matching the `Eq.mkeq` constructor out of the
 --- dictionary (`ev.eq` field access does not typecheck — the binder's
 --- type is the `Eq(a)` former-app, not a record).
 ---
@@ -12,20 +12,20 @@
 --- `hnl run` today.
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Eq<a : Type> := new Inductive {
-  mkEq : (f : a ~> a ~> Bool) ~> Eq
+  mkeq : (f : a ~> a ~> Bool) ~> Eq
 }
 
 instance Eq(Nat) := { eq: (x, y) ~> x == y }
 
 --- `<a, ev : Eq(a)>` — the sorted binder carries the type index plus the
 --- evidence argument in one `<>` bracket.
-export eqv<a, ev : Eq(a)> : a ~> a ~> Bool := x ~> y ~> match ev { mkEq(f): f(x, y) }
+export eqv<a, ev : Eq(a)> : a ~> a ~> Bool := x ~> y ~> match ev { Eq.mkeq(f): f(x, y) }
 
---- `eqv(Zero)` resolves `Eq(Nat)` by search — no explicit dict argument.
-nat_eq_refl : Bool := eqv(Zero)(Zero)
-nat_eq_succ : Bool := eqv(Zero)(Succ(Zero))
+--- `eqv(Nat.zero)` resolves `Eq(Nat)` by search — no explicit dict argument.
+nat_eq_refl : Bool := eqv(Nat.zero)(Nat.zero)
+nat_eq_succ : Bool := eqv(Nat.zero)(Nat.succ(Nat.zero))

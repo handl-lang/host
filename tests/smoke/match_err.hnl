@@ -2,21 +2,21 @@
 --- MUST exit nonzero (`scripts/smoke.sh` asserts it, and that stderr
 --- carries the substring in match_err.err).
 --- On an indexed family the checker tracks which constructors can
---- occur: `Vec<n, a>` admits both, so a VNil-only match is decided
---- non-exhaustive — `match: non-exhaustive — constructor `VCons` can
+--- occur: `Vec<n, a>` admits both, so a Vec.vnil-only match is decided
+--- non-exhaustive — `match: non-exhaustive — constructor `Vec.vcons` can
 --- occur but no arm covers it`. (Plain non-indexed `data` still admits
 --- partial matches today — totality is enforced where index
 --- refinement makes coverage decidable.)
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Vec<n : Nat, a : Type> := new Inductive {
-  VNil : Vec(0, a),
-  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+  vnil : Vec(0, a),
+  vcons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
 export is_nil_broken<n, a> : Vec<n, a> ~> Bool :=
-  v ~> match v { VNil: true }
+  v ~> match v { Vec.vnil: true }

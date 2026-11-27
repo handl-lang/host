@@ -11,28 +11,28 @@
 --- ctor-object rendering is not part of the asserted surface.
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
 Vec<n : Nat, a : Type> := new Inductive {
-  VNil : Vec(0, a),
-  VCons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
+  vnil : Vec(0, a),
+  vcons : (x : a, xs : Vec(n, a)) ~> Vec(n + 1, a)
 }
 
 -- ---------------------------------------------------------------------
 -- Existential length: "some `m` with a `Vec(m, a)`". The witness refines
--- the expected family index — `[Succ(Zero), VCons(true, VNil)]` checks
--- because `Vec(1, Bool)` is `Vec(Succ(Zero) ≡ 0 + 1, Bool)`.
+-- the expected family index — `[Nat.succ(Nat.zero), Vec.vcons(true, Vec.vnil)]` checks
+-- because `Vec(1, Bool)` is `Vec(Nat.succ(Nat.zero) ≡ 0 + 1, Bool)`.
 -- ---------------------------------------------------------------------
 
-one_vec : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
-empty_vec : Sigma(Nat, m ~> Vec(m, Bool)) := [Zero, VNil]
+one_vec : Sigma(Nat, m ~> Vec(m, Bool)) := [Nat.succ(Nat.zero), Vec.vcons(true, Vec.vnil)]
+empty_vec : Sigma(Nat, m ~> Vec(m, Bool)) := [Nat.zero, Vec.vnil]
 
 --- A function whose return type is a Σ — the `filter`/`zip` shape from
 --- lib-collections where the output length can't be named.
 export single_vec<a> : a ~> Sigma(Nat, m ~> Vec(m, a)) :=
-  x ~> [Succ(Zero), VCons(x, VNil)]
+  x ~> [Nat.succ(Nat.zero), Vec.vcons(x, Vec.vnil)]
 
 --- Note: an index `<n>` binder is a different *sort* from a `Nat` term —
 --- `[n, …]` does not check (`expected Nat, got n`); the witness must be
@@ -44,4 +44,4 @@ export single_vec<a> : a ~> Sigma(Nat, m ~> Vec(m, a)) :=
 -- ---------------------------------------------------------------------
 
 two_sigs : Sigma(Nat, m ~> Sigma(Nat, k ~> Vec(k, Bool))) :=
-  [Zero, [Succ(Zero), VCons(false, VNil)]]
+  [Nat.zero, [Nat.succ(Nat.zero), Vec.vcons(false, Vec.vnil)]]

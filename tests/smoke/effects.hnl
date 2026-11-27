@@ -17,7 +17,7 @@
 --- declarations to elaborate.
 
 Algebra<c : Type> := new Inductive {
-  mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
+  mkalgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
 }
 
 --- One algebra per effect op — the `op` field is the canonical

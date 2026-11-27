@@ -8,11 +8,11 @@
 --- `Nat`, so the result does not inhabit `Bool` (ADR-0208 P4).
 
 Nat := new Inductive {
-  Zero : Nat,
-  Succ : (pred : Nat) ~> Nat
+  zero : Nat,
+  succ : (pred : Nat) ~> Nat
 }
 
-e : Equiv(Bool, Nat) := { to: x ~> Zero, fro: y ~> true }
+e : Equiv(Bool, Nat) := { to: x ~> Nat.zero, fro: y ~> true }
 p := ua(e)
 v : Bool := true
 t : Bool := p # v
