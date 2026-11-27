@@ -27,6 +27,14 @@ Bool := {
   False : Bool
 }
 
+--- The `Constraint` schema stub — `new Constraint(S…)` is
+--- checker-native (the unified registry's constraint kind); the stub
+--- only binds the schema head as a wire for the scope pass, the same
+--- role the `Algebra` stub plays in new_decl.hnl.
+Constraint<s : Type> := {
+  mkConstraint : (shape : Type) ~> Constraint
+}
+
 --- The `Constraint` schema: `Type` is the index sort; the dict child
 --- is the evidence shape (`a` implicitly generalizes over the index).
 Eq := new Constraint(Type) {
