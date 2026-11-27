@@ -340,6 +340,108 @@ fn export_data_record_exports_family_and_ctors() {
     std::fs::remove_dir_all(&root).ok();
 }
 
+/// Design A: `export F := new Inductive {…}` exports only the family
+/// name, but the family *value* itself now carries its constructors —
+/// `from "mod.hnl" import * as j` gives working `j.Json.JStr("hi")`
+/// field access instead of a dead `{"__former__": …}` shell. The ctor
+/// sym identity travels in the minted value, so `match` still
+/// dispatches importer-side (the ctor names are aliased locally so the
+/// patterns resolve through `scope_value`).
+#[test]
+fn export_family_value_carries_ctors() {
+    let root = scratch_dir("family-value-ctors");
+    let src = "export Json := new Inductive {\n  JNull : Json,\n  JStr : (s : Str) ~> Json\n}\n";
+
+    // `j.Json.JStr` reaches the ctor arrow through the family record;
+    // applying it mints the canonical ctor object.
+    let value = run(
+        &root.join("apply"),
+        src,
+        r#"do { from "mod.hnl" import * as j; j.Json.JStr("hi") }"#,
+    )
+    .expect("j.Json.JStr must apply through the family record");
+    let obj = value.as_object().expect("ctor object");
+    assert_eq!(obj["s"], json!("hi"));
+    assert_eq!(
+        obj["type"]["__former__"]["__sym__"]["name"],
+        json!("Json"),
+        "ctor type link keeps the family nominal"
+    );
+
+    // `match` on the imported ctor value still dispatches on `__ctor__`
+    // sym identity — the ctor names are bound locally from the family
+    // record so the patterns resolve to the ctor arrows/objects.
+    let value = run(
+        &root.join("match"),
+        src,
+        r#"do {
+            from "mod.hnl" import * as j;
+            JNull := j.Json.JNull;
+            JStr := j.Json.JStr;
+            v := j.Json.JStr("hi");
+            match v { JNull: 0, JStr(s): s }
+        }"#,
+    )
+    .expect("match on imported family ctor must evaluate");
+    assert_eq!(value, json!("hi"));
+
+    // The zero-arg ctor is itself the ctor object (no arrow wrapper);
+    // it applies the same way through `match`.
+    let value = run(
+        &root.join("null"),
+        src,
+        r#"do {
+            from "mod.hnl" import * as j;
+            JNull := j.Json.JNull;
+            JStr := j.Json.JStr;
+            v := j.Json.JNull;
+            match v { JNull: 7, JStr(s): s }
+        }"#,
+    )
+    .expect("zero-arg ctor through family record must evaluate");
+    assert_eq!(value, json!(7));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+/// Same guarantee through `export data`: the family record is the
+/// exported value for `F`, and `j.F.rec` still reaches the eliminator.
+#[test]
+fn export_data_family_value_carries_ctors() {
+    let root = scratch_dir("export-data-family-value");
+    let src = "export data Nat := { Zero : Nat, Succ : (pred : Nat) ~> Nat }\n";
+
+    // `j.Nat.Succ` is the ctor arrow; `j.Nat.Zero` the nullary ctor
+    // object; `j.Nat.rec` the eliminator. Ctor names are aliased locally
+    // so the `match` patterns resolve through `scope_value`.
+    let value = run(
+        &root.join("apply"),
+        src,
+        r#"do {
+            from "mod.hnl" import * as j;
+            Zero := j.Nat.Zero;
+            Succ := j.Nat.Succ;
+            match Succ(Zero) { Zero: 0, Succ(p): 1 }
+        }"#,
+    )
+    .expect("j.Nat.Succ must apply through the family record");
+    assert_eq!(value, json!(1));
+
+    // `j.Nat.rec` still reaches the eliminator through the family
+    // record — `Nat.rec(null, zeroCase, succStep)(v)` is the shape
+    // `desugar_match_to_recursor` emits for a parameter-free family.
+    let value = run(
+        &root.join("rec"),
+        src,
+        r#"do {
+            from "mod.hnl" import * as j;
+            j.Nat.rec(null, 10, (p, r) ~> r + 1)(j.Nat.Succ(j.Nat.Zero))
+        }"#,
+    )
+    .expect("j.Nat.rec must apply through the family record");
+    assert_eq!(value, json!(11), "rec(Succ(Zero)) = step(Zero, rec(Zero))");
+    std::fs::remove_dir_all(&root).ok();
+}
+
 /// `export data F := C0 | C1(…)` — the `:=` constructor-arm
 /// spelling (`:=` is the only binding operator; the old `::` is gone)
 /// must carry the decl verbatim and export the family plus each

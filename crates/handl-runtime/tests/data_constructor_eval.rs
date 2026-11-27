@@ -85,7 +85,8 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
     let mut desugared = apply_desugar(&lang, &ast).expect("desugar failed");
 
     // Walk the desugared `block` to the `Succ` constructor's `json` body node.
-    // block children: [Nat assign, Zero assign, Succ assign, Nat.rec assign]
+    // block children (Design A: ctor assigns first, then `F.rec`, then the
+    // family record): [Zero assign, Succ assign, Nat.rec assign, Nat assign]
     let block_idx = desugared.len() - 1;
     let block = desugared.get(AstRef::new(block_idx)).unwrap();
     assert_eq!(block.kind, "block");
@@ -99,7 +100,7 @@ fn succ_constructor_evaluates_arg_value_not_arg_name() {
         .collect();
     assert_eq!(kids.len(), 4, "block should have 4 statements");
 
-    let succ_assign = desugared.get(AstRef::new(kids[2])).unwrap();
+    let succ_assign = desugared.get(AstRef::new(kids[1])).unwrap();
     assert_eq!(succ_assign.kind, "assign");
     let succ_children: Vec<usize> = succ_assign
         .payload
