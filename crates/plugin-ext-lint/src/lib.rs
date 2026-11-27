@@ -621,6 +621,23 @@ mod tests {
     fn lint_error_display() {
         let err = LintError::Parse("bad token".to_string());
         assert_eq!(format!("{}", err), "parse error: bad token");
+        let err = LintError::Fix("journal locked".to_string());
+        assert_eq!(format!("{}", err), "fix error: journal locked");
+    }
+
+    #[test]
+    fn lint_context_new_and_for_language() {
+        // `new` carries no `.hnl` resolver — a `handl:` rule would resolve
+        // to the engine's "unknown native" error. `for_language` reuses
+        // the resolver across a payload language.
+        let bare = LintContext::new(Language::new());
+        assert!(bare.lang().lints.is_empty());
+        let ctx = canonical_ctx();
+        let swapped = ctx.for_language(Language::new());
+        assert!(swapped.lang().lints.is_empty());
+        // Same resolver is retained — observable only through dispatch,
+        // so assert the context is usable.
+        let _ = lint_source_with(&swapped, "").expect("empty source lints");
     }
 
     #[test]
@@ -721,6 +738,28 @@ mod tests {
         let hits = fmt_rule(ctx.lang(), "x   :=   1;");
         assert_eq!(hits.len(), 1, "the fmt rule is fixable");
         assert!(hits[0].fix.is_some(), "the hit must carry a fix");
+    }
+
+    #[test]
+    fn convert_maps_a_fix_and_a_missing_span() {
+        // `span: None` falls back to a zero-width span at offset 0; a
+        // `fix` payload attaches a `Fix` with its own byte range.
+        let engine_diag = LintDiagnostic {
+            rule: "test-rule".into(),
+            level: DiagnosticLevel::Warning,
+            span: None,
+            message: "msg".into(),
+            fix: Some(LintFixOut {
+                start: 0,
+                end: 2,
+                replacement: "xy".into(),
+            }),
+        };
+        let converted = convert("ab", &engine_diag);
+        assert_eq!(converted.span.start, 0);
+        let fix = converted.fix.expect("fix attached");
+        assert_eq!((fix.span.start, fix.span.end), (0, 2));
+        assert_eq!(fix.replacement, "xy");
     }
 
     #[test]
@@ -826,6 +865,17 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let err = fix_file(&ctx, dir.path(), "nope.hnl").expect_err("must fail");
         assert!(matches!(err, LintError::Fix(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn fix_file_rejects_non_utf8_source() {
+        let ctx = canonical_ctx();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        std::fs::write(root.join("bad.hnl"), [0xff, 0xfe, 0x00]).expect("seed file");
+        let err = fix_file(&ctx, root, "bad.hnl").expect_err("must fail");
+        assert!(matches!(err, LintError::Fix(_)), "got {err:?}");
+        assert!(format!("{err}").contains("not valid UTF-8"));
     }
 
     #[test]
