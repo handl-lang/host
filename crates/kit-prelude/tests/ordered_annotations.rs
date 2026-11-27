@@ -11,7 +11,7 @@
 //!   inc := (x) ~> x + 1 ; x : 5 >>> inc := 6  — composition annotation
 //!   a := 3 ; f : a + 2 := 5                   — arithmetic over bound values
 //!   failed f ; g := f                          — unbound variable for g
-//!   dedupe<N> := (g >>> g) ~[N]~> g           — generic dim arrow (ADR-0119)
+//!   dedupe<N> := (g >>> g) ~>[N] g          — generic dim arrow (ADR-0119)
 
 use handl_kit_prelude::Kit;
 
@@ -78,7 +78,18 @@ fn ordered_value_annotations() {
 fn generic_dim_arrow_binds() {
     let kit = kit();
     // `N` is a real generic binding; `g` is a pattern variable bound to a
-    // fresh meta inside the ~[N]~> law (ADR-0119).
-    kit.typecheck_source("dedupe<N> := (g >>> g) ~[N]~> g")
+    // fresh meta inside the ~>[N] law (ADR-0119).
+    kit.typecheck_source("dedupe<N> := (g >>> g) ~>[N] g")
         .expect("generic dim arrow should check");
+}
+
+#[test]
+fn generic_graded_arrow_binds() {
+    let kit = kit();
+    // Payload-kind flip (graded-arrows.md §9): `~[N]~>` with a named
+    // payload now mints `graded_arrow` — the grade stays off the
+    // dimension channel (`dim: 1`), and `N` still resolves as the
+    // generic binding.
+    kit.typecheck_source("dedupe<N> := (g >>> g) ~[N]~> g")
+        .expect("generic graded arrow should check");
 }

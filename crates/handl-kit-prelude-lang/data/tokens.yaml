@@ -36,10 +36,9 @@
   category: close-bracket
   pair: token.dim_open
 # `~>[ k ]` — dimension-n arrow, the operator + trailing-bracket
-# spelling (`>>>[k]` composition precedent). `A ~>[n] B` mints the same
-# `dim_arrow` node `A ~[n]~> B` does; the bracket payload's kind
-# (numeric dimension vs named/expr grade) is read by consumers exactly
-# as before — no new node kind.
+# spelling (`>>>[k]` composition precedent). `A ~>[n] B` always mints
+# the `dim_arrow` node — the unambiguous dimension spelling
+# post-codemod; named/expression grades use `~[G]~>` (`graded_arrow`).
 - id: token.dim_arrow_open
   label: "~>["
   category: open-bracket
@@ -237,6 +236,10 @@
   label: match
   category: keyword
   doc: "**Pattern-match on a value** `match`\n\n```\nmatch `expr` { `pat` { `body` }, … }\n```"
+- id: token.keyword.new
+  label: new
+  category: keyword
+  doc: "**Mode/algebra declaration RHS** `new`\n\n```\n`X` := new `T`(`args`) { `members` }\n```\n\nBinds `X` as a mode-family former (`X(p)` builds mode values) and registers `{members}` as the instance dictionary for `X`-headed modes — the `forall`→`Pi` precedent: a parse-level alias over the ctor + `instance` machinery (graded-arrows.md §3, MTT migration)."
 - id: token.keyword.op
   label: op
   category: keyword
@@ -300,6 +303,15 @@
 - id: token.at_right
   label: "@>"
   category: operator
+# `@` — ambient-mode ascription `T @ [Algebra(payload), …]` / `T @ m`
+# (PL-0004 E1; design/effects-ambient-modes.md §1). Infix on a type
+# expression; the right operand is a mode expression — the bracketed
+# set of algebra applications, a mode variable, or a single
+# `Algebra(payload)` call. Distinct from the `<@`/`@>` whiskers.
+- id: token.at
+  label: "@"
+  category: operator
+  doc: "**Ambient mode ascription** `T @ [Algebra(payload), …]`\n\n```\n`f` : (`A` ~> `B`) @ [`PutStr`, `Cost`(`3`)]\n```\n\nJudgement suffix `Γ ⊢ t : A @ μ` — `μ` is a set of applications of declared mode algebras (`[]` is pure)."
 - id: token.sharp
   label: "#"
   category: operator

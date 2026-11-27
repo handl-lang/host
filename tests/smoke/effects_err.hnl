@@ -1,9 +1,23 @@
 --- tests/smoke/effects_err.hnl — expected-failure smoke: the opposite
---- effect-subtyping direction MUST error (`ci.sh smoke` asserts a
---- nonzero exit). A computation typed `IO<{ puts, fs }>` does not
---- discharge a signature that claims only `puts`:
---- `cannot unify — expected io({puts: …}), got io({fs: …, puts: …})`.
+--- ambient-mode direction MUST error (`ci.sh smoke` asserts a nonzero
+--- exit). A computation whose mode set is `{PutStr, FsRead}` does not
+--- fit an ascription permitting only `PutStr` — set inclusion is
+--- directional: `effect head `FsRead` is not permitted by the
+--- ascription's mode set`.
 
-export both : Str ~> IO<{ puts, fs }> := s ~> both(s)
+Algebra<c : Type> := {
+  mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
+}
 
-widen_reject : Str ~> IO<{ puts }> := s ~> both(s)
+PutStr := new Algebra { op: Str ~> Unit }
+FsRead := new Algebra { op: Str ~> Str }
+
+--- `>>>` unions the operand modes: `seqd` carries `{FsRead, PutStr}`.
+f : (Str ~> Str) @ [PutStr] := s ~> s
+g : (Str ~> Str) @ [FsRead] := s ~> s
+seqd := g >>> f
+
+--- Asserting the narrower `{PutStr}` set rejects — `FsRead` is not
+--- permitted (the `IO<{ puts }>`-vs-`IO<{ puts, fs }>` direction,
+--- re-keyed from sig rows to mode-element heads).
+widen_reject : (Str ~> Str) @ [PutStr] := seqd

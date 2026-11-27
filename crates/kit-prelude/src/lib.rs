@@ -3293,6 +3293,49 @@ mod tests {
     }
 
     #[test]
+    fn new_decl_desugars_to_instance_and_mode_ctor() {
+        // `X := new T(args) { members }` (graded-arrows.md §3): the desugar
+        // pass rewrites the `new` node to a `block` of `instance T(args) :=
+        // dict` + the mode-constructor lambda `x ~> { mode: x, algebra:
+        // dict }`, so `X(p)` evaluates to a self-describing mode value.
+        let kit = Kit::new().unwrap();
+        let ast = kit.parse("Cost := new Algebra(Nat) { unit: 0 }").unwrap();
+
+        // assign(var Cost, block[ instance(call(Algebra, Nat), object),
+        //                    function(var __mode_payload, object{…}) ])
+        let root = ast.nodes().last().unwrap();
+        assert_eq!(root.kind, "assign");
+        let rc = root
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .unwrap();
+        assert_eq!(rc.len(), 2, "assign has [target, value]");
+        let value = ast
+            .get(handl_language::AstRef::new(rc[1].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(
+            value.kind, "block",
+            "new lowers to a block — got {}",
+            value.kind
+        );
+        let bc = value
+            .payload
+            .get("children")
+            .and_then(|c| c.as_array())
+            .unwrap();
+        assert_eq!(bc.len(), 2, "block has [instance, mode-ctor]");
+        let inst = ast
+            .get(handl_language::AstRef::new(bc[0].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(inst.kind, "instance");
+        let fun = ast
+            .get(handl_language::AstRef::new(bc[1].as_u64().unwrap() as usize))
+            .unwrap();
+        assert_eq!(fun.kind, "function");
+    }
+
+    #[test]
     fn data_nat_eval_succ_zero() {
         // End-to-end: parse `Nat := { Zero : Nat, Succ : (Nat) ~> Nat }` and `Succ(Zero)`,
         // desugar, and eval to get a tagged value.

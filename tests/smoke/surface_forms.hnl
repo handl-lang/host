@@ -1,7 +1,8 @@
 --- tests/smoke/surface_forms.hnl — Handl surface-syntax upgrade:
 --- typed-binder Π arrows `(x : A) ~> B`, dependent pairs
---- `(x : A, y : B(x), …)`, the `~>[n]` dimension arrow, and brace-free
---- `IO<puts, fs>` signature records. Driven by `hnl typecheck`.
+--- `(x : A, y : B(x), …)`, the `~>[n]` dimension arrow, and ambient
+--- `@ [..]` mode ascriptions (the retired `IO<sig>` records'
+--- successor). Driven by `hnl typecheck`.
 
 --- Typed-binder Π: `(x : A) ~> B` in type position synthesizes the
 --- same `type.pi` `Pi(A, x ~> B)` produces — single binder, constant
@@ -23,24 +24,53 @@ empty_vec : (m : Nat, v : Vec(m, Bool)) := [Zero, VNil]
 same_as_sigma : Sigma(Nat, m ~> Vec(m, Bool)) := [Succ(Zero), VCons(true, VNil)]
 prod : (x : Bool, y : String) := [true, "hi"]
 
---- `A ~>[n] B` is the bracketed spelling of the dimension arrow —
---- the same `dim_arrow` node `A ~[n]~> B` mints (payload `n` stays an
---- expression; named/expr payloads keep the `~[G]~>` spelling).
+--- `A ~>[n] B` is the bracketed spelling of the dimension arrow — it
+--- always mints `dim_arrow`. The legacy `~[…]~>` spelling is
+--- payload-conditional (graded-arrows.md §9): a bare numeric literal
+--- keeps `dim_arrow` (`cell_legacy`), any other payload mints
+--- `graded_arrow` (`graded_law`).
 f := n ~> n
 g := n ~> n + 1
 cell_bare := f ~>[2] g
 cell_legacy := f ~[2]~> g
+graded_law<N> := (g >>> g) ~[N]~> g
 
---- Brace-free `IO<sig>` records: `IO<puts, fs>` ≡ `IO<{ puts, fs }>`,
---- `name : T` declares the payload type, single ops work too
---- (`IO<puts>` ≡ `IO<{ puts }>`). Call-form `IO(s)` is unchanged — a
---- bare variable there is still a sig-typed index.
-export printLn : Str ~> IO<puts> := s ~> printLn(s)
-export readFile : Str ~> IO<fs> := p ~> readFile(p)
-export both : Str ~> IO<puts, fs> := s ~> both(s)
-puts_handler : (Str ~> Unit) ~> Unit := req ~> req("handled")
-fs_handler : (Str ~> Str) ~> Str := req ~> req("contents")
-handled_partial : Str ~> IO<puts: Unit, fs> := handle both with {puts: puts_handler}
-handled_full : Str ~> IO<puts: Unit, fs: Str> := handle both with {puts: puts_handler, fs: fs_handler}
-widen_ok : Str ~> IO<puts, fs> := s ~> printLn(s)
-braced : Str ~> IO<{ puts, fs }> := s ~> both(s)
+--- Ambient-mode ascription `T @ μ` (PL-0004 E1; design
+--- effects-ambient-modes.md §1 — the `IO<sig>` former is retired):
+--- μ is a bracketed set of mode elements — bare algebra heads,
+--- `Algebra(payload)` calls — `[]` for pure, or a single bare mode
+--- expression. The ascription attaches to the whole type, so an
+--- arrow type sits inside parens. `Algebra` is M2's to define — the
+--- same record-family stub `new_decl.hnl`/`effects.hnl` carry.
+Algebra<c : Type> := {
+  mkAlgebra : (compose : c ~> c ~> c, unit : c, order : c ~> c ~> Bool) ~> Algebra
+}
+Cost := new Algebra(Nat) {
+  compose: (a, b) ~> a + b,
+  unit:    0,
+  order:   (a, b) ~> a <= b
+}
+PutStr := new Algebra { op: Str ~> Unit }
+GetStr := new Algebra { op: Unit ~> Str }
+
+--- `[]` is the explicit pure ascription; `T @ m` takes a single bare
+--- mode expression (a call-head `Cost(3)` or a mode variable).
+pure_val : Nat @ [] := 1
+bare_call : Nat @ Cost(3) := 2
+costed : (Str ~> Str) @ [Cost(3)] := s ~> s
+
+--- The bracketed set: bare heads and `Algebra(payload)` calls mix
+--- freely — order irrelevant, one element per head.
+set_mode : (Str ~> Str) @ [PutStr, Cost(3)] := s ~> s
+set_reorder : (Str ~> Str) @ [Cost(3), PutStr] := s ~> s
+
+--- `handle` over a mode-element set: coverage is by head name, the
+--- impl's return type re-keys the covered head's residual payload,
+--- and the residual stays handleable.
+puts_impl : Str ~> Str := s ~> s
+with_mode : (Str ~> Str) @ [PutStr] := s ~> s
+handled : (Str ~> Str) @ [PutStr] := handle with_mode with {PutStr: puts_impl}
+handled_again : (Str ~> Str) @ [PutStr] := handle handled with {PutStr: puts_impl}
+
+--- Set-inclusion widening: `{PutStr}` fits `{PutStr, GetStr}`.
+widen_ok : (Str ~> Str) @ [PutStr, GetStr] := with_mode

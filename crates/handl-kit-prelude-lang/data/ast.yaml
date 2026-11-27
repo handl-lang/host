@@ -428,7 +428,7 @@
 # index-position `<>`). A dimension IS an index: this one node now carries
 # both the `f<d>` dimension-app reading (ADR-0106 §11/§12) and the former
 # `{…}` index-application/index-binder surface (`Vec<n, a>`,
-# `IO<{ puts: T }>`, `f<a, ev : Eq(a)>` sorted binders).
+# `F<{ k: V }>`, `f<a, ev : Eq(a)>` sorted binders).
 #
 # The canonical surface writes the specialization brackets adjacent to a
 # name-like target (`f<a>`, `Vec<n, a>`, `f<(a >>> b)>`) so they are
@@ -651,11 +651,12 @@
 # annotation, so `eval.graded_arrow`/`type.graded_arrow` mint `dim: 1`
 # records and `handl-kit-arrow-lower` routes `op` signature grades to
 # the `Op` grade channel (`attrs["grade"]`), not `Op.dim`.
-# NOTE: no `grammar.graded_arrow.*` row yet — `~[x]~>` still parses to
-# `dim_arrow` for every payload during the codemod transition
-# (graded-arrows.md §7.3a); the grammar row lands with the payload-kind
-# flip. Nodes of this kind currently arrive only from the legacy
-# `tool-parse-pratt` dialect or hand-built ASTs.
+# Payload-kind flip landed (graded-arrows.md §9, post-codemod): there is
+# still no `grammar.graded_arrow.*` row — the `~[…]~>` spelling shares
+# `grammar.dim_arrow.infix`, and `tool-parse-pratt`'s special case mints
+# `graded_arrow` for every payload EXCEPT a bare numeric literal
+# (`~[2]~>` stays `dim_arrow` for back-compat). The `~>[x]` spelling
+# (`grammar.dim_arrow.bare.infix`) mints `dim_arrow` unconditionally.
 - id: ast.graded_arrow
   node_kind: graded_arrow
   faces:
@@ -894,6 +895,31 @@
         type: string
     required:
       - type
+    type: object
+# `mode_ascribe` — ambient-mode ascription `T @ μ` (PL-0004 E1;
+# design/effects-ambient-modes.md §1). Roles `type`/`mode`: the type
+# (or subject, in term position) and the mode expression — a bracketed
+# set `[Algebra(payload), …]`, a bare `Algebra(payload)` call, a mode
+# variable, or `[]` (pure). The mode is judgement metadata
+# (`Γ ⊢ t : A @ μ`), never part of `A`: `eval.mode_ascribe` erases to
+# the `type` child like `eval.type-annot`, and `type.mode_ascribe`'s
+# `synth_mode_ascribe` judgment records the elaborated mode set on the
+# node while synthesizing the `type` child unchanged.
+- id: ast.mode_ascribe
+  node_kind: mode_ascribe
+  children:
+    - role: type
+    - role: mode
+  payload_schema:
+    properties:
+      children:
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
     type: object
 - id: ast.unary.neg
   node_kind: unary.neg
@@ -1452,6 +1478,33 @@
     properties:
       children:
         description: positional children [constraint_expr, dict_expr]
+        items:
+          type: integer
+        maxItems: 2
+        minItems: 2
+        type: array
+    required:
+      - children
+    type: object
+# `new` — mode/algebra declaration RHS `new T(args) { members }`
+# (graded-arrows.md §3 "Algebra declaration syntax", MTT migration).
+# Meaningful as the value of `X := …` — `synth_assign`'s `new` arm binds
+# `X` as a mode-family former and registers the dict as `X`'s instance.
+# Two named children:
+#   0. `type` — the algebra type expression `T(args)` (a `call` node, or
+#      a bare `var` for a parameterless former).
+#   1. `dict` — the member dictionary (an `object` literal).
+# Like `exists`/`forall` this is a parse-level alias: the desugar pass
+# rewrites it for eval, so no `eval.new` scheme exists.
+- id: ast.new
+  node_kind: new
+  children:
+    - role: type
+    - role: dict
+  payload_schema:
+    properties:
+      children:
+        description: positional children [type_expr, dict_expr]
         items:
           type: integer
         maxItems: 2

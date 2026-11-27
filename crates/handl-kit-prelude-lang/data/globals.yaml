@@ -8,3 +8,33 @@
 # (including `match` patterns, where a bound name compares by equality).
 true: true
 false: false
+
+# Mode algebras (graded-arrows.md §3 adj. 1, MTT migration pl-0002 M2).
+#
+# An `Algebra` is a Handl data record `{compose, unit, order}` — the
+# operations `mode_compose` needs, exposed as data fields so algebras are
+# selectable per composition site. `compose`/`order` are either a string
+# tag naming a builtin operation or an applicable Handl function;
+# `unit` is a mode value (the identity for `compose`).
+#
+# Mode payloads are *calls*: `~[Cost(3)]~>` reads "mode `3` in the
+# `Cost` algebra" — the call head selects `mode.algebra.<Head>` here,
+# the argument is the grade payload. Bare non-call modes
+# (`~[{k: v}]~>`, `~[Addable]~>`) compose under
+# `mode.algebra.default`.
+#
+# `mode.algebra.default` — the canonical default algebra
+# (graded-arrows.md §4.2/§6): numeric add for literal counts,
+# record-row union for rows, equality for named grades, fresh meta +
+# deferred diagnostic otherwise (`compose: "canonical"`).
+mode.algebra.default:
+  compose: "canonical"
+  unit: null
+  order: "eq"
+
+# PL-0004 G2 (design/effects-ambient-modes.md v2 §2/§6): the
+# `mode.algebra.Effects` row algebra is retired with the `Effects(S)`
+# spelling — effects are granular `new Algebra { op : A ~> B }`
+# heads whose mode elements are bare heads (`@ [PutStr]`), composed
+# by set union and subsumed by set inclusion. `IO<sig>`/`type.io`
+# are gone outright; `@ [..]` is the only effect surface.

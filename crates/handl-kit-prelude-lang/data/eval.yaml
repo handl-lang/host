@@ -774,6 +774,16 @@
     args: []
     source: Native
     lit: 0
+# `mode_ascribe` — `T @ μ` erases like `type-annot`: the mode is
+# checker-owned judgement metadata (`type.mode_ascribe` records it);
+# exec keeps the `type`/subject child only.
+- id: eval.mode_ascribe
+  node_kind: mode_ascribe
+  scheme: !Op
+    name: proj_child
+    args: []
+    source: Native
+    lit: 0
 - id: eval.typeof
   node_kind: typeof
   scheme: !Op

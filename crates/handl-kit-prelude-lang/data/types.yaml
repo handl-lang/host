@@ -2103,11 +2103,13 @@
     source: Judgment
   # `check_call` — the same directed check (synth the callee, check the
   # first argument against its `param`, yield `body`) lifted to a
-  # judgment op so `perform(op, arg)` can intercept: a `perform` call's
+  # judgment op so `perform(Head, arg)` can intercept: a `perform` call's
   # op operand is a *name*, not a checkable value — checking it as one
-  # would report the op's bare identifier (`puts`) as unbound. The
+  # would report the op's bare identifier (`PutStr`) as unbound. The
   # judgment defers `perform` calls to `synth_call`'s `synth_perform`
-  # branch and unifies the minted `IO{op: T}` with the expected type.
+  # branch, which resolves the declared effect algebra's `op : A ~> B`
+  # signature under the ambient mode set (PL-0004 G2 — the `IO{op: T}`
+  # codomain mint is retired).
   check: !Op
     name: check_call
     args: []
@@ -2375,6 +2377,24 @@
     args: []
     source: Judgment
 
+# `mode_ascribe` — ambient-mode ascription `T @ μ` (PL-0004 E1). In
+# *type* position `dep_synth_type` consumes the node directly (the
+# `type` child synthesizes unchanged; the mode set is judgement
+# metadata recorded on the node — `A` and `μ` stay separate per
+# `Γ ⊢ t : A @ μ`). This rule covers the *term*-position reading
+# `e @ μ`: `synth_mode_ascribe` synthesizes the subject and records
+# the elaborated mode set the same way.
+- id: type.mode_ascribe
+  node_kind: mode_ascribe
+  synth: !Op
+    name: synth_mode_ascribe
+    args: []
+    source: Judgment
+  check: !Op
+    name: synth_mode_ascribe
+    args: []
+    source: Judgment
+
 # `template` — template literals always produce strings. The eval scheme
 # uses `eval_template` (a foreign op); the type is always `type.string`
 # (ADR-0054 legacy migration).
@@ -2586,6 +2606,23 @@
   node_kind: instance
   synth: !Op
     name: synth_instance
+    args: []
+    source: Judgment
+
+# `new T(args) { members }` — mode/algebra declaration RHS
+# (graded-arrows.md §3 "Algebra declaration syntax", MTT migration).
+# Meaningful only as the value of `X := …`: `synth_assign`'s `new` arm
+# binds `X` as a mode-family former (`type.family{name: X}` — `X(p)`
+# mints `type.family_app{X, [p]}`, the call-head mode value) and
+# registers `{members}` as the instance dictionary for `X`-headed
+# modes — the `(head, args) ↦ dict` entry `instance X(_) := dict`
+# registers. A `new` node reached outside an assign value synthesizes
+# its children for well-formedness and degrades to `type.unknown` with
+# a warning (there is no target name to bind the family under).
+- id: type.new
+  node_kind: new
+  synth: !Op
+    name: synth_new
     args: []
     source: Judgment
 
@@ -3190,11 +3227,13 @@
     lit: type.unknown
 
 # `handle` — install a handler for the duration of the target expression.
-# `handle <expr> with <handler>` (phase-2 WS-F): `synth_handle` checks the
-# handler's declared op coverage against the body's `IO(S)` op set —
-# covered entries are replaced by the impl's declared return type,
-# uncovered stay `IO` ops (the interpret-in-place residual `IO(S')`).
-# A non-IO body passes its type through unchanged.
+# `handle <expr> with <handler>` (phase-2 WS-F + PL-0004 G2): the
+# judgment is a modality `μ → μ′` over ambient mode *elements* —
+# coverage = handled heads ⊆ the body's effect heads, each covered
+# head's payload re-keys to the impl's return type (`op ↦ ret`),
+# uncovered heads keep their elements, and the residual is
+# requires-closed. The body's type passes through unchanged (the
+# `IO(S)` codomain former is retired).
 - id: type.handle
   node_kind: handle
   synth: !Op
